@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -11,12 +13,16 @@ export default function Home() {
             Organize, track, and design your perfect character coords.
           </p>
           <div className="space-x-4">
-            <button className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors">
-              Get Started
-            </button>
-            <button className="border-2 border-white text-white hover:bg-white hover:text-purple-900 font-bold py-3 px-8 rounded-lg text-lg transition-colors">
-              Learn More
-            </button>
+            <Link href="/auth/signin">
+              <button className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors">
+                Sign In
+              </button>
+            </Link>
+            <Link href="/auth/signup">
+              <button className="border-2 border-white text-white hover:bg-white hover:text-purple-900 font-bold py-3 px-8 rounded-lg text-lg transition-colors">
+                Get Started
+              </button>
+            </Link>
           </div>
         </div>
         

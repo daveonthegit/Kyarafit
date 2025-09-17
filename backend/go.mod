@@ -11,6 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.6.0
+	github.com/gofiber/jwt/v3 v3.3.10
 )
 
 require (

@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/cors/v2"
 	"github.com/joho/godotenv"
+	"kyarafit-backend/middleware"
 )
 
 func main() {
@@ -36,6 +37,15 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// JWT middleware configuration
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "your-super-secret-jwt-key-here"
+	}
+	authMiddleware := middleware.NewJWTMiddleware(middleware.JWTConfig{
+		Secret: jwtSecret,
+	})
+
 	// Health check endpoint
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -47,39 +57,42 @@ func main() {
 	// API routes
 	api := app.Group("/api/v1")
 	
-	// Closet routes
-	api.Get("/closet", getClosetItems)
-	api.Post("/closet", createClosetItem)
-	api.Get("/closet/:id", getClosetItem)
-	api.Put("/closet/:id", updateClosetItem)
-	api.Delete("/closet/:id", deleteClosetItem)
+	// Protected routes (require authentication)
+	protected := api.Group("/", authMiddleware)
+	
+	// Closet routes (protected)
+	protected.Get("/closet", getClosetItems)
+	protected.Post("/closet", createClosetItem)
+	protected.Get("/closet/:id", getClosetItem)
+	protected.Put("/closet/:id", updateClosetItem)
+	protected.Delete("/closet/:id", deleteClosetItem)
 
-	// Build routes
-	api.Get("/builds", getBuilds)
-	api.Post("/builds", createBuild)
-	api.Get("/builds/:id", getBuild)
-	api.Put("/builds/:id", updateBuild)
-	api.Delete("/builds/:id", deleteBuild)
+	// Build routes (protected)
+	protected.Get("/builds", getBuilds)
+	protected.Post("/builds", createBuild)
+	protected.Get("/builds/:id", getBuild)
+	protected.Put("/builds/:id", updateBuild)
+	protected.Delete("/builds/:id", deleteBuild)
 
-	// Coord routes
-	api.Get("/coords", getCoords)
-	api.Post("/coords", createCoord)
-	api.Get("/coords/:id", getCoord)
-	api.Put("/coords/:id", updateCoord)
-	api.Delete("/coords/:id", deleteCoord)
+	// Coord routes (protected)
+	protected.Get("/coords", getCoords)
+	protected.Post("/coords", createCoord)
+	protected.Get("/coords/:id", getCoord)
+	protected.Put("/coords/:id", updateCoord)
+	protected.Delete("/coords/:id", deleteCoord)
 
-	// Wishlist routes
-	api.Get("/wishlist", getWishlistItems)
-	api.Post("/wishlist", createWishlistItem)
-	api.Put("/wishlist/:id", updateWishlistItem)
-	api.Delete("/wishlist/:id", deleteWishlistItem)
+	// Wishlist routes (protected)
+	protected.Get("/wishlist", getWishlistItems)
+	protected.Post("/wishlist", createWishlistItem)
+	protected.Put("/wishlist/:id", updateWishlistItem)
+	protected.Delete("/wishlist/:id", deleteWishlistItem)
 
-	// Convention routes
-	api.Get("/conventions", getConventions)
-	api.Post("/conventions", createConvention)
-	api.Get("/conventions/:id", getConvention)
-	api.Put("/conventions/:id", updateConvention)
-	api.Delete("/conventions/:id", deleteConvention)
+	// Convention routes (protected)
+	protected.Get("/conventions", getConventions)
+	protected.Post("/conventions", createConvention)
+	protected.Get("/conventions/:id", getConvention)
+	protected.Put("/conventions/:id", updateConvention)
+	protected.Delete("/conventions/:id", deleteConvention)
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -93,23 +106,43 @@ func main() {
 
 // Placeholder handlers - implement these based on your data models
 func getClosetItems(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"items": []interface{}{}})
+	userID := c.Locals("userID").(string)
+	return c.JSON(fiber.Map{
+		"items": []interface{}{},
+		"userID": userID,
+	})
 }
 
 func createClosetItem(c *fiber.Ctx) error {
-	return c.Status(201).JSON(fiber.Map{"message": "Closet item created"})
+	userID := c.Locals("userID").(string)
+	return c.Status(201).JSON(fiber.Map{
+		"message": "Closet item created",
+		"userID": userID,
+	})
 }
 
 func getClosetItem(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"id": c.Params("id")})
+	userID := c.Locals("userID").(string)
+	return c.JSON(fiber.Map{
+		"id": c.Params("id"),
+		"userID": userID,
+	})
 }
 
 func updateClosetItem(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Closet item updated"})
+	userID := c.Locals("userID").(string)
+	return c.JSON(fiber.Map{
+		"message": "Closet item updated",
+		"userID": userID,
+	})
 }
 
 func deleteClosetItem(c *fiber.Ctx) error {
-	return c.Status(204).Send(nil)
+	userID := c.Locals("userID").(string)
+	return c.Status(204).JSON(fiber.Map{
+		"message": "Closet item deleted",
+		"userID": userID,
+	})
 }
 
 func getBuilds(c *fiber.Ctx) error {
