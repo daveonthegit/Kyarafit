@@ -1,0 +1,99 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  pr-checks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        # Web dependencies
+        cd web && npm ci
+        
+        # Mobile dependencies  
+        cd ../mobile && npm ci
+        
+        # Backend dependencies
+        cd ../backend && go mod download
+        
+        # Image service dependencies
+        cd ../image-service && pip install -r requirements.txt
+        
+    - name: Lint web app
+      run: |
+        cd web && npm run lint
+        
+    - name: Type check web app
+      run: |
+        cd web && npm run type-check
+        
+    - name: Lint mobile app
+      run: |
+        cd mobile && npm run lint
+        
+    - name: Type check mobile app
+      run: |
+        cd mobile && npm run type-check
+        
+    - name: Lint backend
+      run: |
+        cd backend && go vet ./...
+        
+    - name: Test backend
+      run: |
+        cd backend && go test ./...
+        
+    - name: Lint image service
+      run: |
+        cd image-service && python -m flake8 .
+        
+    - name: Check for security vulnerabilities
+      run: |
+        # Web security check
+        cd web && npm audit --audit-level moderate
+        
+        # Mobile security check
+        cd ../mobile && npm audit --audit-level moderate
+        
+    - name: Validate Docker files
+      run: |
+        docker build -f backend/Dockerfile -t test-backend ./backend
+        docker build -f web/Dockerfile -t test-web ./web
+        docker build -f image-service/Dockerfile -t test-image-service ./image-service
+        
+    - name: Check commit message format
+      run: |
+        # Check if commit messages follow conventional commits
+        git log --oneline -1 | grep -E "^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .+"
+        
+    - name: Check for large files
+      run: |
+        # Check for files larger than 10MB
+        find . -type f -size +10M -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./mobile/node_modules/*" -not -path "./web/node_modules/*"
+        if [ $? -eq 0 ]; then
+          echo "Warning: Large files detected. Consider using Git LFS."
+        fi

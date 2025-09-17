@@ -242,6 +242,29 @@ Kyarafit/
 # Start individual services
 cd web && npm run dev
 cd mobile && npx expo start
+```
+
+### Git Workflow
+We use feature branches and pull requests for all development work.
+
+```bash
+# Create a new feature branch
+./scripts/git-workflow.sh new-feature your-feature-name
+
+# Make your changes, then commit
+./scripts/git-workflow.sh commit "feat: add new feature"
+
+# Push your branch
+./scripts/git-workflow.sh push
+
+# Create a pull request
+./scripts/git-workflow.sh pr
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed workflow guidelines.
+
+```bash
+# Start individual services
 cd backend && go run main.go
 cd image-service && python3 -m uvicorn main:app --reload --port 8000 --host 0.0.0.0
 
