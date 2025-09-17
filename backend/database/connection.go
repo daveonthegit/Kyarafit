@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,9 +11,11 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var DB *sql.DB
+var DB *pgxpool.Pool
+var SQLDB *sql.DB // Keep for migrations
 
 // Connect establishes a connection to the PostgreSQL database
 func Connect() error {
@@ -21,15 +24,28 @@ func Connect() error {
 		return fmt.Errorf("DATABASE_URL environment variable is required")
 	}
 
+	// Create pgxpool for main operations
 	var err error
-	DB, err = sql.Open("postgres", databaseURL)
+	ctx := context.Background()
+	DB, err = pgxpool.New(ctx, databaseURL)
 	if err != nil {
-		return fmt.Errorf("failed to open database connection: %w", err)
+		return fmt.Errorf("failed to create pgxpool: %w", err)
 	}
 
 	// Test the connection
-	if err = DB.Ping(); err != nil {
+	if err = DB.Ping(ctx); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Create sql.DB for migrations
+	SQLDB, err = sql.Open("postgres", databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to open sql database connection: %w", err)
+	}
+
+	// Test the sql connection
+	if err = SQLDB.Ping(); err != nil {
+		return fmt.Errorf("failed to ping sql database: %w", err)
 	}
 
 	log.Println("Successfully connected to database")
@@ -38,11 +54,11 @@ func Connect() error {
 
 // RunMigrations runs database migrations
 func RunMigrations() error {
-	if DB == nil {
+	if SQLDB == nil {
 		return fmt.Errorf("database connection not established")
 	}
 
-	driver, err := postgres.WithInstance(DB, &postgres.Config{})
+	driver, err := postgres.WithInstance(SQLDB, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
@@ -67,9 +83,13 @@ func RunMigrations() error {
 
 // Close closes the database connection
 func Close() error {
+	var err error
 	if DB != nil {
-		return DB.Close()
+		DB.Close()
 	}
-	return nil
+	if SQLDB != nil {
+		err = SQLDB.Close()
+	}
+	return err
 }
 

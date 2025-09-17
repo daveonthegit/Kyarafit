@@ -9,12 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.0.4",
-    "react": "^18",
-    "react-dom": "^18",
-    "better-auth": "^0.7.0",
     "@prisma/client": "^5.7.0",
-    "prisma": "^5.7.0"
+    "better-auth": "^0.7.0",
+    "next": "^15.5.3",
+    "prisma": "^5.7.0",
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
     "@types/node": "^20",

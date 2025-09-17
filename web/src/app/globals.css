@@ -2,22 +2,178 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sakura-inspired color palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary Sakura colors */
+  --sakura-pink: #f8b4d1;
+  --sakura-soft-pink: #fce7f3;
+  --sakura-deep-pink: #ec4899;
+  --sakura-petal: #fdf2f8;
+  --sakura-blossom: #fbbf24;
+  --sakura-lavender: #e0e7ff;
+  --sakura-mint: #d1fae5;
+  
+  /* Background colors */
+  --bg-primary: #fefefe;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #fdf2f8;
+  --bg-accent: #fce7f3;
+  --bg-dark: #2d1b2e;
+  --bg-darker: #1a0e1b;
+  
+  /* Text colors */
+  --text-primary: #2d1b2e;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-white: #ffffff;
+  --text-sakura: #ec4899;
+  
+  /* Border colors */
+  --border-light: #fce7f3;
+  --border-medium: #f8b4d1;
+  --border-dark: #ec4899;
+  
+  /* Shadow colors */
+  --shadow-sm: 0 1px 2px 0 rgba(236, 72, 153, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(236, 72, 153, 0.1), 0 2px 4px -1px rgba(236, 72, 153, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(236, 72, 153, 0.1), 0 4px 6px -2px rgba(236, 72, 153, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(236, 72, 153, 0.1), 0 10px 10px -5px rgba(236, 72, 153, 0.04);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Roblox-style fonts */
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+/* Kyarafit UI components */
+.btn-primary {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200;
+  @apply text-white hover:text-white active:text-white;
+  @apply shadow-md hover:shadow-lg transform hover:-translate-y-0.5;
+  background: linear-gradient(135deg, var(--sakura-deep-pink) 0%, var(--sakura-pink) 100%);
+  border: 1px solid var(--sakura-deep-pink);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #be185d 0%, #f472b6 100%);
+  border-color: #be185d;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200;
+  @apply bg-white border-2 hover:text-white;
+  @apply shadow-md hover:shadow-lg transform hover:-translate-y-0.5;
+  color: var(--sakura-deep-pink);
+  border-color: var(--sakura-pink);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, var(--sakura-deep-pink) 0%, var(--sakura-pink) 100%);
+  border-color: var(--sakura-deep-pink);
+}
+
+.card {
+  @apply rounded-xl shadow-lg p-6;
+  @apply hover:shadow-xl transition-all duration-300;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.card:hover {
+  border-color: var(--border-medium);
+}
+
+.input {
+  @apply w-full px-4 py-3 text-sm rounded-lg;
+  @apply transition-all duration-200;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--sakura-deep-pink);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.navbar {
+  @apply shadow-md sticky top-0 z-50;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Sakura gradients */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--sakura-pink) 0%, var(--sakura-soft-pink) 50%, var(--sakura-petal) 100%);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--sakura-deep-pink) 0%, var(--sakura-pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sakura-pink);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sakura-deep-pink);
+}
+
+/* Sakura decorative elements */
+.sakura-petal {
+  position: relative;
+  overflow: hidden;
+}
+
+.sakura-petal::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(248, 180, 209, 0.1) 0%, transparent 70%);
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
+}
+
+.sakura-bloom {
+  background: linear-gradient(45deg, 
+    var(--sakura-petal) 0%, 
+    var(--sakura-soft-pink) 25%, 
+    var(--sakura-pink) 50%, 
+    var(--sakura-soft-pink) 75%, 
+    var(--sakura-petal) 100%);
+  background-size: 400% 400%;
+  animation: sakura-flow 8s ease-in-out infinite;
+}
+
+@keyframes sakura-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 @layer utilities {

@@ -55,14 +55,25 @@ function MainApp() {
 
             return <Ionicons name={iconName} size={size} color={color} />;
           },
-          tabBarActiveTintColor: '#8b5cf6',
-          tabBarInactiveTintColor: 'gray',
-          headerStyle: {
-            backgroundColor: '#1e1b4b',
+          tabBarActiveTintColor: '#ec4899', // Sakura deep-pink
+          tabBarInactiveTintColor: '#9ca3af', // Gray
+          tabBarStyle: {
+            backgroundColor: '#ffffff', // Sakura bg-secondary
+            borderTopColor: '#fce7f3', // Sakura border-light
+            borderTopWidth: 1,
+            paddingBottom: 8,
+            paddingTop: 8,
+            height: 60,
           },
-          headerTintColor: '#fff',
+          headerStyle: {
+            backgroundColor: '#ffffff', // Sakura bg-secondary
+            borderBottomColor: '#fce7f3', // Sakura border-light
+            borderBottomWidth: 1,
+          },
+          headerTintColor: '#2d1b2e', // Sakura text-primary
           headerTitleStyle: {
             fontWeight: 'bold',
+            color: '#2d1b2e',
           },
         })}
       >

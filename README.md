@@ -60,7 +60,7 @@ Kyarafit/
 - Docker and Docker Compose
 - Expo CLI (`npm install -g @expo/cli`)
 
-### 🚀 One-Command Setup
+### One-Command Setup
 
 ```bash
 git clone <repository-url>
@@ -141,7 +141,7 @@ PostgreSQL runs on `localhost:5432` with:
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 ### Fly.io (Recommended)
 
@@ -192,7 +192,7 @@ For detailed deployment instructions, see [deploy/README.md](deploy/README.md).
 
 ---
 
-## 🔧 Development
+## Development
 
 ### Project Structure
 
@@ -227,14 +227,23 @@ Kyarafit/
 # Setup everything
 ./setup.sh
 
-# Start all services
-docker-compose up
+# Start all services (including mobile)
+./start-project.sh
+
+# Start only mobile app (background)
+./start-mobile.sh
+
+# Start mobile app (interactive mode)
+./start-mobile-interactive.sh
+
+# Stop all services
+./stop-project.sh
 
 # Start individual services
 cd web && npm run dev
 cd mobile && npx expo start
 cd backend && go run main.go
-cd image-service && python main.py
+cd image-service && python3 -m uvicorn main:app --reload --port 8000 --host 0.0.0.0
 
 # Database operations
 cd web && npx prisma studio

@@ -10,7 +10,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: false, // Disable for development
   },
   socialProviders: {
     google: {
@@ -39,6 +39,11 @@ export const auth = betterAuth({
     },
   },
   plugins: [],
+  trustedOrigins: [
+    "http://localhost:3000",
+    "http://localhost:19000",
+    "http://127.0.0.1:19000",
+  ],
 })
 
 export type Session = typeof auth.$Infer.Session
