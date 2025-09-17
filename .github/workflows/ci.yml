@@ -1,0 +1,218 @@
+name: Main CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Backend service
+  backend:
+    uses: ./.github/workflows/backend.yml
+    secrets: inherit
+
+  # Web application
+  web:
+    uses: ./.github/workflows/web.yml
+    secrets: inherit
+
+  # Image processing service
+  image-service:
+    uses: ./.github/workflows/image-service.yml
+    secrets: inherit
+
+  # Mobile application
+  mobile:
+    uses: ./.github/workflows/mobile.yml
+    secrets: inherit
+
+  # Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [backend, web, image-service]
+    if: github.event_name == 'pull_request'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kyarafit_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        # Backend
+        cd backend && go mod download && cd ..
+        
+        # Web
+        cd web && npm ci && cd ..
+        
+        # Image service
+        cd image-service && pip install -r requirements.txt && cd ..
+
+    - name: Start services
+      run: |
+        # Start backend
+        cd backend
+        DATABASE_URL=postgres://postgres:postgres@localhost:5432/kyarafit_test?sslmode=disable \
+        REDIS_URL=redis://localhost:6379 \
+        JWT_SECRET=test-secret \
+        IMAGE_SERVICE_URL=http://localhost:8001 \
+        go run main.go &
+        BACKEND_PID=$!
+        cd ..
+
+        # Start image service
+        cd image-service
+        python main.py &
+        IMAGE_PID=$!
+        cd ..
+
+        # Start web app
+        cd web
+        NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1 \
+        NEXT_PUBLIC_IMAGE_SERVICE_URL=http://localhost:8001 \
+        npm run build
+        npm start &
+        WEB_PID=$!
+        cd ..
+
+        # Wait for services to start
+        sleep 30
+
+        # Health checks
+        echo "Checking backend health..."
+        curl -f http://localhost:8080/health || exit 1
+        
+        echo "Checking image service health..."
+        curl -f http://localhost:8001/health || exit 1
+        
+        echo "Checking web app..."
+        curl -f http://localhost:3000 || exit 1
+
+        echo "All services are healthy!"
+
+    - name: Run integration tests
+      run: |
+        # Test API endpoints
+        echo "Testing API endpoints..."
+        
+        # Test backend API
+        curl -f http://localhost:8080/api/v1/closet || echo "Closet endpoint test failed"
+        curl -f http://localhost:8080/api/v1/builds || echo "Builds endpoint test failed"
+        curl -f http://localhost:8080/api/v1/coords || echo "Coords endpoint test failed"
+        curl -f http://localhost:8080/api/v1/wishlist || echo "Wishlist endpoint test failed"
+        curl -f http://localhost:8080/api/v1/conventions || echo "Conventions endpoint test failed"
+        
+        # Test image service
+        curl -f http://localhost:8001/models || echo "Models endpoint test failed"
+        
+        echo "Integration tests completed"
+
+  # Security scan
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code quality
+  code-quality:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.organization=kyarafit
+          -Dsonar.projectKey=kyarafit
+          -Dsonar.sources=.
+          -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/.next/**,**/coverage/**
+
+  # Build summary
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [backend, web, image-service, mobile]
+    if: always()
+
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Backend | ${{ needs.backend.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Web | ${{ needs.web.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Image Service | ${{ needs.image-service.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Mobile | ${{ needs.mobile.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Overall Status" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ needs.backend.result }}" == "success" && "${{ needs.web.result }}" == "success" && "${{ needs.image-service.result }}" == "success" && "${{ needs.mobile.result }}" == "success" ]]; then
+          echo "🎉 All services built successfully!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Some services failed. Please check the logs above." >> $GITHUB_STEP_SUMMARY
+        fi

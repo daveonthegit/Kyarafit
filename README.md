@@ -30,10 +30,103 @@ Kyarafit is designed for cosplayers, fashion hobbyists, and content creators who
 
 ## Tech Stack
 
-- **Frontend:** React Native with Expo (mobile), Next.js (web)
-- **Backend:** Go (Fiber/Chi) or NestJS (Node.js), PostgreSQL, Redis
-- **Image Processing:** Python (FastAPI) using rembg or Segment Anything Model
-- **Infrastructure:** Dockerized services deployed to Fly.io or Render, Cloudflare Images for CDN
+- **Mobile:** React Native with Expo (TypeScript)
+- **Web:** Next.js 14 with TypeScript and Tailwind CSS
+- **Backend:** Go with Fiber framework, PostgreSQL with pgvector, Redis
+- **Image Processing:** Python FastAPI with rembg for AI-powered background removal
+- **Infrastructure:** Dockerized services, deployed to Fly.io or Render, Cloudflare Images for CDN
+
+## Repository Structure
+
+```
+Kyarafit/
+├── mobile/           # React Native + Expo app
+├── web/             # Next.js web application
+├── backend/         # Go API server
+├── image-service/   # Python FastAPI image processing
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Go 1.21+
+- Python 3.11+
+- Docker and Docker Compose
+- Expo CLI (`npm install -g @expo/cli`)
+
+### Development Setup
+
+1. **Clone and start all services:**
+   ```bash
+   git clone <repository-url>
+   cd Kyarafit
+   docker-compose up -d
+   ```
+
+2. **Web App (Next.js):**
+   ```bash
+   cd web
+   npm install
+   npm run dev
+   # Visit http://localhost:3000
+   ```
+
+3. **Mobile App (Expo):**
+   ```bash
+   cd mobile
+   npm install
+   npx expo start
+   # Scan QR code with Expo Go app
+   ```
+
+4. **Backend API (Go):**
+   ```bash
+   cd backend
+   go mod download
+   go run main.go
+   # API available at http://localhost:8080
+   ```
+
+5. **Image Service (Python):**
+   ```bash
+   cd image-service
+   pip install -r requirements.txt
+   python main.py
+   # Service available at http://localhost:8001
+   ```
+
+### Environment Variables
+
+Copy the example environment files and configure:
+
+```bash
+# Backend
+cp backend/env.example backend/.env
+
+# Image Service  
+cp image-service/env.example image-service/.env
+```
+
+### API Endpoints
+
+- **Backend API:** `http://localhost:8080/api/v1`
+- **Image Service:** `http://localhost:8001`
+- **Health Checks:** 
+  - Backend: `GET /health`
+  - Image Service: `GET /health`
+
+### Database
+
+PostgreSQL runs on `localhost:5432` with:
+- Database: `kyarafit`
+- User: `kyarafit` 
+- Password: `password`
 
 ---
 

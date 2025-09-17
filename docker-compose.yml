@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: kyarafit
+      POSTGRES_USER: kyarafit
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyarafit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://kyarafit:password@postgres:5432/kyarafit?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - IMAGE_SERVICE_URL=http://image-service:8001
+      - JWT_SECRET=your-super-secret-jwt-key-here
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: go run main.go
+
+  # Python Image Processing Service
+  image-service:
+    build:
+      context: ./image-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8001
+      - UPLOAD_DIR=uploads
+      - PROCESSED_DIR=processed
+    volumes:
+      - ./image-service:/app
+      - image_uploads:/app/uploads
+      - image_processed:/app/processed
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+  # Next.js Web App
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+      - NEXT_PUBLIC_IMAGE_SERVICE_URL=http://localhost:8001
+    depends_on:
+      - backend
+      - image-service
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  image_uploads:
+  image_processed:

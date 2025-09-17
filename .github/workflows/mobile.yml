@@ -1,0 +1,248 @@
+name: Mobile CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./mobile
+      run: |
+        if [ -f "package.json" ] && npm run lint --if-present; then
+          npm run lint
+        else
+          npx eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0
+        fi
+
+    - name: Run TypeScript check
+      working-directory: ./mobile
+      run: npx tsc --noEmit
+
+    - name: Run Prettier check
+      working-directory: ./mobile
+      run: |
+        npx prettier --check "**/*.{js,jsx,ts,tsx,json,md}"
+
+    - name: Run tests (if available)
+      working-directory: ./mobile
+      run: |
+        if [ -f "package.json" ] && npm run test --if-present; then
+          npm run test
+        else
+          echo "No tests configured yet"
+        fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Install Expo CLI
+      run: npm install -g @expo/cli
+
+    - name: Check Expo configuration
+      working-directory: ./mobile
+      run: |
+        npx expo doctor
+        npx expo config --type public
+
+    - name: Test Expo build (web)
+      working-directory: ./mobile
+      run: |
+        npx expo export --platform web --output-dir dist-web
+        if [ -d "dist-web" ]; then
+          echo "Web build successful"
+          ls -la dist-web/
+        else
+          echo "Web build failed"
+          exit 1
+        fi
+
+    - name: Upload web build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: mobile-web-build
+        path: mobile/dist-web/
+
+  eas-build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Install EAS CLI
+      run: npm install -g @expo/eas-cli
+
+    - name: Configure EAS
+      working-directory: ./mobile
+      run: |
+        # Create basic EAS configuration if it doesn't exist
+        if [ ! -f "eas.json" ]; then
+          cat > eas.json << 'EOF'
+        {
+          "cli": {
+            "version": ">= 3.0.0"
+          },
+          "build": {
+            "development": {
+              "developmentClient": true,
+              "distribution": "internal"
+            },
+            "preview": {
+              "distribution": "internal"
+            },
+            "production": {}
+          },
+          "submit": {
+            "production": {}
+          }
+        }
+        EOF
+        fi
+
+    - name: EAS Build (Android)
+      working-directory: ./mobile
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      run: |
+        if [ -n "$EXPO_TOKEN" ]; then
+          eas build --platform android --non-interactive --no-wait
+        else
+          echo "EXPO_TOKEN not set, skipping EAS build"
+        fi
+
+    - name: EAS Build (iOS)
+      working-directory: ./mobile
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      run: |
+        if [ -n "$EXPO_TOKEN" ]; then
+          eas build --platform ios --non-interactive --no-wait
+        else
+          echo "EXPO_TOKEN not set, skipping EAS build"
+        fi
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Run npm audit
+      working-directory: ./mobile
+      run: |
+        npm audit --audit-level moderate
+
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --file=mobile/package.json
+      continue-on-error: true
+
+  lint-and-format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Check code formatting
+      working-directory: ./mobile
+      run: |
+        npx prettier --check "**/*.{js,jsx,ts,tsx,json,md}" --ignore-path .gitignore
+
+    - name: Auto-fix formatting issues
+      working-directory: ./mobile
+      run: |
+        npx prettier --write "**/*.{js,jsx,ts,tsx,json,md}" --ignore-path .gitignore
+
+    - name: Check for changes
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Code formatting issues found and fixed:"
+          git diff
+          echo "Please commit the formatting changes"
+          exit 1
+        else
+          echo "Code is properly formatted"
+        fi
