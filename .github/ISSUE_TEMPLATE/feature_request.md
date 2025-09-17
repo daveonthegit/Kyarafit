@@ -1,34 +1,45 @@
 ---
-name: Feature request
+name: Feature Request
 about: Suggest an idea for this project
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''
+
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Feature Description
+A clear and concise description of what the feature is.
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+## Problem Statement
+What problem does this feature solve? Why is it needed?
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Proposed Solution
+Describe the solution you'd like to see implemented.
 
-**Service(s) affected**
-- [ ] Web app
-- [ ] Mobile app
-- [ ] Backend API
-- [ ] Image service
-- [ ] All services
-
-**Acceptance Criteria**
+## Acceptance Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Criterion 3
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## Technical Considerations
+- [ ] Backend changes required
+- [ ] Frontend changes required
+- [ ] Mobile app changes required
+- [ ] Database changes required
+- [ ] API changes required
+- [ ] Third-party integrations required
 
-**Implementation Notes**
-Any technical details or implementation considerations.
+## Additional Context
+Add any other context, mockups, or screenshots about the feature request here.
+
+## Priority
+- [ ] Low
+- [ ] Medium
+- [ ] High
+- [ ] Critical
+
+## Estimated Effort
+- [ ] Small (1-2 days)
+- [ ] Medium (3-5 days)
+- [ ] Large (1-2 weeks)
+- [ ] Extra Large (2+ weeks)
