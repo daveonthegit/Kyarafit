@@ -41,6 +41,14 @@ check_requirements() {
         exit 1
     fi
     
+    # Check Node.js version
+    NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 18 ]; then
+        print_error "Node.js version $NODE_VERSION is too old. Please install Node.js 18+ from https://nodejs.org/"
+        print_error "Current version: $(node -v)"
+        exit 1
+    fi
+    
     # Check Go
     if ! command -v go &> /dev/null; then
         print_error "Go is not installed. Please install Go 1.21+ from https://golang.org/"
