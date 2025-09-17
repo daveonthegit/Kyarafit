@@ -60,58 +60,69 @@ Kyarafit/
 - Docker and Docker Compose
 - Expo CLI (`npm install -g @expo/cli`)
 
-### Development Setup
-
-1. **Clone and start all services:**
-   ```bash
-   git clone <repository-url>
-   cd Kyarafit
-   docker-compose up -d
-   ```
-
-2. **Web App (Next.js):**
-   ```bash
-   cd web
-   npm install
-   npm run dev
-   # Visit http://localhost:3000
-   ```
-
-3. **Mobile App (Expo):**
-   ```bash
-   cd mobile
-   npm install
-   npx expo start
-   # Scan QR code with Expo Go app
-   ```
-
-4. **Backend API (Go):**
-   ```bash
-   cd backend
-   go mod download
-   go run main.go
-   # API available at http://localhost:8080
-   ```
-
-5. **Image Service (Python):**
-   ```bash
-   cd image-service
-   pip install -r requirements.txt
-   python main.py
-   # Service available at http://localhost:8001
-   ```
-
-### Environment Variables
-
-Copy the example environment files and configure:
+### 🚀 One-Command Setup
 
 ```bash
-# Backend
-cp backend/env.example backend/.env
-
-# Image Service  
-cp image-service/env.example image-service/.env
+git clone <repository-url>
+cd Kyarafit
+./setup.sh
 ```
+
+This script will:
+- Check all requirements
+- Install dependencies
+- Setup environment files
+- Start PostgreSQL database
+- Run database migrations
+- Build all services
+
+### Manual Setup
+
+1. **Install dependencies:**
+   ```bash
+   # Web app
+   cd web && npm install
+   
+   # Mobile app
+   cd ../mobile && npm install
+   
+   # Backend
+   cd ../backend && go mod tidy
+   
+   # Image service
+   cd ../image-service && pip install -r requirements.txt
+   ```
+
+2. **Setup environment files:**
+   ```bash
+   cp web/env.example web/.env
+   cp mobile/env.example mobile/.env
+   cp backend/env.example backend/.env
+   cp image-service/env.example image-service/.env
+   ```
+
+3. **Start database:**
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+4. **Setup database schema:**
+   ```bash
+   cd web && npx prisma db push
+   ```
+
+5. **Start all services:**
+   ```bash
+   docker-compose up
+   ```
+
+### Development URLs
+
+- **Web App:** http://localhost:3000
+- **Mobile App:** Scan QR code with Expo Go
+- **Backend API:** http://localhost:8080/api/v1
+- **Image Service:** http://localhost:8001
+- **Database:** localhost:5432
 
 ### API Endpoints
 
@@ -127,6 +138,114 @@ PostgreSQL runs on `localhost:5432` with:
 - Database: `kyarafit`
 - User: `kyarafit` 
 - Password: `password`
+
+---
+
+## 🚀 Deployment
+
+### Fly.io (Recommended)
+
+1. **Install Fly CLI:**
+   ```bash
+   curl -L https://fly.io/install.sh | sh
+   flyctl auth login
+   ```
+
+2. **Deploy services:**
+   ```bash
+   # Backend
+   cd backend && flyctl deploy
+   
+   # Web app
+   cd ../web && flyctl deploy
+   
+   # Image service
+   cd ../image-service && flyctl deploy
+   ```
+
+3. **Set environment variables:**
+   ```bash
+   flyctl secrets set DATABASE_URL="postgresql://..." -a kyarafit-backend
+   flyctl secrets set JWT_SECRET="your-secret" -a kyarafit-backend
+   ```
+
+### Render
+
+1. **Connect GitHub repository to Render**
+2. **Use the included `render.yaml` configuration**
+3. **Set environment variables in Render dashboard**
+
+### Docker Compose (Production)
+
+```bash
+# Build and start all services
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+For detailed deployment instructions, see [deploy/README.md](deploy/README.md).
+
+---
+
+## 🔧 Development
+
+### Project Structure
+
+```
+Kyarafit/
+├── web/                 # Next.js web application
+│   ├── src/
+│   │   ├── app/        # App router pages
+│   │   ├── lib/        # Utilities and auth
+│   │   └── components/ # React components
+│   └── prisma/         # Database schema
+├── mobile/             # React Native + Expo app
+│   ├── src/
+│   │   ├── screens/    # App screens
+│   │   └── lib/        # Utilities and auth
+│   └── app.json        # Expo configuration
+├── backend/            # Go API server
+│   ├── database/       # Database connection
+│   ├── middleware/     # Auth middleware
+│   └── migrations/     # SQL migrations
+├── image-service/      # Python FastAPI service
+│   ├── main.py        # FastAPI app
+│   └── requirements.txt
+├── docker-compose.yml  # Local development
+├── setup.sh           # Setup script
+└── deploy/            # Deployment configs
+```
+
+### Available Scripts
+
+```bash
+# Setup everything
+./setup.sh
+
+# Start all services
+docker-compose up
+
+# Start individual services
+cd web && npm run dev
+cd mobile && npx expo start
+cd backend && go run main.go
+cd image-service && python main.py
+
+# Database operations
+cd web && npx prisma studio
+cd web && npx prisma db push
+cd web && npx prisma generate
+
+# Testing
+cd web && npm test
+cd backend && go test ./...
+cd image-service && python -m pytest
+```
 
 ---
 

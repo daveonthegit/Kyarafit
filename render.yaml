@@ -1,0 +1,89 @@
+# Render configuration for Kyarafit
+# This file defines all services for Render deployment
+
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: kyarafit-db
+    env: postgresql
+    plan: starter
+    region: oregon
+    databaseName: kyarafit
+    user: kyarafit
+
+  # Backend API
+  - type: web
+    name: kyarafit-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kyarafit-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://kyarafit-web.onrender.com
+      - key: IMAGE_SERVICE_URL
+        value: https://kyarafit-image-service.onrender.com
+      - key: PORT
+        value: 8080
+      - key: HOST
+        value: 0.0.0.0
+
+  # Web Application
+  - type: web
+    name: kyarafit-web
+    env: docker
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    plan: starter
+    region: oregon
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kyarafit-db
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://kyarafit-web.onrender.com
+      - key: NEXT_PUBLIC_API_URL
+        value: https://kyarafit-backend.onrender.com/api/v1
+      - key: NEXT_PUBLIC_IMAGE_SERVICE_URL
+        value: https://kyarafit-image-service.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://kyarafit-web.onrender.com
+      - key: PORT
+        value: 3000
+
+  # Image Processing Service
+  - type: web
+    name: kyarafit-image-service
+    env: docker
+    dockerfilePath: ./image-service/Dockerfile
+    dockerContext: ./image-service
+    plan: starter
+    region: oregon
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8001
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: PROCESSED_DIR
+        value: processed
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: DEFAULT_MODEL
+        value: u2net
+      - key: ENABLE_GPU
+        value: false
+

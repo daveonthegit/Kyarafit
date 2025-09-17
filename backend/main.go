@@ -8,12 +8,24 @@ import (
 	"github.com/gofiber/cors/v2"
 	"github.com/joho/godotenv"
 	"kyarafit-backend/middleware"
+	"kyarafit-backend/database"
 )
 
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
+	}
+
+	// Connect to database
+	if err := database.Connect(); err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer database.Close()
+
+	// Run database migrations
+	if err := database.RunMigrations(); err != nil {
+		log.Fatal("Failed to run migrations:", err)
 	}
 
 	// Create Fiber app
