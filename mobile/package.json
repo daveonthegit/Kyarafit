@@ -27,7 +27,7 @@
     "expo-image-picker": "~16.0.0",
     "expo-camera": "~16.0.0",
     "expo-media-library": "~17.0.0",
-    "expo-notifications": "~0.30.0",
+    "expo-notifications": "~0.32.11",
     "expo-constants": "~17.0.0",
     "expo-linking": "~7.0.0",
     "expo-router": "^4.0.0",
