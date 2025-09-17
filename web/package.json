@@ -13,12 +13,12 @@
     "better-auth": "^0.7.0",
     "next": "^15.5.3",
     "prisma": "^5.7.0",
-    "react": "^18",
+    "react": "^19",
     "react-dom": "^18"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
+    "@types/react": "^19",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
