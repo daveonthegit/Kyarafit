@@ -96,7 +96,7 @@ jobs:
         python -m pytest test_main.py -v --cov=. --cov-report=xml
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./image-service/coverage.xml
         flags: image-service
