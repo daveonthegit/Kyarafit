@@ -33,26 +33,26 @@ Kyarafit/
    docker-compose up -d
    ```
 
-3. **Run the backend** (health + mock closet list)
+3. **Run the backend** (health + Closet API)
 
    ```bash
-   make run-backend
+   cd backend && go run .
    ```
-   Or: `cd backend && go run ./cmd/api`
+   Requires `DATABASE_URL` (e.g. from docker-compose). Migrations run on startup. Endpoints: `GET /health`, `GET/POST/PATCH/DELETE /closet/items` with header `x-kyar-device-id`.
 
 4. **Run the web app**
 
    ```bash
    npm run dev:web
    ```
-   Open [http://localhost:3000](http://localhost:3000). Home: Lookbook; Closet: [http://localhost:3000/closet](http://localhost:3000/closet) (fetches from API).
+   Open [http://localhost:3000](http://localhost:3000). Closet: [http://localhost:3000/closet](http://localhost:3000/closet); add item via "NEW ITEM" → [http://localhost:3000/closet/new](http://localhost:3000/closet/new). Device id is stored in localStorage.
 
 5. **Run the mobile app**
 
    ```bash
    npm run dev:mobile
    ```
-   Use Expo Go; tabs: Home, Closet, Plan, Studio. Closet tab fetches from `EXPO_PUBLIC_API_URL/closet/items`.
+   Use Expo Go. Builds tab → Closet; add item via FAB. Offline-first: items stored in SQLite and synced when online (outbox).
 
 ### Startup script
 
@@ -88,22 +88,58 @@ Copy `.env.example` to `.env` and set as needed. Web can use `.env.local` (see `
 
 - **Prototype (look and flow):** [example screens/prototype/code.html](example%20screens/prototype/code.html) — the app UI follows this editorial look and navigation (The Lookbook, Current Focus hero, Next Deadline, The Closet with category tabs, bottom nav, FAB).
 - **Component spec:** [design-system/component_spec.md](design-system/component_spec.md)  
-- **Design lint (anti-drift):** [design-system/design_lint.md](design-system/design_lint.md)
+- **Design lint (anti-drift):** [design-system/design_lint.md](design-system/design_lint.md)  
+- **UI audit:** See [design-system/README.md#ui-audit](design-system/README.md#ui-audit) for banned patterns (boxed inputs, pill buttons, colorful chips, gradients).
 
 Editorial UI: serif display for titles, sans for body, underlined inputs, sharp buttons, minimal chrome. Shared consistency via design-system tokens and component specs; do not invent new styles.
 
 ## Tech stack
 
-- **Mobile:** Expo React Native (TypeScript), Expo Router, TanStack Query, Zustand, design-system RN tokens
-- **Web:** Next.js 14, App Router, Tailwind (token-aligned), design-system
-- **Backend:** Go, Fiber; health + `GET /closet/items` (mock list)
-- **DB:** PostgreSQL (docker-compose)
+- **Mobile:** Expo React Native (TypeScript), Expo Router, TanStack Query, Zustand, expo-sqlite (offline-first closet), design-system RN tokens
+- **Web:** Next.js 14, App Router, Tailwind (token-aligned), TanStack Query, design-system
+- **Backend:** Go, Fiber; health + real Closet API (`GET/POST/PATCH/DELETE /closet/items`) with device-scoped storage
+- **DB:** PostgreSQL (docker-compose); migrations in `backend/migrations/`
 - **Image service:** FastAPI stub; rembg not implemented yet
 
 ## Quality
 
-- Web: ESLint, Prettier (`npm run lint`, `npm run format` from root)
-- Mobile: Expo lint (`npm run lint` in mobile)
-- Backend: `go build ./cmd/api` and run
+- Web: typecheck `cd web && npx tsc --noEmit`, lint `npm run lint -w web`
+- Mobile: typecheck `cd mobile && npx tsc --noEmit`, lint `npm run lint -w mobile`
+- Backend: `cd backend && go build .` and `go test ./internal/closet/...`
 
-Keep the baseline minimal: no auth, no sync, no image cutout implementation yet.
+## Closet vertical slice – commands and test flows
+
+**1. Backend (with Postgres)**
+
+```bash
+# Start Postgres
+docker-compose up -d
+
+# Run backend (migrations + Closet API)
+cd backend && go run .
+```
+
+- Health: `curl http://localhost:8080/health`
+- List (requires device id): `curl -H "x-kyar-device-id: dev-test-1" http://localhost:8080/closet/items`
+- Create: `curl -X POST -H "Content-Type: application/json" -H "x-kyar-device-id: dev-test-1" -d "{\"name\":\"Test Wig\",\"category\":\"wig\",\"tags\":[]}" http://localhost:8080/closet/items`
+
+**2. Web**
+
+```bash
+npm run dev:web
+```
+
+- Open [http://localhost:3000/closet](http://localhost:3000/closet) → list (from backend).
+- Click FAB or "NEW ITEM" → [http://localhost:3000/closet/new](http://localhost:3000/closet/new) → submit form → redirect to `/closet`; item appears (optimistic then from server). Refresh: item persists (device id in `localStorage`).
+
+**3. Mobile**
+
+```bash
+npm run dev:mobile
+```
+
+- Builds tab → Closet → Add Item (FAB) → fill form, optional photo → Save → back to Closet; item appears from SQLite.
+- **Offline:** enable airplane mode, add 2 items, restart app → items still in list. Disable airplane mode → sync runs; outbox clears. Items then visible on backend (same device id if you copy it to web for testing).
+**4. Cross-check**
+
+- Use same device id on web (e.g. set in localStorage: `kyar_device_id` = the value from mobile’s storage) to see the same items on both after sync.

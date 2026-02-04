@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+// Skip lockfile patching in npm workspaces (avoids ENOWORKSPACES and patch script errors)
+if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
+  process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = '1'
+}
 const nextConfig = {
   images: {
     remotePatterns: [

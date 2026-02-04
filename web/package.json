@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@kyarafit/design-system": "*",
+    "@tanstack/react-query": "^5.0.0",
     "next": "^14.2.0",
     "react": "^18",
     "react-dom": "^18"

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { QueryProvider } from '@/components/QueryProvider';
 
 export const metadata: Metadata = {
   title: 'Kyarafit – Editorial Cosplay Lookbook',
@@ -20,7 +21,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

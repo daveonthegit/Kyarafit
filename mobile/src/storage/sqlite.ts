@@ -1,24 +1,12 @@
 /**
- * SQLite-backed storage (placeholder init).
- * No sync yet; init when app is ready.
+ * SQLite-backed storage. Uses shared DB from db.ts (kv table).
  */
 
-import * as SQLite from 'expo-sqlite';
 import type { StorageAdapter, StorageItem } from './types';
+import { initClosetDb } from './db';
 
-let db: SQLite.SQLiteDatabase | null = null;
-
-async function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (db) return db;
-  db = await SQLite.openDatabaseAsync('kyarafit.db');
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS kv (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at INTEGER DEFAULT (unixepoch())
-    );
-  `);
-  return db;
+async function getDb() {
+  return initClosetDb();
 }
 
 export const sqliteStorage: StorageAdapter = {

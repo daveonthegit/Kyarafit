@@ -1,0 +1,78 @@
+/**
+ * Closet items local repository (SQLite).
+ */
+
+import type { ClosetItem } from '@kyarafit/design-system/types';
+import { initClosetDb } from './db';
+
+export async function listItems(): Promise<ClosetItem[]> {
+  const database = await initClosetDb();
+  const rows = await database.getAllAsync<{
+    id: string;
+    name: string;
+    category: string;
+    tags: string;
+    notes: string | null;
+    image_local_uri: string | null;
+    image_url: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id, name, category, tags, notes, image_local_uri, image_url, created_at, updated_at
+     FROM closet_items ORDER BY updated_at DESC`
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    category: r.category as ClosetItem['category'],
+    tags: parseTags(r.tags),
+    notes: r.notes ?? undefined,
+    imageLocalUri: r.image_local_uri ?? undefined,
+    imageUrl: r.image_url ?? undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+}
+
+function parseTags(json: string): string[] {
+  try {
+    const a = JSON.parse(json);
+    return Array.isArray(a) ? a : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function upsertItem(item: ClosetItem): Promise<void> {
+  const database = await initClosetDb();
+  const tagsJson = JSON.stringify(item.tags ?? []);
+  await database.runAsync(
+    `INSERT INTO closet_items (id, name, category, tags, notes, image_local_uri, image_url, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       category = excluded.category,
+       tags = excluded.tags,
+       notes = excluded.notes,
+       image_local_uri = excluded.image_local_uri,
+       image_url = excluded.image_url,
+       updated_at = excluded.updated_at`,
+    [
+      item.id,
+      item.name,
+      item.category,
+      tagsJson,
+      item.notes ?? null,
+      item.imageLocalUri ?? null,
+      item.imageUrl ?? null,
+      item.createdAt,
+      item.updatedAt,
+    ]
+  );
+}
+
+export async function deleteItem(id: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync('DELETE FROM closet_items WHERE id = ?', [id]);
+}

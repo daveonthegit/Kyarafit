@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+/** Matches mobile (tabs): Home, Builds, Plan, Packing. */
 const navItems = [
   { id: 'home', icon: 'home', label: 'Home', path: '/home' },
-  { id: 'builds', icon: 'architecture', label: 'Builds', path: '/builds' },
+  { id: 'builds', icon: 'layers', label: 'Builds', path: '/builds' },
   { id: 'plan', icon: 'calendar_today', label: 'Plan', path: '/planner' },
   { id: 'packing', icon: 'package_2', label: 'Packing', path: '/packing' },
 ];
@@ -15,7 +16,7 @@ export function BottomNav({ active }: { active?: string }) {
   const currentActive = active || navItems.find(n => pathname.startsWith(n.path))?.id || 'home';
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 pb-8 pt-3">
+    <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-kyar-borderSubtle pb-8 pt-3">
       <div className="flex justify-around items-center px-4">
         {navItems.map((item) => {
           const isActive = currentActive === item.id;

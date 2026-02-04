@@ -1,5 +1,7 @@
 // Kyarafit React Native Token Map (token-aligned)
 export const colors = {
+  black: "#000000",
+  white: "#FFFFFF",
   bg: "#FFFFFF",
   surface: "#FFFFFF",
   muted: "#F9F9F9",
@@ -64,6 +66,9 @@ export const font = {
     serifElegant: "BodoniModa",
     sansWide: "Montserrat"
   },
+  /** Alias for serif display (editorial titles). */
+  serif: "PlayfairDisplay",
+  sansSerif: "Inter",
   size: {
     xs: 12, sm: 14, base: 16, lg: 18, xl: 20, "2xl": 24, "3xl": 30, "4xl": 36, "5xl": 48
   },

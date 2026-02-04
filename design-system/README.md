@@ -24,3 +24,15 @@ import { colors, spacing, font, layout } from "@kyarafit/design-system/rn";
 
 - [Component spec](./component_spec.md)
 - [Design lint checklist](./design_lint.md)
+
+## UI audit
+
+Before shipping a screen or component, run the [design lint checklist](./design_lint.md).
+
+**Banned patterns (do not use):**
+
+- Boxed inputs (use underline-only inputs)
+- Pill / rounded buttons (use sharp corners, `radius.sm`)
+- Colorful chips or badges (use black/white/opacity only; one accent for focus)
+- Gradients in UI chrome
+- Generic SaaS card layouts (keep editorial: serif titles, wide uppercase labels, minimal borders)

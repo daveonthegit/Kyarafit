@@ -7,6 +7,10 @@
   "exports": {
     ".": "./index.ts",
     "./rn": "./rn/index.ts",
+    "./types": "./types/index.ts",
     "./tailwind": "./tailwind.config.js"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
   }
 }

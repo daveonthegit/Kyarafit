@@ -7,9 +7,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
-	"kyarafit-backend/middleware"
 	"kyarafit-backend/database"
 	"kyarafit-backend/handlers"
+	"kyarafit-backend/internal/closet"
+	"kyarafit-backend/middleware"
 )
 
 func main() {
@@ -44,9 +45,9 @@ func main() {
 
 	// CORS configuration
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000,http://localhost:3001",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowOrigins:     "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:8081",
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,x-kyar-device-id",
 		AllowCredentials: true,
 	}))
 
@@ -73,6 +74,14 @@ func main() {
 			"service": "kyarafit-backend",
 		})
 	})
+
+	// Closet API (device-scoped, no auth)
+	closetRepo := closet.NewRepository(database.DB)
+	closetHandler := closet.NewHandler(closetRepo)
+	app.Get("/closet/items", closetHandler.List)
+	app.Post("/closet/items", closetHandler.Create)
+	app.Patch("/closet/items/:id", closetHandler.Update)
+	app.Delete("/closet/items/:id", closetHandler.Delete)
 
 	// API routes
 	api := app.Group("/api/v1")
