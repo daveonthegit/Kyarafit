@@ -104,6 +104,25 @@ dist
 # vitepress cache directory
 **/.vitepress/cache
 
+# Expo
+.expo/
+dist/
+web-build/
+
+# Go
+backend/main
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Docusaurus cache and generated files
 .docusaurus
 

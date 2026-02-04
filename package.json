@@ -1,0 +1,19 @@
+{
+  "name": "kyarafit",
+  "private": true,
+  "workspaces": [
+    "web",
+    "mobile",
+    "design-system"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:mobile": "npm run start -w mobile",
+    "lint": "npm run lint -w web && npm run lint -w mobile",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "prettier": "^3.2.0"
+  }
+}

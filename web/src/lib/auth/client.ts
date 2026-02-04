@@ -1,14 +1,10 @@
-import { createAuthClient } from "better-auth/react"
-import { auth } from "./config"
-
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-})
-
-export const {
-  signIn,
-  signUp,
-  signOut,
-  useSession,
-  getSession,
-} = authClient
+// Stub: auth not implemented in minimal baseline.
+export const signIn = { email: async () => ({ error: null }) };
+export const signUp = { email: async () => ({ error: null }) };
+export const signOut = async () => {};
+export function useSession() {
+  return { data: null, isPending: false };
+}
+export async function getSession() {
+  return null;
+}

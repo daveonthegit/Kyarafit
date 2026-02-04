@@ -1,314 +1,109 @@
 # Kyarafit
 
-Kyarafit is a mobile-first cosplay wardrobe and outfit planning application.  
-It helps cosplayers track builds, manage their closet, design character coords, and receive notifications about new drops and restocks from their favorite shops.
+**Editorial studio notebook for cosplay.**  
+Kyarafit is a mobile-first cosplay wardrobe and outfit planning app: closet management, build tracking, visual coord planning, and convention prep in one minimal, editorial-style workspace.
 
----
-
-## Overview
-
-Kyarafit is designed for cosplayers, fashion hobbyists, and content creators who need a single platform to:
-
-- Organize and catalog costume pieces, props, and wigs.
-- Plan and visualize character coords with a layered editor.
-- Track build progress, budgets, and WIP status.
-- Save product links and receive restock alerts.
-- Generate convention packing lists and schedules.
-
----
-
-## Features (MVP)
-
-- **Closet Management** – Upload and auto-cutout costume pieces, wigs, and props.
-- **Build Tracking** – Group items by character and track progress from idea to completion.
-- **Coord Builder** – Drag-and-drop pieces into a layered canvas to plan outfits.
-- **Wishlist and Alerts** – Add product URLs, monitor stock status, and get notified on restocks.
-- **Convention Mode** – Create day-by-day cosplay plans and packing lists.
-- **Offline Ready** – Access wardrobe and build data without internet connectivity.
-
----
-
-## Tech Stack
-
-- **Mobile:** React Native with Expo (TypeScript)
-- **Web:** Next.js 14 with TypeScript and Tailwind CSS
-- **Backend:** Go with Fiber framework, PostgreSQL with pgvector, Redis
-- **Image Processing:** Python FastAPI with rembg for AI-powered background removal
-- **Infrastructure:** Dockerized services, deployed to Fly.io or Render, Cloudflare Images for CDN
-
-## Repository Structure
+## Repository layout
 
 ```
 Kyarafit/
-├── mobile/           # React Native + Expo app
-├── web/             # Next.js web application
-├── backend/         # Go API server
-├── image-service/   # Python FastAPI image processing
+├── mobile/           # Expo React Native (TypeScript, Expo Router)
+├── web/              # Next.js 14 (TypeScript, App Router, Tailwind)
+├── backend/          # Go + Fiber API
+├── image-service/    # FastAPI stub (health only; no rembg yet)
+├── design-system/    # Shared tokens, Tailwind config, RN tokens, component specs
+├── docs/             # Project docs
 ├── docker-compose.yml
+├── Makefile
+├── .env.example
 └── README.md
 ```
 
----
+## Quickstart
 
-## Quick Start
+1. **Install dependencies (npm workspaces)**
 
-### Prerequisites
-
-- Node.js 18+ and npm
-- Go 1.21+
-- Python 3.11+
-- Docker and Docker Compose
-- Expo CLI (`npm install -g @expo/cli`)
-
-### One-Command Setup
-
-```bash
-git clone <repository-url>
-cd Kyarafit
-./setup.sh
-```
-
-This script will:
-- Check all requirements
-- Install dependencies
-- Setup environment files
-- Start PostgreSQL database
-- Run database migrations
-- Build all services
-
-### Manual Setup
-
-1. **Install dependencies:**
    ```bash
-   # Web app
-   cd web && npm install
-   
-   # Mobile app
-   cd ../mobile && npm install
-   
-   # Backend
-   cd ../backend && go mod tidy
-   
-   # Image service
-   cd ../image-service && pip install -r requirements.txt
+   npm install
    ```
 
-2. **Setup environment files:**
+2. **Start Postgres (and optional backend/image-service) with Docker**
+
    ```bash
-   cp web/env.example web/.env
-   cp mobile/env.example mobile/.env
-   cp backend/env.example backend/.env
-   cp image-service/env.example image-service/.env
+   docker-compose up -d
    ```
 
-3. **Start database:**
+3. **Run the backend** (health + mock closet list)
+
    ```bash
-   docker-compose up -d postgres
+   make run-backend
    ```
+   Or: `cd backend && go run ./cmd/api`
 
-4. **Setup database schema:**
+4. **Run the web app**
+
    ```bash
-   cd web && npx prisma db push
+   npm run dev:web
    ```
+   Open [http://localhost:3000](http://localhost:3000). Home: Lookbook; Closet: [http://localhost:3000/closet](http://localhost:3000/closet) (fetches from API).
 
-5. **Start all services:**
+5. **Run the mobile app**
+
    ```bash
-   docker-compose up
+   npm run dev:mobile
    ```
+   Use Expo Go; tabs: Home, Closet, Plan, Studio. Closet tab fetches from `EXPO_PUBLIC_API_URL/closet/items`.
 
-### Development URLs
+### Startup script
 
-- **Web App:** http://localhost:3000
-- **Mobile App:** Scan QR code with Expo Go
-- **Backend API:** http://localhost:8080/api/v1
-- **Image Service:** http://localhost:8001
-- **Database:** localhost:5432
+One-shot start (Docker + web + mobile):
 
-### API Endpoints
+- **Windows:** `start.cmd` or `.\scripts\start.ps1`  
+  Optionally: `.\scripts\start.ps1 -NoDocker` or `-NoWeb` / `-NoMobile` to skip services.
+- **Mac/Linux/WSL:** `./scripts/start.sh`  
+  Optionally: `./scripts/start.sh --no-docker` or `--no-web` / `--no-mobile`.
 
-- **Backend API:** `http://localhost:8080/api/v1`
-- **Image Service:** `http://localhost:8001`
-- **Health Checks:** 
-  - Backend: `GET /health`
-  - Image Service: `GET /health`
+The script installs npm deps if needed, copies `.env.example` → `.env` when missing, runs `docker compose up -d`, then starts the web and mobile dev servers (on Windows they open in new terminal windows).
 
-### Database
+**Stop everything:** run `stop.cmd` (Windows) or `./scripts/stop.sh` (Mac/Linux). This runs `docker compose down` and stops processes on ports 3000 (web) and 19000 (Expo).
 
-PostgreSQL runs on `localhost:5432` with:
-- Database: `kyarafit`
-- User: `kyarafit` 
-- Password: `password`
+## Env vars and ports
 
----
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | Postgres connection string | `postgres://kyarafit:kyarafit@localhost:5432/kyarafit?sslmode=disable` |
+| `NEXT_PUBLIC_API_URL` | Backend URL for web | `http://localhost:8080` |
+| `EXPO_PUBLIC_API_URL` | Backend URL for mobile | `http://localhost:8080` |
 
-## Deployment
+| Service | Port |
+|---------|------|
+| Postgres | 5432 |
+| Backend | 8080 |
+| Image service (stub) | 8000 |
+| Web (Next.js) | 3000 |
 
-### Fly.io (Recommended)
+Copy `.env.example` to `.env` and set as needed. Web can use `.env.local` (see `web/.env.local.example`).
 
-1. **Install Fly CLI:**
-   ```bash
-   curl -L https://fly.io/install.sh | sh
-   flyctl auth login
-   ```
+## Design rules
 
-2. **Deploy services:**
-   ```bash
-   # Backend
-   cd backend && flyctl deploy
-   
-   # Web app
-   cd ../web && flyctl deploy
-   
-   # Image service
-   cd ../image-service && flyctl deploy
-   ```
+- **Prototype (look and flow):** [example screens/prototype/code.html](example%20screens/prototype/code.html) — the app UI follows this editorial look and navigation (The Lookbook, Current Focus hero, Next Deadline, The Closet with category tabs, bottom nav, FAB).
+- **Component spec:** [design-system/component_spec.md](design-system/component_spec.md)  
+- **Design lint (anti-drift):** [design-system/design_lint.md](design-system/design_lint.md)
 
-3. **Set environment variables:**
-   ```bash
-   flyctl secrets set DATABASE_URL="postgresql://..." -a kyarafit-backend
-   flyctl secrets set JWT_SECRET="your-secret" -a kyarafit-backend
-   ```
+Editorial UI: serif display for titles, sans for body, underlined inputs, sharp buttons, minimal chrome. Shared consistency via design-system tokens and component specs; do not invent new styles.
 
-### Render
+## Tech stack
 
-1. **Connect GitHub repository to Render**
-2. **Use the included `render.yaml` configuration**
-3. **Set environment variables in Render dashboard**
+- **Mobile:** Expo React Native (TypeScript), Expo Router, TanStack Query, Zustand, design-system RN tokens
+- **Web:** Next.js 14, App Router, Tailwind (token-aligned), design-system
+- **Backend:** Go, Fiber; health + `GET /closet/items` (mock list)
+- **DB:** PostgreSQL (docker-compose)
+- **Image service:** FastAPI stub; rembg not implemented yet
 
-### Docker Compose (Production)
+## Quality
 
-```bash
-# Build and start all services
-docker-compose up --build -d
+- Web: ESLint, Prettier (`npm run lint`, `npm run format` from root)
+- Mobile: Expo lint (`npm run lint` in mobile)
+- Backend: `go build ./cmd/api` and run
 
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-For detailed deployment instructions, see [deploy/README.md](deploy/README.md).
-
----
-
-## Development
-
-### Project Structure
-
-```
-Kyarafit/
-├── web/                 # Next.js web application
-│   ├── src/
-│   │   ├── app/        # App router pages
-│   │   ├── lib/        # Utilities and auth
-│   │   └── components/ # React components
-│   └── prisma/         # Database schema
-├── mobile/             # React Native + Expo app
-│   ├── src/
-│   │   ├── screens/    # App screens
-│   │   └── lib/        # Utilities and auth
-│   └── app.json        # Expo configuration
-├── backend/            # Go API server
-│   ├── database/       # Database connection
-│   ├── middleware/     # Auth middleware
-│   └── migrations/     # SQL migrations
-├── image-service/      # Python FastAPI service
-│   ├── main.py        # FastAPI app
-│   └── requirements.txt
-├── docker-compose.yml  # Local development
-├── setup.sh           # Setup script
-└── deploy/            # Deployment configs
-```
-
-### Available Scripts
-
-```bash
-# Setup everything
-./setup.sh
-
-# Start all services (including mobile)
-./start-project.sh
-
-# Start only mobile app (background)
-./start-mobile.sh
-
-# Start mobile app (interactive mode)
-./start-mobile-interactive.sh
-
-# Stop all services
-./stop-project.sh
-
-# Start individual services
-cd web && npm run dev
-cd mobile && npx expo start
-```
-
-### Git Workflow
-We use feature branches and pull requests for all development work.
-
-```bash
-# Create a new feature branch
-./scripts/git-workflow.sh new-feature your-feature-name
-
-# Make your changes, then commit
-./scripts/git-workflow.sh commit "feat: add new feature"
-
-# Push your branch
-./scripts/git-workflow.sh push
-
-# Create a pull request
-./scripts/git-workflow.sh pr
-```
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed workflow guidelines.
-
-```bash
-# Start individual services
-cd backend && go run main.go
-cd image-service && python3 -m uvicorn main:app --reload --port 8000 --host 0.0.0.0
-
-# Database operations
-cd web && npx prisma studio
-cd web && npx prisma db push
-cd web && npx prisma generate
-
-# Testing
-cd web && npm test
-cd backend && go test ./...
-cd image-service && python -m pytest
-```
-
----
-
-## Roadmap
-
-- [ ] Closet and build CRUD functionality
-- [ ] Coord builder with export support
-- [ ] Wishlist with product scraping and stock tracking
-- [ ] Push notifications for restocks and drops
-- [ ] Convention planner with packing list generator
-- [ ] Group builds and sharing features
-- [ ] Stats dashboard for spending and build history
-
----
-
-## Licensing
-
-This project is proprietary and all rights are reserved.  
-No part of the codebase, documentation, or assets may be copied, modified, distributed, or used commercially without prior written permission from the copyright holder.
-
----
-
-## Contributing
-
-Contributions may be accepted on an invite-only basis.  
-If you are interested in collaborating, please contact the repository owner to discuss access and contributor terms.
-
----
-
-## Contact
-
-For business inquiries or partnership opportunities, please contact:  
-**David Xiao** – dxiao3043@gmail.com - website: https://www.davidx.tech
-
+Keep the baseline minimal: no auth, no sync, no image cutout implementation yet.

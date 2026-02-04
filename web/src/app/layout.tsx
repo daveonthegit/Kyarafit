@@ -1,27 +1,27 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import ClientOnly from '@/components/ClientOnly'
-
-const inter = Inter({ subsets: ['latin'] })
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Kyarafit - Cosplay Wardrobe & Outfit Planning',
-  description: 'Organize your cosplay wardrobe, track builds, and plan perfect character coords.',
-}
+  title: 'Kyarafit – Editorial Cosplay Lookbook',
+  description: 'Organize your cosplay wardrobe, track builds, and plan character coords.',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className={inter.className} suppressHydrationWarning={true}>
-        <ClientOnly>
-          {children}
-        </ClientOnly>
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,100..700,0..1"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased">
+        {children}
       </body>
     </html>
-  )
+  );
 }

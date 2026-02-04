@@ -1,0 +1,12 @@
+{
+  "name": "@kyarafit/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./rn": "./rn/index.ts",
+    "./tailwind": "./tailwind.config.js"
+  }
+}

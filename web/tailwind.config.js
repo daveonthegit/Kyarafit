@@ -8,49 +8,42 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Sakura-inspired color palette
-        'sakura-pink': '#f8b4d1',
-        'sakura-soft-pink': '#fce7f3',
-        'sakura-deep-pink': '#ec4899',
-        'sakura-petal': '#fdf2f8',
-        'sakura-blossom': '#fbbf24',
-        'sakura-lavender': '#e0e7ff',
-        'sakura-mint': '#d1fae5',
-        
-        // Background colors
-        'bg-primary': '#fefefe',
-        'bg-secondary': '#ffffff',
-        'bg-tertiary': '#fdf2f8',
-        'bg-accent': '#fce7f3',
-        'bg-dark': '#2d1b2e',
-        'bg-darker': '#1a0e1b',
-        
-        // Text colors
-        'text-primary': '#2d1b2e',
-        'text-secondary': '#6b7280',
-        'text-muted': '#9ca3af',
-        'text-white': '#ffffff',
-        'text-sakura': '#ec4899',
-        
-        // Border colors
-        'border-light': '#fce7f3',
-        'border-medium': '#f8b4d1',
-        'border-dark': '#ec4899',
+        kyar: {
+          bg: '#FFFFFF',
+          surface: '#FFFFFF',
+          muted: '#F9F9F9',
+          text: '#000000',
+          textSecondary: 'rgba(0,0,0,0.60)',
+          textTertiary: 'rgba(0,0,0,0.40)',
+          textMuted: 'rgba(0,0,0,0.30)',
+          meta: 'rgba(0,0,0,0.50)',
+          border: 'rgba(0,0,0,0.10)',
+          borderSubtle: 'rgba(0,0,0,0.05)',
+          accent: '#1152D4',
+          danger: 'rgba(239,68,68,0.80)',
+        },
       },
       fontFamily: {
-        'sans': ['Source Sans Pro', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
+        serif: ['Playfair Display', 'Georgia', 'serif'],
+        'serif-elegant': ['Bodoni Moda', 'Georgia', 'serif'],
+        'sans-wide': ['Montserrat', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      letterSpacing: {
+        meta: '0.2em',
+        wide: '0.25em',
+        wider: '0.3em',
+        widest: '0.4em',
+      },
+      borderRadius: {
+        sm: '2px',
+        DEFAULT: '6px',
       },
       boxShadow: {
-        'roblox-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        'roblox-md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'roblox-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        'roblox-xl': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-      },
-      animation: {
-        'bounce-roblox': 'bounce 1s infinite',
-        'pulse-roblox': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        soft: '0 20px 40px rgba(0,0,0,0.05)',
+        fab: '0 10px 20px rgba(0,0,0,0.12)',
       },
     },
   },
   plugins: [],
-}
+};

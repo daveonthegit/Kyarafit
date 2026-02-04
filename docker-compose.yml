@@ -1,13 +1,12 @@
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: kyarafit
       POSTGRES_USER: kyarafit
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: kyarafit
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,7 +15,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Go Backend API
   backend:
     build:
       context: ./backend
@@ -24,35 +22,18 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://kyarafit:password@postgres:5432/kyarafit?sslmode=disable
-      - IMAGE_SERVICE_URL=http://image-service:8001
-      - JWT_SECRET=your-super-secret-jwt-key-here
+      - PORT=8080
+      - DATABASE_URL=postgres://kyarafit:kyarafit@postgres:5432/kyarafit?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: go run main.go
 
-  # Python Image Processing Service
   image-service:
     build:
       context: ./image-service
       dockerfile: Dockerfile
     ports:
-      - "8001:8001"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8001
-      - UPLOAD_DIR=uploads
-      - PROCESSED_DIR=processed
-    volumes:
-      - ./image-service:/app
-      - image_uploads:/app/uploads
-      - image_processed:/app/processed
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+      - "8000:8000"
 
 volumes:
   postgres_data:
-  image_uploads:
-  image_processed:
