@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lookbook Settings Overview - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,500;1,500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-ultra-light: #f2f2f2;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-heading {
+            font-family: "Playfair Display", serif;
+        }
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 0;
+            border-bottom: 0.5px solid var(--border-ultra-light);
+        }
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-8 pt-16 pb-6">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[9px] uppercase tracking-[0.4em] font-medium mb-2 opacity-40">System Preferences</p>
+<h1 class="serif-heading text-4xl tracking-tight">Settings</h1>
+</div>
+<button class="mb-1 p-2 -mr-2">
+<span class="material-symbols-outlined font-thin text-2xl">close</span>
+</button>
+</div>
+</header>
+<main class="flex-1 px-8 pb-32">
+<section class="mt-10 mb-12">
+<h2 class="serif-heading text-xl italic mb-6">Profile &amp; Identity</h2>
+<div class="flex flex-col">
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Account Details</span>
+<span class="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Subscription Plan</span>
+<span class="text-[10px] opacity-40 uppercase tracking-widest mr-2">Premium</span>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Notification Style</span>
+<span class="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+</a>
+</div>
+</section>
+<section class="mb-12">
+<h2 class="serif-heading text-xl italic mb-6">Connectivity</h2>
+<div class="flex flex-col">
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Cloud Sync</span>
+<div class="w-8 h-[1px] bg-black"></div>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Linked Platforms</span>
+<span class="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+</a>
+</div>
+</section>
+<section class="mb-12">
+<h2 class="serif-heading text-xl italic mb-6">Data Management</h2>
+<div class="flex flex-col">
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Data Export</span>
+<span class="material-symbols-outlined text-sm opacity-30">download</span>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Clear Cache</span>
+<span class="text-[10px] opacity-40 uppercase tracking-widest mr-2">124 MB</span>
+</a>
+</div>
+</section>
+<section class="mb-12">
+<h2 class="serif-heading text-xl italic mb-6">Information</h2>
+<div class="flex flex-col">
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">About Kyarafit</span>
+<span class="text-[10px] opacity-40 uppercase tracking-widest mr-2">v2.4.0</span>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Privacy Manifesto</span>
+<span class="material-symbols-outlined text-sm opacity-30">north_east</span>
+</a>
+<a class="settings-item" href="#">
+<span class="text-[11px] uppercase tracking-[0.2em] font-medium">Terms of Use</span>
+<span class="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+</a>
+</div>
+</section>
+<div class="mt-8 pt-8 border-t border-black/5">
+<button class="text-[10px] uppercase tracking-[0.3em] font-semibold text-red-500/80">
+                Sign Out of Device
+            </button>
+</div>
+</main>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-gray-100 pb-10 pt-4">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1" href="#">
+<span class="material-symbols-outlined text-2xl fill-[1]">person</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

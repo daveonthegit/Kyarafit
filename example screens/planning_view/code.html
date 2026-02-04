@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lookbook Task Planner - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-light: #f5f5f5;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-date {
+            font-family: "Playfair Display", serif;
+        }
+        .task-row {
+            border-bottom: 0.5px solid #eeeeee;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white px-8 pt-16 pb-8">
+<div class="flex flex-col">
+<p class="text-[10px] uppercase tracking-[0.4em] font-medium mb-12 opacity-40">Kyarafit / Planner</p>
+<div class="flex items-baseline justify-between">
+<h1 class="serif-date text-5xl font-bold italic tracking-tighter">October 24</h1>
+<span class="text-[11px] uppercase tracking-widest opacity-60">Thursday</span>
+</div>
+</div>
+</header>
+<main class="flex-1 px-8 pb-32">
+<section class="mb-16">
+<h2 class="text-[10px] uppercase tracking-[0.2em] font-bold mb-8 border-b border-black pb-2 inline-block">Today's Priority</h2>
+<div class="flex flex-col gap-12">
+<div class="group">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-medium tracking-tighter opacity-30">01</span>
+<span class="material-symbols-outlined text-[18px] font-light">more_horiz</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-light leading-tight tracking-tight">Finalize structural boning for Arlecchino corset assembly</h3>
+<p class="text-[11px] uppercase tracking-widest opacity-40">Workshop • 2:00 PM</p>
+</div>
+</div>
+<div class="group">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-medium tracking-tighter opacity-30">02</span>
+<span class="material-symbols-outlined text-[18px] font-light">more_horiz</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl font-light leading-tight tracking-tight">Hand-dyeing gradient silk for Eula's cape attachment</h3>
+<p class="text-[11px] uppercase tracking-widest opacity-40">Studio • 4:30 PM</p>
+</div>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-[10px] uppercase tracking-[0.2em] font-bold mb-6 opacity-40">Remaining Agenda</h2>
+<div class="flex flex-col">
+<div class="task-row py-6 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="w-2 h-2 rounded-full bg-black"></div>
+<span class="text-sm tracking-tight font-light">Source 3D printer resin (clear)</span>
+</div>
+<span class="text-[10px] opacity-40">10:00</span>
+</div>
+<div class="task-row py-6 flex items-center justify-between">
+<div class="flex items-center gap-6 opacity-30">
+<div class="w-2 h-2 border border-black rounded-full"></div>
+<span class="text-sm tracking-tight font-light line-through">Check wig fiber heat resistance</span>
+</div>
+<span class="text-[10px] opacity-40">DONE</span>
+</div>
+<div class="task-row py-6 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="w-2 h-2 border border-black rounded-full"></div>
+<span class="text-sm tracking-tight font-light">Reference shoot: Lighting test</span>
+</div>
+<span class="text-[10px] opacity-40">18:00</span>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-32 right-8 z-50">
+<button class="w-12 h-12 bg-black text-white flex items-center justify-center transition-transform active:scale-95">
+<span class="material-symbols-outlined font-light text-2xl">add</span>
+</button>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md pb-10 pt-4 border-t border-gray-50">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1" href="#">
+<span class="material-symbols-outlined text-2xl fill-[1]">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

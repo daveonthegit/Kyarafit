@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lookbook Build Details - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-ultra-light: #f0f0f0;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-display {
+            font-family: "Playfair Display", serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-checkbox {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border: 0.5px solid #000000;
+            background-color: #fff;
+            cursor: pointer;
+            position: relative;
+            border-radius: 0;
+        }
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            background-color: #000;
+        }
+        .thin-border-b {
+            border-bottom: 0.5px solid #000000;
+        }
+        .meta-label {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: rgba(0,0,0,0.5);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col pb-24">
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md px-6 pt-12 pb-4 flex justify-between items-center">
+<button class="flex items-center" onclick="history.back()">
+<span class="material-symbols-outlined font-light text-2xl">arrow_back_ios</span>
+</button>
+<span class="meta-label">Build Profile</span>
+<button>
+<span class="material-symbols-outlined font-light text-2xl">more_horiz</span>
+</button>
+</header>
+<main class="flex-1 mt-24">
+<section class="px-6 mb-12">
+<div class="aspect-[4/5] w-full overflow-hidden bg-gray-50 mb-8">
+<img alt="Arlecchino Character Build" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE"/>
+</div>
+<div class="flex justify-between items-end mb-8">
+<div>
+<p class="meta-label mb-2">Character Project</p>
+<h1 class="serif-display text-4xl font-normal italic tracking-tight">Arlecchino</h1>
+</div>
+<div class="text-right">
+<p class="meta-label">Edition</p>
+<p class="text-xs uppercase font-medium tracking-widest">Spring 2024</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-px bg-black/5 py-6 border-y border-black/5">
+<div class="px-2">
+<p class="meta-label">Status</p>
+<p class="text-xs uppercase tracking-widest mt-1 font-medium">In Progress (65%)</p>
+</div>
+<div class="px-2 border-l border-black/5">
+<p class="meta-label">Budget</p>
+<p class="text-xs uppercase tracking-widest mt-1 font-medium">$1,240.00 USD</p>
+</div>
+</div>
+</section>
+<section class="px-6 mb-16">
+<div class="flex justify-between items-baseline mb-8">
+<h2 class="serif-display text-xl italic">Task Checklist</h2>
+<span class="meta-label">04 / 06</span>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between pb-4 border-b border-gray-100">
+<label class="text-xs uppercase tracking-widest font-light flex items-center gap-4">
+<input checked="" class="custom-checkbox" type="checkbox"/>
+                        Pattern drafting for coat
+                    </label>
+<span class="text-[10px] opacity-40">Mar 12</span>
+</div>
+<div class="flex items-center justify-between pb-4 border-b border-gray-100">
+<label class="text-xs uppercase tracking-widest font-light flex items-center gap-4">
+<input checked="" class="custom-checkbox" type="checkbox"/>
+                        Order gradient silk fabric
+                    </label>
+<span class="text-[10px] opacity-40">Mar 15</span>
+</div>
+<div class="flex items-center justify-between pb-4 border-b border-gray-100">
+<label class="text-xs uppercase tracking-widest font-light flex items-center gap-4">
+<input class="custom-checkbox" type="checkbox"/>
+                        Wig styling &amp; crimping
+                    </label>
+<span class="text-[10px] opacity-40">Apr 02</span>
+</div>
+<div class="flex items-center justify-between pb-4 border-b border-gray-100">
+<label class="text-xs uppercase tracking-widest font-light flex items-center gap-4">
+<input class="custom-checkbox" type="checkbox"/>
+                        Prop armor painting
+                    </label>
+<span class="text-[10px] opacity-40">Apr 10</span>
+</div>
+</div>
+</section>
+<section class="px-6 mb-12">
+<div class="flex justify-between items-baseline mb-8">
+<h2 class="serif-display text-xl italic">Required Items</h2>
+<button class="text-[10px] uppercase tracking-widest border-b border-black pb-0.5">View All</button>
+</div>
+<div class="grid grid-cols-2 gap-x-4 gap-y-10">
+<div class="flex flex-col">
+<div class="aspect-square bg-gray-50 mb-3">
+<img alt="Master Sword" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW"/>
+</div>
+<p class="meta-label">Weapon</p>
+<h3 class="text-[11px] uppercase tracking-wider font-medium mt-1">Master Sword Replica</h3>
+</div>
+<div class="flex flex-col mt-8">
+<div class="aspect-[3/4] bg-gray-50 mb-3">
+<img alt="Red Silk" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSbn2HuM_28hzJJdHiSYmvMFmGzFT9CMK0ojMjviWbTESP41Y_N_ryP2JCqp3N_3qt4H4f-yh7wnyHrV-UO0k377cQ9gP7oe7p--UHbPWwE2UWM_e_b6y_fSZsCyCy8qdsvKjvih3HFXwYFdCXII-RnboXZKzoGDcW4SCYCixkBITaKwWwygH6GMgy_vJYPtqeomLSsJyFcB3TwmAfQdHNANN3vAdC54fDKDuyHGQz630ecIJ4cKnVu1REaltlVhudO_tugzdiuBGo"/>
+</div>
+<p class="meta-label">Material</p>
+<h3 class="text-[11px] uppercase tracking-wider font-medium mt-1">Premium Crimson Silk</h3>
+</div>
+<div class="flex flex-col -mt-4">
+<div class="aspect-square bg-gray-50 mb-3">
+<img alt="Eula Boots" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0KNVxrzmKEfU8I1GM36PMulIKrN3kEY-QtwCx9lLVg8Bavfx0uEW1ESSwDj545cDbYL3qYxLng9mEyzymtyn7QB2C-S6pYNwgMA_hYGl3sp8cbVfnloMdlCrNs1jpdO_GRJiWH_6SutiSdfT8YBADIagzAsSCCMKAIJB1TPNBINU-Pcudo4Zu88WWEvh-cP6wbVKhnKjROAttqtSuVx313sN5Oy7O_UBHg9j5lNjZQeGT8wzpDmVcxW0FKAJ1LekPZhIGnlqPXW2Y"/>
+</div>
+<p class="meta-label">Footwear</p>
+<h3 class="text-[11px] uppercase tracking-wider font-medium mt-1">Custom Leather Boots</h3>
+</div>
+<div class="flex flex-col">
+<div class="aspect-[4/5] bg-gray-50 mb-3">
+<img alt="Leather Set" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAjklWU3D0l13YqgRzBhoSYoPzYmAslbU8Hfcx0NFOlbSSvgykP6220TNb7uCyj8r8I3U91zziKtwj3mKIAXwJ5yVBRtSVe6b-Uq7_IaUdlWW3L3-z91rnxSvWE5ZD0q8kcydJyj9nHz8rZFfHA9I9Tdd1snUBvqD4eThXBee89levZHGsTgRvean3jZs-MumqOGYvk0USElskaP8wxSVHzj2TKajhUCd2dLnrJLT0szXROrwOndoUAzaK6s_UhSBAFlM8TBsBWnkq"/>
+</div>
+<p class="meta-label">Accents</p>
+<h3 class="text-[11px] uppercase tracking-wider font-medium mt-1">Glove Hardware Set</h3>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-32 right-6 z-50">
+<button class="w-14 h-14 bg-black text-white flex items-center justify-center transition-transform active:scale-95 shadow-lg">
+<span class="material-symbols-outlined font-light text-2xl">add</span>
+</button>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 pb-10 pt-4">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl font-light">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1" href="#">
+<span class="material-symbols-outlined text-2xl font-light fill-[1]">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl font-light">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl font-light">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

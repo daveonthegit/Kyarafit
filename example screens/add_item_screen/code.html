@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add/Edit Item - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-light: #e5e5e5;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-title {
+            font-family: "Playfair Display", serif;
+        }
+        .underline-input {
+            border: none;
+            border-bottom: 1px solid #000000;
+            padding-left: 0;
+            padding-right: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 14px;
+            letter-spacing: 0.025em;
+        }
+        .underline-input:focus {
+            outline: none;
+            box-shadow: none;
+            border-color: #000000;
+            border-bottom-width: 2px;
+        }
+        .label-small {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: #000000;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4">
+<div class="flex justify-between items-center">
+<button class="flex items-center" onclick="history.back()">
+<span class="material-symbols-outlined font-light text-2xl">close</span>
+</button>
+<div class="absolute left-1/2 -translate-x-1/2 text-center">
+<p class="text-[9px] uppercase tracking-[0.4em] font-medium opacity-40">Kyarafit</p>
+<h1 class="serif-title text-xl font-bold italic">New Item</h1>
+</div>
+<div class="w-6"></div> 
+</div>
+</header>
+<main class="flex-1 px-6 pb-32">
+<form class="space-y-10">
+<div class="relative mt-4">
+<div class="aspect-[3/4] w-full bg-[#f9f9f9] flex flex-col items-center justify-center border border-dashed border-gray-200 group cursor-pointer">
+<span class="material-symbols-outlined text-3xl font-light opacity-20 group-hover:opacity-40 transition-opacity">add_a_photo</span>
+<p class="text-[10px] uppercase tracking-widest mt-4 opacity-40">Upload Reference</p>
+</div>
+</div>
+<div class="space-y-10">
+<div class="flex flex-col">
+<label class="label-small">Item Name</label>
+<input class="underline-input w-full focus:ring-0" placeholder="e.g. Arlecchino Wig" type="text"/>
+</div>
+<div class="flex flex-col">
+<label class="label-small">Category</label>
+<div class="relative">
+<select class="underline-input w-full appearance-none focus:ring-0">
+<option value="">Select Category</option>
+<option value="wigs">Wigs</option>
+<option value="props">Props</option>
+<option value="outfits">Outfits</option>
+<option value="fabric">Fabric</option>
+<option value="shoes">Shoes</option>
+</select>
+<span class="material-symbols-outlined absolute right-0 bottom-2 text-sm pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col">
+<label class="label-small">Tags</label>
+<input class="underline-input w-full focus:ring-0" placeholder="Genshin, Synthetic, Red..." type="text"/>
+<p class="text-[9px] mt-2 opacity-30 italic">Separate with commas</p>
+</div>
+<div class="flex flex-col">
+<label class="label-small">Notes</label>
+<textarea class="underline-input w-full resize-none focus:ring-0" placeholder="Additional details, washing instructions, or material specs..." rows="3"></textarea>
+</div>
+</div>
+</form>
+</main>
+<div class="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
+<button class="w-full bg-black text-white py-5 text-[11px] uppercase tracking-[0.3em] font-bold shadow-sm active:bg-gray-900 transition-colors">
+            Save Item
+        </button>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100 pb-10 pt-4 hidden">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30" href="#">
+<span class="material-symbols-outlined text-2xl">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

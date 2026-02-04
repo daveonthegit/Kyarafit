@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kyarafit - Editorial Convention Planner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-title {
+            font-family: "Playfair Display", serif;
+        }
+        .itinerary-item {
+            border-bottom: 0.5px solid #000000;
+        }
+        .itinerary-item:last-child {
+            border-bottom: none;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .stagger-image {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col bg-white">
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-6 pt-14 pb-4 border-b border-gray-100">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] uppercase tracking-[0.4em] font-medium mb-1.5 opacity-40">Kyarafit Itinerary</p>
+<h1 class="serif-title text-3xl font-bold tracking-tight italic">Anime Expo</h1>
+</div>
+<div class="flex gap-4 mb-1">
+<span class="material-symbols-outlined font-light text-2xl">ios_share</span>
+<span class="material-symbols-outlined font-light text-2xl">more_horiz</span>
+</div>
+</div>
+</header>
+<section class="px-6 py-6 border-b border-gray-100">
+<div class="flex justify-between items-center">
+<div>
+<p class="text-[11px] uppercase tracking-widest font-semibold">Los Angeles, CA</p>
+<p class="text-[10px] opacity-50 mt-1">JULY 01 — JULY 04</p>
+</div>
+<div class="text-right">
+<p class="text-[11px] uppercase tracking-widest">78°F / 25°C</p>
+<p class="text-[10px] opacity-50 mt-1">Sunny • Low Humidity</p>
+</div>
+</div>
+</section>
+<main class="flex-1 px-6 pt-10 pb-32">
+<div class="space-y-20">
+<div class="relative">
+<div class="flex justify-between items-baseline mb-6">
+<h2 class="serif-title text-5xl italic font-bold">Day 1</h2>
+<span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 border border-black/10">Active</span>
+</div>
+<div class="flex gap-6">
+<div class="w-2/3">
+<div class="aspect-[3/4] overflow-hidden bg-gray-50 stagger-image">
+<img alt="Day 1 Cosplay" class="w-full h-full object-cover grayscale-[0.2]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE"/>
+</div>
+</div>
+<div class="w-1/3 flex flex-col justify-end pb-4">
+<p class="text-[11px] uppercase tracking-widest font-bold mb-2">Look 01</p>
+<p class="text-[10px] leading-relaxed opacity-60">Arlecchino<br/>Full Regalia</p>
+<div class="mt-6">
+<p class="text-[10px] uppercase tracking-tighter font-semibold">10:00 AM</p>
+<p class="text-[9px] opacity-50">Main Stage Hall</p>
+</div>
+</div>
+</div>
+</div>
+<div class="relative">
+<div class="flex justify-between items-baseline mb-6">
+<h2 class="serif-title text-5xl italic font-bold">Day 2</h2>
+<span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 opacity-30">Pending</span>
+</div>
+<div class="flex flex-row-reverse gap-6">
+<div class="w-2/3">
+<div class="aspect-[3/4] overflow-hidden bg-gray-50 stagger-image">
+<img alt="Day 2 Cosplay" class="w-full h-full object-cover grayscale-[0.2]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0KNVxrzmKEfU8I1GM36PMulIKrN3kEY-QtwCx9lLVg8Bavfx0uEW1ESSwDj545cDbYL3qYxLng9mEyzymtyn7QB2C-S6pYNwgMA_hYGl3sp8cbVfnloMdlCrNs1jpdO_GRJiWH_6SutiSdfT8YBADIagzAsSCCMKAIJB1TPNBINU-Pcudo4Zu88WWEvh-cP6wbVKhnKjROAttqtSuVx313sN5Oy7O_UBHg9j5lNjZQeGT8wzpDmVcxW0FKAJ1LekPZhIGnlqPXW2Y"/>
+</div>
+</div>
+<div class="w-1/3 flex flex-col justify-end text-right pb-4">
+<p class="text-[11px] uppercase tracking-widest font-bold mb-2">Look 02</p>
+<p class="text-[10px] leading-relaxed opacity-60">Eula Lawrence<br/>Knight Version</p>
+<div class="mt-6">
+<p class="text-[10px] uppercase tracking-tighter font-semibold">1:30 PM</p>
+<p class="text-[9px] opacity-50">Outdoor Pavilion</p>
+</div>
+</div>
+</div>
+</div>
+<div class="relative">
+<div class="flex justify-between items-baseline mb-6">
+<h2 class="serif-title text-5xl italic font-bold">Day 3</h2>
+<span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 opacity-30">Pending</span>
+</div>
+<div class="flex gap-6">
+<div class="w-full">
+<div class="aspect-[16/9] overflow-hidden bg-gray-50 stagger-image">
+<img alt="Day 3 Cosplay" class="w-full h-full object-cover grayscale-[0.2]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAjklWU3D0l13YqgRzBhoSYoPzYmAslbU8Hfcx0NFOlbSSvgykP6220TNb7uCyj8r8I3U91zziKtwj3mKIAXwJ5yVBRtSVe6b-Uq7_IaUdlWW3L3-z91rnxSvWE5ZD0q8kcydJyj9nHz8rZFfHA9I9Tdd1snUBvqD4eThXBee89levZHGsTgRvean3jZs-MumqOGYvk0USElskaP8wxSVHzj2TKajhUCd2dLnrJLT0szXROrwOndoUAzaK6s_UhSBAFlM8TBsBWnkq"/>
+</div>
+<div class="mt-4 flex justify-between items-start">
+<div>
+<p class="text-[11px] uppercase tracking-widest font-bold">Look 03</p>
+<p class="text-[10px] leading-relaxed opacity-60">Leather Accessory Set Concept</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-tighter font-semibold">ALL DAY</p>
+<p class="text-[9px] opacity-50">Artist Alley / Meetup</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 pb-10 pt-4">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-2xl fill-[1]">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+<div class="w-1 h-1 bg-black rounded-full mt-0.5"></div>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Studio</span>
+</a>
+</div>
+</footer>
+<div class="fixed bottom-28 right-6 z-50">
+<button class="w-12 h-12 bg-black text-white flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined font-light text-2xl">add</span>
+</button>
+</div>
+
+</body></html>

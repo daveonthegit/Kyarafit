@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Minimalist Packing List - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-light: #f2f2f2;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-title {
+            font-family: "Playfair Display", serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid #000000;
+            background-color: transparent;
+            display: inline-block;
+            position: relative;
+            cursor: pointer;
+            border-radius: 0;
+        }
+        .custom-checkbox:checked {
+            background-color: #000000;
+        }
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 1.5px 1.5px 0;
+            transform: rotate(45deg);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-6">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] uppercase tracking-[0.4em] font-medium mb-1 opacity-50">Kyarafit</p>
+<h1 class="serif-title text-3xl font-bold tracking-tight italic">Packing List</h1>
+</div>
+<button class="mb-1">
+<span class="material-symbols-outlined font-light text-2xl">more_vert</span>
+</button>
+</div>
+</header>
+<nav class="sticky top-[112px] z-30 bg-white/95 backdrop-blur-sm pb-4">
+<div class="flex gap-8 px-6 overflow-x-auto no-scrollbar items-center border-b border-black/5 pb-4">
+<button class="text-[10px] uppercase tracking-[0.2em] font-semibold relative after:absolute after:-bottom-4 after:left-0 after:w-full after:h-[1px] after:bg-black shrink-0">Current Trip</button>
+<button class="text-[10px] uppercase tracking-[0.2em] font-normal opacity-30 shrink-0">Archive</button>
+<button class="text-[10px] uppercase tracking-[0.2em] font-normal opacity-30 shrink-0">Templates</button>
+</div>
+</nav>
+<main class="flex-1 px-6 py-4 pb-32">
+<section class="mb-10">
+<div class="flex justify-between items-baseline border-b border-black pb-2 mb-6">
+<h2 class="serif-title text-xl font-bold italic tracking-tight">Arlecchino</h2>
+<span class="text-[9px] uppercase tracking-widest opacity-40">8 Items</span>
+</div>
+<div class="space-y-5">
+<div class="flex items-center group">
+<input checked="" class="custom-checkbox" id="item1" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item1">Custom Wig (Styled)</label>
+<span class="text-[10px] opacity-30 font-light">L-01</span>
+</div>
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item2" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item2">Tailored Coat &amp; Vest</label>
+<span class="text-[10px] opacity-30 font-light">L-02</span>
+</div>
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item3" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item3">Pointed Boots</label>
+<span class="text-[10px] opacity-30 font-light">S-04</span>
+</div>
+<div class="flex items-center group">
+<input checked="" class="custom-checkbox" id="item4" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item4">Glove Set (Left/Right)</label>
+<span class="text-[10px] opacity-30 font-light">A-09</span>
+</div>
+</div>
+</section>
+<section class="mb-10">
+<div class="flex justify-between items-baseline border-b border-black pb-2 mb-6">
+<h2 class="serif-title text-xl font-bold italic tracking-tight">Master Sword</h2>
+<span class="text-[9px] uppercase tracking-widest opacity-40">3 Items</span>
+</div>
+<div class="space-y-5">
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item5" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item5">Sword Blade &amp; Hilt</label>
+<span class="text-[10px] opacity-30 font-light">P-01</span>
+</div>
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item6" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item6">Leather Scabbard</label>
+<span class="text-[10px] opacity-30 font-light">P-02</span>
+</div>
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item7" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item7">Display Stand (Travel)</label>
+<span class="text-[10px] opacity-30 font-light">P-03</span>
+</div>
+</div>
+</section>
+<section class="mb-10 opacity-60">
+<div class="flex justify-between items-baseline border-b border-black/20 pb-2 mb-6">
+<h2 class="serif-title text-xl font-bold italic tracking-tight">Studio Kit</h2>
+<span class="text-[9px] uppercase tracking-widest opacity-40">Essential</span>
+</div>
+<div class="space-y-5">
+<div class="flex items-center group">
+<input checked="" class="custom-checkbox" id="item8" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1 line-through" for="item8">Safety Pins &amp; Clips</label>
+</div>
+<div class="flex items-center group">
+<input checked="" class="custom-checkbox" id="item9" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1 line-through" for="item9">Fashion Tape</label>
+</div>
+<div class="flex items-center group">
+<input class="custom-checkbox" id="item10" type="checkbox"/>
+<label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="item10">Wig Cap x2</label>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-28 right-6 z-50">
+<button class="w-14 h-14 bg-black text-white flex items-center justify-center transition-transform active:scale-95 shadow-lg">
+<span class="material-symbols-outlined font-light text-3xl">add</span>
+</button>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-black/5 pb-10 pt-4">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-2xl fill-[1]">inventory_2</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Pack</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-[0.15em]">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

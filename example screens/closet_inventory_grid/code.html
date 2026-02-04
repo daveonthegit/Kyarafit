@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Minimalist Lookbook Closet - Kyarafit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --accent-color: #000000;
+            --border-light: #eeeeee;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .serif-title {
+            font-family: "Playfair Display", serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .nav-underline {
+            position: relative;
+        }
+        .nav-underline.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: black;
+        }
+        .asymmetric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .item-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .thin-border {
+            border: 0.5px solid #000000;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-gray-50">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] uppercase tracking-[0.3em] font-medium mb-1 opacity-60">Kyarafit</p>
+<h1 class="serif-title text-3xl font-bold tracking-tight italic">The Closet</h1>
+</div>
+<button class="mb-1">
+<span class="material-symbols-outlined font-light text-2xl">search</span>
+</button>
+</div>
+</header>
+<nav class="sticky top-[104px] z-30 bg-white/95 backdrop-blur-sm pt-4 pb-6 border-b border-gray-50">
+<div class="flex gap-8 px-6 overflow-x-auto no-scrollbar items-center">
+<button class="text-[11px] uppercase tracking-widest font-semibold nav-underline active shrink-0">All</button>
+<button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Wigs</button>
+<button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Props</button>
+<button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Outfits</button>
+<button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Fabric</button>
+<button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Shoes</button>
+</div>
+</nav>
+<main class="flex-1 px-4 py-6">
+<div class="asymmetric-grid">
+<div class="col-span-2 item-card mb-4">
+<div class="aspect-[3/4] overflow-hidden">
+<img alt="Arlecchino Wig" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE"/>
+</div>
+<div class="flex justify-between items-start pt-2">
+<div>
+<h3 class="text-[12px] font-semibold uppercase tracking-wider">Arlecchino Wig</h3>
+<p class="text-[10px] opacity-50 uppercase tracking-tighter">Hand-styled collection</p>
+</div>
+<span class="text-[10px] font-medium">001</span>
+</div>
+</div>
+<div class="item-card">
+<div class="aspect-square overflow-hidden bg-gray-50">
+<img alt="Master Sword" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW"/>
+</div>
+<div class="pt-1">
+<h3 class="text-[11px] uppercase tracking-wider">Master Sword</h3>
+<p class="text-[9px] opacity-40">Legendary Tier</p>
+</div>
+</div>
+<div class="item-card mt-8">
+<div class="aspect-[4/5] overflow-hidden bg-gray-50">
+<img alt="Eula Boots" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0KNVxrzmKEfU8I1GM36PMulIKrN3kEY-QtwCx9lLVg8Bavfx0uEW1ESSwDj545cDbYL3qYxLng9mEyzymtyn7QB2C-S6pYNwgMA_hYGl3sp8cbVfnloMdlCrNs1jpdO_GRJiWH_6SutiSdfT8YBADIagzAsSCCMKAIJB1TPNBINU-Pcudo4Zu88WWEvh-cP6wbVKhnKjROAttqtSuVx313sN5Oy7O_UBHg9j5lNjZQeGT8wzpDmVcxW0FKAJ1LekPZhIGnlqPXW2Y"/>
+</div>
+<div class="pt-1">
+<h3 class="text-[11px] uppercase tracking-wider">Eula Boots</h3>
+<p class="text-[9px] opacity-40">Custom Fit</p>
+</div>
+</div>
+<div class="item-card -mt-8">
+<div class="aspect-[1/1] overflow-hidden bg-gray-50">
+<img alt="Red Silk" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSbn2HuM_28hzJJdHiSYmvMFmGzFT9CMK0ojMjviWbTESP41Y_N_ryP2JCqp3N_3qt4H4f-yh7wnyHrV-UO0k377cQ9gP7oe7p--UHbPWwE2UWM_e_b6y_fSZsCyCy8qdsvKjvih3HFXwYFdCXII-RnboXZKzoGDcW4SCYCixkBITaKwWwygH6GMgy_vJYPtqeomLSsJyFcB3TwmAfQdHNANN3vAdC54fDKDuyHGQz630ecIJ4cKnVu1REaltlVhudO_tugzdiuBGo"/>
+</div>
+<div class="pt-1">
+<h3 class="text-[11px] uppercase tracking-wider">Red Silk</h3>
+<p class="text-[9px] opacity-40">3.0 Meters</p>
+</div>
+</div>
+<div class="item-card">
+<div class="aspect-square overflow-hidden bg-gray-50">
+<img alt="Miku Base" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB29gwIwKlpDMRg7kZ4qFBuSSzK36ICxpxxn8yKnoXzrK0dEX0Fsu3dA0DGjn8G3_4qpZ2mOZPBMf0ydrqRyNy10n0DeXN6YeW9vz2pwzryUOby7fYFoxw8T18oUWFIYBH0ijfaE_xQ5iRdotAfhBNsdZha83zDrZPqY609fItjAVoQH4jbXGfUKBwCpVYXAbChV--6hA4GquRYkRpqXZpNXP8kD21QD8o6EhFWeyN3g7Q9NW-8Hfs13iin4o4KOdiwc2zMjPYfWV-Z"/>
+</div>
+<div class="pt-1">
+<h3 class="text-[11px] uppercase tracking-wider">Miku Base</h3>
+<p class="text-[9px] opacity-40">Ver. 02</p>
+</div>
+</div>
+<div class="col-span-2 item-card mt-4 mb-20">
+<div class="aspect-[16/9] overflow-hidden bg-gray-50">
+<img alt="Leather Set" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAjklWU3D0l13YqgRzBhoSYoPzYmAslbU8Hfcx0NFOlbSSvgykP6220TNb7uCyj8r8I3U91zziKtwj3mKIAXwJ5yVBRtSVe6b-Uq7_IaUdlWW3L3-z91rnxSvWE5ZD0q8kcydJyj9nHz8rZFfHA9I9Tdd1snUBvqD4eThXBee89levZHGsTgRvean3jZs-MumqOGYvk0USElskaP8wxSVHzj2TKajhUCd2dLnrJLT0szXROrwOndoUAzaK6s_UhSBAFlM8TBsBWnkq"/>
+</div>
+<div class="flex justify-between items-start pt-2">
+<div>
+<h3 class="text-[12px] font-semibold uppercase tracking-wider">Leather Accessory Set</h3>
+<p class="text-[10px] opacity-50 uppercase tracking-tighter">Premium Handcrafted</p>
+</div>
+<span class="material-symbols-outlined text-sm">favorite</span>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-28 right-6 z-50">
+<button class="w-14 h-14 bg-black text-white flex items-center justify-center transition-transform active:scale-95 shadow-2xl">
+<span class="material-symbols-outlined font-light text-3xl">add</span>
+</button>
+</div>
+<footer class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 pb-10 pt-4">
+<div class="flex justify-around items-center px-4">
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-2xl fill-[1]">dashboard</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Closet</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">photo_library</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Mood</span>
+</a>
+<a class="flex flex-col items-center gap-1 opacity-30 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-2xl">person_outline</span>
+<span class="text-[9px] font-semibold uppercase tracking-widest">Studio</span>
+</a>
+</div>
+</footer>
+
+</body></html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Kyarafit - Editorial Cosplay Lookbook</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <style type="text/tailwindcss">
+        :root {
+            --primary: #1152d4;
+        }
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-display, .serif-title, .serif-heading, .serif-date {
+            font-family: "Playfair Display", serif;
+        }
+        .font-serif-elegant { 
+            font-family: 'Bodoni Moda', serif; 
+        }
+        .font-sans-wide { 
+            font-family: 'Montserrat', sans-serif; 
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-checkbox {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border: 0.5px solid #000000;
+            background-color: #fff;
+            cursor: pointer;
+            position: relative;
+            border-radius: 0;
+        }
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            background-color: #000;
+        }
+        .meta-label {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: rgba(0,0,0,0.5);
+        }
+        .underline-input {
+            border: none;
+            border-bottom: 1px solid #000000;
+            padding-left: 0; padding-right: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 14px;
+        }
+        .underline-input:focus {
+            outline: none;
+            box-shadow: none;
+            border-color: #1152d4;
+        }
+        .stagger-image {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+
+        // --- Mock Data ---
+        const MOCK_ITEMS = [
+            { id: '001', name: 'Arlecchino Wig', cat: 'Wigs', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE' },
+            { id: '002', name: 'Master Sword', cat: 'Props', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW' },
+            { id: '003', name: 'Eula Boots', cat: 'Shoes', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC0KNVxrzmKEfU8I1GM36PMulIKrN3kEY-QtwCx9lLVg8Bavfx0uEW1ESSwDj545cDbYL3qYxLng9mEyzymtyn7QB2C-S6pYNwgMA_hYGl3sp8cbVfnloMdlCrNs1jpdO_GRJiWH_6SutiSdfT8YBADIagzAsSCCMKAIJB1TPNBINU-Pcudo4Zu88WWEvh-cP6wbVKhnKjROAttqtSuVx313sN5Oy7O_UBHg9j5lNjZQeGT8wzpDmVcxW0FKAJ1LekPZhIGnlqPXW2Y' }
+        ];
+
+        // --- Shared Components ---
+        const BottomNav = ({ active }) => {
+            const navItems = [
+                { id: 'home', icon: 'home', label: 'Home', path: '/home' },
+                { id: 'builds', icon: 'architecture', label: 'Builds', path: '/builds' },
+                { id: 'plan', icon: 'calendar_today', label: 'Plan', path: '/planner' },
+                { id: 'packing', icon: 'package_2', label: 'Packing', path: '/packing' }
+            ];
+
+            return (
+                <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 pb-8 pt-3">
+                    <div className="flex justify-around items-center px-4">
+                        {navItems.map(item => (
+                            <Link key={item.id} to={item.path} className={`flex flex-col items-center gap-1 transition-opacity ${active === item.id ? 'opacity-100' : 'opacity-30'}`}>
+                                <span className={`material-symbols-outlined text-2xl font-light ${active === item.id ? 'fill-[1]' : ''}`}>{item.icon}</span>
+                                <span className="text-[9px] font-semibold uppercase tracking-widest">{item.label}</span>
+                                {active === item.id && <div className="w-1 h-1 bg-black rounded-full mt-0.5"></div>}
+                            </Link>
+                        ))}
+                    </div>
+                </footer>
+            );
+        };
+
+        const FloatingAdd = ({ onClick }) => (
+            <button 
+                onClick={onClick}
+                className="fixed bottom-28 right-6 z-50 w-14 h-14 bg-black text-white flex items-center justify-center rounded-sm transition-transform active:scale-95 shadow-lg"
+            >
+                <span className="material-symbols-outlined font-light text-2xl">add</span>
+            </button>
+        );
+
+        // --- Screens ---
+
+        const SplashLanding = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex flex-col min-h-screen">
+                    <header className="flex justify-between items-center px-8 pt-10 z-20">
+                        <span className="font-serif-elegant text-2xl font-bold italic tracking-tighter">Kyarafit</span>
+                        <button onClick={() => navigate('/home')} className="font-sans-wide text-[10px] text-zinc-400">Skip</button>
+                    </header>
+                    <main className="flex-1 flex flex-col pt-8">
+                        <div className="px-0 mb-10">
+                            <div className="relative w-full h-[60vh] overflow-hidden">
+                                <img className="w-full h-full object-cover grayscale-[20%]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5j_rjik1qfSqmE54IvlQ-f93B0ic1cMxmr4b5UdTCH9jUwmMLGKWBb0I7q-2GTYocwgz4-cw76dbs2rVBlitZa9YCGAX42unGgJ4-1jMOxB1Jo5GIdpLCDYuIsOMiUNzgwVQk9HHCG2sH1_T97gvqe9a4z7nemuaxofVVC2yPD4NuamYwLJ89xyERKi8ayBVi-4-jlq2_ReZz-IvBQOKL8fEEYSuYKZtNSCV4qtxrDAEyEDwBPkVFNygFQEiVGt9BjSqc3ui-kxcK" alt="editorial"/>
+                                <div className="absolute bottom-6 right-8 text-[10px] font-sans-wide text-white mix-blend-difference">Issue 01 / Vol 24</div>
+                            </div>
+                        </div>
+                        <div className="px-8 space-y-6 flex flex-col">
+                            <div>
+                                <p className="font-sans-wide text-[9px] text-zinc-500 mb-2">The Art of Transformation</p>
+                                <h1 className="font-serif-elegant text-5xl leading-[1.1] font-normal">Elevated <br/><span className="italic">Cosplay</span></h1>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="h-[1px] bg-black w-10"></div>
+                                <p className="font-sans-wide text-[10px] leading-loose text-zinc-600 max-w-[200px]">A curated digital space for the modern artisan.</p>
+                            </div>
+                        </div>
+                    </main>
+                    <footer className="px-8 pb-12 mt-10">
+                        <div className="flex flex-col gap-6">
+                            <button onClick={() => navigate('/home')} className="border border-black py-4 w-full font-sans-wide text-xs hover:bg-black hover:text-white transition-all">Get Started</button>
+                            <div className="flex justify-between items-center">
+                                <div className="flex gap-2"><div className="w-8 h-[1px] bg-black"></div><div className="w-2 h-[1px] bg-zinc-200"></div></div>
+                                <button className="font-sans-wide text-[9px] text-black border-b border-black pb-0.5">Log In</button>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const Home = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="pt-14 px-8 pb-6 flex justify-between items-end">
+                        <div>
+                            <p className="meta-label mb-1">Kyarafit</p>
+                            <h1 className="serif-display text-4xl font-normal italic tracking-tight">The Lookbook</h1>
+                        </div>
+                        <div className="flex gap-4 mb-1">
+                            <span className="material-symbols-outlined font-light text-2xl">search</span>
+                            <span onClick={() => navigate('/settings')} className="material-symbols-outlined font-light text-2xl cursor-pointer">menu</span>
+                        </div>
+                    </header>
+                    <main className="flex-1">
+                        <section className="px-6 mb-12 cursor-pointer" onClick={() => navigate('/build-detail')}>
+                            <div className="relative w-full aspect-[4/5] overflow-hidden">
+                                <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE" alt="featured"/>
+                                <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end text-white">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-[0.2em] font-light mb-1">Current Focus</p>
+                                        <h2 className="serif-display text-2xl italic font-normal">Arlecchino</h2>
+                                    </div>
+                                    <span className="text-[10px] uppercase tracking-widest border border-white/30 px-3 py-1 backdrop-blur-md">View Case</span>
+                                </div>
+                            </div>
+                        </section>
+                        <section className="px-8 space-y-12">
+                            <div className="flex flex-col border-t border-black/5 pt-6">
+                                <div className="flex justify-between items-baseline mb-4">
+                                    <h3 className="text-[11px] uppercase tracking-[0.3em] font-semibold">Next Deadline</h3>
+                                    <span className="serif-display italic text-lg opacity-40">12 Days</span>
+                                </div>
+                                <div className="flex items-start gap-8">
+                                    <div className="flex-1">
+                                        <p className="serif-display text-2xl leading-tight mb-2">Final Fitting & Prop Polish</p>
+                                        <p className="text-[12px] opacity-50 leading-relaxed">Ensuring structural integrity for the wing mechanism and weathering.</p>
+                                    </div>
+                                    <div className="w-16 h-16 shrink-0 border border-black/5 p-1"><img className="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW" alt="prop"/></div>
+                                </div>
+                            </div>
+                        </section>
+                    </main>
+                    <FloatingAdd onClick={() => navigate('/add-item')} />
+                    <BottomNav active="home" />
+                </div>
+            );
+        };
+
+        const Closet = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-gray-50">
+                        <div className="flex items-center gap-4 mb-4">
+                            <button onClick={() => navigate('/builds')}><span className="material-symbols-outlined font-light">arrow_back</span></button>
+                            <p className="meta-label">Builds / Closet</p>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <h1 className="serif-title text-3xl font-bold tracking-tight italic">The Closet</h1>
+                            </div>
+                            <button className="mb-1"><span className="material-symbols-outlined font-light text-2xl">search</span></button>
+                        </div>
+                    </header>
+                    <nav className="sticky top-[128px] z-30 bg-white/95 backdrop-blur-sm pt-4 pb-6 border-b border-gray-50">
+                        <div className="flex gap-8 px-6 overflow-x-auto no-scrollbar">
+                            <button className="text-[11px] uppercase tracking-widest font-semibold border-b border-black shrink-0">All Items</button>
+                            <button className="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Wigs</button>
+                            <button className="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Props</button>
+                            <button className="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Materials</button>
+                        </div>
+                    </nav>
+                    <main className="flex-1 px-4 py-6 grid grid-cols-2 gap-3">
+                        {MOCK_ITEMS.map(item => (
+                            <div key={item.id} className="flex flex-col gap-2">
+                                <div className="aspect-square bg-gray-50"><img src={item.img} className="w-full h-full object-cover" /></div>
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-[10px] uppercase tracking-wider font-semibold">{item.name}</h3>
+                                    <span className="text-[9px] opacity-40">$45.00</span>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                    <FloatingAdd onClick={() => navigate('/add-item')} />
+                    <BottomNav active="builds" />
+                </div>
+            );
+        };
+
+        const Planner = () => {
+            const navigate = useNavigate();
+            const [view, setView] = useState('daily'); // 'daily' or 'conventions'
+            const conventions = [
+                { id: 'ax', name: 'Anime Expo', date: 'July 2024', status: 'Upcoming' },
+                { id: 'nycc', name: 'NYCC', date: 'Oct 2024', status: 'Planning' }
+            ];
+
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="px-8 pt-16 pb-8">
+                        <div className="flex gap-6 mb-8">
+                            <button onClick={() => setView('daily')} className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === 'daily' ? 'border-b-2 border-black' : 'opacity-30'}`}>Daily</button>
+                            <button onClick={() => setView('conventions')} className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === 'conventions' ? 'border-b-2 border-black' : 'opacity-30'}`}>Conventions</button>
+                        </div>
+                        {view === 'daily' ? (
+                            <div className="flex items-baseline justify-between">
+                                <h1 className="serif-date text-5xl font-bold italic tracking-tighter">October 24</h1>
+                                <span className="text-[11px] uppercase tracking-widest opacity-60">Thursday</span>
+                            </div>
+                        ) : (
+                            <h1 className="serif-date text-5xl font-bold italic tracking-tighter">Circuit</h1>
+                        )}
+                    </header>
+                    <main className="flex-1 px-8">
+                        {view === 'daily' ? (
+                            <section className="mb-16">
+                                <h2 className="text-[10px] uppercase tracking-[0.2em] font-bold mb-8 border-b border-black pb-2 inline-block">Today's Priority</h2>
+                                <div className="space-y-12">
+                                    <div className="group">
+                                        <div className="flex justify-between items-start mb-2"><span className="text-[10px] opacity-30">01</span><span className="material-symbols-outlined text-[18px]">more_horiz</span></div>
+                                        <h3 className="text-xl font-light tracking-tight">Finalize structural boning for Arlecchino corset assembly</h3>
+                                        <p className="text-[11px] uppercase tracking-widest opacity-40 mt-2">Workshop • 2:00 PM</p>
+                                    </div>
+                                </div>
+                            </section>
+                        ) : (
+                            <section className="space-y-10">
+                                {conventions.map(con => (
+                                    <div key={con.id} className="border-b border-gray-100 pb-6 group cursor-pointer" onClick={() => navigate('/itinerary')}>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <h3 className="serif-title text-2xl italic font-bold">{con.name}</h3>
+                                            <span className="text-[10px] opacity-40">{con.date}</span>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <button className="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Itinerary</button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate('/packing'); }} className="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Packing List</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </section>
+                        )}
+                    </main>
+                    <BottomNav active="plan" />
+                </div>
+            );
+        };
+
+        const Builds = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="px-6 pt-14 pb-4 bg-white/90 backdrop-blur-md sticky top-0 z-40">
+                        <div className="flex justify-between items-end">
+                            <div><p className="meta-label mb-1 opacity-40">Portfolio</p><h1 className="serif-title text-3xl font-bold tracking-tight italic">My Builds</h1></div>
+                            <button onClick={() => navigate('/closet')} className="flex items-center gap-2 border border-black px-3 py-1">
+                                <span className="material-symbols-outlined font-light text-sm">inventory_2</span>
+                                <span className="text-[9px] uppercase tracking-widest font-bold">Closet</span>
+                            </button>
+                        </div>
+                    </header>
+                    <nav className="sticky top-[108px] z-30 bg-white/90 backdrop-blur-md pt-2 pb-6 flex gap-8 px-6 overflow-x-auto no-scrollbar">
+                        <button className="text-[11px] uppercase tracking-widest font-semibold border-b border-black shrink-0">In Progress</button>
+                        <button className="text-[11px] uppercase tracking-widest font-normal opacity-30 shrink-0">Completed</button>
+                    </nav>
+                    <main className="flex-1 px-6 space-y-16 mt-6">
+                        <section onClick={() => navigate('/build-detail')} className="cursor-pointer">
+                            <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-6 relative">
+                                <img className="w-full h-full object-cover" src={MOCK_ITEMS[0].img} />
+                                <div className="absolute top-4 right-4 bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-widest shadow-sm">
+                                    Budget: $840 / $1200
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-baseline"><h2 className="serif-title text-2xl font-bold italic tracking-tight">Arlecchino</h2><span className="text-[10px] opacity-40">PROJ 012</span></div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[9px] uppercase tracking-widest"><span>Construction Progress</span><span>85%</span></div>
+                                    <div className="h-[1px] bg-gray-100 w-full"><div className="h-full bg-black w-[85%]"></div></div>
+                                </div>
+                            </div>
+                        </section>
+                    </main>
+                    <FloatingAdd onClick={() => navigate('/add-item')} />
+                    <BottomNav active="builds" />
+                </div>
+            );
+        };
+
+        const BuildDetail = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col pb-24">
+                    <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md px-6 pt-12 pb-4 flex justify-between items-center">
+                        <button onClick={() => navigate(-1)}><span className="material-symbols-outlined font-light text-2xl">arrow_back_ios</span></button>
+                        <span className="meta-label">Build Profile</span>
+                        <span className="material-symbols-outlined font-light text-2xl">more_horiz</span>
+                    </header>
+                    <main className="mt-24">
+                        <section className="px-6 mb-12">
+                            <div className="aspect-[4/5] w-full overflow-hidden mb-8"><img className="w-full h-full object-cover" src={MOCK_ITEMS[0].img} /></div>
+                            <div className="flex justify-between items-end mb-8">
+                                <div><p className="meta-label mb-2">Character Project</p><h1 className="serif-display text-4xl font-normal italic">Arlecchino</h1></div>
+                                <div className="text-right"><p className="meta-label">Edition</p><p className="text-xs uppercase font-medium tracking-widest">Spring 2024</p></div>
+                            </div>
+                            <div className="grid grid-cols-2 py-6 border-y border-black/5">
+                                <div className="px-2"><p className="meta-label">Construction</p><p className="text-xs uppercase mt-1 font-medium">85% Complete</p></div>
+                                <div className="px-2 border-l border-black/5">
+                                    <p className="meta-label">Financials</p>
+                                    <p className="text-xs uppercase mt-1 font-medium">Spent: $842.10</p>
+                                    <p className="text-[9px] opacity-40 italic">Limit: $1,200.00</p>
+                                </div>
+                            </div>
+                        </section>
+                        <section className="px-6 mb-12">
+                            <div className="flex justify-between items-center mb-8">
+                                <h2 className="serif-display text-xl italic">Bill of Materials</h2>
+                                <button className="text-[9px] uppercase tracking-widest border-b border-black">Add Expense</button>
+                            </div>
+                            <div className="space-y-6">
+                                {[
+                                    { name: 'Worbla Sheet (Large)', cost: 85.00, status: 'Acquired' },
+                                    { name: 'Raw Silk Fabric (4yd)', cost: 120.00, status: 'Acquired' },
+                                    { name: 'EVA Foam 5mm', cost: 45.50, status: 'Planned' }
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between pb-4 border-b border-gray-100">
+                                        <div>
+                                            <p className="text-xs uppercase tracking-widest font-light">{item.name}</p>
+                                            <p className="text-[9px] opacity-40 mt-1">{item.status}</p>
+                                        </div>
+                                        <span className="text-[11px] font-bold">${item.cost.toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </main>
+                    <BottomNav active="builds" />
+                </div>
+            );
+        };
+
+        const AddItem = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 flex justify-between items-center">
+                        <button onClick={() => navigate(-1)}><span className="material-symbols-outlined font-light text-2xl">close</span></button>
+                        <div className="text-center">
+                            <p className="text-[9px] uppercase tracking-[0.4em] font-medium opacity-40">Kyarafit</p>
+                            <h1 className="serif-title text-xl font-bold italic">New Item</h1>
+                        </div>
+                        <div className="w-6"></div>
+                    </header>
+                    <main className="px-6 pb-32 space-y-10">
+                        <div className="aspect-[3/4] w-full bg-[#f9f9f9] flex flex-col items-center justify-center border border-dashed border-gray-200 group cursor-pointer mt-4">
+                            <span className="material-symbols-outlined text-3xl font-light opacity-20">add_a_photo</span>
+                            <p className="text-[10px] uppercase tracking-widest mt-4 opacity-40">Upload Reference</p>
+                        </div>
+                        <div className="space-y-10">
+                            {['Item Name', 'Category', 'Tags'].map(label => (
+                                <div key={label} className="flex flex-col">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold mb-2">{label}</label>
+                                    <input className="underline-input" type="text" placeholder={`Enter ${label}...`} />
+                                </div>
+                            ))}
+                        </div>
+                    </main>
+                    <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
+                        <button onClick={() => navigate(-1)} className="w-full bg-black text-white py-5 text-[11px] uppercase tracking-[0.3em] font-bold shadow-sm">Save Item</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const Itinerary = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col bg-white">
+                    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-6 pt-14 pb-4 border-b border-gray-100 flex justify-between items-end">
+                        <div>
+                            <p className="text-[10px] uppercase tracking-[0.4em] font-medium mb-1.5 opacity-40">Kyarafit Itinerary</p>
+                            <h1 className="serif-title text-3xl font-bold italic">Anime Expo</h1>
+                        </div>
+                        <div className="flex gap-4 mb-1">
+                            <span className="material-symbols-outlined font-light text-2xl">ios_share</span>
+                            <button onClick={() => navigate(-1)}><span className="material-symbols-outlined font-light text-2xl">close</span></button>
+                        </div>
+                    </header>
+                    <main className="flex-1 px-6 pt-10 pb-32 space-y-20">
+                        <div className="relative">
+                            <div className="flex justify-between items-baseline mb-6"><h2 className="serif-title text-5xl italic font-bold">Day 1</h2><span className="text-[10px] uppercase border border-black/10 px-2 py-1">Active</span></div>
+                            <div className="flex gap-6">
+                                <div className="w-2/3"><img className="aspect-[3/4] object-cover stagger-image" src={MOCK_ITEMS[0].img} /></div>
+                                <div className="w-1/3 flex flex-col justify-end pb-4">
+                                    <p className="text-[11px] uppercase font-bold mb-2">Look 01</p>
+                                    <p className="text-[10px] opacity-60">Arlecchino Full Regalia</p>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                    <BottomNav active="plan" />
+                </div>
+            );
+        };
+
+        const PackingList = () => {
+            const navigate = useNavigate();
+            const [selectedCon, setSelectedCon] = useState('Anime Expo');
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="px-6 pt-12 pb-6 flex justify-between items-end">
+                        <div>
+                            <p className="meta-label opacity-50 mb-1">Logistics</p>
+                            <h1 className="serif-title text-3xl font-bold italic">Packing List</h1>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <label className="text-[8px] uppercase tracking-widest opacity-40 mb-1">Convention</label>
+                            <select 
+                                value={selectedCon} 
+                                onChange={(e) => setSelectedCon(e.target.value)}
+                                className="text-[10px] uppercase tracking-widest font-bold border-none p-0 focus:ring-0 text-right bg-transparent"
+                            >
+                                <option>Anime Expo</option>
+                                <option>NYCC</option>
+                            </select>
+                        </div>
+                    </header>
+                    <main className="px-6 space-y-10">
+                        <section>
+                            <div className="flex justify-between border-b border-black pb-2 mb-6">
+                                <h2 className="serif-title text-xl font-bold italic">Arlecchino</h2>
+                                <span className="text-[9px] opacity-40">4 Items</span>
+                            </div>
+                            <div className="space-y-5">
+                                {['Custom Wig', 'Tailored Coat', 'Pointed Boots', 'Glove Set'].map((item, i) => (
+                                    <div key={i} className="flex items-center">
+                                        <input type="checkbox" className="custom-checkbox w-4 h-4 mr-4" />
+                                        <label className="text-[13px] uppercase tracking-wide flex-1">{item}</label>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                        <section>
+                            <div className="flex justify-between border-b border-black pb-2 mb-6">
+                                <h2 className="serif-title text-xl font-bold italic">Emergency Kit</h2>
+                                <span className="text-[9px] opacity-40">2 Items</span>
+                            </div>
+                            <div className="space-y-5">
+                                {['Hot Glue Gun', 'Safety Pins'].map((item, i) => (
+                                    <div key={i} className="flex items-center">
+                                        <input type="checkbox" className="custom-checkbox w-4 h-4 mr-4" />
+                                        <label className="text-[13px] uppercase tracking-wide flex-1">{item}</label>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </main>
+                    <BottomNav active="packing" />
+                </div>
+            );
+        };
+
+        const Settings = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="min-h-screen flex flex-col pb-32">
+                    <header className="px-8 pt-16 pb-6 flex justify-between items-end">
+                        <div><p className="meta-label mb-2 opacity-40">System Preferences</p><h1 className="serif-heading text-4xl tracking-tight">Settings</h1></div>
+                        <button onClick={() => navigate(-1)} className="p-2 -mr-2"><span className="material-symbols-outlined font-thin text-2xl">close</span></button>
+                    </header>
+                    <main className="px-8 mt-10 space-y-12">
+                        <section>
+                            <h2 className="serif-heading text-xl italic mb-6">Profile & Identity</h2>
+                            {['Account Details', 'Subscription Plan', 'Notification Style'].map((item, i) => (
+                                <div key={i} className="flex justify-between items-center py-5 border-b border-gray-100">
+                                    <span className="text-[11px] uppercase tracking-widest font-medium">{item}</span>
+                                    <span className="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+                                </div>
+                            ))}
+                        </section>
+                        <button onClick={() => navigate('/')} className="text-[10px] uppercase tracking-[0.3em] font-semibold text-red-500/80">Sign Out of Device</button>
+                    </main>
+                </div>
+            );
+        };
+
+        // --- App Entry ---
+        const App = () => {
+            return (
+                <MemoryRouter>
+                    <Routes>
+                        <Route path="/" element={<SplashLanding />} />
+                        <Route path="/home" element={<Home />} />
+                        <Route path="/closet" element={<Closet />} />
+                        <Route path="/planner" element={<Planner />} />
+                        <Route path="/builds" element={<Builds />} />
+                        <Route path="/build-detail" element={<BuildDetail />} />
+                        <Route path="/add-item" element={<AddItem />} />
+                        <Route path="/itinerary" element={<Itinerary />} />
+                        <Route path="/packing" element={<PackingList />} />
+                        <Route path="/settings" element={<Settings />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

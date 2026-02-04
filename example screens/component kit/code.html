@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Kyarafit Component Kit - Editorial Design System</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <style type="text/tailwindcss">
+        /* ===== DESIGN TOKENS ===== */
+        :root {
+            /* Colors - Background */
+            --color-bg-base: #FFFFFF;
+            --color-bg-surface: #FFFFFF;
+            --color-bg-muted: #F9F9F9;
+            --color-bg-overlay: rgba(255,255,255,0.95);
+            
+            /* Colors - Text */
+            --color-text-primary: #000000;
+            --color-text-secondary: rgba(0,0,0,0.60);
+            --color-text-tertiary: rgba(0,0,0,0.40);
+            --color-text-muted: rgba(0,0,0,0.30);
+            --color-text-meta: rgba(0,0,0,0.50);
+            
+            /* Colors - Border */
+            --color-border-default: rgba(0,0,0,0.10);
+            --color-border-subtle: rgba(0,0,0,0.05);
+            --color-border-strong: #000000;
+            --color-border-dashed: rgba(0,0,0,0.12);
+            
+            /* Colors - Accent */
+            --color-accent-primary: #1152D4;
+            
+            /* Colors - State */
+            --color-state-danger: rgba(239,68,68,0.80);
+            
+            /* Spacing */
+            --spacing-unit: 4px;
+            --spacing-screen-x: 24px;
+            --spacing-section-gap: 48px;
+            --spacing-stack-gap: 24px;
+            --spacing-grid-gap: 12px;
+            
+            /* Radius */
+            --radius-none: 0;
+            --radius-sm: 2px;
+            --radius-md: 6px;
+            --radius-lg: 12px;
+            
+            /* Shadow */
+            --shadow-soft: 0 20px 40px rgba(0,0,0,0.05);
+            --shadow-fab: 0 10px 20px rgba(0,0,0,0.12);
+            
+            /* Motion */
+            --motion-fast: 120ms;
+            --motion-base: 180ms;
+            --motion-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
+            background-color: var(--color-bg-base);
+            color: var(--color-text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Typography Roles */
+        .font-serif-display { font-family: 'Playfair Display', Georgia, serif; }
+        .font-serif-elegant { font-family: 'Bodoni Moda', Georgia, serif; }
+        .font-sans-wide { 
+            font-family: 'Montserrat', Inter, system-ui, sans-serif; 
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+        }
+
+        /* Meta Label - Most used label style */
+        .meta-label {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--color-text-meta);
+        }
+
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Custom Checkbox */
+        .custom-checkbox {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border: 0.5px solid var(--color-border-strong);
+            background-color: var(--color-bg-base);
+            cursor: pointer;
+            position: relative;
+            border-radius: 0;
+        }
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            background-color: var(--color-text-primary);
+        }
+
+        /* Underline Input */
+        .underline-input {
+            border: none;
+            border-bottom: 1px solid var(--color-border-strong);
+            padding-left: 0;
+            padding-right: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 14px;
+        }
+        .underline-input:focus {
+            outline: none;
+            box-shadow: none;
+            border-color: var(--color-accent-primary);
+        }
+        .underline-input::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+        /* Stagger Image Shadow */
+        .stagger-image {
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* Progress Line */
+        .progress-bg {
+            height: 1px;
+            background-color: var(--color-border-default);
+            width: 100%;
+        }
+        .progress-line {
+            height: 1px;
+            background-color: var(--color-text-primary);
+        }
+
+        /* Component Section */
+        .component-section {
+            border-top: 1px solid var(--color-border-default);
+            padding-top: 48px;
+            margin-top: 48px;
+        }
+
+        /* Demo Container */
+        .demo-container {
+            background: var(--color-bg-muted);
+            padding: 24px;
+            margin-top: 16px;
+            border: 1px dashed var(--color-border-dashed);
+        }
+
+        /* Code Block */
+        .code-note {
+            font-family: ui-monospace, monospace;
+            font-size: 10px;
+            color: var(--color-text-tertiary);
+            background: var(--color-bg-muted);
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+    </style>
+    <style>
+        body { min-height: max(884px, 100dvh); }
+    </style>
+</head>
+
+<body class="bg-white">
+    <!-- Kit Header -->
+    <header class="px-8 pt-16 pb-12 border-b border-black/5">
+        <p class="meta-label mb-3 opacity-60">Design System v0.1.0</p>
+        <h1 class="font-serif-elegant text-5xl font-normal italic tracking-tight mb-4">Kyarafit</h1>
+        <p class="font-serif-display text-2xl italic opacity-60">Component Kit</p>
+        <p class="text-sm font-light mt-6 max-w-md leading-relaxed opacity-60">
+            A comprehensive reference of all UI components used across the Kyarafit editorial cosplay lookbook application.
+        </p>
+    </header>
+
+    <main class="px-8 pb-32">
+        
+        <!-- ==================== 01. TYPOGRAPHY ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 01</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Typography</h2>
+            
+            <div class="space-y-8">
+                <!-- Display Hero -->
+                <div>
+                    <span class="code-note">font-serif-elegant · 48px</span>
+                    <p class="font-serif-elegant text-5xl font-normal mt-2">Display Hero</p>
+                </div>
+                
+                <!-- Display Hero Italic -->
+                <div>
+                    <span class="code-note">font-serif-elegant · italic · 48px</span>
+                    <p class="font-serif-elegant text-5xl italic font-normal mt-2">Display Hero <span class="not-italic">Italic</span></p>
+                </div>
+
+                <!-- Display Title -->
+                <div>
+                    <span class="code-note">font-serif-display · italic · 36px</span>
+                    <p class="font-serif-display text-4xl italic font-normal mt-2">Display Title</p>
+                </div>
+
+                <!-- Heading Serif -->
+                <div>
+                    <span class="code-note">font-serif-display · bold italic · 24px</span>
+                    <p class="font-serif-display text-2xl font-bold italic mt-2">Heading Serif Bold</p>
+                </div>
+
+                <!-- Section Title -->
+                <div>
+                    <span class="code-note">font-serif-display · italic · 20px</span>
+                    <p class="font-serif-display text-xl italic mt-2">Section Title</p>
+                </div>
+
+                <!-- Label Wide -->
+                <div>
+                    <span class="code-note">font-sans-wide · 11px · tracking-widest · uppercase</span>
+                    <p class="font-sans-wide text-[11px] font-semibold mt-2">Label Wide Uppercase</p>
+                </div>
+
+                <!-- Meta Label -->
+                <div>
+                    <span class="code-note">meta-label · 9px · tracking-0.2em</span>
+                    <p class="meta-label mt-2">Meta Label Text</p>
+                </div>
+
+                <!-- Body Text -->
+                <div>
+                    <span class="code-note">Inter · 14-16px · font-light/normal</span>
+                    <p class="text-sm font-light leading-relaxed mt-2 max-w-md">Body text uses Inter Light for maximum readability. Leading is generous for editorial quality.</p>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 02. COLORS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 02</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Colors</h2>
+            
+            <div class="grid grid-cols-2 gap-6">
+                <!-- Background Colors -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Background</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-white border border-black/10"></div>
+                            <span class="text-[10px]">Base #FFFFFF</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-[#F9F9F9] border border-black/10"></div>
+                            <span class="text-[10px]">Muted #F9F9F9</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Colors -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Text</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-black"></div>
+                            <span class="text-[10px]">Primary #000000</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-black/60"></div>
+                            <span class="text-[10px]">Secondary 60%</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-black/40"></div>
+                            <span class="text-[10px]">Tertiary 40%</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-black/30"></div>
+                            <span class="text-[10px]">Muted 30%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accent -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Accent</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-[#1152D4]"></div>
+                        <span class="text-[10px]">Primary #1152D4</span>
+                    </div>
+                </div>
+
+                <!-- Danger -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">State</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-red-500/80"></div>
+                        <span class="text-[10px]">Danger (Errors)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 03. BUTTONS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 03</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Buttons</h2>
+            
+            <div class="space-y-8">
+                <!-- Primary Button -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Primary (CTA)</p>
+                    <span class="code-note">bg-black · h-52/56px · tracking-widest · uppercase</span>
+                    <div class="demo-container">
+                        <button class="w-full bg-black text-white py-4 text-[11px] uppercase tracking-[0.3em] font-semibold transition-all active:scale-[0.98]">
+                            Save Item
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Secondary Button -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Secondary (Outlined)</p>
+                    <span class="code-note">border-black · transparent bg · hover:invert</span>
+                    <div class="demo-container">
+                        <button class="w-full border border-black text-black py-4 text-[11px] uppercase tracking-[0.3em] font-semibold hover:bg-black hover:text-white transition-all">
+                            Get Started
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Text Button / Link -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Text Link</p>
+                    <span class="code-note">underline · 9-11px · tracking-widest</span>
+                    <div class="demo-container flex gap-8">
+                        <button class="text-[10px] uppercase tracking-widest border-b border-black pb-0.5">View All</button>
+                        <button class="text-[11px] font-medium underline underline-offset-4 tracking-tighter">View Details</button>
+                        <button class="text-[9px] uppercase tracking-widest border-b border-black pb-0.5">Add Expense</button>
+                    </div>
+                </div>
+
+                <!-- Small Action Buttons -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Small Action Buttons</p>
+                    <span class="code-note">Used in cards, itineraries · 9-10px · bordered</span>
+                    <div class="demo-container flex gap-4 flex-wrap">
+                        <button class="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Itinerary</button>
+                        <button class="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Packing List</button>
+                        <span class="text-[10px] uppercase tracking-widest border border-white/30 px-3 py-1 bg-black/20 text-white backdrop-blur-md">View Case</span>
+                    </div>
+                </div>
+
+                <!-- Icon Button -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Icon Buttons</p>
+                    <span class="code-note">Material Symbols · font-light · 24px</span>
+                    <div class="demo-container flex gap-6 items-center">
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">search</span></button>
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">menu</span></button>
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">close</span></button>
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">arrow_back_ios</span></button>
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">more_horiz</span></button>
+                        <button class="p-2"><span class="material-symbols-outlined font-light text-2xl">ios_share</span></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 04. NAVIGATION ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 04</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Navigation</h2>
+            
+            <div class="space-y-12">
+                <!-- Bottom Tab Bar -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Bottom Tab Bar</p>
+                    <span class="code-note">fixed bottom · backdrop-blur · pb-10 (safe area)</span>
+                    <div class="demo-container !p-0">
+                        <div class="bg-white/95 backdrop-blur-md border-t border-gray-100 pb-6 pt-4">
+                            <div class="flex justify-around items-center px-4">
+                                <a class="flex flex-col items-center gap-1" href="#">
+                                    <span class="material-symbols-outlined text-2xl font-light fill-[1]">home</span>
+                                    <span class="text-[9px] font-semibold uppercase tracking-widest">Home</span>
+                                    <div class="w-1 h-1 bg-black rounded-full mt-0.5"></div>
+                                </a>
+                                <a class="flex flex-col items-center gap-1 opacity-30" href="#">
+                                    <span class="material-symbols-outlined text-2xl font-light">architecture</span>
+                                    <span class="text-[9px] font-semibold uppercase tracking-widest">Builds</span>
+                                </a>
+                                <a class="flex flex-col items-center gap-1 opacity-30" href="#">
+                                    <span class="material-symbols-outlined text-2xl font-light">calendar_today</span>
+                                    <span class="text-[9px] font-semibold uppercase tracking-widest">Plan</span>
+                                </a>
+                                <a class="flex flex-col items-center gap-1 opacity-30" href="#">
+                                    <span class="material-symbols-outlined text-2xl font-light">package_2</span>
+                                    <span class="text-[9px] font-semibold uppercase tracking-widest">Packing</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Action Button -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Floating Action Button (FAB)</p>
+                    <span class="code-note">fixed bottom-28 right-6 · w-14 h-14 · shadow-fab</span>
+                    <div class="demo-container flex gap-6 items-center">
+                        <button class="w-14 h-14 bg-black text-white flex items-center justify-center transition-transform active:scale-95 shadow-lg">
+                            <span class="material-symbols-outlined font-light text-2xl">add</span>
+                        </button>
+                        <button class="w-12 h-12 bg-black text-white flex items-center justify-center transition-transform active:scale-95 shadow-lg">
+                            <span class="material-symbols-outlined font-light text-2xl">add</span>
+                        </button>
+                        <button class="w-12 h-12 bg-black text-white flex items-center justify-center rounded-full transition-transform active:scale-95 shadow-lg">
+                            <span class="material-symbols-outlined font-light text-2xl">add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Horizontal Tab Nav -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Horizontal Tab Navigation</p>
+                    <span class="code-note">sticky · overflow-x-auto · no-scrollbar</span>
+                    <div class="demo-container !p-0">
+                        <div class="bg-white/95 backdrop-blur-sm pt-4 pb-6 border-b border-gray-50">
+                            <div class="flex gap-8 px-6 overflow-x-auto no-scrollbar">
+                                <button class="text-[11px] uppercase tracking-widest font-semibold border-b border-black shrink-0 pb-1">All Items</button>
+                                <button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Wigs</button>
+                                <button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Props</button>
+                                <button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Outfits</button>
+                                <button class="text-[11px] uppercase tracking-widest font-normal opacity-40 shrink-0">Materials</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Segmented Control -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Segmented Control / Toggle Tabs</p>
+                    <span class="code-note">Used in Planner view · border-b-2 for active</span>
+                    <div class="demo-container">
+                        <div class="flex gap-6">
+                            <button class="text-[10px] uppercase tracking-[0.2em] font-bold pb-1 border-b-2 border-black">Daily</button>
+                            <button class="text-[10px] uppercase tracking-[0.2em] font-bold pb-1 opacity-30">Conventions</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 05. INPUTS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 05</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Form Inputs</h2>
+            
+            <div class="space-y-10">
+                <!-- Underline Input -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Underline Input</p>
+                    <span class="code-note">border-bottom only · focus:accent color</span>
+                    <div class="demo-container space-y-8">
+                        <div class="flex flex-col">
+                            <label class="text-[10px] uppercase tracking-widest font-bold mb-2">Item Name</label>
+                            <input class="underline-input w-full" type="text" placeholder="e.g. Arlecchino Wig"/>
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="text-[10px] uppercase tracking-widest font-bold mb-2">Tags</label>
+                            <input class="underline-input w-full" type="text" placeholder="Genshin, Synthetic, Red..."/>
+                            <p class="text-[9px] mt-2 opacity-30 italic">Separate with commas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Select Dropdown -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Select / Dropdown</p>
+                    <span class="code-note">underline-input · appearance-none · chevron icon</span>
+                    <div class="demo-container">
+                        <div class="flex flex-col">
+                            <label class="text-[10px] uppercase tracking-widest font-bold mb-2">Category</label>
+                            <div class="relative">
+                                <select class="underline-input w-full appearance-none bg-transparent">
+                                    <option value="">Select Category</option>
+                                    <option value="wigs">Wigs</option>
+                                    <option value="props">Props</option>
+                                    <option value="outfits">Outfits</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-0 bottom-2 text-sm pointer-events-none">expand_more</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Textarea -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Textarea</p>
+                    <span class="code-note">underline-input style · resize-none</span>
+                    <div class="demo-container">
+                        <div class="flex flex-col">
+                            <label class="text-[10px] uppercase tracking-widest font-bold mb-2">Notes</label>
+                            <textarea class="underline-input w-full resize-none" placeholder="Additional details..." rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Checkbox -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Custom Checkbox</p>
+                    <span class="code-note">square · sharp corners · filled inset when checked</span>
+                    <div class="demo-container space-y-4">
+                        <div class="flex items-center gap-4">
+                            <input type="checkbox" class="custom-checkbox" id="check1"/>
+                            <label for="check1" class="text-[13px] uppercase tracking-wide">Unchecked item</label>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <input type="checkbox" class="custom-checkbox" id="check2" checked/>
+                            <label for="check2" class="text-[13px] uppercase tracking-wide">Checked item</label>
+                        </div>
+                        <div class="flex items-center gap-4 opacity-60">
+                            <input type="checkbox" class="custom-checkbox" id="check3" checked/>
+                            <label for="check3" class="text-[13px] uppercase tracking-wide line-through">Completed item</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 06. CARDS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 06</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Cards</h2>
+            
+            <div class="space-y-12">
+                <!-- Hero Feature Card -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Hero Feature Card</p>
+                    <span class="code-note">aspect-[4/5] · overlay text · Used on Home</span>
+                    <div class="demo-container !p-0">
+                        <div class="relative w-full aspect-[4/5] overflow-hidden">
+                            <img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE" alt="featured"/>
+                            <div class="absolute bottom-6 left-6 right-6 flex justify-between items-end text-white">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.2em] font-light mb-1">Current Focus</p>
+                                    <h2 class="font-serif-display text-2xl italic font-normal">Arlecchino</h2>
+                                </div>
+                                <span class="text-[10px] uppercase tracking-widest border border-white/30 px-3 py-1 backdrop-blur-md">View Case</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Build Card -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Build Card (Portfolio)</p>
+                    <span class="code-note">aspect-[2/3] · progress bar · budget badge</span>
+                    <div class="demo-container !px-0">
+                        <div class="px-6">
+                            <div class="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-6 relative">
+                                <img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE" alt="build"/>
+                                <div class="absolute top-4 right-4 bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-widest shadow-sm">
+                                    Budget: $840 / $1200
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-baseline">
+                                    <h2 class="font-serif-display text-2xl font-bold italic tracking-tight">Arlecchino</h2>
+                                    <span class="text-[10px] opacity-40">PROJ 012</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-[9px] uppercase tracking-widest">
+                                        <span>Construction Progress</span>
+                                        <span>85%</span>
+                                    </div>
+                                    <div class="progress-bg"><div class="progress-line" style="width: 85%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid Item Card -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Grid Item Card (Closet)</p>
+                    <span class="code-note">aspect-square · minimal meta</span>
+                    <div class="demo-container">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-2">
+                                <div class="aspect-square bg-gray-50">
+                                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW" class="w-full h-full object-cover"/>
+                                </div>
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-[10px] uppercase tracking-wider font-semibold">Master Sword</h3>
+                                    <span class="text-[9px] opacity-40">$45.00</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div class="aspect-square bg-gray-50">
+                                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0KNVxrzmKEfU8I1GM36PMulIKrN3kEY-QtwCx9lLVg8Bavfx0uEW1ESSwDj545cDbYL3qYxLng9mEyzymtyn7QB2C-S6pYNwgMA_hYGl3sp8cbVfnloMdlCrNs1jpdO_GRJiWH_6SutiSdfT8YBADIagzAsSCCMKAIJB1TPNBINU-Pcudo4Zu88WWEvh-cP6wbVKhnKjROAttqtSuVx313sN5Oy7O_UBHg9j5lNjZQeGT8wzpDmVcxW0FKAJ1LekPZhIGnlqPXW2Y" class="w-full h-full object-cover"/>
+                                </div>
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-[10px] uppercase tracking-wider font-semibold">Eula Boots</h3>
+                                    <span class="text-[9px] opacity-40">$120.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stagger Image Card (Itinerary) -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Stagger Image Card (Itinerary)</p>
+                    <span class="code-note">shadow-soft · asymmetric layout</span>
+                    <div class="demo-container">
+                        <div class="flex gap-6">
+                            <div class="w-2/3">
+                                <div class="aspect-[3/4] overflow-hidden bg-gray-50 stagger-image">
+                                    <img class="w-full h-full object-cover grayscale-[0.2]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE" alt="day look"/>
+                                </div>
+                            </div>
+                            <div class="w-1/3 flex flex-col justify-end pb-4">
+                                <p class="text-[11px] uppercase tracking-widest font-bold mb-2">Look 01</p>
+                                <p class="text-[10px] leading-relaxed opacity-60">Arlecchino<br/>Full Regalia</p>
+                                <div class="mt-6">
+                                    <p class="text-[10px] uppercase tracking-tighter font-semibold">10:00 AM</p>
+                                    <p class="text-[9px] opacity-50">Main Stage Hall</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 07. LIST ROWS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 07</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">List Rows</h2>
+            
+            <div class="space-y-10">
+                <!-- Checklist Row -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Checklist Row</p>
+                    <span class="code-note">Full row tappable · date on right</span>
+                    <div class="demo-container space-y-0">
+                        <div class="flex items-center justify-between py-4 border-b border-gray-100">
+                            <label class="text-xs uppercase tracking-widest font-light flex items-center gap-4 cursor-pointer">
+                                <input checked class="custom-checkbox" type="checkbox"/>
+                                Pattern drafting for coat
+                            </label>
+                            <span class="text-[10px] opacity-40">Mar 12</span>
+                        </div>
+                        <div class="flex items-center justify-between py-4 border-b border-gray-100">
+                            <label class="text-xs uppercase tracking-widest font-light flex items-center gap-4 cursor-pointer">
+                                <input class="custom-checkbox" type="checkbox"/>
+                                Wig styling & crimping
+                            </label>
+                            <span class="text-[10px] opacity-40">Apr 02</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Packing List Row -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Packing List Row</p>
+                    <span class="code-note">checkbox · label · code on right</span>
+                    <div class="demo-container space-y-5">
+                        <div class="flex items-center">
+                            <input type="checkbox" class="custom-checkbox w-[18px] h-[18px]" id="pack1"/>
+                            <label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1" for="pack1">Custom Wig (Styled)</label>
+                            <span class="text-[10px] opacity-30 font-light">L-01</span>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" class="custom-checkbox w-[18px] h-[18px]" id="pack2" checked/>
+                            <label class="ml-4 text-[13px] tracking-wide font-normal uppercase flex-1 line-through opacity-60" for="pack2">Glove Set (Left/Right)</label>
+                            <span class="text-[10px] opacity-30 font-light">A-09</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Row -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Settings Row</p>
+                    <span class="code-note">label · optional value · chevron</span>
+                    <div class="demo-container space-y-0">
+                        <a class="flex justify-between items-center py-5 border-b border-gray-100" href="#">
+                            <span class="text-[11px] uppercase tracking-[0.2em] font-medium">Account Details</span>
+                            <span class="material-symbols-outlined text-sm opacity-30">chevron_right</span>
+                        </a>
+                        <a class="flex justify-between items-center py-5 border-b border-gray-100" href="#">
+                            <span class="text-[11px] uppercase tracking-[0.2em] font-medium">Subscription Plan</span>
+                            <span class="text-[10px] opacity-40 uppercase tracking-widest">Premium</span>
+                        </a>
+                        <a class="flex justify-between items-center py-5" href="#">
+                            <span class="text-[11px] uppercase tracking-[0.2em] font-medium">Clear Cache</span>
+                            <span class="text-[10px] opacity-40 uppercase tracking-widest">124 MB</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Task Row (Planner) -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Task Row (Planner Agenda)</p>
+                    <span class="code-note">dot indicator · time on right</span>
+                    <div class="demo-container space-y-0">
+                        <div class="py-6 flex items-center justify-between border-b border-gray-100">
+                            <div class="flex items-center gap-6">
+                                <div class="w-2 h-2 rounded-full bg-black"></div>
+                                <span class="text-sm tracking-tight font-light">Source 3D printer resin (clear)</span>
+                            </div>
+                            <span class="text-[10px] opacity-40">10:00</span>
+                        </div>
+                        <div class="py-6 flex items-center justify-between border-b border-gray-100">
+                            <div class="flex items-center gap-6 opacity-30">
+                                <div class="w-2 h-2 border border-black rounded-full"></div>
+                                <span class="text-sm tracking-tight font-light line-through">Check wig fiber heat resistance</span>
+                            </div>
+                            <span class="text-[10px] opacity-40">DONE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bill of Materials Row -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Bill of Materials Row</p>
+                    <span class="code-note">item name · status · cost</span>
+                    <div class="demo-container space-y-0">
+                        <div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
+                            <div>
+                                <p class="text-xs uppercase tracking-widest font-light">Worbla Sheet (Large)</p>
+                                <p class="text-[9px] opacity-40 mt-1">Acquired</p>
+                            </div>
+                            <span class="text-[11px] font-bold">$85.00</span>
+                        </div>
+                        <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+                            <div>
+                                <p class="text-xs uppercase tracking-widest font-light">EVA Foam 5mm</p>
+                                <p class="text-[9px] opacity-40 mt-1">Planned</p>
+                            </div>
+                            <span class="text-[11px] font-bold">$45.50</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 08. HEADERS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 08</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Headers</h2>
+            
+            <div class="space-y-10">
+                <!-- Screen Header (Home Style) -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Screen Header (Home)</p>
+                    <span class="code-note">meta-label · serif title · action icons</span>
+                    <div class="demo-container !p-0">
+                        <div class="pt-10 px-8 pb-6 flex justify-between items-end">
+                            <div>
+                                <p class="meta-label mb-1">Kyarafit</p>
+                                <h1 class="font-serif-display text-4xl font-normal italic tracking-tight">The Lookbook</h1>
+                            </div>
+                            <div class="flex gap-4 mb-1">
+                                <span class="material-symbols-outlined font-light text-2xl">search</span>
+                                <span class="material-symbols-outlined font-light text-2xl">menu</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen Header (Portfolio Style) -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Screen Header (Portfolio)</p>
+                    <span class="code-note">bold italic title · action button</span>
+                    <div class="demo-container !p-0">
+                        <div class="px-6 pt-10 pb-4 flex justify-between items-end">
+                            <div>
+                                <p class="meta-label mb-1 opacity-40">Portfolio</p>
+                                <h1 class="font-serif-display text-3xl font-bold tracking-tight italic">My Builds</h1>
+                            </div>
+                            <button class="flex items-center gap-2 border border-black px-3 py-1">
+                                <span class="material-symbols-outlined font-light text-sm">inventory_2</span>
+                                <span class="text-[9px] uppercase tracking-widest font-bold">Closet</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal / Detail Header -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Detail / Modal Header</p>
+                    <span class="code-note">back button · centered meta · action</span>
+                    <div class="demo-container !p-0">
+                        <div class="bg-white/90 backdrop-blur-md px-6 pt-10 pb-4 flex justify-between items-center">
+                            <button><span class="material-symbols-outlined font-light text-2xl">arrow_back_ios</span></button>
+                            <span class="meta-label">Build Profile</span>
+                            <button><span class="material-symbols-outlined font-light text-2xl">more_horiz</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Screen Header -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Add/Edit Screen Header</p>
+                    <span class="code-note">close button · centered title</span>
+                    <div class="demo-container !p-0">
+                        <div class="bg-white/95 backdrop-blur-sm px-6 pt-10 pb-4 flex justify-between items-center">
+                            <button><span class="material-symbols-outlined font-light text-2xl">close</span></button>
+                            <div class="text-center">
+                                <p class="text-[9px] uppercase tracking-[0.4em] font-medium opacity-40">Kyarafit</p>
+                                <h1 class="font-serif-display text-xl font-bold italic">New Item</h1>
+                            </div>
+                            <div class="w-6"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Date Header (Planner) -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Date Header (Planner)</p>
+                    <span class="code-note">Large serif date · day of week</span>
+                    <div class="demo-container">
+                        <div class="flex items-baseline justify-between">
+                            <h1 class="font-serif-display text-5xl font-bold italic tracking-tighter">October 24</h1>
+                            <span class="text-[11px] uppercase tracking-widest opacity-60">Thursday</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 09. SECTION COMPONENTS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 09</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Section Components</h2>
+            
+            <div class="space-y-10">
+                <!-- Section Title with Counter -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Section Title with Counter</p>
+                    <span class="code-note">serif title · count badge</span>
+                    <div class="demo-container">
+                        <div class="flex justify-between items-baseline mb-6">
+                            <h2 class="font-serif-display text-xl italic">Task Checklist</h2>
+                            <span class="meta-label">04 / 06</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Title with Action -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Section Title with Action</p>
+                    <span class="code-note">serif title · text link</span>
+                    <div class="demo-container">
+                        <div class="flex justify-between items-baseline">
+                            <h2 class="font-serif-display text-xl italic">Bill of Materials</h2>
+                            <button class="text-[9px] uppercase tracking-widest border-b border-black">Add Expense</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Packing List Section Header -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Section Divider (Packing)</p>
+                    <span class="code-note">border-b border-black · item count</span>
+                    <div class="demo-container">
+                        <div class="flex justify-between items-baseline border-b border-black pb-2">
+                            <h2 class="font-serif-display text-xl font-bold italic tracking-tight">Arlecchino</h2>
+                            <span class="text-[9px] uppercase tracking-widest opacity-40">8 Items</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inline Label Section -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Inline Label Section</p>
+                    <span class="code-note">border-b inline-block</span>
+                    <div class="demo-container">
+                        <h2 class="text-[10px] uppercase tracking-[0.2em] font-bold border-b border-black pb-2 inline-block">Today's Priority</h2>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Stats Grid</p>
+                    <span class="code-note">2-col grid · border dividers</span>
+                    <div class="demo-container">
+                        <div class="grid grid-cols-2 py-6 border-y border-black/5">
+                            <div class="px-2">
+                                <p class="meta-label">Construction</p>
+                                <p class="text-xs uppercase mt-1 font-medium">85% Complete</p>
+                            </div>
+                            <div class="px-2 border-l border-black/5">
+                                <p class="meta-label">Financials</p>
+                                <p class="text-xs uppercase mt-1 font-medium">Spent: $842.10</p>
+                                <p class="text-[9px] opacity-40 italic">Limit: $1,200.00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 10. SPECIAL COMPONENTS ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 10</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Special Components</h2>
+            
+            <div class="space-y-10">
+                <!-- Upload Area -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Upload Area</p>
+                    <span class="code-note">dashed border · centered icon</span>
+                    <div class="demo-container">
+                        <div class="aspect-[3/4] w-full bg-[#f9f9f9] flex flex-col items-center justify-center border border-dashed border-gray-200 cursor-pointer">
+                            <span class="material-symbols-outlined text-3xl font-light opacity-20">add_a_photo</span>
+                            <p class="text-[10px] uppercase tracking-widest mt-4 opacity-40">Upload Reference</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Progress Bar</p>
+                    <span class="code-note">1px height · black fill</span>
+                    <div class="demo-container space-y-6">
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[9px] uppercase tracking-widest">
+                                <span>Construction Progress</span>
+                                <span>85%</span>
+                            </div>
+                            <div class="progress-bg"><div class="progress-line" style="width: 85%;"></div></div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[9px] uppercase tracking-widest">
+                                <span>Materials Acquired</span>
+                                <span>32%</span>
+                            </div>
+                            <div class="progress-bg"><div class="progress-line" style="width: 32%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Badge -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Status Badges</p>
+                    <span class="code-note">Various states · bordered or subtle</span>
+                    <div class="demo-container flex gap-4 flex-wrap items-center">
+                        <span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 border border-black/10">Active</span>
+                        <span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 opacity-30">Pending</span>
+                        <span class="text-[10px] uppercase tracking-widest opacity-60">Spring 2024</span>
+                        <span class="text-[10px] uppercase tracking-widest opacity-60">Couture Tier</span>
+                    </div>
+                </div>
+
+                <!-- Priority Task Card -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Priority Task Card</p>
+                    <span class="code-note">numbered · large title · context</span>
+                    <div class="demo-container">
+                        <div class="group">
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="text-[10px] font-medium tracking-tighter opacity-30">01</span>
+                                <span class="material-symbols-outlined text-[18px] font-light">more_horiz</span>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-xl font-light leading-tight tracking-tight">Finalize structural boning for Arlecchino corset assembly</h3>
+                                <p class="text-[11px] uppercase tracking-widest opacity-40">Workshop • 2:00 PM</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Convention Card -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Convention Card</p>
+                    <span class="code-note">title · date · action buttons</span>
+                    <div class="demo-container">
+                        <div class="border-b border-gray-100 pb-6 cursor-pointer">
+                            <div class="flex justify-between items-end mb-2">
+                                <h3 class="font-serif-display text-2xl italic font-bold">Anime Expo</h3>
+                                <span class="text-[10px] opacity-40">July 2024</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <button class="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Itinerary</button>
+                                <button class="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1">Packing List</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deadline Widget -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Deadline Widget</p>
+                    <span class="code-note">countdown · thumbnail</span>
+                    <div class="demo-container">
+                        <div class="flex flex-col border-t border-black/5 pt-6">
+                            <div class="flex justify-between items-baseline mb-4">
+                                <h3 class="text-[11px] uppercase tracking-[0.3em] font-semibold">Next Deadline</h3>
+                                <span class="font-serif-display italic text-lg opacity-40">12 Days</span>
+                            </div>
+                            <div class="flex items-start gap-8">
+                                <div class="flex-1">
+                                    <p class="font-serif-display text-2xl leading-tight mb-2">Final Fitting & Prop Polish</p>
+                                    <p class="text-[12px] opacity-50 leading-relaxed">Ensuring structural integrity for the wing mechanism and weathering.</p>
+                                </div>
+                                <div class="w-16 h-16 shrink-0 border border-black/5 p-1">
+                                    <img class="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANB3dhJnBdXJaL_UnZMR1yklmotO8qguSIjtgHVdJGshhrjA0Wb9tNJnobCISZ_YmdNp2WnswxnsaTVqyaITjrDuxUSNR26xPv8-NkKwEV7Pmu9sD5Ybq_9oia63qgI8oWfU8TFRCQuvbmabe8RtAwIZdNzZ0ZyEC1sefwCy1t2IOwujj6tqmJPsxLbm9fo4Z4KY3VFUeuK88hUDdq7cCXsLs1YgsJnluz1wdKU7eD_qoRbaqKRUa7Lh6rV9HIViA5YIED8nN2akxW" alt="prop"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Itinerary Day Header -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Itinerary Day Header</p>
+                    <span class="code-note">Large italic number · status</span>
+                    <div class="demo-container">
+                        <div class="flex justify-between items-baseline">
+                            <h2 class="font-serif-display text-5xl italic font-bold">Day 1</h2>
+                            <span class="text-[10px] uppercase tracking-[0.2em] font-medium py-1 px-2 border border-black/10">Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Action -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Danger Action</p>
+                    <span class="code-note">red-500/80 · uppercase</span>
+                    <div class="demo-container">
+                        <button class="text-[10px] uppercase tracking-[0.3em] font-semibold text-red-500/80">
+                            Sign Out of Device
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 11. ICON SET ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 11</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Icon Set</h2>
+            
+            <div class="space-y-8">
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Navigation Icons</p>
+                    <div class="grid grid-cols-5 gap-4">
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">home</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Home</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">architecture</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Builds</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">dashboard</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Closet</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">calendar_today</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Plan</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">package_2</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Packing</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">inventory_2</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Inventory</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">photo_library</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Mood</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">person_outline</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Studio</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">auto_stories</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Builds Alt</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">edit_calendar</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Plan Alt</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Action Icons</p>
+                    <div class="grid grid-cols-5 gap-4">
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">add</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Add</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">close</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Close</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">search</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Search</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">menu</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Menu</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">more_horiz</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">More</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">more_vert</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">More V</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">arrow_back_ios</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Back</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">arrow_back</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Back Alt</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">chevron_right</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Chevron</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">expand_more</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Expand</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">ios_share</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Share</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">download</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Download</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">north_east</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">External</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">sort</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Sort</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">favorite</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Favorite</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Content Icons</p>
+                    <div class="grid grid-cols-5 gap-4">
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">add_a_photo</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Photo</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">account_circle</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Account</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <span class="material-symbols-outlined font-light text-2xl">person</span>
+                            <span class="text-[8px] uppercase tracking-wider opacity-50">Person</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-4">Icon States</p>
+                    <span class="code-note">Active: fill-[1] · Inactive: opacity-30</span>
+                    <div class="demo-container flex gap-8 items-center">
+                        <div class="flex flex-col items-center gap-1">
+                            <span class="material-symbols-outlined font-light text-2xl fill-[1]">home</span>
+                            <span class="text-[8px]">Active (filled)</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 opacity-30">
+                            <span class="material-symbols-outlined font-light text-2xl">home</span>
+                            <span class="text-[8px]">Inactive</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 12. ONBOARDING / SPLASH ==================== -->
+        <section class="component-section">
+            <span class="meta-label opacity-40">Section 12</span>
+            <h2 class="font-serif-display text-3xl italic mt-2 mb-8">Onboarding / Splash</h2>
+            
+            <div class="space-y-10">
+                <!-- Logo Mark -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Logo / Wordmark</p>
+                    <span class="code-note">font-serif-elegant · bold italic · tracking-tighter</span>
+                    <div class="demo-container">
+                        <span class="font-serif-elegant text-2xl font-bold italic tracking-tighter">Kyarafit</span>
+                    </div>
+                </div>
+
+                <!-- Hero Display -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Hero Display Text</p>
+                    <span class="code-note">Mixed weight + italic serif</span>
+                    <div class="demo-container">
+                        <p class="font-sans-wide text-[9px] text-zinc-500 mb-2">The Art of Transformation</p>
+                        <h1 class="font-serif-elegant text-5xl leading-[1.1] font-normal">
+                            Elevated <br/>
+                            <span class="italic">Cosplay</span>
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Decorative Line -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Decorative Line</p>
+                    <span class="code-note">h-[1px] · w-10 (40px)</span>
+                    <div class="demo-container">
+                        <div class="flex items-center gap-4">
+                            <div class="h-[1px] bg-black w-10"></div>
+                            <p class="font-sans-wide text-[10px] leading-loose text-zinc-600 max-w-[200px]">
+                                A curated digital space for the modern artisan.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page Indicator -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Page Indicator</p>
+                    <span class="code-note">Active: w-8 · Inactive: w-2</span>
+                    <div class="demo-container">
+                        <div class="flex gap-2">
+                            <div class="w-8 h-[1px] bg-black"></div>
+                            <div class="w-2 h-[1px] bg-zinc-200"></div>
+                            <div class="w-2 h-[1px] bg-zinc-200"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skip Link -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Skip / Secondary Text Link</p>
+                    <span class="code-note">font-sans-wide · muted</span>
+                    <div class="demo-container flex gap-8">
+                        <button class="font-sans-wide text-[10px] text-zinc-400">Skip</button>
+                        <button class="font-sans-wide text-[9px] text-black border-b border-black pb-0.5">Log In</button>
+                    </div>
+                </div>
+
+                <!-- Image Badge -->
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest font-semibold mb-2">Image Badge (Issue Number)</p>
+                    <span class="code-note">Positioned absolute · mix-blend-difference</span>
+                    <div class="demo-container !bg-zinc-800">
+                        <div class="text-[10px] font-sans-wide text-white mix-blend-difference">
+                            Issue 01 / Vol 24
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Kit Footer -->
+        <section class="component-section">
+            <div class="py-12 text-center">
+                <p class="meta-label opacity-40 mb-4">Kyarafit Design System</p>
+                <p class="font-serif-elegant text-2xl italic">Component Kit v0.1.0</p>
+                <p class="text-sm font-light mt-4 opacity-40">
+                    Built from prototype screens • Feb 2026
+                </p>
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>
