@@ -1,7 +1,13 @@
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { colors, radius, font, spacing } from '@kyarafit/design-system/rn';
+import {
+  Pressable,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  TextStyle,
+} from "react-native";
+import { colors, radius, font, spacing } from "@kyarafit/design-system/rn";
 
-type Variant = 'primary' | 'secondary' | 'text';
+type Variant = "primary" | "secondary" | "text";
 
 interface ButtonProps {
   variant?: Variant;
@@ -13,16 +19,16 @@ interface ButtonProps {
 }
 
 export function Button({
-  variant = 'primary',
+  variant = "primary",
   onPress,
   disabled,
   children,
   style,
   textStyle,
 }: ButtonProps) {
-  const isPrimary = variant === 'primary';
-  const isSecondary = variant === 'secondary';
-  const isText = variant === 'text';
+  const isPrimary = variant === "primary";
+  const isSecondary = variant === "secondary";
+  const isText = variant === "text";
 
   return (
     <Pressable
@@ -58,19 +64,19 @@ const styles = StyleSheet.create({
     height: 52,
     paddingHorizontal: spacing[4],
     borderRadius: radius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   primary: {
     backgroundColor: colors.text,
   },
   secondary: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },
   textVariant: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderBottomWidth: 1,
     borderBottomColor: colors.borderStrong,
     borderRadius: 0,
@@ -83,8 +89,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: font.size.xs,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: font.tracking.wider * font.size.xs,
   },
   primaryLabel: {

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Session } from '@supabase/supabase-js';
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { Session } from "@supabase/supabase-js";
 
 export const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL!,
@@ -13,7 +13,7 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
     },
-  }
+  },
 );
 
 export function useSession() {
@@ -39,13 +39,17 @@ export function useSession() {
 }
 
 export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 }
 
 /** Token for backend API (sync). Anonymous returns null → no sync attempts. */
 export async function getTokenForSync(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session?.access_token ?? null;
 }
 

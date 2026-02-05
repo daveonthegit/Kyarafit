@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,43 +9,46 @@ import {
   Platform,
   Image,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, font } from '@kyarafit/design-system/rn';
+} from "react-native";
+import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, font } from "@kyarafit/design-system/rn";
 import {
   CLOSET_CATEGORIES,
   createClosetItemSchema,
   type ClosetCategory,
-} from '@kyarafit/design-system/types';
-import { UnderlineInput } from '../src/components/ui/UnderlineInput';
-import { upsertItem } from '../src/storage/closetRepo';
-import { enqueue } from '../src/storage/outboxRepo';
+} from "@kyarafit/design-system/types";
+import { UnderlineInput } from "../src/components/ui/UnderlineInput";
+import { upsertItem } from "../src/storage/closetRepo";
+import { enqueue } from "../src/storage/outboxRepo";
 
 function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
 export default function AddItemScreen() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<ClosetCategory>('other');
-  const [tagsStr, setTagsStr] = useState('');
-  const [notes, setNotes] = useState('');
-  const [costDollars, setCostDollars] = useState('');
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<ClosetCategory>("other");
+  const [tagsStr, setTagsStr] = useState("");
+  const [notes, setNotes] = useState("");
+  const [costDollars, setCostDollars] = useState("");
   const [imageLocalUri, setImageLocalUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [nameError, setNameError] = useState('');
+  const [nameError, setNameError] = useState("");
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow access to photos to add an image.');
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Allow access to photos to add an image.",
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -60,9 +63,9 @@ export default function AddItemScreen() {
   };
 
   const handleSave = async () => {
-    setNameError('');
+    setNameError("");
     const tags = tagsStr
-      .split(',')
+      .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
     const parsed = createClosetItemSchema.safeParse({
@@ -71,10 +74,12 @@ export default function AddItemScreen() {
       tags,
       notes: notes.trim() || undefined,
       imageLocalUri: imageLocalUri ?? undefined,
-      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
+      costCents: costDollars.trim()
+        ? Math.round(parseFloat(costDollars) * 100)
+        : undefined,
     });
     if (!parsed.success) {
-      const msg = parsed.error.errors[0]?.message ?? 'Invalid fields';
+      const msg = parsed.error.errors[0]?.message ?? "Invalid fields";
       setNameError(msg);
       return;
     }
@@ -94,7 +99,7 @@ export default function AddItemScreen() {
       updatedAt: now,
     };
     await upsertItem(item);
-    await enqueue('upsert', { item });
+    await enqueue("upsert", { item });
     setSaving(false);
     router.back();
   };
@@ -114,7 +119,7 @@ export default function AddItemScreen() {
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={styles.scroll}
@@ -123,10 +128,18 @@ export default function AddItemScreen() {
         >
           <Pressable style={styles.uploadArea} onPress={pickImage}>
             {imageLocalUri ? (
-              <Image source={{ uri: imageLocalUri }} style={styles.previewImage} resizeMode="cover" />
+              <Image
+                source={{ uri: imageLocalUri }}
+                style={styles.previewImage}
+                resizeMode="cover"
+              />
             ) : (
               <>
-                <Ionicons name="camera-outline" size={32} color="rgba(0,0,0,0.2)" />
+                <Ionicons
+                  name="camera-outline"
+                  size={32}
+                  color="rgba(0,0,0,0.2)"
+                />
                 <Text style={styles.uploadText}>Add Photo</Text>
               </>
             )}
@@ -142,14 +155,26 @@ export default function AddItemScreen() {
             />
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryRow}
+              >
                 {CLOSET_CATEGORIES.map((c) => (
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    style={[styles.categoryChip, category === c && styles.categoryChipActive]}
+                    style={[
+                      styles.categoryChip,
+                      category === c && styles.categoryChipActive,
+                    ]}
                   >
-                    <Text style={[styles.categoryChipText, category === c && styles.categoryChipTextActive]}>
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        category === c && styles.categoryChipTextActive,
+                      ]}
+                    >
                       {c}
                     </Text>
                   </Pressable>
@@ -185,7 +210,9 @@ export default function AddItemScreen() {
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Item'}</Text>
+          <Text style={styles.saveBtnText}>
+            {saving ? "Saving…" : "Save Item"}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -195,28 +222,28 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: "rgba(255,255,255,0.95)",
   },
   headerBtn: { width: 24 },
-  headerCenter: { alignItems: 'center' },
+  headerCenter: { alignItems: "center" },
   headerMeta: {
     fontSize: 9,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 4,
-    fontWeight: '500',
-    color: 'rgba(0,0,0,0.4)',
+    fontWeight: "500",
+    color: "rgba(0,0,0,0.4)",
   },
   headerTitle: {
     fontFamily: font.family.serifDisplay,
     fontSize: 20,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontWeight: "bold",
+    fontStyle: "italic",
     color: colors.black,
     marginTop: 2,
   },
@@ -225,35 +252,35 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 24, paddingBottom: 140 },
   uploadArea: {
     aspectRatio: 3 / 4,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.12)',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "rgba(0,0,0,0.12)",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 16,
     marginBottom: 40,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   previewImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   uploadText: {
     fontSize: 10,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
-    color: 'rgba(0,0,0,0.4)',
+    color: "rgba(0,0,0,0.4)",
     marginTop: 16,
   },
   form: { gap: 24 },
   field: { marginBottom: 8 },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 2,
-    color: 'rgba(0,0,0,0.5)',
+    color: "rgba(0,0,0,0.5)",
     marginBottom: 8,
   },
   categoryRow: { flexGrow: 0, marginBottom: 8 },
@@ -270,7 +297,7 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     fontSize: 12,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
     color: colors.black,
   },
@@ -278,13 +305,13 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 24,
     backgroundColor: colors.white,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -293,15 +320,15 @@ const styles = StyleSheet.create({
   saveBtn: {
     backgroundColor: colors.black,
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 2,
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: {
     fontSize: 11,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 3,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.white,
   },
 });

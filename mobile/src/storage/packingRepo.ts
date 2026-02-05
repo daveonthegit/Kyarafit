@@ -2,13 +2,24 @@
  * Local packing list repository. Offline-first; checklist persistence + outbox for sync.
  */
 
-import type { PackingListItem, AddManualPackingItemInput } from '@kyarafit/design-system/types';
-import { initClosetDb } from './db';
-import { enqueue } from './outboxRepo';
+import type {
+  PackingListItem,
+  AddManualPackingItemInput,
+} from "@kyarafit/design-system/types";
+import { initClosetDb } from "./db";
+import { enqueue } from "./outboxRepo";
 
-const DEFAULT_GENERAL_ESSENTIALS = ['Wig cap', 'Pins', 'Glue', 'Makeup wipes', 'Repair tape'];
+const DEFAULT_GENERAL_ESSENTIALS = [
+  "Wig cap",
+  "Pins",
+  "Glue",
+  "Makeup wipes",
+  "Repair tape",
+];
 
-export async function getPacking(conventionId: string): Promise<PackingListItem[]> {
+export async function getPacking(
+  conventionId: string,
+): Promise<PackingListItem[]> {
   const database = await initClosetDb();
   const rows = await database.getAllAsync<{
     id: string;
@@ -23,7 +34,7 @@ export async function getPacking(conventionId: string): Promise<PackingListItem[
   }>(
     `SELECT id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at
      FROM packing_list_items WHERE convention_id = ? ORDER BY date ASC NULLS FIRST, label ASC`,
-    [conventionId]
+    [conventionId],
   );
   return rows.map((r) => ({
     id: r.id,
@@ -38,20 +49,22 @@ export async function getPacking(conventionId: string): Promise<PackingListItem[
   }));
 }
 
-export async function toggleChecked(packingItemId: string): Promise<PackingListItem | null> {
+export async function toggleChecked(
+  packingItemId: string,
+): Promise<PackingListItem | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ checked: number }>(
     `SELECT checked FROM packing_list_items WHERE id = ?`,
-    [packingItemId]
+    [packingItemId],
   );
   if (!row) return null;
   const checked = row.checked === 0 ? 1 : 0;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE packing_list_items SET checked = ?, updated_at = ? WHERE id = ?`,
-    [checked, updated_at, packingItemId]
+    [checked, updated_at, packingItemId],
   );
-  await enqueue('packing.toggle', { packingItemId, checked: checked === 1 });
+  await enqueue("packing.toggle", { packingItemId, checked: checked === 1 });
   const all = await database.getFirstAsync<{
     id: string;
     convention_id: string;
@@ -64,7 +77,7 @@ export async function toggleChecked(packingItemId: string): Promise<PackingListI
     updated_at: string;
   }>(
     `SELECT id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at FROM packing_list_items WHERE id = ?`,
-    [packingItemId]
+    [packingItemId],
   );
   if (!all) return null;
   return {
@@ -80,16 +93,27 @@ export async function toggleChecked(packingItemId: string): Promise<PackingListI
   };
 }
 
-export async function addManual(conventionId: string, input: AddManualPackingItemInput): Promise<PackingListItem> {
+export async function addManual(
+  conventionId: string,
+  input: AddManualPackingItemInput,
+): Promise<PackingListItem> {
   const database = await initClosetDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
     `INSERT INTO packing_list_items (id, convention_id, date, build_id, label, checked, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-    [id, conventionId, input.date ?? null, input.buildId ?? null, input.label, now, now]
+    [
+      id,
+      conventionId,
+      input.date ?? null,
+      input.buildId ?? null,
+      input.label,
+      now,
+      now,
+    ],
   );
-  await enqueue('packing.addManual', { conventionId, item: { ...input, id } });
+  await enqueue("packing.addManual", { conventionId, item: { ...input, id } });
   return {
     id,
     conventionId,
@@ -104,19 +128,22 @@ export async function addManual(conventionId: string, input: AddManualPackingIte
 }
 
 /** Regenerate packing list locally: from day plan + build links, dedupe, add default general essentials if none. */
-export async function regenerateLocal(conventionId: string): Promise<PackingListItem[]> {
+export async function regenerateLocal(
+  conventionId: string,
+): Promise<PackingListItem[]> {
   const database = await initClosetDb();
-  const { getPlan } = await import('./plansRepo');
-  const { getLinkedClosetItemIds } = await import('./buildsRepo');
-  const { listItems } = await import('./closetRepo');
+  const { getPlan } = await import("./plansRepo");
+  const { getLinkedClosetItemIds } = await import("./buildsRepo");
+  const { listItems } = await import("./closetRepo");
 
   const plan = await getPlan(conventionId);
   const closetItems = await listItems();
   const nameById = new Map(closetItems.map((c) => [c.id, c.name]));
 
-  await database.runAsync(`DELETE FROM packing_list_items WHERE convention_id = ? AND closet_item_id IS NOT NULL`, [
-    conventionId,
-  ]);
+  await database.runAsync(
+    `DELETE FROM packing_list_items WHERE convention_id = ? AND closet_item_id IS NOT NULL`,
+    [conventionId],
+  );
 
   const seenCloset = new Set<string>();
   const now = new Date().toISOString();
@@ -126,19 +153,19 @@ export async function regenerateLocal(conventionId: string): Promise<PackingList
     for (const cid of linkedIds) {
       if (seenCloset.has(cid)) continue;
       seenCloset.add(cid);
-      const label = nameById.get(cid) ?? 'Item';
+      const label = nameById.get(cid) ?? "Item";
       const id = crypto.randomUUID();
       await database.runAsync(
         `INSERT INTO packing_list_items (id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-        [id, conventionId, p.date, p.buildId, cid, label, now, now]
+        [id, conventionId, p.date, p.buildId, cid, label, now, now],
       );
     }
   }
 
   const generalCount = await database.getFirstAsync<{ c: number }>(
     `SELECT COUNT(*) as c FROM packing_list_items WHERE convention_id = ? AND date IS NULL AND build_id IS NULL`,
-    [conventionId]
+    [conventionId],
   );
   if (generalCount && generalCount.c === 0) {
     for (const label of DEFAULT_GENERAL_ESSENTIALS) {
@@ -146,11 +173,11 @@ export async function regenerateLocal(conventionId: string): Promise<PackingList
       await database.runAsync(
         `INSERT INTO packing_list_items (id, convention_id, label, checked, created_at, updated_at)
          VALUES (?, ?, ?, 0, ?, ?)`,
-        [id, conventionId, label, now, now]
+        [id, conventionId, label, now, now],
       );
     }
   }
 
-  await enqueue('packing.regenerate', { conventionId });
+  await enqueue("packing.regenerate", { conventionId });
   return getPacking(conventionId);
 }

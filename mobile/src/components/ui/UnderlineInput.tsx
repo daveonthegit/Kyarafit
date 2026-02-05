@@ -1,5 +1,5 @@
-import { View, TextInput, Text, StyleSheet } from 'react-native';
-import { colors, font } from '@kyarafit/design-system/rn';
+import { View, TextInput, Text, StyleSheet } from "react-native";
+import { colors, font } from "@kyarafit/design-system/rn";
 
 interface UnderlineInputProps {
   label?: string;
@@ -26,9 +26,7 @@ export function UnderlineInput({
 }: UnderlineInputProps) {
   return (
     <View style={styles.wrap}>
-      {label ? (
-        <Text style={styles.label}>{label}</Text>
-      ) : null}
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         value={value}
         placeholder={placeholder}
@@ -51,8 +49,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 2,
     color: colors.meta,
     marginBottom: 4,
@@ -63,7 +61,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderStrong,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   inputError: {
     borderBottomColor: colors.danger,

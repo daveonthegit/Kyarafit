@@ -1,24 +1,44 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, Pressable, FlatList, StyleSheet } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, font } from '@kyarafit/design-system/rn';
-import type { ClosetItem } from '@kyarafit/design-system/types';
-import { listItems } from '../src/storage/closetRepo';
-import { getSyncPendingCount } from '../src/services/sync';
+import { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  Pressable,
+  FlatList,
+  StyleSheet,
+} from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, font } from "@kyarafit/design-system/rn";
+import type { ClosetItem } from "@kyarafit/design-system/types";
+import { listItems } from "../src/storage/closetRepo";
+import { getSyncPendingCount } from "../src/services/sync";
 
-const CATEGORIES = ['All Items', 'Wig', 'Prop', 'Armor', 'Garment', 'Shoe', 'Material', 'Other'];
+const CATEGORIES = [
+  "All Items",
+  "Wig",
+  "Prop",
+  "Armor",
+  "Garment",
+  "Shoe",
+  "Material",
+  "Other",
+];
 
 export default function ClosetScreen() {
   const router = useRouter();
   const [items, setItems] = useState<ClosetItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState('All Items');
+  const [activeCategory, setActiveCategory] = useState("All Items");
   const [syncPending, setSyncPending] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [list, pending] = await Promise.all([listItems(), getSyncPendingCount()]);
+    const [list, pending] = await Promise.all([
+      listItems(),
+      getSyncPendingCount(),
+    ]);
     setItems(list);
     setSyncPending(pending);
     setLoading(false);
@@ -27,13 +47,15 @@ export default function ClosetScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    }, [load]),
   );
 
   const filtered =
-    activeCategory === 'All Items'
+    activeCategory === "All Items"
       ? items
-      : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
+      : items.filter(
+          (i) => i.category.toLowerCase() === activeCategory.toLowerCase(),
+        );
 
   const renderItem = ({ item }: { item: ClosetItem }) => (
     <View style={styles.gridItem}>
@@ -75,7 +97,9 @@ export default function ClosetScreen() {
           </Pressable>
         </View>
         {syncPending > 0 && (
-          <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
+          <Text style={styles.syncLabel}>
+            SYNC PENDING — WILL SYNC WHEN ONLINE
+          </Text>
         )}
       </View>
 
@@ -87,7 +111,12 @@ export default function ClosetScreen() {
         >
           {CATEGORIES.map((cat) => (
             <Pressable key={cat} onPress={() => setActiveCategory(cat)}>
-              <Text style={[styles.categoryTab, activeCategory === cat && styles.categoryTabActive]}>
+              <Text
+                style={[
+                  styles.categoryTab,
+                  activeCategory === cat && styles.categoryTabActive,
+                ]}
+              >
                 {cat}
               </Text>
             </Pressable>
@@ -111,7 +140,7 @@ export default function ClosetScreen() {
         }
       />
 
-      <Pressable style={styles.fab} onPress={() => router.push('/add-item')}>
+      <Pressable style={styles.fab} onPress={() => router.push("/add-item")}>
         <Ionicons name="add" size={24} color={colors.white} />
       </Pressable>
     </View>
@@ -125,32 +154,32 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f9f9f9',
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderBottomColor: "#f9f9f9",
+    backgroundColor: "rgba(255,255,255,0.95)",
   },
   headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
     marginBottom: 16,
   },
   metaLabel: {
     fontSize: 9,
     letterSpacing: 2,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-    color: 'rgba(0,0,0,0.5)',
+    textTransform: "uppercase",
+    fontWeight: "600",
+    color: "rgba(0,0,0,0.5)",
   },
   headerBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
   title: {
     fontFamily: font.family.serifDisplay,
     fontSize: 28,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontWeight: "bold",
+    fontStyle: "italic",
     color: colors.black,
     letterSpacing: -0.5,
   },
@@ -158,14 +187,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 9,
     letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-    color: 'rgba(0,0,0,0.5)',
+    textTransform: "uppercase",
+    fontWeight: "600",
+    color: "rgba(0,0,0,0.5)",
   },
   categoryNavContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f9f9f9',
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderBottomColor: "#f9f9f9",
+    backgroundColor: "rgba(255,255,255,0.95)",
   },
   categoryNavContent: {
     paddingHorizontal: 24,
@@ -174,12 +203,12 @@ const styles = StyleSheet.create({
   },
   categoryTab: {
     fontSize: 11,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 2,
-    color: 'rgba(0,0,0,0.4)',
+    color: "rgba(0,0,0,0.4)",
   },
   categoryTabActive: {
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.black,
     borderBottomWidth: 1,
     borderBottomColor: colors.black,
@@ -190,52 +219,52 @@ const styles = StyleSheet.create({
   gridItem: { flex: 1, marginBottom: 16 },
   gridImageContainer: {
     aspectRatio: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  gridImage: { width: '100%', height: '100%' },
+  gridImage: { width: "100%", height: "100%" },
   placeholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   gridInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   gridName: {
     fontSize: 10,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.black,
     flex: 1,
     marginRight: 8,
   },
   gridMeta: {
     fontSize: 9,
-    color: 'rgba(0,0,0,0.4)',
+    color: "rgba(0,0,0,0.4)",
   },
   emptyText: {
     fontSize: 12,
-    color: 'rgba(0,0,0,0.5)',
-    textAlign: 'center',
+    color: "rgba(0,0,0,0.5)",
+    textAlign: "center",
     padding: 32,
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 32,
     right: 24,
     width: 56,
     height: 56,
     backgroundColor: colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,

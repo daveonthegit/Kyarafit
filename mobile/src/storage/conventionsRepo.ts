@@ -2,9 +2,13 @@
  * Local conventions repository (SQLite). Offline-first; enqueue outbox for sync.
  */
 
-import type { Convention, CreateConventionInput, UpdateConventionInput } from '@kyarafit/design-system/types';
-import { initClosetDb } from './db';
-import { enqueue } from './outboxRepo';
+import type {
+  Convention,
+  CreateConventionInput,
+  UpdateConventionInput,
+} from "@kyarafit/design-system/types";
+import { initClosetDb } from "./db";
+import { enqueue } from "./outboxRepo";
 
 export async function listConventions(): Promise<Convention[]> {
   const database = await initClosetDb();
@@ -17,7 +21,7 @@ export async function listConventions(): Promise<Convention[]> {
     created_at: string;
     updated_at: string;
   }>(
-    `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions ORDER BY start_date DESC`
+    `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions ORDER BY start_date DESC`,
   );
   return rows.map((r) => ({
     id: r.id,
@@ -30,14 +34,24 @@ export async function listConventions(): Promise<Convention[]> {
   }));
 }
 
-export async function createConvention(input: CreateConventionInput): Promise<Convention> {
+export async function createConvention(
+  input: CreateConventionInput,
+): Promise<Convention> {
   const database = await initClosetDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
     `INSERT INTO conventions (id, name, location, start_date, end_date, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, input.name, input.location ?? null, input.startDate, input.endDate, now, now]
+    [
+      id,
+      input.name,
+      input.location ?? null,
+      input.startDate,
+      input.endDate,
+      now,
+      now,
+    ],
   );
   const convention: Convention = {
     id,
@@ -48,7 +62,7 @@ export async function createConvention(input: CreateConventionInput): Promise<Co
     createdAt: now,
     updatedAt: now,
   };
-  await enqueue('convention.upsert', { convention });
+  await enqueue("convention.upsert", { convention });
   return convention;
 }
 
@@ -64,7 +78,7 @@ export async function getConvention(id: string): Promise<Convention | null> {
     updated_at: string;
   }>(
     `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions WHERE id = ?`,
-    [id]
+    [id],
   );
   if (!row) return null;
   return {
@@ -78,7 +92,10 @@ export async function getConvention(id: string): Promise<Convention | null> {
   };
 }
 
-export async function updateConvention(id: string, input: UpdateConventionInput): Promise<Convention | null> {
+export async function updateConvention(
+  id: string,
+  input: UpdateConventionInput,
+): Promise<Convention | null> {
   const database = await initClosetDb();
   const existing = await database.getFirstAsync<{
     name: string;
@@ -87,16 +104,20 @@ export async function updateConvention(id: string, input: UpdateConventionInput)
     end_date: string;
     created_at: string;
     updated_at: string;
-  }>(`SELECT name, location, start_date, end_date, created_at, updated_at FROM conventions WHERE id = ?`, [id]);
+  }>(
+    `SELECT name, location, start_date, end_date, created_at, updated_at FROM conventions WHERE id = ?`,
+    [id],
+  );
   if (!existing) return null;
   const name = input.name ?? existing.name;
-  const location = input.location !== undefined ? input.location : existing.location;
+  const location =
+    input.location !== undefined ? input.location : existing.location;
   const start_date = input.startDate ?? existing.start_date;
   const end_date = input.endDate ?? existing.end_date;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE conventions SET name = ?, location = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`,
-    [name, location ?? null, start_date, end_date, updated_at, id]
+    [name, location ?? null, start_date, end_date, updated_at, id],
   );
   const convention: Convention = {
     id,
@@ -107,6 +128,6 @@ export async function updateConvention(id: string, input: UpdateConventionInput)
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
-  await enqueue('convention.upsert', { convention });
+  await enqueue("convention.upsert", { convention });
   return convention;
 }

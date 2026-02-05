@@ -2,8 +2,8 @@
  * Closet items local repository (SQLite).
  */
 
-import type { ClosetItem } from '@kyarafit/design-system/types';
-import { initClosetDb } from './db';
+import type { ClosetItem } from "@kyarafit/design-system/types";
+import { initClosetDb } from "./db";
 
 export async function listItems(): Promise<ClosetItem[]> {
   const database = await initClosetDb();
@@ -20,13 +20,13 @@ export async function listItems(): Promise<ClosetItem[]> {
     updated_at: string;
   }>(
     `SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at
-     FROM closet_items ORDER BY updated_at DESC`
+     FROM closet_items ORDER BY updated_at DESC`,
   );
 
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
-    category: r.category as ClosetItem['category'],
+    category: r.category as ClosetItem["category"],
     tags: parseTags(r.tags),
     notes: r.notes ?? undefined,
     imageLocalUri: r.image_local_uri ?? undefined,
@@ -72,11 +72,11 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
       item.costCents ?? null,
       item.createdAt,
       item.updatedAt,
-    ]
+    ],
   );
 }
 
 export async function deleteItem(id: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync('DELETE FROM closet_items WHERE id = ?', [id]);
+  await database.runAsync("DELETE FROM closet_items WHERE id = ?", [id]);
 }

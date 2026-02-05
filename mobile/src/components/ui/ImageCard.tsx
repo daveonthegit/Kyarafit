@@ -1,7 +1,7 @@
-import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
-import { colors, spacing, layout, font } from '@kyarafit/design-system/rn';
+import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { colors, spacing, layout, font } from "@kyarafit/design-system/rn";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const gap = layout.gridGap;
 const cols = 2;
 const cardWidth = (width - layout.screenPaddingX * 2 - gap) / cols;
@@ -16,14 +16,20 @@ export function ImageCard({ imageUrl, title, tag }: ImageCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.imageWrap}>
-        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          resizeMode="cover"
+        />
         {tag ? (
           <View style={styles.tag}>
             <Text style={styles.tagText}>{tag}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={styles.title} numberOfLines={2}>{title}</Text>
+      <Text style={styles.title} numberOfLines={2}>
+        {title}
+      </Text>
     </View>
   );
 }
@@ -36,26 +42,26 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
   },
   imageWrap: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 3 / 4,
     backgroundColor: colors.muted,
   },
   image: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   tag: {
-    position: 'absolute',
+    position: "absolute",
     bottom: spacing[2],
     left: spacing[2],
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: "rgba(255,255,255,0.9)",
     paddingHorizontal: spacing[2],
     paddingVertical: 2,
   },
   tagText: {
     fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 1,
     color: colors.text,
   },

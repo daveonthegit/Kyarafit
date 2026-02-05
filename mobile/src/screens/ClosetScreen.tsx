@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,13 +13,13 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useSession } from '../lib/auth/client';
-import { piecesAPI, Piece } from '../lib/api/pieces';
-import AddPieceScreen from './AddPieceScreen';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSession } from "../lib/auth/client";
+import { piecesAPI, Piece } from "../lib/api/pieces";
+import AddPieceScreen from "./AddPieceScreen";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
 
 // Piece interface is now imported from the API module
@@ -30,7 +30,7 @@ export default function ClosetScreen() {
   const [filteredPieces, setFilteredPieces] = useState<Piece[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
@@ -38,50 +38,53 @@ export default function ClosetScreen() {
   const [showAddPiece, setShowAddPiece] = useState(false);
 
   const categories = [
-    { id: 'all', name: 'All', icon: 'grid-outline' },
-    { id: 'wig', name: 'Wig', icon: 'person-outline' },
-    { id: 'dress', name: 'Dress', icon: 'shirt-outline' },
-    { id: 'prop', name: 'Prop', icon: 'star-outline' },
-    { id: 'shoes', name: 'Shoes', icon: 'walk-outline' },
-    { id: 'accessory', name: 'Accessory', icon: 'diamond-outline' },
-    { id: 'makeup', name: 'Makeup', icon: 'color-palette-outline' },
-    { id: 'other', name: 'Other', icon: 'ellipsis-horizontal-outline' },
+    { id: "all", name: "All", icon: "grid-outline" },
+    { id: "wig", name: "Wig", icon: "person-outline" },
+    { id: "dress", name: "Dress", icon: "shirt-outline" },
+    { id: "prop", name: "Prop", icon: "star-outline" },
+    { id: "shoes", name: "Shoes", icon: "walk-outline" },
+    { id: "accessory", name: "Accessory", icon: "diamond-outline" },
+    { id: "makeup", name: "Makeup", icon: "color-palette-outline" },
+    { id: "other", name: "Other", icon: "ellipsis-horizontal-outline" },
   ];
 
   // Mock data for now - replace with actual API call
   const mockPieces: Piece[] = [
     {
-      id: '1',
-      name: 'Pink Anime Wig',
-      description: 'Beautiful long pink wig for anime cosplay',
-      image_url: 'https://via.placeholder.com/300x300/f8b4d1/ffffff?text=Pink+Wig',
-      category: 'wig',
-      tags: ['anime', 'pink', 'long'],
+      id: "1",
+      name: "Pink Anime Wig",
+      description: "Beautiful long pink wig for anime cosplay",
+      image_url:
+        "https://via.placeholder.com/300x300/f8b4d1/ffffff?text=Pink+Wig",
+      category: "wig",
+      tags: ["anime", "pink", "long"],
       price: 45.99,
-      created_at: '2024-01-15T10:30:00Z',
-      updated_at: '2024-01-15T10:30:00Z',
+      created_at: "2024-01-15T10:30:00Z",
+      updated_at: "2024-01-15T10:30:00Z",
     },
     {
-      id: '2',
-      name: 'School Uniform Dress',
-      description: 'Classic Japanese school uniform',
-      image_url: 'https://via.placeholder.com/300x300/fce7f3/ec4899?text=School+Dress',
-      category: 'dress',
-      tags: ['school', 'uniform', 'blue'],
+      id: "2",
+      name: "School Uniform Dress",
+      description: "Classic Japanese school uniform",
+      image_url:
+        "https://via.placeholder.com/300x300/fce7f3/ec4899?text=School+Dress",
+      category: "dress",
+      tags: ["school", "uniform", "blue"],
       price: 89.99,
-      created_at: '2024-01-14T15:20:00Z',
-      updated_at: '2024-01-14T15:20:00Z',
+      created_at: "2024-01-14T15:20:00Z",
+      updated_at: "2024-01-14T15:20:00Z",
     },
     {
-      id: '3',
-      name: 'Magic Wand Prop',
-      description: 'Sparkly magic wand for magical girl cosplay',
-      image_url: 'https://via.placeholder.com/300x300/e0e7ff/8b5cf6?text=Magic+Wand',
-      category: 'prop',
-      tags: ['magic', 'sparkly', 'wand'],
-      price: 25.50,
-      created_at: '2024-01-13T09:15:00Z',
-      updated_at: '2024-01-13T09:15:00Z',
+      id: "3",
+      name: "Magic Wand Prop",
+      description: "Sparkly magic wand for magical girl cosplay",
+      image_url:
+        "https://via.placeholder.com/300x300/e0e7ff/8b5cf6?text=Magic+Wand",
+      category: "prop",
+      tags: ["magic", "sparkly", "wand"],
+      price: 25.5,
+      created_at: "2024-01-13T09:15:00Z",
+      updated_at: "2024-01-13T09:15:00Z",
     },
   ];
 
@@ -93,18 +96,18 @@ export default function ClosetScreen() {
 
     try {
       setLoading(true);
-      
+
       // Use actual API call
       const response = await piecesAPI.getPieces(session.token, {
         limit: 50,
         search: searchQuery || undefined,
         category: selectedCategory || undefined,
       });
-      
+
       setPieces(response.pieces);
       setFilteredPieces(response.pieces);
     } catch (error) {
-      console.error('Error loading pieces:', error);
+      console.error("Error loading pieces:", error);
       // Fallback to mock data for development
       setPieces(mockPieces);
       setFilteredPieces(mockPieces);
@@ -138,8 +141,8 @@ export default function ClosetScreen() {
   };
 
   const handlePieceAdded = (newPiece: Piece) => {
-    setPieces(prev => [newPiece, ...prev]);
-    setFilteredPieces(prev => [newPiece, ...prev]);
+    setPieces((prev) => [newPiece, ...prev]);
+    setFilteredPieces((prev) => [newPiece, ...prev]);
   };
 
   const renderPieceCard = ({ item }: { item: Piece }) => (
@@ -211,10 +214,15 @@ export default function ClosetScreen() {
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#9ca3af"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search your closet..."
@@ -223,7 +231,7 @@ export default function ClosetScreen() {
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
               <Ionicons name="close-circle" size={20} color="#9ca3af" />
             </TouchableOpacity>
           )}
@@ -250,17 +258,20 @@ export default function ClosetScreen() {
                 styles.categoryButton,
                 selectedCategory === category.id && styles.categoryButtonActive,
               ]}
-              onPress={() => setSelectedCategory(category.id === 'all' ? null : category.id)}
+              onPress={() =>
+                setSelectedCategory(category.id === "all" ? null : category.id)
+              }
             >
               <Ionicons
                 name={category.icon as any}
                 size={16}
-                color={selectedCategory === category.id ? '#fff' : '#ec4899'}
+                color={selectedCategory === category.id ? "#fff" : "#ec4899"}
               />
               <Text
                 style={[
                   styles.categoryButtonText,
-                  selectedCategory === category.id && styles.categoryButtonTextActive,
+                  selectedCategory === category.id &&
+                    styles.categoryButtonTextActive,
                 ]}
               >
                 {category.name}
@@ -284,7 +295,7 @@ export default function ClosetScreen() {
   return (
     <View style={styles.container}>
       {renderHeader()}
-      
+
       {filteredPieces.length === 0 ? (
         renderEmptyState()
       ) : (
@@ -299,7 +310,7 @@ export default function ClosetScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#ec4899']}
+              colors={["#ec4899"]}
               tintColor="#ec4899"
             />
           }
@@ -324,34 +335,43 @@ export default function ClosetScreen() {
                 <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView style={styles.modalContent}>
               {selectedPiece.image_url && (
-                <Image source={{ uri: selectedPiece.image_url }} style={styles.modalImage} />
+                <Image
+                  source={{ uri: selectedPiece.image_url }}
+                  style={styles.modalImage}
+                />
               )}
-              
+
               <View style={styles.modalInfo}>
                 <Text style={styles.modalTitle}>{selectedPiece.name}</Text>
-                
+
                 {selectedPiece.description && (
-                  <Text style={styles.modalDescription}>{selectedPiece.description}</Text>
+                  <Text style={styles.modalDescription}>
+                    {selectedPiece.description}
+                  </Text>
                 )}
-                
+
                 <View style={styles.modalDetails}>
                   {selectedPiece.category && (
                     <View style={styles.modalDetailItem}>
                       <Text style={styles.modalDetailLabel}>Category</Text>
-                      <Text style={styles.modalDetailValue}>{selectedPiece.category}</Text>
+                      <Text style={styles.modalDetailValue}>
+                        {selectedPiece.category}
+                      </Text>
                     </View>
                   )}
-                  
+
                   {selectedPiece.price && (
                     <View style={styles.modalDetailItem}>
                       <Text style={styles.modalDetailLabel}>Price</Text>
-                      <Text style={styles.modalDetailValue}>${selectedPiece.price.toFixed(2)}</Text>
+                      <Text style={styles.modalDetailValue}>
+                        ${selectedPiece.price.toFixed(2)}
+                      </Text>
                     </View>
                   )}
-                  
+
                   {selectedPiece.tags && selectedPiece.tags.length > 0 && (
                     <View style={styles.modalDetailItem}>
                       <Text style={styles.modalDetailLabel}>Tags</Text>
@@ -390,67 +410,67 @@ export default function ClosetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fefefe', // Sakura bg-primary
+    backgroundColor: "#fefefe", // Sakura bg-primary
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fefefe',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fefefe",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   header: {
-    backgroundColor: '#ffffff', // Sakura bg-secondary
+    backgroundColor: "#ffffff", // Sakura bg-secondary
     borderBottomWidth: 1,
-    borderBottomColor: '#fce7f3', // Sakura border-light
+    borderBottomColor: "#fce7f3", // Sakura border-light
     paddingBottom: 16,
   },
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2d1b2e', // Sakura text-primary
+    fontWeight: "bold",
+    color: "#2d1b2e", // Sakura text-primary
   },
   addButton: {
-    backgroundColor: '#ec4899', // Sakura deep-pink
+    backgroundColor: "#ec4899", // Sakura deep-pink
     borderRadius: 20,
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#ec4899',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#ec4899",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     marginTop: 16,
     gap: 12,
   },
   searchInputContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fdf2f8', // Sakura bg-tertiary
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fdf2f8", // Sakura bg-tertiary
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#f8b4d1', // Sakura border-medium
+    borderColor: "#f8b4d1", // Sakura border-medium
   },
   searchIcon: {
     marginRight: 8,
@@ -458,15 +478,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#2d1b2e',
+    color: "#2d1b2e",
     paddingVertical: 4,
   },
   filterButton: {
-    backgroundColor: '#fdf2f8',
+    backgroundColor: "#fdf2f8",
     borderRadius: 12,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#f8b4d1',
+    borderColor: "#f8b4d1",
   },
   categoriesContainer: {
     marginTop: 16,
@@ -476,90 +496,90 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   categoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fdf2f8',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fdf2f8",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#f8b4d1',
+    borderColor: "#f8b4d1",
   },
   categoryButtonActive: {
-    backgroundColor: '#ec4899',
-    borderColor: '#ec4899',
+    backgroundColor: "#ec4899",
+    borderColor: "#ec4899",
   },
   categoryButtonText: {
     marginLeft: 6,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#ec4899',
+    fontWeight: "500",
+    color: "#ec4899",
   },
   categoryButtonTextActive: {
-    color: '#ffffff',
+    color: "#ffffff",
   },
   listContent: {
     padding: 16,
   },
   row: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   pieceCard: {
     width: CARD_WIDTH,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 16,
-    shadowColor: '#ec4899',
+    shadowColor: "#ec4899",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   pieceImageContainer: {
-    position: 'relative',
+    position: "relative",
     height: CARD_WIDTH * 0.8,
   },
   pieceImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   placeholderImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#fdf2f8',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#fdf2f8",
+    justifyContent: "center",
+    alignItems: "center",
   },
   priceTag: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: '#ec4899',
+    backgroundColor: "#ec4899",
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   priceText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pieceInfo: {
     padding: 12,
   },
   pieceName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2d1b2e',
+    fontWeight: "600",
+    color: "#2d1b2e",
     marginBottom: 8,
     lineHeight: 20,
   },
   categoryTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#f8b4d1',
+    alignSelf: "flex-start",
+    backgroundColor: "#f8b4d1",
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -567,17 +587,17 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#ffffff',
-    textTransform: 'capitalize',
+    fontWeight: "500",
+    color: "#ffffff",
+    textTransform: "capitalize",
   },
   tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   tag: {
-    backgroundColor: '#fce7f3',
+    backgroundColor: "#fce7f3",
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -586,18 +606,18 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 10,
-    color: '#ec4899',
-    fontWeight: '500',
+    color: "#ec4899",
+    fontWeight: "500",
   },
   moreTagsText: {
     fontSize: 10,
-    color: '#9ca3af',
-    fontStyle: 'italic',
+    color: "#9ca3af",
+    fontStyle: "italic",
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
     paddingVertical: 64,
   },
@@ -605,33 +625,33 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#fdf2f8',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#fdf2f8",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   emptyTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2d1b2e',
+    fontWeight: "bold",
+    color: "#2d1b2e",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: "#6b7280",
+    textAlign: "center",
     lineHeight: 24,
     marginBottom: 32,
   },
   primaryButton: {
-    backgroundColor: '#ec4899',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#ec4899",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
-    shadowColor: '#ec4899',
+    shadowColor: "#ec4899",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -641,24 +661,24 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#fce7f3',
+    borderBottomColor: "#fce7f3",
   },
   closeButton: {
     padding: 8,
@@ -667,22 +687,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalImage: {
-    width: '100%',
+    width: "100%",
     height: 300,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   modalInfo: {
     padding: 20,
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2d1b2e',
+    fontWeight: "bold",
+    color: "#2d1b2e",
     marginBottom: 12,
   },
   modalDescription: {
     fontSize: 16,
-    color: '#6b7280',
+    color: "#6b7280",
     lineHeight: 24,
     marginBottom: 20,
   },
@@ -694,30 +714,30 @@ const styles = StyleSheet.create({
   },
   modalDetailLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
     marginBottom: 6,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   modalDetailValue: {
     fontSize: 16,
-    color: '#2d1b2e',
+    color: "#2d1b2e",
   },
   modalTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   modalTag: {
-    backgroundColor: '#f8b4d1',
+    backgroundColor: "#f8b4d1",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   modalTagText: {
     fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '500',
+    color: "#ffffff",
+    fontWeight: "500",
   },
 });

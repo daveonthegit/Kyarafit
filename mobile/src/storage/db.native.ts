@@ -3,11 +3,11 @@
  * Web uses db.web.ts to avoid expo-sqlite WASM dependency.
  */
 
-import * as SQLite from 'expo-sqlite';
+import * as SQLite from "expo-sqlite";
 
 let db: SQLite.SQLiteDatabase | null = null;
 
-const DB_NAME = 'kyarafit.db';
+const DB_NAME = "kyarafit.db";
 
 export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
   if (db) return db;
@@ -104,17 +104,19 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
 
   // Add new columns if they don't exist (existing installs)
   try {
-    await db.execAsync('ALTER TABLE closet_items ADD COLUMN cost_cents INTEGER');
+    await db.execAsync(
+      "ALTER TABLE closet_items ADD COLUMN cost_cents INTEGER",
+    );
   } catch {
     /* column may already exist */
   }
   try {
-    await db.execAsync('ALTER TABLE builds ADD COLUMN image_url TEXT');
+    await db.execAsync("ALTER TABLE builds ADD COLUMN image_url TEXT");
   } catch {
     /* column may already exist */
   }
   try {
-    await db.execAsync('ALTER TABLE builds ADD COLUMN budget_cents INTEGER');
+    await db.execAsync("ALTER TABLE builds ADD COLUMN budget_cents INTEGER");
   } catch {
     /* column may already exist */
   }

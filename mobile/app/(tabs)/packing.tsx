@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, font, layout } from '@kyarafit/design-system/rn';
-import type { Convention, PackingListItem } from '@kyarafit/design-system/types';
-import { listConventions } from '../../src/storage/conventionsRepo';
-import { getPacking, toggleChecked } from '../../src/storage/packingRepo';
-import { getSyncPendingCount } from '../../src/services/sync';
-import { ChecklistRow } from '../../src/components/ui/ChecklistRow';
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { useLocalSearchParams, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, font, layout } from "@kyarafit/design-system/rn";
+import type {
+  Convention,
+  PackingListItem,
+} from "@kyarafit/design-system/types";
+import { listConventions } from "../../src/storage/conventionsRepo";
+import { getPacking, toggleChecked } from "../../src/storage/packingRepo";
+import { getSyncPendingCount } from "../../src/services/sync";
+import { ChecklistRow } from "../../src/components/ui/ChecklistRow";
 
 export default function PackingScreen() {
   const params = useLocalSearchParams<{ conventionId?: string }>();
@@ -21,7 +24,10 @@ export default function PackingScreen() {
   }, [params.conventionId]);
 
   const load = useCallback(async () => {
-    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
+    const [list, pending] = await Promise.all([
+      listConventions(),
+      getSyncPendingCount(),
+    ]);
     setConventions(list);
     setSyncPending(pending);
     if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
@@ -30,7 +36,7 @@ export default function PackingScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    }, [load]),
   );
 
   useEffect(() => {
@@ -43,7 +49,8 @@ export default function PackingScreen() {
 
   const handleToggle = useCallback(async (item: PackingListItem) => {
     const updated = await toggleChecked(item.id);
-    if (updated) setItems((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
+    if (updated)
+      setItems((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
   }, []);
 
   const convention = conventions.find((c) => c.id === selectedId);
@@ -52,7 +59,7 @@ export default function PackingScreen() {
   const general = items.filter((i) => !i.date && !i.buildId);
   const byDate = new Map<string, PackingListItem[]>();
   for (const i of items.filter((i) => i.date || i.buildId)) {
-    const key = i.date ?? 'general';
+    const key = i.date ?? "general";
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push(i);
   }
@@ -65,21 +72,31 @@ export default function PackingScreen() {
           <Text style={styles.metaLabel}>Logistics</Text>
           <Text style={styles.title}>Packing List</Text>
         </View>
-        {syncPending > 0 && (
-          <Text style={styles.syncLabel}>SYNC PENDING</Text>
-        )}
+        {syncPending > 0 && <Text style={styles.syncLabel}>SYNC PENDING</Text>}
       </View>
 
       <View style={styles.selectorRow}>
         <Text style={styles.selectorLabel}>CONVENTION</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.selectorScroll}
+        >
           {conventions.map((c) => (
             <Pressable
               key={c.id}
-              style={[styles.selectorBtn, selectedId === c.id && styles.selectorBtnActive]}
+              style={[
+                styles.selectorBtn,
+                selectedId === c.id && styles.selectorBtnActive,
+              ]}
               onPress={() => setSelectedId(c.id)}
             >
-              <Text style={[styles.selectorBtnText, selectedId === c.id && styles.selectorBtnTextActive]}>
+              <Text
+                style={[
+                  styles.selectorBtnText,
+                  selectedId === c.id && styles.selectorBtnTextActive,
+                ]}
+              >
                 {c.name}
               </Text>
             </Pressable>
@@ -87,12 +104,20 @@ export default function PackingScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         {!selectedId && conventions.length === 0 && (
-          <Text style={styles.meta}>Create a convention and generate a packing list from the Plan tab.</Text>
+          <Text style={styles.meta}>
+            Create a convention and generate a packing list from the Plan tab.
+          </Text>
         )}
         {selectedId && items.length === 0 && (
-          <Text style={styles.meta}>No packing list yet. Generate one from the convention detail (Plan tab).</Text>
+          <Text style={styles.meta}>
+            No packing list yet. Generate one from the convention detail (Plan
+            tab).
+          </Text>
         )}
         {selectedId && items.length > 0 && (
           <>
@@ -144,43 +169,71 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPaddingX,
     paddingTop: 48,
     paddingBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
   metaLabel: {
     fontSize: 9,
     letterSpacing: 2,
-    textTransform: 'uppercase',
-    fontWeight: '600',
+    textTransform: "uppercase",
+    fontWeight: "600",
     color: colors.meta,
     marginBottom: 4,
   },
   title: {
     fontFamily: font.serif,
     fontSize: 28,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
+    fontWeight: "bold",
+    fontStyle: "italic",
     color: colors.black,
     letterSpacing: -0.5,
   },
-  syncLabel: { fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: '600', color: colors.meta },
+  syncLabel: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    fontWeight: "600",
+    color: colors.meta,
+  },
   selectorRow: { paddingHorizontal: layout.screenPaddingX, marginBottom: 24 },
-  selectorLabel: { fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: colors.textTertiary, marginBottom: 8 },
-  selectorScroll: { flexDirection: 'row', gap: 12 },
-  selectorBtn: { paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border },
-  selectorBtnActive: { borderColor: colors.black, backgroundColor: colors.muted },
-  selectorBtnText: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: colors.textTertiary },
-  selectorBtnTextActive: { color: colors.black, fontWeight: '600' },
+  selectorLabel: {
+    fontSize: 8,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: colors.textTertiary,
+    marginBottom: 8,
+  },
+  selectorScroll: { flexDirection: "row", gap: 12 },
+  selectorBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  selectorBtnActive: {
+    borderColor: colors.black,
+    backgroundColor: colors.muted,
+  },
+  selectorBtnText: {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    color: colors.textTertiary,
+  },
+  selectorBtnTextActive: { color: colors.black, fontWeight: "600" },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: layout.screenPaddingX, paddingBottom: 140 },
+  scrollContent: {
+    paddingHorizontal: layout.screenPaddingX,
+    paddingBottom: 140,
+  },
   meta: { fontSize: 12, color: colors.meta, paddingVertical: 24 },
   section: { marginBottom: 32 },
   sectionTitle: {
     fontFamily: font.serif,
     fontSize: 18,
-    fontStyle: 'italic',
-    fontWeight: 'bold',
+    fontStyle: "italic",
+    fontWeight: "bold",
     color: colors.black,
     marginBottom: 16,
     borderBottomWidth: 1,

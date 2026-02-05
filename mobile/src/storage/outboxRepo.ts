@@ -2,20 +2,20 @@
  * Sync outbox: queue events for when back online.
  */
 
-import { initClosetDb } from './db';
+import { initClosetDb } from "./db";
 
 export type OutboxType =
-  | 'upsert'
-  | 'delete'
-  | 'build.upsert'
-  | 'build.linkItems'
-  | 'build.task.upsert'
-  | 'build.task.delete'
-  | 'convention.upsert'
-  | 'convention.plan.replace'
-  | 'packing.toggle'
-  | 'packing.addManual'
-  | 'packing.regenerate';
+  | "upsert"
+  | "delete"
+  | "build.upsert"
+  | "build.linkItems"
+  | "build.task.upsert"
+  | "build.task.delete"
+  | "convention.upsert"
+  | "convention.plan.replace"
+  | "packing.toggle"
+  | "packing.addManual"
+  | "packing.regenerate";
 
 export interface OutboxEntry {
   id: number;
@@ -24,19 +24,25 @@ export interface OutboxEntry {
   createdAt: string;
 }
 
-export async function enqueue(type: OutboxType, payload: unknown): Promise<void> {
+export async function enqueue(
+  type: OutboxType,
+  payload: unknown,
+): Promise<void> {
   const database = await initClosetDb();
   await database.runAsync(
-    'INSERT INTO outbox (type, payload_json) VALUES (?, ?)',
-    [type, JSON.stringify(payload)]
+    "INSERT INTO outbox (type, payload_json) VALUES (?, ?)",
+    [type, JSON.stringify(payload)],
   );
 }
 
 export async function listPending(): Promise<OutboxEntry[]> {
   const database = await initClosetDb();
-  const rows = await database.getAllAsync<{ id: number; type: string; payload_json: string; created_at: string }>(
-    'SELECT id, type, payload_json, created_at FROM outbox ORDER BY id ASC'
-  );
+  const rows = await database.getAllAsync<{
+    id: number;
+    type: string;
+    payload_json: string;
+    created_at: string;
+  }>("SELECT id, type, payload_json, created_at FROM outbox ORDER BY id ASC");
   return rows.map((r) => ({
     id: r.id,
     type: r.type as OutboxType,
@@ -47,5 +53,5 @@ export async function listPending(): Promise<OutboxEntry[]> {
 
 export async function remove(id: number): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync('DELETE FROM outbox WHERE id = ?', [id]);
+  await database.runAsync("DELETE FROM outbox WHERE id = ?", [id]);
 }

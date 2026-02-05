@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { AppState } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useSession, getTokenForSync } from '../src/lib/auth/client';
-import { getOrCreateDeviceId } from '../src/lib/deviceId';
-import { initClosetDb } from '../src/storage/db';
-import { setDeviceId, runSync } from '../src/services/sync';
+import { useEffect, useState } from "react";
+import { AppState } from "react-native";
+import { Stack, useRouter, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useSession, getTokenForSync } from "../src/lib/auth/client";
+import { getOrCreateDeviceId } from "../src/lib/deviceId";
+import { initClosetDb } from "../src/storage/db";
+import { setDeviceId, runSync } from "../src/services/sync";
 
 const queryClient = new QueryClient();
 
@@ -29,13 +29,15 @@ function RootLayoutNav() {
         setIsInitialized(true);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Sync on app state change
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
         getTokenForSync().then((token) => runSync(token));
       }
     });
@@ -46,11 +48,11 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!isInitialized || loading) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    const inAuthGroup = segments[0] === "auth";
 
     if (session && inAuthGroup) {
       // If logged in and on auth screen, go to tabs
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [session, segments, loading, isInitialized]);
 

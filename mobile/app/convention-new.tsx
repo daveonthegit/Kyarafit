@@ -1,16 +1,23 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, font, layout } from '@kyarafit/design-system/rn';
-import { createConvention } from '../src/storage/conventionsRepo';
+import { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  StyleSheet,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, font, layout } from "@kyarafit/design-system/rn";
+import { createConvention } from "../src/storage/conventionsRepo";
 
 export default function ConventionNewScreen() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -23,7 +30,7 @@ export default function ConventionNewScreen() {
         startDate: startDate.trim(),
         endDate: endDate.trim(),
       });
-      router.replace({ pathname: '/convention-detail', params: { id: c.id } });
+      router.replace({ pathname: "/convention-detail", params: { id: c.id } });
     } finally {
       setSaving(false);
     }
@@ -37,7 +44,10 @@ export default function ConventionNewScreen() {
         </Pressable>
         <Text style={styles.metaLabel}>New Convention</Text>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={styles.label}>NAME</Text>
         <TextInput
           style={styles.input}
@@ -72,7 +82,11 @@ export default function ConventionNewScreen() {
           placeholderTextColor={colors.textTertiary}
           keyboardType="numbers-and-punctuation"
         />
-        <Pressable style={[styles.primaryBtn, saving && styles.disabled]} onPress={save} disabled={saving}>
+        <Pressable
+          style={[styles.primaryBtn, saving && styles.disabled]}
+          onPress={save}
+          disabled={saving}
+        >
           <Text style={styles.primaryBtnText}>CREATE CONVENTION</Text>
         </Pressable>
       </ScrollView>
@@ -83,8 +97,8 @@ export default function ConventionNewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
     paddingHorizontal: layout.screenPaddingX,
     paddingTop: 56,
@@ -92,14 +106,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
-  metaLabel: { fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: '600', color: colors.meta },
+  metaLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    fontWeight: "600",
+    color: colors.meta,
+  },
   scroll: { flex: 1 },
   scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
   label: {
     fontSize: 9,
     letterSpacing: 2,
-    textTransform: 'uppercase',
-    fontWeight: '600',
+    textTransform: "uppercase",
+    fontWeight: "600",
     color: colors.meta,
     marginBottom: 8,
     marginTop: 24,
@@ -115,9 +135,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     paddingVertical: 14,
     marginTop: 32,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 2,
   },
-  primaryBtnText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, color: colors.white },
+  primaryBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: colors.white,
+  },
   disabled: { opacity: 0.5 },
 });

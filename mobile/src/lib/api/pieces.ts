@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080";
 
 export interface Piece {
   id: string;
@@ -55,8 +55,8 @@ export interface CategoriesResponse {
 class PiecesAPI {
   private getAuthHeaders(token: string) {
     return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     };
   }
 
@@ -67,7 +67,7 @@ class PiecesAPI {
       offset?: number;
       search?: string;
       category?: string;
-    } = {}
+    } = {},
   ): Promise<PiecesResponse> {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/pieces`, {
@@ -76,7 +76,7 @@ class PiecesAPI {
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching pieces:', error);
+      console.error("Error fetching pieces:", error);
       throw error;
     }
   }
@@ -88,7 +88,7 @@ class PiecesAPI {
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching piece:', error);
+      console.error("Error fetching piece:", error);
       throw error;
     }
   }
@@ -100,19 +100,27 @@ class PiecesAPI {
       });
       return response.data;
     } catch (error) {
-      console.error('Error creating piece:', error);
+      console.error("Error creating piece:", error);
       throw error;
     }
   }
 
-  async updatePiece(token: string, id: string, data: UpdatePieceRequest): Promise<Piece> {
+  async updatePiece(
+    token: string,
+    id: string,
+    data: UpdatePieceRequest,
+  ): Promise<Piece> {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/v1/pieces/${id}`, data, {
-        headers: this.getAuthHeaders(token),
-      });
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/pieces/${id}`,
+        data,
+        {
+          headers: this.getAuthHeaders(token),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error('Error updating piece:', error);
+      console.error("Error updating piece:", error);
       throw error;
     }
   }
@@ -123,19 +131,22 @@ class PiecesAPI {
         headers: this.getAuthHeaders(token),
       });
     } catch (error) {
-      console.error('Error deleting piece:', error);
+      console.error("Error deleting piece:", error);
       throw error;
     }
   }
 
   async getCategories(token: string): Promise<CategoriesResponse> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/pieces/categories`, {
-        headers: this.getAuthHeaders(token),
-      });
+      const response = await axios.get(
+        `${API_BASE_URL}/api/v1/pieces/categories`,
+        {
+          headers: this.getAuthHeaders(token),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
       throw error;
     }
   }

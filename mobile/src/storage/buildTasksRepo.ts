@@ -2,9 +2,13 @@
  * Build tasks (checklist items) local repository. Offline-first; enqueue outbox for sync.
  */
 
-import type { BuildTask, CreateBuildTaskInput, UpdateBuildTaskInput } from '@kyarafit/design-system/types';
-import { initClosetDb } from './db';
-import { enqueue } from './outboxRepo';
+import type {
+  BuildTask,
+  CreateBuildTaskInput,
+  UpdateBuildTaskInput,
+} from "@kyarafit/design-system/types";
+import { initClosetDb } from "./db";
+import { enqueue } from "./outboxRepo";
 
 export async function listTasks(buildId: string): Promise<BuildTask[]> {
   const database = await initClosetDb();
@@ -20,7 +24,7 @@ export async function listTasks(buildId: string): Promise<BuildTask[]> {
   }>(
     `SELECT id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at
      FROM build_tasks WHERE build_id = ? ORDER BY sort_order ASC, created_at ASC`,
-    [buildId]
+    [buildId],
   );
   return rows.map((r) => ({
     id: r.id,
@@ -34,14 +38,25 @@ export async function listTasks(buildId: string): Promise<BuildTask[]> {
   }));
 }
 
-export async function createTask(buildId: string, input: CreateBuildTaskInput): Promise<BuildTask> {
+export async function createTask(
+  buildId: string,
+  input: CreateBuildTaskInput,
+): Promise<BuildTask> {
   const database = await initClosetDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
     `INSERT INTO build_tasks (id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-    [id, buildId, input.label, input.closetItemId ?? null, input.sortOrder ?? 0, now, now]
+    [
+      id,
+      buildId,
+      input.label,
+      input.closetItemId ?? null,
+      input.sortOrder ?? 0,
+      now,
+      now,
+    ],
   );
   const task: BuildTask = {
     id,
@@ -53,25 +68,47 @@ export async function createTask(buildId: string, input: CreateBuildTaskInput): 
     createdAt: now,
     updatedAt: now,
   };
-  await enqueue('build.task.upsert', { task });
+  await enqueue("build.task.upsert", { task });
   return task;
 }
 
-export async function updateTask(taskId: string, buildId: string, input: UpdateBuildTaskInput): Promise<BuildTask | null> {
+export async function updateTask(
+  taskId: string,
+  buildId: string,
+  input: UpdateBuildTaskInput,
+): Promise<BuildTask | null> {
   const database = await initClosetDb();
-  const existing = await database.getFirstAsync<{ label: string; closet_item_id: string | null; sort_order: number; checked: number; created_at: string }>(
+  const existing = await database.getFirstAsync<{
+    label: string;
+    closet_item_id: string | null;
+    sort_order: number;
+    checked: number;
+    created_at: string;
+  }>(
     `SELECT label, closet_item_id, sort_order, checked, created_at FROM build_tasks WHERE id = ? AND build_id = ?`,
-    [taskId, buildId]
+    [taskId, buildId],
   );
   if (!existing) return null;
   const label = input.label ?? existing.label;
-  const closet_item_id = input.closetItemId !== undefined ? input.closetItemId : existing.closet_item_id;
+  const closet_item_id =
+    input.closetItemId !== undefined
+      ? input.closetItemId
+      : existing.closet_item_id;
   const sort_order = input.sortOrder ?? existing.sort_order;
-  const checked = input.checked !== undefined ? (input.checked ? 1 : 0) : existing.checked;
+  const checked =
+    input.checked !== undefined ? (input.checked ? 1 : 0) : existing.checked;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE build_tasks SET label = ?, closet_item_id = ?, sort_order = ?, checked = ?, updated_at = ? WHERE id = ? AND build_id = ?`,
-    [label, closet_item_id ?? null, sort_order, checked, updated_at, taskId, buildId]
+    [
+      label,
+      closet_item_id ?? null,
+      sort_order,
+      checked,
+      updated_at,
+      taskId,
+      buildId,
+    ],
   );
   const task: BuildTask = {
     id: taskId,
@@ -83,48 +120,63 @@ export async function updateTask(taskId: string, buildId: string, input: UpdateB
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
-  await enqueue('build.task.upsert', { task });
+  await enqueue("build.task.upsert", { task });
   return task;
 }
 
-export async function deleteTask(taskId: string, buildId: string): Promise<boolean> {
+export async function deleteTask(
+  taskId: string,
+  buildId: string,
+): Promise<boolean> {
   const database = await initClosetDb();
-  await database.runAsync(`DELETE FROM build_tasks WHERE id = ? AND build_id = ?`, [taskId, buildId]);
-  await enqueue('build.task.delete', { taskId, buildId });
+  await database.runAsync(
+    `DELETE FROM build_tasks WHERE id = ? AND build_id = ?`,
+    [taskId, buildId],
+  );
+  await enqueue("build.task.delete", { taskId, buildId });
   return true;
 }
 
-export async function toggleTaskChecked(taskId: string, buildId: string): Promise<BuildTask | null> {
+export async function toggleTaskChecked(
+  taskId: string,
+  buildId: string,
+): Promise<BuildTask | null> {
   const database = await initClosetDb();
-  const row = await database.getFirstAsync<{ checked: number; created_at: string }>(
+  const row = await database.getFirstAsync<{
+    checked: number;
+    created_at: string;
+  }>(
     `SELECT checked, created_at FROM build_tasks WHERE id = ? AND build_id = ?`,
-    [taskId, buildId]
+    [taskId, buildId],
   );
   if (!row) return null;
   const checked = row.checked === 0 ? 1 : 0;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE build_tasks SET checked = ?, updated_at = ? WHERE id = ? AND build_id = ?`,
-    [checked, updated_at, taskId, buildId]
+    [checked, updated_at, taskId, buildId],
   );
   const task: BuildTask = {
     id: taskId,
     buildId,
-    label: '', // will be filled below
+    label: "", // will be filled below
     sortOrder: 0,
     checked: checked !== 0,
     createdAt: row.created_at,
     updatedAt: updated_at,
   };
-  const full = await database.getFirstAsync<{ label: string; closet_item_id: string | null; sort_order: number }>(
-    `SELECT label, closet_item_id, sort_order FROM build_tasks WHERE id = ?`,
-    [taskId]
-  );
+  const full = await database.getFirstAsync<{
+    label: string;
+    closet_item_id: string | null;
+    sort_order: number;
+  }>(`SELECT label, closet_item_id, sort_order FROM build_tasks WHERE id = ?`, [
+    taskId,
+  ]);
   if (full) {
     task.label = full.label;
     task.closetItemId = full.closet_item_id ?? undefined;
     task.sortOrder = full.sort_order;
   }
-  await enqueue('build.task.upsert', { task });
+  await enqueue("build.task.upsert", { task });
   return task;
 }

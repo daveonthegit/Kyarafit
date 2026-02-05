@@ -31,7 +31,7 @@ func CreateStarterData(
 	// Create "My First Build" with starter tasks
 	buildID := uuid.New().String()
 	imageURL := BuildPlaceholderImage
-	build, err := buildRepo.Create(ctx, deviceID, userID, builds.CreateInput{
+	build, err := buildRepo.Create(ctx, deviceID, userID, builds.CreateBuildInput{
 		ID:       buildID,
 		Name:     "My First Build",
 		Status:   "idea",
@@ -50,7 +50,7 @@ func CreateStarterData(
 		"Create mockup",
 	}
 	for i, taskLabel := range starterTasks {
-		_, err := buildRepo.CreateTask(ctx, build.ID, deviceID, builds.CreateTaskInput{
+		_, err := buildRepo.CreateTask(ctx, build.ID, builds.CreateBuildTaskInput{
 			Label:     taskLabel,
 			SortOrder: i,
 		})
