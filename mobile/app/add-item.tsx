@@ -45,10 +45,7 @@ export default function AddItemScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "Allow access to photos to add an image.",
-      );
+      Alert.alert("Permission needed", "Allow access to photos to add an image.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,9 +71,7 @@ export default function AddItemScreen() {
       tags,
       notes: notes.trim() || undefined,
       imageLocalUri: imageLocalUri ?? undefined,
-      costCents: costDollars.trim()
-        ? Math.round(parseFloat(costDollars) * 100)
-        : undefined,
+      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
       const msg = parsed.error.errors[0]?.message ?? "Invalid fields";
@@ -135,11 +130,7 @@ export default function AddItemScreen() {
               />
             ) : (
               <>
-                <Ionicons
-                  name="camera-outline"
-                  size={32}
-                  color="rgba(0,0,0,0.2)"
-                />
+                <Ionicons name="camera-outline" size={32} color="rgba(0,0,0,0.2)" />
                 <Text style={styles.uploadText}>Add Photo</Text>
               </>
             )}
@@ -164,10 +155,7 @@ export default function AddItemScreen() {
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    style={[
-                      styles.categoryChip,
-                      category === c && styles.categoryChipActive,
-                    ]}
+                    style={[styles.categoryChip, category === c && styles.categoryChipActive]}
                   >
                     <Text
                       style={[
@@ -210,9 +198,7 @@ export default function AddItemScreen() {
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={styles.saveBtnText}>
-            {saving ? "Saving…" : "Save Item"}
-          </Text>
+          <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save Item"}</Text>
         </Pressable>
       </View>
     </View>

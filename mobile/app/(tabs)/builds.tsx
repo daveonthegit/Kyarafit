@@ -21,24 +21,18 @@ export default function BuildsScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+    }, [load])
   );
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View>
             <Text style={styles.metaLabel}>Portfolio</Text>
             <Text style={styles.title}>My Builds</Text>
           </View>
-          <Pressable
-            style={styles.closetBtn}
-            onPress={() => router.push("/closet")}
-          >
+          <Pressable style={styles.closetBtn} onPress={() => router.push("/closet")}>
             <Ionicons name="cube-outline" size={14} color={colors.black} />
             <Text style={styles.closetBtnText}>Closet</Text>
           </Pressable>
@@ -47,25 +41,18 @@ export default function BuildsScreen() {
         {loading && <Text style={styles.meta}>Loading…</Text>}
         {!loading && builds.length === 0 && (
           <Text style={styles.meta}>
-            No builds yet. Create one to link closet items and use them in
-            convention packing.
+            No builds yet. Create one to link closet items and use them in convention packing.
           </Text>
         )}
         {builds.map((b) => (
           <Pressable
             key={b.id}
             style={styles.buildRow}
-            onPress={() =>
-              router.push({ pathname: "/build-detail", params: { id: b.id } })
-            }
+            onPress={() => router.push({ pathname: "/build-detail", params: { id: b.id } })}
           >
             <Text style={styles.buildName}>{b.name}</Text>
             <Text style={styles.buildMeta}>{b.status}</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textTertiary}
-            />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </Pressable>
         ))}
       </ScrollView>

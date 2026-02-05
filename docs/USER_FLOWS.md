@@ -5,6 +5,7 @@ This document describes the actual implemented user flows in Kyarafit based on t
 ## Overview
 
 Kyarafit is a mobile-first cosplay planning app with:
+
 - **Offline-first mobile app** (React Native + Expo + SQLite)
 - **Device-scoped backend API** (Go + Fiber + PostgreSQL)
 - **Progressive workflow**: Closet → Builds → Conventions → Packing
@@ -14,6 +15,7 @@ Kyarafit is a mobile-first cosplay planning app with:
 ### Device-Scoped Design
 
 All entities are scoped by `device_id` (sent via `x-kyar-device-id` header):
+
 - **No auth required** for basic mobile usage
 - **Optional auth** enables sync and tier limits
 - **Offline-first** mobile with sync outbox pattern
@@ -29,12 +31,15 @@ All entities are scoped by `device_id` (sent via `x-kyar-device-id` header):
 ## User Flow 1: Closet Management
 
 ### Purpose
+
 Organize costume pieces inventory
 
 ### Screens
+
 - Mobile: `mobile/app/closet.tsx` (list), `mobile/app/add-item.tsx` (add)
 
 ### Backend
+
 - API: `GET /closet/items`, `POST /closet/items`, `PATCH /closet/items/:id`, `DELETE /closet/items/:id`
 - Handler: `backend/internal/closet/handler.go`
 - Table: `closet_items`
@@ -42,11 +47,13 @@ Organize costume pieces inventory
 ### Data Flow
 
 1. **Add Item**
+
    ```
    User → Camera/Gallery → Image Picker → Form → SQLite → Outbox → Sync → Backend
    ```
 
 2. **Item Structure**
+
    ```typescript
    {
      id: uuid,
@@ -68,6 +75,7 @@ Organize costume pieces inventory
    - Synced when connection restored
 
 ### User Actions
+
 - Browse closet in grid view with category filters
 - Add new items with name, category, tags, cost, notes
 - Upload photos (image service removes background)
@@ -78,12 +86,15 @@ Organize costume pieces inventory
 ## User Flow 2: Build Creation & Management
 
 ### Purpose
+
 Organize closet items into complete cosplay builds
 
 ### Screens
+
 - Mobile: `mobile/app/(tabs)/builds.tsx` (list), `mobile/app/build-detail.tsx` (detail), `mobile/app/build-link-items.tsx` (link items)
 
 ### Backend
+
 - API: `GET /builds`, `POST /builds`, `PATCH /builds/:id`
 - Link Items: `POST /builds/:id/items`, `GET /builds/:id/items`
 - Handler: `backend/internal/builds/handler.go`
@@ -92,6 +103,7 @@ Organize closet items into complete cosplay builds
 ### Data Flow
 
 1. **Create Build**
+
    ```typescript
    {
      id: uuid,
@@ -118,6 +130,7 @@ Organize closet items into complete cosplay builds
    - Displays budget vs actual cost
 
 ### User Actions
+
 - Create build with name, character, status
 - Add reference image
 - Link closet items (multi-select)
@@ -130,12 +143,15 @@ Organize closet items into complete cosplay builds
 ## User Flow 3: Build Task Planning
 
 ### Purpose
+
 Track build progress with checklists
 
 ### Screens
+
 - Mobile: `mobile/app/build-detail.tsx` (shows tasks inline)
 
 ### Backend
+
 - API: `GET /builds/:id/tasks`, `POST /builds/:id/tasks`, `PATCH /builds/:id/tasks/:taskId`, `DELETE /builds/:id/tasks/:taskId`
 - Handler: `backend/internal/builds/handler.go`
 - Table: `build_tasks`
@@ -143,6 +159,7 @@ Track build progress with checklists
 ### Data Flow
 
 1. **Task Structure**
+
    ```typescript
    {
      id: uuid,
@@ -163,6 +180,7 @@ Track build progress with checklists
    - Shows "(linked)" badge if closetItemId set
 
 ### User Actions
+
 - Add tasks with simple text labels
 - Optionally link tasks to specific closet items
 - Check off tasks as completed
@@ -174,12 +192,15 @@ Track build progress with checklists
 ## User Flow 4: Convention Planning
 
 ### Purpose
+
 Plan which builds to wear on which convention days
 
 ### Screens
+
 - Mobile: `mobile/app/convention-detail.tsx`
 
 ### Backend
+
 - API: `GET /conventions`, `POST /conventions`, `GET /conventions/:id`, `PATCH /conventions/:id`
 - Day Plan: `GET /conventions/:id/plan`, `PUT /conventions/:id/plan`
 - Handler: `backend/internal/convention/handler.go`
@@ -188,6 +209,7 @@ Plan which builds to wear on which convention days
 ### Data Flow
 
 1. **Convention Structure**
+
    ```typescript
    {
      id: uuid,
@@ -202,6 +224,7 @@ Plan which builds to wear on which convention days
    ```
 
 2. **Day Plan Entry**
+
    ```typescript
    {
      id: uuid,
@@ -218,6 +241,7 @@ Plan which builds to wear on which convention days
    - Mobile generates entries for each date in convention range
 
 ### User Actions
+
 - Create convention with name, location, dates
 - View day-by-day list
 - Tap day → Modal picker shows all builds
@@ -231,13 +255,13 @@ Plan which builds to wear on which convention days
 const dates = dateRange(convention.startDate, convention.endDate);
 
 // Generate plan on day assignment
-const newPlan = dates.map(date => ({
+const newPlan = dates.map((date) => ({
   date,
-  buildId: assignedBuildId || null,  // null for rest day
-  notes: existingNotes
+  buildId: assignedBuildId || null, // null for rest day
+  notes: existingNotes,
 }));
 
-await setPlan(conventionId, newPlan);  // Atomic replacement
+await setPlan(conventionId, newPlan); // Atomic replacement
 ```
 
 ---
@@ -245,12 +269,15 @@ await setPlan(conventionId, newPlan);  // Atomic replacement
 ## User Flow 5: Packing List Generation
 
 ### Purpose
+
 Auto-generate packing checklist from convention schedule
 
 ### Screens
+
 - Mobile: `mobile/app/(tabs)/packing.tsx`, triggered from `mobile/app/convention-detail.tsx`
 
 ### Backend
+
 - API: `GET /conventions/:id/packing`, `POST /conventions/:id/packing/regenerate`
 - Manual Items: `POST /conventions/:id/packing/manual`
 - Update: `PATCH /packing/:id`
@@ -260,6 +287,7 @@ Auto-generate packing checklist from convention schedule
 ### Data Flow
 
 1. **Packing Item Structure**
+
    ```typescript
    {
      id: uuid,
@@ -278,32 +306,32 @@ Auto-generate packing checklist from convention schedule
 
    ```go
    // Step 1: Delete auto-generated items (closet_item_id IS NOT NULL)
-   DELETE FROM packing_list_items 
+   DELETE FROM packing_list_items
    WHERE convention_id = ? AND closet_item_id IS NOT NULL
-   
+
    // Step 2: Get day plans
    SELECT * FROM convention_day_plans WHERE convention_id = ?
-   
+
    // Step 3: For each day with buildId, get linked closet items
    seenCloset := map[string]bool{}
    for each day {
        if day.buildId != nil {
-           itemIds := SELECT closet_item_id FROM build_item_links 
+           itemIds := SELECT closet_item_id FROM build_item_links
                       WHERE build_id = day.buildId
-           
+
            for each itemId {
                if seenCloset[itemId] { continue }  // Deduplication
                seenCloset[itemId] = true
-               
+
                label := SELECT name FROM closet_items WHERE id = itemId
-               
-               INSERT INTO packing_list_items 
+
+               INSERT INTO packing_list_items
                (id, convention_id, date, build_id, closet_item_id, label, checked)
                VALUES (uuid, conventionId, date, buildId, itemId, label, false)
            }
        }
    }
-   
+
    // Step 4: Add default general essentials if none exist
    IF no items with (date IS NULL AND build_id IS NULL) {
        INSERT default essentials: "Wig cap", "Pins", "Glue", "Makeup wipes", "Repair tape"
@@ -352,7 +380,7 @@ Auto-generate packing checklist from convention schedule
 // From mobile/src/storage/packingRepo.ts:regenerateLocal()
 
 // Delete auto-generated items
-DELETE FROM packing_list_items 
+DELETE FROM packing_list_items
 WHERE convention_id = ? AND closet_item_id IS NOT NULL
 
 // Get day plans and closet items
@@ -363,21 +391,21 @@ const closetItems = await listItems();
 const seenCloset = new Set();
 for (const dayPlan of plan) {
     if (!dayPlan.buildId) continue;  // Skip rest days
-    
+
     const linkedIds = await getLinkedClosetItemIds(dayPlan.buildId);
     for (const closetItemId of linkedIds) {
         if (seenCloset.has(closetItemId)) continue;  // Dedupe
         seenCloset.add(closetItemId);
-        
+
         const label = closetItems.find(c => c.id === closetItemId)?.name;
-        INSERT INTO packing_list_items 
+        INSERT INTO packing_list_items
         (id, convention_id, date, build_id, closet_item_id, label, checked)
         VALUES (uuid, conventionId, date, buildId, closetItemId, label, 0)
     }
 }
 
 // Add default essentials if none exist
-const count = SELECT COUNT(*) FROM packing_list_items 
+const count = SELECT COUNT(*) FROM packing_list_items
               WHERE convention_id = ? AND date IS NULL AND build_id IS NULL
 if (count === 0) {
     for (const label of DEFAULT_ESSENTIALS) {
@@ -397,6 +425,7 @@ await enqueue('packing.regenerate', { conventionId });
 ### Local Storage (SQLite)
 
 All mobile data stored locally in SQLite:
+
 - `closet_items_local`
 - `device_builds_local`
 - `build_item_links_local`
@@ -410,29 +439,32 @@ All mobile data stored locally in SQLite:
 When user performs actions offline:
 
 1. **Action executed locally** (instant UI feedback)
+
    ```typescript
-   await database.runAsync('INSERT INTO closet_items ...');
+   await database.runAsync("INSERT INTO closet_items ...");
    ```
 
 2. **Queued in outbox**
+
    ```typescript
-   await enqueue('closet.create', { item: newItem });
+   await enqueue("closet.create", { item: newItem });
    ```
 
 3. **Sync when online**
+
    ```typescript
    // Sync service processes outbox
    const pending = await listOutbox();
    for (const op of pending) {
-       await fetch(`${API_URL}${op.endpoint}`, {
-           method: op.method,
-           headers: {
-               'x-kyar-device-id': deviceId,
-               'Content-Type': 'application/json'
-           },
-           body: JSON.stringify(op.payload)
-       });
-       await markSynced(op.id);
+     await fetch(`${API_URL}${op.endpoint}`, {
+       method: op.method,
+       headers: {
+         "x-kyar-device-id": deviceId,
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify(op.payload),
+     });
+     await markSynced(op.id);
    }
    ```
 
@@ -441,6 +473,7 @@ When user performs actions offline:
 ### Sync Operations
 
 From `mobile/src/services/sync.ts`:
+
 - `closet.create`, `closet.update`, `closet.delete`
 - `build.create`, `build.update`, `build.linkItems`
 - `task.create`, `task.update`, `task.delete`
@@ -456,6 +489,7 @@ From `mobile/src/services/sync.ts`:
 All require `x-kyar-device-id` header. Optional auth via `Authorization: Bearer <jwt>` enables tier limits.
 
 #### Closet Items
+
 ```
 GET    /closet/items           # List items
 POST   /closet/items           # Create item
@@ -464,6 +498,7 @@ DELETE /closet/items/:id       # Delete item
 ```
 
 #### Builds
+
 ```
 GET    /builds                 # List builds
 POST   /builds                 # Create build
@@ -474,6 +509,7 @@ POST   /builds/:id/items       # Link items (atomic replace)
 ```
 
 #### Build Tasks
+
 ```
 GET    /builds/:id/tasks       # List tasks for build
 POST   /builds/:id/tasks       # Create task
@@ -482,6 +518,7 @@ DELETE /builds/:id/tasks/:taskId   # Delete task
 ```
 
 #### Conventions
+
 ```
 GET    /conventions            # List conventions
 POST   /conventions            # Create convention
@@ -492,6 +529,7 @@ PUT    /conventions/:id/plan   # Replace day plan (atomic)
 ```
 
 #### Packing
+
 ```
 GET    /conventions/:id/packing              # Get packing list
 POST   /conventions/:id/packing/regenerate   # Regenerate list
@@ -502,6 +540,7 @@ PATCH  /packing/:id                          # Update item (check/uncheck, renam
 ### Request/Response Examples
 
 **Create Build**
+
 ```http
 POST /builds
 x-kyar-device-id: abc-123
@@ -527,6 +566,7 @@ Response 201:
 ```
 
 **Link Items to Build**
+
 ```http
 POST /builds/:id/items
 x-kyar-device-id: abc-123
@@ -539,6 +579,7 @@ Response 204: (no content)
 ```
 
 **Replace Day Plan**
+
 ```http
 PUT /conventions/:id/plan
 x-kyar-device-id: abc-123
@@ -558,6 +599,7 @@ Response 200:
 ```
 
 **Regenerate Packing List**
+
 ```http
 POST /conventions/:id/packing/regenerate
 x-kyar-device-id: abc-123
@@ -619,12 +661,14 @@ Result: "Blonde wig" appears once
 ### Manual vs Auto-Generated Items
 
 **Auto-generated** (`closet_item_id IS NOT NULL`):
+
 - Created by regenerate endpoint
 - Deleted on next regenerate
 - Linked to actual closet items
 - Label comes from closet item name
 
 **Manual** (`closet_item_id IS NULL`):
+
 - Created by user via "Add Manual Item"
 - Preserved across regenerations
 - Not linked to closet items
@@ -635,6 +679,7 @@ Result: "Blonde wig" appears once
 **Current Implementation**: Checked state is NOT preserved during regeneration.
 
 When regenerate is called:
+
 1. All auto-generated items deleted (including checked ones)
 2. New items created with `checked=false`
 3. User must re-check items after regeneration
@@ -650,6 +695,7 @@ When regenerate is called:
 ### Tables
 
 **closet_items** (device-scoped inventory)
+
 - `id UUID PRIMARY KEY`
 - `device_id TEXT NOT NULL`
 - `name TEXT NOT NULL`
@@ -662,6 +708,7 @@ When regenerate is called:
 - `created_at, updated_at TIMESTAMPTZ`
 
 **device_builds** (device-scoped builds)
+
 - `id UUID PRIMARY KEY`
 - `device_id TEXT NOT NULL`
 - `name TEXT NOT NULL`
@@ -674,11 +721,13 @@ When regenerate is called:
 - `created_at, updated_at TIMESTAMPTZ`
 
 **build_item_links** (many-to-many join)
+
 - `build_id UUID REFERENCES device_builds ON DELETE CASCADE`
 - `closet_item_id UUID REFERENCES closet_items ON DELETE CASCADE`
 - `PRIMARY KEY (build_id, closet_item_id)`
 
 **build_tasks** (progress checklists)
+
 - `id UUID PRIMARY KEY`
 - `build_id UUID REFERENCES device_builds ON DELETE CASCADE`
 - `label TEXT NOT NULL`
@@ -688,6 +737,7 @@ When regenerate is called:
 - `created_at, updated_at TIMESTAMPTZ`
 
 **conventions** (device-scoped events)
+
 - `id UUID PRIMARY KEY`
 - `device_id TEXT NOT NULL`
 - `name TEXT NOT NULL`
@@ -698,6 +748,7 @@ When regenerate is called:
 - `created_at, updated_at TIMESTAMPTZ`
 
 **convention_day_plans** (build assignments per day)
+
 - `id UUID PRIMARY KEY`
 - `convention_id UUID REFERENCES conventions ON DELETE CASCADE`
 - `date DATE NOT NULL`
@@ -706,6 +757,7 @@ When regenerate is called:
 - `UNIQUE (convention_id, date)`
 
 **packing_list_items** (auto + manual items)
+
 - `id UUID PRIMARY KEY`
 - `convention_id UUID REFERENCES conventions ON DELETE CASCADE`
 - `date DATE` (nullable, from day plan)
@@ -720,6 +772,7 @@ When regenerate is called:
 ## Summary
 
 Kyarafit implements a progressive workflow:
+
 1. **Closet**: Build inventory foundation
 2. **Builds**: Organize items into complete cosplays
 3. **Tasks**: Track build progress (optional)
@@ -728,6 +781,7 @@ Kyarafit implements a progressive workflow:
 6. **Packing**: Auto-generate checklists from plans
 
 Key characteristics:
+
 - **Offline-first mobile** with SQLite + sync outbox
 - **Device-scoped** backend API with optional auth
 - **Atomic operations** (plan replacement, item linking)

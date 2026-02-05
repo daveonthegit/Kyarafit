@@ -2,11 +2,7 @@
  * Local builds repository (SQLite). Offline-first; enqueue outbox for sync.
  */
 
-import type {
-  Build,
-  CreateBuildInput,
-  UpdateBuildInput,
-} from "@kyarafit/design-system/types";
+import type { Build, CreateBuildInput, UpdateBuildInput } from "@kyarafit/design-system/types";
 import { initClosetDb } from "./db";
 import { enqueue } from "./outboxRepo";
 
@@ -23,7 +19,7 @@ export async function listBuilds(): Promise<Build[]> {
     created_at: string;
     updated_at: string;
   }>(
-    `SELECT id, name, character, status, notes, image_url, budget_cents, created_at, updated_at FROM builds ORDER BY updated_at DESC`,
+    `SELECT id, name, character, status, notes, image_url, budget_cents, created_at, updated_at FROM builds ORDER BY updated_at DESC`
   );
   return rows.map((r) => ({
     id: r.id,
@@ -56,7 +52,7 @@ export async function createBuild(input: CreateBuildInput): Promise<Build> {
       input.budgetCents ?? null,
       now,
       now,
-    ],
+    ]
   );
   const build: Build = {
     id,
@@ -73,10 +69,7 @@ export async function createBuild(input: CreateBuildInput): Promise<Build> {
   return build;
 }
 
-export async function updateBuild(
-  id: string,
-  input: UpdateBuildInput,
-): Promise<Build | null> {
+export async function updateBuild(id: string, input: UpdateBuildInput): Promise<Build | null> {
   const database = await initClosetDb();
   const existing = await database.getFirstAsync<{
     name: string;
@@ -89,18 +82,15 @@ export async function updateBuild(
     updated_at: string;
   }>(
     `SELECT name, character, status, notes, image_url, budget_cents, created_at, updated_at FROM builds WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!existing) return null;
   const name = input.name ?? existing.name;
-  const character =
-    input.character !== undefined ? input.character : existing.character;
+  const character = input.character !== undefined ? input.character : existing.character;
   const status = (input.status ?? existing.status) as string;
   const notes = input.notes !== undefined ? input.notes : existing.notes;
-  const image_url =
-    input.imageUrl !== undefined ? input.imageUrl : existing.image_url;
-  const budget_cents =
-    input.budgetCents !== undefined ? input.budgetCents : existing.budget_cents;
+  const image_url = input.imageUrl !== undefined ? input.imageUrl : existing.image_url;
+  const budget_cents = input.budgetCents !== undefined ? input.budgetCents : existing.budget_cents;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE builds SET name = ?, character = ?, status = ?, notes = ?, image_url = ?, budget_cents = ?, updated_at = ? WHERE id = ?`,
@@ -113,7 +103,7 @@ export async function updateBuild(
       budget_cents ?? null,
       updated_at,
       id,
-    ],
+    ]
   );
   const build: Build = {
     id,
@@ -144,7 +134,7 @@ export async function getBuild(id: string): Promise<Build | null> {
     updated_at: string;
   }>(
     `SELECT id, name, character, status, notes, image_url, budget_cents, created_at, updated_at FROM builds WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!row) return null;
   return {
@@ -160,29 +150,22 @@ export async function getBuild(id: string): Promise<Build | null> {
   };
 }
 
-export async function getLinkedClosetItemIds(
-  buildId: string,
-): Promise<string[]> {
+export async function getLinkedClosetItemIds(buildId: string): Promise<string[]> {
   const database = await initClosetDb();
   const rows = await database.getAllAsync<{ closet_item_id: string }>(
     `SELECT closet_item_id FROM build_item_links WHERE build_id = ? ORDER BY closet_item_id`,
-    [buildId],
+    [buildId]
   );
   return rows.map((r) => r.closet_item_id);
 }
 
-export async function linkBuildItems(
-  buildId: string,
-  closetItemIds: string[],
-): Promise<void> {
+export async function linkBuildItems(buildId: string, closetItemIds: string[]): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(`DELETE FROM build_item_links WHERE build_id = ?`, [
-    buildId,
-  ]);
+  await database.runAsync(`DELETE FROM build_item_links WHERE build_id = ?`, [buildId]);
   for (const cid of closetItemIds) {
     await database.runAsync(
       `INSERT INTO build_item_links (build_id, closet_item_id) VALUES (?, ?)`,
-      [buildId, cid],
+      [buildId, cid]
     );
   }
   await enqueue("build.linkItems", { buildId, closetItemIds });
@@ -193,7 +176,7 @@ export async function getById(id: string): Promise<Build | null> {
 }
 
 export async function upsertFromSync(
-  build: Omit<Build, "budgetCents"> & { budgetCents?: number | null },
+  build: Omit<Build, "budgetCents"> & { budgetCents?: number | null }
 ): Promise<void> {
   const database = await initClosetDb();
   const existing = await getBuild(build.id);
@@ -209,7 +192,7 @@ export async function upsertFromSync(
         build.budgetCents ?? null,
         build.updatedAt,
         build.id,
-      ],
+      ]
     );
   } else {
     await database.runAsync(
@@ -225,7 +208,7 @@ export async function upsertFromSync(
         build.budgetCents ?? null,
         build.createdAt,
         build.updatedAt,
-      ],
+      ]
     );
   }
 }

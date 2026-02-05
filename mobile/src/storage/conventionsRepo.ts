@@ -21,7 +21,7 @@ export async function listConventions(): Promise<Convention[]> {
     created_at: string;
     updated_at: string;
   }>(
-    `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions ORDER BY start_date DESC`,
+    `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions ORDER BY start_date DESC`
   );
   return rows.map((r) => ({
     id: r.id,
@@ -34,24 +34,14 @@ export async function listConventions(): Promise<Convention[]> {
   }));
 }
 
-export async function createConvention(
-  input: CreateConventionInput,
-): Promise<Convention> {
+export async function createConvention(input: CreateConventionInput): Promise<Convention> {
   const database = await initClosetDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
     `INSERT INTO conventions (id, name, location, start_date, end_date, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.name,
-      input.location ?? null,
-      input.startDate,
-      input.endDate,
-      now,
-      now,
-    ],
+    [id, input.name, input.location ?? null, input.startDate, input.endDate, now, now]
   );
   const convention: Convention = {
     id,
@@ -78,7 +68,7 @@ export async function getConvention(id: string): Promise<Convention | null> {
     updated_at: string;
   }>(
     `SELECT id, name, location, start_date, end_date, created_at, updated_at FROM conventions WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!row) return null;
   return {
@@ -94,7 +84,7 @@ export async function getConvention(id: string): Promise<Convention | null> {
 
 export async function updateConvention(
   id: string,
-  input: UpdateConventionInput,
+  input: UpdateConventionInput
 ): Promise<Convention | null> {
   const database = await initClosetDb();
   const existing = await database.getFirstAsync<{
@@ -106,18 +96,17 @@ export async function updateConvention(
     updated_at: string;
   }>(
     `SELECT name, location, start_date, end_date, created_at, updated_at FROM conventions WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!existing) return null;
   const name = input.name ?? existing.name;
-  const location =
-    input.location !== undefined ? input.location : existing.location;
+  const location = input.location !== undefined ? input.location : existing.location;
   const start_date = input.startDate ?? existing.start_date;
   const end_date = input.endDate ?? existing.end_date;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE conventions SET name = ?, location = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`,
-    [name, location ?? null, start_date, end_date, updated_at, id],
+    [name, location ?? null, start_date, end_date, updated_at, id]
   );
   const convention: Convention = {
     id,
@@ -137,7 +126,7 @@ export async function getById(id: string): Promise<Convention | null> {
 }
 
 export async function upsertFromSync(
-  convention: Convention & { imageUrl?: string },
+  convention: Convention & { imageUrl?: string }
 ): Promise<void> {
   const database = await initClosetDb();
   const existing = await getConvention(convention.id);
@@ -151,7 +140,7 @@ export async function upsertFromSync(
         convention.endDate,
         convention.updatedAt,
         convention.id,
-      ],
+      ]
     );
   } else {
     await database.runAsync(
@@ -165,7 +154,7 @@ export async function upsertFromSync(
         convention.endDate,
         convention.createdAt,
         convention.updatedAt,
-      ],
+      ]
     );
   }
 }

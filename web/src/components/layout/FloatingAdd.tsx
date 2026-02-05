@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
+import Link from "next/link";
 
 /** Default: /closet/new (canonical add-item flow; parity with mobile /add-item). */
-export function FloatingAdd({ href = '/closet/new' }: { href?: string }) {
+export function FloatingAdd({ href = "/closet/new" }: { href?: string }) {
   return (
     <Link
       href={href}

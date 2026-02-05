@@ -13,20 +13,20 @@ The backend now maintains comprehensive user information synchronized from Supab
 
 ### app_users Table
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | TEXT | Primary key, matches auth provider user ID |
-| `email` | TEXT | User's email address |
-| `email_confirmed` | BOOLEAN | Whether email is verified |
-| `tier` | TEXT | User tier: ANON, FREE, PREMIUM_BASIC, PREMIUM_PRO |
-| `current_usage_mb` | INTEGER | Current storage usage in MB |
-| `created_at` | TIMESTAMPTZ | Account creation timestamp |
-| `last_sign_in_at` | TIMESTAMPTZ | Last sign-in timestamp |
-| `metadata` | JSONB | Additional user metadata from auth provider |
-| `stripe_customer_id` | TEXT | Stripe customer ID |
-| `stripe_subscription_id` | TEXT | Current Stripe subscription ID |
-| `subscription_status` | TEXT | Subscription status: active, canceled, past_due, etc. |
-| `subscription_current_period_end` | TIMESTAMPTZ | When current billing period ends |
+| Column                            | Type        | Description                                           |
+| --------------------------------- | ----------- | ----------------------------------------------------- |
+| `id`                              | TEXT        | Primary key, matches auth provider user ID            |
+| `email`                           | TEXT        | User's email address                                  |
+| `email_confirmed`                 | BOOLEAN     | Whether email is verified                             |
+| `tier`                            | TEXT        | User tier: ANON, FREE, PREMIUM_BASIC, PREMIUM_PRO     |
+| `current_usage_mb`                | INTEGER     | Current storage usage in MB                           |
+| `created_at`                      | TIMESTAMPTZ | Account creation timestamp                            |
+| `last_sign_in_at`                 | TIMESTAMPTZ | Last sign-in timestamp                                |
+| `metadata`                        | JSONB       | Additional user metadata from auth provider           |
+| `stripe_customer_id`              | TEXT        | Stripe customer ID                                    |
+| `stripe_subscription_id`          | TEXT        | Current Stripe subscription ID                        |
+| `subscription_status`             | TEXT        | Subscription status: active, canceled, past_due, etc. |
+| `subscription_current_period_end` | TIMESTAMPTZ | When current billing period ends                      |
 
 ## Automatic Sync Mechanisms
 
@@ -42,6 +42,7 @@ CREATE TRIGGER on_auth_user_created
 ```
 
 This syncs:
+
 - Email address
 - Email confirmation status
 - Last sign-in time
@@ -50,6 +51,7 @@ This syncs:
 ### 2. Backend GetOrCreate (On Every API Request)
 
 When a user makes an authenticated API request, the middleware calls `userRepo.GetOrCreate()` which:
+
 1. Loads user from `app_users` table
 2. If not found, creates with tier=FREE
 3. Loads active subscription data
@@ -62,15 +64,18 @@ Handle Stripe events to keep subscription status in sync:
 #### Supported Events
 
 **`customer.created`**
+
 - Stores Stripe customer ID when customer is created
 - Links customer to user via metadata
 
 **`customer.subscription.created` / `customer.subscription.updated`**
+
 - Updates tier based on price ID
 - Updates subscription status (active, trialing, past_due)
 - Updates current period end date
 
 **`customer.subscription.deleted`**
+
 - Downgrades user to FREE tier
 - Keeps subscription_id for history
 - Does NOT delete user data
@@ -78,12 +83,14 @@ Handle Stripe events to keep subscription status in sync:
 ## API Endpoints
 
 ### Get User Info
+
 ```
 GET /api/v1/users/me
 Authorization: Bearer <jwt-token>
 ```
 
 Returns:
+
 ```json
 {
   "id": "user-uuid",
@@ -100,6 +107,7 @@ Returns:
 ```
 
 ### Sync User Info (Manual Refresh)
+
 ```
 POST /api/v1/users/sync
 Authorization: Bearer <jwt-token>
@@ -108,6 +116,7 @@ Authorization: Bearer <jwt-token>
 Fetches latest user info from database and returns updated data.
 
 ### Legacy /me Endpoint (Minimal Info)
+
 ```
 GET /api/v1/me
 Authorization: Bearer <jwt-token>
@@ -195,14 +204,15 @@ When creating a Stripe customer from your app, include user_id in metadata:
 const customer = await stripe.customers.create({
   email: user.email,
   metadata: {
-    user_id: user.id  // This links Stripe customer to your user
-  }
+    user_id: user.id, // This links Stripe customer to your user
+  },
 });
 ```
 
 ### 4. Configure Price IDs
 
 In backend `.env`:
+
 ```
 STRIPE_PRICE_BASIC=price_xxx  # Premium Basic monthly price
 STRIPE_PRICE_PRO=price_yyy    # Premium Pro monthly price
@@ -215,11 +225,13 @@ STRIPE_PRICE_PRO=price_yyy    # Premium Pro monthly price
 The Stripe webhook handler is **DISABLED by default** because it lacks signature verification.
 
 Before enabling in production:
+
 1. Install Stripe Go SDK: `go get github.com/stripe/stripe-go/v76`
 2. Implement signature verification
 3. Uncomment webhook route in `main.go`
 
 Example verification code:
+
 ```go
 signature := c.Get("Stripe-Signature")
 event, err := webhook.ConstructEvent(c.Body(), signature, webhookSecret)
@@ -233,6 +245,7 @@ if err != nil {
 The `handle_new_user()` function uses `SECURITY DEFINER`, which means it runs with the permissions of the function owner. This is necessary to insert into `app_users` from the auth schema.
 
 Ensure:
+
 - Function only performs the intended sync operations
 - No untrusted user input is used in queries
 - Function is reviewed before deployment
@@ -318,6 +331,7 @@ If you have existing users:
 ### New Fields in User Object
 
 The `tier.User` struct now includes:
+
 - `Email`
 - `EmailConfirmed`
 - `StripeCustomerID`

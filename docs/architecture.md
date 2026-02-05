@@ -1,6 +1,7 @@
 # Kyarafit – Architecture
 
 ## Overview
+
 Service-oriented architecture optimized for mobile-first usage.
 
 - Go API backend
@@ -9,6 +10,7 @@ Service-oriented architecture optimized for mobile-first usage.
 - Cloudflare Images CDN
 
 ## Image Flow
+
 1. Client uploads image
 2. Backend forwards to image service
 3. Background removed
@@ -16,6 +18,7 @@ Service-oriented architecture optimized for mobile-first usage.
 5. Backend updates item record
 
 ## Offline Strategy
+
 - Cached reads
 - Queued writes
 - Sync on reconnect

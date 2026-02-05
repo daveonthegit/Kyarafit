@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from '@/lib/auth/client';
-import { fetchMe, type MeResponse } from './me';
+import { useQuery } from "@tanstack/react-query";
+import { useSession } from "@/lib/auth/client";
+import { fetchMe, type MeResponse } from "./me";
 
 /** Returns tier and storage from GET /api/v1/me. Null when not signed in or request fails. */
 export function useTier(): { data: MeResponse | null; isLoading: boolean } {
   const { session } = useSession();
   const token = session?.access_token ?? null;
   const { data, isLoading } = useQuery({
-    queryKey: ['me', token],
+    queryKey: ["me", token],
     queryFn: () => fetchMe(token),
     enabled: !!token,
   });
@@ -19,8 +19,8 @@ export function useTier(): { data: MeResponse | null; isLoading: boolean } {
 /** Returns feature access based on user's tier */
 export function useFeatureAccess() {
   const { data: me } = useTier();
-  
-  const tier = me?.tier || 'ANON';
+
+  const tier = me?.tier || "ANON";
   const tierOrder: Record<string, number> = {
     ANON: 0,
     FREE: 1,

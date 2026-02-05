@@ -5,21 +5,25 @@ Your Kyarafit project is now ready for deployment to Google Cloud Platform.
 ## 📁 What's Been Created
 
 ### GitHub Actions Workflows
+
 - `.github/workflows/deploy-gcp-backend.yml` - Backend CI/CD
 - `.github/workflows/deploy-gcp-web.yml` - Frontend CI/CD
 - `.github/workflows/deploy-gcp-image-service.yml` - Image service CI/CD
 
 ### Deployment Scripts
+
 - `scripts/setup-gcp.sh` / `scripts/setup-gcp.ps1` - Initial GCP setup
 - `scripts/deploy-all.sh` / `scripts/deploy-all.ps1` - Deploy all services
 - `scripts/setup-domains.sh` - Configure custom domains
 
 ### Documentation
+
 - `docs/GCP_DEPLOYMENT.md` - Complete deployment guide
 - `docs/GCP_QUICKSTART.md` - Quick start guide
 - `.env.gcp.example` - Environment variables template
 
 ### Optimizations
+
 - `web/Dockerfile` - Optimized for Cloud Run with multi-stage build
 - `web/next.config.js` - Updated with standalone output
 - `web/.dockerignore` - Optimized build context
@@ -29,11 +33,13 @@ Your Kyarafit project is now ready for deployment to Google Cloud Platform.
 ### 1. Setup GCP (One-time)
 
 **Windows:**
+
 ```powershell
 .\scripts\setup-gcp.ps1
 ```
 
 **Mac/Linux:**
+
 ```bash
 chmod +x scripts/*.sh
 ./scripts/setup-gcp.sh
@@ -46,11 +52,13 @@ Follow the prompts from the setup script or see `.env.gcp.example` for all requi
 ### 3. Deploy
 
 **Windows:**
+
 ```powershell
 .\scripts\deploy-all.ps1
 ```
 
 **Mac/Linux:**
+
 ```bash
 ./scripts/deploy-all.sh
 ```
@@ -66,11 +74,13 @@ Follow the prompts from the setup script or see `.env.gcp.example` for all requi
 After deployment, your services will be available at:
 
 **Cloud Run URLs (default):**
+
 - Backend: `https://kyarafit-backend-[hash]-uc.a.run.app`
 - Web: `https://kyarafit-web-[hash]-uc.a.run.app`
 - Image Service: `https://kyarafit-image-service-[hash]-uc.a.run.app`
 
 **Custom Domains (after DNS setup):**
+
 - Web: `https://www.kyarafit.com`
 - API: `https://api.kyarafit.com`
 - Images: `https://images.kyarafit.com`
@@ -100,15 +110,16 @@ images.kyarafit.com          Supabase
 
 ## 💰 Expected Costs
 
-| Stage | Monthly Cost |
-|-------|-------------|
-| Development (100-500 users) | $5-15 |
-| Production (1K-5K users) | $52-84 |
-| Large Scale (10K+ users) | $296-361 |
+| Stage                       | Monthly Cost |
+| --------------------------- | ------------ |
+| Development (100-500 users) | $5-15        |
+| Production (1K-5K users)    | $52-84       |
+| Large Scale (10K+ users)    | $296-361     |
 
 Plus Supabase costs (separate).
 
 **Key savings:**
+
 - Scale to zero when idle
 - Pay only for actual usage
 - Free SSL certificates
@@ -171,11 +182,13 @@ Before going live:
 ## 🆘 Support
 
 **Documentation:**
+
 - Read `docs/GCP_DEPLOYMENT.md`
 - Check troubleshooting section
 - Review GitHub Actions logs
 
 **Common Issues:**
+
 - Permission denied → Re-run `gcloud auth login`
 - Build fails → Check Dockerfile and .dockerignore
 - Service not accessible → Verify IAM permissions

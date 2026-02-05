@@ -94,6 +94,7 @@ func (c *Client) sendWithTLS(addr string, auth smtp.Auth, to []string, msg []byt
 	// Create TLS config
 	tlsConfig := &tls.Config{
 		ServerName: c.Host,
+		MinVersion: tls.VersionTLS12, // Require TLS 1.2 or higher for security
 	}
 
 	// Connect to server

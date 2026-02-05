@@ -16,11 +16,7 @@ export function ImageCard({ imageUrl, title, tag }: ImageCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.imageWrap}>
-        <Image
-          source={{ uri: imageUrl }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
         {tag ? (
           <View style={styles.tag}>
             <Text style={styles.tagText}>{tag}</Text>

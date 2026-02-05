@@ -27,24 +27,28 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 ## Documentation
 
 ### Getting Started
+
 - [Quickstart Guide](QUICKSTART_SUPABASE.md) - Get up and running quickly
 - [Development Guide](docs/DEVELOPMENT.md) - Development environment setup
 - [Docker Setup](DOCKER_SETUP.md) - Docker-based development
 - **[CI/CD Local Guide](CI_LOCAL.md)** - Run CI checks locally before pushing
 
 ### Product & Design
+
 - [Product Requirements (PRD)](docs/PRD.md) - Product vision and requirements
 - **[User Flows](docs/USER_FLOWS.md)** - Comprehensive implementation documentation
 - [Design System](docs/design_system/README.md) - Component specifications and tokens
 - [Style Guide](docs/style_doc.md) - UI/UX guidelines
 
 ### Technical
+
 - [Architecture](docs/architecture.md) - System architecture overview
 - [API Documentation](backend/API_DOCUMENTATION.md) - Backend API reference
 - [Project Structure](docs/project_structure.md) - Codebase organization
 - [Context Document](docs/CONTEXT.md) - Project context and decisions
 
 ### Setup Guides
+
 - [Supabase Setup](SUPABASE_SETUP.md) - Authentication and storage configuration
 - [Supabase Storage](SUPABASE_STORAGE_SETUP.md) - File storage setup
 - [User Sync System](USER_SYNC_SYSTEM.md) - User info and subscription sync
@@ -52,16 +56,17 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 - [Auth Implementation](AUTH_IMPLEMENTATION.md) - Authentication flow
 
 ### Contributing & Operations
+
 - [Contributing Guide](docs/CONTRIBUTING.md) - How to contribute
 - [Code of Conduct](docs/CODE_OF_CONDUCT.md) - Community guidelines
 - [Security Policy](docs/SECURITY.md) - Security practices
 - [Roadmap](docs/roadmap.md) - Future plans
 - **[CI/CD Guide](CI_LOCAL.md)** - Run CI checks locally
-- [CI/CD Improvements](CI_CD_IMPROVEMENTS.md) - Recent CI/CD enhancements
 
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+ and npm
 - Go 1.21+
 - Python 3.11+
@@ -71,12 +76,14 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 ### Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/kyarafit.git
    cd kyarafit
    ```
 
 2. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    cp backend/.env.example backend/.env
@@ -84,27 +91,28 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
    ```
 
 3. **Start with Docker Compose** (recommended)
+
    ```bash
    docker-compose up
    ```
 
    Or **start services manually**:
-   
+
    ```bash
    # Backend
    cd backend
    go run main.go
-   
+
    # Image Service
    cd image-service
    pip install -r requirements.txt
    python main.py
-   
+
    # Web
    cd web
    npm install
    npm run dev
-   
+
    # Mobile
    cd mobile
    npm install
@@ -112,6 +120,7 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
    ```
 
 4. **Run migrations**
+
    ```bash
    cd backend
    make migrate-up
@@ -148,12 +157,14 @@ kyarafit/
 ## Feature Flow
 
 ### 1. Closet Items (Foundation)
+
 - Add costume pieces with photos
 - Automatic background removal
 - Categorize by type (wig, prop, armor, garment, etc.)
 - Track costs and add notes
 
 ### 2. Builds (Organization)
+
 - Create cosplay builds for characters
 - Link closet items to builds
 - Track budget vs actual costs
@@ -161,12 +172,14 @@ kyarafit/
 - Track status (idea → WIP → ready)
 
 ### 3. Conventions (Planning)
+
 - Create conventions with dates and location
 - Plan day-by-day: assign builds to specific dates
 - Add notes per day (e.g., photoshoot times)
 - Support rest days
 
 ### 4. Packing Lists (Automation)
+
 - Auto-generate packing lists from convention schedules
 - Smart deduplication (same item used multiple days appears once)
 - Check off items as packed
@@ -271,6 +284,7 @@ See [GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md) for detailed deployment setup.
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details on:
+
 - Code of conduct
 - Development workflow
 - Pull request process

@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  Pressable,
-  FlatList,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Image, ScrollView, Pressable, FlatList, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font } from "@kyarafit/design-system/rn";
@@ -15,16 +7,7 @@ import type { ClosetItem } from "@kyarafit/design-system/types";
 import { listItems } from "../src/storage/closetRepo";
 import { getSyncPendingCount } from "../src/services/sync";
 
-const CATEGORIES = [
-  "All Items",
-  "Wig",
-  "Prop",
-  "Armor",
-  "Garment",
-  "Shoe",
-  "Material",
-  "Other",
-];
+const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
 
 export default function ClosetScreen() {
   const router = useRouter();
@@ -35,10 +18,7 @@ export default function ClosetScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [list, pending] = await Promise.all([
-      listItems(),
-      getSyncPendingCount(),
-    ]);
+    const [list, pending] = await Promise.all([listItems(), getSyncPendingCount()]);
     setItems(list);
     setSyncPending(pending);
     setLoading(false);
@@ -47,15 +27,13 @@ export default function ClosetScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+    }, [load])
   );
 
   const filtered =
     activeCategory === "All Items"
       ? items
-      : items.filter(
-          (i) => i.category.toLowerCase() === activeCategory.toLowerCase(),
-        );
+      : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
 
   const renderItem = ({ item }: { item: ClosetItem }) => (
     <View style={styles.gridItem}>
@@ -97,9 +75,7 @@ export default function ClosetScreen() {
           </Pressable>
         </View>
         {syncPending > 0 && (
-          <Text style={styles.syncLabel}>
-            SYNC PENDING — WILL SYNC WHEN ONLINE
-          </Text>
+          <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
         )}
       </View>
 
@@ -112,10 +88,7 @@ export default function ClosetScreen() {
           {CATEGORIES.map((cat) => (
             <Pressable key={cat} onPress={() => setActiveCategory(cat)}>
               <Text
-                style={[
-                  styles.categoryTab,
-                  activeCategory === cat && styles.categoryTabActive,
-                ]}
+                style={[styles.categoryTab, activeCategory === cat && styles.categoryTabActive]}
               >
                 {cat}
               </Text>

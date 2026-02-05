@@ -54,8 +54,7 @@ export default function ClosetScreen() {
       id: "1",
       name: "Pink Anime Wig",
       description: "Beautiful long pink wig for anime cosplay",
-      image_url:
-        "https://via.placeholder.com/300x300/f8b4d1/ffffff?text=Pink+Wig",
+      image_url: "https://via.placeholder.com/300x300/f8b4d1/ffffff?text=Pink+Wig",
       category: "wig",
       tags: ["anime", "pink", "long"],
       price: 45.99,
@@ -66,8 +65,7 @@ export default function ClosetScreen() {
       id: "2",
       name: "School Uniform Dress",
       description: "Classic Japanese school uniform",
-      image_url:
-        "https://via.placeholder.com/300x300/fce7f3/ec4899?text=School+Dress",
+      image_url: "https://via.placeholder.com/300x300/fce7f3/ec4899?text=School+Dress",
       category: "dress",
       tags: ["school", "uniform", "blue"],
       price: 89.99,
@@ -78,8 +76,7 @@ export default function ClosetScreen() {
       id: "3",
       name: "Magic Wand Prop",
       description: "Sparkly magic wand for magical girl cosplay",
-      image_url:
-        "https://via.placeholder.com/300x300/e0e7ff/8b5cf6?text=Magic+Wand",
+      image_url: "https://via.placeholder.com/300x300/e0e7ff/8b5cf6?text=Magic+Wand",
       category: "prop",
       tags: ["magic", "sparkly", "wand"],
       price: 25.5,
@@ -217,12 +214,7 @@ export default function ClosetScreen() {
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#9ca3af"
-            style={styles.searchIcon}
-          />
+          <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search your closet..."
@@ -236,10 +228,7 @@ export default function ClosetScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(!showFilters)}
-        >
+        <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(!showFilters)}>
           <Ionicons name="filter" size={20} color="#ec4899" />
         </TouchableOpacity>
       </View>
@@ -258,9 +247,7 @@ export default function ClosetScreen() {
                 styles.categoryButton,
                 selectedCategory === category.id && styles.categoryButtonActive,
               ]}
-              onPress={() =>
-                setSelectedCategory(category.id === "all" ? null : category.id)
-              }
+              onPress={() => setSelectedCategory(category.id === "all" ? null : category.id)}
             >
               <Ionicons
                 name={category.icon as any}
@@ -270,8 +257,7 @@ export default function ClosetScreen() {
               <Text
                 style={[
                   styles.categoryButtonText,
-                  selectedCategory === category.id &&
-                    styles.categoryButtonTextActive,
+                  selectedCategory === category.id && styles.categoryButtonTextActive,
                 ]}
               >
                 {category.name}
@@ -328,47 +314,35 @@ export default function ClosetScreen() {
         {selectedPiece && (
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowPieceModal(false)}
-              >
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShowPieceModal(false)}>
                 <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalContent}>
               {selectedPiece.image_url && (
-                <Image
-                  source={{ uri: selectedPiece.image_url }}
-                  style={styles.modalImage}
-                />
+                <Image source={{ uri: selectedPiece.image_url }} style={styles.modalImage} />
               )}
 
               <View style={styles.modalInfo}>
                 <Text style={styles.modalTitle}>{selectedPiece.name}</Text>
 
                 {selectedPiece.description && (
-                  <Text style={styles.modalDescription}>
-                    {selectedPiece.description}
-                  </Text>
+                  <Text style={styles.modalDescription}>{selectedPiece.description}</Text>
                 )}
 
                 <View style={styles.modalDetails}>
                   {selectedPiece.category && (
                     <View style={styles.modalDetailItem}>
                       <Text style={styles.modalDetailLabel}>Category</Text>
-                      <Text style={styles.modalDetailValue}>
-                        {selectedPiece.category}
-                      </Text>
+                      <Text style={styles.modalDetailValue}>{selectedPiece.category}</Text>
                     </View>
                   )}
 
                   {selectedPiece.price && (
                     <View style={styles.modalDetailItem}>
                       <Text style={styles.modalDetailLabel}>Price</Text>
-                      <Text style={styles.modalDetailValue}>
-                        ${selectedPiece.price.toFixed(2)}
-                      </Text>
+                      <Text style={styles.modalDetailValue}>${selectedPiece.price.toFixed(2)}</Text>
                     </View>
                   )}
 
@@ -398,10 +372,7 @@ export default function ClosetScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddPiece(false)}
       >
-        <AddPieceScreen
-          onClose={() => setShowAddPiece(false)}
-          onPieceAdded={handlePieceAdded}
-        />
+        <AddPieceScreen onClose={() => setShowAddPiece(false)} onPieceAdded={handlePieceAdded} />
       </Modal>
     </View>
   );

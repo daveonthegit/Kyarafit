@@ -5,12 +5,14 @@ Use this checklist to deploy Kyarafit to Google Cloud Platform step by step.
 ## Phase 1: Pre-Deployment Setup
 
 ### ✅ GCP Account Setup
+
 - [ ] Create Google Cloud account
 - [ ] Enable billing
 - [ ] Install gcloud CLI
 - [ ] Authenticate: `gcloud auth login`
 
 ### ✅ Supabase Configuration
+
 - [ ] Have Supabase project URL
 - [ ] Have database connection string
 - [ ] Have JWT secret
@@ -19,11 +21,13 @@ Use this checklist to deploy Kyarafit to Google Cloud Platform step by step.
 - [ ] Verify storage bucket exists
 
 ### ✅ Domain Setup (Optional)
+
 - [ ] Own domain (kyarafit.com)
 - [ ] Have access to DNS settings
 - [ ] Ready to add DNS records
 
 ### ✅ SMTP/Email Setup
+
 - [ ] Choose email provider (Resend recommended)
 - [ ] Have SMTP credentials
 - [ ] Verify email sending works
@@ -31,6 +35,7 @@ Use this checklist to deploy Kyarafit to Google Cloud Platform step by step.
 ## Phase 2: GCP Project Setup
 
 ### ✅ Run Setup Script
+
 ```bash
 # Windows
 .\scripts\setup-gcp.ps1
@@ -41,6 +46,7 @@ chmod +x scripts/*.sh
 ```
 
 Verify:
+
 - [ ] GCP project "kyarafit" created
 - [ ] APIs enabled (Run, Artifact Registry, Secret Manager)
 - [ ] Artifact Registry repository created
@@ -49,6 +55,7 @@ Verify:
 - [ ] GitHub secrets values provided
 
 ### ✅ Create GCP Secrets
+
 ```bash
 # Copy and fill in your actual values from .env.gcp.example
 echo -n "YOUR_VALUE" | gcloud secrets create SECRET_NAME --data-file=-
@@ -66,11 +73,13 @@ echo -n "YOUR_VALUE" | gcloud secrets create SECRET_NAME --data-file=-
 - [ ] `smtp-from` (e.g., Kyarafit <noreply@kyarafit.com>)
 
 Verify secrets:
+
 ```bash
 gcloud secrets list
 ```
 
 ### ✅ Configure GitHub
+
 - [ ] Go to GitHub repo settings
 - [ ] Navigate to: Settings > Secrets and variables > Actions
 - [ ] Add `GCP_WIF_PROVIDER` (from setup script output)
@@ -79,6 +88,7 @@ gcloud secrets list
 ## Phase 3: First Deployment
 
 ### ✅ Deploy All Services
+
 ```bash
 # Windows
 .\scripts\deploy-all.ps1
@@ -93,6 +103,7 @@ gcloud secrets list
 - [ ] Got Cloud Run URLs for all services
 
 ### ✅ Test Services
+
 ```bash
 # Get service URLs
 gcloud run services list --region us-central1
@@ -104,6 +115,7 @@ gcloud run services list --region us-central1
 - [ ] View logs: `gcloud run logs read kyarafit-backend --region us-central1`
 
 ### ✅ Verify Functionality
+
 - [ ] Can access web frontend
 - [ ] Can create account / login
 - [ ] Can add items to closet
@@ -115,6 +127,7 @@ gcloud run services list --region us-central1
 ## Phase 4: Custom Domain Setup (Optional)
 
 ### ✅ Map Domains
+
 ```bash
 ./scripts/setup-domains.sh
 ```
@@ -125,12 +138,14 @@ gcloud run services list --region us-central1
 - [ ] images.kyarafit.com mapped to image service
 
 ### ✅ Configure DNS
+
 - [ ] Get DNS records from GCP (script output)
 - [ ] Add A records to domain registrar
 - [ ] Add AAAA records (IPv6) if provided
 - [ ] Wait 15-60 minutes for propagation
 
 ### ✅ Verify DNS
+
 ```bash
 # Check DNS propagation
 dig www.kyarafit.com
@@ -143,7 +158,9 @@ nslookup api.kyarafit.com
 - [ ] HTTPS working on all domains
 
 ### ✅ Update Application URLs
+
 After custom domains are working:
+
 - [ ] Update mobile app with production URLs
 - [ ] Update any hardcoded URLs in code
 - [ ] Test mobile app against production API
@@ -151,7 +168,9 @@ After custom domains are working:
 ## Phase 5: CI/CD Verification
 
 ### ✅ Test Automated Deployment
+
 Make a small change and push to main:
+
 ```bash
 git add .
 git commit -m "Test GCP deployment"
@@ -166,6 +185,7 @@ git push origin main
 - [ ] No downtime during deployment
 
 ### ✅ Verify GitHub Actions
+
 - [ ] Check Actions tab in GitHub
 - [ ] Review deployment logs
 - [ ] Verify new revision deployed
@@ -174,6 +194,7 @@ git push origin main
 ## Phase 6: Monitoring & Alerts
 
 ### ✅ Set Up Billing Alerts
+
 ```bash
 gcloud billing budgets create \
   --billing-account YOUR_BILLING_ACCOUNT_ID \
@@ -186,12 +207,14 @@ gcloud billing budgets create \
 - [ ] Test alert triggers
 
 ### ✅ Configure Monitoring
+
 - [ ] Set up uptime checks in Cloud Console
 - [ ] Configure error reporting
 - [ ] Set up log-based metrics
 - [ ] Create monitoring dashboard
 
 ### ✅ Set Up Notifications
+
 - [ ] Cloud Run deployment notifications
 - [ ] Error alerts
 - [ ] Budget alerts
@@ -200,6 +223,7 @@ gcloud billing budgets create \
 ## Phase 7: Production Readiness
 
 ### ✅ Performance Testing
+
 - [ ] Load test backend API
 - [ ] Test concurrent users
 - [ ] Verify auto-scaling works
@@ -208,6 +232,7 @@ gcloud billing budgets create \
 - [ ] Check CPU usage
 
 ### ✅ Security Review
+
 - [ ] Secrets not in code
 - [ ] CORS configured correctly
 - [ ] HTTPS enforced
@@ -216,12 +241,14 @@ gcloud billing budgets create \
 - [ ] Database connections secure (SSL)
 
 ### ✅ Backup Strategy
+
 - [ ] Database backup configured (Supabase handles this)
 - [ ] Storage backup strategy (Supabase)
 - [ ] Document recovery procedures
 - [ ] Test restore process
 
 ### ✅ Documentation
+
 - [ ] Document deployment process
 - [ ] Document environment variables
 - [ ] Document service URLs
@@ -232,6 +259,7 @@ gcloud billing budgets create \
 ## Phase 8: Go Live!
 
 ### ✅ Pre-Launch Checklist
+
 - [ ] All tests passing
 - [ ] Performance acceptable
 - [ ] Monitoring in place
@@ -240,6 +268,7 @@ gcloud billing budgets create \
 - [ ] Support plan ready
 
 ### ✅ Launch
+
 - [ ] Update DNS to point to production (if using staging)
 - [ ] Announce launch
 - [ ] Monitor closely for first 24 hours
@@ -247,6 +276,7 @@ gcloud billing budgets create \
 - [ ] Watch costs
 
 ### ✅ Post-Launch
+
 - [ ] Monitor for 1 week
 - [ ] Review costs
 - [ ] Gather user feedback
@@ -260,17 +290,20 @@ Your Kyarafit application is now running on GCP Cloud Run!
 ## 📊 Ongoing Maintenance
 
 ### Weekly
+
 - [ ] Review logs for errors
 - [ ] Check costs vs budget
 - [ ] Review performance metrics
 
 ### Monthly
+
 - [ ] Review and optimize costs
 - [ ] Update dependencies
 - [ ] Review security
 - [ ] Backup verification
 
 ### Quarterly
+
 - [ ] Major dependency updates
 - [ ] Security audit
 - [ ] Performance review
@@ -279,6 +312,7 @@ Your Kyarafit application is now running on GCP Cloud Run!
 ## 🆘 Troubleshooting
 
 If anything goes wrong, see:
+
 - `docs/GCP_DEPLOYMENT.md` - Full troubleshooting guide
 - Cloud Run logs: `gcloud run logs read SERVICE_NAME`
 - GitHub Actions logs: Check Actions tab
@@ -293,6 +327,6 @@ If anything goes wrong, see:
 
 ---
 
-**✅ Deployment Complete!** 
+**✅ Deployment Complete!**
 
 Keep this checklist for future reference and deployments.

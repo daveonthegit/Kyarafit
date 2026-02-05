@@ -1,6 +1,7 @@
 # Supabase Setup - Final Steps
 
 ## ✅ Completed:
+
 - [x] Created Supabase project
 - [x] Environment files configured
 - [x] Supabase packages installed (web + mobile)
@@ -35,6 +36,7 @@ Copy/paste each file **in order** and click **"Run"**:
 ### 3. Test It! (5 minutes)
 
 **Start backend:**
+
 ```bash
 cd backend
 go run .
@@ -43,6 +45,7 @@ go run .
 Should see: `Successfully connected to database` ✅
 
 **Start web:**
+
 ```bash
 npm run dev:web
 ```
@@ -56,12 +59,14 @@ Visit: http://localhost:3000/auth/signup
 - [ ] Should redirect to `/home`
 
 **Verify in Supabase:**
+
 - [ ] Authentication → Users (see your user)
 - [ ] Table Editor → `app_users` (see FREE tier user created automatically!)
 
 ### 4. Test Tier System (2 minutes)
 
 While signed in:
+
 - [ ] Go to Settings → should show tier and storage
 - [ ] Create a build → should work
 - [ ] Try creating 6 builds → 6th should fail with limit message
@@ -93,6 +98,7 @@ npm run dev:mobile
 ## 🎉 When Done:
 
 Your tier system will be fully working:
+
 - FREE users: 5 builds, 1 convention, 50MB storage
 - Web requires sign-in
 - Mobile syncs only with PREMIUM_BASIC+

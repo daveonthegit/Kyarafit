@@ -23,10 +23,7 @@ export default function ItineraryScreen() {
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.daySection}>
           <View style={styles.dayHeader}>
             <Text style={styles.dayTitle}>Day 1</Text>
@@ -36,17 +33,11 @@ export default function ItineraryScreen() {
           </View>
           <View style={styles.lookLayout}>
             <View style={[styles.lookImageContainer, styles.placeholderImage]}>
-              <Ionicons
-                name="image-outline"
-                size={48}
-                color={colors.textTertiary}
-              />
+              <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
             </View>
             <View style={styles.lookInfo}>
               <Text style={styles.lookLabel}>Look 01</Text>
-              <Text style={styles.lookDesc}>
-                Assign a build from your convention plan
-              </Text>
+              <Text style={styles.lookDesc}>Assign a build from your convention plan</Text>
             </View>
           </View>
         </View>

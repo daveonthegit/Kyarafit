@@ -5,6 +5,7 @@
 **Kyarafit** is a mobile-first cosplay wardrobe and outfit planning application that helps cosplayers and fashion hobbyists organize, track, and design their costume pieces and builds. The project is proprietary and commercial with all rights reserved.
 
 ### Core Features
+
 - **Closet Management**: Upload and organize costume pieces, wigs, and props with AI-powered cutouts
 - **Build Tracking**: Track cosplay builds from idea to completion with progress milestones
 - **Coord Builder**: Design outfits using a drag-and-drop layered canvas
@@ -12,6 +13,7 @@
 - **Notifications**: Push notifications and offline functionality during conventions
 
 ### Target Users
+
 - Cosplayers and fashion enthusiasts
 - Creators planning builds and managing budgets
 - Groups coordinating cosplay projects
@@ -21,6 +23,7 @@
 ## Technical Architecture
 
 ### Tech Stack
+
 - **Mobile**: React Native + Expo
 - **Web**: Next.js (landing page + optional desktop UI)
 - **Backend**: Go + Fiber framework
@@ -31,6 +34,7 @@
 - **Notifications**: Expo Push Notifications
 
 ### Project Structure
+
 ```
 Kyarafit/
 ├── mobile/                 # React Native + Expo mobile app
@@ -50,6 +54,7 @@ Kyarafit/
 ### Completed Features
 
 #### 1. Project Infrastructure
+
 - **Repository setup** with proper folder structure
 - **CI/CD pipelines** for all services (GitHub Actions)
 - **Docker Compose** for local development
@@ -57,12 +62,14 @@ Kyarafit/
 - **Database migrations** with PostgreSQL schema
 
 #### 2. Authentication System
+
 - **BetterAuth integration** for web and mobile
 - **JWT token validation** in backend
 - **User management** with Prisma ORM
 - **Protected routes** with middleware
 
 #### 3. Database Schema
+
 - **Users table** with authentication fields
 - **Pieces table** for costume pieces and accessories
 - **Builds table** for cosplay project tracking
@@ -72,12 +79,14 @@ Kyarafit/
 #### 4. Backend APIs
 
 ##### Pieces API (`/api/v1/pieces`)
+
 - **CRUD operations**: Create, Read, Update, Delete
 - **Advanced filtering**: Category, search, pagination
 - **User isolation**: All operations scoped to authenticated user
 - **Validation**: Input sanitization and error handling
 
 ##### Builds API (`/api/v1/builds`)
+
 - **CRUD operations**: Complete project lifecycle management
 - **Status tracking**: 6-stage workflow (idea → sourcing → wip → complete)
 - **Priority system**: 1-5 scale for build prioritization
@@ -88,17 +97,20 @@ Kyarafit/
 #### 5. Frontend Applications
 
 ##### Web Application (Next.js)
+
 - **Sakura-themed UI** with cherry blossom color palette
 - **Authentication pages** (sign-in/sign-up)
 - **Responsive design** with Tailwind CSS
 - **BetterAuth integration** for user management
 
 ##### Mobile Application (React Native + Expo)
+
 - **Cross-platform** iOS and Android support
 - **Authentication integration** with BetterAuth
 - **Expo configuration** for development and deployment
 
 #### 6. Image Processing Service
+
 - **Python FastAPI** service for image processing
 - **Background removal** with rembg
 - **Docker containerization** for deployment
@@ -108,6 +120,7 @@ Kyarafit/
 ## Database Schema Details
 
 ### Users Table
+
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -119,6 +132,7 @@ CREATE TABLE users (
 ```
 
 ### Pieces Table
+
 ```sql
 CREATE TABLE pieces (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -138,6 +152,7 @@ CREATE TABLE pieces (
 ```
 
 ### Builds Table
+
 ```sql
 CREATE TABLE builds (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -165,6 +180,7 @@ CREATE TABLE builds (
 ## API Endpoints Reference
 
 ### Pieces API
+
 - `GET /api/v1/pieces` - Get all pieces (with filtering)
 - `POST /api/v1/pieces` - Create new piece
 - `GET /api/v1/pieces/{id}` - Get piece by ID
@@ -173,6 +189,7 @@ CREATE TABLE builds (
 - `GET /api/v1/pieces/categories` - Get available categories
 
 ### Builds API
+
 - `GET /api/v1/builds` - Get all builds (with filtering)
 - `POST /api/v1/builds` - Create new build
 - `GET /api/v1/builds/{id}` - Get build by ID
@@ -181,6 +198,7 @@ CREATE TABLE builds (
 - `GET /api/v1/builds/stats` - Get build statistics
 
 ### Query Parameters
+
 - `limit` (optional): Number of items to return (default: 20, max: 100)
 - `offset` (optional): Number of items to skip (default: 0)
 - `search` (optional): Search in relevant fields
@@ -194,6 +212,7 @@ CREATE TABLE builds (
 ## Development Environment Setup
 
 ### Prerequisites
+
 - **Node.js** v18.17.0+ (use `nvm` for version management)
 - **Go** 1.21+
 - **Python** 3.9+
@@ -201,6 +220,7 @@ CREATE TABLE builds (
 - **PostgreSQL** 15+
 
 ### Quick Start
+
 ```bash
 # Clone and setup
 git clone <repository-url>
@@ -217,6 +237,7 @@ cd image-service && python -m uvicorn main:app --reload &
 ```
 
 ### Environment Variables
+
 ```bash
 # Database
 DATABASE_URL=postgres://kyarafit:password@localhost:5433/kyarafit?sslmode=disable
@@ -240,6 +261,7 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## UI/UX Design System
 
 ### Color Palette (Sakura Theme)
+
 - **Primary Pink**: `#f8b4d1` - Soft cherry blossom pink
 - **Deep Pink**: `#ec4899` - Rich sakura pink for accents
 - **Soft Pink**: `#fce7f3` - Gentle background pink
@@ -249,10 +271,12 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 - **Mint**: `#d1fae5` - Fresh green accent
 
 ### Typography
+
 - **Primary Font**: Source Sans Pro
 - **Fallback**: system-ui, sans-serif
 
 ### Component Classes
+
 - `.btn-primary` - Primary action buttons
 - `.btn-secondary` - Secondary action buttons
 - `.card` - Content containers
@@ -266,6 +290,7 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Current Development Status
 
 ### Backend (Go + Fiber)
+
 - ✅ **Database connection** with pgxpool
 - ✅ **JWT authentication** middleware
 - ✅ **Pieces CRUD API** with advanced filtering
@@ -274,6 +299,7 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 - ✅ **API documentation** with examples
 
 ### Web App (Next.js)
+
 - ✅ **Sakura-themed UI** implementation
 - ✅ **Authentication pages** (sign-in/sign-up)
 - ✅ **BetterAuth integration**
@@ -281,12 +307,14 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 - ✅ **Component library** with consistent styling
 
 ### Mobile App (React Native + Expo)
+
 - ✅ **Cross-platform setup**
 - ✅ **BetterAuth integration**
 - ✅ **Authentication flow**
 - ✅ **Expo configuration**
 
 ### Image Service (Python FastAPI)
+
 - ✅ **FastAPI setup**
 - ✅ **Docker containerization**
 - ✅ **Background removal** with rembg
@@ -297,17 +325,20 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Deployment Configuration
 
 ### Fly.io Deployment
+
 - **Backend**: `fly.toml` configured for Go app
 - **Web**: `fly.toml` configured for Next.js app
 - **Image Service**: `fly.toml` configured for Python app
 - **GitHub Actions**: Automated deployment pipeline
 
 ### Render Deployment
+
 - **render.yaml**: Multi-service configuration
 - **Environment variables**: Configured for production
 - **Health checks**: Implemented for all services
 
 ### Docker Compose
+
 - **Local development**: PostgreSQL, Redis, all services
 - **Port mapping**: 5433 (PostgreSQL), 8080 (Backend), 3000 (Web)
 - **Volume persistence**: Database data persistence
@@ -317,18 +348,21 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Testing and Quality Assurance
 
 ### Backend Testing
+
 - **API endpoints**: All CRUD operations tested
 - **Authentication**: JWT validation working
 - **Database operations**: All queries functional
 - **Error handling**: Comprehensive error responses
 
 ### Frontend Testing
+
 - **Authentication flow**: Sign-in/sign-up working
 - **UI components**: Sakura theme applied
 - **Responsive design**: Mobile and desktop layouts
 - **API integration**: Ready for backend connection
 
 ### CI/CD Pipeline
+
 - **Linting**: ESLint, Prettier, Go vet
 - **Testing**: Automated test execution
 - **Building**: Docker image creation
@@ -339,11 +373,13 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Known Issues and Limitations
 
 ### Current Issues
+
 1. **Database connection**: Fixed pgxpool context issue
 2. **Port conflicts**: PostgreSQL moved to port 5433
 3. **Node.js version**: Requires v18.17.0+ (use nvm)
 
 ### Limitations
+
 1. **Authentication**: BetterAuth integration needs frontend connection
 2. **Image processing**: Service ready but not integrated with frontend
 3. **Mobile app**: Basic setup, needs feature implementation
@@ -354,12 +390,14 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Next Development Priorities
 
 ### Immediate Tasks
+
 1. **Frontend-Backend Integration**: Connect web app to APIs
 2. **Mobile App Features**: Implement core functionality
 3. **Image Upload**: Integrate image service with frontend
 4. **User Dashboard**: Create main application interface
 
 ### Future Enhancements
+
 1. **BuildPieces API**: Link builds to specific pieces
 2. **WearLogs API**: Track outfit usage
 3. **Convention Planning**: Event and schedule management
@@ -371,18 +409,21 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Development Guidelines
 
 ### Code Standards
+
 - **Go**: Follow standard Go conventions, use gofmt
 - **TypeScript/JavaScript**: Use ESLint and Prettier
 - **Python**: Follow PEP 8 standards
 - **Database**: Use parameterized queries, proper indexing
 
 ### Git Workflow
+
 - **Main branch**: Production-ready code
 - **Feature branches**: New feature development
 - **Pull requests**: Code review required
 - **Commits**: Descriptive commit messages
 
 ### API Design
+
 - **RESTful**: Follow REST conventions
 - **Consistent**: Uniform response formats
 - **Documented**: Comprehensive API documentation
@@ -393,17 +434,20 @@ BETTER_AUTH_URL=http://localhost:3000/api/auth
 ## Contact and Resources
 
 ### Documentation
+
 - **API Documentation**: `backend/API_DOCUMENTATION.md`
 - **Setup Guide**: `setup.sh` and `README.md`
 - **Deployment Guide**: `deploy/README.md`
 
 ### Key Files
+
 - **Backend**: `backend/main.go`, `backend/handlers/`, `backend/models/`
 - **Web**: `web/src/app/`, `web/src/lib/auth/`
 - **Mobile**: `mobile/App.tsx`, `mobile/src/`
 - **Database**: `backend/migrations/`, `backend/database/`
 
 ### Environment
+
 - **Development**: Local with Docker Compose
 - **Staging**: Fly.io deployment
 - **Production**: Render deployment

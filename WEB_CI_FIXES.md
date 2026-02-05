@@ -1,12 +1,15 @@
 # Web CI Build Fixes
 
 ## Problem
+
 The Next.js build was failing in CI with multiple errors:
+
 1. **Supabase initialization errors** - Missing `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` during build
 2. **React error #31** - Minified React error about objects being rendered as children
 3. **Prerender failures** - Pages requiring authentication failing during static generation
 
 ## Root Causes
+
 1. CI workflow didn't provide Supabase environment variables needed during build time
 2. Supabase client creation threw errors when env vars were missing
 3. Next.js was attempting to statically prerender pages that require authentication
@@ -14,30 +17,39 @@ The Next.js build was failing in CI with multiple errors:
 ## Fixes Applied
 
 ### 1. Updated Supabase Client Files
+
 Made Supabase client creation more defensive with fallback values:
 
 **`web/src/lib/supabase/client.ts`**
+
 - Added fallback values for missing environment variables
 - Prevents build-time errors when env vars aren't set
 
 **`web/src/lib/supabase/server.ts`**
+
 - Added fallback values for missing environment variables
 - Graceful handling during server-side rendering
 
 ### 2. Updated CI Workflow
+
 **`.github/workflows/web.yml`**
+
 - Added placeholder Supabase environment variables to all build steps
 - Added comments explaining that real values are set at runtime via Cloud Run secrets
 - Ensures builds can complete without actual Supabase credentials
 
 ### 3. Updated Root Layout
+
 **`web/src/app/layout.tsx`**
+
 - Added `export const dynamic = 'force-dynamic'` to prevent static generation
 - Forces all pages to be dynamically rendered (appropriate for auth-protected app)
 - Prevents prerender errors for pages requiring authentication
 
 ### 4. Updated Next.js Config
+
 **`web/next.config.js`**
+
 - Added explicit TypeScript and ESLint configuration
 - Maintains build quality while handling edge cases better
 
@@ -52,7 +64,9 @@ Made Supabase client creation more defensive with fallback values:
 4. **Graceful Degradation**: Fallback values allow the build to complete, but the app will still require proper credentials at runtime to function correctly.
 
 ## Testing
+
 After these changes, the build should:
+
 - ✅ Pass `npm run lint`
 - ✅ Pass `npx tsc --noEmit`
 - ✅ Successfully complete `npm run build`
@@ -60,6 +74,7 @@ After these changes, the build should:
 - ✅ Pass all CI checks
 
 ## Deployment Notes
+
 - Real Supabase credentials must be configured in Cloud Run environment variables
 - Mobile apps handle credentials differently (configured in app.json/env)
 - Local development still requires a `.env` file with actual credentials

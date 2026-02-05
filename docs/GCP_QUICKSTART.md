@@ -23,6 +23,7 @@ chmod +x scripts/setup-gcp.sh
 ```
 
 This creates:
+
 - GCP project "kyarafit"
 - Artifact Registry for Docker images
 - Service accounts for deployment
@@ -46,6 +47,7 @@ echo -n "$(openssl rand -base64 32)" | gcloud secrets create auth-secret --data-
 Add these to GitHub (Settings > Secrets and variables > Actions):
 
 The setup script output will show you the values for:
+
 - `GCP_WIF_PROVIDER`
 - `GCP_SERVICE_ACCOUNT`
 
@@ -61,8 +63,9 @@ chmod +x scripts/deploy-all.sh
 ```
 
 This deploys:
+
 - Backend API
-- Web Frontend  
+- Web Frontend
 - Image Service
 
 ### 5. Setup Custom Domain (5 minutes) - Optional
@@ -92,11 +95,13 @@ gcloud run logs read kyarafit-backend --region us-central1 --limit 20
 ## 🎉 You're Done!
 
 Your services are now live:
+
 - **Backend**: `https://kyarafit-backend-xxx.a.run.app`
 - **Web**: `https://kyarafit-web-xxx.a.run.app`
 - **Image Service**: `https://kyarafit-image-service-xxx.a.run.app`
 
 With custom domains (after DNS propagation):
+
 - **Web**: `https://www.kyarafit.com`
 - **API**: `https://api.kyarafit.com`
 - **Images**: `https://images.kyarafit.com`
@@ -108,6 +113,7 @@ Push to `main` branch, and GitHub Actions will automatically deploy!
 ## 📊 Monitor Costs
 
 Set up billing alert:
+
 ```bash
 gcloud billing budgets create \
   --billing-account YOUR_BILLING_ACCOUNT_ID \
@@ -130,6 +136,7 @@ gcloud billing budgets create \
 ---
 
 **Next Steps:**
+
 - Update mobile app with production API URLs
 - Set up monitoring alerts
 - Configure backup strategy

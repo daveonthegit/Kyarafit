@@ -169,6 +169,10 @@ validate: format-check lint typecheck build test ## Run all CI checks locally (f
 
 ci-local: validate ## Alias for 'validate' - run all CI checks locally
 
+ci-script: ## Run CI checks using standalone script
+	@echo "Running CI validation script..."
+	@bash scripts/ci-local.sh
+
 # ============================================================================
 # Utilities
 # ============================================================================

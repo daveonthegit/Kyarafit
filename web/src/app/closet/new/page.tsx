@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CLOSET_CATEGORIES,
   createClosetItemSchema,
   type ClosetCategory,
-} from '@kyarafit/design-system/types';
-import { UnderlineInput } from '@/components/ui/UnderlineInput';
-import { createClosetItem } from '@/lib/api/closet';
-import type { ClosetItem } from '@kyarafit/design-system/types';
+} from "@kyarafit/design-system/types";
+import { UnderlineInput } from "@/components/ui/UnderlineInput";
+import { createClosetItem } from "@/lib/api/closet";
+import type { ClosetItem } from "@kyarafit/design-system/types";
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB for data URL
 
@@ -19,22 +19,22 @@ export default function NewClosetItemPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<ClosetCategory>('other');
-  const [tagsStr, setTagsStr] = useState('');
-  const [notes, setNotes] = useState('');
-  const [costDollars, setCostDollars] = useState('');
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<ClosetCategory>("other");
+  const [tagsStr, setTagsStr] = useState("");
+  const [notes, setNotes] = useState("");
+  const [costDollars, setCostDollars] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const mutation = useMutation({
     mutationFn: createClosetItem,
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['closet', 'items'] });
-      const previous = queryClient.getQueryData<ClosetItem[]>(['closet', 'items']);
+      await queryClient.cancelQueries({ queryKey: ["closet", "items"] });
+      const previous = queryClient.getQueryData<ClosetItem[]>(["closet", "items"]);
       const optimistic: ClosetItem = {
-        id: 'temp-' + Date.now(),
+        id: "temp-" + Date.now(),
         name: input.name,
         category: input.category,
         tags: input.tags ?? [],
@@ -43,29 +43,29 @@ export default function NewClosetItemPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      queryClient.setQueryData<ClosetItem[]>(['closet', 'items'], (old) =>
+      queryClient.setQueryData<ClosetItem[]>(["closet", "items"], (old) =>
         old ? [optimistic, ...old] : [optimistic]
       );
       return { previous };
     },
     onError: (_err, _input, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['closet', 'items'], context.previous);
+        queryClient.setQueryData(["closet", "items"], context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['closet', 'items'] });
+      queryClient.invalidateQueries({ queryKey: ["closet", "items"] });
     },
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file || !file.type.startsWith("image/")) return;
     if (file.size > MAX_IMAGE_SIZE) {
-      setError('Image must be under 2MB');
+      setError("Image must be under 2MB");
       return;
     }
-    setError('');
+    setError("");
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -77,9 +77,9 @@ export default function NewClosetItemPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     const tags = tagsStr
-      .split(',')
+      .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
     const parsed = createClosetItemSchema.safeParse({
@@ -91,12 +91,12 @@ export default function NewClosetItemPage() {
       costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message ?? 'Invalid fields');
+      setError(parsed.error.errors[0]?.message ?? "Invalid fields");
       return;
     }
     mutation.mutate(parsed.data, {
-      onSuccess: () => router.push('/closet'),
-      onError: (err) => setError(err instanceof Error ? err.message : 'Failed to create'),
+      onSuccess: () => router.push("/closet"),
+      onError: (err) => setError(err instanceof Error ? err.message : "Failed to create"),
     });
   };
 
@@ -175,7 +175,7 @@ export default function NewClosetItemPage() {
                   type="button"
                   onClick={() => setCategory(c)}
                   className={`px-3 py-2 text-xs uppercase tracking-wide border border-black rounded-sm ${
-                    category === c ? 'bg-black text-white' : 'bg-transparent text-black'
+                    category === c ? "bg-black text-white" : "bg-transparent text-black"
                   }`}
                 >
                   {c}
@@ -210,7 +210,7 @@ export default function NewClosetItemPage() {
             disabled={mutation.isPending}
             className="w-full py-4 bg-black text-white text-[11px] font-sans-wide font-bold uppercase tracking-widest rounded-sm disabled:opacity-50"
           >
-            {mutation.isPending ? 'Saving…' : 'Save Item'}
+            {mutation.isPending ? "Saving…" : "Save Item"}
           </button>
         </form>
       </main>

@@ -5,6 +5,7 @@ This directory contains all project documentation organized by category.
 ## 📁 Directory Structure
 
 ### `/setup`
+
 Setup and configuration guides for getting the project running.
 
 - `DOCKER_SETUP.md` - Docker configuration and setup
@@ -15,6 +16,7 @@ Setup and configuration guides for getting the project running.
 - `DEPLOY_README.md` - Deployment instructions and guides
 
 ### `/integrations`
+
 Documentation for third-party service integrations.
 
 - `SMTP_SETUP.md` - SMTP email service setup
@@ -24,6 +26,7 @@ Documentation for third-party service integrations.
 - `AUTH_IMPLEMENTATION.md` - Authentication implementation details
 
 ### `/implementation`
+
 Implementation status, TODOs, and system design documents.
 
 - `IMPLEMENTATION_STATUS.md` - Current implementation status and progress
@@ -33,12 +36,14 @@ Implementation status, TODOs, and system design documents.
 - `SUPABASE_TODO.md` - Supabase-related tasks and TODOs
 
 ### `/api`
+
 API documentation and references.
 
 - `API_DOCUMENTATION.md` - Backend API documentation
 - `api_overview.md` - API overview and architecture
 
 ### `/changelog`
+
 Change logs, fixes, and version history.
 
 - `CHANGELOG_USER_SYNC.md` - User sync feature changelog
@@ -46,6 +51,7 @@ Change logs, fixes, and version history.
 - `SECURITY_FIXES.md` - Security-related fixes and updates
 
 ### `/design_system`
+
 Design system documentation and specifications.
 
 - `component_spec.md` - Component specifications
@@ -76,22 +82,26 @@ The following documentation remains at the root `/docs` level:
 ## 🔍 Finding Documentation
 
 ### For Developers
+
 - **Getting Started**: Start with `/setup/QUICKSTART_SUPABASE.md`
 - **Development**: Read `DEVELOPMENT.md` and `CONTRIBUTING.md`
 - **API Reference**: Check `/api/API_DOCUMENTATION.md`
 - **Architecture**: See `architecture.md` and `project_structure.md`
 
 ### For Integrators
+
 - **Email Setup**: See `/integrations/SMTP_QUICKSTART.md` or `/integrations/RESEND_SETUP.md`
 - **Authentication**: Check `/integrations/AUTH_IMPLEMENTATION.md`
 - **Storage**: See `/setup/SUPABASE_STORAGE_SETUP.md`
 
 ### For Contributors
+
 - **Contributing**: Read `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`
 - **Style Guide**: See `style_doc.md` and `/design_system/`
 - **Current Status**: Check `/implementation/IMPLEMENTATION_STATUS.md`
 
 ### For Project Managers
+
 - **Product Specs**: See `PRD.md` and `USER_FLOWS.md`
 - **Roadmap**: Check `roadmap.md`
 - **Progress**: See `/implementation/IMPLEMENTATION_STATUS.md` and `/implementation/NEXT_STEPS.md`

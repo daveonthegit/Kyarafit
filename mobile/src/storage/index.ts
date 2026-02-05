@@ -25,7 +25,7 @@ export async function remove(key: string): Promise<void> {
 }
 
 export async function list(
-  prefix?: string,
+  prefix?: string
 ): Promise<{ key: string; value: string; updatedAt?: number }[]> {
   return adapter.list(prefix);
 }

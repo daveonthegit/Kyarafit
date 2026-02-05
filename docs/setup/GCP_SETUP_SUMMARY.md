@@ -5,6 +5,7 @@ Complete GCP deployment infrastructure created for Kyarafit!
 ## 📦 Files Created
 
 ### GitHub Actions Workflows
+
 ```
 .github/workflows/
 ├── deploy-gcp-backend.yml        # Backend CI/CD
@@ -13,6 +14,7 @@ Complete GCP deployment infrastructure created for Kyarafit!
 ```
 
 ### Deployment Scripts
+
 ```
 scripts/
 ├── setup-gcp.sh                  # GCP project setup (Linux/Mac)
@@ -23,6 +25,7 @@ scripts/
 ```
 
 ### Documentation
+
 ```
 docs/
 ├── GCP_DEPLOYMENT.md             # Complete deployment guide
@@ -32,6 +35,7 @@ docs/
 ```
 
 ### Configuration
+
 ```
 .env.gcp.example                  # Environment variables template
 GCP_DEPLOYMENT_README.md          # Overview and quick reference
@@ -39,6 +43,7 @@ DEPLOYMENT_CHECKLIST.md           # Step-by-step deployment checklist
 ```
 
 ### Optimizations
+
 ```
 web/
 ├── Dockerfile                    # Optimized multi-stage build
@@ -51,12 +56,14 @@ web/
 ### 1. Initial Setup (One-time)
 
 **Windows:**
+
 ```powershell
 cd c:\Users\darkf\Documents\Kyarafit
 .\scripts\setup-gcp.ps1
 ```
 
 **Mac/Linux:**
+
 ```bash
 cd ~/Documents/Kyarafit  # adjust path as needed
 chmod +x scripts/*.sh
@@ -66,6 +73,7 @@ chmod +x scripts/*.sh
 ### 2. Add GitHub Secrets
 
 The setup script will output these values:
+
 - `GCP_WIF_PROVIDER`
 - `GCP_SERVICE_ACCOUNT`
 
@@ -85,11 +93,13 @@ echo -n "https://xxx.supabase.co" | gcloud secrets create supabase-url --data-fi
 ### 4. Deploy
 
 **Windows:**
+
 ```powershell
 .\scripts\deploy-all.ps1
 ```
 
 **Mac/Linux:**
+
 ```bash
 ./scripts/deploy-all.sh
 ```
@@ -103,25 +113,29 @@ echo -n "https://xxx.supabase.co" | gcloud secrets create supabase-url --data-fi
 ## 🎯 What You Get
 
 ### Automated CI/CD
+
 - Push to `main` → Automatic deployment
 - Zero-downtime updates
 - Automatic rollback on failure
 - Build caching for faster deploys
 
 ### Infrastructure
+
 - **Backend**: Go API on Cloud Run
-- **Frontend**: Next.js on Cloud Run  
+- **Frontend**: Next.js on Cloud Run
 - **Image Service**: Python/FastAPI on Cloud Run
 - **Database**: Supabase PostgreSQL (existing)
 - **Storage**: Supabase Storage (existing)
 
 ### Cost Optimization
+
 - Scale to zero when idle
 - Multi-stage Docker builds (smaller images)
 - Automatic caching
 - Regional deployment (us-central1 = cheapest)
 
 ### Security
+
 - Workload Identity Federation (no keys)
 - Secret Manager for sensitive data
 - Automatic SSL/HTTPS
@@ -161,11 +175,11 @@ echo -n "https://xxx.supabase.co" | gcloud secrets create supabase-url --data-fi
 
 ## 💰 Cost Estimates
 
-| Stage | Users | Monthly Cost |
-|-------|-------|--------------|
-| Development | 100-500 | $5-15 |
-| Growth | 1K-5K | $52-84 |
-| Scale | 10K+ | $296-361 |
+| Stage       | Users   | Monthly Cost |
+| ----------- | ------- | ------------ |
+| Development | 100-500 | $5-15        |
+| Growth      | 1K-5K   | $52-84       |
+| Scale       | 10K+    | $296-361     |
 
 **Note:** Costs scale with usage. Services scale to zero when idle = no costs!
 
@@ -236,6 +250,7 @@ If you encounter issues:
 5. **Test locally**: Verify Docker builds work locally
 
 Common issues:
+
 - **Permission denied**: Run `gcloud auth login`
 - **Secret not found**: Create missing secrets
 - **Build fails**: Check Dockerfile and .dockerignore

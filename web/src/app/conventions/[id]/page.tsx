@@ -1,17 +1,12 @@
-'use client';
+"use client";
 
-import { useCallback, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  fetchConvention,
-  fetchPlan,
-  replacePlan,
-  regeneratePacking,
-} from '@/lib/api/conventions';
-import { fetchBuilds } from '@/lib/api/builds';
-import type { DayPlanEntry } from '@kyarafit/design-system/types';
+import { useCallback, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchConvention, fetchPlan, replacePlan, regeneratePacking } from "@/lib/api/conventions";
+import { fetchBuilds } from "@/lib/api/builds";
+import type { DayPlanEntry } from "@kyarafit/design-system/types";
 
 function dateRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -32,24 +27,24 @@ export default function ConventionDetailPage() {
   const [pickerDate, setPickerDate] = useState<string | null>(null);
 
   const { data: convention, isLoading: loadingConv } = useQuery({
-    queryKey: ['convention', id],
+    queryKey: ["convention", id],
     queryFn: () => fetchConvention(id),
     enabled: !!id,
   });
   const { data: plan = [], isLoading: loadingPlan } = useQuery({
-    queryKey: ['convention-plan', id],
+    queryKey: ["convention-plan", id],
     queryFn: () => fetchPlan(id),
     enabled: !!id,
   });
   const { data: builds = [] } = useQuery({
-    queryKey: ['builds'],
+    queryKey: ["builds"],
     queryFn: fetchBuilds,
   });
 
   const replacePlanMutation = useMutation({
     mutationFn: (newPlan: DayPlanEntry[]) => replacePlan(id, newPlan),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['convention-plan', id] });
+      queryClient.invalidateQueries({ queryKey: ["convention-plan", id] });
       setPickerDate(null);
     },
   });
@@ -57,7 +52,7 @@ export default function ConventionDetailPage() {
   const regenerateMutation = useMutation({
     mutationFn: () => regeneratePacking(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['convention-packing', id] });
+      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
       router.push(`/conventions/${id}/packing`);
     },
   });
@@ -94,7 +89,9 @@ export default function ConventionDetailPage() {
     return (
       <div className="min-h-screen flex flex-col pb-32 px-6 pt-12">
         <p className="meta-label">Convention not found.</p>
-        <Link href="/conventions" className="mt-4 text-sm underline">Back to Conventions</Link>
+        <Link href="/conventions" className="mt-4 text-sm underline">
+          Back to Conventions
+        </Link>
       </div>
     );
   }
@@ -112,7 +109,7 @@ export default function ConventionDetailPage() {
         <h1 className="font-serif text-3xl font-bold italic">{convention.name}</h1>
         <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mt-2">
           {convention.startDate} – {convention.endDate}
-          {convention.location ? ` · ${convention.location}` : ''}
+          {convention.location ? ` · ${convention.location}` : ""}
         </p>
 
         <p className="meta-label mt-8 mb-4">DAY-BY-DAY PLAN</p>
@@ -121,8 +118,8 @@ export default function ConventionDetailPage() {
           {dates.map((date) => {
             const entry = planByDate.get(date);
             const buildName = entry?.buildId
-              ? builds.find((b) => b.id === entry.buildId)?.name ?? '—'
-              : 'Rest day';
+              ? (builds.find((b) => b.id === entry.buildId)?.name ?? "—")
+              : "Rest day";
             return (
               <li key={date}>
                 <button
@@ -132,7 +129,9 @@ export default function ConventionDetailPage() {
                 >
                   <span className="text-sm w-24">{date}</span>
                   <span className="flex-1 font-serif italic font-bold">{buildName}</span>
-                  <span className="material-symbols-outlined text-kyar-textTertiary">chevron_right</span>
+                  <span className="material-symbols-outlined text-kyar-textTertiary">
+                    chevron_right
+                  </span>
                 </button>
               </li>
             );
@@ -160,11 +159,10 @@ export default function ConventionDetailPage() {
           className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-6"
           onClick={() => setPickerDate(null)}
         >
-          <div
-            className="bg-white w-full max-w-sm p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="font-serif text-lg italic font-bold mb-4">Assign build for {pickerDate}</h2>
+          <div className="bg-white w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-serif text-lg italic font-bold mb-4">
+              Assign build for {pickerDate}
+            </h2>
             <button
               type="button"
               onClick={() => handleAssign(pickerDate, null)}

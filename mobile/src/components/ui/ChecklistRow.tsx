@@ -8,21 +8,13 @@ interface ChecklistRowProps {
   code?: string;
 }
 
-export function ChecklistRow({
-  label,
-  checked,
-  onToggle,
-  code,
-}: ChecklistRowProps) {
+export function ChecklistRow({ label, checked, onToggle, code }: ChecklistRowProps) {
   return (
     <Pressable onPress={onToggle} style={styles.row}>
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
         {checked ? <View style={styles.checkmark} /> : null}
       </View>
-      <Text
-        style={[styles.label, checked && styles.labelChecked]}
-        numberOfLines={1}
-      >
+      <Text style={[styles.label, checked && styles.labelChecked]} numberOfLines={1}>
         {label}
       </Text>
       {code ? <Text style={styles.code}>{code}</Text> : null}

@@ -49,6 +49,7 @@ APP_URL=http://localhost:3000
 ```
 
 **Important**:
+
 - `SMTP_USERNAME` is always `resend` (literally, don't change it)
 - `SMTP_PASSWORD` is your API key (starts with `re_`)
 - For testing, use `onboarding@resend.dev` as the sender
@@ -57,12 +58,14 @@ APP_URL=http://localhost:3000
 ### Step 4: Test It
 
 Start your backend:
+
 ```bash
 cd backend
 go run .
 ```
 
 Send a test email:
+
 ```bash
 # Windows PowerShell
 .\test_smtp.ps1
@@ -73,6 +76,7 @@ chmod +x test_smtp.sh
 ```
 
 Or use curl:
+
 ```bash
 curl -X POST http://localhost:8080/api/test/email \
   -H "Content-Type: application/json" \
@@ -97,16 +101,19 @@ For production, you'll want to send from your own domain instead of `onboarding@
 Resend will show you 3 DNS records to add:
 
 **SPF Record** (TXT):
+
 ```
 @ TXT "v=spf1 include:resend.com ~all"
 ```
 
 **DKIM Record** (TXT):
+
 ```
 resend._domainkey TXT "p=MIGfMA0GCSq...your-key..."
 ```
 
 **DMARC Record** (TXT):
+
 ```
 _dmarc TXT "v=DMARC1; p=none"
 ```
@@ -159,6 +166,7 @@ Restart your backend and test again!
 ## Features & Limits
 
 ### Free Tier
+
 - **100 emails per day**
 - **3,000 emails per month**
 - Unlimited domains
@@ -167,6 +175,7 @@ Restart your backend and test again!
 - Email templates
 
 ### Pro Tier ($20/month)
+
 - **50,000 emails per month**
 - Email logs for 30 days
 - Priority support
@@ -174,6 +183,7 @@ Restart your backend and test again!
 - Dedicated IP (add-on)
 
 ### Business Tier (Custom)
+
 - Custom volume
 - Email logs for 90 days
 - Premium support
@@ -196,6 +206,7 @@ Resend provides excellent visibility into your emails:
 ### Email Details
 
 Click any email to see:
+
 - Full email content
 - Delivery status
 - SMTP response
@@ -205,6 +216,7 @@ Click any email to see:
 ### Set Up Webhooks (Pro)
 
 For production, set up webhooks to handle:
+
 - `email.delivered`
 - `email.bounced`
 - `email.complained`
@@ -224,6 +236,7 @@ SMTP_FROM=Kyarafit <onboarding@resend.dev>
 ### 2. Check Spam Folder
 
 If emails aren't arriving:
+
 - Check spam/junk folder
 - Wait a few minutes (SMTP can be delayed)
 - Check Resend logs for delivery status
@@ -231,10 +244,12 @@ If emails aren't arriving:
 ### 3. Verify Email Addresses
 
 For free tier, you can only send to:
+
 - Verified email addresses
 - Your own domain (once verified)
 
 To add verified emails:
+
 1. Go to **Settings** → **Verified Emails**
 2. Add email addresses for testing
 3. They'll receive a verification link
@@ -242,6 +257,7 @@ To add verified emails:
 ### 4. Test Different Email Clients
 
 Test your emails in:
+
 - Gmail
 - Outlook
 - Apple Mail
@@ -256,6 +272,7 @@ Resend dashboard shows how emails render in different clients.
 **Problem**: API key is incorrect or expired
 
 **Solution**:
+
 - Generate a new API key in Resend dashboard
 - Make sure you copied the full key (starts with `re_`)
 - Verify `SMTP_USERNAME` is literally `resend`
@@ -265,12 +282,14 @@ Resend dashboard shows how emails render in different clients.
 **Problem**: Trying to send from unverified domain
 
 **Solution**:
+
 - Use `onboarding@resend.dev` for testing
 - Or verify your domain in Resend dashboard
 
 ### Emails not received
 
 **Check**:
+
 1. Resend logs - was email sent?
 2. Spam folder
 3. Recipient email is correct
@@ -281,6 +300,7 @@ Resend dashboard shows how emails render in different clients.
 **Problem**: Exceeded 100 emails/day limit
 
 **Solution**:
+
 - Wait until next day (resets at midnight UTC)
 - Upgrade to Pro tier for higher limits
 - Implement email queuing to spread sends
@@ -290,11 +310,13 @@ Resend dashboard shows how emails render in different clients.
 ### 1. Use Different API Keys per Environment
 
 Create separate API keys:
+
 - `Development` - for local testing
 - `Staging` - for staging environment
 - `Production` - for production
 
 This allows you to:
+
 - Track emails by environment
 - Revoke keys without affecting other environments
 - Monitor usage separately
@@ -302,11 +324,13 @@ This allows you to:
 ### 2. Implement Email Queue
 
 For high-volume apps, use a queue:
+
 - Redis + Bull
 - RabbitMQ
 - AWS SQS
 
 This prevents:
+
 - Rate limit issues
 - Timeout problems
 - Lost emails
@@ -334,18 +358,18 @@ app.Post("/webhooks/resend", func(c *fiber.Ctx) error {
         Type string `json:"type"`
         Data map[string]interface{} `json:"data"`
     }
-    
+
     if err := c.BodyParser(&event); err != nil {
         return c.Status(400).JSON(fiber.Map{"error": "invalid payload"})
     }
-    
+
     switch event.Type {
     case "email.bounced":
         // Handle bounce
     case "email.delivered":
         // Confirm delivery
     }
-    
+
     return c.SendStatus(200)
 })
 ```
@@ -353,6 +377,7 @@ app.Post("/webhooks/resend", func(c *fiber.Ctx) error {
 ### 5. Monitor Usage
 
 Keep track of your email usage:
+
 - Check Resend dashboard regularly
 - Set up alerts for high usage
 - Plan upgrades before hitting limits
@@ -409,11 +434,11 @@ for _, recipient := range recipients {
         Body:    newsletterHTML,
         IsHTML:  true,
     })
-    
+
     if err != nil {
         log.Printf("Failed to send to %s: %v", recipient, err)
     }
-    
+
     // Add delay to avoid rate limits
     time.Sleep(100 * time.Millisecond)
 }
@@ -421,15 +446,15 @@ for _, recipient := range recipients {
 
 ## Resend vs Alternatives
 
-| Feature | Resend | SendGrid | Mailgun | SES |
-|---------|--------|----------|---------|-----|
-| Free Tier | 100/day | 100/day | Trial only | Pay-per-use |
-| Setup Difficulty | ⭐ Easy | ⭐ Easy | ⭐⭐ Medium | ⭐⭐⭐ Hard |
-| Developer Experience | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| Deliverability | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| Pricing (10k/mo) | $20 | $20 | $35 | $1 |
-| Email Logs | 7 days free | 7 days | 3 days | Via CloudWatch |
-| Modern API | Yes | Yes | Yes | No |
+| Feature              | Resend      | SendGrid   | Mailgun     | SES            |
+| -------------------- | ----------- | ---------- | ----------- | -------------- |
+| Free Tier            | 100/day     | 100/day    | Trial only  | Pay-per-use    |
+| Setup Difficulty     | ⭐ Easy     | ⭐ Easy    | ⭐⭐ Medium | ⭐⭐⭐ Hard    |
+| Developer Experience | ⭐⭐⭐⭐⭐  | ⭐⭐⭐     | ⭐⭐⭐      | ⭐⭐           |
+| Deliverability       | ⭐⭐⭐⭐    | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐    | ⭐⭐⭐⭐       |
+| Pricing (10k/mo)     | $20         | $20        | $35         | $1             |
+| Email Logs           | 7 days free | 7 days     | 3 days      | Via CloudWatch |
+| Modern API           | Yes         | Yes        | Yes         | No             |
 
 ## Resources
 

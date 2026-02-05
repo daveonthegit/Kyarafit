@@ -12,14 +12,8 @@ type TabIconProps = {
 function TabIcon({ focused, icon, label }: TabIconProps) {
   return (
     <View style={styles.tabItem}>
-      <Ionicons
-        name={icon}
-        size={24}
-        color={focused ? colors.black : "rgba(0,0,0,0.3)"}
-      />
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
-        {label}
-      </Text>
+      <Ionicons name={icon} size={24} color={focused ? colors.black : "rgba(0,0,0,0.3)"} />
+      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
       {focused && <View style={styles.tabDot} />}
     </View>
   );

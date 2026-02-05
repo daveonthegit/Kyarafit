@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { forwardRef, useState } from 'react';
+import { forwardRef, useState } from "react";
 
 interface UnderlineInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -8,7 +8,7 @@ interface UnderlineInputProps extends React.InputHTMLAttributes<HTMLInputElement
 }
 
 export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
-  ({ label, error, className = '', ...props }, ref) => {
+  ({ label, error, className = "", ...props }, ref) => {
     const [focused, setFocused] = useState(false);
     return (
       <div className="w-full">
@@ -28,15 +28,13 @@ export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
             props.onBlur?.(e);
           }}
           className={`w-full bg-transparent border-0 border-b text-sm md:text-base text-kyar-text placeholder:text-kyar-textTertiary outline-none py-2 ${
-            focused ? 'border-kyar-accent border-b-2' : 'border-black border-b'
-          } ${error ? 'border-kyar-danger' : ''} ${className}`}
+            focused ? "border-kyar-accent border-b-2" : "border-black border-b"
+          } ${error ? "border-kyar-danger" : ""} ${className}`}
           {...props}
         />
-        {error && (
-          <p className="mt-1 text-xs text-kyar-danger">{error}</p>
-        )}
+        {error && <p className="mt-1 text-xs text-kyar-danger">{error}</p>}
       </div>
     );
   }
 );
-UnderlineInput.displayName = 'UnderlineInput';
+UnderlineInput.displayName = "UnderlineInput";

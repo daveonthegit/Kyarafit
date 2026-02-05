@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { BottomNav } from '@/components/layout/BottomNav';
+import { useRouter } from "next/navigation";
+import { BottomNav } from "@/components/layout/BottomNav";
 
 export default function Itinerary() {
   const router = useRouter();
@@ -10,7 +10,9 @@ export default function Itinerary() {
     <div className="min-h-screen flex flex-col bg-white">
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-6 pt-14 pb-4 border-b border-gray-100 flex justify-between items-end">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.4em] font-medium mb-1.5 opacity-40">Kyarafit Itinerary</p>
+          <p className="text-[10px] uppercase tracking-[0.4em] font-medium mb-1.5 opacity-40">
+            Kyarafit Itinerary
+          </p>
           <h1 className="font-serif text-3xl font-bold italic">Convention day</h1>
         </div>
         <div className="flex gap-4 mb-1">
@@ -29,7 +31,9 @@ export default function Itinerary() {
           </div>
           <div className="flex gap-6">
             <div className="w-2/3 relative aspect-[3/4] bg-kyar-muted flex items-center justify-center border border-kyar-borderSubtle">
-              <span className="material-symbols-outlined text-5xl text-kyar-textTertiary">image</span>
+              <span className="material-symbols-outlined text-5xl text-kyar-textTertiary">
+                image
+              </span>
             </div>
             <div className="w-1/3 flex flex-col justify-end pb-4">
               <p className="text-[11px] uppercase font-bold mb-2">Look 01</p>

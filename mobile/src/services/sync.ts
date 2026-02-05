@@ -39,7 +39,7 @@ async function request<T>(
   method: string,
   path: string,
   body: unknown | undefined,
-  token: string | null,
+  token: string | null
 ): Promise<{ ok: boolean; data?: T; status?: number }> {
   const deviceId = getDeviceId();
   const url = `${API_URL}${path}`;
@@ -78,7 +78,7 @@ async function request<T>(
  * When token is null (anonymous), no backend requests are made (local-only).
  */
 export async function runSync(
-  token: string | null,
+  token: string | null
 ): Promise<{ pushed: number; failed: number; pulled: number }> {
   if (token == null) {
     return { pushed: 0, failed: 0, pulled: 0 };
@@ -102,21 +102,11 @@ export async function runSync(
         imageUrl: item.imageUrl ?? undefined,
         costCents: item.costCents ?? undefined,
       };
-      const result = await request<ClosetItem>(
-        "POST",
-        "/closet/items",
-        body,
-        token,
-      );
+      const result = await request<ClosetItem>("POST", "/closet/items", body, token);
       ok = result.ok;
     } else if (entry.type === "delete") {
       const payload = entry.payload as { id: string };
-      const result = await request(
-        "DELETE",
-        `/closet/items/${payload.id}`,
-        undefined,
-        token,
-      );
+      const result = await request("DELETE", `/closet/items/${payload.id}`, undefined, token);
       ok = result.ok || result.status === 404;
     } else if (entry.type === "build.upsert") {
       const payload = entry.payload as {
@@ -143,7 +133,7 @@ export async function runSync(
           imageUrl: b.imageUrl,
           budgetCents: b.budgetCents,
         },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "build.task.upsert") {
@@ -166,7 +156,7 @@ export async function runSync(
           closetItemId: t.closetItemId ?? undefined,
           sortOrder: t.sortOrder,
         },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "build.task.delete") {
@@ -175,7 +165,7 @@ export async function runSync(
         "DELETE",
         `/builds/${payload.buildId}/tasks/${payload.taskId}`,
         undefined,
-        token,
+        token
       );
       ok = result.ok || result.status === 404;
     } else if (entry.type === "build.linkItems") {
@@ -187,7 +177,7 @@ export async function runSync(
         "POST",
         `/builds/${payload.buildId}/items`,
         { closetItemIds: payload.closetItemIds },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "convention.upsert") {
@@ -211,7 +201,7 @@ export async function runSync(
           startDate: c.startDate,
           endDate: c.endDate,
         },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "convention.plan.replace") {
@@ -223,7 +213,7 @@ export async function runSync(
         "PUT",
         `/conventions/${payload.conventionId}/plan`,
         { plan: payload.plan },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "packing.toggle") {
@@ -235,7 +225,7 @@ export async function runSync(
         "PATCH",
         `/packing/${payload.packingItemId}`,
         { checked: payload.checked },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "packing.addManual") {
@@ -251,7 +241,7 @@ export async function runSync(
           date: payload.item.date ?? undefined,
           buildId: payload.item.buildId ?? undefined,
         },
-        token,
+        token
       );
       ok = result.ok;
     } else if (entry.type === "packing.regenerate") {
@@ -260,7 +250,7 @@ export async function runSync(
         "POST",
         `/conventions/${payload.conventionId}/packing/regenerate`,
         undefined,
-        token,
+        token
       );
       ok = result.ok;
     }
@@ -301,10 +291,7 @@ export async function runSync(
           pulled++;
         } else {
           const localItem = await closetRepo.getById(serverItem.id);
-          if (
-            !localItem ||
-            new Date(serverItem.updatedAt) > new Date(localItem.updatedAt)
-          ) {
+          if (!localItem || new Date(serverItem.updatedAt) > new Date(localItem.updatedAt)) {
             // Server version is newer or item doesn't exist locally
             await closetRepo.upsertFromSync({
               id: serverItem.id,
@@ -329,10 +316,7 @@ export async function runSync(
           pulled++;
         } else {
           const localBuild = await buildsRepo.getById(serverBuild.id);
-          if (
-            !localBuild ||
-            new Date(serverBuild.updatedAt) > new Date(localBuild.updatedAt)
-          ) {
+          if (!localBuild || new Date(serverBuild.updatedAt) > new Date(localBuild.updatedAt)) {
             await buildsRepo.upsertFromSync({
               id: serverBuild.id,
               name: serverBuild.name,
@@ -356,10 +340,7 @@ export async function runSync(
           pulled++;
         } else {
           const localTask = await buildTasksRepo.getById(serverTask.id);
-          if (
-            !localTask ||
-            new Date(serverTask.updatedAt) > new Date(localTask.updatedAt)
-          ) {
+          if (!localTask || new Date(serverTask.updatedAt) > new Date(localTask.updatedAt)) {
             await buildTasksRepo.upsertFromSync({
               id: serverTask.id,
               buildId: serverTask.buildId,
@@ -382,10 +363,7 @@ export async function runSync(
           pulled++;
         } else {
           const localConv = await conventionsRepo.getById(serverConv.id);
-          if (
-            !localConv ||
-            new Date(serverConv.updatedAt) > new Date(localConv.updatedAt)
-          ) {
+          if (!localConv || new Date(serverConv.updatedAt) > new Date(localConv.updatedAt)) {
             await conventionsRepo.upsertFromSync({
               id: serverConv.id,
               name: serverConv.name,

@@ -2,9 +2,9 @@
  * Build (cosplay build), BuildTask checklist, and BuildItemLink types.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
-export const BUILD_STATUSES = ['idea', 'wip', 'ready'] as const;
+export const BUILD_STATUSES = ["idea", "wip", "ready"] as const;
 export type BuildStatus = (typeof BUILD_STATUSES)[number];
 
 export const buildSchema = z.object({
@@ -24,7 +24,7 @@ export type Build = z.infer<typeof buildSchema>;
 export const createBuildSchema = z.object({
   name: z.string().min(1),
   character: z.string().optional(),
-  status: z.enum(BUILD_STATUSES).default('idea'),
+  status: z.enum(BUILD_STATUSES).default("idea"),
   notes: z.string().optional(),
   imageUrl: z.string().optional(),
   budgetCents: z.number().int().min(0).optional().nullable(),

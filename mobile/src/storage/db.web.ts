@@ -102,10 +102,7 @@ function getWebDb(): DbLike {
         return;
       }
       // closet_items
-      if (
-        sql.includes("INSERT INTO closet_items") ||
-        sql.includes("ON CONFLICT(id) DO UPDATE")
-      ) {
+      if (sql.includes("INSERT INTO closet_items") || sql.includes("ON CONFLICT(id) DO UPDATE")) {
         const p = params as unknown[];
         const id = p[0] as string;
         const name = p[1] as string;
@@ -115,9 +112,7 @@ function getWebDb(): DbLike {
         const image_local_uri = p[5] as string | null;
         const image_url = p[6] as string | null;
         const cost_cents = (p.length > 7 ? p[7] : null) as number | null;
-        const created_at = (
-          p.length > 8 ? p[8] : new Date().toISOString()
-        ) as string;
+        const created_at = (p.length > 8 ? p[8] : new Date().toISOString()) as string;
         const updated_at = (p.length > 9 ? p[9] : created_at) as string;
         const idx = closetItems.findIndex((r) => r.id === id);
         const row = {
@@ -194,25 +189,17 @@ function getWebDb(): DbLike {
         return;
       }
       if (sql.includes("UPDATE builds SET")) {
-        const [
-          name,
-          character,
-          status,
-          notes,
-          image_url,
-          budget_cents,
-          updated_at,
-          id,
-        ] = params as [
-          string,
-          string | null,
-          string,
-          string | null,
-          string | null,
-          number | null,
-          string,
-          string,
-        ];
+        const [name, character, status, notes, image_url, budget_cents, updated_at, id] =
+          params as [
+            string,
+            string | null,
+            string,
+            string | null,
+            string | null,
+            number | null,
+            string,
+            string,
+          ];
         const idx = builds.findIndex((r) => r.id === id);
         if (idx >= 0) {
           builds[idx] = {
@@ -235,23 +222,8 @@ function getWebDb(): DbLike {
       }
       // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
       if (sql.includes("INSERT INTO build_tasks (")) {
-        const [
-          id,
-          build_id,
-          label,
-          closet_item_id,
-          sort_order,
-          created_at,
-          updated_at,
-        ] = params as [
-          string,
-          string,
-          string,
-          string | null,
-          number,
-          string,
-          string,
-        ];
+        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] =
+          params as [string, string, string, string | null, number, string, string];
         buildTasks.push({
           id,
           build_id,
@@ -265,15 +237,7 @@ function getWebDb(): DbLike {
         return;
       }
       if (sql.includes("UPDATE build_tasks SET")) {
-        const [
-          label,
-          closet_item_id,
-          sort_order,
-          checked,
-          updated_at,
-          id,
-          build_id,
-        ] = params as [
+        const [label, closet_item_id, sort_order, checked, updated_at, id, build_id] = params as [
           string,
           string | null,
           number,
@@ -282,9 +246,7 @@ function getWebDb(): DbLike {
           string,
           string,
         ];
-        const idx = buildTasks.findIndex(
-          (r) => r.id === id && r.build_id === build_id,
-        );
+        const idx = buildTasks.findIndex((r) => r.id === id && r.build_id === build_id);
         if (idx >= 0) {
           buildTasks[idx] = {
             ...buildTasks[idx],
@@ -301,10 +263,7 @@ function getWebDb(): DbLike {
         if (params.length === 2) {
           const [taskId, buildId] = params as [string, string];
           for (let i = buildTasks.length - 1; i >= 0; i--) {
-            if (
-              buildTasks[i].id === taskId &&
-              buildTasks[i].build_id === buildId
-            ) {
+            if (buildTasks[i].id === taskId && buildTasks[i].build_id === buildId) {
               buildTasks.splice(i, 1);
               break;
             }
@@ -324,8 +283,7 @@ function getWebDb(): DbLike {
       if (sql.includes("DELETE FROM build_item_links WHERE build_id")) {
         const buildId = params[0] as string;
         for (let i = buildItemLinks.length - 1; i >= 0; i--) {
-          if (buildItemLinks[i].build_id === buildId)
-            buildItemLinks.splice(i, 1);
+          if (buildItemLinks[i].build_id === buildId) buildItemLinks.splice(i, 1);
         }
         return;
       }
@@ -336,15 +294,7 @@ function getWebDb(): DbLike {
       }
       // conventions
       if (sql.includes("INSERT INTO conventions (")) {
-        const [
-          id,
-          name,
-          location,
-          start_date,
-          end_date,
-          created_at,
-          updated_at,
-        ] = params as [
+        const [id, name, location, start_date, end_date, created_at, updated_at] = params as [
           string,
           string,
           string | null,
@@ -365,8 +315,14 @@ function getWebDb(): DbLike {
         return;
       }
       if (sql.includes("UPDATE conventions SET")) {
-        const [name, location, start_date, end_date, updated_at, id] =
-          params as [string, string | null, string, string, string, string];
+        const [name, location, start_date, end_date, updated_at, id] = params as [
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+        ];
         const idx = conventions.findIndex((r) => r.id === id);
         if (idx >= 0) {
           conventions[idx] = {
@@ -386,13 +342,10 @@ function getWebDb(): DbLike {
         return;
       }
       // convention_day_plans
-      if (
-        sql.includes("DELETE FROM convention_day_plans WHERE convention_id")
-      ) {
+      if (sql.includes("DELETE FROM convention_day_plans WHERE convention_id")) {
         const cid = params[0] as string;
         for (let i = conventionDayPlans.length - 1; i >= 0; i--) {
-          if (conventionDayPlans[i].convention_id === cid)
-            conventionDayPlans.splice(i, 1);
+          if (conventionDayPlans[i].convention_id === cid) conventionDayPlans.splice(i, 1);
         }
         return;
       }
@@ -438,25 +391,8 @@ function getWebDb(): DbLike {
       if (sql.includes("INSERT INTO packing_list_items (")) {
         const p = params as unknown[];
         if (p.length === 8) {
-          const [
-            id,
-            convention_id,
-            date,
-            build_id,
-            closet_item_id,
-            label,
-            created_at,
-            updated_at,
-          ] = p as [
-            string,
-            string,
-            string,
-            string | null,
-            string,
-            string,
-            string,
-            string,
-          ];
+          const [id, convention_id, date, build_id, closet_item_id, label, created_at, updated_at] =
+            p as [string, string, string, string | null, string, string, string, string];
           packingListItems.push({
             id,
             convention_id,
@@ -469,15 +405,7 @@ function getWebDb(): DbLike {
             updated_at,
           });
         } else if (p.length === 7) {
-          const [
-            id,
-            convention_id,
-            date,
-            build_id,
-            label,
-            created_at,
-            updated_at,
-          ] = p as [
+          const [id, convention_id, date, build_id, label, created_at, updated_at] = p as [
             string,
             string,
             string | null,
@@ -521,10 +449,7 @@ function getWebDb(): DbLike {
       }
     },
 
-    async getFirstAsync<T>(
-      sql: string,
-      params: unknown[] = [],
-    ): Promise<T | null> {
+    async getFirstAsync<T>(sql: string, params: unknown[] = []): Promise<T | null> {
       const rows = await this.getAllAsync<T>(sql, params);
       return rows[0] ?? null;
     },
@@ -554,8 +479,7 @@ function getWebDb(): DbLike {
       }
       if (sql.includes("FROM closet_items ORDER BY")) {
         return [...closetItems].sort(
-          (a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         ) as T[];
       }
       if (sql.includes("FROM outbox ORDER BY")) {
@@ -569,8 +493,7 @@ function getWebDb(): DbLike {
       }
       if (sql.includes("FROM builds ORDER BY")) {
         return [...builds].sort(
-          (a, b) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         ) as T[];
       }
       // build_item_links
@@ -594,9 +517,7 @@ function getWebDb(): DbLike {
         return buildTasks
           .filter((r) => r.build_id === buildId)
           .sort(
-            (a, b) =>
-              a.sort_order - b.sort_order ||
-              a.created_at.localeCompare(b.created_at),
+            (a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)
           ) as T[];
       }
       // conventions
@@ -607,8 +528,7 @@ function getWebDb(): DbLike {
       }
       if (sql.includes("FROM conventions ORDER BY")) {
         return [...conventions].sort(
-          (a, b) =>
-            new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
+          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
         ) as T[];
       }
       // convention_day_plans
@@ -622,8 +542,7 @@ function getWebDb(): DbLike {
       if (sql.includes("COUNT(*) as c FROM packing_list_items")) {
         const cid = params[0] as string;
         const count = packingListItems.filter(
-          (r) =>
-            r.convention_id === cid && r.date == null && r.build_id == null,
+          (r) => r.convention_id === cid && r.date == null && r.build_id == null
         ).length;
         return [{ c: count }] as T[];
       }
@@ -661,15 +580,12 @@ export async function getValue(key: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ value: string }>(
     "SELECT value FROM kv WHERE key = ?",
-    [key],
+    [key]
   );
   return row?.value ?? null;
 }
 
 export async function setValue(key: string, value: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(
-    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-    [key, value],
-  );
+  await database.runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", [key, value]);
 }

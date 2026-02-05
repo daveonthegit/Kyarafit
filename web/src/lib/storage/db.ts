@@ -3,9 +3,9 @@
  * Schema matches mobile SQLite for sync compatibility
  */
 
-import { openDB, type IDBPDatabase } from 'idb';
+import { openDB, type IDBPDatabase } from "idb";
 
-const DB_NAME = 'kyarafit';
+const DB_NAME = "kyarafit";
 const DB_VERSION = 1;
 
 export interface ClosetItem {
@@ -24,7 +24,7 @@ export interface Build {
   id: string;
   name: string;
   character: string | null;
-  status: 'idea' | 'wip' | 'ready';
+  status: "idea" | "wip" | "ready";
   notes: string | null;
   imageUrl: string | null;
   budgetCents: number | null;
@@ -136,51 +136,51 @@ export async function getDB(): Promise<IDBPDatabase<KyarafitDB>> {
   dbInstance = await openDB<KyarafitDB>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       // Closet items
-      if (!db.objectStoreNames.contains('closet_items')) {
-        const closetStore = db.createObjectStore('closet_items', { keyPath: 'id' });
-        closetStore.createIndex('updatedAt', 'updatedAt');
+      if (!db.objectStoreNames.contains("closet_items")) {
+        const closetStore = db.createObjectStore("closet_items", { keyPath: "id" });
+        closetStore.createIndex("updatedAt", "updatedAt");
       }
 
       // Builds
-      if (!db.objectStoreNames.contains('builds')) {
-        const buildsStore = db.createObjectStore('builds', { keyPath: 'id' });
-        buildsStore.createIndex('updatedAt', 'updatedAt');
+      if (!db.objectStoreNames.contains("builds")) {
+        const buildsStore = db.createObjectStore("builds", { keyPath: "id" });
+        buildsStore.createIndex("updatedAt", "updatedAt");
       }
 
       // Build tasks
-      if (!db.objectStoreNames.contains('build_tasks')) {
-        const tasksStore = db.createObjectStore('build_tasks', { keyPath: 'id' });
-        tasksStore.createIndex('buildId', 'buildId');
-        tasksStore.createIndex('updatedAt', 'updatedAt');
+      if (!db.objectStoreNames.contains("build_tasks")) {
+        const tasksStore = db.createObjectStore("build_tasks", { keyPath: "id" });
+        tasksStore.createIndex("buildId", "buildId");
+        tasksStore.createIndex("updatedAt", "updatedAt");
       }
 
       // Conventions
-      if (!db.objectStoreNames.contains('conventions')) {
-        const conventionsStore = db.createObjectStore('conventions', { keyPath: 'id' });
-        conventionsStore.createIndex('updatedAt', 'updatedAt');
+      if (!db.objectStoreNames.contains("conventions")) {
+        const conventionsStore = db.createObjectStore("conventions", { keyPath: "id" });
+        conventionsStore.createIndex("updatedAt", "updatedAt");
       }
 
       // Convention day plans
-      if (!db.objectStoreNames.contains('convention_day_plans')) {
-        const plansStore = db.createObjectStore('convention_day_plans', { keyPath: 'id' });
-        plansStore.createIndex('conventionId', 'conventionId');
+      if (!db.objectStoreNames.contains("convention_day_plans")) {
+        const plansStore = db.createObjectStore("convention_day_plans", { keyPath: "id" });
+        plansStore.createIndex("conventionId", "conventionId");
       }
 
       // Packing list items
-      if (!db.objectStoreNames.contains('packing_list_items')) {
-        const packingStore = db.createObjectStore('packing_list_items', { keyPath: 'id' });
-        packingStore.createIndex('conventionId', 'conventionId');
-        packingStore.createIndex('updatedAt', 'updatedAt');
+      if (!db.objectStoreNames.contains("packing_list_items")) {
+        const packingStore = db.createObjectStore("packing_list_items", { keyPath: "id" });
+        packingStore.createIndex("conventionId", "conventionId");
+        packingStore.createIndex("updatedAt", "updatedAt");
       }
 
       // Outbox for sync
-      if (!db.objectStoreNames.contains('outbox')) {
-        db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains("outbox")) {
+        db.createObjectStore("outbox", { keyPath: "id", autoIncrement: true });
       }
 
       // Key-value store
-      if (!db.objectStoreNames.contains('kv')) {
-        db.createObjectStore('kv', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains("kv")) {
+        db.createObjectStore("kv", { keyPath: "key" });
       }
     },
   });
@@ -191,13 +191,13 @@ export async function getDB(): Promise<IDBPDatabase<KyarafitDB>> {
 // KV helpers
 export async function getValue(key: string): Promise<string | null> {
   const db = await getDB();
-  const entry = await db.get('kv', key);
+  const entry = await db.get("kv", key);
   return entry?.value ?? null;
 }
 
 export async function setValue(key: string, value: string): Promise<void> {
   const db = await getDB();
-  await db.put('kv', { key, value });
+  await db.put("kv", { key, value });
 }
 
 // Helper to get current timestamp

@@ -1,6 +1,7 @@
 # Supabase Setup - Quick Start Checklist
 
 ## ✅ Prerequisites
+
 - [x] Supabase project created (Kyarafit)
 - [ ] Have your Supabase credentials ready
 
@@ -11,11 +12,13 @@
 Go to your Supabase project:
 
 **Settings → API:**
+
 - [ ] Copy **Project URL** (e.g., `https://xxxxxxxxxxxxx.supabase.co`)
 - [ ] Copy **anon/public key** (starts with `eyJhbG...`)
 - [ ] Copy **JWT Secret** (Settings → API → JWT Settings)
 
 **Settings → Database:**
+
 - [ ] Copy **Connection string** (choose "URI" mode)
 - [ ] Replace `[YOUR-PASSWORD]` with your actual database password
 
@@ -35,6 +38,7 @@ npx expo install @react-native-async-storage/async-storage
 ### 3. Configure Environment Variables
 
 **Web:** Create `web/.env.local`
+
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
@@ -42,6 +46,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 **Mobile:** Create `mobile/.env`
+
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
@@ -49,6 +54,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8080
 ```
 
 **Backend:** Update `backend/.env`
+
 ```bash
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.xxxxxxxxxxxxx.supabase.co:5432/postgres
 SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
@@ -73,6 +79,7 @@ Run these migrations **in order** (copy/paste each file):
 ### 5. Test Everything
 
 **Backend:**
+
 ```bash
 cd backend
 go run .
@@ -80,12 +87,14 @@ go run .
 ```
 
 **Web:**
+
 ```bash
 npm run dev:web
 # Visit http://localhost:3000/auth/signup
 ```
 
 **Test signup:**
+
 - [ ] Go to `/auth/signup`
 - [ ] Create account with email/password
 - [ ] Check email for confirmation link
@@ -94,10 +103,12 @@ npm run dev:web
 - [ ] Should redirect to `/home`
 
 **Verify in Supabase:**
+
 - [ ] Dashboard → Authentication → Users (should see your user)
 - [ ] Dashboard → Table Editor → `app_users` (should see FREE tier user)
 
 **Mobile:**
+
 ```bash
 npm run dev:mobile
 # Open Settings → try sign up/sign in
@@ -106,6 +117,7 @@ npm run dev:mobile
 ### 6. Verify Tier System
 
 **In Supabase SQL Editor, run:**
+
 ```sql
 -- Check your user was created with FREE tier
 SELECT id, tier, current_usage_mb FROM app_users;
@@ -116,6 +128,7 @@ SELECT * FROM device_builds WHERE user_id IS NOT NULL;
 ```
 
 **Test tier limits:**
+
 - [ ] Sign in as FREE user
 - [ ] Try creating 6 builds (should fail at 6th with limit message)
 - [ ] Check Settings page shows storage usage
@@ -123,18 +136,22 @@ SELECT * FROM device_builds WHERE user_id IS NOT NULL;
 ### 7. Optional: Configure Supabase Settings
 
 **Email templates** (Dashboard → Authentication → Email Templates):
+
 - Customize confirmation and password reset emails
 
 **Site URL** (Dashboard → Authentication → URL Configuration):
+
 - Add: `http://localhost:3000` (development)
 - Add: `https://your-production-domain.com` (production)
 
 **CORS** (Dashboard → Settings → API → CORS):
+
 - Add: `http://localhost:8080` (your Go backend)
 
 ## 🎉 You're Done!
 
 Your architecture is now:
+
 ```
 Web/Mobile (Supabase Auth) → Go Backend (Tier Enforcement) → Supabase DB
 ```
@@ -150,21 +167,26 @@ Web/Mobile (Supabase Auth) → Go Backend (Tier Enforcement) → Supabase DB
 ## 🐛 Troubleshooting
 
 **"Invalid JWT"**
+
 - Check `JWT_SECRET` in backend matches Supabase JWT secret
 - Go to Supabase → Settings → API → JWT Settings
 
 **"No app_users record"**
+
 - Run migration 006 (`006_supabase_auth_sync.up.sql`)
 - Check trigger exists: `SELECT * FROM pg_trigger WHERE tgname = 'on_auth_user_created';`
 
 **Can't sign up**
+
 - Check Supabase → Authentication → Providers → Email is enabled
 - Check email confirmation is required/disabled as needed
 
 **CORS errors from backend**
+
 - Add `http://localhost:8080` to Supabase CORS settings
 - Check backend CORS allows your frontend origin
 
 **Database connection fails**
+
 - Verify `DATABASE_URL` password is correct
 - Check Supabase → Settings → Database → Connection pooling settings

@@ -3,6 +3,7 @@
 ## What is Supabase Storage?
 
 Supabase Storage is an S3-compatible object storage service for images, videos, and files. It includes:
+
 - CDN for fast image delivery
 - Image transformations (resize, crop, format conversion)
 - RLS policies for access control
@@ -30,11 +31,13 @@ If you want to control who can upload:
 Go to: **Storage → closet-images → Policies**
 
 **Option A: Simple (anyone can upload)**
+
 - Click **"New Policy"**
 - Template: **"Allow public uploads"**
 - This allows any authenticated user to upload
 
 **Option B: Secure (user folders)**
+
 - Run the SQL in `backend/migrations/007_supabase_storage_setup.up.sql`
 - This creates policies so users can only upload to their own folder (`{userId}/...`)
 
@@ -43,6 +46,7 @@ Go to: **Storage → closet-images → Policies**
 ### 3. Update Backend Environment
 
 Add to `backend/.env`:
+
 ```bash
 SUPABASE_SERVICE_KEY=your-service-role-key-here
 ```
@@ -59,7 +63,7 @@ Web/Mobile uploads directly to Supabase Storage:
 
 ```typescript
 // In web/mobile
-import { uploadImage } from '@/lib/supabase/storage';
+import { uploadImage } from "@/lib/supabase/storage";
 
 const url = await uploadImage(file, userId);
 // Save url to backend as imageUrl
@@ -103,6 +107,7 @@ kyarafit-images/
 ```
 
 **Why one bucket?**
+
 - Simpler to manage
 - One set of policies
 - Easier to track storage usage per user
@@ -153,19 +158,19 @@ https://xxx.supabase.co/storage/v1/object/public/closet-images/userId/image.jpg?
    - Name: `kyarafit-images`
    - Public: Yes
    - File size limit: 20 MB
-   
 2. **Test upload** from web:
+
    ```typescript
    // In your form component
-   import { uploadImage } from '@/lib/supabase/storage';
-   
+   import { uploadImage } from "@/lib/supabase/storage";
+
    const handleUpload = async (file: File) => {
      // Upload to closet folder
-     const url = await uploadImage(file, userId, 'closet');
-     
+     const url = await uploadImage(file, userId, "closet");
+
      // Or for builds:
      // const url = await uploadImage(file, userId, 'builds');
-     
+
      // Save url to closet item or build
    };
    ```
@@ -182,6 +187,7 @@ https://xxx.supabase.co/storage/v1/object/public/closet-images/userId/image.jpg?
 ## Summary
 
 **What to do now:**
+
 1. ✅ Go to Supabase Dashboard → Storage
 2. ✅ Create bucket `closet-images` (public)
 3. ✅ Add `SUPABASE_SERVICE_KEY` to `backend/.env` (if using backend upload)

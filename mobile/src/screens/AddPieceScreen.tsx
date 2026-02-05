@@ -19,10 +19,7 @@ interface AddPieceScreenProps {
   onPieceAdded?: (piece: any) => void;
 }
 
-export default function AddPieceScreen({
-  onClose,
-  onPieceAdded,
-}: AddPieceScreenProps) {
+export default function AddPieceScreen({ onClose, onPieceAdded }: AddPieceScreenProps) {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreatePieceRequest>({
@@ -74,10 +71,7 @@ export default function AddPieceScreen({
 
     try {
       setLoading(true);
-      const newPiece = await piecesAPI.createPiece(
-        session.access_token,
-        formData,
-      );
+      const newPiece = await piecesAPI.createPiece(session.access_token, formData);
       Alert.alert("Success", "Piece added successfully!");
       onPieceAdded?.(newPiece);
       onClose();
@@ -118,9 +112,7 @@ export default function AddPieceScreen({
             <TextInput
               style={styles.input}
               value={formData.name}
-              onChangeText={(text) =>
-                setFormData((prev) => ({ ...prev, name: text }))
-              }
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, name: text }))}
               placeholder="Enter piece name"
               placeholderTextColor="#9ca3af"
             />
@@ -131,9 +123,7 @@ export default function AddPieceScreen({
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.description}
-              onChangeText={(text) =>
-                setFormData((prev) => ({ ...prev, description: text }))
-              }
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, description: text }))}
               placeholder="Enter description"
               placeholderTextColor="#9ca3af"
               multiline
@@ -153,18 +143,14 @@ export default function AddPieceScreen({
                   key={category.id}
                   style={[
                     styles.categoryButton,
-                    formData.category === category.id &&
-                      styles.categoryButtonActive,
+                    formData.category === category.id && styles.categoryButtonActive,
                   ]}
-                  onPress={() =>
-                    setFormData((prev) => ({ ...prev, category: category.id }))
-                  }
+                  onPress={() => setFormData((prev) => ({ ...prev, category: category.id }))}
                 >
                   <Text
                     style={[
                       styles.categoryButtonText,
-                      formData.category === category.id &&
-                        styles.categoryButtonTextActive,
+                      formData.category === category.id && styles.categoryButtonTextActive,
                     ]}
                   >
                     {category.name}
@@ -205,10 +191,7 @@ export default function AddPieceScreen({
               placeholderTextColor="#9ca3af"
               onSubmitEditing={handleAddTag}
             />
-            <TouchableOpacity
-              style={styles.addTagButton}
-              onPress={handleAddTag}
-            >
+            <TouchableOpacity style={styles.addTagButton} onPress={handleAddTag}>
               <Ionicons name="add" size={20} color="#ec4899" />
             </TouchableOpacity>
           </View>

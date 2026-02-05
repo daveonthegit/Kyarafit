@@ -1,20 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  Modal,
-  StyleSheet,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, Modal, StyleSheet } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type {
-  Convention,
-  ConventionDayPlan,
-  Build,
-} from "@kyarafit/design-system/types";
+import type { Convention, ConventionDayPlan, Build } from "@kyarafit/design-system/types";
 import { getConvention } from "../src/storage/conventionsRepo";
 import { getPlan, setPlan } from "../src/storage/plansRepo";
 import { listBuilds } from "../src/storage/buildsRepo";
@@ -35,11 +24,7 @@ function dateRange(start: string, end: string): string[] {
 export default function ConventionDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id =
-    typeof params.id === "string"
-      ? params.id
-      : Array.isArray(params.id)
-        ? params.id[0]
-        : undefined;
+    typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
   const router = useRouter();
   const [convention, setConvention] = useState<Convention | null>(null);
   const [plan, setPlanState] = useState<ConventionDayPlan[]>([]);
@@ -75,7 +60,7 @@ export default function ConventionDetailScreen() {
     useCallback(() => {
       setLoaded(false);
       load();
-    }, [load]),
+    }, [load])
   );
 
   const planByDate = new Map(plan.map((e) => [e.date, e]));
@@ -97,7 +82,7 @@ export default function ConventionDetailScreen() {
       setPlanState(updated ?? []);
       setPickerDate(null);
     },
-    [id, dates, plan],
+    [id, dates, plan]
   );
 
   const handleGeneratePacking = useCallback(async () => {
@@ -144,19 +129,14 @@ export default function ConventionDetailScreen() {
         </Pressable>
         <Text style={styles.metaLabel}>Convention</Text>
       </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>{convention.name}</Text>
         <Text style={styles.meta}>
           {convention.startDate} – {convention.endDate}
           {convention.location ? ` · ${convention.location}` : ""}
         </Text>
         {syncPending > 0 && (
-          <Text style={styles.syncLabel}>
-            SYNC PENDING — WILL SYNC WHEN ONLINE
-          </Text>
+          <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
         )}
 
         <Text style={styles.sectionLabel}>DAY-BY-DAY PLAN</Text>
@@ -166,20 +146,12 @@ export default function ConventionDetailScreen() {
             ? (builds.find((b) => b.id === entry.buildId)?.name ?? "—")
             : "Rest day";
           return (
-            <Pressable
-              key={date}
-              style={styles.planRow}
-              onPress={() => setPickerDate(date)}
-            >
+            <Pressable key={date} style={styles.planRow} onPress={() => setPickerDate(date)}>
               <Text style={styles.planDate}>{date}</Text>
               <Text style={styles.planBuild} numberOfLines={1}>
                 {buildName}
               </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={colors.textTertiary}
-              />
+              <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
             </Pressable>
           );
         })}
@@ -206,21 +178,12 @@ export default function ConventionDetailScreen() {
       </ScrollView>
 
       <Modal visible={pickerDate !== null} transparent animationType="fade">
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setPickerDate(null)}
-        >
-          <Pressable
-            style={styles.modalContent}
-            onPress={(e) => e.stopPropagation()}
-          >
+        <Pressable style={styles.modalOverlay} onPress={() => setPickerDate(null)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Assign build for {pickerDate}</Text>
             <Pressable
               style={styles.modalOption}
-              onPress={() =>
-                pickerDate &&
-                handleReplacePlan([{ date: pickerDate, buildId: null }])
-              }
+              onPress={() => pickerDate && handleReplacePlan([{ date: pickerDate, buildId: null }])}
             >
               <Text style={styles.optionText}>Rest day</Text>
             </Pressable>
@@ -229,17 +192,13 @@ export default function ConventionDetailScreen() {
                 key={b.id}
                 style={styles.modalOption}
                 onPress={() =>
-                  pickerDate &&
-                  handleReplacePlan([{ date: pickerDate, buildId: b.id }])
+                  pickerDate && handleReplacePlan([{ date: pickerDate, buildId: b.id }])
                 }
               >
                 <Text style={styles.optionText}>{b.name}</Text>
               </Pressable>
             ))}
-            <Pressable
-              style={styles.modalCancel}
-              onPress={() => setPickerDate(null)}
-            >
+            <Pressable style={styles.modalCancel} onPress={() => setPickerDate(null)}>
               <Text style={styles.cancelText}>CANCEL</Text>
             </Pressable>
           </Pressable>

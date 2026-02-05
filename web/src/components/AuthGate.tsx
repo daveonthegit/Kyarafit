@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useSession } from '@/lib/auth/client';
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useSession } from "@/lib/auth/client";
 
-const PUBLIC_PATHS = ['/', '/auth/signin', '/auth/signup'];
+const PUBLIC_PATHS = ["/", "/auth/signin", "/auth/signup"];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
@@ -13,9 +13,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+    const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!isPublic && !session) {
-      router.replace('/auth/signin');
+      router.replace("/auth/signin");
     }
   }, [session, loading, pathname, router]);
 

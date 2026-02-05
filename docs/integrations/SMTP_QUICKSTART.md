@@ -5,9 +5,11 @@ Quick guide to get email working in 5 minutes.
 ## Step 1: Choose a Provider
 
 **For Development & Production (Recommended)**:
+
 - **Resend** - 100 emails/day free (3,000/month), modern API, great DX
 
 **Alternative Options**:
+
 - Gmail - 500 emails/day, easy setup (dev only)
 - SendGrid - 100 emails/day free, then paid
 - Amazon SES - $0.10 per 1,000 emails
@@ -32,6 +34,7 @@ Quick guide to get email working in 5 minutes.
 Edit `backend/.env`:
 
 **Option A: Using Resend (Recommended)**
+
 ```env
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
@@ -42,6 +45,7 @@ APP_URL=http://localhost:3000
 ```
 
 **Option B: Using Gmail**
+
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -54,6 +58,7 @@ APP_URL=http://localhost:3000
 ## Step 4: Test It
 
 ### Start Backend
+
 ```bash
 cd backend
 go run .
@@ -62,12 +67,14 @@ go run .
 ### Run Test Script
 
 **Windows (PowerShell)**:
+
 ```powershell
 cd backend
 .\test_smtp.ps1
 ```
 
 **Linux/Mac**:
+
 ```bash
 cd backend
 chmod +x test_smtp.sh
@@ -77,11 +84,13 @@ chmod +x test_smtp.sh
 ### Or Test with curl
 
 **Check Configuration**:
+
 ```bash
 curl http://localhost:8080/api/test/email/verify
 ```
 
 **Send Test Email**:
+
 ```bash
 curl -X POST http://localhost:8080/api/test/email \
   -H "Content-Type: application/json" \
@@ -120,20 +129,24 @@ err = emailClient.Send(email.Email{
 ## Common Issues
 
 ### "Authentication failed"
+
 → Use App Password, not your Gmail password
 → Make sure 2FA is enabled
 
 ### "Connection refused"
+
 → Check SMTP_HOST and SMTP_PORT
 → Try port 2525 if 587 doesn't work
 
 ### Emails go to spam
+
 → Use a verified domain for production
 → Add SPF/DKIM/DMARC records
 
 ## Next Steps
 
 For production:
+
 1. Switch to SendGrid/Mailgun/SES
 2. Verify your domain
 3. Set up SPF/DKIM/DMARC
@@ -144,6 +157,7 @@ See `SMTP_SETUP.md` for detailed configuration guide.
 ## Provider Quick Config
 
 ### Resend (Recommended)
+
 ```env
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
@@ -153,6 +167,7 @@ SMTP_FROM=Kyarafit <onboarding@resend.dev>
 ```
 
 ### SendGrid
+
 ```env
 SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
@@ -162,6 +177,7 @@ SMTP_FROM=Kyarafit <noreply@yourdomain.com>
 ```
 
 ### Mailgun
+
 ```env
 SMTP_HOST=smtp.mailgun.org
 SMTP_PORT=587
@@ -171,6 +187,7 @@ SMTP_FROM=Kyarafit <noreply@yourdomain.com>
 ```
 
 ### Amazon SES
+
 ```env
 SMTP_HOST=email-smtp.us-east-1.amazonaws.com
 SMTP_PORT=587

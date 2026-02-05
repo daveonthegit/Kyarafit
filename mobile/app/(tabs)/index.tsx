@@ -8,10 +8,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View>
             <Text style={styles.metaLabel}>Kyarafit</Text>
@@ -27,16 +24,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={styles.featuredSection}
-          onPress={() => router.push("/(tabs)/builds")}
-        >
+        <Pressable style={styles.featuredSection} onPress={() => router.push("/(tabs)/builds")}>
           <View style={styles.featuredPlaceholder}>
-            <Ionicons
-              name="layers-outline"
-              size={48}
-              color={colors.textTertiary}
-            />
+            <Ionicons name="layers-outline" size={48} color={colors.textTertiary} />
           </View>
           <View style={styles.featuredOverlay}>
             <Text style={styles.featuredMeta}>Current Focus</Text>
@@ -47,38 +37,17 @@ export default function HomeScreen() {
 
         <View style={styles.linksSection}>
           <Text style={styles.linksLabel}>Quick links</Text>
-          <Pressable
-            style={styles.linkRow}
-            onPress={() => router.push("/(tabs)/builds")}
-          >
+          <Pressable style={styles.linkRow} onPress={() => router.push("/(tabs)/builds")}>
             <Text style={styles.linkText}>My Builds</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textTertiary}
-            />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </Pressable>
-          <Pressable
-            style={styles.linkRow}
-            onPress={() => router.push("/(tabs)/plan")}
-          >
+          <Pressable style={styles.linkRow} onPress={() => router.push("/(tabs)/plan")}>
             <Text style={styles.linkText}>Conventions</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textTertiary}
-            />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </Pressable>
-          <Pressable
-            style={styles.linkRow}
-            onPress={() => router.push("/closet")}
-          >
+          <Pressable style={styles.linkRow} onPress={() => router.push("/closet")}>
             <Text style={styles.linkText}>Closet</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textTertiary}
-            />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           </Pressable>
         </View>
       </ScrollView>

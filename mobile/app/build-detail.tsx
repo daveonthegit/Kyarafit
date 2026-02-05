@@ -1,23 +1,11 @@
 import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  TextInput,
-  StyleSheet,
-  Image,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { Build, BuildTask } from "@kyarafit/design-system/types";
 import { getBuild, getLinkedClosetItemIds } from "../src/storage/buildsRepo";
-import {
-  listTasks,
-  createTask,
-  toggleTaskChecked,
-} from "../src/storage/buildTasksRepo";
+import { listTasks, createTask, toggleTaskChecked } from "../src/storage/buildTasksRepo";
 import { listItems } from "../src/storage/closetRepo";
 import type { ClosetItem } from "@kyarafit/design-system/types";
 
@@ -31,11 +19,7 @@ function formatCents(cents: number): string {
 export default function BuildDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id =
-    typeof params.id === "string"
-      ? params.id
-      : Array.isArray(params.id)
-        ? params.id[0]
-        : undefined;
+    typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
   const router = useRouter();
   const [build, setBuild] = useState<Build | null>(null);
   const [linkedIds, setLinkedIds] = useState<string[]>([]);
@@ -66,7 +50,7 @@ export default function BuildDetailScreen() {
     useCallback(() => {
       setLoaded(false);
       load();
-    }, [load]),
+    }, [load])
   );
 
   if (!id) {
@@ -106,10 +90,7 @@ export default function BuildDetailScreen() {
   }
 
   const linkedItems = closetItems.filter((c) => linkedIds.includes(c.id));
-  const totalCostCents = linkedItems.reduce(
-    (sum, i) => sum + (i.costCents ?? 0),
-    0,
-  );
+  const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
 
   const onAddTask = async () => {
     if (!newTaskLabel.trim() || !id) return;
@@ -127,9 +108,7 @@ export default function BuildDetailScreen() {
     const updated = await toggleTaskChecked(taskId, id);
     if (updated)
       setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, checked: updated.checked } : t,
-        ),
+        prev.map((t) => (t.id === taskId ? { ...t, checked: updated.checked } : t))
       );
   };
 
@@ -141,31 +120,20 @@ export default function BuildDetailScreen() {
         </Pressable>
         <Text style={styles.metaLabel}>Build</Text>
       </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {build.imageUrl && (
           <View style={styles.imageWrap}>
-            <Image
-              source={{ uri: build.imageUrl }}
-              style={styles.image}
-              resizeMode="cover"
-            />
+            <Image source={{ uri: build.imageUrl }} style={styles.image} resizeMode="cover" />
           </View>
         )}
         <Text style={styles.title}>{build.name}</Text>
         <Text style={styles.meta}>Status: {build.status}</Text>
-        {build.character && (
-          <Text style={styles.meta}>Character: {build.character}</Text>
-        )}
+        {build.character && <Text style={styles.meta}>Character: {build.character}</Text>}
         {(build.budgetCents != null || totalCostCents > 0) && (
           <Text style={styles.meta}>
-            {build.budgetCents != null &&
-              `Budget: ${formatCents(build.budgetCents)}`}
+            {build.budgetCents != null && `Budget: ${formatCents(build.budgetCents)}`}
             {build.budgetCents != null && totalCostCents > 0 && " · "}
-            {totalCostCents > 0 &&
-              `Linked total: ${formatCents(totalCostCents)}`}
+            {totalCostCents > 0 && `Linked total: ${formatCents(totalCostCents)}`}
           </Text>
         )}
 
@@ -183,21 +151,11 @@ export default function BuildDetailScreen() {
           </Pressable>
         </View>
         {tasks.map((t) => (
-          <Pressable
-            key={t.id}
-            style={styles.taskRow}
-            onPress={() => onToggleTask(t.id)}
-          >
-            <View
-              style={[styles.checkbox, t.checked && styles.checkboxChecked]}
-            >
-              {t.checked && (
-                <Ionicons name="checkmark" size={12} color={colors.white} />
-              )}
+          <Pressable key={t.id} style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
+            <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
+              {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
             </View>
-            <Text
-              style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}
-            >
+            <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
               {t.closetItemId ? `${t.label} (linked)` : t.label}
             </Text>
           </Pressable>
@@ -215,13 +173,10 @@ export default function BuildDetailScreen() {
           <Text style={styles.linkBtnText}>LINK CLOSET ITEMS</Text>
         </Pressable>
 
-        <Text style={styles.sectionLabel}>
-          LINKED ITEMS ({linkedItems.length})
-        </Text>
+        <Text style={styles.sectionLabel}>LINKED ITEMS ({linkedItems.length})</Text>
         {linkedItems.length === 0 && (
           <Text style={styles.meta}>
-            No items linked. Tap "Link closet items" to add pieces from your
-            closet.
+            No items linked. Tap "Link closet items" to add pieces from your closet.
           </Text>
         )}
         {linkedItems.map((item) => (
@@ -229,9 +184,7 @@ export default function BuildDetailScreen() {
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemCategory}>
               {item.category}
-              {item.costCents != null
-                ? ` · ${formatCents(item.costCents)}`
-                : ""}
+              {item.costCents != null ? ` · ${formatCents(item.costCents)}` : ""}
             </Text>
           </View>
         ))}

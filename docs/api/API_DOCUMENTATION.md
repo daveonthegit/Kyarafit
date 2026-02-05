@@ -1,6 +1,7 @@
 # Kyarafit Backend API Documentation
 
 ## Table of Contents
+
 - [Pieces API Endpoints](#pieces-api-endpoints)
 - [Builds API Endpoints](#builds-api-endpoints)
 - [Error Responses](#error-responses)
@@ -14,12 +15,15 @@
 The Pieces API provides CRUD operations for managing costume pieces, wigs, props, and accessories in the Kyarafit application.
 
 ### Base URL
+
 ```
 http://localhost:8080/api/v1
 ```
 
 ### Authentication
+
 All endpoints require JWT authentication. Include the JWT token in the Authorization header:
+
 ```
 Authorization: Bearer <your-jwt-token>
 ```
@@ -29,23 +33,27 @@ Authorization: Bearer <your-jwt-token>
 ## Endpoints
 
 ### 1. Get All Pieces
+
 **GET** `/pieces`
 
 Retrieves all pieces for the authenticated user with optional filtering and pagination.
 
 #### Query Parameters
+
 - `limit` (optional): Number of pieces to return (default: 20, max: 100)
 - `offset` (optional): Number of pieces to skip (default: 0)
 - `category` (optional): Filter by category (e.g., "wig", "dress", "prop")
 - `search` (optional): Search in name, description, category, or tags
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/pieces?limit=10&category=wig&search=cosplay"
 ```
 
 #### Response
+
 ```json
 {
   "pieces": [
@@ -74,11 +82,13 @@ curl -H "Authorization: Bearer <token>" \
 ---
 
 ### 2. Create Piece
+
 **POST** `/pieces`
 
 Creates a new piece for the authenticated user.
 
 #### Request Body
+
 ```json
 {
   "name": "string (required, max 255 chars)",
@@ -94,6 +104,7 @@ Creates a new piece for the authenticated user.
 ```
 
 #### Example Request
+
 ```bash
 curl -X POST \
      -H "Authorization: Bearer <token>" \
@@ -110,6 +121,7 @@ curl -X POST \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Piece created successfully",
@@ -131,20 +143,24 @@ curl -X POST \
 ---
 
 ### 3. Get Piece by ID
+
 **GET** `/pieces/{id}`
 
 Retrieves a specific piece by its ID.
 
 #### Path Parameters
+
 - `id`: UUID of the piece
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/pieces/123e4567-e89b-12d3-a456-426614174000"
 ```
 
 #### Response
+
 ```json
 {
   "piece": {
@@ -168,14 +184,17 @@ curl -H "Authorization: Bearer <token>" \
 ---
 
 ### 4. Update Piece
+
 **PUT** `/pieces/{id}`
 
 Updates an existing piece. All fields are optional.
 
 #### Path Parameters
+
 - `id`: UUID of the piece
 
 #### Request Body
+
 ```json
 {
   "name": "string (optional, max 255 chars)",
@@ -191,6 +210,7 @@ Updates an existing piece. All fields are optional.
 ```
 
 #### Example Request
+
 ```bash
 curl -X PUT \
      -H "Authorization: Bearer <token>" \
@@ -203,6 +223,7 @@ curl -X PUT \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Piece updated successfully",
@@ -223,14 +244,17 @@ curl -X PUT \
 ---
 
 ### 5. Delete Piece
+
 **DELETE** `/pieces/{id}`
 
 Deletes a piece by its ID.
 
 #### Path Parameters
+
 - `id`: UUID of the piece
 
 #### Example Request
+
 ```bash
 curl -X DELETE \
      -H "Authorization: Bearer <token>" \
@@ -238,6 +262,7 @@ curl -X DELETE \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Piece deleted successfully"
@@ -247,28 +272,23 @@ curl -X DELETE \
 ---
 
 ### 6. Get Categories
+
 **GET** `/pieces/categories`
 
 Retrieves all available categories for pieces.
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/pieces/categories"
 ```
 
 #### Response
+
 ```json
 {
-  "categories": [
-    "wig",
-    "dress",
-    "prop",
-    "shoes",
-    "accessory",
-    "makeup",
-    "other"
-  ]
+  "categories": ["wig", "dress", "prop", "shoes", "accessory", "makeup", "other"]
 }
 ```
 
@@ -279,12 +299,15 @@ curl -H "Authorization: Bearer <token>" \
 The Builds API provides CRUD operations for managing cosplay build projects, including tracking progress, budgets, and deadlines.
 
 ### Base URL
+
 ```
 http://localhost:8080/api/v1
 ```
 
 ### Authentication
+
 All endpoints require JWT authentication. Include the JWT token in the Authorization header:
+
 ```
 Authorization: Bearer <your-jwt-token>
 ```
@@ -294,11 +317,13 @@ Authorization: Bearer <your-jwt-token>
 ## Endpoints
 
 ### 1. Get All Builds
+
 **GET** `/builds`
 
 Retrieves all builds for the authenticated user with optional filtering and pagination.
 
 #### Query Parameters
+
 - `limit` (optional): Number of builds to return (default: 20, max: 100)
 - `offset` (optional): Number of builds to skip (default: 0)
 - `status` (optional): Filter by status (idea, sourcing, wip, complete, on_hold, cancelled)
@@ -307,12 +332,14 @@ Retrieves all builds for the authenticated user with optional filtering and pagi
 - `upcoming` (optional): Get builds with target dates within N days (default: 30)
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/builds?limit=10&status=wip&priority=3"
 ```
 
 #### Response
+
 ```json
 {
   "builds": [
@@ -325,8 +352,8 @@ curl -H "Authorization: Bearer <token>" \
       "series": "Naruto",
       "status": "wip",
       "priority": 3,
-      "budget": 200.00,
-      "spent": 75.50,
+      "budget": 200.0,
+      "spent": 75.5,
       "start_date": "2024-01-15T00:00:00Z",
       "target_date": "2024-06-15T00:00:00Z",
       "completed_date": null,
@@ -345,11 +372,13 @@ curl -H "Authorization: Bearer <token>" \
 ---
 
 ### 2. Create Build
+
 **POST** `/builds`
 
 Creates a new build for the authenticated user.
 
 #### Request Body
+
 ```json
 {
   "name": "string (required, max 255 chars)",
@@ -368,6 +397,7 @@ Creates a new build for the authenticated user.
 ```
 
 #### Example Request
+
 ```bash
 curl -X POST \
      -H "Authorization: Bearer <token>" \
@@ -389,6 +419,7 @@ curl -X POST \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Build created successfully",
@@ -401,8 +432,8 @@ curl -X POST \
     "series": "Test Series",
     "status": "idea",
     "priority": 3,
-    "budget": 150.00,
-    "spent": 0.00,
+    "budget": 150.0,
+    "spent": 0.0,
     "start_date": "2024-01-15T00:00:00Z",
     "target_date": "2024-06-15T00:00:00Z",
     "completed_date": null,
@@ -417,20 +448,24 @@ curl -X POST \
 ---
 
 ### 3. Get Build by ID
+
 **GET** `/builds/{id}`
 
 Retrieves a specific build by its ID.
 
 #### Path Parameters
+
 - `id`: UUID of the build
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/builds/123e4567-e89b-12d3-a456-426614174000"
 ```
 
 #### Response
+
 ```json
 {
   "build": {
@@ -442,8 +477,8 @@ curl -H "Authorization: Bearer <token>" \
     "series": "Test Series",
     "status": "idea",
     "priority": 3,
-    "budget": 150.00,
-    "spent": 0.00,
+    "budget": 150.0,
+    "spent": 0.0,
     "start_date": "2024-01-15T00:00:00Z",
     "target_date": "2024-06-15T00:00:00Z",
     "completed_date": null,
@@ -458,14 +493,17 @@ curl -H "Authorization: Bearer <token>" \
 ---
 
 ### 4. Update Build
+
 **PUT** `/builds/{id}`
 
 Updates an existing build. All fields are optional.
 
 #### Path Parameters
+
 - `id`: UUID of the build
 
 #### Request Body
+
 ```json
 {
   "name": "string (optional, max 255 chars)",
@@ -485,6 +523,7 @@ Updates an existing build. All fields are optional.
 ```
 
 #### Example Request
+
 ```bash
 curl -X PUT \
      -H "Authorization: Bearer <token>" \
@@ -498,6 +537,7 @@ curl -X PUT \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Build updated successfully",
@@ -510,8 +550,8 @@ curl -X PUT \
     "series": "Test Series",
     "status": "wip",
     "priority": 3,
-    "budget": 150.00,
-    "spent": 25.50,
+    "budget": 150.0,
+    "spent": 25.5,
     "start_date": "2024-01-15T00:00:00Z",
     "target_date": "2024-06-15T00:00:00Z",
     "completed_date": null,
@@ -526,14 +566,17 @@ curl -X PUT \
 ---
 
 ### 5. Delete Build
+
 **DELETE** `/builds/{id}`
 
 Deletes a build by its ID.
 
 #### Path Parameters
+
 - `id`: UUID of the build
 
 #### Example Request
+
 ```bash
 curl -X DELETE \
      -H "Authorization: Bearer <token>" \
@@ -541,6 +584,7 @@ curl -X DELETE \
 ```
 
 #### Response
+
 ```json
 {
   "message": "Build deleted successfully"
@@ -550,17 +594,20 @@ curl -X DELETE \
 ---
 
 ### 6. Get Build Statistics
+
 **GET** `/builds/stats`
 
 Retrieves build statistics for the authenticated user.
 
 #### Example Request
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://localhost:8080/api/v1/builds/stats"
 ```
 
 #### Response
+
 ```json
 {
   "total_builds": 5,
@@ -581,6 +628,7 @@ curl -H "Authorization: Bearer <token>" \
 ## Error Responses
 
 ### 401 Unauthorized
+
 ```json
 {
   "error": "User not authenticated"
@@ -588,6 +636,7 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ### 403 Forbidden
+
 ```json
 {
   "error": "Access denied"
@@ -595,6 +644,7 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ### 404 Not Found
+
 ```json
 {
   "error": "Piece not found"
@@ -602,6 +652,7 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ### 400 Bad Request
+
 ```json
 {
   "error": "Invalid request body"
@@ -609,6 +660,7 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "error": "Failed to create piece"
@@ -620,44 +672,46 @@ curl -H "Authorization: Bearer <token>" \
 ## Data Models
 
 ### Piece
+
 ```typescript
 interface Piece {
-  id: string;                    // UUID
-  user_id: string;              // UUID of the owner
-  name: string;                 // Required, max 255 chars
-  description?: string;         // Optional, max 1000 chars
-  image_url?: string;           // Optional, valid URL
-  thumbnail_url?: string;       // Optional, valid URL
-  category?: string;            // Optional, max 100 chars
-  tags?: string[];              // Optional array of strings
-  source_link?: string;         // Optional, valid URL
-  purchase_date?: string;       // Optional, ISO date string
-  price?: number;               // Optional, min 0
-  created_at: string;           // ISO timestamp
-  updated_at: string;           // ISO timestamp
+  id: string; // UUID
+  user_id: string; // UUID of the owner
+  name: string; // Required, max 255 chars
+  description?: string; // Optional, max 1000 chars
+  image_url?: string; // Optional, valid URL
+  thumbnail_url?: string; // Optional, valid URL
+  category?: string; // Optional, max 100 chars
+  tags?: string[]; // Optional array of strings
+  source_link?: string; // Optional, valid URL
+  purchase_date?: string; // Optional, ISO date string
+  price?: number; // Optional, min 0
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
 }
 ```
 
 ### Build
+
 ```typescript
 interface Build {
-  id: string;                    // UUID
-  user_id: string;              // UUID of the owner
-  name: string;                 // Required, max 255 chars
-  description?: string;         // Optional, max 1000 chars
-  character?: string;           // Optional, max 255 chars
-  series?: string;              // Optional, max 255 chars
-  status: BuildStatus;          // Required, enum: idea, sourcing, wip, complete, on_hold, cancelled
-  priority?: number;            // Optional, 1-5 scale
-  budget?: number;              // Optional, min 0
-  spent?: number;               // Optional, min 0
-  start_date?: string;          // Optional, ISO date string
-  target_date?: string;         // Optional, ISO date string
-  completed_date?: string;      // Optional, ISO date string
-  tags?: string[];              // Optional array of strings
-  notes?: string;               // Optional, max 2000 chars
-  created_at: string;           // ISO timestamp
-  updated_at: string;           // ISO timestamp
+  id: string; // UUID
+  user_id: string; // UUID of the owner
+  name: string; // Required, max 255 chars
+  description?: string; // Optional, max 1000 chars
+  character?: string; // Optional, max 255 chars
+  series?: string; // Optional, max 255 chars
+  status: BuildStatus; // Required, enum: idea, sourcing, wip, complete, on_hold, cancelled
+  priority?: number; // Optional, 1-5 scale
+  budget?: number; // Optional, min 0
+  spent?: number; // Optional, min 0
+  start_date?: string; // Optional, ISO date string
+  target_date?: string; // Optional, ISO date string
+  completed_date?: string; // Optional, ISO date string
+  tags?: string[]; // Optional array of strings
+  notes?: string; // Optional, max 2000 chars
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
 }
 
 type BuildStatus = "idea" | "sourcing" | "wip" | "complete" | "on_hold" | "cancelled";
@@ -670,6 +724,7 @@ type BuildStatus = "idea" | "sourcing" | "wip" | "complete" | "on_hold" | "cance
 Use the provided test scripts to test the API endpoints:
 
 ### Pieces API Testing
+
 ```bash
 # Make the script executable
 chmod +x test_pieces_api.sh
@@ -679,6 +734,7 @@ chmod +x test_pieces_api.sh
 ```
 
 ### Builds API Testing
+
 ```bash
 # Make the script executable
 chmod +x test_builds_api.sh
@@ -688,6 +744,7 @@ chmod +x test_builds_api.sh
 ```
 
 **Note**: To test with real data, you need to:
+
 1. Set up authentication and get a valid JWT token
 2. Replace `JWT_TOKEN` in the test scripts with the actual token
 3. Run the scripts again

@@ -29,6 +29,7 @@ APP_URL=http://localhost:3000
 **Best for**: Modern applications, developers, production use
 
 **Pros**:
+
 - 100 emails/day free (3,000/month)
 - Modern API and SMTP support
 - Excellent deliverability
@@ -38,6 +39,7 @@ APP_URL=http://localhost:3000
 - React Email support
 
 **Cons**:
+
 - Relatively new service
 - Requires domain verification for production
 
@@ -65,12 +67,14 @@ APP_URL=http://localhost:3000
    ```
 
 **Important Notes**:
+
 - Username is always `resend` (literally)
 - Password is your API key (starts with `re_`)
 - For testing, use `onboarding@resend.dev` as sender
 - For production, verify your own domain and use `noreply@yourdomain.com`
 
-**Pricing**: 
+**Pricing**:
+
 - Free: 100 emails/day (3,000/month)
 - Pro: $20/mo (50,000 emails/month)
 - Business: Custom pricing
@@ -80,11 +84,13 @@ APP_URL=http://localhost:3000
 **Best for**: Development, small projects, personal use
 
 **Pros**:
+
 - Free (500 emails/day)
 - Easy to set up
 - Reliable delivery
 
 **Cons**:
+
 - Daily sending limit (500 emails)
 - Requires 2FA and App Password
 - Not ideal for production
@@ -116,12 +122,14 @@ APP_URL=http://localhost:3000
 **Best for**: Production applications with high volume
 
 **Pros**:
+
 - 100 emails/day free (then paid)
 - Great deliverability
 - Advanced analytics
 - API and SMTP support
 
 **Cons**:
+
 - Requires account verification
 - Paid for higher volumes
 
@@ -143,7 +151,8 @@ APP_URL=http://localhost:3000
    SMTP_FROM=Kyarafit <noreply@yourdomain.com>
    ```
 
-**Pricing**: 
+**Pricing**:
+
 - Free: 100 emails/day
 - Essentials: $19.95/mo (50,000 emails/mo)
 - Pro: $89.95/mo (100,000 emails/mo)
@@ -153,12 +162,14 @@ APP_URL=http://localhost:3000
 **Best for**: Developers who need flexibility
 
 **Pros**:
+
 - 5,000 emails/month free for 3 months
 - Pay-as-you-go pricing
 - Good documentation
 - EU and US regions
 
 **Cons**:
+
 - Credit card required even for trial
 
 **Setup**:
@@ -179,6 +190,7 @@ APP_URL=http://localhost:3000
    ```
 
 **Pricing**:
+
 - Trial: 5,000 emails/month (3 months)
 - Foundation: $35/mo (50,000 emails/mo)
 - Growth: $80/mo (100,000 emails/mo)
@@ -188,11 +200,13 @@ APP_URL=http://localhost:3000
 **Best for**: High-volume, AWS infrastructure
 
 **Pros**:
+
 - Extremely cheap ($0.10 per 1,000 emails)
 - Highly scalable
 - Integrates with AWS services
 
 **Cons**:
+
 - More complex setup
 - Requires AWS account
 - Sandbox mode requires verification
@@ -223,12 +237,14 @@ APP_URL=http://localhost:3000
 **Best for**: Transactional emails, high deliverability
 
 **Pros**:
+
 - Excellent deliverability (99%+)
 - Fast delivery
 - Great support
 - Simple pricing
 
 **Cons**:
+
 - More expensive
 - No free tier (100 free emails to test)
 
@@ -253,11 +269,13 @@ APP_URL=http://localhost:3000
 ## Testing Your Configuration
 
 ### 1. Check Configuration
+
 ```bash
 curl http://localhost:8080/api/test/email/verify
 ```
 
 ### 2. Send Test Email
+
 ```bash
 curl -X POST http://localhost:8080/api/test/email \
   -H "Content-Type: application/json" \
@@ -265,12 +283,15 @@ curl -X POST http://localhost:8080/api/test/email \
 ```
 
 ### 3. Check Logs
+
 The backend will log email initialization status on startup:
+
 ```
 Email service initialized successfully
 ```
 
 Or if there's an issue:
+
 ```
 Warning: Email client not initialized: SMTP configuration incomplete
 ```
@@ -279,12 +300,14 @@ Warning: Email client not initialized: SMTP configuration incomplete
 
 ### Problem: "Authentication failed"
 
-**Gmail**: 
+**Gmail**:
+
 - Make sure you're using an App Password, not your regular password
 - Verify 2FA is enabled
 - Check that "Less secure app access" is OFF (use App Password instead)
 
 **SendGrid**:
+
 - Make sure username is literally `apikey`
 - Verify API key has "Mail Send" permission
 
@@ -293,11 +316,13 @@ Warning: Email client not initialized: SMTP configuration incomplete
 ### Problem: "Connection refused" or "Connection timeout"
 
 **Possible causes**:
+
 - Wrong host or port
 - Firewall blocking outbound SMTP
 - ISP blocking SMTP ports
 
 **Solutions**:
+
 1. Verify host and port are correct
 2. Try port 2525 instead of 587
 3. Check firewall settings
@@ -306,6 +331,7 @@ Warning: Email client not initialized: SMTP configuration incomplete
 ### Problem: Emails go to spam
 
 **Solutions**:
+
 1. **Verify your domain**: Add SPF, DKIM, and DMARC records
 2. **Use a real domain**: Don't send from gmail.com if using SendGrid
 3. **Warm up your IP**: Start with low volume, gradually increase
@@ -315,6 +341,7 @@ Warning: Email client not initialized: SMTP configuration incomplete
 ### Problem: "535 5.7.8 Username and Password not accepted" (Gmail)
 
 **Solution**:
+
 - Enable 2-Factor Authentication
 - Generate a new App Password
 - Use the App Password in SMTP_PASSWORD
@@ -322,14 +349,17 @@ Warning: Email client not initialized: SMTP configuration incomplete
 ## Production Best Practices
 
 ### 1. Use a Professional Email Service
+
 - **Don't use Gmail** for production
 - Use SendGrid, Mailgun, or Amazon SES
 - These services have better deliverability and higher limits
 
 ### 2. Verify Your Domain
+
 Set up DNS records for better deliverability:
 
 **SPF Record**:
+
 ```
 v=spf1 include:_spf.google.com ~all  # For Gmail
 v=spf1 include:sendgrid.net ~all     # For SendGrid
@@ -338,34 +368,41 @@ v=spf1 include:sendgrid.net ~all     # For SendGrid
 **DKIM**: Follow your provider's instructions to add DKIM keys
 
 **DMARC**:
+
 ```
 v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com
 ```
 
 ### 3. Monitor Deliverability
+
 - Track bounce rates
 - Monitor spam complaints
 - Check sender reputation
 - Use provider analytics
 
 ### 4. Implement Rate Limiting
+
 ```go
 // Example: Limit to 10 emails per minute per user
 // Implement in your application code
 ```
 
 ### 5. Handle Bounces
+
 - Process bounce notifications
 - Remove hard bounces from your list
 - Retry soft bounces with exponential backoff
 
 ### 6. Queue Emails
+
 For high volume, use a message queue:
+
 - Redis + Bull
 - RabbitMQ
 - AWS SQS
 
 ### 7. Log Everything
+
 ```go
 log.Printf("Email sent to %s: %s", recipient, subject)
 ```
@@ -404,14 +441,14 @@ err := emailClient.SendWelcomeEmail("user@example.com", "John Doe")
 
 For 10,000 emails/month:
 
-| Provider | Cost | Notes |
-|----------|------|-------|
-| Gmail | Free* | *Limited to 500/day |
-| Resend | $20 | 50,000 emails included, modern API |
-| SendGrid | $19.95 | 50,000 emails included |
-| Mailgun | $35 | 50,000 emails included |
-| Amazon SES | $1 | Pay-as-you-go |
-| Postmark | $15 | 10,000 emails included |
+| Provider   | Cost   | Notes                              |
+| ---------- | ------ | ---------------------------------- |
+| Gmail      | Free\* | \*Limited to 500/day               |
+| Resend     | $20    | 50,000 emails included, modern API |
+| SendGrid   | $19.95 | 50,000 emails included             |
+| Mailgun    | $35    | 50,000 emails included             |
+| Amazon SES | $1     | Pay-as-you-go                      |
+| Postmark   | $15    | 10,000 emails included             |
 
 ## Recommendations
 

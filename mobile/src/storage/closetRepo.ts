@@ -20,7 +20,7 @@ export async function listItems(): Promise<ClosetItem[]> {
     updated_at: string;
   }>(
     `SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at
-     FROM closet_items ORDER BY updated_at DESC`,
+     FROM closet_items ORDER BY updated_at DESC`
   );
 
   return rows.map((r) => ({
@@ -72,7 +72,7 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
       item.costCents ?? null,
       item.createdAt,
       item.updatedAt,
-    ],
+    ]
   );
 }
 
@@ -97,7 +97,7 @@ export async function getById(id: string): Promise<ClosetItem | null> {
   }>(
     `SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at
      FROM closet_items WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!row) return null;
   return {

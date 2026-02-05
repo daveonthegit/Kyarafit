@@ -1,10 +1,4 @@
-import {
-  Pressable,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-} from "react-native";
+import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from "react-native";
 import { colors, radius, font, spacing } from "@kyarafit/design-system/rn";
 
 type Variant = "primary" | "secondary" | "text";

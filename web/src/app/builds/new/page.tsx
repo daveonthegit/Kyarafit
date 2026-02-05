@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createBuild } from '@/lib/api/builds';
-import type { BuildStatus } from '@kyarafit/design-system/types';
-import { ImageUpload } from '@/components/ui/ImageUpload';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createBuild } from "@/lib/api/builds";
+import type { BuildStatus } from "@kyarafit/design-system/types";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 
-const STATUSES: BuildStatus[] = ['idea', 'wip', 'ready'];
+const STATUSES: BuildStatus[] = ["idea", "wip", "ready"];
 
 export default function NewBuildPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [status, setStatus] = useState<BuildStatus>('idea');
-  const [imageUrl, setImageUrl] = useState('');
-  const [budgetCents, setBudgetCents] = useState<string>('');
+  const [name, setName] = useState("");
+  const [status, setStatus] = useState<BuildStatus>("idea");
+  const [imageUrl, setImageUrl] = useState("");
+  const [budgetCents, setBudgetCents] = useState<string>("");
 
   const create = useMutation({
     mutationFn: () =>
@@ -27,7 +27,7 @@ export default function NewBuildPage() {
         budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
       }),
     onSuccess: (b) => {
-      queryClient.invalidateQueries({ queryKey: ['builds'] });
+      queryClient.invalidateQueries({ queryKey: ["builds"] });
       router.push(`/build-detail?id=${b.id}`);
     },
   });
@@ -90,8 +90,8 @@ export default function NewBuildPage() {
                   onClick={() => setStatus(s)}
                   className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border ${
                     status === s
-                      ? 'border-black bg-kyar-muted text-black'
-                      : 'border-kyar-border text-kyar-textTertiary hover:border-black'
+                      ? "border-black bg-kyar-muted text-black"
+                      : "border-kyar-border text-kyar-textTertiary hover:border-black"
                   }`}
                 >
                   {s}

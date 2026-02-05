@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { fetchConventions } from '@/lib/api/conventions';
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { fetchConventions } from "@/lib/api/conventions";
 
 export default function ConventionsPage() {
   const { data: conventions = [], isLoading } = useQuery({
-    queryKey: ['conventions'],
+    queryKey: ["conventions"],
     queryFn: fetchConventions,
   });
 
@@ -28,7 +28,9 @@ export default function ConventionsPage() {
 
         {isLoading && <p className="meta-label">Loading…</p>}
         {!isLoading && conventions.length === 0 && (
-          <p className="text-sm text-kyar-meta">No conventions yet. Create one to plan days and generate packing lists.</p>
+          <p className="text-sm text-kyar-meta">
+            No conventions yet. Create one to plan days and generate packing lists.
+          </p>
         )}
         <ul className="space-y-0">
           {conventions.map((c) => (
@@ -40,9 +42,11 @@ export default function ConventionsPage() {
                 <span className="flex-1 font-serif text-xl font-bold italic">{c.name}</span>
                 <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
                   {c.startDate} – {c.endDate}
-                  {c.location ? ` · ${c.location}` : ''}
+                  {c.location ? ` · ${c.location}` : ""}
                 </span>
-                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">chevron_right</span>
+                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
+                  chevron_right
+                </span>
               </Link>
             </li>
           ))}

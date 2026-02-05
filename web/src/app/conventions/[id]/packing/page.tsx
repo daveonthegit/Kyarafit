@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchConvention, fetchPacking, updatePackingItem, regeneratePacking } from '@/lib/api/conventions';
-import { ChecklistRow } from '@/components/ui/ChecklistRow';
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchConvention,
+  fetchPacking,
+  updatePackingItem,
+  regeneratePacking,
+} from "@/lib/api/conventions";
+import { ChecklistRow } from "@/components/ui/ChecklistRow";
 
 export default function ConventionPackingPage() {
   const params = useParams();
@@ -12,12 +17,12 @@ export default function ConventionPackingPage() {
   const queryClient = useQueryClient();
 
   const { data: convention } = useQuery({
-    queryKey: ['convention', id],
+    queryKey: ["convention", id],
     queryFn: () => fetchConvention(id),
     enabled: !!id,
   });
   const { data: items = [] } = useQuery({
-    queryKey: ['convention-packing', id],
+    queryKey: ["convention-packing", id],
     queryFn: () => fetchPacking(id),
     enabled: !!id,
   });
@@ -26,21 +31,21 @@ export default function ConventionPackingPage() {
     mutationFn: ({ itemId, checked }: { itemId: string; checked: boolean }) =>
       updatePackingItem(itemId, { checked }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['convention-packing', id] });
+      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
     },
   });
 
   const regenerate = useMutation({
     mutationFn: () => regeneratePacking(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['convention-packing', id] });
+      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
     },
   });
 
   const general = items.filter((i) => !i.date && !i.buildId);
   const byDate = new Map<string, typeof items>();
   for (const i of items.filter((i) => i.date || i.buildId)) {
-    const key = i.date ?? 'general';
+    const key = i.date ?? "general";
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push(i);
   }
@@ -54,7 +59,7 @@ export default function ConventionPackingPage() {
         </Link>
         <div>
           <p className="meta-label">Packing</p>
-          <h1 className="font-serif text-2xl font-bold italic">{convention?.name ?? '…'}</h1>
+          <h1 className="font-serif text-2xl font-bold italic">{convention?.name ?? "…"}</h1>
         </div>
       </header>
 
@@ -69,7 +74,9 @@ export default function ConventionPackingPage() {
         </button>
 
         {items.length === 0 && !regenerate.isPending && (
-          <p className="text-sm text-kyar-meta">No packing list yet. Generate one from the convention plan.</p>
+          <p className="text-sm text-kyar-meta">
+            No packing list yet. Generate one from the convention plan.
+          </p>
         )}
 
         {general.length > 0 && (

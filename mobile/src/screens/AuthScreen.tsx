@@ -74,12 +74,10 @@ export default function AuthScreen() {
           <Text style={styles.successCheckmark}>✓</Text>
           <Text style={styles.successTitle}>Check your email</Text>
           <Text style={styles.successText}>
-            We've sent a confirmation link to{" "}
-            <Text style={styles.successEmail}>{email}</Text>
+            We've sent a confirmation link to <Text style={styles.successEmail}>{email}</Text>
           </Text>
           <Text style={styles.successSubtext}>
-            Click the link in the email to verify your account, then you can
-            sign in.
+            Click the link in the email to verify your account, then you can sign in.
           </Text>
           <TouchableOpacity
             style={styles.button}
@@ -100,9 +98,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.form}>
-        <Text style={styles.title}>
-          {isSignUp ? "Create Account" : "Welcome Back"}
-        </Text>
+        <Text style={styles.title}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
         <Text style={styles.subtitle}>
           {isSignUp ? "Join the cosplay community" : "Sign in to your account"}
         </Text>
@@ -132,9 +128,7 @@ export default function AuthScreen() {
             secureTextEntry
             editable={!isLoading}
           />
-          {isSignUp && (
-            <Text style={styles.hintText}>At least 6 characters</Text>
-          )}
+          {isSignUp && <Text style={styles.hintText}>At least 6 characters</Text>}
         </View>
 
         <TouchableOpacity
@@ -143,32 +137,18 @@ export default function AuthScreen() {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>
-            {isLoading
-              ? "Please wait..."
-              : isSignUp
-                ? "Create Account"
-                : "Sign In"}
+            {isLoading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.switchButton}
-          onPress={() => setIsSignUp(!isSignUp)}
-        >
+        <TouchableOpacity style={styles.switchButton} onPress={() => setIsSignUp(!isSignUp)}>
           <Text style={styles.switchText}>
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Don't have an account? Sign up"}
+            {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
           </Text>
         </TouchableOpacity>
 
-        <Pressable
-          style={styles.skipButton}
-          onPress={() => router.replace("/(tabs)")}
-        >
-          <Text style={styles.skipText}>
-            Continue without account (local only)
-          </Text>
+        <Pressable style={styles.skipButton} onPress={() => router.replace("/(tabs)")}>
+          <Text style={styles.skipText}>Continue without account (local only)</Text>
         </Pressable>
       </View>
     </View>

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { fetchConventions } from '@/lib/api/conventions';
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { fetchConventions } from "@/lib/api/conventions";
 
 export default function PackingListPage() {
   const { data: conventions = [], isLoading } = useQuery({
-    queryKey: ['conventions'],
+    queryKey: ["conventions"],
     queryFn: fetchConventions,
   });
 
@@ -36,7 +36,9 @@ export default function PackingListPage() {
                 <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
                   {c.startDate} – {c.endDate}
                 </span>
-                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">chevron_right</span>
+                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
+                  chevron_right
+                </span>
               </Link>
             </li>
           ))}

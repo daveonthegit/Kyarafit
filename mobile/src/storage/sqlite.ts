@@ -14,7 +14,7 @@ export const sqliteStorage: StorageAdapter = {
     const database = await getDb();
     const row = await database.getFirstAsync<{ value: string }>(
       "SELECT value FROM kv WHERE key = ?",
-      [key],
+      [key]
     );
     return row?.value ?? null;
   },
@@ -23,7 +23,7 @@ export const sqliteStorage: StorageAdapter = {
     const database = await getDb();
     await database.runAsync(
       "INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, unixepoch())",
-      [key, value],
+      [key, value]
     );
   },
 
@@ -42,7 +42,7 @@ export const sqliteStorage: StorageAdapter = {
       prefix
         ? "SELECT key, value, updated_at FROM kv WHERE key LIKE ? ORDER BY updated_at DESC"
         : "SELECT key, value, updated_at FROM kv ORDER BY updated_at DESC",
-      prefix ? [`${prefix}%`] : [],
+      prefix ? [`${prefix}%`] : []
     );
     return rows.map((r) => ({
       key: r.key,

@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { FloatingAdd } from '@/components/layout/FloatingAdd';
-import { fetchBuilds } from '@/lib/api/builds';
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { FloatingAdd } from "@/components/layout/FloatingAdd";
+import { fetchBuilds } from "@/lib/api/builds";
 
 export default function BuildsPage() {
   const { data: builds = [], isLoading } = useQuery({
-    queryKey: ['builds'],
+    queryKey: ["builds"],
     queryFn: fetchBuilds,
   });
 
@@ -30,7 +30,9 @@ export default function BuildsPage() {
       <main className="flex-1 px-6 space-y-4 mt-6">
         {isLoading && <p className="meta-label">Loading…</p>}
         {!isLoading && builds.length === 0 && (
-          <p className="text-sm text-kyar-meta">No builds yet. Create one to link closet items and use them in convention packing.</p>
+          <p className="text-sm text-kyar-meta">
+            No builds yet. Create one to link closet items and use them in convention packing.
+          </p>
         )}
         <ul className="space-y-0">
           {builds.map((b) => (
@@ -40,8 +42,12 @@ export default function BuildsPage() {
                 className="flex items-center gap-3 py-5 border-b border-kyar-borderSubtle hover:opacity-80"
               >
                 <span className="flex-1 font-serif text-xl font-bold italic">{b.name}</span>
-                <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">{b.status}</span>
-                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">chevron_right</span>
+                <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                  {b.status}
+                </span>
+                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
+                  chevron_right
+                </span>
               </Link>
             </li>
           ))}

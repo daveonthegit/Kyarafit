@@ -15,10 +15,7 @@ export default function PlanScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [list, pending] = await Promise.all([
-      listConventions(),
-      getSyncPendingCount(),
-    ]);
+    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
     setConventions(list);
     setSyncPending(pending);
     setLoading(false);
@@ -27,31 +24,24 @@ export default function PlanScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+    }, [load])
   );
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.metaLabel}>Circuit</Text>
           <Text style={styles.title}>Conventions</Text>
           {syncPending > 0 && (
-            <Text style={styles.syncLabel}>
-              SYNC PENDING — WILL SYNC WHEN ONLINE
-            </Text>
+            <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
           )}
         </View>
 
         <View style={styles.actions}>
           <Pressable
             style={styles.primaryBtn}
-            onPress={() =>
-              router.push({ pathname: "/convention-new", params: {} })
-            }
+            onPress={() => router.push({ pathname: "/convention-new", params: {} })}
           >
             <Text style={styles.primaryBtnText}>NEW CONVENTION</Text>
           </Pressable>
@@ -61,8 +51,7 @@ export default function PlanScreen() {
           {loading && <Text style={styles.meta}>Loading…</Text>}
           {!loading && conventions.length === 0 && (
             <Text style={styles.meta}>
-              No conventions yet. Create one to plan days and generate packing
-              lists.
+              No conventions yet. Create one to plan days and generate packing lists.
             </Text>
           )}
           {conventions.map((c) => (
@@ -81,11 +70,7 @@ export default function PlanScreen() {
                 {c.startDate} – {c.endDate}
                 {c.location ? ` · ${c.location}` : ""}
               </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={colors.textTertiary}
-              />
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
             </Pressable>
           ))}
         </View>

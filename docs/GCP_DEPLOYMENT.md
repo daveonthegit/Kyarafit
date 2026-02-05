@@ -5,6 +5,7 @@ Complete guide to deploying Kyarafit (Backend, Web Frontend, and Image Service) 
 ## 🎯 Overview
 
 This deployment uses:
+
 - **GCP Cloud Run**: Serverless container hosting with auto-scaling
 - **Docker**: Containerization for all services
 - **Artifact Registry**: Docker image storage
@@ -36,6 +37,7 @@ chmod +x scripts/setup-gcp.sh
 ```
 
 This script will:
+
 - Create/configure GCP project
 - Enable required APIs
 - Set up Artifact Registry
@@ -63,6 +65,7 @@ chmod +x scripts/deploy-all.sh
 ### Deploy Individual Services
 
 #### Backend
+
 ```bash
 cd backend
 gcloud run deploy kyarafit-backend \
@@ -73,6 +76,7 @@ gcloud run deploy kyarafit-backend \
 ```
 
 #### Web Frontend
+
 ```bash
 cd web
 gcloud run deploy kyarafit-web \
@@ -83,6 +87,7 @@ gcloud run deploy kyarafit-web \
 ```
 
 #### Image Service
+
 ```bash
 cd image-service
 gcloud run deploy kyarafit-image-service \
@@ -117,6 +122,7 @@ gcloud run domain-mappings create \
 4. SSL certificates are automatically provisioned
 
 Example DNS configuration:
+
 ```
 Type: A
 Name: www
@@ -166,10 +172,10 @@ echo -n "Kyarafit <noreply@kyarafit.com>" | gcloud secrets create smtp-from --da
 
 Add these to your GitHub repository (Settings > Secrets and variables > Actions):
 
-| Secret Name | Description | How to Get |
-|-------------|-------------|------------|
-| `GCP_WIF_PROVIDER` | Workload Identity Federation provider | From setup script output |
-| `GCP_SERVICE_ACCOUNT` | Service account email | From setup script output |
+| Secret Name           | Description                           | How to Get               |
+| --------------------- | ------------------------------------- | ------------------------ |
+| `GCP_WIF_PROVIDER`    | Workload Identity Federation provider | From setup script output |
+| `GCP_SERVICE_ACCOUNT` | Service account email                 | From setup script output |
 
 ## 🔄 CI/CD with GitHub Actions
 
@@ -184,6 +190,7 @@ Three GitHub Actions workflows are included:
 ### Automatic Deployment
 
 Deployments trigger automatically on:
+
 - Push to `main` branch
 - Changes to specific service directories
 - Manual workflow dispatch
@@ -234,6 +241,7 @@ gh workflow run deploy-gcp-image-service.yml
 ### Monthly Costs (Projected)
 
 #### Development/Testing (100-500 users)
+
 - Backend: $0-2
 - Web Frontend: $0-3
 - Image Service: $5-10
@@ -241,6 +249,7 @@ gh workflow run deploy-gcp-image-service.yml
 - **Total: $5-15/month**
 
 #### Production (1,000-5,000 users)
+
 - Backend: $8-15
 - Web Frontend: $3-8
 - Image Service: $40-60
@@ -249,6 +258,7 @@ gh workflow run deploy-gcp-image-service.yml
 - **Total: $52-84/month**
 
 Plus Supabase costs (separate):
+
 - Free tier: $0
 - Pro tier: $25/month
 - Team tier: $599/month
@@ -306,6 +316,7 @@ gcloud run services describe kyarafit-backend \
 ### Issue: "Permission Denied" errors
 
 **Solution:**
+
 ```bash
 # Verify authentication
 gcloud auth list
@@ -320,6 +331,7 @@ gcloud config get-value project
 ### Issue: Build fails with "No such file or directory"
 
 **Solution:**
+
 ```bash
 # Ensure you're in the correct directory
 cd backend  # or web, or image-service
@@ -333,6 +345,7 @@ ls -la Dockerfile
 ### Issue: Service not accessible after deployment
 
 **Solution:**
+
 ```bash
 # Check service status
 gcloud run services describe SERVICE_NAME --region us-central1
@@ -347,6 +360,7 @@ gcloud run services add-iam-policy-binding SERVICE_NAME \
 ### Issue: Environment variables not working
 
 **Solution:**
+
 ```bash
 # List current environment variables
 gcloud run services describe SERVICE_NAME \
@@ -362,6 +376,7 @@ gcloud run services update SERVICE_NAME \
 ### Issue: Secrets not accessible
 
 **Solution:**
+
 ```bash
 # Grant Cloud Run access to secret
 gcloud secrets add-iam-policy-binding SECRET_NAME \
@@ -375,9 +390,11 @@ gcloud secrets versions access latest --secret=SECRET_NAME
 ### Issue: Domain mapping fails
 
 **Solution:**
+
 1. Verify DNS records are correct
 2. Wait 15-60 minutes for DNS propagation
 3. Check domain verification status:
+
 ```bash
 gcloud run domain-mappings describe DOMAIN --region us-central1
 ```
@@ -385,6 +402,7 @@ gcloud run domain-mappings describe DOMAIN --region us-central1
 ### Issue: Container exits with error
 
 **Solution:**
+
 ```bash
 # Check logs for error details
 gcloud run logs read SERVICE_NAME --region us-central1 --limit 100
@@ -457,11 +475,11 @@ gcloud run services update SERVICE_NAME \
 
 ### Resource Limits
 
-| Service | Memory | CPU | Max Instances | Timeout |
-|---------|--------|-----|---------------|---------|
-| Backend | 512Mi | 1 | 10 | 60s |
-| Web | 512Mi | 1 | 10 | 60s |
-| Image Service | 2Gi | 2 | 5 | 300s |
+| Service       | Memory | CPU | Max Instances | Timeout |
+| ------------- | ------ | --- | ------------- | ------- |
+| Backend       | 512Mi  | 1   | 10            | 60s     |
+| Web           | 512Mi  | 1   | 10            | 60s     |
+| Image Service | 2Gi    | 2   | 5             | 300s    |
 
 ## 🔒 Security Best Practices
 
@@ -478,6 +496,7 @@ gcloud run services update SERVICE_NAME \
    - Use separate service accounts per service
 
 4. **Enable VPC for production**
+
    ```bash
    gcloud run services update SERVICE_NAME \
      --region us-central1 \
@@ -581,6 +600,7 @@ gcloud projects add-iam-policy-binding kyarafit \
 ### 6. Configure GitHub
 
 Add secrets to GitHub repository:
+
 - Settings > Secrets and variables > Actions
 - Add `GCP_WIF_PROVIDER` and `GCP_SERVICE_ACCOUNT`
 

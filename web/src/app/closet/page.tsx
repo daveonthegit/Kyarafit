@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import Image from 'next/image';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { FloatingAdd } from '@/components/layout/FloatingAdd';
-import { fetchClosetItems } from '@/lib/api/closet';
-import type { ClosetItem } from '@kyarafit/design-system/types';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import Image from "next/image";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { FloatingAdd } from "@/components/layout/FloatingAdd";
+import { fetchClosetItems } from "@/lib/api/closet";
+import type { ClosetItem } from "@kyarafit/design-system/types";
 
-const CATEGORIES = ['All Items', 'Wig', 'Prop', 'Armor', 'Garment', 'Shoe', 'Material', 'Other'];
+const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
 
 export default function ClosetPage() {
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['closet', 'items'],
+    queryKey: ["closet", "items"],
     queryFn: fetchClosetItems,
   });
 
-  const [activeCategory, setActiveCategory] = useState('All Items');
+  const [activeCategory, setActiveCategory] = useState("All Items");
   const filtered =
-    activeCategory === 'All Items'
+    activeCategory === "All Items"
       ? items
       : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
 
@@ -48,7 +48,9 @@ export default function ClosetPage() {
               type="button"
               onClick={() => setActiveCategory(cat)}
               className={`text-[11px] uppercase tracking-widest shrink-0 ${
-                activeCategory === cat ? 'font-semibold border-b border-black' : 'font-normal opacity-40'
+                activeCategory === cat
+                  ? "font-semibold border-b border-black"
+                  : "font-normal opacity-40"
               }`}
             >
               {cat}
@@ -100,4 +102,3 @@ function ClosetCard({ item }: { item: ClosetItem }) {
     </div>
   );
 }
-

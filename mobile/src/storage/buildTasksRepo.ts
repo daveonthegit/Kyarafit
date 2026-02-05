@@ -24,7 +24,7 @@ export async function listTasks(buildId: string): Promise<BuildTask[]> {
   }>(
     `SELECT id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at
      FROM build_tasks WHERE build_id = ? ORDER BY sort_order ASC, created_at ASC`,
-    [buildId],
+    [buildId]
   );
   return rows.map((r) => ({
     id: r.id,
@@ -38,25 +38,14 @@ export async function listTasks(buildId: string): Promise<BuildTask[]> {
   }));
 }
 
-export async function createTask(
-  buildId: string,
-  input: CreateBuildTaskInput,
-): Promise<BuildTask> {
+export async function createTask(buildId: string, input: CreateBuildTaskInput): Promise<BuildTask> {
   const database = await initClosetDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
     `INSERT INTO build_tasks (id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-    [
-      id,
-      buildId,
-      input.label,
-      input.closetItemId ?? null,
-      input.sortOrder ?? 0,
-      now,
-      now,
-    ],
+    [id, buildId, input.label, input.closetItemId ?? null, input.sortOrder ?? 0, now, now]
   );
   const task: BuildTask = {
     id,
@@ -75,7 +64,7 @@ export async function createTask(
 export async function updateTask(
   taskId: string,
   buildId: string,
-  input: UpdateBuildTaskInput,
+  input: UpdateBuildTaskInput
 ): Promise<BuildTask | null> {
   const database = await initClosetDb();
   const existing = await database.getFirstAsync<{
@@ -86,29 +75,18 @@ export async function updateTask(
     created_at: string;
   }>(
     `SELECT label, closet_item_id, sort_order, checked, created_at FROM build_tasks WHERE id = ? AND build_id = ?`,
-    [taskId, buildId],
+    [taskId, buildId]
   );
   if (!existing) return null;
   const label = input.label ?? existing.label;
   const closet_item_id =
-    input.closetItemId !== undefined
-      ? input.closetItemId
-      : existing.closet_item_id;
+    input.closetItemId !== undefined ? input.closetItemId : existing.closet_item_id;
   const sort_order = input.sortOrder ?? existing.sort_order;
-  const checked =
-    input.checked !== undefined ? (input.checked ? 1 : 0) : existing.checked;
+  const checked = input.checked !== undefined ? (input.checked ? 1 : 0) : existing.checked;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE build_tasks SET label = ?, closet_item_id = ?, sort_order = ?, checked = ?, updated_at = ? WHERE id = ? AND build_id = ?`,
-    [
-      label,
-      closet_item_id ?? null,
-      sort_order,
-      checked,
-      updated_at,
-      taskId,
-      buildId,
-    ],
+    [label, closet_item_id ?? null, sort_order, checked, updated_at, taskId, buildId]
   );
   const task: BuildTask = {
     id: taskId,
@@ -124,16 +102,13 @@ export async function updateTask(
   return task;
 }
 
-export async function deleteTask(
-  taskId: string,
-  buildId?: string,
-): Promise<boolean> {
+export async function deleteTask(taskId: string, buildId?: string): Promise<boolean> {
   const database = await initClosetDb();
   if (buildId) {
-    await database.runAsync(
-      `DELETE FROM build_tasks WHERE id = ? AND build_id = ?`,
-      [taskId, buildId],
-    );
+    await database.runAsync(`DELETE FROM build_tasks WHERE id = ? AND build_id = ?`, [
+      taskId,
+      buildId,
+    ]);
     await enqueue("build.task.delete", { taskId, buildId });
   } else {
     // For sync: delete by taskId only
@@ -144,22 +119,22 @@ export async function deleteTask(
 
 export async function toggleTaskChecked(
   taskId: string,
-  buildId: string,
+  buildId: string
 ): Promise<BuildTask | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{
     checked: number;
     created_at: string;
-  }>(
-    `SELECT checked, created_at FROM build_tasks WHERE id = ? AND build_id = ?`,
-    [taskId, buildId],
-  );
+  }>(`SELECT checked, created_at FROM build_tasks WHERE id = ? AND build_id = ?`, [
+    taskId,
+    buildId,
+  ]);
   if (!row) return null;
   const checked = row.checked === 0 ? 1 : 0;
   const updated_at = new Date().toISOString();
   await database.runAsync(
     `UPDATE build_tasks SET checked = ?, updated_at = ? WHERE id = ? AND build_id = ?`,
-    [checked, updated_at, taskId, buildId],
+    [checked, updated_at, taskId, buildId]
   );
   const task: BuildTask = {
     id: taskId,
@@ -174,9 +149,7 @@ export async function toggleTaskChecked(
     label: string;
     closet_item_id: string | null;
     sort_order: number;
-  }>(`SELECT label, closet_item_id, sort_order FROM build_tasks WHERE id = ?`, [
-    taskId,
-  ]);
+  }>(`SELECT label, closet_item_id, sort_order FROM build_tasks WHERE id = ?`, [taskId]);
   if (full) {
     task.label = full.label;
     task.closetItemId = full.closet_item_id ?? undefined;
@@ -199,7 +172,7 @@ export async function getById(id: string): Promise<BuildTask | null> {
     updated_at: string;
   }>(
     `SELECT id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at FROM build_tasks WHERE id = ?`,
-    [id],
+    [id]
   );
   if (!row) return null;
   return {
@@ -228,7 +201,7 @@ export async function upsertFromSync(task: BuildTask): Promise<void> {
         task.updatedAt,
         task.id,
         task.buildId,
-      ],
+      ]
     );
   } else {
     await database.runAsync(
@@ -243,7 +216,7 @@ export async function upsertFromSync(task: BuildTask): Promise<void> {
         task.checked ? 1 : 0,
         task.createdAt,
         task.updatedAt,
-      ],
+      ]
     );
   }
 }

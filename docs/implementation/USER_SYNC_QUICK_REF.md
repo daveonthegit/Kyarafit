@@ -19,17 +19,17 @@ func myHandler(c *fiber.Ctx) error {
     if u == nil {
         return c.Status(401).JSON(fiber.Map{"error": "unauthorized"})
     }
-    
+
     // Access user fields
     email := u.Email
     tier := u.Tier
     subscriptionStatus := u.SubscriptionStatus
-    
+
     // Check capabilities
     if !tier.Can(u, "web_access") {
         return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
     }
-    
+
     return c.JSON(fiber.Map{"user": u})
 }
 ```
@@ -61,18 +61,21 @@ user, err := userRepo.GetByStripeCustomerID(ctx, customerID)
 ## API Endpoints
 
 ### Get detailed user info
+
 ```bash
 GET /api/v1/users/me
 Authorization: Bearer <jwt>
 ```
 
 ### Sync user info
+
 ```bash
 POST /api/v1/users/sync
 Authorization: Bearer <jwt>
 ```
 
 ### Legacy endpoint (minimal info)
+
 ```bash
 GET /api/v1/me
 Authorization: Bearer <jwt>
@@ -81,27 +84,31 @@ Authorization: Bearer <jwt>
 ## Database Queries
 
 ### Check user sync status
+
 ```sql
-SELECT id, email, tier, subscription_status, last_sign_in_at 
-FROM app_users 
+SELECT id, email, tier, subscription_status, last_sign_in_at
+FROM app_users
 WHERE email = 'user@example.com';
 ```
 
 ### Find users by tier
+
 ```sql
-SELECT id, email, tier, subscription_status 
-FROM app_users 
+SELECT id, email, tier, subscription_status
+FROM app_users
 WHERE tier = 'PREMIUM_BASIC';
 ```
 
 ### Check subscription status
+
 ```sql
 SELECT id, email, tier, subscription_status, subscription_current_period_end
-FROM app_users 
+FROM app_users
 WHERE subscription_status = 'active';
 ```
 
 ### Find users near storage limit
+
 ```sql
 SELECT id, email, current_usage_mb, tier
 FROM app_users
@@ -111,12 +118,14 @@ WHERE tier = 'FREE' AND current_usage_mb > 40;
 ## Environment Variables
 
 ### Required
+
 ```bash
 JWT_SECRET=your-jwt-secret           # For auth token validation
 DATABASE_URL=postgresql://...        # Database connection
 ```
 
 ### Optional (Stripe)
+
 ```bash
 STRIPE_WEBHOOK_SECRET=whsec_xxx     # For webhook signature verification
 STRIPE_PRICE_BASIC=price_xxx        # Basic tier price ID
@@ -126,16 +135,18 @@ STRIPE_PRICE_PRO=price_yyy          # Pro tier price ID
 ## Stripe Integration
 
 ### Create customer with user metadata
+
 ```typescript
 const customer = await stripe.customers.create({
   email: user.email,
   metadata: {
-    user_id: user.id  // Links customer to your user
-  }
+    user_id: user.id, // Links customer to your user
+  },
 });
 ```
 
 ### Test webhooks locally
+
 ```bash
 stripe listen --forward-to localhost:8080/webhooks/stripe
 stripe trigger customer.subscription.created
@@ -144,17 +155,20 @@ stripe trigger customer.subscription.created
 ## Troubleshooting
 
 ### User not syncing from Supabase
+
 1. Check migration 008 ran: `SELECT * FROM pg_trigger WHERE tgname = 'on_auth_user_created';`
 2. Check Supabase logs for errors
 3. Manually sync: Insert into app_users with email from auth.users
 
 ### Stripe webhook not working
+
 1. Verify STRIPE_WEBHOOK_SECRET is set
 2. Check webhook endpoint is enabled in main.go
 3. Implement signature verification (required for production)
 4. Check backend logs for errors
 
 ### Email not populated
+
 1. Email sync only works with Supabase (has auth schema)
 2. Local postgres won't have email unless manually added
 3. Run migration 008 to sync existing users

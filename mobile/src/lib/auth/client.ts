@@ -13,7 +13,7 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
     },
-  },
+  }
 );
 
 export function useSession() {

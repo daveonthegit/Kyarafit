@@ -3,16 +3,16 @@
  * Used by web and mobile for validation and API payloads.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 export const CLOSET_CATEGORIES = [
-  'wig',
-  'prop',
-  'armor',
-  'garment',
-  'shoe',
-  'material',
-  'other',
+  "wig",
+  "prop",
+  "armor",
+  "garment",
+  "shoe",
+  "material",
+  "other",
 ] as const;
 
 export type ClosetCategory = (typeof CLOSET_CATEGORIES)[number];

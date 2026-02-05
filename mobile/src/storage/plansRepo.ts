@@ -2,16 +2,11 @@
  * Local convention day plans repository. Offline-first; enqueue outbox for sync.
  */
 
-import type {
-  ConventionDayPlan,
-  DayPlanEntry,
-} from "@kyarafit/design-system/types";
+import type { ConventionDayPlan, DayPlanEntry } from "@kyarafit/design-system/types";
 import { initClosetDb } from "./db";
 import { enqueue } from "./outboxRepo";
 
-export async function getPlan(
-  conventionId: string,
-): Promise<ConventionDayPlan[]> {
+export async function getPlan(conventionId: string): Promise<ConventionDayPlan[]> {
   const database = await initClosetDb();
   const rows = await database.getAllAsync<{
     id: string;
@@ -21,7 +16,7 @@ export async function getPlan(
     notes: string | null;
   }>(
     `SELECT id, convention_id, date, build_id, notes FROM convention_day_plans WHERE convention_id = ? ORDER BY date ASC`,
-    [conventionId],
+    [conventionId]
   );
   return rows.map((r) => ({
     id: r.id,
@@ -34,19 +29,18 @@ export async function getPlan(
 
 export async function setPlan(
   conventionId: string,
-  plan: DayPlanEntry[],
+  plan: DayPlanEntry[]
 ): Promise<ConventionDayPlan[]> {
   const database = await initClosetDb();
-  await database.runAsync(
-    `DELETE FROM convention_day_plans WHERE convention_id = ?`,
-    [conventionId],
-  );
+  await database.runAsync(`DELETE FROM convention_day_plans WHERE convention_id = ?`, [
+    conventionId,
+  ]);
   const result: ConventionDayPlan[] = [];
   for (const e of plan) {
     const id = crypto.randomUUID();
     await database.runAsync(
       `INSERT INTO convention_day_plans (id, convention_id, date, build_id, notes) VALUES (?, ?, ?, ?, ?)`,
-      [id, conventionId, e.date, e.buildId ?? null, e.notes ?? null],
+      [id, conventionId, e.date, e.buildId ?? null, e.notes ?? null]
     );
     result.push({
       id,

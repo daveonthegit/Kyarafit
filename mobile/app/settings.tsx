@@ -4,11 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, font } from "@kyarafit/design-system/rn";
 import { useSession, signOut } from "../src/lib/auth/client";
 
-const menuItems = [
-  "Account Details",
-  "Subscription Plan",
-  "Notification Style",
-];
+const menuItems = ["Account Details", "Subscription Plan", "Notification Style"];
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,10 +16,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -39,24 +32,15 @@ export default function SettingsScreen() {
         {!session && (
           <View style={styles.tierNote}>
             <Text style={styles.tierNoteText}>Local-only mode</Text>
-            <Text style={styles.tierNoteSub}>
-              Sign in to sync across devices.
-            </Text>
-            <Pressable
-              style={styles.signInBtn}
-              onPress={() => router.push("/auth")}
-            >
-              <Text style={styles.signInBtnText}>
-                Sign In or Create Account
-              </Text>
+            <Text style={styles.tierNoteSub}>Sign in to sync across devices.</Text>
+            <Pressable style={styles.signInBtn} onPress={() => router.push("/auth")}>
+              <Text style={styles.signInBtnText}>Sign In or Create Account</Text>
             </Pressable>
           </View>
         )}
         {session && (
           <View style={styles.tierNote}>
-            <Text style={styles.tierNoteSub}>
-              Upgrade for backup and export.
-            </Text>
+            <Text style={styles.tierNoteSub}>Upgrade for backup and export.</Text>
           </View>
         )}
 
@@ -66,11 +50,7 @@ export default function SettingsScreen() {
           {menuItems.map((item) => (
             <Pressable key={item} style={styles.menuItem}>
               <Text style={styles.menuItemText}>{item}</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color="rgba(0,0,0,0.3)"
-              />
+              <Ionicons name="chevron-forward" size={14} color="rgba(0,0,0,0.3)" />
             </Pressable>
           ))}
         </View>

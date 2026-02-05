@@ -3,12 +3,14 @@
 ## 1. Install packages
 
 ### Web
+
 ```bash
 cd web
 npm install @supabase/supabase-js @supabase/ssr
 ```
 
 ### Mobile
+
 ```bash
 cd mobile
 npm install @supabase/supabase-js @react-native-async-storage/async-storage
@@ -20,6 +22,7 @@ npx expo install @react-native-async-storage/async-storage
 Go to your Supabase project → SQL Editor → New query
 
 Run each migration file in order:
+
 1. `backend/migrations/001_init.up.sql`
 2. `backend/migrations/002_closet_items.up.sql`
 3. `backend/migrations/003_convention_slice.up.sql`
@@ -32,6 +35,7 @@ Or use the SQL Editor to paste and run all at once.
 ## 3. Configure environment variables
 
 ### Web (.env.local)
+
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
@@ -39,6 +43,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ### Mobile (.env)
+
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
@@ -46,6 +51,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ### Backend (.env)
+
 ```bash
 DATABASE_URL=postgresql://postgres:[password]@db.xxxxxxxxxxxxx.supabase.co:5432/postgres
 SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
@@ -57,19 +63,23 @@ STRIPE_PRICE_PRO=price_yyy
 ## 4. Get your Supabase credentials
 
 From Supabase Dashboard → Settings → API:
+
 - **Project URL**: `https://xxxxxxxxxxxxx.supabase.co`
 - **anon (public) key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
 - **service_role key**: (for backend only, keep secret!)
 
 From Settings → API → JWT Settings:
+
 - **JWT Secret**: (for backend JWT validation)
 
 From Settings → Database → Connection string:
+
 - **Connection string**: `postgresql://postgres:[password]@db.xxxxxxxxxxxxx.supabase.co:5432/postgres`
 
 ## 5. Test the setup
 
 ### Test auth in web
+
 ```bash
 npm run dev:web
 # Visit http://localhost:3000/auth/signin
@@ -77,12 +87,14 @@ npm run dev:web
 ```
 
 ### Test auth in mobile
+
 ```bash
 npm run dev:mobile
 # Open Settings → try sign up
 ```
 
 ### Verify in Supabase
+
 - Dashboard → Authentication → Users
 - Should see new user after signup
 - Dashboard → Table Editor → app_users

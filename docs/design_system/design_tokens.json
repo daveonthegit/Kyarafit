@@ -33,31 +33,10 @@
   },
   "typography": {
     "fontFamily": {
-      "sans": [
-        "Inter",
-        "system-ui",
-        "-apple-system",
-        "Segoe UI",
-        "Roboto",
-        "Arial",
-        "sans-serif"
-      ],
-      "serifDisplay": [
-        "Playfair Display",
-        "Georgia",
-        "serif"
-      ],
-      "serifElegant": [
-        "Bodoni Moda",
-        "Georgia",
-        "serif"
-      ],
-      "sansWide": [
-        "Montserrat",
-        "Inter",
-        "system-ui",
-        "sans-serif"
-      ]
+      "sans": ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+      "serifDisplay": ["Playfair Display", "Georgia", "serif"],
+      "serifElegant": ["Bodoni Moda", "Georgia", "serif"],
+      "sansWide": ["Montserrat", "Inter", "system-ui", "sans-serif"]
     },
     "roles": {
       "displayHero": {

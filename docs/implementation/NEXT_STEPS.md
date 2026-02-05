@@ -54,20 +54,22 @@ curl -X POST http://localhost:8080/api/seed \
    - Maintain API calls for operations that need immediate server feedback
 
 2. **Add TaskChecklist to Build Detail Page**
+
    ```tsx
    // In web/src/app/build-detail/[id]/page.tsx
-   import { TaskChecklist } from '@/components/builds/TaskChecklist';
-   
-   <TaskChecklist buildId={buildId} tasks={build.tasks} />
+   import { TaskChecklist } from "@/components/builds/TaskChecklist";
+
+   <TaskChecklist buildId={buildId} tasks={build.tasks} />;
    ```
 
 3. **Initialize Sync on App Load**
+
    ```tsx
    // In web/src/app/layout.tsx or a root component
-   import { setupSyncTriggers } from '@/lib/services/sync';
-   import { useSession } from '@/lib/auth/client';
-   import { useFeatureAccess } from '@/lib/api/useTier';
-   
+   import { setupSyncTriggers } from "@/lib/services/sync";
+   import { useSession } from "@/lib/auth/client";
+   import { useFeatureAccess } from "@/lib/api/useTier";
+
    useEffect(() => {
      const { canUseCloudSync } = useFeatureAccess();
      setupSyncTriggers(session?.access_token, canUseCloudSync);
@@ -83,14 +85,17 @@ curl -X POST http://localhost:8080/api/seed \
    - Convention creation/edit pages
 
 6. **Add Feature Gates for FREE Users**
+
    ```tsx
    const { canUseCloudSync, canExport } = useFeatureAccess();
-   
-   {!canUseCloudSync && (
-     <div className="bg-yellow-50 p-4 border border-yellow-200">
-       <p>Upgrade to Premium Basic to sync across devices</p>
-     </div>
-   )}
+
+   {
+     !canUseCloudSync && (
+       <div className="bg-yellow-50 p-4 border border-yellow-200">
+         <p>Upgrade to Premium Basic to sync across devices</p>
+       </div>
+     );
+   }
    ```
 
 ### Mobile Integration
@@ -138,6 +143,7 @@ curl -X POST http://localhost:8080/api/seed \
 ## 🧪 Testing Checklist
 
 ### Backend Tests
+
 - [ ] Image upload works (valid file)
 - [ ] Image upload rejects invalid files (>5MB, wrong type)
 - [ ] Storage quota enforced correctly
@@ -147,6 +153,7 @@ curl -X POST http://localhost:8080/api/seed \
 - [ ] Seed data doesn't recreate if deleted
 
 ### Frontend Tests
+
 - [ ] ImageUpload component works (file + URL modes)
 - [ ] IndexedDB created successfully on first load
 - [ ] Builds repo creates/updates/deletes correctly
@@ -159,6 +166,7 @@ curl -X POST http://localhost:8080/api/seed \
 - [ ] Feature access hooks return correct permissions
 
 ### Integration Tests
+
 - [ ] FREE user can use web but not sync
 - [ ] PREMIUM_BASIC user can sync across devices
 - [ ] Create on mobile → appears on web
@@ -178,12 +186,13 @@ curl -X POST http://localhost:8080/api/seed \
 ## 🚀 Deployment Preparation
 
 1. **Environment Variables**
+
    ```bash
    # Backend
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_SERVICE_KEY=your-service-key
    JWT_SECRET=your-jwt-secret
-   
+
    # Web
    NEXT_PUBLIC_API_URL=https://api.kyarafit.com
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -219,6 +228,7 @@ curl -X POST http://localhost:8080/api/seed \
 ## 🎉 Summary
 
 **What's Complete:**
+
 - ✅ Full backend infrastructure (image upload, sync, seed data)
 - ✅ Tier system with proper restrictions
 - ✅ Web local-first storage (IndexedDB + repositories)
@@ -228,6 +238,7 @@ curl -X POST http://localhost:8080/api/seed \
 - ✅ Seed data for new users
 
 **What's Needed:**
+
 - 🔧 Integration and wiring (connect pieces together)
 - 🧪 Testing and bug fixes
 - 📚 Documentation updates

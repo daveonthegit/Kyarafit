@@ -67,7 +67,7 @@ class PiecesAPI {
       offset?: number;
       search?: string;
       category?: string;
-    } = {},
+    } = {}
   ): Promise<PiecesResponse> {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/v1/pieces`, {
@@ -105,19 +105,11 @@ class PiecesAPI {
     }
   }
 
-  async updatePiece(
-    token: string,
-    id: string,
-    data: UpdatePieceRequest,
-  ): Promise<Piece> {
+  async updatePiece(token: string, id: string, data: UpdatePieceRequest): Promise<Piece> {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/api/v1/pieces/${id}`,
-        data,
-        {
-          headers: this.getAuthHeaders(token),
-        },
-      );
+      const response = await axios.put(`${API_BASE_URL}/api/v1/pieces/${id}`, data, {
+        headers: this.getAuthHeaders(token),
+      });
       return response.data;
     } catch (error) {
       console.error("Error updating piece:", error);
@@ -138,12 +130,9 @@ class PiecesAPI {
 
   async getCategories(token: string): Promise<CategoriesResponse> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/pieces/categories`,
-        {
-          headers: this.getAuthHeaders(token),
-        },
-      );
+      const response = await axios.get(`${API_BASE_URL}/api/v1/pieces/categories`, {
+        headers: this.getAuthHeaders(token),
+      });
       return response.data;
     } catch (error) {
       console.error("Error fetching categories:", error);

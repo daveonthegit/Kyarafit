@@ -9,10 +9,12 @@ Implemented comprehensive user synchronization between Supabase Auth, the backen
 ### 1. Database Migration (008)
 
 **Files Created:**
+
 - `backend/migrations/008_enhanced_user_sync.up.sql`
 - `backend/migrations/008_enhanced_user_sync.down.sql`
 
 **Changes:**
+
 - Added email tracking columns to `app_users`:
   - `email` (TEXT)
   - `email_confirmed` (BOOLEAN)
@@ -42,6 +44,7 @@ Implemented comprehensive user synchronization between Supabase Auth, the backen
 **File: `backend/internal/tier/tier.go`**
 
 Enhanced `User` struct with new fields:
+
 ```go
 type User struct {
     ID                           string
@@ -60,10 +63,12 @@ type User struct {
 **File: `backend/internal/appuser/repository.go`**
 
 Enhanced methods:
+
 - `GetByID()`: Now loads all user fields including email and subscription info
 - `GetOrCreate()`: Maintains existing behavior with enhanced data
 
 New methods added:
+
 - `UpdateStripeCustomer()`: Set Stripe customer ID for a user
 - `UpdateSubscription()`: Update subscription details
 - `SetTierAndSubscription()`: Atomically update tier and subscription
@@ -73,6 +78,7 @@ New methods added:
 **File: `backend/main.go`**
 
 Improved Stripe webhook handler:
+
 - `stripeWebhookHandler()`: Now properly handles subscription lifecycle
   - `customer.created`: Links Stripe customer to user
   - `customer.subscription.created/updated`: Updates tier and subscription status
@@ -82,27 +88,32 @@ Improved Stripe webhook handler:
   - Updates both tier and subscription info atomically
 
 New API endpoints:
+
 - `GET /api/v1/users/me`: Get detailed user info including subscription
 - `POST /api/v1/users/sync`: Manually refresh user info
 
 ### 3. Documentation
 
 **Files Created:**
+
 - `USER_SYNC_SYSTEM.md`: Comprehensive guide to the user sync system
 - `CHANGELOG_USER_SYNC.md`: This file, documenting all changes
 - `backend/test_user_sync.sh`: Bash test script
 - `backend/test_user_sync.ps1`: PowerShell test script
 
 **Files Updated:**
+
 - `README.md`: Added link to User Sync System documentation
 
 ### 4. Test Scripts
 
 Created platform-specific test scripts:
+
 - `backend/test_user_sync.sh` (Bash)
 - `backend/test_user_sync.ps1` (PowerShell)
 
 These scripts test:
+
 - Health endpoint connectivity
 - Environment configuration
 - Database schema presence
@@ -113,9 +124,11 @@ These scripts test:
 ### New Endpoints
 
 #### GET /api/v1/users/me
+
 Returns complete user information including subscription status.
 
 **Response:**
+
 ```json
 {
   "id": "user-uuid",
@@ -132,6 +145,7 @@ Returns complete user information including subscription status.
 ```
 
 #### POST /api/v1/users/sync
+
 Manually refreshes user info from database.
 
 **Response:** Same as `/users/me` with additional `"synced": true` field
@@ -139,7 +153,9 @@ Manually refreshes user info from database.
 ### Enhanced Endpoints
 
 #### GET /api/v1/me
+
 Unchanged for backward compatibility. Still returns:
+
 ```json
 {
   "tier": "FREE",
@@ -153,12 +169,14 @@ Unchanged for backward compatibility. Still returns:
 ### For New Installations
 
 1. Run migrations including 008:
+
    ```bash
    cd backend
    make migrate-up
    ```
 
 2. Configure Stripe environment variables:
+
    ```bash
    STRIPE_WEBHOOK_SECRET=whsec_xxx
    STRIPE_PRICE_BASIC=price_xxx
@@ -170,6 +188,7 @@ Unchanged for backward compatibility. Still returns:
 ### For Existing Installations
 
 1. Run migration 008:
+
    ```bash
    cd backend
    make migrate-up
@@ -186,7 +205,7 @@ Unchanged for backward compatibility. Still returns:
    ```typescript
    const customer = await stripe.customers.create({
      email: user.email,
-     metadata: { user_id: user.id }
+     metadata: { user_id: user.id },
    });
    ```
 
@@ -199,11 +218,13 @@ The Stripe webhook handler is **disabled by default** because it lacks signature
 **Before enabling in production:**
 
 1. Install Stripe Go SDK:
+
    ```bash
    go get github.com/stripe/stripe-go/v76
    ```
 
 2. Implement signature verification in `stripeWebhookHandler()`:
+
    ```go
    signature := c.Get("Stripe-Signature")
    event, err := webhook.ConstructEvent(c.Body(), signature, webhookSecret)
@@ -226,6 +247,7 @@ The `handle_new_user()` function uses `SECURITY DEFINER` to access the auth sche
 ### Manual Testing
 
 1. **Test user signup:**
+
    ```bash
    # Sign up a new user in your app
    # Verify app_users table has new row
@@ -233,6 +255,7 @@ The `handle_new_user()` function uses `SECURITY DEFINER` to access the auth sche
    ```
 
 2. **Test API endpoints:**
+
    ```bash
    # Get user info
    curl -H "Authorization: Bearer $JWT_TOKEN" \
@@ -244,10 +267,11 @@ The `handle_new_user()` function uses `SECURITY DEFINER` to access the auth sche
    ```
 
 3. **Test Stripe webhook (local):**
+
    ```bash
    # Install Stripe CLI
    stripe listen --forward-to localhost:8080/webhooks/stripe
-   
+
    # In another terminal
    stripe trigger customer.subscription.created
    ```
@@ -315,6 +339,7 @@ make migrate-down  # Rolls back one migration (008)
 ```
 
 This will:
+
 - Remove new columns from `app_users`
 - Revert trigger to original version
 - Preserve existing user data (tier, usage)
@@ -322,6 +347,7 @@ This will:
 ## Support
 
 For issues or questions:
+
 1. Check `USER_SYNC_SYSTEM.md` for detailed documentation
 2. Review error logs in backend output
 3. Verify environment variables are set correctly
@@ -330,6 +356,7 @@ For issues or questions:
 ## Summary
 
 This implementation provides:
+
 - ✅ Automatic user sync from Supabase Auth
 - ✅ Subscription status tracking
 - ✅ Stripe webhook integration (ready to enable)

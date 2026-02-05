@@ -104,9 +104,7 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
 
   // Add new columns if they don't exist (existing installs)
   try {
-    await db.execAsync(
-      "ALTER TABLE closet_items ADD COLUMN cost_cents INTEGER",
-    );
+    await db.execAsync("ALTER TABLE closet_items ADD COLUMN cost_cents INTEGER");
   } catch {
     /* column may already exist */
   }
@@ -132,15 +130,12 @@ export async function getValue(key: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ value: string }>(
     "SELECT value FROM kv WHERE key = ?",
-    [key],
+    [key]
   );
   return row?.value ?? null;
 }
 
 export async function setValue(key: string, value: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(
-    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-    [key, value],
-  );
+  await database.runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", [key, value]);
 }

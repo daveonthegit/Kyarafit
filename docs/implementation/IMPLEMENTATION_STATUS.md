@@ -98,11 +98,13 @@
 ## 🎯 Next Steps
 
 ### Immediate (Essential for MVP)
+
 1. Build file upload UI for web (builds, conventions, closet)
 2. Set up web IndexedDB with repositories
 3. Create web sync service
 
 ### Secondary (UX Enhancements)
+
 4. Task checklist UI with progress tracking
 5. Drag-and-drop task assignment
 
@@ -135,6 +137,7 @@ When ready to deploy:
 ## 📚 Key Files Reference
 
 ### Backend
+
 - `backend/main.go` - Main server, upload endpoint, sync endpoint, seed endpoint
 - `backend/internal/tier/tier.go` - Tier definitions
 - `backend/middleware/tier.go` - Tier middleware
@@ -143,13 +146,16 @@ When ready to deploy:
 - `backend/migrations/009_*` - Convention images + sync triggers
 
 ### Mobile
+
 - `mobile/src/services/sync.ts` - Bidirectional sync with conflict resolution
 - `mobile/src/storage/*Repo.ts` - Local-first repositories
 
 ### Web (Partially Complete)
+
 - `web/src/lib/supabase/storage.ts` - Upload helpers (existing)
 - `web/src/lib/api/useTier.ts` - Tier hooks (to be enhanced)
 
 ### Types
+
 - `design-system/types/convention.ts` - Convention types with imageUrl
 - `design-system/types/builds.ts` - Build task types

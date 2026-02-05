@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
+import Image from "next/image";
 
 interface ImageCardProps {
   imageUrl: string;
@@ -9,7 +9,7 @@ interface ImageCardProps {
   className?: string;
 }
 
-export function ImageCard({ imageUrl, title, tag, className = '' }: ImageCardProps) {
+export function ImageCard({ imageUrl, title, tag, className = "" }: ImageCardProps) {
   return (
     <article
       className={`bg-kyar-surface border border-kyar-borderSubtle overflow-hidden ${className}`}

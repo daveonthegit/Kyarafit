@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { signUp } from '@/lib/auth/client';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { signUp } from "@/lib/auth/client";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -66,13 +66,14 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm">
-              {error}
-            </div>
+            <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm">{error}</div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-[11px] uppercase tracking-widest font-medium mb-2">
+            <label
+              htmlFor="email"
+              className="block text-[11px] uppercase tracking-widest font-medium mb-2"
+            >
               Email
             </label>
             <input
@@ -87,7 +88,10 @@ export default function SignUpPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-[11px] uppercase tracking-widest font-medium mb-2">
+            <label
+              htmlFor="password"
+              className="block text-[11px] uppercase tracking-widest font-medium mb-2"
+            >
               Password
             </label>
             <input
@@ -108,13 +112,13 @@ export default function SignUpPage() {
             disabled={loading}
             className="w-full border border-black py-3 text-xs uppercase tracking-widest font-semibold hover:bg-black hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
 
         <div className="mt-8 text-center">
           <p className="text-sm text-kyar-textSecondary">
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link href="/auth/signin" className="text-black underline">
               Sign in
             </Link>

@@ -18,6 +18,7 @@ APP_URL=http://localhost:3000
 ### Supported Email Providers
 
 #### Gmail
+
 - **Host**: `smtp.gmail.com`
 - **Port**: `587` (TLS)
 - **Important**: Use an [App Password](https://support.google.com/accounts/answer/185833), not your regular password
@@ -28,24 +29,28 @@ APP_URL=http://localhost:3000
   4. Use this 16-character password in `SMTP_PASSWORD`
 
 #### SendGrid
+
 - **Host**: `smtp.sendgrid.net`
 - **Port**: `587`
 - **Username**: `apikey` (literal string)
 - **Password**: Your SendGrid API key
 
 #### Mailgun
+
 - **Host**: `smtp.mailgun.org` (or region-specific)
 - **Port**: `587`
 - **Username**: Your Mailgun SMTP username
 - **Password**: Your Mailgun SMTP password
 
 #### Amazon SES
+
 - **Host**: `email-smtp.us-east-1.amazonaws.com` (or your region)
 - **Port**: `587`
 - **Username**: Your AWS SMTP username
 - **Password**: Your AWS SMTP password
 
 #### Postmark
+
 - **Host**: `smtp.postmarkapp.com`
 - **Port**: `587`
 - **Username**: Your Postmark server token
@@ -156,20 +161,24 @@ curl -X POST http://localhost:8080/api/test/email \
 ## Troubleshooting
 
 ### "Authentication failed"
+
 - Check username and password are correct
 - For Gmail, ensure you're using an App Password
 - Verify 2FA is enabled on your account
 
 ### "Connection refused" or "Timeout"
+
 - Check SMTP_HOST and SMTP_PORT are correct
 - Verify firewall isn't blocking outbound SMTP connections
 - Test with `telnet smtp.gmail.com 587`
 
 ### "535 5.7.8 Username and Password not accepted"
+
 - For Gmail, enable "Less secure app access" or use App Password
 - Verify credentials are correct
 
 ### Emails going to spam
+
 - Configure SPF, DKIM, and DMARC records
 - Use a verified sender domain
 - Avoid spam trigger words

@@ -3,10 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type {
-  Convention,
-  PackingListItem,
-} from "@kyarafit/design-system/types";
+import type { Convention, PackingListItem } from "@kyarafit/design-system/types";
 import { listConventions } from "../../src/storage/conventionsRepo";
 import { getPacking, toggleChecked } from "../../src/storage/packingRepo";
 import { getSyncPendingCount } from "../../src/services/sync";
@@ -24,10 +21,7 @@ export default function PackingScreen() {
   }, [params.conventionId]);
 
   const load = useCallback(async () => {
-    const [list, pending] = await Promise.all([
-      listConventions(),
-      getSyncPendingCount(),
-    ]);
+    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
     setConventions(list);
     setSyncPending(pending);
     if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
@@ -36,7 +30,7 @@ export default function PackingScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+    }, [load])
   );
 
   useEffect(() => {
@@ -49,8 +43,7 @@ export default function PackingScreen() {
 
   const handleToggle = useCallback(async (item: PackingListItem) => {
     const updated = await toggleChecked(item.id);
-    if (updated)
-      setItems((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
+    if (updated) setItems((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
   }, []);
 
   const convention = conventions.find((c) => c.id === selectedId);
@@ -85,10 +78,7 @@ export default function PackingScreen() {
           {conventions.map((c) => (
             <Pressable
               key={c.id}
-              style={[
-                styles.selectorBtn,
-                selectedId === c.id && styles.selectorBtnActive,
-              ]}
+              style={[styles.selectorBtn, selectedId === c.id && styles.selectorBtnActive]}
               onPress={() => setSelectedId(c.id)}
             >
               <Text
@@ -104,10 +94,7 @@ export default function PackingScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {!selectedId && conventions.length === 0 && (
           <Text style={styles.meta}>
             Create a convention and generate a packing list from the Plan tab.
@@ -115,8 +102,7 @@ export default function PackingScreen() {
         )}
         {selectedId && items.length === 0 && (
           <Text style={styles.meta}>
-            No packing list yet. Generate one from the convention detail (Plan
-            tab).
+            No packing list yet. Generate one from the convention detail (Plan tab).
           </Text>
         )}
         {selectedId && items.length > 0 && (

@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  TextInput,
-  StyleSheet,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
@@ -28,9 +21,7 @@ export default function BuildNewScreen() {
         name: name.trim(),
         status,
         imageUrl: imageUrl.trim() || undefined,
-        budgetCents: budgetCents.trim()
-          ? Math.round(parseFloat(budgetCents) * 100)
-          : undefined,
+        budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
       });
       router.replace({ pathname: "/build-detail", params: { id: b.id } });
     } finally {
@@ -46,10 +37,7 @@ export default function BuildNewScreen() {
         </Pressable>
         <Text style={styles.metaLabel}>New Build</Text>
       </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.label}>NAME</Text>
         <TextInput
           style={styles.input}
@@ -83,14 +71,7 @@ export default function BuildNewScreen() {
               style={[styles.statusBtn, status === s && styles.statusBtnActive]}
               onPress={() => setStatus(s)}
             >
-              <Text
-                style={[
-                  styles.statusText,
-                  status === s && styles.statusTextActive,
-                ]}
-              >
-                {s}
-              </Text>
+              <Text style={[styles.statusText, status === s && styles.statusTextActive]}>{s}</Text>
             </Pressable>
           ))}
         </View>

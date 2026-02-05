@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface BuildTask {
   id: string;
@@ -19,12 +19,12 @@ interface TaskChecklistProps {
 }
 
 export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistProps) {
-  const [newTaskLabel, setNewTaskLabel] = useState('');
+  const [newTaskLabel, setNewTaskLabel] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const queryClient = useQueryClient();
 
   // Calculate progress
-  const completedCount = tasks.filter(t => t.checked).length;
+  const completedCount = tasks.filter((t) => t.checked).length;
   const totalCount = tasks.length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -34,35 +34,33 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
   const handleToggleTask = async (taskId: string, checked: boolean) => {
     // TODO: Implement API call to update task
     // For now, update optimistically
-    queryClient.setQueryData(['build', buildId], (old: any) => {
+    queryClient.setQueryData(["build", buildId], (old: any) => {
       if (!old) return old;
       return {
         ...old,
-        tasks: old.tasks.map((t: BuildTask) =>
-          t.id === taskId ? { ...t, checked } : t
-        ),
+        tasks: old.tasks.map((t: BuildTask) => (t.id === taskId ? { ...t, checked } : t)),
       };
     });
   };
 
   const handleAddTask = async () => {
     if (!newTaskLabel.trim()) return;
-    
+
     setIsAdding(true);
     try {
       // TODO: Implement API call to create task
       // For now, just reset the form
-      setNewTaskLabel('');
+      setNewTaskLabel("");
     } finally {
       setIsAdding(false);
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Delete this task?')) return;
-    
+    if (!confirm("Delete this task?")) return;
+
     // TODO: Implement API call to delete task
-    queryClient.setQueryData(['build', buildId], (old: any) => {
+    queryClient.setQueryData(["build", buildId], (old: any) => {
       if (!old) return old;
       return {
         ...old,
@@ -103,7 +101,9 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
               onChange={(e) => handleToggleTask(task.id, e.target.checked)}
               className="w-4 h-4 accent-black"
             />
-            <span className={`flex-1 text-sm ${task.checked ? 'line-through text-kyar-textTertiary' : ''}`}>
+            <span
+              className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+            >
               {task.label}
             </span>
             {task.closetItemId && (
@@ -133,7 +133,7 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
           type="text"
           value={newTaskLabel}
           onChange={(e) => setNewTaskLabel(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+          onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
           placeholder="Add a new task..."
           className="flex-1 border-0 border-b border-black bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
         />
@@ -142,7 +142,7 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
           disabled={!newTaskLabel.trim() || isAdding}
           className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
         >
-          {isAdding ? 'Adding...' : 'Add'}
+          {isAdding ? "Adding..." : "Add"}
         </button>
       </div>
 
@@ -150,7 +150,7 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
       <div className="flex gap-2 pt-2">
         <button
           onClick={() => {
-            sortedTasks.forEach(t => !t.checked && handleToggleTask(t.id, true));
+            sortedTasks.forEach((t) => !t.checked && handleToggleTask(t.id, true));
           }}
           className="flex-1 border border-kyar-border hover:border-black py-2 text-xs font-semibold uppercase tracking-wider"
         >

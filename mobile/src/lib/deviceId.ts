@@ -7,12 +7,7 @@ import { get, set } from "../storage";
 const KEY = "kyar_device_id";
 
 function generateId(): string {
-  return (
-    "dev-" +
-    Math.random().toString(36).slice(2, 14) +
-    "-" +
-    Date.now().toString(36)
-  );
+  return "dev-" + Math.random().toString(36).slice(2, 14) + "-" + Date.now().toString(36);
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {

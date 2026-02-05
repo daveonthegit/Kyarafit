@@ -24,15 +24,12 @@ export interface OutboxEntry {
   createdAt: string;
 }
 
-export async function enqueue(
-  type: OutboxType,
-  payload: unknown,
-): Promise<void> {
+export async function enqueue(type: OutboxType, payload: unknown): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(
-    "INSERT INTO outbox (type, payload_json) VALUES (?, ?)",
-    [type, JSON.stringify(payload)],
-  );
+  await database.runAsync("INSERT INTO outbox (type, payload_json) VALUES (?, ?)", [
+    type,
+    JSON.stringify(payload),
+  ]);
 }
 
 export async function listPending(): Promise<OutboxEntry[]> {

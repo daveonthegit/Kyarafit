@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createConvention } from '@/lib/api/conventions';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createConvention } from "@/lib/api/conventions";
 
 export default function NewConventionPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const create = useMutation({
     mutationFn: () =>
@@ -23,7 +23,7 @@ export default function NewConventionPage() {
         endDate: endDate.trim(),
       }),
     onSuccess: (c) => {
-      queryClient.invalidateQueries({ queryKey: ['conventions'] });
+      queryClient.invalidateQueries({ queryKey: ["conventions"] });
       router.push(`/conventions/${c.id}`);
     },
   });

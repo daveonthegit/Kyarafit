@@ -7,13 +7,21 @@ This guide shows you how to run the same checks that GitHub Actions CI runs, **b
 Run all CI checks at once:
 
 ```bash
+# Using Make (recommended)
 make validate
-```
 
-Or using npm:
-
-```bash
+# Using npm
 npm run validate
+
+# Using standalone script (Unix/Mac/WSL)
+bash scripts/ci-local.sh
+# or
+npm run ci
+
+# Using standalone script (Windows PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1
+# or
+npm run ci:win
 ```
 
 This runs: format checking → linting → type checking → building → tests
@@ -65,6 +73,7 @@ npm run format
 ```
 
 This checks/fixes:
+
 - JavaScript/TypeScript (Prettier)
 - Go (gofmt)
 - Python (black, isort)
@@ -227,6 +236,7 @@ docker run --rm kyarafit-backend:test --help
 When you open a PR, CI runs these workflows:
 
 ### Main CI (`ci.yml`)
+
 - **Backend CI**: Go tests, linting (vet, gofmt, golangci-lint), Docker build
 - **Web CI**: TypeScript check, ESLint, Next.js build, Docker build, Lighthouse (optional)
 - **Mobile CI**: TypeScript check, ESLint, Prettier check, Expo web export
@@ -236,14 +246,14 @@ When you open a PR, CI runs these workflows:
 
 ### PR Checks Matrix
 
-| Check | Backend | Web | Mobile | Image Service |
-|-------|---------|-----|--------|---------------|
-| Linting | ✅ Go vet, golangci-lint | ✅ ESLint | ✅ ESLint | ✅ flake8, black, isort |
-| Type Check | ✅ (built-in) | ✅ tsc | ✅ tsc | ✅ mypy |
-| Formatting | ✅ gofmt | ✅ Prettier | ✅ Prettier | ✅ black, isort |
-| Unit Tests | ✅ go test | ⚠️ (none yet) | ⚠️ (none yet) | ✅ pytest |
-| Build | ✅ Binary + Docker | ✅ Next.js + Docker | ✅ Expo web | ✅ Docker |
-| Security | ✅ gosec (optional) | ✅ npm audit | ✅ npm audit | ✅ safety, bandit |
+| Check      | Backend                  | Web                 | Mobile        | Image Service           |
+| ---------- | ------------------------ | ------------------- | ------------- | ----------------------- |
+| Linting    | ✅ Go vet, golangci-lint | ✅ ESLint           | ✅ ESLint     | ✅ flake8, black, isort |
+| Type Check | ✅ (built-in)            | ✅ tsc              | ✅ tsc        | ✅ mypy                 |
+| Formatting | ✅ gofmt                 | ✅ Prettier         | ✅ Prettier   | ✅ black, isort         |
+| Unit Tests | ✅ go test               | ⚠️ (none yet)       | ⚠️ (none yet) | ✅ pytest               |
+| Build      | ✅ Binary + Docker       | ✅ Next.js + Docker | ✅ Expo web   | ✅ Docker               |
+| Security   | ✅ gosec (optional)      | ✅ npm audit        | ✅ npm audit  | ✅ safety, bandit       |
 
 ---
 
@@ -373,7 +383,7 @@ make test-backend
    - Change `web/` or `design-system/` → only web CI runs
    - Change `mobile/` → only mobile CI runs
 
-2. **Caching works**: 
+2. **Caching works**:
    - npm dependencies are cached
    - Go modules are cached
    - Python packages are cached
@@ -404,11 +414,13 @@ If CI is failing and you can't reproduce locally:
 4. Try a clean install: `rm -rf node_modules && npm install`
 
 For backend:
+
 ```bash
 cd backend && go clean -modcache && go mod download
 ```
 
 For Python:
+
 ```bash
 cd image-service && pip install --upgrade -r requirements.txt
 ```

@@ -4,10 +4,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { ClosetItem } from "@kyarafit/design-system/types";
 import { listItems } from "../src/storage/closetRepo";
-import {
-  getLinkedClosetItemIds,
-  linkBuildItems,
-} from "../src/storage/buildsRepo";
+import { getLinkedClosetItemIds, linkBuildItems } from "../src/storage/buildsRepo";
 
 export default function BuildLinkItemsScreen() {
   const { buildId } = useLocalSearchParams<{ buildId: string }>();
@@ -53,26 +50,14 @@ export default function BuildLinkItemsScreen() {
           <Text style={styles.saveText}>SAVE</Text>
         </Pressable>
       </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.hint}>
-          Select items to include in this build. They will appear in packing
-          lists when this build is assigned to a day.
+          Select items to include in this build. They will appear in packing lists when this build
+          is assigned to a day.
         </Text>
         {items.map((item) => (
-          <Pressable
-            key={item.id}
-            style={styles.row}
-            onPress={() => toggle(item.id)}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                selectedIds.has(item.id) && styles.checkboxChecked,
-              ]}
-            >
+          <Pressable key={item.id} style={styles.row} onPress={() => toggle(item.id)}>
+            <View style={[styles.checkbox, selectedIds.has(item.id) && styles.checkboxChecked]}>
               {selectedIds.has(item.id) && <View style={styles.checkmark} />}
             </View>
             <Text style={styles.itemName}>{item.name}</Text>

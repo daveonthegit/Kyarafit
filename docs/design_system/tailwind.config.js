@@ -5,7 +5,7 @@ module.exports = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}"
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -22,31 +22,31 @@ module.exports = {
           border: "rgba(0,0,0,0.10)",
           borderSubtle: "rgba(0,0,0,0.05)",
           accent: "#1152D4",
-          danger: "rgba(239,68,68,0.80)"
-        }
+          danger: "rgba(239,68,68,0.80)",
+        },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Arial", "sans-serif"],
         serif: ["Playfair Display", "Georgia", "serif"],
         "serif-elegant": ["Bodoni Moda", "Georgia", "serif"],
-        "sans-wide": ["Montserrat", "Inter", "system-ui", "sans-serif"]
+        "sans-wide": ["Montserrat", "Inter", "system-ui", "sans-serif"],
       },
       letterSpacing: {
         meta: "0.2em",
         wide: "0.25em",
         wider: "0.3em",
-        widest: "0.4em"
+        widest: "0.4em",
       },
       borderRadius: {
         // Prototype uses sharp geometry; keep radii minimal
         sm: "2px",
-        DEFAULT: "6px"
+        DEFAULT: "6px",
       },
       boxShadow: {
         soft: "0 20px 40px rgba(0,0,0,0.05)",
-        fab: "0 10px 20px rgba(0,0,0,0.12)"
-      }
-    }
+        fab: "0 10px 20px rgba(0,0,0,0.12)",
+      },
+    },
   },
-  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/container-queries")]
+  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/container-queries")],
 };

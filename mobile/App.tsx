@@ -77,26 +77,10 @@ function MainApp() {
           },
         })}
       >
-        <Tab.Screen
-          name="Closet"
-          component={ClosetScreen}
-          options={{ title: "My Closet" }}
-        />
-        <Tab.Screen
-          name="Builds"
-          component={BuildsScreen}
-          options={{ title: "Builds" }}
-        />
-        <Tab.Screen
-          name="Coords"
-          component={CoordsScreen}
-          options={{ title: "Coords" }}
-        />
-        <Tab.Screen
-          name="Wishlist"
-          component={WishlistScreen}
-          options={{ title: "Wishlist" }}
-        />
+        <Tab.Screen name="Closet" component={ClosetScreen} options={{ title: "My Closet" }} />
+        <Tab.Screen name="Builds" component={BuildsScreen} options={{ title: "Builds" }} />
+        <Tab.Screen name="Coords" component={CoordsScreen} options={{ title: "Coords" }} />
+        <Tab.Screen name="Wishlist" component={WishlistScreen} options={{ title: "Wishlist" }} />
         <Tab.Screen
           name="Conventions"
           component={ConventionsScreen}

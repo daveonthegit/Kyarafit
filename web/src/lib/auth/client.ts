@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { createClient } from '../supabase/client';
-import type { Session, User } from '@supabase/supabase-js';
+import { useEffect, useState } from "react";
+import { createClient } from "../supabase/client";
+import type { Session, User } from "@supabase/supabase-js";
 
 const supabase = createClient();
 
@@ -36,7 +36,9 @@ export function useSession() {
 }
 
 export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 }
 
