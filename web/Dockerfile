@@ -39,9 +39,9 @@ ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://placeholder.sup
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-placeholder-key}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the web application
-WORKDIR /app/web
-RUN npm run build
+# Build the web application from workspace root context
+WORKDIR /app
+RUN npm run build --workspace=web
 
 # Production image, copy all the files and run next
 FROM base AS runner

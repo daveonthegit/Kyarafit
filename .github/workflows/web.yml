@@ -2,128 +2,128 @@ name: Web CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'web/**'
-      - 'design-system/**'
-      - '.github/workflows/web.yml'
+      - "web/**"
+      - "design-system/**"
+      - ".github/workflows/web.yml"
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'web/**'
-      - 'design-system/**'
-      - '.github/workflows/web.yml'
-  workflow_call:  # Allow calling from other workflows
+      - "web/**"
+      - "design-system/**"
+      - ".github/workflows/web.yml"
+  workflow_call: # Allow calling from other workflows
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        
-    - name: Install workspace dependencies
-      run: npm install
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-    - name: Install web dependencies
-      working-directory: ./web
-      run: npm install
+      - name: Install workspace dependencies
+        run: npm install
 
-    - name: Run ESLint
-      working-directory: ./web
-      run: npm run lint
+      - name: Install web dependencies
+        working-directory: ./web
+        run: npm install
 
-    - name: Run TypeScript check
-      working-directory: ./web
-      run: npx tsc --noEmit
+      - name: Run ESLint
+        working-directory: ./web
+        run: npm run lint
 
-    - name: Run tests (if available)
-      working-directory: ./web
-      run: |
-        if [ -f "package.json" ] && npm run test --if-present; then
-          npm run test
-        else
-          echo "No tests configured yet"
-        fi
+      - name: Run TypeScript check
+        working-directory: ./web
+        run: npx tsc --noEmit
+
+      - name: Run tests (if available)
+        working-directory: ./web
+        run: |
+          if [ -f "package.json" ] && npm run test --if-present; then
+            npm run test
+          else
+            echo "No tests configured yet"
+          fi
 
   build:
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        
-    - name: Install workspace dependencies
-      run: npm install
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-    - name: Install web dependencies
-      working-directory: ./web
-      run: npm install
+      - name: Install workspace dependencies
+        run: npm install
 
-    - name: Build application
-      working-directory: ./web
-      env:
-        # Build-time environment variables
-        NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
-        NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
-        # Supabase placeholder values for build (real values set at runtime via Cloud Run secrets)
-        NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
-      run: |
-        npm run build || {
-          # Check if only error pages failed (known Next.js 14 issue with client components)
-          if grep -q "Export encountered errors on following paths" .next/trace 2>/dev/null || \
-             [[ "$(tail -20 npm_output.log 2>/dev/null | grep -c '/_error')" -gt 0 ]]; then
-            echo "✅ Build completed (error pages skipped - known issue with Next.js 14 + client components)"
-            exit 0
+      - name: Install web dependencies
+        working-directory: ./web
+        run: npm install
+
+      - name: Build application
+        working-directory: ./web
+        env:
+          # Build-time environment variables
+          NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
+          NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
+          # Supabase placeholder values for build (real values set at runtime via Cloud Run secrets)
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
+        run: |
+          npm run build || {
+            # Check if only error pages failed (known Next.js 14 issue with client components)
+            if grep -q "Export encountered errors on following paths" .next/trace 2>/dev/null || \
+               [[ "$(tail -20 npm_output.log 2>/dev/null | grep -c '/_error')" -gt 0 ]]; then
+              echo "✅ Build completed (error pages skipped - known issue with Next.js 14 + client components)"
+              exit 0
+            else
+              exit 1
+            fi
+          }
+
+      - name: Test build output
+        working-directory: ./web
+        run: |
+          if [ -d ".next" ]; then
+            echo "Build successful - .next directory created"
+            ls -la .next/
           else
+            echo "Build failed - .next directory not found"
             exit 1
           fi
-        }
 
-    - name: Test build output
-      working-directory: ./web
-      run: |
-        if [ -d ".next" ]; then
-          echo "Build successful - .next directory created"
-          ls -la .next/
-        else
-          echo "Build failed - .next directory not found"
-          exit 1
-        fi
+      - name: Check for standalone build
+        working-directory: ./web
+        run: |
+          if [ -d ".next/standalone" ]; then
+            echo "✅ Standalone build detected (optimized for Cloud Run)"
+            ls -lah .next/standalone/
+          else
+            echo "⚠️ Standard build (consider enabling standalone output)"
+          fi
 
-    - name: Check for standalone build
-      working-directory: ./web
-      run: |
-        if [ -d ".next/standalone" ]; then
-          echo "✅ Standalone build detected (optimized for Cloud Run)"
-          ls -lah .next/standalone/
-        else
-          echo "⚠️ Standard build (consider enabling standalone output)"
-        fi
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: web-build
-        path: |
-          web/.next/
-          !web/.next/cache
-        retention-days: 7
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            web/.next/
+            !web/.next/cache
+          retention-days: 7
 
   lighthouse:
     runs-on: ubuntu-latest
@@ -131,99 +131,98 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        
-    - name: Install workspace dependencies
-      run: npm install
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-    - name: Install web dependencies
-      working-directory: ./web
-      run: npm install
+      - name: Install workspace dependencies
+        run: npm install
 
-    - name: Build application
-      working-directory: ./web
-      env:
-        NEXT_PUBLIC_API_URL: http://localhost:8080
-        NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
-        NEXT_PUBLIC_APP_URL: http://localhost:3000
-        NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
-        NODE_ENV: production
-      run: npm run build
+      - name: Install web dependencies
+        working-directory: ./web
+        run: npm install
 
-    - name: Start application
-      working-directory: ./web
-      run: |
-        npm start &
-        sleep 15
-        curl -f http://localhost:3000 || exit 1
+      - name: Build application
+        working-directory: ./web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
+          NODE_ENV: production
+        run: npm run build
 
-    - name: Run Lighthouse CI
-      uses: treosh/lighthouse-ci-action@v10
-      continue-on-error: true
-      with:
-        configPath: './web/.lighthouserc.json'
-        uploadArtifacts: true
-        temporaryPublicStorage: true
+      - name: Start application
+        working-directory: ./web
+        run: |
+          npm start &
+          sleep 15
+          curl -f http://localhost:3000 || exit 1
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        continue-on-error: true
+        with:
+          configPath: "./web/.lighthouserc.json"
+          uploadArtifacts: true
+          temporaryPublicStorage: true
 
   docker:
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image (optimized for Cloud Run)
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./web/Dockerfile
-        push: false
-        tags: kyarafit-web:latest
-        build-args: |
-          NEXT_PUBLIC_API_URL=http://localhost:8080
-          NEXT_PUBLIC_IMAGE_SERVICE_URL=http://localhost:8001
-          NEXT_PUBLIC_APP_URL=http://localhost:3000
-          NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build Docker image (optimized for Cloud Run)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./web/Dockerfile
+          push: false
+          tags: kyarafit-web:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8080
+            NEXT_PUBLIC_IMAGE_SERVICE_URL=http://localhost:8001
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
+            NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    - name: Test Docker image
-      run: |
-        # Start container
-        docker run --rm -d -p 3000:3000 --name test-web kyarafit-web:latest
-        
-        # Wait for startup
-        echo "Waiting for container to start..."
-        sleep 15
-        
-        # Test health
-        curl -f http://localhost:3000 || { docker logs test-web; exit 1; }
-        
-        # Stop container
-        docker stop test-web
-        
-        echo "✅ Docker image built and tested successfully"
-    
-    - name: Check image size
-      run: |
-        IMAGE_SIZE=$(docker images kyarafit-web:latest --format "{{.Size}}")
-        echo "## 🐳 Web Docker Build" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Image:** kyarafit-web:latest" >> $GITHUB_STEP_SUMMARY
-        echo "- **Size:** $IMAGE_SIZE" >> $GITHUB_STEP_SUMMARY
-        echo "- **Multi-stage build:** ✅ Yes" >> $GITHUB_STEP_SUMMARY
-        echo "- **Ready for:** GCP Cloud Run" >> $GITHUB_STEP_SUMMARY
+      - name: Test Docker image
+        run: |
+          # Start container
+          docker run --rm -d -p 3000:3000 --name test-web kyarafit-web:latest
 
+          # Wait for startup
+          echo "Waiting for container to start..."
+          sleep 15
+
+          # Test health
+          curl -f http://localhost:3000 || { docker logs test-web; exit 1; }
+
+          # Stop container
+          docker stop test-web
+
+          echo "✅ Docker image built and tested successfully"
+
+      - name: Check image size
+        run: |
+          IMAGE_SIZE=$(docker images kyarafit-web:latest --format "{{.Size}}")
+          echo "## 🐳 Web Docker Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** kyarafit-web:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size:** $IMAGE_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Multi-stage build:** ✅ Yes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ready for:** GCP Cloud Run" >> $GITHUB_STEP_SUMMARY

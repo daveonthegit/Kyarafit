@@ -18,9 +18,9 @@ linters:
     - staticcheck
     - typecheck
     - unused
-    - gosec        # Security issues
-    - goimports    # Import formatting
-    - misspell     # Spelling
+    - gosec # Security issues
+    - goimports # Import formatting
+    - misspell # Spelling
     # Temporarily disabled (noisy, non-critical):
     # - dupl       # Code duplication (refactor later)
     # - gocyclo    # Complexity (business logic)

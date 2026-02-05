@@ -249,9 +249,9 @@ func (r *Repository) RegeneratePackingList(ctx context.Context, conventionID, de
 		if p.BuildID == nil || *p.BuildID == "" {
 			continue
 		}
-		itemIDs, err := r.getBuildLinkedClosetItemIDs(ctx, tx, *p.BuildID)
-		if err != nil {
-			return nil, err
+		itemIDs, getErr := r.getBuildLinkedClosetItemIDs(ctx, tx, *p.BuildID)
+		if getErr != nil {
+			return nil, getErr
 		}
 		for _, cid := range itemIDs {
 			if _, ok := seenCloset[cid]; ok {
@@ -260,8 +260,8 @@ func (r *Repository) RegeneratePackingList(ctx context.Context, conventionID, de
 			seenCloset[cid] = struct{}{}
 			// Get closet item name for label
 			var label string
-			err := tx.QueryRow(ctx, `SELECT name FROM closet_items WHERE id = $1`, cid).Scan(&label)
-			if err != nil {
+			scanErr := tx.QueryRow(ctx, `SELECT name FROM closet_items WHERE id = $1`, cid).Scan(&label)
+			if scanErr != nil {
 				continue
 			}
 			id := uuid.New().String()

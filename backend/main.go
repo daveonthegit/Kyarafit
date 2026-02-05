@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"kyarafit-backend/internal/closet"
 	"kyarafit-backend/internal/convention"
 	"kyarafit-backend/internal/email"
+	"kyarafit-backend/internal/imageservice"
 	"kyarafit-backend/internal/seed"
 	"kyarafit-backend/internal/storage"
 	"kyarafit-backend/internal/sync"
@@ -318,35 +320,68 @@ func uploadImageHandler(userRepo *appuser.Repository) fiber.Handler {
 			}
 		}
 
-		// Open file
+		// Read file into memory (needed for optional image-service and for UploadFromBytes)
 		src, err := file.Open()
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to read file"})
 		}
-		defer src.Close()
+		bodyBytes, err := io.ReadAll(src)
+		src.Close()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to read file"})
+		}
 
 		// Generate unique filename
-		filename := fmt.Sprintf("%s/%s%s", category, uuid.New().String(), ext)
+		id := uuid.New().String()
+		filename := fmt.Sprintf("%s/%s%s", category, id, ext)
 
-		// Upload to Supabase Storage
+		// Upload original to Supabase Storage
 		storageClient := storage.NewSupabaseStorage()
-		publicURL, err := storageClient.Upload(u.ID, filename, src)
+		publicURL, err := storageClient.UploadFromBytes(u.ID, filename, bodyBytes)
 		if err != nil {
 			log.Printf("Storage upload error: %v", err)
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to upload image"})
 		}
 
+		// Optional: background removal via image-service
+		var publicURLNoBg string
+		imgClient := imageservice.NewClient()
+		if imgClient.Enabled() {
+			contentType := "image/jpeg"
+			switch ext {
+			case ".png":
+				contentType = "image/png"
+			case ".webp":
+				contentType = "image/webp"
+			case ".gif":
+				contentType = "image/gif"
+			}
+			pngBytes, err := imgClient.RemoveBackground(c.Context(), bodyBytes, contentType)
+			if err != nil {
+				log.Printf("Image service background removal failed (continuing with original only): %v", err)
+			} else {
+				nobgFilename := fmt.Sprintf("%s/%s-nobg.png", category, id)
+				publicURLNoBg, err = storageClient.UploadFromBytes(u.ID, nobgFilename, pngBytes)
+				if err != nil {
+					log.Printf("Failed to upload no-bg image to storage: %v", err)
+				}
+			}
+		}
+
 		// Update user's storage usage
 		if err := userRepo.UpdateUsage(c.Context(), u.ID, fileSizeMBRounded); err != nil {
 			log.Printf("Failed to update usage for user %s: %v", u.ID, err)
-			// Don't fail the request - image was uploaded successfully
 		}
 
-		return c.Status(201).JSON(fiber.Map{
+		resp := fiber.Map{
 			"url":    publicURL,
 			"size":   file.Size,
 			"sizeMb": fmt.Sprintf("%.2f", fileSizeMB),
-		})
+		}
+		if publicURLNoBg != "" {
+			resp["url_no_bg"] = publicURLNoBg
+		}
+		return c.Status(201).JSON(resp)
 	}
 }
 

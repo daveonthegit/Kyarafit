@@ -29,40 +29,33 @@ func NewSupabaseStorage() *SupabaseStorage {
 // Upload uploads a file to Supabase Storage and returns the public URL.
 // Path format: {userID}/{filename}
 func (s *SupabaseStorage) Upload(userID string, filename string, file multipart.File) (string, error) {
-	// Read file content
 	content, err := io.ReadAll(file)
 	if err != nil {
 		return "", err
 	}
+	return s.UploadFromBytes(userID, filename, content)
+}
 
-	// Storage path: userID/filename
+// UploadFromBytes uploads content to Supabase Storage and returns the public URL.
+func (s *SupabaseStorage) UploadFromBytes(userID string, filename string, content []byte) (string, error) {
 	storagePath := fmt.Sprintf("%s/%s", userID, filename)
 	url := fmt.Sprintf("%s/storage/v1/object/%s/%s", s.supabaseURL, s.bucketName, storagePath)
-
-	// Create request
 	req, err := http.NewRequest("POST", url, bytes.NewReader(content))
 	if err != nil {
 		return "", err
 	}
-
-	// Set headers
 	req.Header.Set("Authorization", "Bearer "+s.serviceKey)
 	req.Header.Set("Content-Type", detectContentType(filename))
-
-	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("upload failed: %s", string(body))
 	}
-
-	// Return public URL
 	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.supabaseURL, s.bucketName, storagePath)
 	return publicURL, nil
 }
@@ -86,6 +79,8 @@ func detectContentType(filename string) string {
 		return "image/png"
 	case ".webp":
 		return "image/webp"
+	case ".gif":
+		return "image/gif"
 	default:
 		return "application/octet-stream"
 	}

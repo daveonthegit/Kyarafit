@@ -72,19 +72,19 @@ const url = await uploadImage(file, userId);
 **Pros:** Simple, fast, offloads upload from your backend  
 **Cons:** No background removal (yet)
 
-#### **Option B: Backend Upload** (For image processing)
+#### **Option B: Backend Upload** (For image processing) — _Implemented_
 
 Client → Backend → Image Service → Supabase Storage:
 
 ```
-1. Client sends image to backend
-2. Backend sends to image-service for background removal
-3. Backend uploads both versions to Supabase Storage
-4. Backend returns URLs
+1. Client sends image to backend (POST /api/v1/upload/image)
+2. Backend uploads original to Supabase Storage
+3. If IMAGE_SERVICE_URL is set, backend calls image-service for background removal and uploads the PNG to Storage as {id}-nobg.png
+4. Backend returns { "url", "url_no_bg" (optional), "size", "sizeMb" }
 ```
 
-**Pros:** Can process images (remove background)  
-**Cons:** Backend handles uploads (more load)
+**Pros:** Can process images (remove background); `url_no_bg` is returned when the image service is configured and succeeds.  
+**Cons:** Backend handles uploads (more load). If the image service is down or fails, only `url` is returned (upload still succeeds).
 
 ### 5. Storage Folder Structure
 

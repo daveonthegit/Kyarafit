@@ -8,13 +8,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
-  // Allow build to continue if error pages fail to prerender
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
+  // Note: eslint config removed as it's no longer supported in Next.js 16
+  // Use next lint command directly or configure in eslint.config.mjs
   // Disable static generation for error pages to avoid prerendering issues
   async redirects() {
     return [];

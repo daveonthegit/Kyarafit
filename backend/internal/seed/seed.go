@@ -50,11 +50,11 @@ func CreateStarterData(
 		"Create mockup",
 	}
 	for i, taskLabel := range starterTasks {
-		_, err := buildRepo.CreateTask(ctx, build.ID, builds.CreateBuildTaskInput{
+		_, taskErr := buildRepo.CreateTask(ctx, build.ID, builds.CreateBuildTaskInput{
 			Label:     taskLabel,
 			SortOrder: i,
 		})
-		if err != nil {
+		if taskErr != nil {
 			// Continue even if task creation fails
 			continue
 		}

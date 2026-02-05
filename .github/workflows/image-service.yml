@@ -2,251 +2,251 @@ name: Image Service CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'image-service/**'
-      - '.github/workflows/image-service.yml'
+      - "image-service/**"
+      - ".github/workflows/image-service.yml"
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'image-service/**'
-      - '.github/workflows/image-service.yml'
-  workflow_call:  # Allow calling from other workflows
+      - "image-service/**"
+      - ".github/workflows/image-service.yml"
+  workflow_call: # Allow calling from other workflows
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('image-service/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('image-service/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1
 
-    - name: Install Python dependencies
-      working-directory: ./image-service
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install Python dependencies
+        working-directory: ./image-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run Black formatter check
-      working-directory: ./image-service
-      run: |
-        pip install black
-        black --check --diff .
+      - name: Run Black formatter check
+        working-directory: ./image-service
+        run: |
+          pip install black
+          black --check --diff .
 
-    - name: Run isort import sorting check
-      working-directory: ./image-service
-      run: |
-        pip install isort
-        isort --check-only --diff .
+      - name: Run isort import sorting check
+        working-directory: ./image-service
+        run: |
+          pip install isort
+          isort --check-only --diff .
 
-    - name: Run Flake8 linter
-      working-directory: ./image-service
-      run: |
-        pip install flake8
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Run Flake8 linter
+        working-directory: ./image-service
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Run mypy type checking
-      working-directory: ./image-service
-      run: |
-        pip install mypy
-        mypy . --ignore-missing-imports
+      - name: Run mypy type checking
+        working-directory: ./image-service
+        run: |
+          pip install mypy
+          mypy . --ignore-missing-imports
 
-    - name: Run tests
-      working-directory: ./image-service
-      run: |
-        pip install pytest pytest-asyncio httpx
-        # Create basic test file if it doesn't exist
-        if [ ! -f "test_main.py" ]; then
-          cat > test_main.py << 'EOF'
-        import pytest
-        from fastapi.testclient import TestClient
-        from main import app
+      - name: Run tests
+        working-directory: ./image-service
+        run: |
+          pip install pytest pytest-asyncio httpx
+          # Create basic test file if it doesn't exist
+          if [ ! -f "test_main.py" ]; then
+            cat > test_main.py << 'EOF'
+          import pytest
+          from fastapi.testclient import TestClient
+          from main import app
 
-        client = TestClient(app)
+          client = TestClient(app)
 
-        def test_health_check():
-            response = client.get("/health")
-            assert response.status_code == 200
-            assert response.json()["status"] == "ok"
+          def test_health_check():
+              response = client.get("/health")
+              assert response.status_code == 200
+              assert response.json()["status"] == "ok"
 
-        def test_models_endpoint():
-            response = client.get("/models")
-            assert response.status_code == 200
-            assert "models" in response.json()
-        EOF
-        fi
-        python -m pytest test_main.py -v
+          def test_models_endpoint():
+              response = client.get("/models")
+              assert response.status_code == 200
+              assert "models" in response.json()
+          EOF
+          fi
+          python -m pytest test_main.py -v
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      if: github.event_name == 'pull_request'
-      continue-on-error: true
-      with:
-        file: ./image-service/coverage.xml
-        flags: image-service
-        name: image-service-coverage
-        token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        with:
+          file: ./image-service/coverage.xml
+          flags: image-service
+          name: image-service-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1
 
-    - name: Install Python dependencies
-      working-directory: ./image-service
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install Python dependencies
+        working-directory: ./image-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Test application startup
-      working-directory: ./image-service
-      run: |
-        python -c "
-        import main
-        print('Application imports successfully')
-        print('Available endpoints:')
-        for route in main.app.routes:
-            if hasattr(route, 'path'):
-                print(f'  {route.methods} {route.path}')
-        "
+      - name: Test application startup
+        working-directory: ./image-service
+        run: |
+          python -c "
+          import main
+          print('Application imports successfully')
+          print('Available endpoints:')
+          for route in main.app.routes:
+              if hasattr(route, 'path'):
+                  print(f'  {route.methods} {route.path}')
+          "
 
-    - name: Create test image
-      working-directory: ./image-service
-      run: |
-        python -c "
-        from PIL import Image
-        import numpy as np
-        
-        # Create a simple test image
-        img_array = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
-        img = Image.fromarray(img_array)
-        img.save('../test_image.jpg')
-        print('Test image created')
-        "
+      - name: Create test image
+        working-directory: ./image-service
+        run: |
+          python -c "
+          from PIL import Image
+          import numpy as np
 
-    - name: Test image processing (if rembg works)
-      working-directory: ./image-service
-      run: |
-        python -c "
-        try:
-            from rembg import remove
-            with open('../test_image.jpg', 'rb') as f:
-                input_data = f.read()
-            output_data = remove(input_data)
-            print('Image processing test successful')
-        except Exception as e:
-            print(f'Image processing test failed (expected in CI): {e}')
-        " || echo "Image processing test failed (expected in CI environment)"
+          # Create a simple test image
+          img_array = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+          img = Image.fromarray(img_array)
+          img.save('../test_image.jpg')
+          print('Test image created')
+          "
+
+      - name: Test image processing (if rembg works)
+        working-directory: ./image-service
+        run: |
+          python -c "
+          try:
+              from rembg import remove
+              with open('../test_image.jpg', 'rb') as f:
+                  input_data = f.read()
+              output_data = remove(input_data)
+              print('Image processing test successful')
+          except Exception as e:
+              print(f'Image processing test failed (expected in CI): {e}')
+          " || echo "Image processing test failed (expected in CI environment)"
 
   docker:
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./image-service
-        file: ./image-service/Dockerfile
-        push: false
-        tags: kyarafit-image-service:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./image-service
+          file: ./image-service/Dockerfile
+          push: false
+          tags: kyarafit-image-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    - name: Test Docker image
-      run: |
-        # Start container
-        docker run --rm -d -p 8000:8000 --name test-image-service kyarafit-image-service:latest
-        
-        # Wait for startup
-        echo "Waiting for container to start..."
-        sleep 20
-        
-        # Test health endpoint
-        curl -f http://localhost:8000/health || { docker logs test-image-service; exit 1; }
-        
-        # Test models endpoint
-        curl -f http://localhost:8000/models || echo "Models endpoint not critical"
-        
-        # Stop container
-        docker stop test-image-service
-        
-        echo "✅ Docker image built and tested successfully"
-    
-    - name: Check image size
-      run: |
-        IMAGE_SIZE=$(docker images kyarafit-image-service:latest --format "{{.Size}}")
-        echo "## 🐳 Image Service Docker Build" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Image:** kyarafit-image-service:latest" >> $GITHUB_STEP_SUMMARY
-        echo "- **Size:** $IMAGE_SIZE" >> $GITHUB_STEP_SUMMARY
-        echo "- **Python:** 3.11-slim" >> $GITHUB_STEP_SUMMARY
-        echo "- **Ready for:** GCP Cloud Run (2GB RAM, 2 vCPU)" >> $GITHUB_STEP_SUMMARY
+      - name: Test Docker image
+        run: |
+          # Start container
+          docker run --rm -d -p 8000:8000 --name test-image-service kyarafit-image-service:latest
+
+          # Wait for startup
+          echo "Waiting for container to start..."
+          sleep 20
+
+          # Test health endpoint
+          curl -f http://localhost:8000/health || { docker logs test-image-service; exit 1; }
+
+          # Test models endpoint
+          curl -f http://localhost:8000/models || echo "Models endpoint not critical"
+
+          # Stop container
+          docker stop test-image-service
+
+          echo "✅ Docker image built and tested successfully"
+
+      - name: Check image size
+        run: |
+          IMAGE_SIZE=$(docker images kyarafit-image-service:latest --format "{{.Size}}")
+          echo "## 🐳 Image Service Docker Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** kyarafit-image-service:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size:** $IMAGE_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python:** 3.11-slim" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ready for:** GCP Cloud Run (2GB RAM, 2 vCPU)" >> $GITHUB_STEP_SUMMARY
 
   security:
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Install security tools
-      run: |
-        pip install safety bandit
+      - name: Install security tools
+        run: |
+          pip install safety bandit
 
-    - name: Run safety check
-      working-directory: ./image-service
-      continue-on-error: true
-      run: |
-        safety check -r requirements.txt || echo "Safety check completed with warnings"
+      - name: Run safety check
+        working-directory: ./image-service
+        continue-on-error: true
+        run: |
+          safety check -r requirements.txt || echo "Safety check completed with warnings"
 
-    - name: Run bandit security linter
-      working-directory: ./image-service
-      continue-on-error: true
-      run: |
-        bandit -r . -f json -o bandit-report.json || true
-        bandit -r . -ll || echo "Bandit scan completed"
+      - name: Run bandit security linter
+        working-directory: ./image-service
+        continue-on-error: true
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -ll || echo "Bandit scan completed"

@@ -4,10 +4,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"kyarafit-backend/database"
 	"kyarafit-backend/models"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type PiecesHandler struct {
@@ -111,13 +112,13 @@ func (h *PiecesHandler) GetPieces(c *fiber.Ctx) error {
 	search := c.Query("search")
 
 	if limitStr := c.Query("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+		if parsedLimit, parseErr := strconv.Atoi(limitStr); parseErr == nil && parsedLimit > 0 && parsedLimit <= 100 {
 			limit = parsedLimit
 		}
 	}
 
 	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+		if parsedOffset, parseErr := strconv.Atoi(offsetStr); parseErr == nil && parsedOffset >= 0 {
 			offset = parsedOffset
 		}
 	}

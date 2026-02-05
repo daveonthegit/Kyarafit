@@ -135,10 +135,10 @@ func (r *Repository) Pull(ctx context.Context, userID string, since *time.Time) 
 	for rows.Next() {
 		var item ClosetItemChange
 		var category, imageURL, notes *string
-		err := rows.Scan(&item.ID, &item.DeviceID, &item.Name, &category, &imageURL, &notes, &item.CreatedAt, &item.UpdatedAt)
-		if err != nil {
+		scanErr := rows.Scan(&item.ID, &item.DeviceID, &item.Name, &category, &imageURL, &notes, &item.CreatedAt, &item.UpdatedAt)
+		if scanErr != nil {
 			rows.Close()
-			return nil, err
+			return nil, scanErr
 		}
 		item.Category = category
 		item.ImageURL = imageURL
@@ -162,10 +162,10 @@ func (r *Repository) Pull(ctx context.Context, userID string, since *time.Time) 
 		var build BuildChange
 		var character, notes, imageURL *string
 		var budgetCents *int
-		err := rows.Scan(&build.ID, &build.DeviceID, &build.Name, &character, &build.Status, &notes, &imageURL, &budgetCents, &build.CreatedAt, &build.UpdatedAt)
-		if err != nil {
+		scanErr := rows.Scan(&build.ID, &build.DeviceID, &build.Name, &character, &build.Status, &notes, &imageURL, &budgetCents, &build.CreatedAt, &build.UpdatedAt)
+		if scanErr != nil {
 			rows.Close()
-			return nil, err
+			return nil, scanErr
 		}
 		build.Character = character
 		build.Notes = notes
@@ -192,10 +192,10 @@ func (r *Repository) Pull(ctx context.Context, userID string, since *time.Time) 
 	for rows.Next() {
 		var task BuildTaskChange
 		var closetItemID *string
-		err := rows.Scan(&task.ID, &task.BuildID, &task.Label, &closetItemID, &task.SortOrder, &task.Checked, &task.CreatedAt, &task.UpdatedAt)
-		if err != nil {
+		scanErr := rows.Scan(&task.ID, &task.BuildID, &task.Label, &closetItemID, &task.SortOrder, &task.Checked, &task.CreatedAt, &task.UpdatedAt)
+		if scanErr != nil {
 			rows.Close()
-			return nil, err
+			return nil, scanErr
 		}
 		task.ClosetItemID = closetItemID
 		task.Deleted = false
@@ -216,10 +216,10 @@ func (r *Repository) Pull(ctx context.Context, userID string, since *time.Time) 
 	for rows.Next() {
 		var conv ConventionChange
 		var location, imageURL *string
-		err := rows.Scan(&conv.ID, &conv.DeviceID, &conv.Name, &location, &imageURL, &conv.StartDate, &conv.EndDate, &conv.CreatedAt, &conv.UpdatedAt)
-		if err != nil {
+		scanErr := rows.Scan(&conv.ID, &conv.DeviceID, &conv.Name, &location, &imageURL, &conv.StartDate, &conv.EndDate, &conv.CreatedAt, &conv.UpdatedAt)
+		if scanErr != nil {
 			rows.Close()
-			return nil, err
+			return nil, scanErr
 		}
 		conv.Location = location
 		conv.ImageURL = imageURL
@@ -242,10 +242,10 @@ func (r *Repository) Pull(ctx context.Context, userID string, since *time.Time) 
 	for rows.Next() {
 		var plan ConventionPlanChange
 		var buildID, notes *string
-		err := rows.Scan(&plan.ID, &plan.ConventionID, &plan.Date, &buildID, &notes)
-		if err != nil {
+		scanErr := rows.Scan(&plan.ID, &plan.ConventionID, &plan.Date, &buildID, &notes)
+		if scanErr != nil {
 			rows.Close()
-			return nil, err
+			return nil, scanErr
 		}
 		plan.BuildID = buildID
 		plan.Notes = notes

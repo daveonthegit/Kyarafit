@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'image-service/**'
-      - '.github/workflows/deploy-gcp-image-service.yml'
+      - "image-service/**"
+      - ".github/workflows/deploy-gcp-image-service.yml"
   workflow_dispatch:
 
 env:
@@ -23,14 +23,14 @@ jobs:
   check-ci:
     runs-on: ubuntu-latest
     steps:
-    - name: Wait for CI checks
-      uses: lewagon/wait-on-check-action@v1.3.1
-      with:
-        ref: ${{ github.sha }}
-        check-name: 'Image Service CI'
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        wait-interval: 10
-        allowed-conclusions: success
+      - name: Wait for CI checks
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.sha }}
+          check-name: "Image Service CI"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+          allowed-conclusions: success
 
   deploy:
     runs-on: ubuntu-latest
@@ -43,84 +43,84 @@ jobs:
       id-token: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-    - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-    - name: Build Docker image
-      run: |
-        docker build \
-          -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-          -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest \
-          ./image-service
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest \
+            ./image-service
 
-    - name: Push to Artifact Registry
-      run: |
-        docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }}
-        docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest
+      - name: Push to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest
 
-    - name: Deploy to Cloud Run
-      run: |
-        gcloud run deploy ${{ env.SERVICE_NAME }} \
-          --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-          --platform managed \
-          --region ${{ env.REGION }} \
-          --allow-unauthenticated \
-          --memory 2Gi \
-          --cpu 2 \
-          --max-instances 5 \
-          --min-instances 0 \
-          --timeout 300s \
-          --concurrency 10
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --max-instances 5 \
+            --min-instances 0 \
+            --timeout 300s \
+            --concurrency 10
 
-    - name: Get Service URL
-      id: url
-      run: |
-        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-          --region ${{ env.REGION }} \
-          --format 'value(status.url)')
-        echo "Service deployed to: $SERVICE_URL"
-        echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+      - name: Get Service URL
+        id: url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          echo "Service deployed to: $SERVICE_URL"
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
-    - name: Smoke test deployed service
-      run: |
-        echo "Testing deployed service..."
-        sleep 20  # Wait for heavy service to stabilize
-        if curl -f "${{ steps.url.outputs.url }}/health"; then
-          echo "✅ Smoke test passed"
-        else
-          echo "❌ Smoke test failed"
-          exit 1
-        fi
+      - name: Smoke test deployed service
+        run: |
+          echo "Testing deployed service..."
+          sleep 20  # Wait for heavy service to stabilize
+          if curl -f "${{ steps.url.outputs.url }}/health"; then
+            echo "✅ Smoke test passed"
+          else
+            echo "❌ Smoke test failed"
+            exit 1
+          fi
 
-    - name: Create deployment summary
-      if: always()
-      run: |
-        echo "## ✅ Image Service Deployment Successful" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Service:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **URL:** ${{ steps.url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Custom Domain:** https://images.kyarafit.com" >> $GITHUB_STEP_SUMMARY
-        echo "- **Image:** ${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Memory:** 2Gi" >> $GITHUB_STEP_SUMMARY
-        echo "- **CPU:** 2" >> $GITHUB_STEP_SUMMARY
-        echo "- **Timeout:** 300s (for image processing)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔄 Rollback" >> $GITHUB_STEP_SUMMARY
-        echo "If needed, rollback with:" >> $GITHUB_STEP_SUMMARY
-        echo '```bash' >> $GITHUB_STEP_SUMMARY
-        echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} --to-revisions=PREVIOUS=100 --region ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## ✅ Image Service Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** ${{ steps.url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Custom Domain:** https://images.kyarafit.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Memory:** 2Gi" >> $GITHUB_STEP_SUMMARY
+          echo "- **CPU:** 2" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timeout:** 300s (for image processing)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Rollback" >> $GITHUB_STEP_SUMMARY
+          echo "If needed, rollback with:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} --to-revisions=PREVIOUS=100 --region ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

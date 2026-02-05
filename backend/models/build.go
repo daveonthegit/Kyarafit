@@ -10,12 +10,12 @@ import (
 type BuildStatus string
 
 const (
-	BuildStatusIdea      BuildStatus = "idea"
-	BuildStatusSourcing  BuildStatus = "sourcing"
-	BuildStatusWIP       BuildStatus = "wip"
-	BuildStatusComplete  BuildStatus = "complete"
-	BuildStatusOnHold    BuildStatus = "on_hold"
-	BuildStatusCancelled BuildStatus = "cancelled"
+	BuildStatusIdea     BuildStatus = "idea"
+	BuildStatusSourcing BuildStatus = "sourcing"
+	BuildStatusWIP      BuildStatus = "wip"
+	BuildStatusComplete BuildStatus = "complete"
+	BuildStatusOnHold   BuildStatus = "on_hold"
+	BuildStatusCanceled BuildStatus = "canceled"
 )
 
 // Build represents a cosplay build project
@@ -45,7 +45,7 @@ type CreateBuildRequest struct {
 	Description *string  `json:"description,omitempty" validate:"omitempty,max=1000"`
 	Character   *string  `json:"character,omitempty" validate:"omitempty,max=255"`
 	Series      *string  `json:"series,omitempty" validate:"omitempty,max=255"`
-	Status      *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
+	Status      *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold canceled"`
 	Priority    *int     `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
 	Budget      *float64 `json:"budget,omitempty" validate:"omitempty,min=0"`
 	Spent       *float64 `json:"spent,omitempty" validate:"omitempty,min=0"`
@@ -61,7 +61,7 @@ type UpdateBuildRequest struct {
 	Description   *string  `json:"description,omitempty" validate:"omitempty,max=1000"`
 	Character     *string  `json:"character,omitempty" validate:"omitempty,max=255"`
 	Series        *string  `json:"series,omitempty" validate:"omitempty,max=255"`
-	Status        *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
+	Status        *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold canceled"`
 	Priority      *int     `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
 	Budget        *float64 `json:"budget,omitempty" validate:"omitempty,min=0"`
 	Spent         *float64 `json:"spent,omitempty" validate:"omitempty,min=0"`
@@ -129,8 +129,8 @@ func (s BuildStatus) GetStatusDisplayName() string {
 		return "Complete"
 	case BuildStatusOnHold:
 		return "On Hold"
-	case BuildStatusCancelled:
-		return "Cancelled"
+	case BuildStatusCanceled:
+		return "Canceled"
 	default:
 		return "Unknown"
 	}
@@ -139,7 +139,7 @@ func (s BuildStatus) GetStatusDisplayName() string {
 // IsValidStatus checks if a status string is valid
 func IsValidStatus(status string) bool {
 	switch BuildStatus(status) {
-	case BuildStatusIdea, BuildStatusSourcing, BuildStatusWIP, BuildStatusComplete, BuildStatusOnHold, BuildStatusCancelled:
+	case BuildStatusIdea, BuildStatusSourcing, BuildStatusWIP, BuildStatusComplete, BuildStatusOnHold, BuildStatusCanceled:
 		return true
 	default:
 		return false

@@ -4,10 +4,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"kyarafit-backend/database"
 	"kyarafit-backend/models"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type BuildsHandler struct {
@@ -53,7 +54,7 @@ func (h *BuildsHandler) CreateBuild(c *fiber.Ctx) error {
 	if req.Status != nil {
 		if !models.IsValidStatus(*req.Status) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, cancelled",
+				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, canceled",
 			})
 		}
 		status = models.BuildStatus(*req.Status)
@@ -137,13 +138,13 @@ func (h *BuildsHandler) GetBuilds(c *fiber.Ctx) error {
 	upcoming := c.Query("upcoming")
 
 	if limitStr := c.Query("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+		if parsedLimit, parseErr := strconv.Atoi(limitStr); parseErr == nil && parsedLimit > 0 && parsedLimit <= 100 {
 			limit = parsedLimit
 		}
 	}
 
 	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+		if parsedOffset, parseErr := strconv.Atoi(offsetStr); parseErr == nil && parsedOffset >= 0 {
 			offset = parsedOffset
 		}
 	}
@@ -156,12 +157,12 @@ func (h *BuildsHandler) GetBuilds(c *fiber.Ctx) error {
 	} else if status != "" {
 		if !models.IsValidStatus(status) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, cancelled",
+				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, canceled",
 			})
 		}
 		builds, buildsErr = h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatus(status), limit, offset)
 	} else if priority != "" {
-		if parsedPriority, err := strconv.Atoi(priority); err == nil && parsedPriority >= 1 && parsedPriority <= 5 {
+		if parsedPriority, parseErr := strconv.Atoi(priority); parseErr == nil && parsedPriority >= 1 && parsedPriority <= 5 {
 			builds, buildsErr = h.buildRepo.GetBuildsByPriority(userUUID, parsedPriority, limit, offset)
 		} else {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -170,7 +171,7 @@ func (h *BuildsHandler) GetBuilds(c *fiber.Ctx) error {
 		}
 	} else if upcoming != "" {
 		days := 30 // Default to 30 days
-		if parsedDays, err := strconv.Atoi(upcoming); err == nil && parsedDays > 0 {
+		if parsedDays, parseErr := strconv.Atoi(upcoming); parseErr == nil && parsedDays > 0 {
 			days = parsedDays
 		}
 		builds, buildsErr = h.buildRepo.GetUpcomingBuilds(userUUID, days, limit, offset)
@@ -309,7 +310,7 @@ func (h *BuildsHandler) UpdateBuild(c *fiber.Ctx) error {
 	if req.Status != nil {
 		if !models.IsValidStatus(*req.Status) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, cancelled",
+				"error": "Invalid status. Must be one of: idea, sourcing, wip, complete, on_hold, canceled",
 			})
 		}
 		existingBuild.Status = models.BuildStatus(*req.Status)
@@ -448,7 +449,7 @@ func (h *BuildsHandler) GetBuildStats(c *fiber.Ctx) error {
 	wipCount, _ := h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatusWIP, 1, 0)
 	completeCount, _ := h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatusComplete, 1, 0)
 	onHoldCount, _ := h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatusOnHold, 1, 0)
-	cancelledCount, _ := h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatusCancelled, 1, 0)
+	canceledCount, _ := h.buildRepo.GetBuildsByStatus(userUUID, models.BuildStatusCanceled, 1, 0)
 
 	// Get upcoming builds (next 30 days)
 	upcomingBuilds, _ := h.buildRepo.GetUpcomingBuilds(userUUID, 30, 10, 0)
@@ -456,12 +457,12 @@ func (h *BuildsHandler) GetBuildStats(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"total_builds": totalCount,
 		"by_status": fiber.Map{
-			"idea":      len(ideaCount),
-			"sourcing":  len(sourcingCount),
-			"wip":       len(wipCount),
-			"complete":  len(completeCount),
-			"on_hold":   len(onHoldCount),
-			"cancelled": len(cancelledCount),
+			"idea":     len(ideaCount),
+			"sourcing": len(sourcingCount),
+			"wip":      len(wipCount),
+			"complete": len(completeCount),
+			"on_hold":  len(onHoldCount),
+			"canceled": len(canceledCount),
 		},
 		"upcoming_builds": len(upcomingBuilds),
 	})

@@ -368,7 +368,7 @@ func (r *BuildRepository) GetUpcomingBuilds(userID uuid.UUID, days int, limit, o
 	query := `
 		SELECT id, user_id, name, description, character, series, status, priority, budget, spent, start_date, target_date, completed_date, tags, notes, created_at, updated_at
 		FROM builds
-		WHERE user_id = $1 AND target_date IS NOT NULL AND target_date <= NOW() + ($2 || ' days')::INTERVAL AND status != 'complete' AND status != 'cancelled'
+		WHERE user_id = $1 AND target_date IS NOT NULL AND target_date <= NOW() + ($2 || ' days')::INTERVAL AND status != 'complete' AND status != 'canceled'
 		ORDER BY target_date ASC
 		LIMIT $3 OFFSET $4`
 
