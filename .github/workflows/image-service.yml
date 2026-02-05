@@ -194,15 +194,27 @@ jobs:
 
       - name: Test Docker image
         run: |
-          # Start container
+          # Start container (rembg loads heavy ONNX models, needs extra time/memory)
           docker run --rm -d -p 8000:8000 --name test-image-service kyarafit-image-service:latest
 
-          # Wait for startup
-          echo "Waiting for container to start..."
-          sleep 20
+          # Retry health check (rembg startup can take 60-90s)
+          echo "Waiting for container to become ready..."
+          for i in {1..24}; do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "✅ Service ready after $((i*5))s"
+              break
+            fi
+            if [ $i -eq 24 ]; then
+              echo "❌ Service did not become ready in 120s"
+              docker logs test-image-service
+              docker ps -a
+              exit 1
+            fi
+            sleep 5
+          done
 
           # Test health endpoint
-          curl -f http://localhost:8000/health || { docker logs test-image-service; exit 1; }
+          curl -f http://localhost:8000/health
 
           # Test models endpoint
           curl -f http://localhost:8000/models || echo "Models endpoint not critical"

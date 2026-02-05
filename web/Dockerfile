@@ -44,6 +44,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN npm run build --workspace=web
 
+# Ensure public dir exists (Next.js public folder is optional)
+RUN mkdir -p /app/web/public
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
