@@ -77,7 +77,7 @@ Run the integration testing checklist: FREE user (web, no sync), PREMIUM sync (c
 
 **What to do**
 
-- Confirm deployment docs (e.g. GCP_DEPLOYMENT, DEPLOYMENT_CHECKLIST): (1) Env vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, STRIPE_*, etc.) are documented and set in target environment. (2) Migration 009 (and 007, 008 if needed) has been run on production DB. (3) Supabase Storage bucket exists and policies (public read, authenticated write) are correct. (4) Monitoring: app_users.current_usage_mb or equivalent is tracked; alerts for failed sync or errors if desired. Update the deployment doc with a short "Verified" or "Checklist completed" section with date.
+- Confirm deployment docs (e.g. GCP*DEPLOYMENT, DEPLOYMENT_CHECKLIST): (1) Env vars (SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, STRIPE*\*, etc.) are documented and set in target environment. (2) Migration 009 (and 007, 008 if needed) has been run on production DB. (3) Supabase Storage bucket exists and policies (public read, authenticated write) are correct. (4) Monitoring: app_users.current_usage_mb or equivalent is tracked; alerts for failed sync or errors if desired. Update the deployment doc with a short "Verified" or "Checklist completed" section with date.
 
 **Files to touch**
 
@@ -93,9 +93,9 @@ Complete deployment preparation: (1) Ensure env vars (SUPABASE_*, JWT_SECRET, ST
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Run backend tests and manual backend checklist; record results. |
-| 2 | Run frontend tests and manual frontend checklist; record results. |
-| 3 | Run integration scenarios; record results; fix critical bugs. |
-| 4 | Confirm deployment env, migrations, storage, monitoring; update deployment doc. |
+| Step | Action                                                                          |
+| ---- | ------------------------------------------------------------------------------- |
+| 1    | Run backend tests and manual backend checklist; record results.                 |
+| 2    | Run frontend tests and manual frontend checklist; record results.               |
+| 3    | Run integration scenarios; record results; fix critical bugs.                   |
+| 4    | Confirm deployment env, migrations, storage, monitoring; update deployment doc. |

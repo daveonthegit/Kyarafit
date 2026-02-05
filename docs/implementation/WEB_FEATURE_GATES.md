@@ -2,6 +2,8 @@
 
 Show **upgrade prompts** where features are gated by tier (e.g. cloud sync) so FREE users understand why a feature is unavailable and how to upgrade. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: **Mobile** should show the same upgrade prompts for FREE users (e.g. sync, export) at the same entry points (e.g. settings, sync section). Use the same tier/feature-access API; this guide is the web implementation.
+
 ---
 
 ## Goal
@@ -74,8 +76,8 @@ In the Kyarafit web app, add upgrade prompts for other gated features: where exp
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Create UpgradePrompt/FeatureGate component (message + optional link). |
-| 2 | Add sync upgrade prompt in settings and/or near sync UI. |
-| 3 | Optional: add prompts for export and other gated features. |
+| Step | Action                                                                |
+| ---- | --------------------------------------------------------------------- |
+| 1    | Create UpgradePrompt/FeatureGate component (message + optional link). |
+| 2    | Add sync upgrade prompt in settings and/or near sync UI.              |
+| 3    | Optional: add prompts for export and other gated features.            |

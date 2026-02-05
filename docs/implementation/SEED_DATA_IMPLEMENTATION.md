@@ -2,6 +2,8 @@
 
 This guide implements **seed data for new users/devices**: a dummy first build, convention, and **one closet item** linked to the build, so Closet and Build detail screens are not empty. Do the steps in order; each step includes a **Cursor prompt** you can paste into Cursor to implement it.
 
+**Feature parity**: Seed runs on the backend for any client (web or mobile) when the device has no builds; no separate mobile step—same API and data for both platforms.
+
 ---
 
 ## Goal and behavior
@@ -155,20 +157,20 @@ Optional: In backend/internal/seed/images.go add a constant ClosetPlaceholderIma
 
 **What to do**
 
-1. **New device seed**  
-   - Start the backend.  
-   - Call `POST /api/seed` with header `x-kyar-device-id: test-seed-<random>` (or use a new UUID).  
-   - Expect `201` and `"created": true`.  
-   - Call `GET /builds` (with same device ID); expect one build.  
-   - Call `GET /builds/:id/items` for that build's ID; expect one closet item ID.  
+1. **New device seed**
+   - Start the backend.
+   - Call `POST /api/seed` with header `x-kyar-device-id: test-seed-<random>` (or use a new UUID).
+   - Expect `201` and `"created": true`.
+   - Call `GET /builds` (with same device ID); expect one build.
+   - Call `GET /builds/:id/items` for that build's ID; expect one closet item ID.
    - Call `GET /closet/items` (with same device ID); expect one closet item (e.g. "Arlecchino Wig").
 
-2. **Idempotency**  
-   - Call `POST /api/seed` again with the **same** device ID.  
-   - Expect `200` and `"created": false`.  
+2. **Idempotency**
+   - Call `POST /api/seed` again with the **same** device ID.
+   - Expect `200` and `"created": false`.
    - Confirm there is still only one build and one closet item (no duplicates).
 
-3. **Regression**  
+3. **Regression**
    - First request to `GET /builds` with a **new** device ID (and no prior seed) should trigger seed in the background; after a moment, listing builds should show the seed build and listing closet items should show the seed closet item.
 
 **Cursor prompt**
@@ -192,12 +194,12 @@ Verify the seed data implementation in the Kyarafit backend:
 
 ## Summary: order of steps
 
-| Step | Action |
-|------|--------|
-| 1 | Add `closetRepo` to `CreateStarterData` and wire it in `main.go` (wrapWithSeed + seedDataHandler). |
-| 2 | In seed, after convention, create one closet item (name, category wig, image, tags, notes). |
-| 3 | After creating closet item, call `buildRepo.LinkItems(ctx, buildID, deviceID, []string{closetItemID})`. |
-| 4 | (Optional) Add `ClosetPlaceholderImage` and use it for the closet item. |
-| 5 | Manually test new-device seed, idempotency, and first-access trigger. |
+| Step | Action                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------- |
+| 1    | Add `closetRepo` to `CreateStarterData` and wire it in `main.go` (wrapWithSeed + seedDataHandler).      |
+| 2    | In seed, after convention, create one closet item (name, category wig, image, tags, notes).             |
+| 3    | After creating closet item, call `buildRepo.LinkItems(ctx, buildID, deviceID, []string{closetItemID})`. |
+| 4    | (Optional) Add `ClosetPlaceholderImage` and use it for the closet item.                                 |
+| 5    | Manually test new-device seed, idempotency, and first-access trigger.                                   |
 
 After Step 3, new users/devices will see one build, one convention, and one closet item, and the build’s “Linked items” will show that closet item.

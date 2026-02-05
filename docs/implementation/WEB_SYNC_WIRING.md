@@ -2,6 +2,8 @@
 
 Call `setupSyncTriggers(token, canSync)` from the app root so the web app runs push/pull on load, focus, and beforeunload. Do steps in order; each has a **Cursor prompt**.
 
+**Platform scope**: This guide is **web-only** (web app root wiring). Mobile has its own sync in `mobile/src/services/sync.ts`; no parity step—ensure both use the same backend sync API.
+
 ---
 
 ## Goal
@@ -80,10 +82,10 @@ In the Kyarafit web app, mount the SyncTrigger (or SyncBootstrap) component so i
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Identify where access token is available (auth hook/context). |
-| 2 | Create client component that calls setupSyncTriggers(token, canUseCloudSync) in useEffect. |
-| 3 | Mount that component in layout or AuthGate. |
+| Step | Action                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 1    | Identify where access token is available (auth hook/context).                              |
+| 2    | Create client component that calls setupSyncTriggers(token, canUseCloudSync) in useEffect. |
+| 3    | Mount that component in layout or AuthGate.                                                |
 
 After Step 3, signed-in PREMIUM_BASIC+ users will trigger sync on load, focus, and beforeunload.

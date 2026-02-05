@@ -2,26 +2,24 @@
 
 import { useState, useRef } from "react";
 import { useSession } from "@/lib/auth/client";
+import { useTier } from "@/lib/api/useTier";
 
 interface ImageUploadProps {
   onImageSelected: (url: string) => void;
   category: "builds" | "conventions" | "closet";
   currentImage?: string;
-  allowUrl?: boolean; // Allow URL input as alternative to file upload
 }
 
-export function ImageUpload({
-  onImageSelected,
-  category,
-  currentImage,
-  allowUrl = false,
-}: ImageUploadProps) {
+export function ImageUpload({ onImageSelected, category, currentImage }: ImageUploadProps) {
   const { session } = useSession();
+  const { data: tier } = useTier();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"file" | "url">("file");
   const [urlInput, setUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isPremium = tier?.tier && tier.tier !== "free";
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,28 +43,42 @@ export function ImageUpload({
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("category", category);
+      // Premium users: upload to cloud storage
+      if (isPremium && session?.access_token) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("category", category);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/upload/image`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: formData,
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/upload/image`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Upload failed");
         }
-      );
 
-      if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Upload failed");
+        onImageSelected(data.url);
+      } else {
+        // Non-premium users: store as local data URL (base64)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          onImageSelected(dataUrl);
+        };
+        reader.onerror = () => {
+          setError("Failed to read file");
+        };
+        reader.readAsDataURL(file);
       }
-
-      const data = await response.json();
-      onImageSelected(data.url);
     } catch (err: any) {
       setError(err.message || "Failed to upload image");
     } finally {
@@ -91,32 +103,31 @@ export function ImageUpload({
 
   return (
     <div className="space-y-4">
-      {allowUrl && (
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setMode("file")}
-            className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
-              mode === "file"
-                ? "border-black bg-kyar-muted text-black"
-                : "border-kyar-border text-kyar-textTertiary hover:border-black"
-            }`}
-          >
-            Upload File
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("url")}
-            className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
-              mode === "url"
-                ? "border-black bg-kyar-muted text-black"
-                : "border-kyar-border text-kyar-textTertiary hover:border-black"
-            }`}
-          >
-            Enter URL
-          </button>
-        </div>
-      )}
+      {/* Mode toggle - always shown */}
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setMode("file")}
+          className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
+            mode === "file"
+              ? "border-black bg-kyar-muted text-black"
+              : "border-kyar-border text-kyar-textTertiary hover:border-black"
+          }`}
+        >
+          Upload File
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("url")}
+          className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
+            mode === "url"
+              ? "border-black bg-kyar-muted text-black"
+              : "border-kyar-border text-kyar-textTertiary hover:border-black"
+          }`}
+        >
+          Enter URL
+        </button>
+      </div>
 
       {mode === "file" ? (
         <div>
@@ -137,9 +148,14 @@ export function ImageUpload({
               <span className="text-sm uppercase tracking-wider">Uploading...</span>
             ) : (
               <div>
-                <span className="material-symbols-outlined text-3xl block mb-2">cloud_upload</span>
+                <span className="material-symbols-outlined text-3xl block mb-2">
+                  {isPremium ? "cloud_upload" : "upload"}
+                </span>
                 <span className="text-sm uppercase tracking-wider">Click to upload image</span>
-                <p className="text-xs text-kyar-textTertiary mt-1">JPG, PNG, WebP, GIF (max 5MB)</p>
+                <p className="text-xs text-kyar-textTertiary mt-1">
+                  JPG, PNG, WebP, GIF (max 5MB)
+                  {isPremium ? " • Cloud storage" : " • Stored locally"}
+                </p>
               </div>
             )}
           </button>

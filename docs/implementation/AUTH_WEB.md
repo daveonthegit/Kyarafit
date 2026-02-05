@@ -2,6 +2,8 @@
 
 Clarify whether **web auth is stubbed** or broken, and ensure the web app can obtain an **access token** for sync and tier checks. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: **Mobile** must also obtain and send an access token for API and sync (e.g. Supabase Auth with Expo SecureStore). Same backend and tier behavior; this guide focuses on web; ensure mobile auth provides the same token for API calls.
+
 ---
 
 ## Goal
@@ -76,8 +78,8 @@ In the Kyarafit web app, ensure the access token is used everywhere it is needed
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Document current auth (stub vs real, IdP, what sync/tier need). |
-| 2 | Either document dev token or implement real auth (Supabase/IdP). |
-| 3 | Ensure token is sent in API calls and to setupSyncTriggers. |
+| Step | Action                                                           |
+| ---- | ---------------------------------------------------------------- |
+| 1    | Document current auth (stub vs real, IdP, what sync/tier need).  |
+| 2    | Either document dev token or implement real auth (Supabase/IdP). |
+| 3    | Ensure token is sent in API calls and to setupSyncTriggers.      |

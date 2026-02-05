@@ -23,7 +23,7 @@ export default function NewBuildPage() {
       createBuild({
         name: name.trim(),
         status,
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: imageUrl.trim(),
         budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
       }),
     onSuccess: (b) => {
@@ -34,7 +34,7 @@ export default function NewBuildPage() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !imageUrl.trim()) return;
     create.mutate();
   };
 
@@ -60,13 +60,17 @@ export default function NewBuildPage() {
             />
           </div>
           <div>
-            <label className="block meta-label mb-2">IMAGE (OPTIONAL)</label>
+            <label className="block meta-label mb-2">IMAGE (REQUIRED)</label>
             <ImageUpload
               category="builds"
               onImageSelected={(url) => setImageUrl(url)}
               currentImage={imageUrl}
-              allowUrl={true}
             />
+            {!imageUrl && (
+              <p className="text-xs text-kyar-textTertiary mt-2">
+                An image is required to create a build
+              </p>
+            )}
           </div>
           <div>
             <label className="block meta-label mb-2">BUDGET $ (OPTIONAL)</label>
@@ -101,7 +105,7 @@ export default function NewBuildPage() {
           </div>
           <button
             type="submit"
-            disabled={create.isPending || !name.trim()}
+            disabled={create.isPending || !name.trim() || !imageUrl.trim()}
             className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
             CREATE BUILD

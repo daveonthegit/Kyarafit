@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { useCallback, useState } from "react";
+import { View, Text, ScrollView, Pressable, StyleSheet, Image } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type { Build } from "@kyarafit/design-system/types";
+import type { Build, BuildStatus } from "@kyarafit/design-system/types";
 import { listBuilds } from "../../src/storage/buildsRepo";
+
+type TabFilter = "current" | "archived" | "planning" | "completed";
 
 export default function BuildsScreen() {
   const router = useRouter();
   const [builds, setBuilds] = useState<Build[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabFilter>("current");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,10 +27,30 @@ export default function BuildsScreen() {
     }, [load])
   );
 
+  // Filter builds by tab
+  const getStatusForTab = (tab: TabFilter): BuildStatus | null => {
+    switch (tab) {
+      case "current":
+        return "wip";
+      case "planning":
+        return "idea";
+      case "completed":
+        return "ready";
+      case "archived":
+        return null; // No archived status yet
+    }
+  };
+
+  const filteredBuilds = builds.filter((b) => {
+    const targetStatus = getStatusForTab(activeTab);
+    if (targetStatus === null) return false;
+    return b.status === targetStatus;
+  });
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
           <View>
             <Text style={styles.metaLabel}>Portfolio</Text>
             <Text style={styles.title}>My Builds</Text>
@@ -38,23 +61,83 @@ export default function BuildsScreen() {
           </Pressable>
         </View>
 
+        {/* Status tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+          {(["current", "archived", "planning", "completed"] as TabFilter[]).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {loading && <Text style={styles.meta}>Loading…</Text>}
         {!loading && builds.length === 0 && (
           <Text style={styles.meta}>
             No builds yet. Create one to link closet items and use them in convention packing.
           </Text>
         )}
-        {builds.map((b) => (
-          <Pressable
-            key={b.id}
-            style={styles.buildRow}
-            onPress={() => router.push({ pathname: "/build-detail", params: { id: b.id } })}
-          >
-            <Text style={styles.buildName}>{b.name}</Text>
-            <Text style={styles.buildMeta}>{b.status}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-          </Pressable>
-        ))}
+        {!loading && filteredBuilds.length === 0 && builds.length > 0 && (
+          <Text style={styles.meta}>No builds in this category.</Text>
+        )}
+        {filteredBuilds.map((b, index) => {
+          const projectNumber = String(index + 1).padStart(3, "0");
+          const progress = b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
+
+          return (
+            <View key={b.id} style={styles.card}>
+              {/* Build image */}
+              <Pressable
+                onPress={() => router.push({ pathname: "/build-detail", params: { id: b.id } })}
+              >
+                {b.imageUrl ? (
+                  <Image source={{ uri: b.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+                    <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
+                  </View>
+                )}
+              </Pressable>
+
+              {/* Build info */}
+              <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{b.name}</Text>
+                  <Text style={styles.cardProject}>PROJECT {projectNumber}</Text>
+                </View>
+
+                {/* Progress */}
+                <View style={styles.progressSection}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.progressLabel}>CONSTRUCTION PROGRESS</Text>
+                    <Text style={styles.progressPercent}>{progress}%</Text>
+                  </View>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                  </View>
+                </View>
+
+                {/* Tags and details link */}
+                <View style={styles.cardFooter}>
+                  <View style={styles.cardTags}>
+                    <Text style={styles.cardTag}>{b.status}</Text>
+                    {b.character && <Text style={styles.cardTag}>{b.character}</Text>}
+                  </View>
+                  <Pressable
+                    onPress={() => router.push({ pathname: "/build-detail", params: { id: b.id } })}
+                  >
+                    <Text style={styles.viewDetails}>View Details</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
 
       <Pressable style={styles.fab} onPress={() => router.push("/build-new")}>
@@ -67,13 +150,18 @@ export default function BuildsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 140 },
+  scrollContent: { paddingBottom: 140, paddingTop: 16 },
   header: {
+    backgroundColor: colors.white,
+    paddingTop: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
     paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
     paddingBottom: 16,
   },
   metaLabel: {
@@ -108,34 +196,125 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: colors.black,
   },
+  tabsScroll: {
+    paddingHorizontal: layout.screenPaddingX,
+    paddingVertical: 12,
+  },
+  tab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 24,
+  },
+  tabActive: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.black,
+  },
+  tabText: {
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    color: colors.textTertiary,
+  },
+  tabTextActive: {
+    fontWeight: "600",
+    color: colors.black,
+  },
   meta: {
     fontSize: 12,
     color: colors.meta,
     paddingHorizontal: layout.screenPaddingX,
     paddingVertical: 24,
   },
-  buildRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 20,
+  card: {
+    marginBottom: 48,
     paddingHorizontal: layout.screenPaddingX,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-    gap: 12,
   },
-  buildName: {
-    flex: 1,
+  cardImage: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+    backgroundColor: colors.muted,
+    marginBottom: 16,
+  },
+  cardImagePlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardContent: {
+    gap: 16,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  cardTitle: {
     fontFamily: font.serif,
-    fontSize: 20,
-    fontStyle: "italic",
+    fontSize: 24,
     fontWeight: "bold",
+    fontStyle: "italic",
     color: colors.black,
+    letterSpacing: -0.5,
+    flex: 1,
   },
-  buildMeta: {
+  cardProject: {
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: colors.textTertiary,
+    fontWeight: "500",
+  },
+  progressSection: {
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  progressLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    fontWeight: "500",
+    color: colors.textTertiary,
+  },
+  progressPercent: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    fontWeight: "500",
+    color: colors.textTertiary,
+  },
+  progressBarBg: {
+    height: 1,
+    backgroundColor: "#eeeeee",
+    width: "100%",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: colors.black,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 8,
+  },
+  cardTags: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  cardTag: {
     fontSize: 10,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     color: colors.textTertiary,
+  },
+  viewDetails: {
+    fontSize: 11,
+    fontWeight: "500",
+    textDecorationLine: "underline",
+    color: colors.black,
   },
   fab: {
     position: "absolute",

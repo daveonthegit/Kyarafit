@@ -2,6 +2,8 @@
 
 Use the **TaskChecklist** component on the build detail page and wire its create/update/delete to the real API so task completions and progress are consistent. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: Build detail on **mobile** should offer the same task checklist (create/update/delete tasks, progress bar). See [MOBILE_NEXT_STEPS.md](MOBILE_NEXT_STEPS.md) Step 2 for mobile task UI; this guide is the web implementation.
+
 ---
 
 ## Goal
@@ -76,10 +78,10 @@ Optional: In TaskChecklist or build-detail page, add task reordering (drag to re
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | TaskChecklist: wire create/update/delete to createBuildTask, updateBuildTask, deleteBuildTask; refetch via callback. |
-| 2 | Build detail page: render TaskChecklist with buildId, tasks, refetch callback; remove duplicate ChecklistRow list. |
-| 3 | Optional: reordering (sortOrder) and assignment (closetItemId) UI. |
+| Step | Action                                                                                                               |
+| ---- | -------------------------------------------------------------------------------------------------------------------- |
+| 1    | TaskChecklist: wire create/update/delete to createBuildTask, updateBuildTask, deleteBuildTask; refetch via callback. |
+| 2    | Build detail page: render TaskChecklist with buildId, tasks, refetch callback; remove duplicate ChecklistRow list.   |
+| 3    | Optional: reordering (sortOrder) and assignment (closetItemId) UI.                                                   |
 
 After Step 2, build detail uses TaskChecklist with real API and progress bar.

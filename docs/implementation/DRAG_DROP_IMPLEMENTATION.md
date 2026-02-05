@@ -90,6 +90,7 @@ In the Kyarafit mobile app, add the equivalent of web drag-drop for linking and 
 **Completed:** February 5, 2026
 
 **Implementation Details:**
+
 - Added drag-and-drop functionality to `web/src/app/build-detail/link-items/page.tsx`
 - Uses `@dnd-kit/core` library (v6.3.1)
 - Created `DraggableClosetItem` component for draggable closet items
@@ -99,6 +100,7 @@ In the Kyarafit mobile app, add the equivalent of web drag-drop for linking and 
 - On drop, items are automatically added to the selected items set
 
 **User Experience:**
+
 - Users can now drag closet items from the list onto a drop zone to quickly add them to a build
 - Drop zone shows visual feedback (highlight and scale effect) when hovering
 - Selected items count updates in real-time
@@ -109,6 +111,7 @@ In the Kyarafit mobile app, add the equivalent of web drag-drop for linking and 
 **Already Implemented:** Prior to this session
 
 **Implementation Details:**
+
 - Located in `web/src/app/build-detail/page.tsx`
 - Uses `@dnd-kit/core` library
 - `DraggableTask` component makes tasks draggable
@@ -117,6 +120,7 @@ In the Kyarafit mobile app, add the equivalent of web drag-drop for linking and 
 - Tasks show "(linked)" indicator when assigned to a closet item
 
 **User Experience:**
+
 - Users can drag tasks onto closet items to assign them
 - Visual feedback shows which closet item is being hovered
 - Tasks display their linked status in the UI

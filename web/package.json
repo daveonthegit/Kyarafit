@@ -15,6 +15,8 @@
     "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
     "@kyarafit/design-system": "*",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.94.1",

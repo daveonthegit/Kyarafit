@@ -4,15 +4,18 @@ import "time"
 
 // Build is a device-scoped cosplay build.
 type Build struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Character   *string   `json:"character,omitempty"`
-	Status      string    `json:"status"` // idea | wip | ready
-	Notes       *string   `json:"notes,omitempty"`
-	ImageURL    *string   `json:"imageUrl,omitempty"`
-	BudgetCents *int64    `json:"budgetCents,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"` // RFC3339
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Character    *string    `json:"character,omitempty"`
+	Status       string     `json:"status"` // idea | wip | ready
+	Notes        *string    `json:"notes,omitempty"`
+	ImageURL     *string    `json:"imageUrl,omitempty"`
+	BudgetCents  *int64     `json:"budgetCents,omitempty"`
+	TargetDate   *time.Time `json:"targetDate,omitempty"`
+	TasksTotal   int        `json:"tasksTotal"`
+	TasksChecked int        `json:"tasksChecked"`
+	CreatedAt    time.Time  `json:"createdAt"` // RFC3339
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 // CreateBuildInput is the payload for POST /builds.
@@ -25,6 +28,7 @@ type CreateBuildInput struct {
 	Notes       *string `json:"notes,omitempty"`
 	ImageURL    *string `json:"imageUrl,omitempty"`
 	BudgetCents *int64  `json:"budgetCents,omitempty"`
+	TargetDate  *string `json:"targetDate,omitempty"` // YYYY-MM-DD
 }
 
 // UpdateBuildInput is the payload for PATCH /builds/:id.
@@ -35,6 +39,7 @@ type UpdateBuildInput struct {
 	Notes       *string `json:"notes,omitempty"`
 	ImageURL    *string `json:"imageUrl,omitempty"`
 	BudgetCents *int64  `json:"budgetCents,omitempty"`
+	TargetDate  *string `json:"targetDate,omitempty"` // YYYY-MM-DD
 }
 
 // LinkItemsInput is the payload for POST /builds/:id/items.

@@ -2,6 +2,8 @@
 
 Implement **image upload on mobile**, **task UI** (build detail with task checklist), and ensure **convention plans and packing list** are merged in sync pull. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: These steps bring mobile in line with web for image upload, task checklist, and sync pull. For features that exist on web (convention itinerary, packing list, planner, settings, build profile), implement the same feature set on mobile per the corresponding guides: [CONVENTION_ITINERARY.md](CONVENTION_ITINERARY.md), [PACKING_LIST.md](PACKING_LIST.md), [PLANNING_VIEW.md](PLANNING_VIEW.md), [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md), [BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md](BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md).
+
 ---
 
 ## Goal
@@ -94,9 +96,9 @@ Optional: In the Kyarafit mobile app, add task-to-closet assignment: on the buil
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Mobile: upload image in build/closet/convention forms via backend upload API. |
-| 2 | Mobile: build detail with task list, add/check/delete and progress. |
-| 3 | Mobile sync pull: merge conventionPlans and packingListItems. |
-| 4 | Optional: assign task to closet item on mobile. |
+| Step | Action                                                                        |
+| ---- | ----------------------------------------------------------------------------- |
+| 1    | Mobile: upload image in build/closet/convention forms via backend upload API. |
+| 2    | Mobile: build detail with task list, add/check/delete and progress.           |
+| 3    | Mobile sync pull: merge conventionPlans and packingListItems.                 |
+| 4    | Optional: assign task to closet item on mobile.                               |

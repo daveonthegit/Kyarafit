@@ -325,6 +325,9 @@ export async function runSync(
               notes: serverBuild.notes,
               imageUrl: serverBuild.imageUrl,
               budgetCents: serverBuild.budgetCents,
+              targetDate: serverBuild.targetDate,
+              tasksTotal: serverBuild.tasksTotal ?? 0,
+              tasksChecked: serverBuild.tasksChecked ?? 0,
               createdAt: serverBuild.createdAt,
               updatedAt: serverBuild.updatedAt,
             });

@@ -1,0 +1,71 @@
+---
+description: Enforce local CI validation after new implementations
+alwaysApply: true
+---
+
+# Local CI Validation
+
+After implementing any new feature, fix, or significant change, you **must** run the local CI script and fix all errors before considering the work complete.
+
+## Required Workflow
+
+1. **Implement** your changes
+2. **Run local CI** using one of the commands below (choose based on your OS)
+3. **Fix all errors** reported by CI
+4. **Verify** that validation passes cleanly
+
+## Commands
+
+**Recommended (fastest):**
+
+```bash
+make validate
+```
+
+**Alternative commands:**
+
+```bash
+# Using npm
+npm run validate
+
+# Using npm shortcuts
+npm run ci         # Unix/Mac/WSL
+npm run ci:win     # Windows PowerShell
+```
+
+**Direct script execution (OS-specific):**
+
+```bash
+# Unix/Mac/WSL
+bash scripts/ci-local.sh
+
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1
+```
+
+## What Gets Checked
+
+- Code formatting (Prettier, gofmt, black)
+- Linting (ESLint, golangci-lint, flake8)
+- Type checking (TypeScript, mypy)
+- Building (Next.js, Go binary, Python)
+- Tests (Go tests, pytest, etc.)
+
+## Common Fixes
+
+**Formatting issues:**
+```bash
+make format
+```
+
+**TypeScript errors:**
+```bash
+npm run typecheck
+```
+
+**Backend formatting:**
+```bash
+cd backend && gofmt -s -w .
+```
+
+**Remember:** If `make validate` passes locally, CI will pass! ✅

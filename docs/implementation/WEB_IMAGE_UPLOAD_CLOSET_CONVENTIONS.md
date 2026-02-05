@@ -2,6 +2,8 @@
 
 Use the shared **ImageUpload** component (with backend upload) in closet and convention forms so images use the same pipeline as builds. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: **Mobile** should use the same backend upload for closet and convention forms (same pipeline as builds). See [MOBILE_NEXT_STEPS.md](MOBILE_NEXT_STEPS.md) Step 1; this guide is the web implementation.
+
 ---
 
 ## Goal
@@ -77,10 +79,10 @@ If the Kyarafit web app has a convention edit/update page, add ImageUpload to it
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Closet new: replace custom file input with ImageUpload (category closet); submit URL. |
-| 2 | Convention new: add ImageUpload (category conventions); pass imageUrl to create. |
-| 3 | Convention edit: add ImageUpload and pass imageUrl on update (if edit exists). |
+| Step | Action                                                                                |
+| ---- | ------------------------------------------------------------------------------------- |
+| 1    | Closet new: replace custom file input with ImageUpload (category closet); submit URL. |
+| 2    | Convention new: add ImageUpload (category conventions); pass imageUrl to create.      |
+| 3    | Convention edit: add ImageUpload and pass imageUrl on update (if edit exists).        |
 
 After these steps, closet and convention images use the same upload pipeline as builds and are stored and synced correctly.

@@ -2,6 +2,8 @@
 
 Add a UI component that shows sync state (syncing / synced / offline) and pending count so users have feedback. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: **Mobile** should show the same sync status (syncing / synced / offline, pending count) where relevant (e.g. header or settings). Implement a mobile equivalent using the same backend/sync concepts; this guide describes the web component.
+
 ---
 
 ## Goal
@@ -81,8 +83,8 @@ In the Kyarafit web app, add SyncStatusIndicator to the UI: place it in the glob
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Add sync state (syncing/synced/error) and expose pending count (context or sync service). |
-| 2 | Build SyncStatusIndicator component (icon + label, hide for FREE or show upgrade). |
-| 3 | Place indicator in layout or shared header. |
+| Step | Action                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------- |
+| 1    | Add sync state (syncing/synced/error) and expose pending count (context or sync service). |
+| 2    | Build SyncStatusIndicator component (icon + label, hide for FREE or show upgrade).        |
+| 3    | Place indicator in layout or shared header.                                               |

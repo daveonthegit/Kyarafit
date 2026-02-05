@@ -61,6 +61,9 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if in.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name required"})
 	}
+	if in.ImageURL == nil || *in.ImageURL == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "imageUrl is required"})
+	}
 	if in.Status != "" && in.Status != "idea" && in.Status != "wip" && in.Status != "ready" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status must be idea, wip, or ready"})
 	}

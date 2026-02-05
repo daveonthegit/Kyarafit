@@ -2,6 +2,7 @@ package builds
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,8 +22,16 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 // ListByDevice returns builds for device_id ordered by updated_at desc.
 func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Build, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, name, character, status, notes, image_url, budget_cents, created_at, updated_at
-		FROM device_builds WHERE device_id = $1 ORDER BY updated_at DESC
+		SELECT 
+			db.id, db.name, db.character, db.status, db.notes, db.image_url, db.budget_cents, 
+			db.target_date, db.created_at, db.updated_at,
+			COALESCE(COUNT(bt.id), 0) as tasks_total,
+			COALESCE(SUM(CASE WHEN bt.checked THEN 1 ELSE 0 END), 0) as tasks_checked
+		FROM device_builds db
+		LEFT JOIN build_tasks bt ON bt.build_id = db.id
+		WHERE db.device_id = $1 
+		GROUP BY db.id, db.name, db.character, db.status, db.notes, db.image_url, db.budget_cents, db.target_date, db.created_at, db.updated_at
+		ORDER BY db.updated_at DESC
 	`, deviceID)
 	if err != nil {
 		return nil, err
@@ -34,7 +43,9 @@ func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Build
 		var b Build
 		var char, notes, imgURL *string
 		var budget *int64
-		err := rows.Scan(&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &b.CreatedAt, &b.UpdatedAt)
+		var targetDate *time.Time
+		var tasksTotal, tasksChecked int
+		err := rows.Scan(&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &targetDate, &b.CreatedAt, &b.UpdatedAt, &tasksTotal, &tasksChecked)
 		if err != nil {
 			return nil, err
 		}
@@ -42,6 +53,9 @@ func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Build
 		b.Notes = notes
 		b.ImageURL = imgURL
 		b.BudgetCents = budget
+		b.TargetDate = targetDate
+		b.TasksTotal = tasksTotal
+		b.TasksChecked = tasksChecked
 		list = append(list, b)
 	}
 	return list, rows.Err()
@@ -52,10 +66,11 @@ func (r *Repository) GetByID(ctx context.Context, id, deviceID string) (*Build, 
 	var b Build
 	var char, notes, imgURL *string
 	var budget *int64
+	var targetDate *time.Time
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, name, character, status, notes, image_url, budget_cents, created_at, updated_at
+		SELECT id, name, character, status, notes, image_url, budget_cents, target_date, created_at, updated_at
 		FROM device_builds WHERE id = $1 AND device_id = $2
-	`, id, deviceID).Scan(&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &b.CreatedAt, &b.UpdatedAt)
+	`, id, deviceID).Scan(&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &targetDate, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -66,6 +81,7 @@ func (r *Repository) GetByID(ctx context.Context, id, deviceID string) (*Build, 
 	b.Notes = notes
 	b.ImageURL = imgURL
 	b.BudgetCents = budget
+	b.TargetDate = targetDate
 	return &b, nil
 }
 
@@ -79,15 +95,23 @@ func (r *Repository) Create(ctx context.Context, deviceID, userID string, in Cre
 	if id == "" {
 		id = uuid.New().String()
 	}
+	var targetDate *time.Time
+	if in.TargetDate != nil && *in.TargetDate != "" {
+		parsed, err := time.Parse("2006-01-02", *in.TargetDate)
+		if err == nil {
+			targetDate = &parsed
+		}
+	}
 	var b Build
 	var char, notes, imgURL *string
 	var budget *int64
+	var returnedTargetDate *time.Time
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO device_builds (id, device_id, user_id, name, character, status, notes, image_url, budget_cents)
-		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9)
-		RETURNING id, name, character, status, notes, image_url, budget_cents, created_at, updated_at
-	`, id, deviceID, userID, in.Name, in.Character, status, in.Notes, in.ImageURL, in.BudgetCents).Scan(
-		&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &b.CreatedAt, &b.UpdatedAt,
+		INSERT INTO device_builds (id, device_id, user_id, name, character, status, notes, image_url, budget_cents, target_date)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, name, character, status, notes, image_url, budget_cents, target_date, created_at, updated_at
+	`, id, deviceID, userID, in.Name, in.Character, status, in.Notes, in.ImageURL, in.BudgetCents, targetDate).Scan(
+		&b.ID, &b.Name, &char, &b.Status, &notes, &imgURL, &budget, &returnedTargetDate, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		return Build{}, err
@@ -96,6 +120,7 @@ func (r *Repository) Create(ctx context.Context, deviceID, userID string, in Cre
 	b.Notes = notes
 	b.ImageURL = imgURL
 	b.BudgetCents = budget
+	b.TargetDate = returnedTargetDate
 	return b, nil
 }
 
@@ -123,10 +148,21 @@ func (r *Repository) Update(ctx context.Context, id, deviceID string, in UpdateB
 	if in.BudgetCents != nil {
 		existing.BudgetCents = in.BudgetCents
 	}
+	if in.TargetDate != nil {
+		if *in.TargetDate == "" {
+			existing.TargetDate = nil
+		} else {
+			var parsed time.Time
+			parsed, err = time.Parse("2006-01-02", *in.TargetDate)
+			if err == nil {
+				existing.TargetDate = &parsed
+			}
+		}
+	}
 	_, err = r.pool.Exec(ctx, `
-		UPDATE device_builds SET name = $2, character = $3, status = $4, notes = $5, image_url = $6, budget_cents = $7
-		WHERE id = $1 AND device_id = $8
-	`, id, existing.Name, existing.Character, existing.Status, existing.Notes, existing.ImageURL, existing.BudgetCents, deviceID)
+		UPDATE device_builds SET name = $2, character = $3, status = $4, notes = $5, image_url = $6, budget_cents = $7, target_date = $8
+		WHERE id = $1 AND device_id = $9
+	`, id, existing.Name, existing.Character, existing.Status, existing.Notes, existing.ImageURL, existing.BudgetCents, existing.TargetDate, deviceID)
 	if err != nil {
 		return nil, err
 	}

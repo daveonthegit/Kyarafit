@@ -1,7 +1,17 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Image,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import { createBuild } from "../src/storage/buildsRepo";
 
@@ -10,17 +20,37 @@ export default function BuildNewScreen() {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idea" | "wip" | "ready">("idea");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageMode, setImageMode] = useState<"file" | "url">("file");
+  const [imageLocalUri, setImageLocalUri] = useState<string | null>(null);
   const [budgetCents, setBudgetCents] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow access to photos to add an image.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageLocalUri(result.assets[0].uri);
+      setImageUrl(result.assets[0].uri); // Use local URI as imageUrl
+    }
+  };
+
   const save = async () => {
-    if (!name.trim()) return;
+    const finalImageUrl = imageMode === "file" ? imageLocalUri : imageUrl.trim();
+    if (!name.trim() || !finalImageUrl) return;
     setSaving(true);
     try {
       const b = await createBuild({
         name: name.trim(),
         status,
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: finalImageUrl,
         budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
       });
       router.replace({ pathname: "/build-detail", params: { id: b.id } });
@@ -28,6 +58,8 @@ export default function BuildNewScreen() {
       setSaving(false);
     }
   };
+
+  const hasImage = imageMode === "file" ? !!imageLocalUri : !!imageUrl.trim();
 
   return (
     <View style={styles.container}>
@@ -46,14 +78,51 @@ export default function BuildNewScreen() {
           placeholder="e.g. Arlecchino"
           placeholderTextColor={colors.textTertiary}
         />
-        <Text style={styles.label}>IMAGE URL (OPTIONAL)</Text>
-        <TextInput
-          style={styles.input}
-          value={imageUrl}
-          onChangeText={setImageUrl}
-          placeholder="https://…"
-          placeholderTextColor={colors.textTertiary}
-        />
+        <Text style={styles.label}>IMAGE (REQUIRED)</Text>
+        <View style={styles.imageModeToggle}>
+          <Pressable
+            style={[styles.modeBtn, imageMode === "file" && styles.modeBtnActive]}
+            onPress={() => setImageMode("file")}
+          >
+            <Text style={[styles.modeBtnText, imageMode === "file" && styles.modeBtnTextActive]}>
+              Upload File
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeBtn, imageMode === "url" && styles.modeBtnActive]}
+            onPress={() => setImageMode("url")}
+          >
+            <Text style={[styles.modeBtnText, imageMode === "url" && styles.modeBtnTextActive]}>
+              Enter URL
+            </Text>
+          </Pressable>
+        </View>
+        {imageMode === "file" ? (
+          <View>
+            <Pressable style={styles.imagePickerBtn} onPress={pickImage}>
+              <Ionicons name="cloud-upload-outline" size={32} color={colors.textTertiary} />
+              <Text style={styles.imagePickerText}>Tap to select image</Text>
+              <Text style={styles.imagePickerSubtext}>Stored locally</Text>
+            </Pressable>
+            {imageLocalUri && (
+              <View style={styles.imagePreview}>
+                <Image
+                  source={{ uri: imageLocalUri }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+          </View>
+        ) : (
+          <TextInput
+            style={styles.input}
+            value={imageUrl}
+            onChangeText={setImageUrl}
+            placeholder="https://…"
+            placeholderTextColor={colors.textTertiary}
+          />
+        )}
         <Text style={styles.label}>BUDGET $ (OPTIONAL)</Text>
         <TextInput
           style={styles.input}
@@ -76,9 +145,9 @@ export default function BuildNewScreen() {
           ))}
         </View>
         <Pressable
-          style={[styles.primaryBtn, saving && styles.disabled]}
+          style={[styles.primaryBtn, (saving || !name.trim() || !hasImage) && styles.disabled]}
           onPress={save}
-          disabled={saving}
+          disabled={saving || !name.trim() || !hasImage}
         >
           <Text style={styles.primaryBtnText}>CREATE BUILD</Text>
         </Pressable>
@@ -123,6 +192,67 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: colors.text,
+  },
+  imageModeToggle: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  modeBtnActive: {
+    borderColor: colors.black,
+    backgroundColor: colors.muted,
+  },
+  modeBtnText: {
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    color: colors.textTertiary,
+    fontWeight: "500",
+  },
+  modeBtnTextActive: {
+    color: colors.black,
+    fontWeight: "600",
+  },
+  imagePickerBtn: {
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    paddingVertical: 32,
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 2,
+  },
+  imagePickerText: {
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    color: colors.text,
+    fontWeight: "500",
+  },
+  imagePickerSubtext: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    marginTop: 4,
+  },
+  imagePreview: {
+    marginTop: 16,
+    width: "100%",
+    aspectRatio: 1,
+    backgroundColor: colors.muted,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
   },
   statusRow: { flexDirection: "row", gap: 12, marginTop: 24 },
   statusBtn: {

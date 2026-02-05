@@ -2,12 +2,14 @@
 
 Build out the **settings** menu (Account Details, Subscription Plan, Notification Style) and other global menus with real screens or forms. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: Implement the **same settings features on web and mobile**: Account Details, Subscription Plan, Notification Style, About, Privacy, Help (and any data/backup/portability/troubleshooting sections). Web steps use web paths; mobile should provide the same menu structure and screens in the mobile app.
+
 ---
 
 ## Goal
 
 - **Current gap**: [web/src/app/settings/page.tsx](web/src/app/settings/page.tsx) shows tier/storage and three labels ("Account Details", "Subscription Plan", "Notification Style") with no destinations or forms. Same idea on mobile.
-- **Target**: Each settings item goes to a real page or modal: Account Details (email, name, password/auth link), Subscription Plan (tier, usage, upgrade/manage link), Notification Style (preferences). Other menus (About, Privacy, Help) have content or links.
+- **Target**: Each settings item goes to a real page or modal: Account Details (email, name, password/auth link), Subscription Plan (tier, usage, upgrade/manage link), Notification Style (preferences). Other menus (About, Privacy, Help) have content or links. **Web and mobile**: same set of settings entries and destination screens.
 
 ---
 
@@ -110,12 +112,31 @@ Add other global menus: (1) About page or link (version, terms). (2) Privacy pag
 
 ---
 
+## Step 6: Mobile settings — same feature set as web
+
+**What to do**
+
+- On **mobile**, implement the same settings structure: a settings screen with entries for Account Details, Subscription Plan, Notification Style, and other menus (About, Privacy, Help). Each entry navigates to a dedicated screen or modal with the same content as web (email/name/auth link, tier/usage/upgrade, notification toggles, version/terms, privacy policy, help/FAQ). Use the same auth and tier APIs; use in-app browser or links for Stripe/subscription where applicable.
+
+**Files to touch**
+
+- Mobile settings screen(s) (e.g. under `mobile/`).
+
+**Cursor prompt**
+
+```
+In the Kyarafit mobile app, implement settings with feature parity to web: (1) Settings screen with entries: Account Details, Subscription Plan, Notification Style, About, Privacy, Help. (2) Each entry opens a screen or modal: Account (email, name, manage account link), Subscription (tier, usage, upgrade/manage link), Notifications (toggles), About (version, terms), Privacy (policy link), Help (docs/FAQ). (3) Use same auth and tier APIs as web. Run the app and verify.
+```
+
+---
+
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Wire settings items to routes or modals; create placeholder pages. |
-| 2 | Account Details: email, name, password/auth link. |
-| 3 | Subscription Plan: tier, usage, upgrade/manage button. |
-| 4 | Notification Style: toggles for push/email. |
-| 5 | About, Privacy, Help pages or links. |
+| Step | Action                                                                                                    |
+| ---- | --------------------------------------------------------------------------------------------------------- |
+| 1    | Wire settings items to routes or modals; create placeholder pages.                                        |
+| 2    | Account Details: email, name, password/auth link.                                                         |
+| 3    | Subscription Plan: tier, usage, upgrade/manage button.                                                    |
+| 4    | Notification Style: toggles for push/email.                                                               |
+| 5    | About, Privacy, Help pages or links.                                                                      |
+| 6    | Mobile: same settings structure and screens (Account, Subscription, Notifications, About, Privacy, Help). |

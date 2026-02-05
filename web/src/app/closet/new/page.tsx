@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import Image from "next/image";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,22 +9,19 @@ import {
   type ClosetCategory,
 } from "@kyarafit/design-system/types";
 import { UnderlineInput } from "@/components/ui/UnderlineInput";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { createClosetItem } from "@/lib/api/closet";
 import type { ClosetItem } from "@kyarafit/design-system/types";
-
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB for data URL
 
 export default function NewClosetItemPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ClosetCategory>("other");
   const [tagsStr, setTagsStr] = useState("");
   const [notes, setNotes] = useState("");
   const [costDollars, setCostDollars] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
   const [error, setError] = useState("");
 
   const mutation = useMutation({
@@ -58,23 +54,6 @@ export default function NewClosetItemPage() {
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError("Image must be under 2MB");
-      return;
-    }
-    setError("");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setImagePreview(dataUrl);
-      setImageDataUrl(dataUrl);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -87,7 +66,7 @@ export default function NewClosetItemPage() {
       category,
       tags,
       notes: notes.trim() || undefined,
-      imageUrl: imageDataUrl || undefined,
+      imageUrl: imageUrl.trim() || undefined,
       costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
@@ -122,40 +101,15 @@ export default function NewClosetItemPage() {
 
       <main className="flex-1 px-6 py-8">
         <form onSubmit={handleSubmit} className="flex flex-col gap-8 max-w-md">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            aria-hidden
-            onChange={handleFileChange}
-          />
           <div>
             <label className="block text-[11px] font-sans-wide font-semibold uppercase tracking-wide text-kyar-meta mb-2">
               Photo (optional)
             </label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full aspect-[3/4] max-h-64 bg-kyar-muted border border-dashed border-kyar-border flex flex-col items-center justify-center gap-2 text-kyar-textTertiary hover:border-kyar-text focus:outline-none focus:border-kyar-accent rounded-sm overflow-hidden relative"
-            >
-              {imagePreview ? (
-                <span className="absolute inset-0 block">
-                  <Image
-                    src={imagePreview}
-                    alt="Preview"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </span>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-3xl font-light">add_a_photo</span>
-                  <span className="text-[10px] uppercase tracking-widest">Add photo</span>
-                </>
-              )}
-            </button>
+            <ImageUpload
+              category="closet"
+              onImageSelected={(url) => setImageUrl(url)}
+              currentImage={imageUrl}
+            />
           </div>
           <UnderlineInput
             label="Item name"

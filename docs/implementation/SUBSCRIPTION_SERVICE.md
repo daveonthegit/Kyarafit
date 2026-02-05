@@ -2,6 +2,8 @@
 
 Implement **Stripe webhook signature verification** and re-enable the endpoint, then add **Checkout or Customer Portal** so users can upgrade and manage subscriptions. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: **Mobile** should offer the same upgrade and manage-subscription flow: open the same Checkout or Customer Portal URL (e.g. in an in-app web view or browser) from settings or subscription screen. Same backend API returns the URL; web and mobile both open it.
+
 ---
 
 ## Goal
@@ -93,9 +95,9 @@ Document Stripe env vars: add STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_BASIC, STRIPE_
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Verify webhook signature; re-enable route; handle subscription events and update user tier. |
-| 2 | Add checkout and/or portal API endpoint; return redirect URL. |
-| 3 | Settings subscription page: upgrade and manage buttons redirect to Stripe. |
-| 4 | Document Stripe env vars and webhook setup. |
+| Step | Action                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------- |
+| 1    | Verify webhook signature; re-enable route; handle subscription events and update user tier. |
+| 2    | Add checkout and/or portal API endpoint; return redirect URL.                               |
+| 3    | Settings subscription page: upgrade and manage buttons redirect to Stripe.                  |
+| 4    | Document Stripe env vars and webhook setup.                                                 |

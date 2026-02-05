@@ -2,6 +2,8 @@
 
 Add **closetRepo**, **conventionsRepo**, and **buildTasksRepo** on web and extend the sync service to push/pull closet, conventions, and build tasks (not just builds). Do steps in order; each has a **Cursor prompt**.
 
+**Platform scope**: This guide is **web-only** (IndexedDB and web sync service). Mobile uses its own storage repos and sync; ensure the backend returns the same entity types for both so feature parity is maintained.
+
 ---
 
 ## Goal
@@ -131,13 +133,13 @@ In web/src/lib/services/sync.ts, extend the pull phase to merge closet items, co
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Add IndexedDB stores for closet_items, conventions, build_tasks. |
-| 2 | Create closetRepo.ts (getById, list, upsertFromSync, delete). |
-| 3 | Create conventionsRepo.ts and buildTasksRepo.ts. |
-| 4 | Extend outbox with closet/convention/buildTask entry types and enqueue. |
-| 5 | Sync push: handle closet, convention, build task entries and call backend APIs. |
-| 6 | Sync pull: merge closetItems, conventions, buildTasks into repos. |
+| Step | Action                                                                          |
+| ---- | ------------------------------------------------------------------------------- |
+| 1    | Add IndexedDB stores for closet_items, conventions, build_tasks.                |
+| 2    | Create closetRepo.ts (getById, list, upsertFromSync, delete).                   |
+| 3    | Create conventionsRepo.ts and buildTasksRepo.ts.                                |
+| 4    | Extend outbox with closet/convention/buildTask entry types and enqueue.         |
+| 5    | Sync push: handle closet, convention, build task entries and call backend APIs. |
+| 6    | Sync pull: merge closetItems, conventions, buildTasks into repos.               |
 
 After Step 6, web can do full bidirectional sync for builds, closet, conventions, and build tasks (within backend support).

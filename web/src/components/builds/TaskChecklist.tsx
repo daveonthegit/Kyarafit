@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useDraggable } from "@dnd-kit/core";
+import { createBuildTask, updateBuildTask, deleteBuildTask } from "@/lib/api/builds";
 
 export interface BuildTask {
   id: string;
@@ -16,11 +18,16 @@ interface TaskChecklistProps {
   buildId: string;
   tasks: BuildTask[];
   onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
+  enableDragDrop?: boolean;
 }
 
-export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistProps) {
+export function TaskChecklist({
+  buildId,
+  tasks,
+  onTaskAssign,
+  enableDragDrop = false,
+}: TaskChecklistProps) {
   const [newTaskLabel, setNewTaskLabel] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const queryClient = useQueryClient();
 
   // Calculate progress
@@ -31,42 +38,42 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
   // Sort tasks by sortOrder
   const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // Mutations
+  const createTaskMutation = useMutation({
+    mutationFn: (label: string) => createBuildTask(buildId, { label, sortOrder: tasks.length }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
+      setNewTaskLabel("");
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, checked }: { taskId: string; checked: boolean }) =>
+      updateBuildTask(buildId, taskId, { checked }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: string) => deleteBuildTask(buildId, taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
+    },
+  });
+
   const handleToggleTask = async (taskId: string, checked: boolean) => {
-    // TODO: Implement API call to update task
-    // For now, update optimistically
-    queryClient.setQueryData(["build", buildId], (old: any) => {
-      if (!old) return old;
-      return {
-        ...old,
-        tasks: old.tasks.map((t: BuildTask) => (t.id === taskId ? { ...t, checked } : t)),
-      };
-    });
+    updateTaskMutation.mutate({ taskId, checked });
   };
 
   const handleAddTask = async () => {
     if (!newTaskLabel.trim()) return;
-
-    setIsAdding(true);
-    try {
-      // TODO: Implement API call to create task
-      // For now, just reset the form
-      setNewTaskLabel("");
-    } finally {
-      setIsAdding(false);
-    }
+    createTaskMutation.mutate(newTaskLabel.trim());
   };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!confirm("Delete this task?")) return;
-
-    // TODO: Implement API call to delete task
-    queryClient.setQueryData(["build", buildId], (old: any) => {
-      if (!old) return old;
-      return {
-        ...old,
-        tasks: old.tasks.filter((t: BuildTask) => t.id !== taskId),
-      };
-    });
+    deleteTaskMutation.mutate(taskId);
   };
 
   return (
@@ -90,35 +97,23 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
 
       {/* Task List */}
       <div className="space-y-2">
-        {sortedTasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group"
-          >
-            <input
-              type="checkbox"
-              checked={task.checked}
-              onChange={(e) => handleToggleTask(task.id, e.target.checked)}
-              className="w-4 h-4 accent-black"
+        {sortedTasks.map((task) =>
+          enableDragDrop ? (
+            <DraggableTaskRow
+              key={task.id}
+              task={task}
+              onToggle={(checked) => handleToggleTask(task.id, checked)}
+              onDelete={() => handleDeleteTask(task.id)}
             />
-            <span
-              className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
-            >
-              {task.label}
-            </span>
-            {task.closetItemId && (
-              <span className="text-xs text-kyar-textTertiary uppercase tracking-wider">
-                Assigned
-              </span>
-            )}
-            <button
-              onClick={() => handleDeleteTask(task.id)}
-              className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
-            >
-              <span className="material-symbols-outlined text-base">delete</span>
-            </button>
-          </div>
-        ))}
+          ) : (
+            <TaskRow
+              key={task.id}
+              task={task}
+              onToggle={(checked) => handleToggleTask(task.id, checked)}
+              onDelete={() => handleDeleteTask(task.id)}
+            />
+          )
+        )}
 
         {sortedTasks.length === 0 && (
           <p className="text-sm text-kyar-textTertiary text-center py-8">
@@ -139,10 +134,10 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
         />
         <button
           onClick={handleAddTask}
-          disabled={!newTaskLabel.trim() || isAdding}
+          disabled={!newTaskLabel.trim() || createTaskMutation.isPending}
           className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
         >
-          {isAdding ? "Adding..." : "Add"}
+          {createTaskMutation.isPending ? "Adding..." : "Add"}
         </button>
       </div>
 
@@ -167,6 +162,85 @@ export function TaskChecklist({ buildId, tasks, onTaskAssign }: TaskChecklistPro
           Assign to Items
         </button>
       </div>
+    </div>
+  );
+}
+
+// Regular task row (non-draggable)
+interface TaskRowProps {
+  task: BuildTask;
+  onToggle: (checked: boolean) => void;
+  onDelete: () => void;
+}
+
+function TaskRow({ task, onToggle, onDelete }: TaskRowProps) {
+  return (
+    <div className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group">
+      <input
+        type="checkbox"
+        checked={task.checked}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="w-4 h-4 accent-black"
+      />
+      <span
+        className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+      >
+        {task.label}
+      </span>
+      {task.closetItemId && (
+        <span className="text-xs text-kyar-textTertiary uppercase tracking-wider">Assigned</span>
+      )}
+      <button
+        onClick={onDelete}
+        className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+      >
+        <span className="material-symbols-outlined text-base">delete</span>
+      </button>
+    </div>
+  );
+}
+
+// Draggable task row
+function DraggableTaskRow({ task, onToggle, onDelete }: TaskRowProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { type: "task", task },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group ${
+        isDragging ? "opacity-50 cursor-grabbing" : "cursor-grab"
+      }`}
+    >
+      <span className="material-symbols-outlined text-gray-400 text-base">drag_indicator</span>
+      <input
+        type="checkbox"
+        checked={task.checked}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="w-4 h-4 accent-black"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <span
+        className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+      >
+        {task.label}
+      </span>
+      {task.closetItemId && (
+        <span className="text-xs text-kyar-textTertiary uppercase tracking-wider">Assigned</span>
+      )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+      >
+        <span className="material-symbols-outlined text-base">delete</span>
+      </button>
     </div>
   );
 }

@@ -29,6 +29,9 @@ export async function listBuilds(): Promise<Build[]> {
     notes: r.notes ?? undefined,
     imageUrl: r.image_url ?? undefined,
     budgetCents: r.budget_cents ?? undefined,
+    targetDate: undefined,
+    tasksTotal: 0,
+    tasksChecked: 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
@@ -62,6 +65,9 @@ export async function createBuild(input: CreateBuildInput): Promise<Build> {
     notes: input.notes,
     imageUrl: input.imageUrl,
     budgetCents: input.budgetCents ?? undefined,
+    targetDate: input.targetDate ?? undefined,
+    tasksTotal: 0,
+    tasksChecked: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -113,6 +119,9 @@ export async function updateBuild(id: string, input: UpdateBuildInput): Promise<
     notes: notes ?? undefined,
     imageUrl: image_url ?? undefined,
     budgetCents: budget_cents ?? undefined,
+    targetDate: undefined,
+    tasksTotal: 0,
+    tasksChecked: 0,
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
@@ -145,6 +154,9 @@ export async function getBuild(id: string): Promise<Build | null> {
     notes: row.notes ?? undefined,
     imageUrl: row.image_url ?? undefined,
     budgetCents: row.budget_cents ?? undefined,
+    targetDate: undefined,
+    tasksTotal: 0,
+    tasksChecked: 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

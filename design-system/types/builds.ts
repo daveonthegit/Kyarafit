@@ -15,6 +15,9 @@ export const buildSchema = z.object({
   notes: z.string().optional(),
   imageUrl: z.string().optional(),
   budgetCents: z.number().int().min(0).optional().nullable(),
+  targetDate: z.string().optional().nullable(), // ISO date string YYYY-MM-DD
+  tasksTotal: z.number().int().default(0),
+  tasksChecked: z.number().int().default(0),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -26,8 +29,9 @@ export const createBuildSchema = z.object({
   character: z.string().optional(),
   status: z.enum(BUILD_STATUSES).default("idea"),
   notes: z.string().optional(),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string().min(1),
   budgetCents: z.number().int().min(0).optional().nullable(),
+  targetDate: z.string().optional().nullable(), // YYYY-MM-DD
 });
 
 export type CreateBuildInput = z.infer<typeof createBuildSchema>;
@@ -39,6 +43,7 @@ export const updateBuildSchema = z.object({
   notes: z.string().optional().nullable(),
   imageUrl: z.string().optional().nullable(),
   budgetCents: z.number().int().min(0).optional().nullable(),
+  targetDate: z.string().optional().nullable(), // YYYY-MM-DD
 });
 
 export type UpdateBuildInput = z.infer<typeof updateBuildSchema>;

@@ -39,6 +39,8 @@ export default function AddItemScreen() {
   const [notes, setNotes] = useState("");
   const [costDollars, setCostDollars] = useState("");
   const [imageLocalUri, setImageLocalUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageMode, setImageMode] = useState<"device" | "url">("device");
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
 
@@ -70,7 +72,8 @@ export default function AddItemScreen() {
       category,
       tags,
       notes: notes.trim() || undefined,
-      imageLocalUri: imageLocalUri ?? undefined,
+      imageLocalUri: imageMode === "device" ? (imageLocalUri ?? undefined) : undefined,
+      imageUrl: imageMode === "url" ? imageUrl.trim() || undefined : undefined,
       costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
@@ -88,7 +91,7 @@ export default function AddItemScreen() {
       tags: parsed.data.tags ?? [],
       notes: parsed.data.notes,
       imageLocalUri: parsed.data.imageLocalUri,
-      imageUrl: undefined as string | undefined,
+      imageUrl: parsed.data.imageUrl,
       costCents: parsed.data.costCents,
       createdAt: now,
       updatedAt: now,
@@ -121,20 +124,63 @@ export default function AddItemScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable style={styles.uploadArea} onPress={pickImage}>
-            {imageLocalUri ? (
-              <Image
-                source={{ uri: imageLocalUri }}
-                style={styles.previewImage}
-                resizeMode="cover"
-              />
+          <View style={styles.imageSection}>
+            <View style={styles.imageModeToggle}>
+              <Pressable
+                style={[styles.modeBtn, imageMode === "device" && styles.modeBtnActive]}
+                onPress={() => setImageMode("device")}
+              >
+                <Text
+                  style={[styles.modeBtnText, imageMode === "device" && styles.modeBtnTextActive]}
+                >
+                  Device
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modeBtn, imageMode === "url" && styles.modeBtnActive]}
+                onPress={() => setImageMode("url")}
+              >
+                <Text style={[styles.modeBtnText, imageMode === "url" && styles.modeBtnTextActive]}>
+                  URL
+                </Text>
+              </Pressable>
+            </View>
+
+            {imageMode === "device" ? (
+              <Pressable style={styles.uploadArea} onPress={pickImage}>
+                {imageLocalUri ? (
+                  <Image
+                    source={{ uri: imageLocalUri }}
+                    style={styles.previewImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <>
+                    <Ionicons name="camera-outline" size={32} color="rgba(0,0,0,0.2)" />
+                    <Text style={styles.uploadText}>Add Photo</Text>
+                  </>
+                )}
+              </Pressable>
             ) : (
-              <>
-                <Ionicons name="camera-outline" size={32} color="rgba(0,0,0,0.2)" />
-                <Text style={styles.uploadText}>Add Photo</Text>
-              </>
+              <View style={styles.urlSection}>
+                <UnderlineInput
+                  label="Image URL"
+                  value={imageUrl}
+                  onChangeText={setImageUrl}
+                  placeholder="https://example.com/image.jpg"
+                />
+                {imageUrl.trim() && (
+                  <View style={styles.urlPreview}>
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={styles.previewImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+              </View>
             )}
-          </Pressable>
+          </View>
 
           <View style={styles.form}>
             <UnderlineInput
@@ -236,6 +282,36 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 140 },
+  imageSection: {
+    marginTop: 16,
+    marginBottom: 40,
+  },
+  imageModeToggle: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  modeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.12)",
+    backgroundColor: "transparent",
+  },
+  modeBtnActive: {
+    backgroundColor: "#f9f9f9",
+    borderColor: colors.black,
+  },
+  modeBtnText: {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    fontWeight: "600",
+    color: "rgba(0,0,0,0.4)",
+  },
+  modeBtnTextActive: {
+    color: colors.black,
+  },
   uploadArea: {
     aspectRatio: 3 / 4,
     backgroundColor: "#f9f9f9",
@@ -244,9 +320,17 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
-    marginBottom: 40,
     overflow: "hidden",
+  },
+  urlSection: {
+    gap: 16,
+  },
+  urlPreview: {
+    aspectRatio: 3 / 4,
+    backgroundColor: "#f9f9f9",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.12)",
   },
   previewImage: {
     width: "100%",

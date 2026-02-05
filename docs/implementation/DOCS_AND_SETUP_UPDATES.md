@@ -113,10 +113,10 @@ Add or update API documentation: list main endpoints (GET/POST builds, closet, c
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | IMPLEMENTATION_STATUS: fix Next Steps (remove completed, list remaining). |
-| 2 | SUPABASE_TODO: add migrations 007, 008, 009. |
-| 3 | README: features and links to implementation/setup. |
-| 4 | Optional: architecture diagram and tier table. |
-| 5 | Optional: API endpoint list. |
+| Step | Action                                                                    |
+| ---- | ------------------------------------------------------------------------- |
+| 1    | IMPLEMENTATION_STATUS: fix Next Steps (remove completed, list remaining). |
+| 2    | SUPABASE_TODO: add migrations 007, 008, 009.                              |
+| 3    | README: features and links to implementation/setup.                       |
+| 4    | Optional: architecture diagram and tier table.                            |
+| 5    | Optional: API endpoint list.                                              |
