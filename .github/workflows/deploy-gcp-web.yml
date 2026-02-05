@@ -1,0 +1,94 @@
+name: Deploy Web to GCP Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'design-system/**'
+      - '.github/workflows/deploy-gcp-web.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: kyarafit
+  REGION: us-central1
+  SERVICE_NAME: kyarafit-web
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+    - name: Build Docker image
+      run: |
+        docker build \
+          --build-arg NEXT_PUBLIC_APP_URL=https://www.kyarafit.com \
+          --build-arg NEXT_PUBLIC_API_URL=https://api.kyarafit.com \
+          --build-arg NEXT_PUBLIC_IMAGE_SERVICE_URL=https://images.kyarafit.com \
+          -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+          -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest \
+          ./web
+
+    - name: Push to Artifact Registry
+      run: |
+        docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+          --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+          --platform managed \
+          --region ${{ env.REGION }} \
+          --allow-unauthenticated \
+          --set-env-vars "NEXT_PUBLIC_APP_URL=https://www.kyarafit.com" \
+          --set-env-vars "NEXT_PUBLIC_API_URL=https://api.kyarafit.com" \
+          --set-env-vars "NEXT_PUBLIC_IMAGE_SERVICE_URL=https://images.kyarafit.com" \
+          --set-env-vars "BETTER_AUTH_URL=https://www.kyarafit.com" \
+          --set-env-vars "NODE_ENV=production" \
+          --set-secrets="BETTER_AUTH_SECRET=auth-secret:latest" \
+          --set-secrets="DATABASE_URL=database-url:latest" \
+          --memory 512Mi \
+          --cpu 1 \
+          --max-instances 10 \
+          --min-instances 0 \
+          --timeout 60s \
+          --concurrency 80
+
+    - name: Get Service URL
+      id: url
+      run: |
+        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --region ${{ env.REGION }} \
+          --format 'value(status.url)')
+        echo "Service deployed to: $SERVICE_URL"
+        echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+
+    - name: Create deployment summary
+      run: |
+        echo "## ✅ Web Frontend Deployment Successful" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL:** ${{ steps.url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Custom Domain:** https://www.kyarafit.com" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image:** ${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

@@ -4,10 +4,12 @@ if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
   process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = '1'
 }
 const nextConfig = {
+  output: 'standalone', // Enable standalone output for optimized Docker builds
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com', pathname: '/**' },
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/**' },
     ],
   },
   async headers() {

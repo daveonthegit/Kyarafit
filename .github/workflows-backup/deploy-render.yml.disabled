@@ -1,0 +1,32 @@
+name: Deploy to Render (DISABLED - Using GCP Cloud Run)
+
+# This workflow has been disabled in favor of GCP Cloud Run deployment
+# See: .github/workflows/deploy-gcp-*.yml
+
+# To re-enable:
+# 1. Rename this file to deploy-render.yml (remove .disabled)
+# 2. Move to .github/workflows/
+# 3. Ensure RENDER_SERVICE_ID and RENDER_API_KEY secrets are configured
+# 4. Disable GCP workflows to avoid conflicts
+
+on:
+  # workflow_dispatch:  # Uncomment to enable manual trigger only
+
+  # push:
+  #   branches: [ main ]  # Uncomment to enable automatic deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to Render
+      uses: johnbeynon/render-deploy-action@v0.0.8
+      with:
+        service-id: ${{ secrets.RENDER_SERVICE_ID }}
+        api-key: ${{ secrets.RENDER_API_KEY }}
+        wait-for-success: true

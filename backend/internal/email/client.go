@@ -65,18 +65,18 @@ func (c *Client) Send(email Email) error {
 	msg.WriteString(fmt.Sprintf("From: %s\r\n", c.From))
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(email.To, ", ")))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", email.Subject))
-	
+
 	if email.IsHTML {
 		msg.WriteString("MIME-Version: 1.0\r\n")
 		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	}
-	
+
 	msg.WriteString("\r\n")
 	msg.WriteString(email.Body)
 
 	// Connect to SMTP server
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
-	
+
 	// Set up authentication
 	auth := smtp.PlainAuth("", c.Username, c.Password, c.Host)
 
@@ -167,6 +167,6 @@ func (c *Client) Verify() error {
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
 	defer client.Quit()
-	
+
 	return nil
 }

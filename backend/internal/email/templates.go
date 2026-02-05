@@ -2,18 +2,19 @@ package email
 
 import (
 	"fmt"
+	"os"
 )
 
 // WelcomeEmailData contains data for welcome email
 type WelcomeEmailData struct {
-	Name string
+	Name   string
 	AppURL string
 }
 
 // SendWelcomeEmail sends a welcome email to a new user
 func (c *Client) SendWelcomeEmail(to, name string) error {
 	appURL := getAppURL()
-	
+
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -80,7 +81,7 @@ type PasswordResetData struct {
 func (c *Client) SendPasswordResetEmail(to, name, resetToken string) error {
 	appURL := getAppURL()
 	resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", appURL, resetToken)
-	
+
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -138,7 +139,7 @@ func (c *Client) SendPasswordResetEmail(to, name, resetToken string) error {
 func (c *Client) SendVerificationEmail(to, name, verificationToken string) error {
 	appURL := getAppURL()
 	verificationLink := fmt.Sprintf("%s/auth/verify?token=%s", appURL, verificationToken)
-	
+
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>

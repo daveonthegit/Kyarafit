@@ -11,6 +11,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
+  workflow_call:  # Allow calling from other workflows
 
 jobs:
   test:
@@ -50,10 +51,12 @@ jobs:
         go-version: '1.21'
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
 
@@ -75,11 +78,14 @@ jobs:
         fi
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v4
       with:
         version: latest
         working-directory: ./backend
         args: --timeout=5m
+        skip-cache: false
+        skip-pkg-cache: false
+        skip-build-cache: false
 
     - name: Run tests
       working-directory: ./backend
@@ -95,11 +101,14 @@ jobs:
       run: go tool cover -html=coverage.out -o coverage.html
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
+      if: github.event_name == 'pull_request'
+      continue-on-error: true
       with:
         file: ./backend/coverage.out
         flags: backend
         name: backend-coverage
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     runs-on: ubuntu-latest
@@ -126,10 +135,11 @@ jobs:
         echo "Binary built successfully"
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: backend-binary
         path: backend/main
+        retention-days: 7
 
   docker:
     runs-on: ubuntu-latest
@@ -154,5 +164,19 @@ jobs:
 
     - name: Test Docker image
       run: |
-        docker run --rm kyarafit-backend:latest --help || true
-        echo "Docker image built successfully"
+        # Test basic run
+        docker run --rm kyarafit-backend:latest --help || echo "Binary test complete"
+        
+        # Test image size
+        IMAGE_SIZE=$(docker images kyarafit-backend:latest --format "{{.Size}}")
+        echo "Docker image size: $IMAGE_SIZE"
+        echo "✅ Docker image built successfully"
+        
+    - name: Create build summary
+      if: always()
+      run: |
+        echo "## 🐳 Docker Build Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image:** kyarafit-backend:latest" >> $GITHUB_STEP_SUMMARY
+        echo "- **Size:** $(docker images kyarafit-backend:latest --format '{{.Size}}')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Ready for:** GCP Cloud Run deployment" >> $GITHUB_STEP_SUMMARY
