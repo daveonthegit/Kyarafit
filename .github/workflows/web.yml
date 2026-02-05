@@ -190,6 +190,7 @@ jobs:
           context: .
           file: ./web/Dockerfile
           push: false
+          load: true
           tags: kyarafit-web:latest
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:8080

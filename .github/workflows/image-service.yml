@@ -187,6 +187,7 @@ jobs:
           context: ./image-service
           file: ./image-service/Dockerfile
           push: false
+          load: true
           tags: kyarafit-image-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

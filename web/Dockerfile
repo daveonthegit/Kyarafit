@@ -17,6 +17,7 @@ RUN npm install --production=false
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+COPY --from=deps /app/package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/web/node_modules ./web/node_modules
 COPY --from=deps /app/design-system ./design-system
