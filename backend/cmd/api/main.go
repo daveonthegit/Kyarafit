@@ -15,15 +15,14 @@ func main() {
 	app := fiber.New()
 
 	// Initialize database connection
-	db, err := database.NewConnection()
-	if err != nil {
+	if err := database.Connect(); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer database.Close()
 
 	// Initialize closet handler
-	closetRepo := closet.NewRepository(db)
-	closetHandler := closet.NewHandler(closetRepo)
+	closetRepo := closet.NewRepository(database.DB)
+	closetHandler := closet.NewHandler(closetRepo, nil)
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:8081",

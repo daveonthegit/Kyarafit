@@ -127,3 +127,20 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
 export function getDb(): SQLite.SQLiteDatabase | null {
   return db;
 }
+
+export async function getValue(key: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ value: string }>(
+    "SELECT value FROM kv WHERE key = ?",
+    [key],
+  );
+  return row?.value ?? null;
+}
+
+export async function setValue(key: string, value: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", [
+    key,
+    value,
+  ]);
+}

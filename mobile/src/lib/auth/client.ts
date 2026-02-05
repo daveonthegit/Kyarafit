@@ -35,7 +35,7 @@ export function useSession() {
     return () => subscription.unsubscribe();
   }, []);
 
-  return { session, loading };
+  return { data: session, isPending: loading, session, loading };
 }
 
 export async function getSession() {

@@ -128,6 +128,11 @@ func main() {
 	// Builds API (device-scoped; optional JWT for tier/limits)
 	deviceBuildsRepo := builds.NewRepository(database.DB)
 	deviceBuildsHandler := builds.NewHandler(deviceBuildsRepo, userRepo)
+	
+	// Conventions API (device-scoped; optional JWT for tier/limits)
+	conventionRepo := convention.NewRepository(database.DB)
+	conventionHandler := convention.NewHandler(conventionRepo, userRepo)
+	
 	buildsGroup := app.Group("", optionalUser)
 	buildsGroup.Get("/builds", wrapWithSeed(deviceBuildsHandler.List, deviceBuildsRepo, conventionRepo))
 	buildsGroup.Post("/builds", deviceBuildsHandler.Create)
@@ -139,10 +144,6 @@ func main() {
 	buildsGroup.Post("/builds/:id/tasks", deviceBuildsHandler.CreateTask)
 	buildsGroup.Patch("/builds/:id/tasks/:taskId", deviceBuildsHandler.UpdateTask)
 	buildsGroup.Delete("/builds/:id/tasks/:taskId", deviceBuildsHandler.DeleteTask)
-
-	// Conventions API (device-scoped; optional JWT for tier/limits)
-	conventionRepo := convention.NewRepository(database.DB)
-	conventionHandler := convention.NewHandler(conventionRepo, userRepo)
 	conventionGroup := app.Group("", optionalUser)
 	conventionGroup.Get("/conventions", conventionHandler.ListConventions)
 	conventionGroup.Post("/conventions", conventionHandler.CreateConvention)

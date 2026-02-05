@@ -131,3 +131,44 @@ export async function updateConvention(
   await enqueue("convention.upsert", { convention });
   return convention;
 }
+
+export async function getById(id: string): Promise<Convention | null> {
+  return getConvention(id);
+}
+
+export async function upsertFromSync(convention: Convention & { imageUrl?: string }): Promise<void> {
+  const database = await initClosetDb();
+  const existing = await getConvention(convention.id);
+  if (existing) {
+    await database.runAsync(
+      `UPDATE conventions SET name = ?, location = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`,
+      [
+        convention.name,
+        convention.location ?? null,
+        convention.startDate,
+        convention.endDate,
+        convention.updatedAt,
+        convention.id,
+      ],
+    );
+  } else {
+    await database.runAsync(
+      `INSERT INTO conventions (id, name, location, start_date, end_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        convention.id,
+        convention.name,
+        convention.location ?? null,
+        convention.startDate,
+        convention.endDate,
+        convention.createdAt,
+        convention.updatedAt,
+      ],
+    );
+  }
+}
+
+export async function deleteConvention(id: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(`DELETE FROM conventions WHERE id = ?`, [id]);
+}

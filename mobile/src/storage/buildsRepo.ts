@@ -119,7 +119,7 @@ export async function updateBuild(
     id,
     name,
     character: character ?? undefined,
-    status,
+    status: status as Build["status"],
     notes: notes ?? undefined,
     imageUrl: image_url ?? undefined,
     budgetCents: budget_cents ?? undefined,
@@ -186,4 +186,49 @@ export async function linkBuildItems(
     );
   }
   await enqueue("build.linkItems", { buildId, closetItemIds });
+}
+
+export async function getById(id: string): Promise<Build | null> {
+  return getBuild(id);
+}
+
+export async function upsertFromSync(build: Omit<Build, 'budgetCents'> & { budgetCents?: number | null }): Promise<void> {
+  const database = await initClosetDb();
+  const existing = await getBuild(build.id);
+  if (existing) {
+    await database.runAsync(
+      `UPDATE builds SET name = ?, character = ?, status = ?, notes = ?, image_url = ?, budget_cents = ?, updated_at = ? WHERE id = ?`,
+      [
+        build.name,
+        build.character ?? null,
+        build.status,
+        build.notes ?? null,
+        build.imageUrl ?? null,
+        build.budgetCents ?? null,
+        build.updatedAt,
+        build.id,
+      ],
+    );
+  } else {
+    await database.runAsync(
+      `INSERT INTO builds (id, name, character, status, notes, image_url, budget_cents, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        build.id,
+        build.name,
+        build.character ?? null,
+        build.status,
+        build.notes ?? null,
+        build.imageUrl ?? null,
+        build.budgetCents ?? null,
+        build.createdAt,
+        build.updatedAt,
+      ],
+    );
+  }
+}
+
+export async function deleteBuild(id: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(`DELETE FROM builds WHERE id = ?`, [id]);
 }

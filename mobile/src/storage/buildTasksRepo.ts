@@ -126,14 +126,19 @@ export async function updateTask(
 
 export async function deleteTask(
   taskId: string,
-  buildId: string,
+  buildId?: string,
 ): Promise<boolean> {
   const database = await initClosetDb();
-  await database.runAsync(
-    `DELETE FROM build_tasks WHERE id = ? AND build_id = ?`,
-    [taskId, buildId],
-  );
-  await enqueue("build.task.delete", { taskId, buildId });
+  if (buildId) {
+    await database.runAsync(
+      `DELETE FROM build_tasks WHERE id = ? AND build_id = ?`,
+      [taskId, buildId],
+    );
+    await enqueue("build.task.delete", { taskId, buildId });
+  } else {
+    // For sync: delete by taskId only
+    await database.runAsync(`DELETE FROM build_tasks WHERE id = ?`, [taskId]);
+  }
   return true;
 }
 
@@ -179,4 +184,66 @@ export async function toggleTaskChecked(
   }
   await enqueue("build.task.upsert", { task });
   return task;
+}
+
+export async function getById(id: string): Promise<BuildTask | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{
+    id: string;
+    build_id: string;
+    label: string;
+    closet_item_id: string | null;
+    sort_order: number;
+    checked: number;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at FROM build_tasks WHERE id = ?`,
+    [id],
+  );
+  if (!row) return null;
+  return {
+    id: row.id,
+    buildId: row.build_id,
+    label: row.label,
+    closetItemId: row.closet_item_id ?? undefined,
+    sortOrder: row.sort_order,
+    checked: row.checked !== 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function upsertFromSync(task: BuildTask): Promise<void> {
+  const database = await initClosetDb();
+  const existing = await getById(task.id);
+  if (existing) {
+    await database.runAsync(
+      `UPDATE build_tasks SET label = ?, closet_item_id = ?, sort_order = ?, checked = ?, updated_at = ? WHERE id = ? AND build_id = ?`,
+      [
+        task.label,
+        task.closetItemId ?? null,
+        task.sortOrder,
+        task.checked ? 1 : 0,
+        task.updatedAt,
+        task.id,
+        task.buildId,
+      ],
+    );
+  } else {
+    await database.runAsync(
+      `INSERT INTO build_tasks (id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        task.id,
+        task.buildId,
+        task.label,
+        task.closetItemId ?? null,
+        task.sortOrder,
+        task.checked ? 1 : 0,
+        task.createdAt,
+        task.updatedAt,
+      ],
+    );
+  }
 }

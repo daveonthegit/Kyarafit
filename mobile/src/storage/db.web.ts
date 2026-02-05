@@ -228,6 +228,11 @@ function getWebDb(): DbLike {
         }
         return;
       }
+      if (sql.includes("DELETE FROM builds WHERE id")) {
+        const idx = builds.findIndex((r) => r.id === params[0]);
+        if (idx >= 0) builds.splice(idx, 1);
+        return;
+      }
       // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
       if (sql.includes("INSERT INTO build_tasks (")) {
         const [
@@ -293,14 +298,24 @@ function getWebDb(): DbLike {
         return;
       }
       if (sql.includes("DELETE FROM build_tasks WHERE id")) {
-        const [taskId, buildId] = params as [string, string];
-        for (let i = buildTasks.length - 1; i >= 0; i--) {
-          if (
-            buildTasks[i].id === taskId &&
-            buildTasks[i].build_id === buildId
-          ) {
-            buildTasks.splice(i, 1);
-            break;
+        if (params.length === 2) {
+          const [taskId, buildId] = params as [string, string];
+          for (let i = buildTasks.length - 1; i >= 0; i--) {
+            if (
+              buildTasks[i].id === taskId &&
+              buildTasks[i].build_id === buildId
+            ) {
+              buildTasks.splice(i, 1);
+              break;
+            }
+          }
+        } else {
+          const taskId = params[0] as string;
+          for (let i = buildTasks.length - 1; i >= 0; i--) {
+            if (buildTasks[i].id === taskId) {
+              buildTasks.splice(i, 1);
+              break;
+            }
           }
         }
         return;
@@ -363,6 +378,11 @@ function getWebDb(): DbLike {
             updated_at,
           };
         }
+        return;
+      }
+      if (sql.includes("DELETE FROM conventions WHERE id")) {
+        const idx = conventions.findIndex((r) => r.id === params[0]);
+        if (idx >= 0) conventions.splice(idx, 1);
         return;
       }
       // convention_day_plans
@@ -635,4 +655,21 @@ export async function initClosetDb(): Promise<DbLike> {
 
 export function getDb(): DbLike | null {
   return db;
+}
+
+export async function getValue(key: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ value: string }>(
+    "SELECT value FROM kv WHERE key = ?",
+    [key],
+  );
+  return row?.value ?? null;
+}
+
+export async function setValue(key: string, value: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", [
+    key,
+    value,
+  ]);
 }

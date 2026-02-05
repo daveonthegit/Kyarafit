@@ -11,6 +11,7 @@ interface UnderlineInputProps {
   onBlur?: () => void;
   secureTextEntry?: boolean;
   editable?: boolean;
+  keyboardType?: "default" | "number-pad" | "decimal-pad" | "numeric" | "email-address" | "phone-pad";
 }
 
 export function UnderlineInput({
@@ -23,6 +24,7 @@ export function UnderlineInput({
   onBlur,
   secureTextEntry,
   editable = true,
+  keyboardType,
 }: UnderlineInputProps) {
   return (
     <View style={styles.wrap}>
@@ -36,6 +38,7 @@ export function UnderlineInput({
         onBlur={onBlur}
         secureTextEntry={secureTextEntry}
         editable={editable}
+        keyboardType={keyboardType}
         style={[styles.input, error ? styles.inputError : null]}
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
