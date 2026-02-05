@@ -303,11 +303,14 @@ func uploadImageHandler(userRepo *appuser.Repository) fiber.Handler {
 			return c.Status(400).JSON(fiber.Map{"error": "Invalid file type. Allowed: jpg, jpeg, png, webp, gif"})
 		}
 
+		// Calculate file size in MB
+		fileSizeMB := float64(file.Size) / (1024 * 1024)
+		fileSizeMBRounded := int(fileSizeMB + 0.5) // Round to nearest MB
+
 		// Check storage quota
 		storageLimit := tier.Limit(u, "storage_mb")
 		if storageLimit != tier.Unlimited {
-			fileSizeMB := float64(file.Size) / (1024 * 1024)
-			if u.CurrentUsageMB+fileSizeMB > float64(storageLimit) {
+			if u.CurrentUsageMB+fileSizeMBRounded > storageLimit {
 				return c.Status(403).JSON(fiber.Map{
 					"error":          "Storage limit reached. Upgrade to continue uploading.",
 					"currentUsageMb": u.CurrentUsageMB,
@@ -335,8 +338,7 @@ func uploadImageHandler(userRepo *appuser.Repository) fiber.Handler {
 		}
 
 		// Update user's storage usage
-		fileSizeMB := float64(file.Size) / (1024 * 1024)
-		if err := userRepo.UpdateUsage(c.Context(), u.ID, fileSizeMB); err != nil {
+		if err := userRepo.UpdateUsage(c.Context(), u.ID, fileSizeMBRounded); err != nil {
 			log.Printf("Failed to update usage for user %s: %v", u.ID, err)
 			// Don't fail the request - image was uploaded successfully
 		}
