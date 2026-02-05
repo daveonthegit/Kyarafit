@@ -235,9 +235,9 @@ func main() {
 	conventionGroup.Patch("/packing/:id", conventionHandler.UpdatePackingItem)
 
 	// API routes (web editor: require at least FREE tier)
-	// Using /api/v1 group with middleware applied to all routes via Use()
-	api := app.Group("/api/v1")
-	api.Use(requireWeb)
+	// Pass middleware directly to Group() - this is the correct Fiber v2 pattern
+	// Using Use() after Group() can cause routing issues in some Fiber versions
+	api := app.Group("/api/v1", requireWeb)
 
 	// Auth verification endpoint - useful for debugging and checking auth state
 	api.Get("/auth/me", func(c *fiber.Ctx) error {
@@ -340,6 +340,15 @@ func main() {
 
 	// Seed data endpoint: manually trigger seed data creation
 	app.Post("/api/seed", optionalUser, seedDataHandler(deviceBuildsRepo, conventionRepo))
+
+	// Debug: Print all registered routes
+	log.Println("=== Registered Routes ===")
+	for _, route := range app.GetRoutes() {
+		if route.Method != "HEAD" { // Skip HEAD duplicates
+			log.Printf("  %s %s", route.Method, route.Path)
+		}
+	}
+	log.Println("=========================")
 
 	// Start server
 	port := os.Getenv("PORT")

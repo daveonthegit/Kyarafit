@@ -12,24 +12,28 @@
 ## What Was Fixed
 
 ### Environment Configuration
+
 - Updated `docker-compose.yml` to use `env_file: - .env` for backend service
 - Added environment variable validation in `main.go` with fail-fast for required vars
 - Made CORS origins configurable via `CORS_ORIGINS` env var
 - Fixed "No .env file found" message (now logs as Info, not Warning)
 
 ### Auth Middleware Improvements
+
 - Added structured error responses with codes (e.g., `missing_auth_header`, `expired_token`)
 - Added logging for auth failures (sanitized, no sensitive data)
 - Added support for both HMAC (HS256) and ECDSA (ES256) JWT validation
 - Added `parseECDSAPublicKey()` function with escaped newline handling for env vars
 
 ### Backend Startup Issue (FIXED)
+
 - Backend was hanging on startup due to `emailClient.Verify()` calling `smtp.Dial()`
 - **Fix:** Commented out SMTP verification on startup in `main.go`
 
 ## Current Issue: Routes Return 404
 
 ### Symptoms
+
 - `/health` works ✓
 - `/api/v1/sync/pull` returns 401 "Authentication required" ✓ (correct behavior)
 - `/api/v1/me` returns 404 "Cannot GET /api/v1/me" ✗
@@ -38,6 +42,7 @@
 - All routes directly on the `api` group return 404
 
 ### What's Strange
+
 The **subgroup** works (`api.Group("/sync", ...)`) but **direct routes** on the api group don't.
 
 ```go
@@ -91,6 +96,7 @@ syncGroup.Get("/pull", syncPullHandler(syncRepo))
 ## Next Steps
 
 1. **Try inline middleware** on each route instead of `api.Use()`:
+
    ```go
    api.Get("/me", requireWeb, handler)
    ```
@@ -98,6 +104,7 @@ syncGroup.Get("/pull", syncPullHandler(syncRepo))
 2. **Check route registration order** - Register routes before calling `Use()`
 
 3. **Debug Fiber routing** - Add logging to see what routes are actually registered:
+
    ```go
    for _, route := range app.GetRoutes() {
        log.Printf("Route: %s %s", route.Method, route.Path)
