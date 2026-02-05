@@ -17,6 +17,7 @@ export interface BuildTask {
 interface TaskChecklistProps {
   buildId: string;
   tasks: BuildTask[];
+  linkedItems?: Array<{ id: string; name: string; imageUrl?: string | null }>;
   onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
   enableDragDrop?: boolean;
 }
@@ -24,11 +25,17 @@ interface TaskChecklistProps {
 export function TaskChecklist({
   buildId,
   tasks,
+  linkedItems = [],
   onTaskAssign,
   enableDragDrop = false,
 }: TaskChecklistProps) {
   const [newTaskLabel, setNewTaskLabel] = useState("");
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Debug: Log drag-drop status
+  console.log("TaskChecklist - enableDragDrop:", enableDragDrop, "tasks count:", tasks.length);
 
   // Calculate progress
   const completedCount = tasks.filter((t) => t.checked).length;
@@ -48,8 +55,15 @@ export function TaskChecklist({
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: ({ taskId, checked }: { taskId: string; checked: boolean }) =>
-      updateBuildTask(buildId, taskId, { checked }),
+    mutationFn: ({
+      taskId,
+      checked,
+      closetItemId,
+    }: {
+      taskId: string;
+      checked?: boolean;
+      closetItemId?: string | null;
+    }) => updateBuildTask(buildId, taskId, { checked, closetItemId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
     },
@@ -76,6 +90,22 @@ export function TaskChecklist({
     deleteTaskMutation.mutate(taskId);
   };
 
+  const handleOpenAssignModal = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignTask = async (closetItemId: string | null) => {
+    if (!selectedTaskId) return;
+    await updateTaskMutation.mutateAsync({
+      taskId: selectedTaskId,
+      checked: tasks.find((t) => t.id === selectedTaskId)?.checked ?? false,
+      closetItemId,
+    });
+    setAssignModalOpen(false);
+    setSelectedTaskId(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Progress Bar */}
@@ -97,23 +127,36 @@ export function TaskChecklist({
 
       {/* Task List */}
       <div className="space-y-2">
-        {sortedTasks.map((task) =>
-          enableDragDrop ? (
+        {sortedTasks.map((task) => {
+          console.log(
+            "Rendering task:",
+            task.id,
+            "- enableDragDrop:",
+            enableDragDrop,
+            "- will use:",
+            enableDragDrop ? "DraggableTaskRow" : "TaskRow"
+          );
+          const linkedItem = linkedItems.find((item) => item.id === task.closetItemId);
+          return enableDragDrop ? (
             <DraggableTaskRow
               key={task.id}
               task={task}
+              linkedItem={linkedItem}
               onToggle={(checked) => handleToggleTask(task.id, checked)}
               onDelete={() => handleDeleteTask(task.id)}
+              onAssign={() => handleOpenAssignModal(task.id)}
             />
           ) : (
             <TaskRow
               key={task.id}
               task={task}
+              linkedItem={linkedItem}
               onToggle={(checked) => handleToggleTask(task.id, checked)}
               onDelete={() => handleDeleteTask(task.id)}
+              onAssign={() => handleOpenAssignModal(task.id)}
             />
-          )
-        )}
+          );
+        })}
 
         {sortedTasks.length === 0 && (
           <p className="text-sm text-kyar-textTertiary text-center py-8">
@@ -151,17 +194,64 @@ export function TaskChecklist({
         >
           Mark All Complete
         </button>
-        <button
-          onClick={() => {
-            if (onTaskAssign) {
-              // TODO: Open assignment UI
-            }
-          }}
-          className="flex-1 border border-kyar-border hover:border-black py-2 text-xs font-semibold uppercase tracking-wider"
-        >
-          Assign to Items
-        </button>
       </div>
+
+      {/* Assignment Modal */}
+      {assignModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setAssignModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Assign Task to Item</h3>
+              <button
+                onClick={() => setAssignModalOpen(false)}
+                className="text-gray-500 hover:text-black"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => handleAssignTask(null)}
+                className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
+              >
+                <span className="material-symbols-outlined text-gray-400">close</span>
+                <span className="text-sm">Unassign from any item</span>
+              </button>
+              {linkedItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleAssignTask(item.id)}
+                  className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
+                >
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="w-10 h-10 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                      <span className="material-symbols-outlined text-gray-400">image</span>
+                    </div>
+                  )}
+                  <span className="text-sm flex-1 text-left">{item.name}</span>
+                </button>
+              ))}
+              {linkedItems.length === 0 && (
+                <p className="text-sm text-kyar-textTertiary text-center py-4">
+                  No closet items linked to this build. Link items first to assign tasks.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -169,11 +259,13 @@ export function TaskChecklist({
 // Regular task row (non-draggable)
 interface TaskRowProps {
   task: BuildTask;
+  linkedItem?: { id: string; name: string; imageUrl?: string | null };
   onToggle: (checked: boolean) => void;
   onDelete: () => void;
+  onAssign: () => void;
 }
 
-function TaskRow({ task, onToggle, onDelete }: TaskRowProps) {
+function TaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
   return (
     <div className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group">
       <input
@@ -182,17 +274,25 @@ function TaskRow({ task, onToggle, onDelete }: TaskRowProps) {
         onChange={(e) => onToggle(e.target.checked)}
         className="w-4 h-4 accent-black"
       />
-      <span
-        className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+      <div className="flex-1">
+        <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
+          {task.label}
+        </span>
+        {linkedItem && (
+          <span className="text-xs text-kyar-textTertiary block mt-0.5">→ {linkedItem.name}</span>
+        )}
+      </div>
+      <button
+        onClick={onAssign}
+        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+        title="Assign to item"
       >
-        {task.label}
-      </span>
-      {task.closetItemId && (
-        <span className="text-xs text-kyar-textTertiary uppercase tracking-wider">Assigned</span>
-      )}
+        <span className="material-symbols-outlined text-base">link</span>
+      </button>
       <button
         onClick={onDelete}
         className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+        title="Delete task"
       >
         <span className="material-symbols-outlined text-base">delete</span>
       </button>
@@ -201,7 +301,7 @@ function TaskRow({ task, onToggle, onDelete }: TaskRowProps) {
 }
 
 // Draggable task row
-function DraggableTaskRow({ task, onToggle, onDelete }: TaskRowProps) {
+function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
     data: { type: "task", task },
@@ -224,20 +324,31 @@ function DraggableTaskRow({ task, onToggle, onDelete }: TaskRowProps) {
         className="w-4 h-4 accent-black"
         onClick={(e) => e.stopPropagation()}
       />
-      <span
-        className={`flex-1 text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+      <div className="flex-1">
+        <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
+          {task.label}
+        </span>
+        {linkedItem && (
+          <span className="text-xs text-kyar-textTertiary block mt-0.5">→ {linkedItem.name}</span>
+        )}
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onAssign();
+        }}
+        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+        title="Assign to item"
       >
-        {task.label}
-      </span>
-      {task.closetItemId && (
-        <span className="text-xs text-kyar-textTertiary uppercase tracking-wider">Assigned</span>
-      )}
+        <span className="material-symbols-outlined text-base">link</span>
+      </button>
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
         }}
         className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+        title="Delete task"
       >
         <span className="material-symbols-outlined text-base">delete</span>
       </button>

@@ -1,11 +1,27 @@
 import { useCallback, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  StyleSheet,
+  Image,
+  Alert,
+  Modal,
+} from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { Build, BuildTask } from "@kyarafit/design-system/types";
 import { getBuild, getLinkedClosetItemIds } from "../src/storage/buildsRepo";
-import { listTasks, createTask, toggleTaskChecked } from "../src/storage/buildTasksRepo";
+import {
+  listTasks,
+  createTask,
+  toggleTaskChecked,
+  deleteTask,
+  updateTask,
+} from "../src/storage/buildTasksRepo";
 import { listItems } from "../src/storage/closetRepo";
 import type { ClosetItem } from "@kyarafit/design-system/types";
 
@@ -27,6 +43,8 @@ export default function BuildDetailScreen() {
   const [tasks, setTasks] = useState<BuildTask[]>([]);
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -123,11 +141,64 @@ export default function BuildDetailScreen() {
 
   const onToggleTask = async (taskId: string) => {
     if (!id) return;
-    const updated = await toggleTaskChecked(taskId, id);
-    if (updated)
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, checked: updated.checked } : t))
-      );
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, checked: !t.checked } : t)));
+    // Persist to database
+    try {
+      await toggleTaskChecked(taskId, id);
+    } catch (error) {
+      console.error("Failed to toggle task:", error);
+      // Revert on error
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, checked: !t.checked } : t)));
+    }
+  };
+
+  const onDeleteTask = async (taskId: string) => {
+    if (!id) return;
+    Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          // Optimistic update
+          setTasks((prev) => prev.filter((t) => t.id !== taskId));
+          try {
+            await deleteTask(taskId, id);
+          } catch (error) {
+            console.error("Failed to delete task:", error);
+            // Reload on error
+            const reloaded = await listTasks(id);
+            setTasks(reloaded);
+          }
+        },
+      },
+    ]);
+  };
+
+  const onLongPressTask = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setAssignModalVisible(true);
+  };
+
+  const onAssignTask = async (closetItemId: string | null) => {
+    if (!id || !selectedTaskId) return;
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === selectedTaskId ? { ...t, closetItemId: closetItemId ?? undefined } : t
+      )
+    );
+    setAssignModalVisible(false);
+    setSelectedTaskId(null);
+    try {
+      await updateTask(selectedTaskId, id, { closetItemId });
+    } catch (error) {
+      console.error("Failed to assign task:", error);
+      // Reload on error
+      const reloaded = await listTasks(id);
+      setTasks(reloaded);
+    }
   };
 
   return (
@@ -248,16 +319,30 @@ export default function BuildDetailScreen() {
               <Text style={styles.taskAddBtnText}>ADD</Text>
             </Pressable>
           </View>
-          {tasks.map((t) => (
-            <Pressable key={t.id} style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
-              <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
-                {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
+          {tasks.map((t) => {
+            const linkedItem = linkedItems.find((item) => item.id === t.closetItemId);
+            return (
+              <View key={t.id} style={styles.taskRowContainer}>
+                <Pressable style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
+                  <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
+                    {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
+                  </View>
+                  <View style={styles.taskContent}>
+                    <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
+                      {t.label}
+                    </Text>
+                    {linkedItem && <Text style={styles.taskAssigned}>→ {linkedItem.name}</Text>}
+                  </View>
+                </Pressable>
+                <Pressable style={styles.taskActionBtn} onPress={() => onLongPressTask(t.id)}>
+                  <Ionicons name="link-outline" size={18} color={colors.textSecondary} />
+                </Pressable>
+                <Pressable style={styles.taskActionBtn} onPress={() => onDeleteTask(t.id)}>
+                  <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                </Pressable>
               </View>
-              <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
-                {t.closetItemId ? `${t.label} (linked)` : t.label}
-              </Text>
-            </Pressable>
-          ))}
+            );
+          })}
         </View>
 
         {/* Associated Closet Items */}
@@ -318,6 +403,58 @@ export default function BuildDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Task Assignment Modal */}
+      <Modal
+        visible={assignModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAssignModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Task to Item</Text>
+              <Pressable onPress={() => setAssignModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              {selectedTaskId && (
+                <Pressable style={styles.modalOption} onPress={() => onAssignTask(null)}>
+                  <Ionicons name="close-circle-outline" size={20} color={colors.textSecondary} />
+                  <Text style={styles.modalOptionText}>Unassign from any item</Text>
+                </Pressable>
+              )}
+              {linkedItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.modalOption}
+                  onPress={() => onAssignTask(item.id)}
+                >
+                  {item.imageUrl ? (
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.modalItemImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.modalItemImage, styles.modalItemImagePlaceholder]}>
+                      <Ionicons name="image-outline" size={16} color={colors.textTertiary} />
+                    </View>
+                  )}
+                  <Text style={styles.modalOptionText}>{item.name}</Text>
+                </Pressable>
+              ))}
+              {linkedItems.length === 0 && (
+                <Text style={styles.modalEmpty}>
+                  No closet items linked to this build. Link items first to assign tasks.
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -531,6 +668,81 @@ const styles = StyleSheet.create({
   taskLabelChecked: {
     textDecorationLine: "line-through",
     color: colors.textTertiary,
+  },
+  taskRowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskAssigned: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    fontStyle: "italic",
+    marginTop: 2,
+  },
+  taskActionBtn: {
+    padding: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 40,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  modalScroll: {
+    padding: 20,
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+  },
+  modalItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+  },
+  modalItemImagePlaceholder: {
+    backgroundColor: colors.muted,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalEmpty: {
+    fontSize: 14,
+    color: colors.textTertiary,
+    textAlign: "center",
+    paddingVertical: 20,
   },
   gallery: {
     flexDirection: "row",

@@ -209,9 +209,14 @@ export default function BuildDetailPage() {
           <section className="px-6 mb-10">
             <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">Tasks</h2>
             <p className="text-xs text-kyar-textTertiary mb-4 italic">
-              Drag tasks onto closet items below to assign them
+              Drag tasks onto closet items or click the link button to assign them
             </p>
-            <TaskChecklist buildId={id} tasks={tasks} enableDragDrop={true} />
+            <TaskChecklist
+              buildId={id}
+              tasks={tasks}
+              linkedItems={linkedItems}
+              enableDragDrop={true}
+            />
           </section>
 
           {/* Budget Tracker */}
