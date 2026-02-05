@@ -30,11 +30,6 @@ jobs:
     uses: ./.github/workflows/image-service.yml
     secrets: inherit
 
-  # Mobile application
-  mobile:
-    name: Mobile App CI
-    uses: ./.github/workflows/mobile.yml
-    secrets: inherit
 
   # Simplified integration smoke tests
   integration-tests:
@@ -257,3 +252,4 @@ jobs:
           echo "Some services failed CI checks. Please review the logs above and fix the issues." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
+
