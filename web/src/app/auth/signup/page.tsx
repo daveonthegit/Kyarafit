@@ -40,7 +40,7 @@ export default function SignUpPage() {
           </div>
           <h1 className="font-serif text-3xl italic mb-4">Check your email</h1>
           <p className="text-kyar-textSecondary mb-8">
-            We've sent a confirmation link to <strong>{email}</strong>
+            We&apos;ve sent a confirmation link to <strong>{email}</strong>
           </p>
           <p className="text-sm text-kyar-textSecondary mb-8">
             Click the link in the email to verify your account, then you can sign in.
