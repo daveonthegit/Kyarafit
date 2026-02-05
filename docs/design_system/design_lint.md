@@ -40,10 +40,10 @@ Run this checklist whenever a new screen/component is added.
 
 ## Trust / Offline
 - [ ] Offline state never blocks usage
-- [ ] Sync messaging is calm (“will sync when online”), no panic modals
+- [ ] Sync messaging is calm ("will sync when online"), no panic modals
 - [ ] Export/backup is discoverable (Settings/Data Management)
 
-## “If this happens, stop and fix”
+## "If this happens, stop and fix"
 - [ ] The UI starts to look like a generic productivity app
 - [ ] You add colorful chips/badges everywhere
 - [ ] You add boxed inputs or rounded pill buttons

@@ -7,6 +7,7 @@ type Convention struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Location  *string   `json:"location,omitempty"`
+	ImageURL  *string   `json:"imageUrl,omitempty"`
 	StartDate string    `json:"startDate"` // YYYY-MM-DD
 	EndDate   string    `json:"endDate"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -19,6 +20,7 @@ type CreateConventionInput struct {
 	ID        string  `json:"id,omitempty"`
 	Name      string  `json:"name"`
 	Location  *string `json:"location,omitempty"`
+	ImageURL  *string `json:"imageUrl,omitempty"`
 	StartDate string  `json:"startDate"`
 	EndDate   string  `json:"endDate"`
 }
@@ -27,6 +29,7 @@ type CreateConventionInput struct {
 type UpdateConventionInput struct {
 	Name      *string `json:"name,omitempty"`
 	Location  *string `json:"location,omitempty"`
+	ImageURL  *string `json:"imageUrl,omitempty"`
 	StartDate *string `json:"startDate,omitempty"`
 	EndDate   *string `json:"endDate,omitempty"`
 }

@@ -80,6 +80,24 @@ func AllowSyncWrite(c *fiber.Ctx) error {
 	return nil
 }
 
+// RequireCloudSync requires PREMIUM_BASIC+ tier for cloud sync/backup features.
+// Must be used after a middleware that sets appUser (RequireWebAccess or OptionalAppUser + manual check).
+func RequireCloudSync(c *fiber.Ctx) error {
+	u := AppUser(c)
+	if u == nil {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Authentication required for cloud sync",
+		})
+	}
+	if !tier.Can(u, "multi_device_sync") {
+		return c.Status(403).JSON(fiber.Map{
+			"error": "Cloud sync requires Premium Basic or higher. Upgrade to sync across devices.",
+			"tier":  u.Tier,
+		})
+	}
+	return nil
+}
+
 // AppUser returns the app user from context, or nil.
 func AppUser(c *fiber.Ctx) *tier.User {
 	u, _ := c.Locals("appUser").(*tier.User)

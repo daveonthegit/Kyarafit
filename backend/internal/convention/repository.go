@@ -26,7 +26,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 // ListConventionsByDevice returns conventions for device_id.
 func (r *Repository) ListConventionsByDevice(ctx context.Context, deviceID string) ([]Convention, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, name, location, start_date, end_date, created_at, updated_at
+		SELECT id, name, location, image_url, start_date, end_date, created_at, updated_at
 		FROM conventions WHERE device_id = $1 ORDER BY start_date DESC
 	`, deviceID)
 	if err != nil {
@@ -40,12 +40,13 @@ func scanConventions(rows pgx.Rows) ([]Convention, error) {
 	var list []Convention
 	for rows.Next() {
 		var c Convention
-		var loc *string
-		err := rows.Scan(&c.ID, &c.Name, &loc, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt)
+		var loc, imageURL *string
+		err := rows.Scan(&c.ID, &c.Name, &loc, &imageURL, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
 		c.Location = loc
+		c.ImageURL = imageURL
 		list = append(list, c)
 	}
 	return list, rows.Err()
@@ -54,11 +55,11 @@ func scanConventions(rows pgx.Rows) ([]Convention, error) {
 // GetConventionByID returns a convention by id and device_id.
 func (r *Repository) GetConventionByID(ctx context.Context, id, deviceID string) (*Convention, error) {
 	var c Convention
-	var loc *string
+	var loc, imageURL *string
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, name, location, start_date, end_date, created_at, updated_at
+		SELECT id, name, location, image_url, start_date, end_date, created_at, updated_at
 		FROM conventions WHERE id = $1 AND device_id = $2
-	`, id, deviceID).Scan(&c.ID, &c.Name, &loc, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt)
+	`, id, deviceID).Scan(&c.ID, &c.Name, &loc, &imageURL, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -66,6 +67,7 @@ func (r *Repository) GetConventionByID(ctx context.Context, id, deviceID string)
 		return nil, err
 	}
 	c.Location = loc
+	c.ImageURL = imageURL
 	return &c, nil
 }
 
@@ -76,18 +78,19 @@ func (r *Repository) CreateConvention(ctx context.Context, deviceID, userID stri
 		id = uuid.New().String()
 	}
 	var c Convention
-	var loc *string
+	var loc, imageURL *string
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO conventions (id, device_id, user_id, name, location, start_date, end_date)
-		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7)
-		RETURNING id, name, location, start_date, end_date, created_at, updated_at
-	`, id, deviceID, userID, in.Name, in.Location, in.StartDate, in.EndDate).Scan(
-		&c.ID, &c.Name, &loc, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt,
+		INSERT INTO conventions (id, device_id, user_id, name, location, image_url, start_date, end_date)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8)
+		RETURNING id, name, location, image_url, start_date, end_date, created_at, updated_at
+	`, id, deviceID, userID, in.Name, in.Location, in.ImageURL, in.StartDate, in.EndDate).Scan(
+		&c.ID, &c.Name, &loc, &imageURL, &c.StartDate, &c.EndDate, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		return Convention{}, err
 	}
 	c.Location = loc
+	c.ImageURL = imageURL
 	return c, nil
 }
 
@@ -103,6 +106,9 @@ func (r *Repository) UpdateConvention(ctx context.Context, id, deviceID string, 
 	if in.Location != nil {
 		existing.Location = in.Location
 	}
+	if in.ImageURL != nil {
+		existing.ImageURL = in.ImageURL
+	}
 	if in.StartDate != nil {
 		existing.StartDate = *in.StartDate
 	}
@@ -110,9 +116,9 @@ func (r *Repository) UpdateConvention(ctx context.Context, id, deviceID string, 
 		existing.EndDate = *in.EndDate
 	}
 	_, err = r.pool.Exec(ctx, `
-		UPDATE conventions SET name = $2, location = $3, start_date = $4, end_date = $5
-		WHERE id = $1 AND device_id = $6
-	`, id, existing.Name, existing.Location, existing.StartDate, existing.EndDate, deviceID)
+		UPDATE conventions SET name = $2, location = $3, image_url = $4, start_date = $5, end_date = $6
+		WHERE id = $1 AND device_id = $7
+	`, id, existing.Name, existing.Location, existing.ImageURL, existing.StartDate, existing.EndDate, deviceID)
 	if err != nil {
 		return nil, err
 	}

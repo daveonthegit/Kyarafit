@@ -1,13 +1,20 @@
 /**
- * Sync service: flush outbox to backend when online.
+ * Sync service: bidirectional sync with backend.
+ * Push phase: flush outbox to backend when online.
+ * Pull phase: fetch server changes and merge into local DB.
  * Run on app launch and when app becomes active.
  * Anonymous users: no sync attempts (local-only).
  * Logged-in FREE: backend returns 403 (upgrade for backup).
- * PREMIUM_BASIC+: full sync. Pass token from session when calling runSync.
+ * PREMIUM_BASIC+: full bidirectional sync. Pass token from session when calling runSync.
  */
 
 import type { ClosetItem } from '@kyarafit/design-system/types';
 import * as outbox from '../storage/outboxRepo';
+import * as closetRepo from '../storage/closetRepo';
+import * as buildsRepo from '../storage/buildsRepo';
+import * as buildTasksRepo from '../storage/buildTasksRepo';
+import * as conventionsRepo from '../storage/conventionsRepo';
+import { getValue, setValue } from '../storage/db';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -63,15 +70,20 @@ async function request<T>(
 }
 
 /**
- * Run sync. Pass token from session when user is signed in; backend requires PREMIUM_BASIC+ for mobile sync.
+ * Run bidirectional sync.
+ * 1. Push phase: flush outbox to backend
+ * 2. Pull phase: fetch server changes and merge into local DB
+ * Pass token from session when user is signed in; backend requires PREMIUM_BASIC+ for mobile sync.
  * When token is null (anonymous), no backend requests are made (local-only).
  */
-export async function runSync(token: string | null): Promise<{ synced: number; failed: number }> {
+export async function runSync(token: string | null): Promise<{ pushed: number; failed: number; pulled: number }> {
   if (token == null) {
-    return { synced: 0, failed: 0 };
+    return { pushed: 0, failed: 0, pulled: 0 };
   }
+
+  // ==================== PUSH PHASE ====================
   const pending = await outbox.listPending();
-  let synced = 0;
+  let pushed = 0;
   let failed = 0;
 
   for (const entry of pending) {
@@ -158,13 +170,140 @@ export async function runSync(token: string | null): Promise<{ synced: number; f
     }
     if (ok) {
       await outbox.remove(entry.id);
-      synced++;
+      pushed++;
     } else {
       failed++;
     }
   }
 
-  return { synced, failed };
+  // ==================== PULL PHASE ====================
+  let pulled = 0;
+  
+  try {
+    // Get last sync timestamp
+    const lastSync = await getValue('last_sync_timestamp');
+    const sinceParam = lastSync ? `?since=${encodeURIComponent(lastSync)}` : '';
+    
+    // Fetch server changes
+    const pullResult = await request<{
+      closetItems: Array<any>;
+      builds: Array<any>;
+      buildTasks: Array<any>;
+      conventions: Array<any>;
+      conventionPlans: Array<any>;
+      packingListItems: Array<any>;
+      serverTimestamp: string;
+    }>('GET', `/api/v1/sync/pull${sinceParam}`, undefined, token);
+
+    if (pullResult.ok && pullResult.data) {
+      const data = pullResult.data;
+
+      // Merge closet items (last-write-wins based on updatedAt)
+      for (const serverItem of data.closetItems) {
+        if (serverItem.deleted) {
+          await closetRepo.deleteItem(serverItem.id);
+          pulled++;
+        } else {
+          const localItem = await closetRepo.getById(serverItem.id);
+          if (!localItem || new Date(serverItem.updatedAt) > new Date(localItem.updatedAt)) {
+            // Server version is newer or item doesn't exist locally
+            await closetRepo.upsertFromSync({
+              id: serverItem.id,
+              name: serverItem.name,
+              category: serverItem.category,
+              imageUrl: serverItem.imageUrl,
+              notes: serverItem.notes,
+              tags: [],
+              costCents: null,
+              createdAt: serverItem.createdAt,
+              updatedAt: serverItem.updatedAt,
+            });
+            pulled++;
+          }
+        }
+      }
+
+      // Merge builds
+      for (const serverBuild of data.builds) {
+        if (serverBuild.deleted) {
+          await buildsRepo.deleteBuild(serverBuild.id);
+          pulled++;
+        } else {
+          const localBuild = await buildsRepo.getById(serverBuild.id);
+          if (!localBuild || new Date(serverBuild.updatedAt) > new Date(localBuild.updatedAt)) {
+            await buildsRepo.upsertFromSync({
+              id: serverBuild.id,
+              name: serverBuild.name,
+              character: serverBuild.character,
+              status: serverBuild.status,
+              notes: serverBuild.notes,
+              imageUrl: serverBuild.imageUrl,
+              budgetCents: serverBuild.budgetCents,
+              createdAt: serverBuild.createdAt,
+              updatedAt: serverBuild.updatedAt,
+            });
+            pulled++;
+          }
+        }
+      }
+
+      // Merge build tasks
+      for (const serverTask of data.buildTasks) {
+        if (serverTask.deleted) {
+          await buildTasksRepo.deleteTask(serverTask.id);
+          pulled++;
+        } else {
+          const localTask = await buildTasksRepo.getById(serverTask.id);
+          if (!localTask || new Date(serverTask.updatedAt) > new Date(localTask.updatedAt)) {
+            await buildTasksRepo.upsertFromSync({
+              id: serverTask.id,
+              buildId: serverTask.buildId,
+              label: serverTask.label,
+              closetItemId: serverTask.closetItemId,
+              sortOrder: serverTask.sortOrder,
+              checked: serverTask.checked,
+              createdAt: serverTask.createdAt,
+              updatedAt: serverTask.updatedAt,
+            });
+            pulled++;
+          }
+        }
+      }
+
+      // Merge conventions
+      for (const serverConv of data.conventions) {
+        if (serverConv.deleted) {
+          await conventionsRepo.deleteConvention(serverConv.id);
+          pulled++;
+        } else {
+          const localConv = await conventionsRepo.getById(serverConv.id);
+          if (!localConv || new Date(serverConv.updatedAt) > new Date(localConv.updatedAt)) {
+            await conventionsRepo.upsertFromSync({
+              id: serverConv.id,
+              name: serverConv.name,
+              location: serverConv.location,
+              imageUrl: serverConv.imageUrl,
+              startDate: serverConv.startDate,
+              endDate: serverConv.endDate,
+              createdAt: serverConv.createdAt,
+              updatedAt: serverConv.updatedAt,
+            });
+            pulled++;
+          }
+        }
+      }
+
+      // TODO: Merge convention plans and packing list items if repos support it
+
+      // Update last sync timestamp
+      await setValue('last_sync_timestamp', data.serverTimestamp);
+    }
+  } catch (error) {
+    console.error('Pull sync error:', error);
+    // Don't fail the entire sync if pull fails
+  }
+
+  return { pushed, failed, pulled };
 }
 
 export async function getSyncPendingCount(): Promise<number> {

@@ -53,10 +53,16 @@ var capabilities = map[string]Capabilities{
 
 // User is the minimal user info needed for tier checks.
 type User struct {
-	ID             string
-	Tier           string
-	CurrentUsageMB int
-	StorageQuotaMB *int // from subscription if set; else from tier default
+	ID                           string
+	Email                        string
+	EmailConfirmed               bool
+	Tier                         string
+	CurrentUsageMB               int
+	StorageQuotaMB               *int // from subscription if set; else from tier default
+	StripeCustomerID             string
+	StripeSubscriptionID         string
+	SubscriptionStatus           string
+	SubscriptionCurrentPeriodEnd *string // ISO8601 timestamp
 }
 
 // Caps returns capabilities for the given tier.

@@ -1,13 +1,13 @@
 # Kyarafit – Component Specs (Token-Aligned)
 
-These specs lock the “editorial utility” system in place so UI can scale without drifting.
+These specs lock the "editorial utility" system in place so UI can scale without drifting.
 
 ## 1) Button
 
 ### Variants
 - **Primary**: Black fill, white text
 - **Secondary**: Transparent, black border, black text
-- **Text**: No border, underline (used rarely, for “View all” / “Add expense”)
+- **Text**: No border, underline (used rarely, for "View all" / "Add expense")
 
 ### Shape & Spacing
 - Radius: `radius.sm` (sharp)
@@ -54,7 +54,7 @@ These specs lock the “editorial utility” system in place so UI can scale wit
 - Checked state: filled black square inset
 
 ### Typography
-- Item text: uppercase, 13px, tracking “wide-ish”
+- Item text: uppercase, 13px, tracking "wide-ish"
 - Optional right code: 9–10px, `colors.textTertiary`
 
 ### Interaction
@@ -71,18 +71,18 @@ These specs lock the “editorial utility” system in place so UI can scale wit
 - Closet items
 - Build hero
 - Itinerary look tile
-- “Current focus” featured hero
+- "Current focus" featured hero
 
 ### Rules
 - Images are dominant (no heavy overlays)
-- If overlay exists, it’s minimal and editorial:
+- If overlay exists, it's minimal and editorial:
   - small uppercase tag
   - subtle border
   - low-opacity background
 
 ### Styling
 - Container: white background, minimal border (`colors.borderSubtle`) when needed
-- Shadow: only for “stagger image” moments: `shadow.soft`
+- Shadow: only for "stagger image" moments: `shadow.soft`
 - Spacing: generous; avoid dense information blocks
 
 ---

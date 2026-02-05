@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createBuild } from '@/lib/api/builds';
 import type { BuildStatus } from '@kyarafit/design-system/types';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 const STATUSES: BuildStatus[] = ['idea', 'wip', 'ready'];
 
@@ -59,13 +60,12 @@ export default function NewBuildPage() {
             />
           </div>
           <div>
-            <label className="block meta-label mb-2">IMAGE URL (OPTIONAL)</label>
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://…"
-              className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+            <label className="block meta-label mb-2">IMAGE (OPTIONAL)</label>
+            <ImageUpload
+              category="builds"
+              onImageSelected={(url) => setImageUrl(url)}
+              currentImage={imageUrl}
+              allowUrl={true}
             />
           </div>
           <div>

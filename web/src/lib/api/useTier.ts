@@ -15,3 +15,31 @@ export function useTier(): { data: MeResponse | null; isLoading: boolean } {
   });
   return { data: data ?? null, isLoading };
 }
+
+/** Returns feature access based on user's tier */
+export function useFeatureAccess() {
+  const { data: me } = useTier();
+  
+  const tier = me?.tier || 'ANON';
+  const tierOrder: Record<string, number> = {
+    ANON: 0,
+    FREE: 1,
+    PREMIUM_BASIC: 2,
+    PREMIUM_PRO: 3,
+  };
+
+  const currentTierLevel = tierOrder[tier] || 0;
+
+  return {
+    tier,
+    canUseWeb: currentTierLevel >= tierOrder.FREE,
+    canUseCloudSync: currentTierLevel >= tierOrder.PREMIUM_BASIC,
+    canExport: currentTierLevel >= tierOrder.PREMIUM_BASIC,
+    canImport: currentTierLevel >= tierOrder.PREMIUM_BASIC,
+    canExportCSV: currentTierLevel >= tierOrder.PREMIUM_PRO,
+    canExportPDF: currentTierLevel >= tierOrder.PREMIUM_PRO,
+    hasUnlimitedStorage: currentTierLevel >= tierOrder.PREMIUM_PRO,
+    hasUnlimitedBuilds: currentTierLevel >= tierOrder.PREMIUM_PRO,
+    hasUnlimitedConventions: currentTierLevel >= tierOrder.PREMIUM_PRO,
+  };
+}

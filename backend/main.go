@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"kyarafit-backend/database"
 	"kyarafit-backend/handlers"
@@ -13,11 +17,15 @@ import (
 	"kyarafit-backend/internal/closet"
 	"kyarafit-backend/internal/convention"
 	"kyarafit-backend/internal/email"
+	"kyarafit-backend/internal/seed"
+	"kyarafit-backend/internal/storage"
+	"kyarafit-backend/internal/sync"
 	"kyarafit-backend/internal/tier"
 	"kyarafit-backend/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -121,7 +129,7 @@ func main() {
 	deviceBuildsRepo := builds.NewRepository(database.DB)
 	deviceBuildsHandler := builds.NewHandler(deviceBuildsRepo, userRepo)
 	buildsGroup := app.Group("", optionalUser)
-	buildsGroup.Get("/builds", deviceBuildsHandler.List)
+	buildsGroup.Get("/builds", wrapWithSeed(deviceBuildsHandler.List, deviceBuildsRepo, conventionRepo))
 	buildsGroup.Post("/builds", deviceBuildsHandler.Create)
 	buildsGroup.Get("/builds/:id", deviceBuildsHandler.Get)
 	buildsGroup.Patch("/builds/:id", deviceBuildsHandler.Update)
@@ -164,6 +172,14 @@ func main() {
 			"storageLimitMb": storageLimit, // -1 = unlimited
 		})
 	})
+
+	// Image upload endpoint
+	protected.Post("/upload/image", uploadImageHandler(userRepo))
+
+	// Sync endpoints (require PREMIUM_BASIC+ for cloud sync)
+	syncRepo := sync.NewRepository(database.DB)
+	syncGroup := protected.Group("/sync", middleware.RequireCloudSync)
+	syncGroup.Get("/pull", syncPullHandler(syncRepo))
 
 	// Pieces routes (protected)
 	protected.Get("/pieces", piecesHandler.GetPieces)
@@ -224,6 +240,13 @@ func main() {
 	// DISABLED until signature verification is implemented to prevent tier bypass attacks
 	// app.Post("/webhooks/stripe", stripeWebhookHandler(userRepo))
 
+	// User sync endpoint: for debugging/admin (protected by web access)
+	protected.Get("/users/me", getUserInfo(userRepo))
+	protected.Post("/users/sync", syncUserInfo(userRepo))
+
+	// Seed data endpoint: manually trigger seed data creation
+	app.Post("/api/seed", optionalUser, seedDataHandler(deviceBuildsRepo, conventionRepo))
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -232,6 +255,127 @@ func main() {
 
 	log.Printf("Starting server on port %s", port)
 	log.Fatal(app.Listen(":" + port))
+}
+
+// uploadImageHandler handles image uploads to Supabase Storage with quota checks
+func uploadImageHandler(userRepo *appuser.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Get authenticated user
+		u := middleware.AppUser(c)
+		if u == nil {
+			return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+		}
+
+		// Check if user's tier allows image uploads (FREE+ for web, PREMIUM_BASIC+ for mobile)
+		clientType := c.Get("x-kyar-client", "web")
+		if clientType == "mobile" && u.Tier < tier.PREMIUM_BASIC {
+			return c.Status(403).JSON(fiber.Map{"error": "Image uploads on mobile require Premium Basic or higher"})
+		}
+
+		// Get category from form data
+		category := c.FormValue("category")
+		if category == "" {
+			category = "builds"
+		}
+		// Validate category
+		validCategories := map[string]bool{"builds": true, "conventions": true, "closet": true}
+		if !validCategories[category] {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid category. Must be: builds, conventions, or closet"})
+		}
+
+		// Get uploaded file
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "No file uploaded"})
+		}
+
+		// Validate file size (5MB max)
+		const maxSize = 5 * 1024 * 1024 // 5MB
+		if file.Size > maxSize {
+			return c.Status(400).JSON(fiber.Map{"error": "File too large. Maximum size is 5MB"})
+		}
+
+		// Validate file type
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		validExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true}
+		if !validExts[ext] {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid file type. Allowed: jpg, jpeg, png, webp, gif"})
+		}
+
+		// Check storage quota
+		storageLimit := tier.Limit(u, "storage_mb")
+		if storageLimit != tier.Unlimited {
+			fileSizeMB := float64(file.Size) / (1024 * 1024)
+			if u.CurrentUsageMB+fileSizeMB > float64(storageLimit) {
+				return c.Status(403).JSON(fiber.Map{
+					"error":          "Storage limit reached. Upgrade to continue uploading.",
+					"currentUsageMb": u.CurrentUsageMB,
+					"storageLimitMb": storageLimit,
+				})
+			}
+		}
+
+		// Open file
+		src, err := file.Open()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to read file"})
+		}
+		defer src.Close()
+
+		// Generate unique filename
+		filename := fmt.Sprintf("%s/%s%s", category, uuid.New().String(), ext)
+
+		// Upload to Supabase Storage
+		storageClient := storage.NewSupabaseStorage()
+		publicURL, err := storageClient.Upload(u.ID, filename, src)
+		if err != nil {
+			log.Printf("Storage upload error: %v", err)
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to upload image"})
+		}
+
+		// Update user's storage usage
+		fileSizeMB := float64(file.Size) / (1024 * 1024)
+		if err := userRepo.UpdateUsage(c.Context(), u.ID, fileSizeMB); err != nil {
+			log.Printf("Failed to update usage for user %s: %v", u.ID, err)
+			// Don't fail the request - image was uploaded successfully
+		}
+
+		return c.Status(201).JSON(fiber.Map{
+			"url":    publicURL,
+			"size":   file.Size,
+			"sizeMb": fmt.Sprintf("%.2f", fileSizeMB),
+		})
+	}
+}
+
+// syncPullHandler handles sync pull requests with timestamp filtering
+func syncPullHandler(syncRepo *sync.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		u := middleware.AppUser(c)
+		if u == nil {
+			return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+		}
+
+		// Parse optional "since" timestamp
+		var since *time.Time
+		sinceStr := c.Query("since")
+		if sinceStr != "" {
+			t, err := time.Parse(time.RFC3339, sinceStr)
+			if err != nil {
+				return c.Status(400).JSON(fiber.Map{"error": "Invalid since timestamp. Use RFC3339 format"})
+			}
+			since = &t
+		}
+
+		// Pull changes since timestamp
+		resp, err := syncRepo.Pull(c.Context(), u.ID, since)
+		if err != nil {
+			log.Printf("Sync pull error for user %s: %v", u.ID, err)
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch sync data"})
+		}
+
+		return c.JSON(resp)
+	}
 }
 
 // exportHandler returns a handler that exports data. PREMIUM_BASIC: JSON only; PREMIUM_PRO: JSON, CSV, PDF.
@@ -289,12 +433,16 @@ func stripeWebhookHandler(userRepo *appuser.Repository) fiber.Handler {
 		if err := c.BodyParser(&evt); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "invalid payload"})
 		}
+
+		ctx := c.Context()
 		switch evt.Type {
 		case "customer.subscription.updated", "customer.subscription.created":
 			var sub struct {
-				ID       string `json:"id"`
-				Customer string `json:"customer"`
-				Items    struct {
+				ID               string `json:"id"`
+				Customer         string `json:"customer"`
+				Status           string `json:"status"`
+				CurrentPeriodEnd int64  `json:"current_period_end"`
+				Items            struct {
 					Data []struct {
 						Price struct {
 							ID string `json:"id"`
@@ -308,6 +456,8 @@ func stripeWebhookHandler(userRepo *appuser.Repository) fiber.Handler {
 			if len(sub.Items.Data) == 0 {
 				return c.SendStatus(200)
 			}
+
+			// Determine tier from price ID
 			priceID := sub.Items.Data[0].Price.ID
 			newTier := tier.FREE
 			switch priceID {
@@ -316,21 +466,157 @@ func stripeWebhookHandler(userRepo *appuser.Repository) fiber.Handler {
 			case os.Getenv("STRIPE_PRICE_PRO"):
 				newTier = tier.PREMIUM_PRO
 			}
-			// Resolve customer -> user_id (e.g. from Stripe customer metadata or your DB)
-			// Stub: expect metadata or lookup table; for now we just 200 and log
-			_ = newTier
-			log.Printf("Stripe webhook: %s customer=%s price=%s -> tier=%s", evt.Type, sub.Customer, priceID, newTier)
+
+			// Find user by Stripe customer ID
+			user, err := userRepo.GetByStripeCustomerID(ctx, sub.Customer)
+			if err != nil {
+				log.Printf("Error finding user for customer %s: %v", sub.Customer, err)
+				return c.Status(500).JSON(fiber.Map{"error": "database error"})
+			}
+			if user == nil {
+				log.Printf("No user found for Stripe customer %s", sub.Customer)
+				return c.SendStatus(200) // Don't fail webhook if user not found
+			}
+
+			// Convert Unix timestamp to ISO8601 string
+			var periodEndPtr *string
+			if sub.CurrentPeriodEnd > 0 {
+				t := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
+				periodEnd := t.Format(time.RFC3339)
+				periodEndPtr = &periodEnd
+			}
+
+			// Update user tier and subscription info
+			err = userRepo.SetTierAndSubscription(ctx, user.ID, newTier, sub.ID, sub.Status, periodEndPtr)
+			if err != nil {
+				log.Printf("Error updating user %s subscription: %v", user.ID, err)
+				return c.Status(500).JSON(fiber.Map{"error": "failed to update user"})
+			}
+
+			log.Printf("Stripe webhook: %s customer=%s user=%s price=%s status=%s -> tier=%s",
+				evt.Type, sub.Customer, user.ID, priceID, sub.Status, newTier)
+
 		case "customer.subscription.deleted":
-			// Downgrade: set tier to FREE; do not delete data
 			var sub struct {
+				ID       string `json:"id"`
 				Customer string `json:"customer"`
 			}
 			if err := json.Unmarshal(evt.Data.Object, &sub); err != nil {
 				return c.Status(400).JSON(fiber.Map{"error": "invalid object"})
 			}
-			log.Printf("Stripe webhook: subscription deleted customer=%s", sub.Customer)
+
+			// Find user by Stripe customer ID
+			user, err := userRepo.GetByStripeCustomerID(ctx, sub.Customer)
+			if err != nil {
+				log.Printf("Error finding user for customer %s: %v", sub.Customer, err)
+				return c.Status(500).JSON(fiber.Map{"error": "database error"})
+			}
+			if user == nil {
+				log.Printf("No user found for Stripe customer %s", sub.Customer)
+				return c.SendStatus(200)
+			}
+
+			// Downgrade to FREE tier but keep subscription_id for history
+			err = userRepo.SetTierAndSubscription(ctx, user.ID, tier.FREE, sub.ID, "canceled", nil)
+			if err != nil {
+				log.Printf("Error downgrading user %s: %v", user.ID, err)
+				return c.Status(500).JSON(fiber.Map{"error": "failed to update user"})
+			}
+
+			log.Printf("Stripe webhook: subscription deleted customer=%s user=%s -> tier=FREE", sub.Customer, user.ID)
+
+		case "customer.created":
+			// Store customer ID when a customer is created
+			var customer struct {
+				ID       string                 `json:"id"`
+				Metadata map[string]interface{} `json:"metadata"`
+			}
+			if err := json.Unmarshal(evt.Data.Object, &customer); err != nil {
+				return c.Status(400).JSON(fiber.Map{"error": "invalid object"})
+			}
+
+			// Get user_id from metadata (you should set this when creating the customer)
+			userIDVal, ok := customer.Metadata["user_id"]
+			if !ok {
+				log.Printf("No user_id in customer metadata for customer %s", customer.ID)
+				return c.SendStatus(200)
+			}
+			userID, ok := userIDVal.(string)
+			if !ok {
+				log.Printf("Invalid user_id type in customer metadata for customer %s", customer.ID)
+				return c.SendStatus(200)
+			}
+
+			err := userRepo.UpdateStripeCustomer(ctx, userID, customer.ID)
+			if err != nil {
+				log.Printf("Error updating customer ID for user %s: %v", userID, err)
+				return c.Status(500).JSON(fiber.Map{"error": "failed to update user"})
+			}
+
+			log.Printf("Stripe webhook: customer created %s -> user=%s", customer.ID, userID)
 		}
+
 		return c.SendStatus(200)
+	}
+}
+
+// getUserInfo returns detailed user info including subscription status
+func getUserInfo(userRepo *appuser.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		u := middleware.AppUser(c)
+		if u == nil {
+			return c.Status(401).JSON(fiber.Map{"error": "Sign in required"})
+		}
+
+		storageLimit := tier.Limit(u, "storage_mb")
+		return c.JSON(fiber.Map{
+			"id":                           u.ID,
+			"email":                        u.Email,
+			"emailConfirmed":               u.EmailConfirmed,
+			"tier":                         u.Tier,
+			"currentUsageMb":               u.CurrentUsageMB,
+			"storageLimitMb":               storageLimit,
+			"stripeCustomerId":             u.StripeCustomerID,
+			"stripeSubscriptionId":         u.StripeSubscriptionID,
+			"subscriptionStatus":           u.SubscriptionStatus,
+			"subscriptionCurrentPeriodEnd": u.SubscriptionCurrentPeriodEnd,
+		})
+	}
+}
+
+// syncUserInfo manually triggers a user info sync (useful for debugging)
+func syncUserInfo(userRepo *appuser.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		u := middleware.AppUser(c)
+		if u == nil {
+			return c.Status(401).JSON(fiber.Map{"error": "Sign in required"})
+		}
+
+		// In a real implementation, you might fetch latest data from Supabase auth
+		// For now, just return current info
+		updated, err := userRepo.GetByID(c.Context(), u.ID)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		if updated == nil {
+			return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		}
+
+		storageLimit := tier.Limit(updated, "storage_mb")
+		return c.JSON(fiber.Map{
+			"id":                           updated.ID,
+			"email":                        updated.Email,
+			"emailConfirmed":               updated.EmailConfirmed,
+			"tier":                         updated.Tier,
+			"currentUsageMb":               updated.CurrentUsageMB,
+			"storageLimitMb":               storageLimit,
+			"stripeCustomerId":             updated.StripeCustomerID,
+			"stripeSubscriptionId":         updated.StripeSubscriptionID,
+			"subscriptionStatus":           updated.SubscriptionStatus,
+			"subscriptionCurrentPeriodEnd": updated.SubscriptionCurrentPeriodEnd,
+			"synced":                       true,
+		})
 	}
 }
 
@@ -449,4 +735,63 @@ func updateConvention(c *fiber.Ctx) error {
 
 func deleteConvention(c *fiber.Ctx) error {
 	return c.Status(204).Send(nil)
+}
+
+// wrapWithSeed wraps a handler to automatically create seed data on first access
+func wrapWithSeed(
+	handler fiber.Handler,
+	buildRepo *builds.Repository,
+	conventionRepo *convention.Repository,
+) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Try to create seed data (will skip if data already exists)
+		deviceID := c.Get("x-kyar-device-id")
+		if deviceID != "" {
+			userID := ""
+			if u := middleware.AppUser(c); u != nil {
+				userID = u.ID
+			}
+			// Create seed data in background (don't block request)
+			go func() {
+				ctx := context.Background()
+				_, _ = seed.CreateStarterData(ctx, deviceID, userID, buildRepo, conventionRepo)
+			}()
+		}
+		return handler(c)
+	}
+}
+
+// seedDataHandler manually triggers seed data creation (useful for testing/onboarding)
+func seedDataHandler(
+	buildRepo *builds.Repository,
+	conventionRepo *convention.Repository,
+) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		deviceID := c.Get("x-kyar-device-id")
+		if deviceID == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "x-kyar-device-id header required"})
+		}
+
+		userID := ""
+		if u := middleware.AppUser(c); u != nil {
+			userID = u.ID
+		}
+
+		created, err := seed.CreateStarterData(c.Context(), deviceID, userID, buildRepo, conventionRepo)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		if !created {
+			return c.JSON(fiber.Map{
+				"created": false,
+				"message": "Seed data already exists or device has existing data",
+			})
+		}
+
+		return c.Status(201).JSON(fiber.Map{
+			"created": true,
+			"message": "Starter build and convention created successfully",
+		})
+	}
 }
