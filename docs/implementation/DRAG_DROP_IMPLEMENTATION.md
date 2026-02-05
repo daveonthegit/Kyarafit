@@ -2,6 +2,8 @@
 
 Implement **drag closet items onto builds** to link them, and **drag tasks onto closet items** in a build to assign the task to that item. Do steps in order; each has a **Cursor prompt**.
 
+**Feature parity**: Same behavior on **web and mobile**: link closet items to a build, assign tasks to closet items. Web uses drag-and-drop; mobile uses long-press + tap or menu (Step 3). Same backend APIs for both.
+
 ---
 
 ## Goal
@@ -75,8 +77,46 @@ In the Kyarafit mobile app, add the equivalent of web drag-drop for linking and 
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 1 | Web: draggable closet items, drop zone on build; on drop call link-items API. |
-| 2 | Web: draggable tasks, drop targets on linked items; on drop call updateBuildTask with closetItemId. |
-| 3 | Mobile: long-press + tap or menu to link and to assign (optional). |
+| Step | Action                                                                                              | Status      |
+| ---- | --------------------------------------------------------------------------------------------------- | ----------- |
+| 1    | Web: draggable closet items, drop zone on build; on drop call link-items API.                       | ✅ Complete |
+| 2    | Web: draggable tasks, drop targets on linked items; on drop call updateBuildTask with closetItemId. | ✅ Complete |
+| 3    | Mobile: long-press + tap or menu to link and to assign (optional).                                  | 🔜 Pending  |
+
+## Implementation Notes
+
+### Step 1: Closet Items → Build (Web) ✅
+
+**Completed:** February 5, 2026
+
+**Implementation Details:**
+- Added drag-and-drop functionality to `web/src/app/build-detail/link-items/page.tsx`
+- Uses `@dnd-kit/core` library (v6.3.1)
+- Created `DraggableClosetItem` component for draggable closet items
+- Created `DroppableBuildZone` component for the drop target
+- Visual feedback: drop zone highlights when hovering with dragged item
+- Maintains backward compatibility: users can still use checkboxes to select items
+- On drop, items are automatically added to the selected items set
+
+**User Experience:**
+- Users can now drag closet items from the list onto a drop zone to quickly add them to a build
+- Drop zone shows visual feedback (highlight and scale effect) when hovering
+- Selected items count updates in real-time
+- Traditional checkbox selection still works alongside drag-and-drop
+
+### Step 2: Tasks → Closet Items (Web) ✅
+
+**Already Implemented:** Prior to this session
+
+**Implementation Details:**
+- Located in `web/src/app/build-detail/page.tsx`
+- Uses `@dnd-kit/core` library
+- `DraggableTask` component makes tasks draggable
+- `DroppableClosetItem` component makes closet items droppable
+- On drop, calls `updateBuildTask` with the `closetItemId`
+- Tasks show "(linked)" indicator when assigned to a closet item
+
+**User Experience:**
+- Users can drag tasks onto closet items to assign them
+- Visual feedback shows which closet item is being hovered
+- Tasks display their linked status in the UI
