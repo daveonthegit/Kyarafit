@@ -44,6 +44,21 @@ async function request<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
+      // Log 401 errors for debugging
+      if (res.status === 401 && process.env.NODE_ENV === "development") {
+        console.error("🔒 API returned 401 Unauthorized:", {
+          url,
+          method,
+          hasToken: !!token,
+          status: res.status,
+        });
+        try {
+          const errorData = await res.json();
+          console.error("Error details:", errorData);
+        } catch {
+          // Ignore if response is not JSON
+        }
+      }
       return { ok: false, status: res.status };
     }
     const data =

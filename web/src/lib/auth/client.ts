@@ -44,7 +44,56 @@ export async function getSession() {
 
 /** Token for backend API (Bearer). Used by API clients. */
 export function getToken(): string | null {
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+    // Log token presence for debugging (not the actual token value)
+    if (currentToken) {
+      console.debug("🔑 Auth token is available");
+    } else {
+      console.debug("⚠️ Auth token is NOT available - user may not be signed in");
+    }
+  }
   return currentToken;
+}
+
+/**
+ * Decode JWT payload for debugging purposes.
+ * WARNING: This does NOT validate the signature - only for debugging!
+ */
+export function decodeTokenPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return null;
+    }
+    const payload = parts[1];
+    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return decoded;
+  } catch (error) {
+    console.error("Failed to decode token:", error);
+    return null;
+  }
+}
+
+/**
+ * Get debug info about the current auth state (for development).
+ */
+export function getAuthDebugInfo(): {
+  hasToken: boolean;
+  tokenPayload: Record<string, any> | null;
+  tokenExpiry: Date | null;
+} {
+  const hasToken = currentToken !== null;
+  let tokenPayload = null;
+  let tokenExpiry = null;
+
+  if (currentToken) {
+    tokenPayload = decodeTokenPayload(currentToken);
+    if (tokenPayload && tokenPayload.exp) {
+      tokenExpiry = new Date(tokenPayload.exp * 1000);
+    }
+  }
+
+  return { hasToken, tokenPayload, tokenExpiry };
 }
 
 export const signIn = {

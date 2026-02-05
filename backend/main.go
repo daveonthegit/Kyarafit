@@ -30,10 +30,65 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// validateRequiredEnv checks that all required environment variables are set
+// and returns a list of missing variables. Optional variables generate warnings.
+func validateRequiredEnv() []string {
+	required := []string{
+		"DATABASE_URL",
+		"SUPABASE_URL",
+		"SUPABASE_SERVICE_KEY",
+	}
+
+	// Require either JWT_SECRET or JWT_PUBLIC_KEY (not both are required)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtPublicKey := os.Getenv("JWT_PUBLIC_KEY")
+	if jwtSecret == "" && jwtPublicKey == "" {
+		required = append(required, "JWT_SECRET or JWT_PUBLIC_KEY")
+	}
+
+	optional := map[string]string{
+		"JWT_SECRET":     "ECDSA mode (will use JWT_PUBLIC_KEY)",
+		"JWT_PUBLIC_KEY": "HMAC mode (will use JWT_SECRET)",
+		"SMTP_HOST":      "Email features will be disabled",
+		"SMTP_PORT":      "Email features will be disabled",
+		"SMTP_USERNAME":  "Email features will be disabled",
+		"SMTP_PASSWORD":  "Email features will be disabled",
+		"SMTP_FROM":      "Email features will be disabled",
+		"APP_URL":        "Email links may not work correctly",
+	}
+
+	var missing []string
+	for _, key := range required {
+		if os.Getenv(key) == "" {
+			missing = append(missing, key)
+		}
+	}
+
+	// Check optional variables and warn if missing
+	optionalMissing := make(map[string]bool)
+	for key, msg := range optional {
+		if os.Getenv(key) == "" {
+			optionalMissing[msg] = true
+		}
+	}
+	for msg := range optionalMissing {
+		log.Printf("Warning: %s", msg)
+	}
+
+	return missing
+}
+
 func main() {
-	// Load environment variables
+	// Load environment variables from .env file (for local dev)
+	// In Docker, variables come from docker-compose, so this is optional
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
+		log.Println("Info: No .env file found (this is normal in Docker)")
+	}
+
+	// Validate required environment variables
+	missing := validateRequiredEnv()
+	if len(missing) > 0 {
+		log.Fatalf("FATAL: Missing required environment variables: %v\nPlease set these in your .env file or environment.\nSee .env.example for reference.", missing)
 	}
 
 	// Connect to database
@@ -61,46 +116,68 @@ func main() {
 	})
 
 	// CORS configuration (8081 = Expo web dev server)
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	if corsOrigins == "" {
+		// Default to common local development origins
+		corsOrigins = "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://127.0.0.1:3000,http://127.0.0.1:8081"
+		log.Println("Info: CORS_ORIGINS not set, using default localhost origins")
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://127.0.0.1:3000,http://127.0.0.1:8081",
+		AllowOrigins:     corsOrigins,
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,x-kyar-device-id,x-kyar-client",
-		AllowCredentials: true,
+		AllowCredentials: false, // Not needed for Bearer token auth
 	}))
 
 	// JWT middleware configuration
 	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("FATAL: JWT_SECRET environment variable is required. Refusing to start with insecure default.")
+	jwtPublicKey := os.Getenv("JWT_PUBLIC_KEY")
+
+	// Require either HMAC secret or ECDSA public key
+	if jwtSecret == "" && jwtPublicKey == "" {
+		log.Fatal("FATAL: Either JWT_SECRET or JWT_PUBLIC_KEY environment variable is required.")
 	}
-	jwtCfg := middleware.JWTConfig{Secret: jwtSecret}
+
+	jwtCfg := middleware.JWTConfig{
+		Secret:    jwtSecret,
+		PublicKey: jwtPublicKey,
+	}
+	log.Println("Info: JWT config initialized")
 
 	userRepo := appuser.NewRepository(database.DB)
+	log.Println("Info: User repository initialized")
 	requireWeb := middleware.RequireWebAccess(jwtCfg, userRepo)
+	log.Println("Info: RequireWebAccess middleware initialized")
 	optionalUser := middleware.OptionalAppUser(jwtCfg, userRepo)
+	log.Println("Info: OptionalAppUser middleware initialized")
 
 	// Initialize repositories and handlers
 	pieceRepo := database.NewPieceRepository(database.DB)
 	piecesHandler := handlers.NewPiecesHandler(pieceRepo)
+	log.Println("Info: Pieces handler initialized")
 
 	buildRepo := database.NewBuildRepository(database.DB)
 	legacyBuildsHandler := handlers.NewBuildsHandler(buildRepo)
+	log.Println("Info: Builds handler initialized")
 
 	// Initialize email client (optional)
 	var emailClient *email.Client
 	var emailHandler *email.Handler
 	emailClient, err := email.NewClient()
+	log.Println("Info: Email client initialization attempted")
 	if err != nil {
 		log.Println("Warning: Email client not initialized:", err)
 		log.Println("Email features will be disabled. Configure SMTP_* environment variables to enable email.")
 	} else {
 		emailHandler = email.NewHandler(emailClient)
-		// Verify SMTP connection on startup (optional)
-		if err := emailClient.Verify(); err != nil {
-			log.Println("Warning: SMTP verification failed:", err)
-		} else {
-			log.Println("Email service initialized successfully")
-		}
+		log.Println("Info: Email handler created, skipping SMTP verification on startup")
+		// Skip SMTP verification on startup to avoid hanging
+		// Verification will happen on first email send attempt
+		// if err := emailClient.Verify(); err != nil {
+		// 	log.Println("Warning: SMTP verification failed:", err)
+		// } else {
+		// 	log.Println("Email service initialized successfully")
+		// }
 	}
 
 	// Health check endpoint
@@ -158,11 +235,26 @@ func main() {
 	conventionGroup.Patch("/packing/:id", conventionHandler.UpdatePackingItem)
 
 	// API routes (web editor: require at least FREE tier)
+	// Using /api/v1 group with middleware applied to all routes via Use()
 	api := app.Group("/api/v1")
-	protected := api.Group("/", requireWeb)
+	api.Use(requireWeb)
+
+	// Auth verification endpoint - useful for debugging and checking auth state
+	api.Get("/auth/me", func(c *fiber.Ctx) error {
+		u := middleware.AppUser(c)
+		if u == nil {
+			return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+		}
+		return c.JSON(fiber.Map{
+			"authenticated": true,
+			"userId":        u.ID,
+			"email":         u.Email,
+			"tier":          u.Tier,
+		})
+	})
 
 	// Me: tier and usage for web/mobile
-	protected.Get("/me", func(c *fiber.Ctx) error {
+	api.Get("/me", func(c *fiber.Ctx) error {
 		u := middleware.AppUser(c)
 		if u == nil {
 			return c.Status(401).JSON(fiber.Map{"error": "Sign in required to use web editor."})
@@ -176,58 +268,58 @@ func main() {
 	})
 
 	// Image upload endpoint
-	protected.Post("/upload/image", uploadImageHandler(userRepo))
+	api.Post("/upload/image", uploadImageHandler(userRepo))
 
 	// Sync endpoints (require PREMIUM_BASIC+ for cloud sync)
 	syncRepo := sync.NewRepository(database.DB)
-	syncGroup := protected.Group("/sync", middleware.RequireCloudSync)
+	syncGroup := api.Group("/sync", middleware.RequireCloudSync)
 	syncGroup.Get("/pull", syncPullHandler(syncRepo))
 
-	// Pieces routes (protected)
-	protected.Get("/pieces", piecesHandler.GetPieces)
-	protected.Post("/pieces", piecesHandler.CreatePiece)
-	protected.Get("/pieces/:id", piecesHandler.GetPiece)
-	protected.Put("/pieces/:id", piecesHandler.UpdatePiece)
-	protected.Delete("/pieces/:id", piecesHandler.DeletePiece)
-	protected.Get("/pieces/categories", piecesHandler.GetCategories)
+	// Pieces routes
+	api.Get("/pieces", piecesHandler.GetPieces)
+	api.Post("/pieces", piecesHandler.CreatePiece)
+	api.Get("/pieces/:id", piecesHandler.GetPiece)
+	api.Put("/pieces/:id", piecesHandler.UpdatePiece)
+	api.Delete("/pieces/:id", piecesHandler.DeletePiece)
+	api.Get("/pieces/categories", piecesHandler.GetCategories)
 
 	// Legacy closet routes (redirect to pieces)
-	protected.Get("/closet", piecesHandler.GetPieces)
-	protected.Post("/closet", piecesHandler.CreatePiece)
-	protected.Get("/closet/:id", piecesHandler.GetPiece)
-	protected.Put("/closet/:id", piecesHandler.UpdatePiece)
-	protected.Delete("/closet/:id", piecesHandler.DeletePiece)
+	api.Get("/closet", piecesHandler.GetPieces)
+	api.Post("/closet", piecesHandler.CreatePiece)
+	api.Get("/closet/:id", piecesHandler.GetPiece)
+	api.Put("/closet/:id", piecesHandler.UpdatePiece)
+	api.Delete("/closet/:id", piecesHandler.DeletePiece)
 
-	// Build routes (protected)
-	protected.Get("/builds", legacyBuildsHandler.GetBuilds)
-	protected.Post("/builds", legacyBuildsHandler.CreateBuild)
-	protected.Get("/builds/:id", legacyBuildsHandler.GetBuild)
-	protected.Put("/builds/:id", legacyBuildsHandler.UpdateBuild)
-	protected.Delete("/builds/:id", legacyBuildsHandler.DeleteBuild)
-	protected.Get("/builds/stats", legacyBuildsHandler.GetBuildStats)
+	// Build routes
+	api.Get("/builds", legacyBuildsHandler.GetBuilds)
+	api.Post("/builds", legacyBuildsHandler.CreateBuild)
+	api.Get("/builds/:id", legacyBuildsHandler.GetBuild)
+	api.Put("/builds/:id", legacyBuildsHandler.UpdateBuild)
+	api.Delete("/builds/:id", legacyBuildsHandler.DeleteBuild)
+	api.Get("/builds/stats", legacyBuildsHandler.GetBuildStats)
 
-	// Coord routes (protected)
-	protected.Get("/coords", getCoords)
-	protected.Post("/coords", createCoord)
-	protected.Get("/coords/:id", getCoord)
-	protected.Put("/coords/:id", updateCoord)
-	protected.Delete("/coords/:id", deleteCoord)
+	// Coord routes
+	api.Get("/coords", getCoords)
+	api.Post("/coords", createCoord)
+	api.Get("/coords/:id", getCoord)
+	api.Put("/coords/:id", updateCoord)
+	api.Delete("/coords/:id", deleteCoord)
 
-	// Wishlist routes (protected)
-	protected.Get("/wishlist", getWishlistItems)
-	protected.Post("/wishlist", createWishlistItem)
-	protected.Put("/wishlist/:id", updateWishlistItem)
-	protected.Delete("/wishlist/:id", deleteWishlistItem)
+	// Wishlist routes
+	api.Get("/wishlist", getWishlistItems)
+	api.Post("/wishlist", createWishlistItem)
+	api.Put("/wishlist/:id", updateWishlistItem)
+	api.Delete("/wishlist/:id", deleteWishlistItem)
 
-	// Convention routes (protected)
-	protected.Get("/conventions", getConventions)
-	protected.Post("/conventions", createConvention)
-	protected.Get("/conventions/:id", getConvention)
-	protected.Put("/conventions/:id", updateConvention)
-	protected.Delete("/conventions/:id", deleteConvention)
+	// Convention routes
+	api.Get("/conventions", getConventions)
+	api.Post("/conventions", createConvention)
+	api.Get("/conventions/:id", getConvention)
+	api.Put("/conventions/:id", updateConvention)
+	api.Delete("/conventions/:id", deleteConvention)
 
 	// Export: PREMIUM_BASIC for JSON, PREMIUM_PRO for CSV/PDF
-	protected.Get("/export", exportHandler(userRepo))
+	api.Get("/export", exportHandler(userRepo))
 
 	// Email test endpoints (only available if email is configured)
 	if emailHandler != nil {
@@ -242,9 +334,9 @@ func main() {
 	// DISABLED until signature verification is implemented to prevent tier bypass attacks
 	// app.Post("/webhooks/stripe", stripeWebhookHandler(userRepo))
 
-	// User sync endpoint: for debugging/admin (protected by web access)
-	protected.Get("/users/me", getUserInfo(userRepo))
-	protected.Post("/users/sync", syncUserInfo(userRepo))
+	// User sync endpoint: for debugging/admin
+	api.Get("/users/me", getUserInfo(userRepo))
+	api.Post("/users/sync", syncUserInfo(userRepo))
 
 	// Seed data endpoint: manually trigger seed data creation
 	app.Post("/api/seed", optionalUser, seedDataHandler(deviceBuildsRepo, conventionRepo))

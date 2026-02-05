@@ -243,6 +243,82 @@ DATABASE_URL=postgresql://postgres.xxx:5432/postgres?sslmode=require
 
 ---
 
+## Troubleshooting
+
+### Backend Won't Start
+
+**Symptom:** Backend container exits immediately with error about missing environment variables.
+
+**Solution:**
+
+1. Verify `.env` file exists in project root
+2. Check that all required variables are set:
+   - `JWT_SECRET` (from Supabase Project Settings → API → JWT Secret)
+   - `DATABASE_URL`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY`
+3. Restart: `docker-compose restart backend`
+
+### 401 Unauthorized Errors
+
+**Common Causes:**
+
+1. **Wrong JWT_SECRET** - Backend JWT_SECRET must match Supabase's JWT secret (NOT the anon key)
+2. **Token expired** - Supabase tokens expire after 1 hour (auto-refreshed normally)
+3. **User not signed in** - Check browser console and Supabase session state
+4. **Missing Authorization header** - Verify frontend is sending `Authorization: Bearer <token>`
+
+**Debug Steps:**
+
+1. Test auth with `/api/v1/auth/me` endpoint
+2. Check backend logs: `docker-compose logs backend | grep "Auth failed"`
+3. Verify token in browser console: `window.supabase.auth.getSession()`
+4. Run auth test script: `bash backend/test_auth.sh`
+
+### Environment Validation
+
+The backend now validates required environment variables on startup. If any are missing, it will:
+
+- Exit immediately with a clear error message
+- List all missing variables
+- Provide guidance on how to fix
+
+**Example error:**
+
+```
+FATAL: Missing required environment variables: [JWT_SECRET DATABASE_URL]
+Please set these in your .env file or environment.
+See .env.example for reference.
+```
+
+### New Debugging Endpoint
+
+**`GET /api/v1/auth/me`** - Auth verification endpoint
+
+Returns user info if authenticated:
+
+```json
+{
+  "authenticated": true,
+  "userId": "uuid",
+  "email": "user@example.com",
+  "tier": "FREE"
+}
+```
+
+Or structured error if not:
+
+```json
+{
+  "code": "missing_auth_header",
+  "message": "Authorization header is required..."
+}
+```
+
+For detailed troubleshooting, see [docs/auth.md](../auth.md).
+
+---
+
 ## Next Steps
 
 1. **Deploy**: Set up production Supabase project and update environment variables
