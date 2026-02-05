@@ -99,7 +99,7 @@ jobs:
         fi
 
     - name: Upload web build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mobile-web-build
         path: mobile/dist-web/
@@ -226,21 +226,16 @@ jobs:
     - name: Check code formatting
       working-directory: ./mobile
       run: |
-        npx prettier --check "**/*.{js,jsx,ts,tsx,json,md}" --ignore-path .gitignore
-
-    - name: Auto-fix formatting issues
-      working-directory: ./mobile
-      run: |
-        npx prettier --write "**/*.{js,jsx,ts,tsx,json,md}" --ignore-path .gitignore
-
-    - name: Check for changes
-      run: |
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "Code formatting issues found and fixed:"
-          git diff
-          echo "Please commit the formatting changes"
+        if ! npx prettier --check "**/*.{js,jsx,ts,tsx,json,md}" --ignore-path .gitignore; then
+          echo "❌ Code formatting issues found!"
+          echo ""
+          echo "To fix locally, run:"
+          echo "  cd mobile && npm run format"
+          echo ""
+          echo "Or from root:"
+          echo "  npm run format"
           exit 1
         else
-          echo "Code is properly formatted"
+          echo "✅ Code is properly formatted"
         fi
 

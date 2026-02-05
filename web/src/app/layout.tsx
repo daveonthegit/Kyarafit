@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: 'Organize your cosplay wardrobe, track builds, and plan character coords.',
 };
 
+// Force dynamic rendering for all pages since most require authentication
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {

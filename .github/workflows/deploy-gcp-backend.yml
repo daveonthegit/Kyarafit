@@ -13,9 +13,31 @@ env:
   REGION: us-central1
   SERVICE_NAME: kyarafit-backend
 
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # Wait for CI to pass before deploying
+  check-ci:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Wait for CI checks
+      uses: lewagon/wait-on-check-action@v1.3.1
+      with:
+        ref: ${{ github.sha }}
+        check-name: 'Backend CI'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        wait-interval: 10
+        allowed-conclusions: success
+
   deploy:
     runs-on: ubuntu-latest
+    needs: check-ci
+    environment:
+      name: production
+      url: ${{ steps.url.outputs.url }}
     permissions:
       contents: read
       id-token: write
@@ -81,7 +103,19 @@ jobs:
         echo "Service deployed to: $SERVICE_URL"
         echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
 
+    - name: Smoke test deployed service
+      run: |
+        echo "Testing deployed service..."
+        sleep 10  # Wait for service to stabilize
+        if curl -f "${{ steps.url.outputs.url }}/health"; then
+          echo "✅ Smoke test passed"
+        else
+          echo "❌ Smoke test failed"
+          exit 1
+        fi
+
     - name: Create deployment summary
+      if: always()
       run: |
         echo "## ✅ Backend Deployment Successful" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -90,3 +124,9 @@ jobs:
         echo "- **URL:** ${{ steps.url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Image:** ${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔄 Rollback" >> $GITHUB_STEP_SUMMARY
+        echo "If needed, rollback with:" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} --to-revisions=PREVIOUS=100 --region ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY

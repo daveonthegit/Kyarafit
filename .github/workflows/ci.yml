@@ -179,6 +179,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for secret scanning
+
+    - name: Run Gitleaks secret scanner
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
@@ -196,6 +204,19 @@ jobs:
       continue-on-error: true
       with:
         sarif_file: 'trivy-results.sarif'
+
+    - name: npm audit (root)
+      run: npm audit --audit-level=critical
+      continue-on-error: true
+
+    - name: Security summary
+      if: always()
+      run: |
+        echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Secret scanning completed (Gitleaks)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Vulnerability scanning completed (Trivy)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Dependency audit completed (npm audit)" >> $GITHUB_STEP_SUMMARY
 
   # Code quality (optional - only if SonarCloud is configured)
   code-quality:

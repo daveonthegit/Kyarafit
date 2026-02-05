@@ -77,8 +77,12 @@ jobs:
     - name: Build application
       working-directory: ./web
       env:
+        # Build-time environment variables
         NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
         NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
+        # Supabase placeholder values for build (real values set at runtime via Cloud Run secrets)
+        NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
       run: npm run build
 
     - name: Test build output
@@ -139,6 +143,8 @@ jobs:
         NEXT_PUBLIC_API_URL: http://localhost:8080
         NEXT_PUBLIC_IMAGE_SERVICE_URL: http://localhost:8001
         NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
         NODE_ENV: production
       run: npm run build
 
@@ -179,6 +185,8 @@ jobs:
           NEXT_PUBLIC_API_URL=http://localhost:8080
           NEXT_PUBLIC_IMAGE_SERVICE_URL=http://localhost:8001
           NEXT_PUBLIC_APP_URL=http://localhost:3000
+          NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder
         cache-from: type=gha
         cache-to: type=gha,mode=max
 

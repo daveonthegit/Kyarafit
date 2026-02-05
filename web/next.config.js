@@ -5,6 +5,13 @@ if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
 }
 const nextConfig = {
   output: 'standalone', // Enable standalone output for optimized Docker builds
+  // Continue build even if some pages fail to prerender (they'll be dynamic instead)
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },

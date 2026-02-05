@@ -30,6 +30,7 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 - [Quickstart Guide](QUICKSTART_SUPABASE.md) - Get up and running quickly
 - [Development Guide](docs/DEVELOPMENT.md) - Development environment setup
 - [Docker Setup](DOCKER_SETUP.md) - Docker-based development
+- **[CI/CD Local Guide](CI_LOCAL.md)** - Run CI checks locally before pushing
 
 ### Product & Design
 - [Product Requirements (PRD)](docs/PRD.md) - Product vision and requirements
@@ -50,11 +51,13 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 - [SMTP Setup](SMTP_SETUP.md) - Email configuration
 - [Auth Implementation](AUTH_IMPLEMENTATION.md) - Authentication flow
 
-### Contributing
+### Contributing & Operations
 - [Contributing Guide](docs/CONTRIBUTING.md) - How to contribute
 - [Code of Conduct](docs/CODE_OF_CONDUCT.md) - Community guidelines
 - [Security Policy](docs/SECURITY.md) - Security practices
 - [Roadmap](docs/roadmap.md) - Future plans
+- **[CI/CD Guide](CI_LOCAL.md)** - Run CI checks locally
+- [CI/CD Improvements](CI_CD_IMPROVEMENTS.md) - Recent CI/CD enhancements
 
 ## Quick Start
 
@@ -193,54 +196,77 @@ kyarafit/
 ## Development Scripts
 
 ```bash
-# Start all services
-npm run dev              # Development mode
-npm run start           # Production mode
+# Quick Start
+make help               # Show all available commands
+make dev                # Start all services
+make validate           # Run all CI checks locally (recommended before pushing)
 
-# Backend
-cd backend
-go run main.go          # Run server
-make migrate-up         # Run migrations
-make migrate-down       # Rollback migrations
-go test ./...          # Run tests
+# Development
+make dev-backend        # Run backend server
+make dev-web            # Run web dev server
+make dev-mobile         # Run mobile dev server
 
-# Web
-cd web
-npm run dev            # Development server
-npm run build          # Production build
-npm run lint           # Lint code
+# Code Quality (matches CI)
+make lint               # Lint all code
+make typecheck          # Type check TypeScript
+make format             # Auto-format all code
+make format-check       # Check formatting (no auto-fix)
+make test               # Run all tests
 
-# Mobile
-cd mobile
-npm start              # Start Expo dev server
-npm run android        # Run on Android
-npm run ios            # Run on iOS
+# Individual Services
+cd backend && go run main.go          # Run backend
+cd web && npm run dev                 # Run web
+cd mobile && npm start                # Run mobile
+
+# CI Validation (run before pushing)
+npm run validate        # Same as 'make validate'
 ```
 
-## Testing
+See [CI_LOCAL.md](CI_LOCAL.md) for detailed commands and troubleshooting.
+
+## Testing & CI
 
 ```bash
-# Backend
-cd backend
-go test ./...
+# Run all tests
+make test
 
-# Web
-cd web
-npm run test
+# Individual test suites
+make test-backend       # Go tests (requires Docker)
+make test-web           # Web tests
+make test-image-service # Python tests
 
-# Mobile
-cd mobile
-npm run test
+# Run what CI runs (locally)
+make validate           # Full CI validation
+npm run validate        # Same as above
 ```
+
+**Before pushing code**, run `make validate` to catch issues early. See [CI_LOCAL.md](CI_LOCAL.md) for details.
+
+### CI/CD Pipeline
+
+- **Pull Requests**: Automatic linting, type checking, tests, and security scans
+- **Main Branch**: CI + automatic deployment to GCP Cloud Run
+- **Security**: Secret scanning (Gitleaks), vulnerability scanning (Trivy), dependency audits
+
+See [CI_CD_IMPROVEMENTS.md](CI_CD_IMPROVEMENTS.md) for CI/CD details.
 
 ## Deployment
 
-- **Backend**: Deploy to Fly.io or Render
-- **Web**: Deploy to Vercel or Fly.io
-- **Image Service**: Deploy to Fly.io
+- **Backend**: GCP Cloud Run (automated via GitHub Actions)
+- **Web**: GCP Cloud Run (automated via GitHub Actions)
+- **Image Service**: GCP Cloud Run (automated via GitHub Actions)
 - **Database**: Supabase PostgreSQL
+- **Storage**: Supabase Storage
 
-See [deployment documentation](deploy/README.md) for detailed instructions.
+### Deployment Flow
+
+1. Push to `main` branch
+2. CI runs and must pass (linting, tests, builds)
+3. If CI passes, deployment to GCP Cloud Run starts automatically
+4. Smoke tests verify deployment health
+5. Rollback instructions provided in deployment summary
+
+See [GCP_DEPLOYMENT.md](docs/GCP_DEPLOYMENT.md) for detailed deployment setup.
 
 ## Contributing
 

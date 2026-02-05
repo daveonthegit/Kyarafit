@@ -9,8 +9,19 @@
   "scripts": {
     "dev:web": "npm run dev -w web",
     "dev:mobile": "npm run start -w mobile",
-    "lint": "npm run lint -w web && npm run lint -w mobile",
-    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\""
+    "lint": "npm run lint -w web && npm run lint -w mobile && npm run lint -w design-system",
+    "lint:web": "npm run lint -w web",
+    "lint:mobile": "npm run lint -w mobile",
+    "typecheck": "npm run typecheck -w web && npm run typecheck -w mobile",
+    "typecheck:web": "npm run typecheck -w web",
+    "typecheck:mobile": "npm run typecheck -w mobile",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
+    "build:web": "npm run build -w web",
+    "test": "npm run test -w web",
+    "test:backend": "cd backend && go test ./...",
+    "test:image-service": "cd image-service && python -m pytest",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run build:web"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
