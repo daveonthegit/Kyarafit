@@ -24,13 +24,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: mobile/package-lock.json
-
+        
     - name: Install dependencies
       working-directory: ./mobile
-      run: npm ci
+      run: npm install
 
     - name: Run ESLint
       working-directory: ./mobile
@@ -70,13 +69,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: mobile/package-lock.json
-
+        
     - name: Install dependencies
       working-directory: ./mobile
-      run: npm ci
+      run: npm install
 
     - name: Install Expo CLI
       run: npm install -g @expo/cli
@@ -117,13 +115,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: mobile/package-lock.json
-
+        
     - name: Install dependencies
       working-directory: ./mobile
-      run: npm ci
+      run: npm install
 
     - name: Install EAS CLI
       run: npm install -g @expo/eas-cli
@@ -188,13 +185,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: mobile/package-lock.json
-
+        
     - name: Install dependencies
       working-directory: ./mobile
-      run: npm ci
+      run: npm install
 
     - name: Run npm audit
       working-directory: ./mobile
@@ -219,13 +215,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: mobile/package-lock.json
-
+        
     - name: Install dependencies
       working-directory: ./mobile
-      run: npm ci
+      run: npm install
 
     - name: Check code formatting
       working-directory: ./mobile
@@ -247,3 +242,4 @@ jobs:
         else
           echo "Code is properly formatted"
         fi
+

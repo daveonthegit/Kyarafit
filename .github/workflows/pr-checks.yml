@@ -82,7 +82,7 @@ jobs:
     - name: Validate Docker files
       run: |
         docker build -f backend/Dockerfile -t test-backend ./backend
-        docker build -f web/Dockerfile -t test-web ./web
+        docker build -f web/Dockerfile -t test-web .
         docker build -f image-service/Dockerfile -t test-image-service ./image-service
         
     - name: Check commit message format

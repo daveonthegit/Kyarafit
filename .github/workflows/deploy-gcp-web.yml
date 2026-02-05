@@ -40,12 +40,13 @@ jobs:
     - name: Build Docker image
       run: |
         docker build \
+          -f web/Dockerfile \
           --build-arg NEXT_PUBLIC_APP_URL=https://www.kyarafit.com \
           --build-arg NEXT_PUBLIC_API_URL=https://api.kyarafit.com \
           --build-arg NEXT_PUBLIC_IMAGE_SERVICE_URL=https://images.kyarafit.com \
           -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
           -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest \
-          ./web
+          .
 
     - name: Push to Artifact Registry
       run: |
