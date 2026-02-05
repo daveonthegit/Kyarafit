@@ -1,83 +1,176 @@
-import { View, Text, Image, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image } from 'react-native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font } from '@kyarafit/design-system/rn';
+import { colors, font, layout } from '@kyarafit/design-system/rn';
+import type { Build, BuildTask } from '@kyarafit/design-system/types';
+import { getBuild, getLinkedClosetItemIds } from '../src/storage/buildsRepo';
+import { listTasks, createTask, toggleTaskChecked } from '../src/storage/buildTasksRepo';
+import { listItems } from '../src/storage/closetRepo';
+import type { ClosetItem } from '@kyarafit/design-system/types';
 
-const BUILD_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE';
-
-const materials = [
-  { name: 'Worbla Sheet (Large)', cost: 85.0, status: 'Acquired' },
-  { name: 'Raw Silk Fabric (4yd)', cost: 120.0, status: 'Acquired' },
-  { name: 'EVA Foam 5mm', cost: 45.5, status: 'Planned' },
-];
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
 
 export default function BuildDetailScreen() {
+  const params = useLocalSearchParams<{ id?: string }>();
+  const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
   const router = useRouter();
+  const [build, setBuild] = useState<Build | null>(null);
+  const [linkedIds, setLinkedIds] = useState<string[]>([]);
+  const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
+  const [tasks, setTasks] = useState<BuildTask[]>([]);
+  const [newTaskLabel, setNewTaskLabel] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!id) {
+      setLoaded(true);
+      return;
+    }
+    const [b, ids, items, taskList] = await Promise.all([
+      getBuild(id),
+      getLinkedClosetItemIds(id),
+      listItems(),
+      listTasks(id),
+    ]);
+    setBuild(b ?? null);
+    setLinkedIds(ids);
+    setClosetItems(items);
+    setTasks(taskList);
+    setLoaded(true);
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoaded(false);
+      load();
+    }, [load])
+  );
+
+  if (!id) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.black} />
+          </Pressable>
+          <Text style={styles.metaLabel}>Build</Text>
+        </View>
+        <Text style={styles.meta}>Missing build id.</Text>
+      </View>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.meta}>Loading…</Text>
+      </View>
+    );
+  }
+
+  if (!build) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.black} />
+          </Pressable>
+          <Text style={styles.metaLabel}>Build</Text>
+        </View>
+        <Text style={styles.meta}>Build not found.</Text>
+      </View>
+    );
+  }
+
+  const linkedItems = closetItems.filter((c) => linkedIds.includes(c.id));
+  const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
+
+  const onAddTask = async () => {
+    if (!newTaskLabel.trim() || !id) return;
+    await createTask(id, { label: newTaskLabel.trim(), sortOrder: tasks.length });
+    setNewTaskLabel('');
+    const next = await listTasks(id);
+    setTasks(next);
+  };
+
+  const onToggleTask = async (taskId: string) => {
+    if (!id) return;
+    const updated = await toggleTaskChecked(taskId, id);
+    if (updated) setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, checked: updated.checked } : t)));
+  };
 
   return (
     <View style={styles.container}>
-      {/* Fixed Header */}
-      <View style={styles.fixedHeader}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.black} />
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={colors.black} />
         </Pressable>
-        <Text style={styles.headerMeta}>Build Profile</Text>
-        <Pressable style={styles.headerBtn}>
-          <Ionicons name="ellipsis-horizontal" size={24} color={colors.black} />
-        </Pressable>
+        <Text style={styles.metaLabel}>Build</Text>
       </View>
-
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Image */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroImageContainer}>
-            <Image source={{ uri: BUILD_IMG }} style={styles.heroImage} resizeMode="cover" />
+        {build.imageUrl && (
+          <View style={styles.imageWrap}>
+            <Image source={{ uri: build.imageUrl }} style={styles.image} resizeMode="cover" />
           </View>
+        )}
+        <Text style={styles.title}>{build.name}</Text>
+        <Text style={styles.meta}>Status: {build.status}</Text>
+        {build.character && <Text style={styles.meta}>Character: {build.character}</Text>}
+        {(build.budgetCents != null || totalCostCents > 0) && (
+          <Text style={styles.meta}>
+            {build.budgetCents != null && `Budget: ${formatCents(build.budgetCents)}`}
+            {build.budgetCents != null && totalCostCents > 0 && ' · '}
+            {totalCostCents > 0 && `Linked total: ${formatCents(totalCostCents)}`}
+          </Text>
+        )}
 
-          <View style={styles.titleRow}>
-            <View style={styles.titleLeft}>
-              <Text style={styles.metaLabel}>Character Project</Text>
-              <Text style={styles.title}>Arlecchino</Text>
-            </View>
-            <View style={styles.editionBox}>
-              <Text style={styles.metaLabel}>Edition</Text>
-              <Text style={styles.editionValue}>Spring 2024</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Text style={styles.metaLabel}>Construction</Text>
-              <Text style={styles.statValue}>85% Complete</Text>
-            </View>
-            <View style={[styles.statBox, styles.statBoxBorder]}>
-              <Text style={styles.metaLabel}>Financials</Text>
-              <Text style={styles.statValue}>Spent: $842.10</Text>
-              <Text style={styles.statLimit}>Limit: $1,200.00</Text>
-            </View>
-          </View>
+        <Text style={styles.sectionLabel}>TASKS</Text>
+        <View style={styles.taskAddRow}>
+          <TextInput
+            style={styles.taskInput}
+            value={newTaskLabel}
+            onChangeText={setNewTaskLabel}
+            placeholder="Required item or step…"
+            placeholderTextColor={colors.textTertiary}
+          />
+          <Pressable style={styles.taskAddBtn} onPress={onAddTask}>
+            <Text style={styles.taskAddBtnText}>ADD</Text>
+          </Pressable>
         </View>
+        {tasks.map((t) => (
+          <Pressable key={t.id} style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
+            <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
+              {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
+            </View>
+            <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
+              {t.closetItemId ? `${t.label} (linked)` : t.label}
+            </Text>
+          </Pressable>
+        ))}
 
-        {/* Bill of Materials */}
-        <View style={styles.bomSection}>
-          <View style={styles.bomHeader}>
-            <Text style={styles.bomTitle}>Bill of Materials</Text>
-            <Pressable>
-              <Text style={styles.addExpenseBtn}>Add Expense</Text>
-            </Pressable>
+        <Pressable
+          style={styles.linkBtn}
+          onPress={() => router.push({ pathname: '/build-link-items', params: { buildId: id! } })}
+        >
+          <Text style={styles.linkBtnText}>LINK CLOSET ITEMS</Text>
+        </Pressable>
+
+        <Text style={styles.sectionLabel}>LINKED ITEMS ({linkedItems.length})</Text>
+        {linkedItems.length === 0 && (
+          <Text style={styles.meta}>No items linked. Tap "Link closet items" to add pieces from your closet.</Text>
+        )}
+        {linkedItems.map((item) => (
+          <View key={item.id} style={styles.itemRow}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemCategory}>
+              {item.category}
+              {item.costCents != null ? ` · ${formatCents(item.costCents)}` : ''}
+            </Text>
           </View>
-          <View style={styles.bomList}>
-            {materials.map((item, i) => (
-              <View key={i} style={styles.bomItem}>
-                <View>
-                  <Text style={styles.bomItemName}>{item.name}</Text>
-                  <Text style={styles.bomItemStatus}>{item.status}</Text>
-                </View>
-                <Text style={styles.bomItemCost}>${item.cost.toFixed(2)}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        ))}
       </ScrollView>
     </View>
   );
@@ -85,139 +178,64 @@ export default function BuildDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
-  fixedHeader: { 
-    position: 'absolute', 
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    zIndex: 50, 
-    backgroundColor: 'rgba(255,255,255,0.9)', 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 24, 
-    paddingTop: 48, 
-    paddingBottom: 16 
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: layout.screenPaddingX,
+    paddingTop: 56,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
   },
-  headerBtn: { width: 24 },
-  headerMeta: { 
-    fontSize: 9, 
-    letterSpacing: 2, 
-    textTransform: 'uppercase', 
-    fontWeight: '600', 
-    color: 'rgba(0,0,0,0.5)' 
-  },
+  metaLabel: { fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: '600', color: colors.meta },
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 96, paddingBottom: 100 },
-  heroSection: { paddingHorizontal: 24, marginBottom: 48 },
-  heroImageContainer: { 
-    width: '100%', 
-    aspectRatio: 4 / 5, 
-    marginBottom: 32 
+  scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
+  title: {
+    fontFamily: font.serif,
+    fontSize: 28,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
+    color: colors.black,
+    marginTop: 24,
   },
-  heroImage: { width: '100%', height: '100%' },
-  titleRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-end', 
-    marginBottom: 32 
+  meta: { fontSize: 12, color: colors.textTertiary, marginTop: 8 },
+  linkBtn: {
+    borderWidth: 1,
+    borderColor: colors.black,
+    paddingVertical: 14,
+    marginTop: 24,
+    alignItems: 'center',
+    borderRadius: 2,
   },
-  titleLeft: {},
-  title: { 
-    fontFamily: font.serif, 
-    fontSize: 36, 
-    fontStyle: 'italic', 
-    color: colors.black, 
-    marginTop: 8,
-    letterSpacing: -0.5,
+  linkBtnText: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 2, color: colors.black },
+  sectionLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    color: colors.meta,
+    marginTop: 32,
+    marginBottom: 16,
   },
-  metaLabel: { 
-    fontSize: 9, 
-    letterSpacing: 2, 
-    textTransform: 'uppercase', 
-    fontWeight: '600', 
-    color: 'rgba(0,0,0,0.5)' 
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
   },
-  editionBox: { alignItems: 'flex-end' },
-  editionValue: { 
-    fontSize: 12, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    fontWeight: '500', 
-    color: colors.black, 
-    marginTop: 4 
-  },
-  statsGrid: { 
-    flexDirection: 'row', 
-    borderTopWidth: 1, 
-    borderBottomWidth: 1, 
-    borderColor: 'rgba(0,0,0,0.05)', 
-    paddingVertical: 24 
-  },
-  statBox: { flex: 1, paddingHorizontal: 8 },
-  statBoxBorder: { 
-    borderLeftWidth: 1, 
-    borderLeftColor: 'rgba(0,0,0,0.05)' 
-  },
-  statValue: { 
-    fontSize: 12, 
-    textTransform: 'uppercase', 
-    fontWeight: '500', 
-    color: colors.black, 
-    marginTop: 4 
-  },
-  statLimit: { 
-    fontSize: 9, 
-    fontStyle: 'italic', 
-    color: 'rgba(0,0,0,0.4)', 
-    marginTop: 2 
-  },
-  bomSection: { paddingHorizontal: 24 },
-  bomHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 32 
-  },
-  bomTitle: { 
-    fontFamily: font.serif, 
-    fontSize: 20, 
-    fontStyle: 'italic', 
-    color: colors.black 
-  },
-  addExpenseBtn: { 
-    fontSize: 9, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    color: colors.black, 
-    borderBottomWidth: 1, 
-    borderBottomColor: colors.black,
-    paddingBottom: 2,
-  },
-  bomList: { gap: 24 },
-  bomItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f3f3f3', 
-    paddingBottom: 16 
-  },
-  bomItemName: { 
-    fontSize: 12, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    fontWeight: '300', 
-    color: colors.black 
-  },
-  bomItemStatus: { 
-    fontSize: 9, 
-    color: 'rgba(0,0,0,0.4)', 
-    marginTop: 4 
-  },
-  bomItemCost: { 
-    fontSize: 11, 
-    fontWeight: 'bold', 
-    color: colors.black 
-  },
+  itemName: { fontSize: 14, fontWeight: '500', color: colors.text },
+  itemCategory: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, color: colors.textTertiary },
+  imageWrap: { width: '100%', aspectRatio: 4 / 3, maxHeight: 180, backgroundColor: colors.muted, marginTop: 16, borderRadius: 2, overflow: 'hidden' },
+  image: { width: '100%', height: '100%' },
+  taskAddRow: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 16 },
+  taskInput: { flex: 1, borderBottomWidth: 1, borderBottomColor: colors.borderStrong, paddingVertical: 10, fontSize: 14, color: colors.text },
+  taskAddBtn: { paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.black, justifyContent: 'center' },
+  taskAddBtnText: { fontSize: 10, fontWeight: '600', letterSpacing: 2, color: colors.black },
+  taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle, gap: 12 },
+  checkbox: { width: 18, height: 18, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: colors.black, borderColor: colors.black },
+  taskLabel: { flex: 1, fontSize: 14, color: colors.text },
+  taskLabelChecked: { textDecorationLine: 'line-through', color: colors.textTertiary },
 });

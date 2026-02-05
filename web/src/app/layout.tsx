@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthGate } from '@/components/AuthGate';
 import { QueryProvider } from '@/components/QueryProvider';
 
 export const metadata: Metadata = {
@@ -21,7 +22,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <AuthGate>{children}</AuthGate>
+        </QueryProvider>
       </body>
     </html>
   );

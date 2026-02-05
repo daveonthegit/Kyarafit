@@ -7,11 +7,11 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/lib/pq"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/lib/pq"
 )
 
 var DB *pgxpool.Pool
@@ -63,8 +63,15 @@ func RunMigrations() error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath == "" {
+		migrationsPath = "migrations"
+	}
+	// file driver: file:///abs/path or file://rel/path
+	sourceURL := "file://" + migrationsPath
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		sourceURL,
 		"postgres",
 		driver,
 	)
@@ -92,4 +99,3 @@ func Close() error {
 	}
 	return err
 }
-

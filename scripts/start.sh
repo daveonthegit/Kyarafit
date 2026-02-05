@@ -17,6 +17,12 @@ log()  { echo -e "${BLUE}[start]${NC} $1"; }
 ok()   { echo -e "${GREEN}[start]${NC} $1"; }
 warn() { echo -e "${YELLOW}[start]${NC} $1"; }
 
+# Stop existing processes first
+log "Stopping existing Docker and dev servers..."
+"$ROOT/scripts/stop.sh" || true
+sleep 2
+ok "Stopped (if any were running)."
+
 # Parse flags
 NO_DOCKER=false
 NO_WEB=false
@@ -73,8 +79,10 @@ fi
 
 echo ""
 ok "Startup done."
-echo "  Web:    http://localhost:3000"
-echo "  Closet: http://localhost:3000/closet"
-echo "  API:    http://localhost:8080/health"
-echo "  Stop:   ./scripts/stop.sh or docker compose down"
+echo "  Web:         http://localhost:3000"
+echo "  Closet:      http://localhost:3000/closet"
+echo "  Conventions: http://localhost:3000/conventions"
+echo "  Packing:     http://localhost:3000/packing"
+echo "  API:         http://localhost:8080/health"
+echo "  Stop:        ./scripts/stop.sh or docker compose down"
 echo ""

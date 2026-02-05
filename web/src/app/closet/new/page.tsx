@@ -23,6 +23,7 @@ export default function NewClosetItemPage() {
   const [category, setCategory] = useState<ClosetCategory>('other');
   const [tagsStr, setTagsStr] = useState('');
   const [notes, setNotes] = useState('');
+  const [costDollars, setCostDollars] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -87,6 +88,7 @@ export default function NewClosetItemPage() {
       tags,
       notes: notes.trim() || undefined,
       imageUrl: imageDataUrl || undefined,
+      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? 'Invalid fields');
@@ -186,6 +188,15 @@ export default function NewClosetItemPage() {
             value={tagsStr}
             onChange={(e) => setTagsStr(e.target.value)}
             placeholder="wig, character, red"
+          />
+          <UnderlineInput
+            label="Cost $ (optional)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={costDollars}
+            onChange={(e) => setCostDollars(e.target.value)}
+            placeholder="0.00"
           />
           <UnderlineInput
             label="Notes"

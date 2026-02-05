@@ -1,83 +1,71 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font } from '@kyarafit/design-system/rn';
-
-const conventions = [
-  { id: 'ax', name: 'Anime Expo', date: 'July 2024', status: 'Upcoming' },
-  { id: 'nycc', name: 'NYCC', date: 'Oct 2024', status: 'Planning' },
-];
+import { colors, font, layout } from '@kyarafit/design-system/rn';
+import type { Convention } from '@kyarafit/design-system/types';
+import { listConventions } from '../../src/storage/conventionsRepo';
+import { getSyncPendingCount } from '../../src/services/sync';
 
 export default function PlanScreen() {
   const router = useRouter();
-  const [view, setView] = useState<'daily' | 'conventions'>('daily');
+  const [conventions, setConventions] = useState<Convention[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncPending, setSyncPending] = useState(0);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
+    setConventions(list);
+    setSyncPending(pending);
+    setLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.tabs}>
-            <Pressable onPress={() => setView('daily')}>
-              <Text style={[styles.tab, view === 'daily' && styles.tabActive]}>Daily</Text>
-            </Pressable>
-            <Pressable onPress={() => setView('conventions')}>
-              <Text style={[styles.tab, view === 'conventions' && styles.tabActive]}>Conventions</Text>
-            </Pressable>
-          </View>
-          {view === 'daily' ? (
-            <View style={styles.dateHeader}>
-              <Text style={styles.dateTitle}>October 24</Text>
-              <Text style={styles.dateDay}>Thursday</Text>
-            </View>
-          ) : (
-            <Text style={styles.dateTitle}>Circuit</Text>
+          <Text style={styles.metaLabel}>Circuit</Text>
+          <Text style={styles.title}>Conventions</Text>
+          {syncPending > 0 && (
+            <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
           )}
         </View>
 
-        {/* Content */}
-        <View style={styles.content}>
-          {view === 'daily' ? (
-            <View style={styles.prioritySection}>
-              <Text style={styles.priorityLabel}>Today's Priority</Text>
-              <View style={styles.taskList}>
-                <View style={styles.task}>
-                  <View style={styles.taskHeader}>
-                    <Text style={styles.taskNumber}>01</Text>
-                    <Pressable>
-                      <Ionicons name="ellipsis-horizontal" size={18} color={colors.black} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.taskTitle}>Finalize structural boning for Arlecchino corset assembly</Text>
-                  <Text style={styles.taskMeta}>Workshop • 2:00 PM</Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.conventionsList}>
-              {conventions.map((con) => (
-                <Pressable 
-                  key={con.id} 
-                  style={styles.conventionItem} 
-                  onPress={() => router.push('/itinerary')}
-                >
-                  <View style={styles.conventionHeader}>
-                    <Text style={styles.conventionName}>{con.name}</Text>
-                    <Text style={styles.conventionDate}>{con.date}</Text>
-                  </View>
-                  <View style={styles.conventionActions}>
-                    <Pressable style={styles.actionBtn} onPress={() => router.push('/itinerary')}>
-                      <Text style={styles.actionBtnText}>Itinerary</Text>
-                    </Pressable>
-                    <Pressable style={styles.actionBtn} onPress={() => router.push('/(tabs)/packing')}>
-                      <Text style={styles.actionBtnText}>Packing List</Text>
-                    </Pressable>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+        <View style={styles.actions}>
+          <Pressable
+            style={styles.primaryBtn}
+            onPress={() => router.push({ pathname: '/convention-new', params: {} })}
+          >
+            <Text style={styles.primaryBtnText}>NEW CONVENTION</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.list}>
+          {loading && <Text style={styles.meta}>Loading…</Text>}
+          {!loading && conventions.length === 0 && (
+            <Text style={styles.meta}>No conventions yet. Create one to plan days and generate packing lists.</Text>
           )}
+          {conventions.map((c) => (
+            <Pressable
+              key={c.id}
+              style={styles.conventionRow}
+              onPress={() => router.push({ pathname: '/convention-detail', params: { id: c.id } })}
+            >
+              <Text style={styles.conventionName}>{c.name}</Text>
+              <Text style={styles.conventionMeta}>
+                {c.startDate} – {c.endDate}
+                {c.location ? ` · ${c.location}` : ''}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </Pressable>
+          ))}
         </View>
       </ScrollView>
     </View>
@@ -88,109 +76,73 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 140 },
-  header: { paddingHorizontal: 32, paddingTop: 64, paddingBottom: 32 },
-  tabs: { flexDirection: 'row', gap: 24, marginBottom: 32 },
-  tab: { 
-    fontSize: 10, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    fontWeight: 'bold', 
-    color: 'rgba(0,0,0,0.3)', 
-    paddingBottom: 4 
+  header: {
+    paddingHorizontal: layout.screenPaddingX,
+    paddingTop: 56,
+    paddingBottom: 16,
   },
-  tabActive: { 
-    color: colors.black, 
-    borderBottomWidth: 2, 
-    borderBottomColor: colors.black 
+  metaLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    color: colors.meta,
+    marginBottom: 4,
   },
-  dateHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'baseline' 
-  },
-  dateTitle: { 
-    fontFamily: font.serif, 
-    fontSize: 48, 
-    fontWeight: 'bold', 
-    fontStyle: 'italic', 
-    color: colors.black,
-    letterSpacing: -1,
-  },
-  dateDay: { 
-    fontSize: 11, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    color: 'rgba(0,0,0,0.6)' 
-  },
-  content: { paddingHorizontal: 32 },
-  prioritySection: { marginBottom: 64 },
-  priorityLabel: { 
-    fontSize: 10, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    fontWeight: 'bold', 
-    color: colors.black, 
-    borderBottomWidth: 1, 
-    borderBottomColor: colors.black, 
-    paddingBottom: 8, 
-    alignSelf: 'flex-start', 
-    marginBottom: 32 
-  },
-  taskList: { gap: 48 },
-  task: {},
-  taskHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-start', 
-    marginBottom: 8 
-  },
-  taskNumber: { fontSize: 10, color: 'rgba(0,0,0,0.3)' },
-  taskTitle: { 
-    fontSize: 20, 
-    fontWeight: '300', 
-    color: colors.black, 
-    lineHeight: 28,
-    letterSpacing: -0.3,
-  },
-  taskMeta: { 
-    fontSize: 11, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    color: 'rgba(0,0,0,0.4)', 
-    marginTop: 8 
-  },
-  conventionsList: { gap: 40 },
-  conventionItem: { 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f3f3f3', 
-    paddingBottom: 24 
-  },
-  conventionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-end', 
-    marginBottom: 12 
-  },
-  conventionName: { 
-    fontFamily: font.serif, 
-    fontSize: 24, 
-    fontStyle: 'italic', 
-    fontWeight: 'bold', 
+  title: {
+    fontFamily: font.serif,
+    fontSize: 28,
+    fontWeight: 'bold',
+    fontStyle: 'italic',
     color: colors.black,
     letterSpacing: -0.5,
   },
-  conventionDate: { fontSize: 10, color: 'rgba(0,0,0,0.4)' },
-  conventionActions: { flexDirection: 'row', gap: 16 },
-  actionBtn: { 
-    borderWidth: 1, 
-    borderColor: 'rgba(0,0,0,0.1)', 
-    paddingHorizontal: 12, 
-    paddingVertical: 6 
+  syncLabel: {
+    marginTop: 8,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    color: colors.meta,
   },
-  actionBtnText: { 
-    fontSize: 9, 
-    textTransform: 'uppercase', 
-    letterSpacing: 2, 
-    color: colors.black 
+  actions: { paddingHorizontal: layout.screenPaddingX, marginBottom: layout.stackGap },
+  primaryBtn: {
+    backgroundColor: colors.black,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 2,
   },
+  primaryBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    color: colors.white,
+  },
+  list: { paddingHorizontal: layout.screenPaddingX, gap: 0 },
+  conventionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    gap: 12,
+  },
+  conventionName: {
+    flex: 1,
+    fontFamily: font.serif,
+    fontSize: 20,
+    fontStyle: 'italic',
+    fontWeight: 'bold',
+    color: colors.black,
+  },
+  conventionMeta: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: colors.textTertiary,
+  },
+  meta: { fontSize: 12, color: colors.meta, paddingVertical: 24 },
 });

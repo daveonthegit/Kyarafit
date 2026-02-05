@@ -84,6 +84,24 @@ The script installs npm deps if needed, copies `.env.example` → `.env` when mi
 
 Copy `.env.example` to `.env` and set as needed. Web can use `.env.local` (see `web/.env.local.example`).
 
+## Account tiers
+
+Access is tiered; enforcement is central in the backend (see `backend/internal/tier`).
+
+| Tier | Web editor | Export/import | Online backup | Multi-device sync | Storage | Max builds | Max conventions |
+|------|------------|---------------|---------------|-------------------|---------|------------|-----------------|
+| **ANON** | No | No | No | No | — | — | — |
+| **FREE** | Yes | No | No | No | 50 MB | 5 | 1 |
+| **PREMIUM_BASIC** | Yes | JSON | Yes | Yes | 500 MB | 20 | 5 |
+| **PREMIUM_PRO** | Yes | JSON, CSV, PDF | Yes | Yes | Unlimited | Unlimited | Unlimited |
+
+- **Web app:** Requires at least a FREE account (sign-in required). Anonymous users cannot use the web editor.
+- **Export:** PREMIUM_BASIC+ for JSON; PREMIUM_PRO for CSV/PDF.
+- **Sync (mobile → backend):** PREMIUM_BASIC+ required for mobile sync; FREE can use the web editor with limits.
+- **Storage:** Backend tracks usage; over limit returns a calm “Storage limit reached. Upgrade to continue backing up.” No hard deletes on downgrade.
+
+Stripe: one product “Kyarafit Premium”, two prices (BASIC → PREMIUM_BASIC, PRO → PREMIUM_PRO). Webhook `POST /webhooks/stripe` updates user tier and quota. Set `STRIPE_PRICE_BASIC` and `STRIPE_PRICE_PRO` in backend env.
+
 ## Design rules
 
 - **Prototype (look and flow):** [example screens/prototype/code.html](example%20screens/prototype/code.html) — the app UI follows this editorial look and navigation (The Lookbook, Current Focus hero, Next Deadline, The Closet with category tabs, bottom nav, FAB).

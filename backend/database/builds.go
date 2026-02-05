@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"kyarafit-backend/models"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"kyarafit-backend/models"
 )
 
 type BuildRepository struct {
@@ -367,11 +368,11 @@ func (r *BuildRepository) GetUpcomingBuilds(userID uuid.UUID, days int, limit, o
 	query := `
 		SELECT id, user_id, name, description, character, series, status, priority, budget, spent, start_date, target_date, completed_date, tags, notes, created_at, updated_at
 		FROM builds
-		WHERE user_id = $1 AND target_date IS NOT NULL AND target_date <= NOW() + INTERVAL '%d days' AND status != 'complete' AND status != 'cancelled'
+		WHERE user_id = $1 AND target_date IS NOT NULL AND target_date <= NOW() + ($2 || ' days')::INTERVAL AND status != 'complete' AND status != 'cancelled'
 		ORDER BY target_date ASC
-		LIMIT $2 OFFSET $3`
+		LIMIT $3 OFFSET $4`
 
-	rows, err := r.db.Query(ctx, fmt.Sprintf(query, days), userID, limit, offset)
+	rows, err := r.db.Query(ctx, query, userID, days, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get upcoming builds: %w", err)
 	}

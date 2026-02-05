@@ -15,10 +15,11 @@ export async function listItems(): Promise<ClosetItem[]> {
     notes: string | null;
     image_local_uri: string | null;
     image_url: string | null;
+    cost_cents: number | null;
     created_at: string;
     updated_at: string;
   }>(
-    `SELECT id, name, category, tags, notes, image_local_uri, image_url, created_at, updated_at
+    `SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at
      FROM closet_items ORDER BY updated_at DESC`
   );
 
@@ -30,6 +31,7 @@ export async function listItems(): Promise<ClosetItem[]> {
     notes: r.notes ?? undefined,
     imageLocalUri: r.image_local_uri ?? undefined,
     imageUrl: r.image_url ?? undefined,
+    costCents: r.cost_cents ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
@@ -48,8 +50,8 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
   const database = await initClosetDb();
   const tagsJson = JSON.stringify(item.tags ?? []);
   await database.runAsync(
-    `INSERT INTO closet_items (id, name, category, tags, notes, image_local_uri, image_url, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO closet_items (id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        category = excluded.category,
@@ -57,6 +59,7 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
        notes = excluded.notes,
        image_local_uri = excluded.image_local_uri,
        image_url = excluded.image_url,
+       cost_cents = excluded.cost_cents,
        updated_at = excluded.updated_at`,
     [
       item.id,
@@ -66,6 +69,7 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
       item.notes ?? null,
       item.imageLocalUri ?? null,
       item.imageUrl ?? null,
+      item.costCents ?? null,
       item.createdAt,
       item.updatedAt,
     ]

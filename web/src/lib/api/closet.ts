@@ -1,16 +1,21 @@
 /**
  * Closet API client. All requests send x-kyar-device-id.
+ * When signed in, sends Authorization and x-kyar-client: web for tier/limits.
  */
 
 import type { ClosetItem, CreateClosetItemInput } from '@kyarafit/design-system/types';
+import { getToken } from '../auth/client';
 import { getOrCreateDeviceId } from '../deviceId';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 function headers(): HeadersInit {
+  const token = getToken();
   return {
     'Content-Type': 'application/json',
     'x-kyar-device-id': getOrCreateDeviceId(),
+    'x-kyar-client': 'web',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 

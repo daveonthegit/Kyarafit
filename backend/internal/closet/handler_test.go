@@ -34,7 +34,7 @@ func (m *mockRepo) GetByID(ctx context.Context, id, deviceID string) (*Item, err
 	return nil, nil
 }
 
-func (m *mockRepo) Create(ctx context.Context, deviceID string, in CreateInput) (Item, error) {
+func (m *mockRepo) Create(ctx context.Context, deviceID, userID string, in CreateInput) (Item, error) {
 	it := Item{
 		ID: "test-id-1", DeviceID: deviceID, Name: in.Name, Category: in.Category,
 		Tags: in.Tags, Notes: in.Notes, ImageURL: in.ImageURL,
@@ -126,7 +126,7 @@ func TestClosetHandler_Create_ValidBody(t *testing.T) {
 		if in.Name == "" || in.Category == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "name and category required"})
 		}
-		item, err := repo.Create(c.Context(), c.Get("x-kyar-device-id"), in)
+		item, err := repo.Create(c.Context(), c.Get("x-kyar-device-id"), "", in)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}

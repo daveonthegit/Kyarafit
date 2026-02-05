@@ -37,6 +37,7 @@ export default function AddItemScreen() {
   const [category, setCategory] = useState<ClosetCategory>('other');
   const [tagsStr, setTagsStr] = useState('');
   const [notes, setNotes] = useState('');
+  const [costDollars, setCostDollars] = useState('');
   const [imageLocalUri, setImageLocalUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState('');
@@ -70,6 +71,7 @@ export default function AddItemScreen() {
       tags,
       notes: notes.trim() || undefined,
       imageLocalUri: imageLocalUri ?? undefined,
+      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
       const msg = parsed.error.errors[0]?.message ?? 'Invalid fields';
@@ -87,6 +89,7 @@ export default function AddItemScreen() {
       notes: parsed.data.notes,
       imageLocalUri: parsed.data.imageLocalUri,
       imageUrl: undefined as string | undefined,
+      costCents: parsed.data.costCents,
       createdAt: now,
       updatedAt: now,
     };
@@ -158,6 +161,13 @@ export default function AddItemScreen() {
               value={tagsStr}
               onChangeText={setTagsStr}
               placeholder="wig, character, red"
+            />
+            <UnderlineInput
+              label="Cost $ (optional)"
+              value={costDollars}
+              onChangeText={setCostDollars}
+              placeholder="0.00"
+              keyboardType="decimal-pad"
             />
             <UnderlineInput
               label="Notes"

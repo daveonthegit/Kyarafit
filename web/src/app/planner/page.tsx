@@ -49,7 +49,7 @@ export default function Planner() {
                   <span className="text-[10px] opacity-30">01</span>
                   <span className="material-symbols-outlined text-[18px]">more_horiz</span>
                 </div>
-                <h3 className="text-xl font-light tracking-tight">Finalize structural boning for Arlecchino corset assembly</h3>
+                <h3 className="text-xl font-light tracking-tight">Today&apos;s priority task</h3>
                 <p className="text-[11px] uppercase tracking-widest opacity-40 mt-2">Workshop • 2:00 PM</p>
               </div>
             </div>

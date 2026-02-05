@@ -4,7 +4,18 @@
 
 import { initClosetDb } from './db';
 
-export type OutboxType = 'upsert' | 'delete';
+export type OutboxType =
+  | 'upsert'
+  | 'delete'
+  | 'build.upsert'
+  | 'build.linkItems'
+  | 'build.task.upsert'
+  | 'build.task.delete'
+  | 'convention.upsert'
+  | 'convention.plan.replace'
+  | 'packing.toggle'
+  | 'packing.addManual'
+  | 'packing.regenerate';
 
 export interface OutboxEntry {
   id: number;

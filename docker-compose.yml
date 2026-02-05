@@ -23,10 +23,24 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
+      - HOST=0.0.0.0
       - DATABASE_URL=postgres://kyarafit:kyarafit@postgres:5432/kyarafit?sslmode=disable
+      - MIGRATIONS_PATH=/root/migrations
+      # Supabase (replace with your actual values or use .env file)
+      - SUPABASE_URL=${SUPABASE_URL:-https://your-project.supabase.co}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-your-service-key}
+      # Image service
+      - IMAGE_SERVICE_URL=http://image-service:8000
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   image-service:
     build:

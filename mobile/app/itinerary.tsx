@@ -1,20 +1,17 @@
-import { View, Text, Image, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font } from '@kyarafit/design-system/rn';
-
-const IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBu_SZd735qYIoLuhK64k-v3rkLy747i8ue_eH0N3xYPJbFfLIbKTVm3H-NcZKqndHcu7oc5R6oewk0qzI59bly1EUxBH8v_Rksago6lmZEEUMphUaNGZWEVkABr3W0VuzaghrdMUk4d_908-swoxIEwGiMwYZ2vS4ll8I4ag19hB22sskICQ_WverIln2OaHA-UVny57iBW11GSZL7UBfu6pwj192s2Eef0qAaLpXYi0LribO8DOh31AUeQf2hy-No5kYha4q4BEpE';
 
 export default function ItineraryScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerMeta}>Kyarafit Itinerary</Text>
-          <Text style={styles.headerTitle}>Anime Expo</Text>
+          <Text style={styles.headerTitle}>Convention day</Text>
         </View>
         <View style={styles.headerActions}>
           <Pressable>
@@ -35,12 +32,12 @@ export default function ItineraryScreen() {
             </View>
           </View>
           <View style={styles.lookLayout}>
-            <View style={styles.lookImageContainer}>
-              <Image source={{ uri: IMG }} style={styles.lookImage} resizeMode="cover" />
+            <View style={[styles.lookImageContainer, styles.placeholderImage]}>
+              <Ionicons name="image-outline" size={48} color={colors.textTertiary} />
             </View>
             <View style={styles.lookInfo}>
               <Text style={styles.lookLabel}>Look 01</Text>
-              <Text style={styles.lookDesc}>Arlecchino Full Regalia</Text>
+              <Text style={styles.lookDesc}>Assign a build from your convention plan</Text>
             </View>
           </View>
         </View>
@@ -127,7 +124,11 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 4,
   },
-  lookImage: { width: '100%', height: '100%' },
+  placeholderImage: {
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   lookInfo: { 
     flex: 1, 
     justifyContent: 'flex-end', 

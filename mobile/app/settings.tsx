@@ -2,11 +2,17 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font } from '@kyarafit/design-system/rn';
+import { useSession, signOut } from '../src/lib/auth/client';
 
 const menuItems = ['Account Details', 'Subscription Plan', 'Notification Style'];
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { session } = useSession();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <View style={styles.container}>
@@ -22,6 +28,25 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* Tier / sync copy */}
+        {!session && (
+          <View style={styles.tierNote}>
+            <Text style={styles.tierNoteText}>Local-only mode</Text>
+            <Text style={styles.tierNoteSub}>Sign in to sync across devices.</Text>
+            <Pressable 
+              style={styles.signInBtn} 
+              onPress={() => router.push('/auth')}
+            >
+              <Text style={styles.signInBtnText}>Sign In or Create Account</Text>
+            </Pressable>
+          </View>
+        )}
+        {session && (
+          <View style={styles.tierNote}>
+            <Text style={styles.tierNoteSub}>Upgrade for backup and export.</Text>
+          </View>
+        )}
+
         {/* Content */}
         <View style={styles.content}>
           <Text style={styles.sectionTitle}>Profile & Identity</Text>
@@ -33,9 +58,11 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.signOut} onPress={() => router.replace('/')}>
-          <Text style={styles.signOutText}>Sign Out of Device</Text>
-        </Pressable>
+        {session && (
+          <Pressable style={styles.signOut} onPress={handleSignOut}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </View>
   );
@@ -98,5 +125,22 @@ const styles = StyleSheet.create({
     letterSpacing: 3, 
     fontWeight: '600', 
     color: 'rgba(239,68,68,0.8)' 
+  },
+  tierNote: { paddingHorizontal: 32, marginTop: 16, paddingVertical: 8 },
+  tierNoteText: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600', color: colors.meta },
+  tierNoteSub: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
+  signInBtn: { 
+    marginTop: 16, 
+    borderWidth: 1, 
+    borderColor: colors.black, 
+    paddingVertical: 12, 
+    alignItems: 'center' 
+  },
+  signInBtnText: { 
+    fontSize: 11, 
+    textTransform: 'uppercase', 
+    letterSpacing: 2, 
+    fontWeight: '600', 
+    color: colors.black 
   },
 });

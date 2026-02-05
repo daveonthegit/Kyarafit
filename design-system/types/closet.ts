@@ -25,6 +25,7 @@ export const closetItemSchema = z.object({
   notes: z.string().optional(),
   imageLocalUri: z.string().optional(),
   imageUrl: z.string().optional(),
+  costCents: z.number().int().min(0).optional().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -39,6 +40,7 @@ export const createClosetItemSchema = z.object({
   notes: z.string().optional(),
   imageLocalUri: z.string().optional(),
   imageUrl: z.string().optional(),
+  costCents: z.number().int().min(0).optional().nullable(),
 });
 
 export type CreateClosetItemInput = z.infer<typeof createClosetItemSchema>;
@@ -50,6 +52,7 @@ export const updateClosetItemSchema = z.object({
   tags: z.array(z.string()).optional(),
   notes: z.string().optional().nullable(),
   imageUrl: z.string().optional().nullable(),
+  costCents: z.number().int().min(0).optional().nullable(),
 });
 
 export type UpdateClosetItemInput = z.infer<typeof updateClosetItemSchema>;

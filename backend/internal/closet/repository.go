@@ -23,7 +23,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func rowToItem(r itemRow) Item {
 	it := Item{
 		ID: r.ID, Name: r.Name, Category: r.Category,
-		Notes: r.Notes, ImageURL: r.ImageURL,
+		Notes: r.Notes, ImageURL: r.ImageURL, CostCents: r.CostCents,
 		CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: r.UpdatedAt.UTC().Format(time.RFC3339),
 	}
@@ -36,7 +36,7 @@ func rowToItem(r itemRow) Item {
 // ListByDevice returns items for device_id ordered by updated_at desc.
 func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Item, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, device_id, name, category, tags, notes, image_url, created_at, updated_at
+		SELECT id, device_id, name, category, tags, notes, image_url, cost_cents, created_at, updated_at
 		FROM closet_items WHERE device_id = $1 ORDER BY updated_at DESC
 	`, deviceID)
 	if err != nil {
@@ -49,7 +49,7 @@ func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Item,
 		var row itemRow
 		err := rows.Scan(
 			&row.ID, &row.DeviceID, &row.Name, &row.Category, &row.Tags,
-			&row.Notes, &row.ImageURL, &row.CreatedAt, &row.UpdatedAt,
+			&row.Notes, &row.ImageURL, &row.CostCents, &row.CreatedAt, &row.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -63,11 +63,11 @@ func (r *Repository) ListByDevice(ctx context.Context, deviceID string) ([]Item,
 func (r *Repository) GetByID(ctx context.Context, id, deviceID string) (*Item, error) {
 	var row itemRow
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, device_id, name, category, tags, notes, image_url, created_at, updated_at
+		SELECT id, device_id, name, category, tags, notes, image_url, cost_cents, created_at, updated_at
 		FROM closet_items WHERE id = $1 AND device_id = $2
 	`, id, deviceID).Scan(
 		&row.ID, &row.DeviceID, &row.Name, &row.Category, &row.Tags,
-		&row.Notes, &row.ImageURL, &row.CreatedAt, &row.UpdatedAt,
+		&row.Notes, &row.ImageURL, &row.CostCents, &row.CreatedAt, &row.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -79,14 +79,14 @@ func (r *Repository) GetByID(ctx context.Context, id, deviceID string) (*Item, e
 	return &it, nil
 }
 
-// Create inserts a new item and returns it.
-func (r *Repository) Create(ctx context.Context, deviceID string, in CreateInput) (Item, error) {
+// Create inserts a new item and returns it. userID is optional (for tier attribution).
+func (r *Repository) Create(ctx context.Context, deviceID, userID string, in CreateInput) (Item, error) {
 	id := uuid.New().String()
 	tagsJSON, _ := json.Marshal(in.Tags)
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO closet_items (id, device_id, name, category, tags, notes, image_url)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, id, deviceID, in.Name, in.Category, tagsJSON, in.Notes, in.ImageURL)
+		INSERT INTO closet_items (id, device_id, user_id, name, category, tags, notes, image_url, cost_cents)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9)
+	`, id, deviceID, userID, in.Name, in.Category, tagsJSON, in.Notes, in.ImageURL, in.CostCents)
 	if err != nil {
 		return Item{}, err
 	}
@@ -118,11 +118,14 @@ func (r *Repository) Update(ctx context.Context, id, deviceID string, in UpdateI
 	if in.ImageURL != nil {
 		existing.ImageURL = in.ImageURL
 	}
+	if in.CostCents != nil {
+		existing.CostCents = in.CostCents
+	}
 	tagsJSON, _ := json.Marshal(existing.Tags)
 	_, err = r.pool.Exec(ctx, `
-		UPDATE closet_items SET name = $2, category = $3, tags = $4, notes = $5, image_url = $6
-		WHERE id = $1 AND device_id = $7
-	`, id, existing.Name, existing.Category, tagsJSON, existing.Notes, existing.ImageURL, deviceID)
+		UPDATE closet_items SET name = $2, category = $3, tags = $4, notes = $5, image_url = $6, cost_cents = $7
+		WHERE id = $1 AND device_id = $8
+	`, id, existing.Name, existing.Category, tagsJSON, existing.Notes, existing.ImageURL, existing.CostCents, deviceID)
 	if err != nil {
 		return nil, err
 	}

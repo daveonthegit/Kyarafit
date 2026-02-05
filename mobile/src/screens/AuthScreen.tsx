@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { colors, font } from '@kyarafit/design-system/rn';
 import { signIn, signUp } from '../lib/auth/client';
 
 export default function AuthScreen() {
+  const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const handleAuth = async () => {
-    if (!email || !password || (isSignUp && !name)) {
-      Alert.alert('Error', 'Please fill in all fields');
+    setError('');
+    
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (isSignUp && password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -21,13 +32,12 @@ export default function AuthScreen() {
         const result = await signUp.email({
           email,
           password,
-          name,
         });
         
         if (result.error) {
-          Alert.alert('Error', result.error.message);
+          setError(result.error.message);
         } else {
-          Alert.alert('Success', 'Account created! Please check your email for verification.');
+          setShowSuccess(true);
         }
       } else {
         const result = await signIn.email({
@@ -36,17 +46,47 @@ export default function AuthScreen() {
         });
         
         if (result.error) {
-          Alert.alert('Error', result.error.message);
+          setError(result.error.message);
         } else {
-          // Navigation will be handled by the parent component
+          router.replace('/(tabs)');
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Success screen after signup
+  if (showSuccess) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.successContainer}>
+          <Text style={styles.successCheckmark}>✓</Text>
+          <Text style={styles.successTitle}>Check your email</Text>
+          <Text style={styles.successText}>
+            We've sent a confirmation link to{' '}
+            <Text style={styles.successEmail}>{email}</Text>
+          </Text>
+          <Text style={styles.successSubtext}>
+            Click the link in the email to verify your account, then you can sign in.
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              setShowSuccess(false);
+              setIsSignUp(false);
+              setEmail('');
+              setPassword('');
+            }}
+          >
+            <Text style={styles.buttonText}>Go to Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -58,15 +98,11 @@ export default function AuthScreen() {
           {isSignUp ? 'Join the cosplay community' : 'Sign in to your account'}
         </Text>
 
-        {isSignUp && (
-          <TextInput
-            style={styles.input}
-            placeholder="Display Name"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-        )}
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
 
         <TextInput
           style={styles.input}
@@ -75,15 +111,22 @@ export default function AuthScreen() {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          editable={!isLoading}
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!isLoading}
+          />
+          {isSignUp && (
+            <Text style={styles.hintText}>At least 6 characters</Text>
+          )}
+        </View>
 
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -103,6 +146,13 @@ export default function AuthScreen() {
             {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </Text>
         </TouchableOpacity>
+
+        <Pressable
+          style={styles.skipButton}
+          onPress={() => router.replace('/(tabs)')}
+        >
+          <Text style={styles.skipText}>Continue without account (local only)</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -111,60 +161,129 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e1b4b',
+    backgroundColor: colors.white,
     justifyContent: 'center',
-    padding: 20,
+    padding: 32,
   },
   form: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 24,
-    backdropFilter: 'blur(10px)',
+    width: '100%',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontFamily: font.serif,
+    fontSize: 36,
+    fontStyle: 'italic',
+    color: colors.black,
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#a5b4fc',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    fontWeight: '600',
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
+  },
+  errorContainer: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    padding: 16,
+    borderRadius: 4,
+    marginBottom: 24,
+  },
+  errorText: {
+    color: '#991b1b',
+    fontSize: 14,
+    textAlign: 'center',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    padding: 16,
-    color: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 12,
     fontSize: 16,
-    marginBottom: 16,
+    color: colors.black,
+    marginBottom: 24,
+  },
+  hintText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: -18,
+    marginBottom: 24,
   },
   button: {
-    backgroundColor: '#8b5cf6',
-    borderRadius: 8,
-    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.black,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 24,
   },
   buttonDisabled: {
-    backgroundColor: '#8b5cf6',
-    opacity: 0.6,
+    opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
     fontWeight: '600',
+    color: colors.black,
   },
   switchButton: {
     alignItems: 'center',
+    paddingVertical: 8,
   },
   switchText: {
-    color: '#a5b4fc',
-    fontSize: 14,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  skipButton: {
+    alignItems: 'center',
+    marginTop: 32,
+    paddingVertical: 8,
+  },
+  skipText: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    color: colors.textTertiary,
+  },
+  // Success screen styles
+  successContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  successCheckmark: {
+    fontSize: 64,
+    color: colors.black,
+    marginBottom: 24,
+  },
+  successTitle: {
+    fontFamily: font.serif,
+    fontSize: 32,
+    fontStyle: 'italic',
+    color: colors.black,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  successText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  successEmail: {
+    fontWeight: '600',
+    color: colors.black,
+  },
+  successSubtext: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 20,
   },
 });

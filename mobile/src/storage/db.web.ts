@@ -19,11 +19,62 @@ const closetItems: Array<{
   notes: string | null;
   image_local_uri: string | null;
   image_url: string | null;
+  cost_cents: number | null;
   created_at: string;
   updated_at: string;
 }> = [];
 const outbox: Array<{ id: number; type: string; payload_json: string; created_at: string }> = [];
 let outboxId = 0;
+
+const builds: Array<{
+  id: string;
+  name: string;
+  character: string | null;
+  status: string;
+  notes: string | null;
+  image_url: string | null;
+  budget_cents: number | null;
+  created_at: string;
+  updated_at: string;
+}> = [];
+const buildTasks: Array<{
+  id: string;
+  build_id: string;
+  label: string;
+  closet_item_id: string | null;
+  sort_order: number;
+  checked: number;
+  created_at: string;
+  updated_at: string;
+}> = [];
+const buildItemLinks: Array<{ build_id: string; closet_item_id: string }> = [];
+const conventions: Array<{
+  id: string;
+  name: string;
+  location: string | null;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  updated_at: string;
+}> = [];
+const conventionDayPlans: Array<{
+  id: string;
+  convention_id: string;
+  date: string;
+  build_id: string | null;
+  notes: string | null;
+}> = [];
+const packingListItems: Array<{
+  id: string;
+  convention_id: string;
+  date: string | null;
+  build_id: string | null;
+  closet_item_id: string | null;
+  label: string;
+  checked: number;
+  created_at: string;
+  updated_at: string;
+}> = [];
 
 let db: DbLike | null = null;
 
@@ -47,8 +98,17 @@ function getWebDb(): DbLike {
       }
       // closet_items
       if (sql.includes('INSERT INTO closet_items') || sql.includes('ON CONFLICT(id) DO UPDATE')) {
-        const [id, name, category, tags, notes, image_local_uri, image_url, created_at, updated_at] =
-          params as [string, string, string, string, string | null, string | null, string | null, string, string];
+        const p = params as unknown[];
+        const id = p[0] as string;
+        const name = p[1] as string;
+        const category = p[2] as string;
+        const tags = p[3] as string;
+        const notes = p[4] as string | null;
+        const image_local_uri = p[5] as string | null;
+        const image_url = p[6] as string | null;
+        const cost_cents = (p.length > 7 ? p[7] : null) as number | null;
+        const created_at = (p.length > 8 ? p[8] : new Date().toISOString()) as string;
+        const updated_at = (p.length > 9 ? p[9] : created_at) as string;
         const idx = closetItems.findIndex((r) => r.id === id);
         const row = {
           id,
@@ -58,6 +118,7 @@ function getWebDb(): DbLike {
           notes,
           image_local_uri,
           image_url,
+          cost_cents: cost_cents ?? null,
           created_at,
           updated_at,
         };
@@ -84,6 +145,213 @@ function getWebDb(): DbLike {
       if (sql.includes('DELETE FROM outbox WHERE id')) {
         const idx = outbox.findIndex((r) => r.id === params[0]);
         if (idx >= 0) outbox.splice(idx, 1);
+        return;
+      }
+      // builds
+      if (sql.includes('INSERT INTO builds (')) {
+        const [id, name, character, status, notes, image_url, budget_cents, created_at, updated_at] = params as [
+          string,
+          string,
+          string | null,
+          string,
+          string | null,
+          string | null,
+          number | null,
+          string,
+          string,
+        ];
+        builds.push({ id, name, character, status, notes, image_url: image_url ?? null, budget_cents: budget_cents ?? null, created_at, updated_at });
+        return;
+      }
+      if (sql.includes('UPDATE builds SET')) {
+        const [name, character, status, notes, image_url, budget_cents, updated_at, id] = params as [
+          string,
+          string | null,
+          string,
+          string | null,
+          string | null,
+          number | null,
+          string,
+          string,
+        ];
+        const idx = builds.findIndex((r) => r.id === id);
+        if (idx >= 0) {
+          builds[idx] = { ...builds[idx], name, character, status, notes, image_url: image_url ?? null, budget_cents: budget_cents ?? null, updated_at };
+        }
+        return;
+      }
+      // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
+      if (sql.includes('INSERT INTO build_tasks (')) {
+        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] = params as [
+          string,
+          string,
+          string,
+          string | null,
+          number,
+          string,
+          string,
+        ];
+        buildTasks.push({ id, build_id, label, closet_item_id, sort_order, checked: 0, created_at, updated_at });
+        return;
+      }
+      if (sql.includes('UPDATE build_tasks SET')) {
+        const [label, closet_item_id, sort_order, checked, updated_at, id, build_id] = params as [
+          string,
+          string | null,
+          number,
+          number,
+          string,
+          string,
+          string,
+        ];
+        const idx = buildTasks.findIndex((r) => r.id === id && r.build_id === build_id);
+        if (idx >= 0) {
+          buildTasks[idx] = { ...buildTasks[idx], label, closet_item_id, sort_order, checked, updated_at };
+        }
+        return;
+      }
+      if (sql.includes('DELETE FROM build_tasks WHERE id')) {
+        const [taskId, buildId] = params as [string, string];
+        for (let i = buildTasks.length - 1; i >= 0; i--) {
+          if (buildTasks[i].id === taskId && buildTasks[i].build_id === buildId) {
+            buildTasks.splice(i, 1);
+            break;
+          }
+        }
+        return;
+      }
+      // build_item_links
+      if (sql.includes('DELETE FROM build_item_links WHERE build_id')) {
+        const buildId = params[0] as string;
+        for (let i = buildItemLinks.length - 1; i >= 0; i--) {
+          if (buildItemLinks[i].build_id === buildId) buildItemLinks.splice(i, 1);
+        }
+        return;
+      }
+      if (sql.includes('INSERT INTO build_item_links (')) {
+        const [build_id, closet_item_id] = params as [string, string];
+        buildItemLinks.push({ build_id, closet_item_id });
+        return;
+      }
+      // conventions
+      if (sql.includes('INSERT INTO conventions (')) {
+        const [id, name, location, start_date, end_date, created_at, updated_at] = params as [
+          string,
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+        ];
+        conventions.push({ id, name, location, start_date, end_date, created_at, updated_at });
+        return;
+      }
+      if (sql.includes('UPDATE conventions SET')) {
+        const [name, location, start_date, end_date, updated_at, id] = params as [
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+        ];
+        const idx = conventions.findIndex((r) => r.id === id);
+        if (idx >= 0) {
+          conventions[idx] = { ...conventions[idx], name, location, start_date, end_date, updated_at };
+        }
+        return;
+      }
+      // convention_day_plans
+      if (sql.includes('DELETE FROM convention_day_plans WHERE convention_id')) {
+        const cid = params[0] as string;
+        for (let i = conventionDayPlans.length - 1; i >= 0; i--) {
+          if (conventionDayPlans[i].convention_id === cid) conventionDayPlans.splice(i, 1);
+        }
+        return;
+      }
+      if (sql.includes('INSERT INTO convention_day_plans (')) {
+        const [id, convention_id, date, build_id, notes] = params as [string, string, string, string | null, string | null];
+        conventionDayPlans.push({ id, convention_id, date, build_id, notes });
+        return;
+      }
+      // packing_list_items
+      if (sql.includes('DELETE FROM packing_list_items WHERE convention_id') && sql.includes('closet_item_id IS NOT NULL')) {
+        const cid = params[0] as string;
+        for (let i = packingListItems.length - 1; i >= 0; i--) {
+          if (packingListItems[i].convention_id === cid && packingListItems[i].closet_item_id != null) {
+            packingListItems.splice(i, 1);
+          }
+        }
+        return;
+      }
+      if (sql.includes('UPDATE packing_list_items SET checked')) {
+        const [checked, updated_at, id] = params as [number, string, string];
+        const idx = packingListItems.findIndex((r) => r.id === id);
+        if (idx >= 0) {
+          packingListItems[idx] = { ...packingListItems[idx], checked, updated_at };
+        }
+        return;
+      }
+      if (sql.includes('INSERT INTO packing_list_items (')) {
+        const p = params as unknown[];
+        if (p.length === 8) {
+          const [id, convention_id, date, build_id, closet_item_id, label, created_at, updated_at] = p as [
+            string,
+            string,
+            string,
+            string | null,
+            string,
+            string,
+            string,
+            string,
+          ];
+          packingListItems.push({
+            id,
+            convention_id,
+            date,
+            build_id,
+            closet_item_id,
+            label,
+            checked: 0,
+            created_at,
+            updated_at,
+          });
+        } else if (p.length === 7) {
+          const [id, convention_id, date, build_id, label, created_at, updated_at] = p as [
+            string,
+            string,
+            string | null,
+            string | null,
+            string,
+            string,
+            string,
+          ];
+          packingListItems.push({
+            id,
+            convention_id,
+            date,
+            build_id,
+            closet_item_id: null,
+            label,
+            checked: 0,
+            created_at,
+            updated_at,
+          });
+        } else if (p.length === 5) {
+          const [id, convention_id, label, created_at, updated_at] = p as [string, string, string, string, string];
+          packingListItems.push({
+            id,
+            convention_id,
+            date: null,
+            build_id: null,
+            closet_item_id: null,
+            label,
+            checked: 0,
+            created_at,
+            updated_at,
+          });
+        }
         return;
       }
     },
@@ -119,6 +387,79 @@ function getWebDb(): DbLike {
       }
       if (sql.includes('FROM outbox ORDER BY')) {
         return outbox.map((r) => ({ ...r })) as T[];
+      }
+      // builds
+      if (sql.includes('FROM builds WHERE id')) {
+        const id = params[0] as string;
+        const row = builds.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes('FROM builds ORDER BY')) {
+        return [...builds].sort(
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        ) as T[];
+      }
+      // build_item_links
+      if (sql.includes('FROM build_item_links WHERE build_id')) {
+        const buildId = params[0] as string;
+        return buildItemLinks.filter((r) => r.build_id === buildId).map((r) => ({ closet_item_id: r.closet_item_id })) as T[];
+      }
+      // build_tasks
+      if (sql.includes('FROM build_tasks WHERE id')) {
+        const taskId = params[0] as string;
+        const buildId = params[1] as string | undefined;
+        const row = buildId
+          ? buildTasks.find((r) => r.id === taskId && r.build_id === buildId)
+          : buildTasks.find((r) => r.id === taskId);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes('FROM build_tasks WHERE build_id')) {
+        const buildId = params[0] as string;
+        return buildTasks
+          .filter((r) => r.build_id === buildId)
+          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)) as T[];
+      }
+      // conventions
+      if (sql.includes('FROM conventions WHERE id')) {
+        const id = params[0] as string;
+        const row = conventions.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes('FROM conventions ORDER BY')) {
+        return [...conventions].sort(
+          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+        ) as T[];
+      }
+      // convention_day_plans
+      if (sql.includes('FROM convention_day_plans WHERE convention_id')) {
+        const cid = params[0] as string;
+        return conventionDayPlans
+          .filter((r) => r.convention_id === cid)
+          .sort((a, b) => a.date.localeCompare(b.date)) as T[];
+      }
+      // packing_list_items
+      if (sql.includes('COUNT(*) as c FROM packing_list_items')) {
+        const cid = params[0] as string;
+        const count = packingListItems.filter(
+          (r) => r.convention_id === cid && r.date == null && r.build_id == null
+        ).length;
+        return [{ c: count }] as T[];
+      }
+      if (sql.includes('FROM packing_list_items WHERE id')) {
+        const id = params[0] as string;
+        const row = packingListItems.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes('FROM packing_list_items WHERE convention_id')) {
+        const cid = params[0] as string;
+        return packingListItems
+          .filter((r) => r.convention_id === cid)
+          .sort((a, b) => {
+            const dA = a.date ?? '';
+            const dB = b.date ?? '';
+            if (dA !== dB) return dA.localeCompare(dB);
+            return a.label.localeCompare(b.label);
+          }) as T[];
       }
       return [];
     },
