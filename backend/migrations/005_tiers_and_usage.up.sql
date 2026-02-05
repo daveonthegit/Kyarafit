@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id);
+DROP TRIGGER IF EXISTS subscriptions_set_updated_at ON subscriptions;
 CREATE TRIGGER subscriptions_set_updated_at BEFORE UPDATE ON subscriptions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 

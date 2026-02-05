@@ -44,9 +44,9 @@ See also [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md) for sync/offline messagi
 
 ## Step 1: Convention-level tasks (optional)
 
-**What to do**
+**✅ COMPLETED: Using existing packing list**
 
-- If the product needs **convention-level tasks** (to-dos for the event itself, not tied to a build): add a backend table and API (e.g. convention_tasks: id, convention_id, label, sort_order, checked, date optional). If convention tasks are represented by the packing list or a simple list elsewhere, skip and use that. Document the choice in this guide.
+**Decision**: Convention-level tasks are represented by `PackingListItem` entries with `buildId: null`. The existing packing list API supports this pattern, so no new table is needed. Convention-level tasks (general to-dos not tied to a specific build) can be created using `addManualPackingItem` with `buildId` omitted.
 
 **Files to touch**
 

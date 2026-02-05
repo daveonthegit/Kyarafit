@@ -18,5 +18,6 @@ CREATE TABLE IF NOT EXISTS build_tasks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_build_tasks_build_id ON build_tasks (build_id);
+DROP TRIGGER IF EXISTS build_tasks_set_updated_at ON build_tasks;
 CREATE TRIGGER build_tasks_set_updated_at BEFORE UPDATE ON build_tasks
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();

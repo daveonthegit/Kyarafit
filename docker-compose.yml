@@ -1,19 +1,21 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: kyarafit
-      POSTGRES_USER: kyarafit
-      POSTGRES_PASSWORD: kyarafit
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kyarafit"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # Local postgres disabled - using Supabase instead
+  # Uncomment below if you want to use local postgres for development
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: kyarafit
+  #     POSTGRES_USER: kyarafit
+  #     POSTGRES_PASSWORD: kyarafit
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U kyarafit"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   backend:
     build:
@@ -24,17 +26,15 @@ services:
     environment:
       - PORT=8080
       - HOST=0.0.0.0
-      - DATABASE_URL=postgres://kyarafit:kyarafit@postgres:5432/kyarafit?sslmode=disable
+      # Database - loaded from .env file (required)
+      - DATABASE_URL=${DATABASE_URL}
       - MIGRATIONS_PATH=/root/migrations
-      # Supabase (replace with your actual values or use .env file)
-      - SUPABASE_URL=${SUPABASE_URL:-https://your-project.supabase.co}
-      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-your-service-key}
+      # Supabase configuration - loaded from .env file (required)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       # Image service
       - IMAGE_SERVICE_URL=http://image-service:8000
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 10s
@@ -48,6 +48,14 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+        - subnet: 2001:db8:1::/64
 
 volumes:
   postgres_data:

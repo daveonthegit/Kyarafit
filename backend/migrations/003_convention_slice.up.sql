@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS device_builds (
 );
 
 CREATE INDEX IF NOT EXISTS idx_device_builds_device_id ON device_builds (device_id);
+DROP TRIGGER IF EXISTS device_builds_set_updated_at ON device_builds;
 CREATE TRIGGER device_builds_set_updated_at BEFORE UPDATE ON device_builds
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS conventions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_conventions_device_id ON conventions (device_id);
+DROP TRIGGER IF EXISTS conventions_set_updated_at ON conventions;
 CREATE TRIGGER conventions_set_updated_at BEFORE UPDATE ON conventions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
@@ -66,5 +68,6 @@ CREATE TABLE IF NOT EXISTS packing_list_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_packing_list_items_convention ON packing_list_items (convention_id);
+DROP TRIGGER IF EXISTS packing_list_items_set_updated_at ON packing_list_items;
 CREATE TRIGGER packing_list_items_set_updated_at BEFORE UPDATE ON packing_list_items
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -83,18 +83,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS users_set_updated_at ON users;
 CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS pieces_set_updated_at ON pieces;
 CREATE TRIGGER pieces_set_updated_at BEFORE UPDATE ON pieces
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS builds_set_updated_at ON builds;
 CREATE TRIGGER builds_set_updated_at BEFORE UPDATE ON builds
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS build_pieces_set_updated_at ON build_pieces;
 CREATE TRIGGER build_pieces_set_updated_at BEFORE UPDATE ON build_pieces
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS wear_logs_set_updated_at ON wear_logs;
 CREATE TRIGGER wear_logs_set_updated_at BEFORE UPDATE ON wear_logs
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
