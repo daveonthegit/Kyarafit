@@ -109,7 +109,7 @@ func (c *Client) sendWithTLS(addr string, auth smtp.Auth, to []string, msg []byt
 	if err != nil {
 		return err
 	}
-	defer client.Quit()
+	defer func() { _ = client.Quit() }()
 
 	// Authenticate
 	if err = client.Auth(auth); err != nil {
@@ -166,7 +166,7 @@ func (c *Client) Verify() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
-	defer client.Quit()
+	defer func() { _ = client.Quit() }()
 
 	return nil
 }

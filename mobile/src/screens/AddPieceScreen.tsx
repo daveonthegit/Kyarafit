@@ -74,7 +74,10 @@ export default function AddPieceScreen({
 
     try {
       setLoading(true);
-      const newPiece = await piecesAPI.createPiece(session.access_token, formData);
+      const newPiece = await piecesAPI.createPiece(
+        session.access_token,
+        formData,
+      );
       Alert.alert("Success", "Piece added successfully!");
       onPieceAdded?.(newPiece);
       onClose();

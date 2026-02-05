@@ -165,7 +165,7 @@ func (r *Repository) ReplacePlan(ctx context.Context, conventionID, deviceID str
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, err = tx.Exec(ctx, `DELETE FROM convention_day_plans WHERE convention_id = $1`, conventionID)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (r *Repository) RegeneratePackingList(ctx context.Context, conventionID, de
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Existing items: keep those that are manual (label-only, no closet_item_id from auto)
 	// We'll delete only auto-derived rows (those with closet_item_id set from a previous regen).

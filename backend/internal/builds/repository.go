@@ -146,7 +146,7 @@ func (r *Repository) LinkItems(ctx context.Context, buildID, deviceID string, cl
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, err = tx.Exec(ctx, `DELETE FROM build_item_links WHERE build_id = $1`, buildID)
 	if err != nil {
 		return err
