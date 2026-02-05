@@ -20,12 +20,25 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  const validateEmail = (emailValue: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(emailValue);
+  };
 
   const handleAuth = async () => {
     setError("");
+    setEmailError("");
 
     if (!email || !password) {
       setError("Please fill in all fields");
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address");
       return;
     }
 
@@ -43,7 +56,18 @@ export default function AuthScreen() {
         });
 
         if (result.error) {
-          setError(result.error.message);
+          // Check for common error messages indicating email already exists
+          const errorMessage = result.error.message.toLowerCase();
+          if (
+            errorMessage.includes("already") ||
+            errorMessage.includes("exists") ||
+            errorMessage.includes("registered") ||
+            errorMessage.includes("duplicate")
+          ) {
+            setEmailError("This email is already registered. Try signing in instead.");
+          } else {
+            setError(result.error.message);
+          }
         } else {
           setShowSuccess(true);
         }
@@ -109,15 +133,26 @@ export default function AuthScreen() {
           </View>
         ) : null}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={!isLoading}
-        />
+        <View>
+          <TextInput
+            style={[styles.input, emailError ? styles.inputError : null]}
+            placeholder="Email"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              setEmailError("");
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
+          {emailError ? (
+            <Text style={styles.emailErrorText}>
+              {emailError}
+              {emailError.includes("already registered") ? " Try signing in." : ""}
+            </Text>
+          ) : null}
+        </View>
 
         <View>
           <TextInput
@@ -202,6 +237,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: colors.black,
+    marginBottom: 24,
+  },
+  inputError: {
+    borderBottomColor: "#ef4444",
+  },
+  emailErrorText: {
+    fontSize: 12,
+    color: "#dc2626",
+    marginTop: -18,
     marginBottom: 24,
   },
   hintText: {

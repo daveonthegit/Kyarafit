@@ -83,7 +83,7 @@ jobs:
     - name: Check Expo configuration
       working-directory: ./mobile
       run: |
-        npx expo doctor
+        npx expo-doctor
         npx expo config --type public
 
     - name: Test Expo build (web)
@@ -124,7 +124,7 @@ jobs:
       run: npm install
 
     - name: Install EAS CLI
-      run: npm install -g @expo/eas-cli
+      run: npm install -g eas-cli
 
     - name: Configure EAS
       working-directory: ./mobile

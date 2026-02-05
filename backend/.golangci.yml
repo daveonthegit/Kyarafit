@@ -43,17 +43,15 @@ issues:
     # Ignore commented code warnings in main (often config examples)
     - path: main\.go
       text: "commentedOutCode:"
-
-run:
-  timeout: 5m
-  tests: true
-
-issues:
   exclude-dirs:
     - vendor
     - node_modules
   exclude-files:
     - ".*\\.pb\\.go$"
+
+run:
+  timeout: 5m
+  tests: true
 
 output:
   formats:

@@ -143,6 +143,7 @@ jobs:
         "
 
     - name: Create test image
+      working-directory: ./image-service
       run: |
         python -c "
         from PIL import Image
@@ -151,7 +152,7 @@ jobs:
         # Create a simple test image
         img_array = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         img = Image.fromarray(img_array)
-        img.save('test_image.jpg')
+        img.save('../test_image.jpg')
         print('Test image created')
         "
 

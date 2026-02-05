@@ -6,7 +6,7 @@ The Next.js web build fails at the final step when generating error pages (/404,
 
 ```
 Error occurred prerendering page "/404"
-Error occurred prerendering page "/500"  
+Error occurred prerendering page "/500"
 > Export encountered errors on following paths:
 	/_error: /404
 	/_error: /500
@@ -15,6 +15,7 @@ Error occurred prerendering page "/500"
 ## Root Cause
 
 This is a **known Next.js 14 issue** when using:
+
 - Client components (`QueryProvider`, `AuthGate`) in the root layout
 - `force-dynamic` export in layout
 - Static error page generation
@@ -57,6 +58,7 @@ React error #31 ("Objects are not valid as a React child") occurs because Next.j
 ## Alternative: Upgrade Next.js
 
 This issue may be resolved in Next.js 15. When upgrading:
+
 1. Test if error pages build without errors
 2. If fixed, remove workaround from CI
 3. Update this document

@@ -1,27 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp } from "@/lib/auth/client";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const validateEmail = (emailValue: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(emailValue);
+  };
+
+  const handleEmailBlur = () => {
+    setEmailError(null);
+    if (email && !validateEmail(email)) {
+      setEmailError("Please enter a valid email address");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setEmailError(null);
+
+    // Validate email format before submission
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await signUp.email({ email, password });
 
     if (error) {
-      setError(error.message);
+      // Check for common error messages indicating email already exists
+      const errorMessage = error.message.toLowerCase();
+      if (
+        errorMessage.includes("already") ||
+        errorMessage.includes("exists") ||
+        errorMessage.includes("registered") ||
+        errorMessage.includes("duplicate")
+      ) {
+        setEmailError("This email is already registered. Try signing in instead.");
+        setError(null);
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
     } else {
       setSuccess(true);
@@ -80,11 +111,32 @@ export default function SignUpPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailError(null);
+              }}
+              onBlur={handleEmailBlur}
               required
-              className="w-full border-0 border-b border-kyar-border bg-transparent py-2 focus:outline-none focus:border-black transition-colors"
+              className={`w-full border-0 border-b bg-transparent py-2 focus:outline-none transition-colors ${
+                emailError
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-kyar-border focus:border-black"
+              }`}
               placeholder="you@example.com"
             />
+            {emailError && (
+              <p className="text-xs text-red-600 mt-1">
+                {emailError}
+                {emailError.includes("already registered") && (
+                  <>
+                    {" "}
+                    <Link href="/auth/signin" className="underline font-semibold">
+                      Sign in here
+                    </Link>
+                  </>
+                )}
+              </p>
+            )}
           </div>
 
           <div>
