@@ -89,7 +89,7 @@ export default function ClosetScreen() {
   ];
 
   const loadPieces = useCallback(async () => {
-    if (!session?.token) {
+    if (!session?.access_token) {
       setLoading(false);
       return;
     }
@@ -98,7 +98,7 @@ export default function ClosetScreen() {
       setLoading(true);
 
       // Use actual API call
-      const response = await piecesAPI.getPieces(session.token, {
+      const response = await piecesAPI.getPieces(session.access_token, {
         limit: 50,
         search: searchQuery || undefined,
         category: selectedCategory || undefined,

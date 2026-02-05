@@ -94,7 +94,7 @@ jobs:
             assert "models" in response.json()
         EOF
         fi
-        python -m pytest test_main.py -v --cov=. --cov-report=xml
+        python -m pytest test_main.py -v
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

@@ -192,7 +192,9 @@ export async function getById(id: string): Promise<Build | null> {
   return getBuild(id);
 }
 
-export async function upsertFromSync(build: Omit<Build, 'budgetCents'> & { budgetCents?: number | null }): Promise<void> {
+export async function upsertFromSync(
+  build: Omit<Build, "budgetCents"> & { budgetCents?: number | null },
+): Promise<void> {
   const database = await initClosetDb();
   const existing = await getBuild(build.id);
   if (existing) {

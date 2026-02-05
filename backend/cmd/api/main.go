@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
+	"kyarafit-backend/database"
 	"kyarafit-backend/internal/closet"
 	"kyarafit-backend/internal/config"
-	"kyarafit-backend/database"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"

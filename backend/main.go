@@ -128,11 +128,11 @@ func main() {
 	// Builds API (device-scoped; optional JWT for tier/limits)
 	deviceBuildsRepo := builds.NewRepository(database.DB)
 	deviceBuildsHandler := builds.NewHandler(deviceBuildsRepo, userRepo)
-	
+
 	// Conventions API (device-scoped; optional JWT for tier/limits)
 	conventionRepo := convention.NewRepository(database.DB)
 	conventionHandler := convention.NewHandler(conventionRepo, userRepo)
-	
+
 	buildsGroup := app.Group("", optionalUser)
 	buildsGroup.Get("/builds", wrapWithSeed(deviceBuildsHandler.List, deviceBuildsRepo, conventionRepo))
 	buildsGroup.Post("/builds", deviceBuildsHandler.Create)

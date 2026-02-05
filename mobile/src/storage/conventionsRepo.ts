@@ -136,7 +136,9 @@ export async function getById(id: string): Promise<Convention | null> {
   return getConvention(id);
 }
 
-export async function upsertFromSync(convention: Convention & { imageUrl?: string }): Promise<void> {
+export async function upsertFromSync(
+  convention: Convention & { imageUrl?: string },
+): Promise<void> {
   const database = await initClosetDb();
   const existing = await getConvention(convention.id);
   if (existing) {

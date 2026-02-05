@@ -668,8 +668,8 @@ export async function getValue(key: string): Promise<string | null> {
 
 export async function setValue(key: string, value: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", [
-    key,
-    value,
-  ]);
+  await database.runAsync(
+    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+    [key, value],
+  );
 }

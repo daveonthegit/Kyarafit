@@ -67,14 +67,14 @@ export default function AddPieceScreen({
       return;
     }
 
-    if (!session?.token) {
+    if (!session?.access_token) {
       Alert.alert("Error", "You must be logged in to add pieces");
       return;
     }
 
     try {
       setLoading(true);
-      const newPiece = await piecesAPI.createPiece(session.token, formData);
+      const newPiece = await piecesAPI.createPiece(session.access_token, formData);
       Alert.alert("Success", "Piece added successfully!");
       onPieceAdded?.(newPiece);
       onClose();

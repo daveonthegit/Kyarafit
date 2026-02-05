@@ -11,7 +11,13 @@ interface UnderlineInputProps {
   onBlur?: () => void;
   secureTextEntry?: boolean;
   editable?: boolean;
-  keyboardType?: "default" | "number-pad" | "decimal-pad" | "numeric" | "email-address" | "phone-pad";
+  keyboardType?:
+    | "default"
+    | "number-pad"
+    | "decimal-pad"
+    | "numeric"
+    | "email-address"
+    | "phone-pad";
 }
 
 export function UnderlineInput({

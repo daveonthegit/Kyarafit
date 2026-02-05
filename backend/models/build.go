@@ -1,8 +1,8 @@
 package models
 
 import (
-	"time"
 	"github.com/google/uuid"
+	"time"
 )
 
 // BuildStatus represents the status of a build
@@ -19,56 +19,56 @@ const (
 
 // Build represents a cosplay build project
 type Build struct {
-	ID          uuid.UUID   `json:"id" db:"id"`
-	UserID      uuid.UUID   `json:"user_id" db:"user_id"`
-	Name        string      `json:"name" db:"name"`
-	Description *string     `json:"description,omitempty" db:"description"`
-	Character   *string     `json:"character,omitempty" db:"character"`
-	Series      *string     `json:"series,omitempty" db:"series"`
-	Status      BuildStatus `json:"status" db:"status"`
-	Priority    *int        `json:"priority,omitempty" db:"priority"` // 1-5 scale
-	Budget      *float64    `json:"budget,omitempty" db:"budget"`
-	Spent       *float64    `json:"spent,omitempty" db:"spent"`
-	StartDate   *time.Time  `json:"start_date,omitempty" db:"start_date"`
-	TargetDate  *time.Time  `json:"target_date,omitempty" db:"target_date"`
-	CompletedDate *time.Time `json:"completed_date,omitempty" db:"completed_date"`
-	Tags        []string    `json:"tags,omitempty" db:"tags"`
-	Notes       *string     `json:"notes,omitempty" db:"notes"`
-	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID   `json:"id" db:"id"`
+	UserID        uuid.UUID   `json:"user_id" db:"user_id"`
+	Name          string      `json:"name" db:"name"`
+	Description   *string     `json:"description,omitempty" db:"description"`
+	Character     *string     `json:"character,omitempty" db:"character"`
+	Series        *string     `json:"series,omitempty" db:"series"`
+	Status        BuildStatus `json:"status" db:"status"`
+	Priority      *int        `json:"priority,omitempty" db:"priority"` // 1-5 scale
+	Budget        *float64    `json:"budget,omitempty" db:"budget"`
+	Spent         *float64    `json:"spent,omitempty" db:"spent"`
+	StartDate     *time.Time  `json:"start_date,omitempty" db:"start_date"`
+	TargetDate    *time.Time  `json:"target_date,omitempty" db:"target_date"`
+	CompletedDate *time.Time  `json:"completed_date,omitempty" db:"completed_date"`
+	Tags          []string    `json:"tags,omitempty" db:"tags"`
+	Notes         *string     `json:"notes,omitempty" db:"notes"`
+	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 // CreateBuildRequest represents the request payload for creating a build
 type CreateBuildRequest struct {
-	Name        string      `json:"name" validate:"required,min=1,max=255"`
-	Description *string     `json:"description,omitempty" validate:"omitempty,max=1000"`
-	Character   *string     `json:"character,omitempty" validate:"omitempty,max=255"`
-	Series      *string     `json:"series,omitempty" validate:"omitempty,max=255"`
-	Status      *string     `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
-	Priority    *int        `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
-	Budget      *float64    `json:"budget,omitempty" validate:"omitempty,min=0"`
-	Spent       *float64    `json:"spent,omitempty" validate:"omitempty,min=0"`
-	StartDate   *string     `json:"start_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	TargetDate  *string     `json:"target_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	Tags        []string    `json:"tags,omitempty"`
-	Notes       *string     `json:"notes,omitempty" validate:"omitempty,max=2000"`
+	Name        string   `json:"name" validate:"required,min=1,max=255"`
+	Description *string  `json:"description,omitempty" validate:"omitempty,max=1000"`
+	Character   *string  `json:"character,omitempty" validate:"omitempty,max=255"`
+	Series      *string  `json:"series,omitempty" validate:"omitempty,max=255"`
+	Status      *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
+	Priority    *int     `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
+	Budget      *float64 `json:"budget,omitempty" validate:"omitempty,min=0"`
+	Spent       *float64 `json:"spent,omitempty" validate:"omitempty,min=0"`
+	StartDate   *string  `json:"start_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	TargetDate  *string  `json:"target_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	Tags        []string `json:"tags,omitempty"`
+	Notes       *string  `json:"notes,omitempty" validate:"omitempty,max=2000"`
 }
 
 // UpdateBuildRequest represents the request payload for updating a build
 type UpdateBuildRequest struct {
-	Name        *string     `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
-	Description *string     `json:"description,omitempty" validate:"omitempty,max=1000"`
-	Character   *string     `json:"character,omitempty" validate:"omitempty,max=255"`
-	Series      *string     `json:"series,omitempty" validate:"omitempty,max=255"`
-	Status      *string     `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
-	Priority    *int        `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
-	Budget      *float64    `json:"budget,omitempty" validate:"omitempty,min=0"`
-	Spent       *float64    `json:"spent,omitempty" validate:"omitempty,min=0"`
-	StartDate   *string     `json:"start_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	TargetDate  *string     `json:"target_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	CompletedDate *string   `json:"completed_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	Tags        []string    `json:"tags,omitempty"`
-	Notes       *string     `json:"notes,omitempty" validate:"omitempty,max=2000"`
+	Name          *string  `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
+	Description   *string  `json:"description,omitempty" validate:"omitempty,max=1000"`
+	Character     *string  `json:"character,omitempty" validate:"omitempty,max=255"`
+	Series        *string  `json:"series,omitempty" validate:"omitempty,max=255"`
+	Status        *string  `json:"status,omitempty" validate:"omitempty,oneof=idea sourcing wip complete on_hold cancelled"`
+	Priority      *int     `json:"priority,omitempty" validate:"omitempty,min=1,max=5"`
+	Budget        *float64 `json:"budget,omitempty" validate:"omitempty,min=0"`
+	Spent         *float64 `json:"spent,omitempty" validate:"omitempty,min=0"`
+	StartDate     *string  `json:"start_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	TargetDate    *string  `json:"target_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	CompletedDate *string  `json:"completed_date,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	Tags          []string `json:"tags,omitempty"`
+	Notes         *string  `json:"notes,omitempty" validate:"omitempty,max=2000"`
 }
 
 // BuildResponse represents the response format for build data
