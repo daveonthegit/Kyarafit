@@ -23,8 +23,26 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     : convexSiteUrl
       ? `${convexSiteUrl.replace(/\/$/, "")}/auth`
       : undefined;
-  const extraOrigins = process.env.ADDITIONAL_CORS_ORIGINS?.split(",").map((s) => s.trim()).filter((s): s is string => s.length > 0) ?? [];
-  const trustedOrigins: string[] = [siteUrl, ...extraOrigins].filter((s): s is string => typeof s === "string" && s.length > 0);
+  const extraOrigins =
+    process.env.ADDITIONAL_CORS_ORIGINS?.split(",")
+      .map((s) => s.trim())
+      .filter((s): s is string => s.length > 0) ?? [];
+
+  // trustedOrigins must include every origin that is allowed in http.ts cors.allowedOrigins.
+  // better-auth checks this list independently from CORS and returns 403 for unrecognized origins.
+  // This covers Expo Web (localhost:8081), Next.js dev (localhost:3000), and production (SITE_URL).
+  const trustedOrigins: string[] = [
+    // Local dev origins (must match http.ts allowedOrigins)
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "exp://localhost:8081",
+    "exp://127.0.0.1:8081",
+    // Production app origin and any custom additions
+    ...(siteUrl ? [siteUrl] : []),
+    ...extraOrigins,
+  ];
   return {
     appName: "Kyarafit",
     baseURL,
