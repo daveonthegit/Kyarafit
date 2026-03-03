@@ -1,446 +1,156 @@
-# Authentication Guide
+# Authentication
 
-## Overview
-
-Kyarafit uses **Supabase Auth** with **JWT Bearer tokens** for authentication. This document explains how authentication works, how to set it up, and how to troubleshoot common issues.
+Kyarafit uses **Better Auth** with OAuth (Google required, GitHub optional), integrated as a Convex component. There is no email/password authentication.
 
 ## Architecture
 
 ```
-┌─────────────┐         ┌──────────────┐         ┌─────────────┐
-│   Frontend  │────────▶│  Supabase    │────────▶│   Backend   │
-│  (Next.js)  │         │    Auth      │         │    (Go)     │
-└─────────────┘         └──────────────┘         └─────────────┘
-      │                        │                         │
-      │ 1. Sign in/up         │ 2. Issues JWT            │
-      │────────────────────────▶                         │
-      │                        │                         │
-      │ 3. Store token         │                         │
-      │◀───────────────────────                          │
-      │                        │                         │
-      │ 4. API request with Authorization: Bearer <token>│
-      │──────────────────────────────────────────────────▶
-      │                        │                         │
-      │                        │ 5. Validate JWT using   │
-      │                        │    JWT_SECRET           │
-      │                        │◀────────────────────────│
-      │                        │                         │
-      │ 6. Response (200 or 401)                         │
-      │◀──────────────────────────────────────────────────
+User (Browser/Mobile)
+        │
+        ▼ OAuth redirect
+Google / GitHub OAuth
+        │
+        ▼ callback
+Better Auth (Convex component, /auth/* HTTP actions)
+        │
+        ▼ session stored in Convex DB
+ConvexBetterAuthProvider (React)
+        │
+        ▼ signed requests
+Convex Functions (queries/mutations)
 ```
 
-### Authentication Flow
+## Environment Variables
 
-1. **User signs in/up** via Supabase Auth (frontend)
-2. **Supabase issues a JWT** signed with its JWT secret
-3. **Frontend stores the token** in memory (managed by Supabase client)
-4. **Frontend sends API requests** with `Authorization: Bearer <token>` header
-5. **Backend validates the JWT** using the same JWT_SECRET from Supabase
-6. **Backend returns response** (200 if valid, 401 if invalid/expired)
+### Convex Dashboard (Settings → Environment Variables)
 
-## Environment Setup
+| Variable                    | Description                                                                 | Required |
+| --------------------------- | --------------------------------------------------------------------------- | -------- |
+| `GOOGLE_CLIENT_ID`          | Google OAuth app client ID                                                  | Yes      |
+| `GOOGLE_CLIENT_SECRET`      | Google OAuth app client secret                                              | Yes      |
+| `BETTER_AUTH_SECRET`        | Random secret for signing sessions                                          | Yes      |
+| `SITE_URL`                  | Production app URL (e.g. `https://yourapp.com`) for CORS + OAuth callbacks | Yes (prod) |
+| `ADDITIONAL_CORS_ORIGINS`   | Comma-separated origins (e.g. `exp://192.168.1.5:8081` for Expo Go on device) | No     |
+| `RESEND_API_KEY`            | Resend API key for transactional emails                                     | No       |
+| `EMAIL_FROM`                | Sender address (`Kyarafit <noreply@yourdomain.com>`)                        | No       |
+| `APP_URL`                   | App URL used in email links (default: localhost:3000)                       | No       |
+| `GITHUB_CLIENT_ID`          | GitHub OAuth app client ID                                                  | No       |
+| `GITHUB_CLIENT_SECRET`      | GitHub OAuth app client secret                                              | No       |
 
-### Backend (`.env` in project root)
+### Web (`web/.env.local`)
 
-```bash
-# Supabase Configuration (REQUIRED)
-# Get from: https://app.supabase.com → Your Project → Settings → API
-SUPABASE_URL=https://your-project.supabase.co
+| Variable                      | Description                        |
+| ----------------------------- | ---------------------------------- |
+| `CONVEX_DEPLOYMENT`           | Convex deployment name (auto-set)  |
+| `CONVEX_URL`                  | Convex backend URL (auto-set)      |
+| `CONVEX_SITE_URL`             | Convex HTTP actions URL (auto-set) |
+| `NEXT_PUBLIC_CONVEX_URL`      | Public URL for React client        |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | Public site URL for auth client    |
 
-# IMPORTANT: This is the JWT Secret, NOT the anon key!
-# Find it at: Project Settings → API → JWT Secret (click "Reveal")
-JWT_SECRET=your-jwt-secret-here
+### Mobile (`mobile/.env`)
 
-# Service role key for admin operations
-SUPABASE_SERVICE_KEY=your-service-role-key
+| Variable                      | Description                     |
+| ----------------------------- | ------------------------------- |
+| `EXPO_PUBLIC_CONVEX_URL`      | Convex backend URL for Expo     |
+| `EXPO_PUBLIC_CONVEX_SITE_URL` | Convex site URL for Better Auth |
 
-# Database (REQUIRED)
-DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
+### Email verification (sign-up / password reset)
 
-# CORS Origins (comma-separated)
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8081,http://127.0.0.1:3000,http://127.0.0.1:8081
+For email/password sign-up and password reset to work:
 
-# Server
-PORT=8080
-HOST=0.0.0.0
+1. **Convex** sets `CONVEX_SITE_URL` automatically. The auth config uses it as `baseURL` so verification links in emails point to Convex (e.g. `https://your-deployment.convex.site/auth/verify-email?token=...`). No extra config needed.
+2. **Resend**: In Convex Dashboard → Settings → Environment Variables, set:
+   - `RESEND_API_KEY` — required for any email to be sent; if missing, sign-up succeeds but no verification email is sent (see Convex logs).
+   - `EMAIL_FROM` — sender address (e.g. `Kyarafit <noreply@yourdomain.com>`); must be a verified domain in Resend.
+3. After the user clicks the link in the email, they hit Convex, which verifies the token and (with `autoSignInAfterVerification: true`) signs them in and can redirect to your app.
 
-# SMTP (OPTIONAL - app will start without these)
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USERNAME=resend
-SMTP_PASSWORD=your-api-key
-SMTP_FROM=Kyarafit <noreply@yourdomain.com>
+## Auth Flow
 
-# Application URL
-APP_URL=http://localhost:3000
-```
+### Sign In (Web)
 
-### Frontend (`web/.env.local`)
+1. User visits `/auth/signin` and clicks "Continue with Google"
+2. `authClient.signIn.social({ provider: "google", callbackURL: "/home" })` is called
+3. Browser redirects to Google OAuth consent screen
+4. Google redirects to `NEXT_PUBLIC_CONVEX_SITE_URL/auth/callback/google`
+5. Better Auth creates a session in Convex (user + session + account records)
+6. Browser redirects to `/home` with session cookie set
+7. `ConvexBetterAuthProvider` picks up the session and all Convex queries run authenticated
 
-```bash
-# Supabase (for auth)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+### Sign In (Mobile)
 
-# Backend API
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
+1. User taps "Continue with Google" on the auth screen
+2. `authClient.signIn.social({ provider: "google" })` opens OAuth in-app browser
+3. Same server-side flow as above
+4. Session is established and the app navigates to tabs
 
-**Key Differences:**
-
-- Backend needs the **JWT Secret** (for validating tokens)
-- Frontend needs the **Anon Key** (for Supabase client initialization)
-
-## Docker Setup
-
-The `docker-compose.yml` is configured to load environment variables:
-
-```yaml
-backend:
-  env_file:
-    - .env
-  environment:
-    - JWT_SECRET=${JWT_SECRET}
-    - DATABASE_URL=${DATABASE_URL}
-    - SUPABASE_URL=${SUPABASE_URL}
-    - CORS_ORIGINS=${CORS_ORIGINS}
-    # ... other variables
-```
-
-**Important:** Make sure your `.env` file exists in the project root before running `docker-compose up`.
-
-## Security
-
-### Why Bearer Tokens?
-
-- **Stateless**: No server-side session storage needed
-- **Scalable**: Works across multiple backend instances
-- **Standard**: Industry-standard approach for APIs
-- **CORS-friendly**: No cookie domain restrictions
-
-### CSRF Protection
-
-**Not needed** for Bearer token authentication because:
-
-- Tokens are sent in headers, not cookies
-- Browsers don't automatically attach Authorization headers
-- Attacker cannot force the browser to send the token
-
-### Token Storage
-
-- **Frontend**: Tokens stored in memory (managed by Supabase)
-- **Not in localStorage**: More secure against XSS
-- **Automatic refresh**: Supabase handles token refresh automatically
-
-## API Authentication
-
-### Protected Endpoints
-
-All endpoints under `/api/v1/*` require authentication:
+### Sign Out
 
 ```typescript
-// Example: Make an authenticated request
-const token = getToken(); // From Supabase session
-const response = await fetch("http://localhost:8080/api/v1/sync/pull", {
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    "x-kyar-device-id": deviceId,
-    "x-kyar-client": "web",
-  },
-});
+await authClient.signOut();
 ```
 
-### Auth Verification Endpoint
+### Anonymous / Offline Use
 
-Use `/api/v1/auth/me` to check authentication state:
+- Mobile: Users can tap "Continue without account" and use the app fully offline with local SQLite storage. No Convex sync.
+- Web: Unauthenticated users are redirected to `/auth/signin` by `AuthGate`.
 
-```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/api/v1/auth/me
-```
+## Key Files
 
-**Success (200):**
+### Web
 
-```json
-{
-  "authenticated": true,
-  "userId": "uuid-here",
-  "email": "user@example.com",
-  "tier": "FREE"
-}
-```
+| File                                          | Purpose                                                    |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `web/src/lib/auth/auth-client.ts`             | Better Auth React client (OAuth sign in/out, `useSession`) |
+| `web/src/lib/auth/auth-server.ts`             | Next.js server helpers (`getToken`, `handler`)             |
+| `web/src/app/api/auth/[...all]/route.ts`      | Auth route handler                                         |
+| `web/src/components/AuthGate.tsx`             | Client-side route protection                               |
+| `web/src/components/ConvexClientProvider.tsx` | `ConvexBetterAuthProvider` wrapper                         |
 
-**Failure (401):**
+### Convex
 
-```json
-{
-  "code": "missing_auth_header",
-  "message": "Authorization header is required. Please include 'Authorization: Bearer <token>' in your request."
-}
-```
+| File                          | Purpose                                            |
+| ----------------------------- | -------------------------------------------------- |
+| `convex/auth.config.ts`       | Better Auth provider config                        |
+| `convex/convex.config.ts`     | Component registration                             |
+| `convex/betterAuth/auth.ts`   | Better Auth instance (OAuth providers, DB adapter) |
+| `convex/betterAuth/schema.ts` | Auth tables (user, session, account, verification) |
+| `convex/http.ts`              | HTTP router mounting auth routes                   |
 
-## Error Codes
+## Setting Up OAuth
 
-The backend returns structured error responses with specific codes:
+### Google OAuth
 
-| Code                  | Description                   | Solution                                       |
-| --------------------- | ----------------------------- | ---------------------------------------------- |
-| `missing_auth_header` | No Authorization header       | Include `Authorization: Bearer <token>` header |
-| `invalid_auth_format` | Not using Bearer format       | Use `Bearer <token>` format                    |
-| `missing_token`       | Token is empty                | Provide a valid JWT token                      |
-| `expired_token`       | Token has expired             | Sign in again to get a new token               |
-| `invalid_token`       | Token is malformed or invalid | Sign in again                                  |
-| `invalid_claims`      | Token claims are invalid      | Sign in again                                  |
-| `invalid_user_id`     | Missing user ID in token      | Sign in again                                  |
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
+2. Create an OAuth 2.0 Client ID (Web application)
+3. Add Authorized redirect URIs:
+   - `https://your-deployment.convex.site/auth/callback/google`
+   - `http://localhost:3000/auth/callback/google` (for local dev, if needed)
+4. Copy Client ID and Secret → Convex dashboard environment variables
+
+### GitHub OAuth (Optional)
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers) → OAuth Apps → New OAuth App
+2. Set Authorization callback URL: `https://your-deployment.convex.site/auth/callback/github`
+3. Copy Client ID and Secret → Convex dashboard environment variables
 
 ## Troubleshooting
 
-### Problem: 401 Unauthorized
+### "CONVEX_SITE_URL is not set"
 
-**Symptom:** API returns 401 on `/api/v1/sync/pull` or other protected endpoints.
+Ensure `web/.env.local` contains both `CONVEX_SITE_URL` and `NEXT_PUBLIC_CONVEX_SITE_URL`. Run `npx convex dev` from the project root to auto-populate these.
 
-**Diagnosis:**
+### OAuth redirect mismatch
 
-1. Check if user is signed in on the frontend
-2. Check browser console for auth debug messages
-3. Verify token is being sent in Authorization header
-4. Test with `/api/v1/auth/me` endpoint
-
-**Common Causes & Solutions:**
-
-#### 1. Wrong JWT_SECRET in backend
-
-**Problem:** Backend JWT_SECRET doesn't match Supabase's JWT secret.
-
-**Solution:**
-
-```bash
-# Get the correct JWT secret from Supabase:
-# Dashboard → Project Settings → API → JWT Secret (click Reveal)
-
-# Update your .env file:
-JWT_SECRET=the-actual-jwt-secret-not-anon-key
-```
-
-**How to verify:**
-
-- Anon key starts with `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi...`
-- JWT secret is a long random string like `super-secret-jwt-token-with-at-least-32-characters`
-
-#### 2. Missing environment variables in Docker
-
-**Problem:** Backend logs "FATAL: Missing required environment variables".
-
-**Solution:**
-
-```bash
-# Ensure .env exists in project root
-# Restart backend container
-docker-compose restart backend
-
-# Check logs
-docker-compose logs backend
-```
-
-#### 3. Token expired
-
-**Problem:** Token is older than 1 hour (Supabase default).
-
-**Solution:**
-
-- Supabase automatically refreshes tokens
-- Sign out and sign in again if issues persist
-
-#### 4. User not signed in
-
-**Problem:** Frontend doesn't have a token.
-
-**Solution:**
-
-- Check if user is on the sign-in page
-- Verify Supabase credentials in `web/.env.local`
-- Check browser console for Supabase warnings
-
-### Problem: CORS Errors
-
-**Symptom:** Browser console shows CORS policy errors.
-
-**Diagnosis:**
-
-```bash
-# Check backend CORS configuration
-docker-compose logs backend | grep CORS
-```
-
-**Solution:**
-
-```bash
-# Add your frontend origin to CORS_ORIGINS in .env
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://your-frontend-url
-```
-
-### Problem: Backend Won't Start
-
-**Symptom:** Backend exits immediately with environment variable error.
-
-**Solution:**
-
-```bash
-# Check which variables are missing
-docker-compose logs backend
-
-# Ensure these are set in .env:
-# - JWT_SECRET
-# - DATABASE_URL
-# - SUPABASE_URL
-# - SUPABASE_SERVICE_KEY
-
-# Verify .env is in the project root (not backend/)
-ls -la .env
-
-# Restart
-docker-compose up backend
-```
-
-## Testing
-
-### Manual QA Checklist
-
-- [ ] Backend starts successfully with all env vars
-- [ ] Backend exits with clear error if JWT_SECRET is missing
-- [ ] Frontend can sign up (email confirmation if enabled)
-- [ ] Frontend can sign in
-- [ ] Frontend stores and sends token correctly
-- [ ] `/api/v1/auth/me` returns user info when authenticated
-- [ ] `/api/v1/auth/me` returns 401 when not authenticated
-- [ ] `/api/v1/sync/pull` works for PREMIUM_BASIC+ users
-- [ ] `/api/v1/sync/pull` returns 403 for FREE users (tier restriction)
-- [ ] CORS allows localhost origins
-- [ ] Auth errors return structured JSON with helpful messages
-- [ ] Token refresh works automatically
-- [ ] Sign out clears token and redirects appropriately
-
-### Automated Test Script
-
-Run the auth test script:
-
-```bash
-# From backend directory
-bash test_auth.sh
-```
-
-Or manually test with curl:
-
-```bash
-# 1. Health check (no auth)
-curl http://localhost:8080/health
-
-# 2. Test without token (expect 401)
-curl -v http://localhost:8080/api/v1/auth/me
-
-# 3. Test with token (get token from browser after signing in)
-TOKEN="your-token-here"
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/auth/me
-
-# 4. Test sync endpoint
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/sync/pull
-```
-
-## Development Tips
-
-### Getting a Test Token
-
-1. Sign in to the web app (http://localhost:3000)
-2. Open browser DevTools → Console
-3. Run:
-   ```javascript
-   // Get current token
-   const { data } = await window.supabase.auth.getSession();
-   console.log(data.session.access_token);
-   ```
-4. Copy the token for testing with curl/Postman
-
-### Debug Auth State
-
-In the browser console:
-
-```javascript
-// Import from web/src/lib/auth/client.ts
-import { getAuthDebugInfo } from "@/lib/auth/client";
-
-// Get debug info
-const debug = getAuthDebugInfo();
-console.log(debug);
-// {
-//   hasToken: true,
-//   tokenPayload: { sub: "uuid", email: "user@example.com", ... },
-//   tokenExpiry: Date("2024-...")
-// }
-```
-
-### Backend Auth Logs
-
-Auth failures are logged with sanitized info:
+The callback URL must exactly match what you registered in the OAuth provider console. The format is:
 
 ```
-2024/01/15 10:30:45 Auth failed: Missing Authorization header from 192.168.1.5
-2024/01/15 10:30:50 Auth failed: Expired token from 192.168.1.5
+https://<your-deployment>.convex.site/auth/callback/<provider>
 ```
 
-Check logs:
+### Session not persisting
 
-```bash
-docker-compose logs -f backend | grep "Auth failed"
-```
+Check that `BETTER_AUTH_SECRET` is set in the Convex dashboard. Without it, sessions cannot be signed.
 
-## Production Deployment
+### Mobile OAuth not working
 
-### Required Changes
-
-1. **Update CORS_ORIGINS** to production domains:
-
-   ```bash
-   CORS_ORIGINS=https://app.yourdomain.com,https://www.yourdomain.com
-   ```
-
-2. **Use production Supabase project**:
-   - Create a production project in Supabase
-   - Update all Supabase environment variables
-   - Enable email confirmations in Supabase settings
-
-3. **Secure environment variables**:
-   - Use secret management (GCP Secret Manager, AWS Secrets Manager, etc.)
-   - Never commit `.env` to version control
-   - Rotate JWT_SECRET if compromised
-
-4. **Enable HTTPS**:
-   - Required for production
-   - Configure TLS/SSL certificates
-   - Update APP_URL to use `https://`
-
-### Security Checklist
-
-- [ ] All environment variables stored securely
-- [ ] CORS_ORIGINS restricted to production domains
-- [ ] HTTPS enabled on all services
-- [ ] Supabase email confirmation enabled
-- [ ] Database uses strong password
-- [ ] Service role key kept secret
-- [ ] Regular security audits
-
-## Additional Resources
-
-- [Supabase Auth Docs](https://supabase.com/docs/guides/auth)
-- [JWT.io](https://jwt.io) - Decode and inspect JWTs
-- [Fiber CORS Middleware](https://docs.gofiber.io/api/middleware/cors)
-- [Next.js Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables)
-
-## Support
-
-If you encounter issues not covered here:
-
-1. Check the troubleshooting section above
-2. Review backend logs: `docker-compose logs backend`
-3. Check browser console for frontend errors
-4. Test with `/api/v1/auth/me` endpoint
-5. Verify environment variables are set correctly
+Mobile OAuth requires a proper deep-link redirect URL. Configure `scheme` in `mobile/app.json` and register it with the OAuth provider.

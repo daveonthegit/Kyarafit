@@ -1,5 +1,5 @@
 /**
- * Local conventions repository (SQLite). Offline-first; enqueue outbox for sync.
+ * Local conventions repository (SQLite). Offline-first; anonymous users only.
  */
 
 import type {
@@ -52,7 +52,10 @@ export async function createConvention(input: CreateConventionInput): Promise<Co
     createdAt: now,
     updatedAt: now,
   };
-  await enqueue("convention.upsert", { convention });
+  await enqueue("convention.upsert", {
+    localId: id, name: convention.name, location: convention.location,
+    startDate: convention.startDate, endDate: convention.endDate,
+  });
   return convention;
 }
 
@@ -117,7 +120,10 @@ export async function updateConvention(
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
-  await enqueue("convention.upsert", { convention });
+  await enqueue("convention.upsert", {
+    localId: id, name, location: location ?? undefined,
+    startDate: start_date, endDate: end_date,
+  });
   return convention;
 }
 
@@ -162,4 +168,46 @@ export async function upsertFromSync(
 export async function deleteConvention(id: string): Promise<void> {
   const database = await initClosetDb();
   await database.runAsync(`DELETE FROM conventions WHERE id = ?`, [id]);
+  await enqueue("convention.delete", { localId: id });
+}
+
+export async function getConvexId(localId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ convex_id: string | null }>(
+    `SELECT convex_id FROM conventions WHERE id = ?`, [localId]
+  );
+  return row?.convex_id ?? null;
+}
+
+export async function setConvexId(localId: string, convexId: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(`UPDATE conventions SET convex_id = ? WHERE id = ?`, [convexId, localId]);
+}
+
+export async function getLocalIdByConvexId(convexId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ id: string }>(
+    `SELECT id FROM conventions WHERE convex_id = ?`, [convexId]
+  );
+  return row?.id ?? null;
+}
+
+/** Called during Convex pull — upserts without enqueuing. */
+export async function upsertFromConvex(
+  convention: Convention & { convexId: string }
+): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(
+    `INSERT INTO conventions (id, name, location, start_date, end_date, created_at, updated_at, convex_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name, location=excluded.location,
+       start_date=excluded.start_date, end_date=excluded.end_date,
+       updated_at=excluded.updated_at, convex_id=excluded.convex_id`,
+    [
+      convention.id, convention.name, convention.location ?? null,
+      convention.startDate, convention.endDate,
+      convention.createdAt, convention.updatedAt, convention.convexId,
+    ]
+  );
 }

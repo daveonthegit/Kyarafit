@@ -2,11 +2,12 @@
 
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { fetchConvention, fetchConventions, fetchPlan, fetchPacking } from "@/lib/api/conventions";
-import { fetchBuilds, fetchBuildTasks } from "@/lib/api/builds";
+import { useQuery } from "convex/react";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 function dateRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -22,49 +23,27 @@ function dateRange(start: string, end: string): string[] {
 export default function Itinerary() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const conventionIdParam = searchParams.get("conventionId");
+  const conventionIdParam = searchParams.get("conventionId") as Id<"conventions"> | null;
+  const { userId } = useCurrentUser();
 
-  // Fetch all conventions for selection
-  const { data: allConventions = [] } = useQuery({
-    queryKey: ["conventions"],
-    queryFn: fetchConventions,
-  });
+  const allConventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
 
-  // If no conventionId is provided, default to the most recent convention
   const conventionId = useMemo(() => {
     if (conventionIdParam) return conventionIdParam;
     if (allConventions.length > 0) {
-      // Sort by startDate descending and pick the first
       const sorted = [...allConventions].sort(
         (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
       );
-      return sorted[0].id;
+      return sorted[0]._id;
     }
     return null;
   }, [conventionIdParam, allConventions]);
 
-  const { data: convention, isLoading: loadingConv } = useQuery({
-    queryKey: ["convention", conventionId],
-    queryFn: () => fetchConvention(conventionId!),
-    enabled: !!conventionId,
-  });
-
-  const { data: plan = [], isLoading: loadingPlan } = useQuery({
-    queryKey: ["convention-plan", conventionId],
-    queryFn: () => fetchPlan(conventionId!),
-    enabled: !!conventionId,
-  });
-
-  const { data: builds = [] } = useQuery({
-    queryKey: ["builds"],
-    queryFn: fetchBuilds,
-  });
-
-  const { data: packingItems = [] } = useQuery({
-    queryKey: ["convention-packing", conventionId],
-    queryFn: () => fetchPacking(conventionId!),
-    enabled: !!conventionId,
-  });
+  const convention = useQuery(api.conventions.get, conventionId ? { id: conventionId } : "skip");
+  const plan = useQuery(api.conventions.getPlan, conventionId ? { conventionId } : "skip") ?? [];
+  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+  const packingItems =
+    useQuery(api.conventions.getPacking, conventionId ? { conventionId } : "skip") ?? [];
 
   const dates = useMemo(
     () => (convention ? dateRange(convention.startDate, convention.endDate) : []),
@@ -73,50 +52,15 @@ export default function Itinerary() {
 
   const planByDate = useMemo(() => new Map(plan.map((e) => [e.date, e])), [plan]);
 
-  // Get unique build IDs from the plan
-  const buildIds = useMemo(() => {
-    const ids = new Set<string>();
-    plan.forEach((p) => {
-      if (p.buildId) ids.add(p.buildId);
-    });
-    return Array.from(ids);
-  }, [plan]);
-
-  // Fetch tasks for all builds (single query that handles multiple builds)
-  const { data: allBuildTasks = [] } = useQuery({
-    queryKey: ["all-build-tasks", buildIds],
-    queryFn: async () => {
-      const results = await Promise.all(buildIds.map((id) => fetchBuildTasks(id)));
-      return results.flat();
-    },
-    enabled: buildIds.length > 0,
-  });
-
-  // Map buildId -> tasks
-  const tasksByBuildId = useMemo(() => {
-    const map = new Map<string, typeof allBuildTasks>();
-    allBuildTasks.forEach((task) => {
-      if (!map.has(task.buildId)) {
-        map.set(task.buildId, []);
-      }
-      map.get(task.buildId)!.push(task);
-    });
-    return map;
-  }, [allBuildTasks]);
-
-  // Calculate days until convention starts
   const daysUntilStart = useMemo(() => {
     if (!convention) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const startDate = new Date(convention.startDate);
     startDate.setHours(0, 0, 0, 0);
-    const diffTime = startDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }, [convention]);
 
-  // Sync status (placeholder - can be enhanced with actual sync logic)
   const isOffline = typeof window !== "undefined" && !navigator.onLine;
   const lastSyncText = isOffline ? "Offline mode active" : "Last synced: recently";
 
@@ -139,11 +83,11 @@ export default function Itinerary() {
     );
   }
 
-  if (loadingConv || loadingPlan) {
+  if (convention === undefined) {
     return (
       <div className="min-h-screen flex flex-col bg-white pb-32">
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
-          <p className="meta-label">Loading…</p>
+          <p className="meta-label">Loading...</p>
         </header>
         <BottomNav active="plan" />
       </div>
@@ -187,7 +131,7 @@ export default function Itinerary() {
               className="text-xs border border-kyar-borderSubtle px-2 py-1 bg-white"
             >
               {allConventions.map((conv) => (
-                <option key={conv.id} value={conv.id}>
+                <option key={conv._id} value={conv._id}>
                   {conv.name}
                 </option>
               ))}
@@ -203,7 +147,6 @@ export default function Itinerary() {
       </header>
 
       <main className="flex-1 px-6 pt-6 pb-32 space-y-8">
-        {/* Countdown card */}
         {daysUntilStart !== null && (
           <div className="border border-kyar-borderSubtle p-4">
             <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-1">
@@ -218,7 +161,7 @@ export default function Itinerary() {
             </p>
           </div>
         )}
-        {/* Cosplay Timeline Section */}
+
         <div>
           <div className="flex justify-between items-baseline mb-6">
             <h2 className="font-serif text-2xl italic font-bold">Cosplay Timeline</h2>
@@ -233,54 +176,36 @@ export default function Itinerary() {
           <div className="space-y-6">
             {dates.map((date, idx) => {
               const entry = planByDate.get(date);
-              const build = entry?.buildId ? builds.find((b) => b.id === entry.buildId) : null;
+              const build = entry?.buildId ? builds.find((b) => b._id === entry.buildId) : null;
               const dayLabel = `D${idx + 1}`;
 
-              // Calculate status for the build
+              const buildPackingItems = entry?.buildId
+                ? packingItems.filter((item) => item.buildId === entry.buildId)
+                : [];
+              const totalItems = buildPackingItems.length;
+
               let status = "Pending";
               let statusColor = "text-kyar-textTertiary";
 
-              if (build && entry?.buildId) {
-                const tasks = tasksByBuildId.get(entry.buildId) || [];
-                const buildPackingItems = packingItems.filter(
-                  (item) => item.buildId === entry.buildId
-                );
-                const totalItems = buildPackingItems.length;
-                const packedItems = buildPackingItems.filter((item) => item.checked).length;
-
-                if (tasks.length > 0 && tasks.every((t) => t.checked)) {
-                  status = `Ready to pack (${totalItems} item${totalItems === 1 ? "" : "s"})`;
-                  statusColor = "text-green-700";
-                } else if (tasks.some((t) => !t.checked)) {
-                  const missingTasks = tasks.filter((t) => !t.checked);
-                  if (missingTasks.length <= 2) {
-                    status = `Missing: ${missingTasks.map((t) => t.label).join(", ")}`;
-                  } else {
-                    status = `Missing: ${missingTasks.length} task${missingTasks.length === 1 ? "" : "s"}`;
-                  }
-                  statusColor = "text-orange-600";
-                } else if (totalItems > 0) {
+              if (build) {
+                if (totalItems > 0) {
+                  const packedItems = buildPackingItems.filter((item) => item.checked).length;
                   status = `Ready to pack (${packedItems}/${totalItems} packed)`;
                   statusColor = "text-green-700";
                 } else {
                   status = "Logistics pending";
-                  statusColor = "text-kyar-textTertiary";
                 }
               }
 
               return (
                 <div key={date} className="relative">
-                  {/* Timeline connector */}
                   {idx < dates.length - 1 && (
                     <div className="absolute left-3 top-8 bottom-0 w-px bg-kyar-borderSubtle" />
                   )}
-
                   <div className="flex gap-4">
-                    {/* Day indicator */}
                     <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-kyar-borderSubtle bg-white flex items-center justify-center z-10">
                       <span className="text-[8px] font-bold">{idx + 1}</span>
                     </div>
-
                     <div className="flex-1 pb-8">
                       <div className="flex justify-between items-baseline mb-2">
                         <div>
@@ -333,11 +258,8 @@ export default function Itinerary() {
           </div>
         </div>
 
-        {/* Logistics Section */}
         <div className="border-t border-kyar-borderSubtle pt-8">
           <h2 className="font-serif text-2xl italic font-bold mb-4">Logistics</h2>
-
-          {/* Accommodation */}
           <div className="border border-kyar-borderSubtle p-4 mb-3">
             <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-2">
               Accommodation
@@ -353,19 +275,6 @@ export default function Itinerary() {
               </p>
             )}
           </div>
-
-          {/* Badge/Ticket */}
-          <div className="border border-kyar-borderSubtle p-4 mb-3">
-            <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-2">
-              Badge / Ticket
-            </p>
-            <div className="space-y-1">
-              <p className="text-sm">Convention Badge</p>
-              <p className="text-xs text-kyar-textTertiary">Available offline</p>
-            </div>
-          </div>
-
-          {/* Sync status footer */}
           <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary text-center mt-6">
             {lastSyncText}
           </p>

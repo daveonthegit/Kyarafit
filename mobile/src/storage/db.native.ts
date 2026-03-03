@@ -1,5 +1,5 @@
 /**
- * SQLite DB init for closet_items and outbox (native only).
+ * SQLite DB init (native only).
  * Web uses db.web.ts to avoid expo-sqlite WASM dependency.
  */
 
@@ -100,6 +100,12 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
       FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE SET NULL,
       FOREIGN KEY (closet_item_id) REFERENCES closet_items(id) ON DELETE SET NULL
     );
+    CREATE TABLE IF NOT EXISTS outbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Add new columns if they don't exist (existing installs)
@@ -117,6 +123,22 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
     await db.execAsync("ALTER TABLE builds ADD COLUMN budget_cents INTEGER");
   } catch {
     /* column may already exist */
+  }
+
+  // Convex sync: add convex_id columns for outbox-to-Convex ID mapping
+  const convexIdMigrations: [string, string][] = [
+    ["closet_items", "convex_id"],
+    ["builds", "convex_id"],
+    ["build_tasks", "convex_id"],
+    ["conventions", "convex_id"],
+    ["packing_list_items", "convex_id"],
+  ];
+  for (const [table, col] of convexIdMigrations) {
+    try {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${col} TEXT`);
+    } catch {
+      /* column may already exist */
+    }
   }
 
   return db;

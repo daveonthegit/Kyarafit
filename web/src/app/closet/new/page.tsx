@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
 import {
   CLOSET_CATEGORIES,
   createClosetItemSchema,
@@ -10,12 +10,13 @@ import {
 } from "@kyarafit/design-system/types";
 import { UnderlineInput } from "@/components/ui/UnderlineInput";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { createClosetItem } from "@/lib/api/closet";
-import type { ClosetItem } from "@kyarafit/design-system/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 
 export default function NewClosetItemPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
+  const createItem = useMutation(api.closetItems.create);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ClosetCategory>("other");
   const [tagsStr, setTagsStr] = useState("");
@@ -23,40 +24,13 @@ export default function NewClosetItemPage() {
   const [costDollars, setCostDollars] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
 
-  const mutation = useMutation({
-    mutationFn: createClosetItem,
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ["closet", "items"] });
-      const previous = queryClient.getQueryData<ClosetItem[]>(["closet", "items"]);
-      const optimistic: ClosetItem = {
-        id: "temp-" + Date.now(),
-        name: input.name,
-        category: input.category,
-        tags: input.tags ?? [],
-        notes: input.notes,
-        imageUrl: input.imageUrl,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      queryClient.setQueryData<ClosetItem[]>(["closet", "items"], (old) =>
-        old ? [optimistic, ...old] : [optimistic]
-      );
-      return { previous };
-    },
-    onError: (_err, _input, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["closet", "items"], context.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["closet", "items"] });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!userId) return;
+
     const tags = tagsStr
       .split(",")
       .map((t) => t.trim())
@@ -73,10 +47,24 @@ export default function NewClosetItemPage() {
       setError(parsed.error.errors[0]?.message ?? "Invalid fields");
       return;
     }
-    mutation.mutate(parsed.data, {
-      onSuccess: () => router.push("/closet"),
-      onError: (err) => setError(err instanceof Error ? err.message : "Failed to create"),
-    });
+
+    setIsPending(true);
+    try {
+      await createItem({
+        userId,
+        name: parsed.data.name,
+        category: parsed.data.category,
+        tags: parsed.data.tags ?? [],
+        notes: parsed.data.notes,
+        imageUrl: parsed.data.imageUrl,
+        costCents: parsed.data.costCents ?? undefined,
+      });
+      router.push("/closet");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create");
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -161,10 +149,10 @@ export default function NewClosetItemPage() {
           {error && <p className="text-xs text-kyar-danger">{error}</p>}
           <button
             type="submit"
-            disabled={mutation.isPending}
+            disabled={isPending}
             className="w-full py-4 bg-black text-white text-[11px] font-sans-wide font-bold uppercase tracking-widest rounded-sm disabled:opacity-50"
           >
-            {mutation.isPending ? "Saving…" : "Save Item"}
+            {isPending ? "Saving..." : "Save Item"}
           </button>
         </form>
       </main>

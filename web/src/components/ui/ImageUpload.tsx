@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useSession } from "@/lib/auth/client";
+import { authClient } from "@/lib/auth/auth-client";
 import { useTier } from "@/lib/api/useTier";
 
 interface ImageUploadProps {
@@ -10,8 +10,12 @@ interface ImageUploadProps {
   currentImage?: string;
 }
 
-export function ImageUpload({ onImageSelected, category, currentImage }: ImageUploadProps) {
-  const { session } = useSession();
+export function ImageUpload({
+  onImageSelected,
+  category: _category,
+  currentImage,
+}: ImageUploadProps) {
+  const { data: session } = authClient.useSession();
   const { data: tier } = useTier();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,30 +47,18 @@ export function ImageUpload({ onImageSelected, category, currentImage }: ImageUp
     setUploading(true);
 
     try {
-      // Premium users: upload to cloud storage
-      if (isPremium && session?.access_token) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("category", category);
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/upload/image`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Upload failed");
-        }
-
-        const data = await response.json();
-        onImageSelected(data.url);
+      if (isPremium && session) {
+        // TODO: Phase C will replace this with Convex file storage
+        // For now, fall through to local data URL storage
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          onImageSelected(dataUrl);
+        };
+        reader.onerror = () => {
+          setError("Failed to read file");
+        };
+        reader.readAsDataURL(file);
       } else {
         // Non-premium users: store as local data URL (base64)
         const reader = new FileReader();

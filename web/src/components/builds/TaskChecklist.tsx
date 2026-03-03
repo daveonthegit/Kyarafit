@@ -1,23 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
 import { useDraggable } from "@dnd-kit/core";
-import { createBuildTask, updateBuildTask, deleteBuildTask } from "@/lib/api/builds";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 export interface BuildTask {
-  id: string;
-  buildId: string;
+  _id: Id<"buildTasks">;
+  buildId: Id<"builds">;
   label: string;
-  closetItemId?: string | null;
+  closetItemId?: Id<"closetItems"> | null;
   sortOrder: number;
   checked: boolean;
 }
 
 interface TaskChecklistProps {
-  buildId: string;
+  buildId: Id<"builds">;
   tasks: BuildTask[];
-  linkedItems?: Array<{ id: string; name: string; imageUrl?: string | null }>;
+  linkedItems?: Array<{ _id: Id<"closetItems">; name: string; imageUrl?: string | null }>;
   onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
   enableDragDrop?: boolean;
 }
@@ -26,89 +28,59 @@ export function TaskChecklist({
   buildId,
   tasks,
   linkedItems = [],
-  onTaskAssign,
   enableDragDrop = false,
 }: TaskChecklistProps) {
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"buildTasks"> | null>(null);
+  const { userId } = useCurrentUser();
 
-  // Debug: Log drag-drop status
-  console.log("TaskChecklist - enableDragDrop:", enableDragDrop, "tasks count:", tasks.length);
+  const createTask = useMutation(api.buildTasks.create);
+  const updateTask = useMutation(api.buildTasks.update);
+  const deleteTask = useMutation(api.buildTasks.remove);
 
-  // Calculate progress
   const completedCount = tasks.filter((t) => t.checked).length;
   const totalCount = tasks.length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-  // Sort tasks by sortOrder
   const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
 
-  // Mutations
-  const createTaskMutation = useMutation({
-    mutationFn: (label: string) => createBuildTask(buildId, { label, sortOrder: tasks.length }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
-      setNewTaskLabel("");
-    },
-  });
+  const [isPendingCreate, setIsPendingCreate] = useState(false);
 
-  const updateTaskMutation = useMutation({
-    mutationFn: ({
-      taskId,
-      checked,
-      closetItemId,
-    }: {
-      taskId: string;
-      checked?: boolean;
-      closetItemId?: string | null;
-    }) => updateBuildTask(buildId, taskId, { checked, closetItemId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
-    },
-  });
-
-  const deleteTaskMutation = useMutation({
-    mutationFn: (taskId: string) => deleteBuildTask(buildId, taskId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["build-tasks", buildId] });
-    },
-  });
-
-  const handleToggleTask = async (taskId: string, checked: boolean) => {
-    updateTaskMutation.mutate({ taskId, checked });
+  const handleToggleTask = (taskId: Id<"buildTasks">, checked: boolean) => {
+    if (!userId) return;
+    updateTask({ id: taskId, userId, checked });
   };
 
   const handleAddTask = async () => {
-    if (!newTaskLabel.trim()) return;
-    createTaskMutation.mutate(newTaskLabel.trim());
+    if (!newTaskLabel.trim() || !userId) return;
+    setIsPendingCreate(true);
+    try {
+      await createTask({ userId, buildId, label: newTaskLabel.trim(), sortOrder: tasks.length });
+      setNewTaskLabel("");
+    } finally {
+      setIsPendingCreate(false);
+    }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirm("Delete this task?")) return;
-    deleteTaskMutation.mutate(taskId);
+  const handleDeleteTask = (taskId: Id<"buildTasks">) => {
+    if (!userId) return;
+    deleteTask({ id: taskId, userId });
   };
 
-  const handleOpenAssignModal = (taskId: string) => {
+  const handleOpenAssignModal = (taskId: Id<"buildTasks">) => {
     setSelectedTaskId(taskId);
     setAssignModalOpen(true);
   };
 
-  const handleAssignTask = async (closetItemId: string | null) => {
-    if (!selectedTaskId) return;
-    await updateTaskMutation.mutateAsync({
-      taskId: selectedTaskId,
-      checked: tasks.find((t) => t.id === selectedTaskId)?.checked ?? false,
-      closetItemId,
-    });
+  const handleAssignTask = async (closetItemId: Id<"closetItems"> | undefined) => {
+    if (!selectedTaskId || !userId) return;
+    await updateTask({ id: selectedTaskId, userId, closetItemId });
     setAssignModalOpen(false);
     setSelectedTaskId(null);
   };
 
   return (
     <div className="space-y-6">
-      {/* Progress Bar */}
       <div className="space-y-2">
         <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
           <span>Construction Progress</span>
@@ -125,35 +97,26 @@ export function TaskChecklist({
         </p>
       </div>
 
-      {/* Task List */}
       <div className="space-y-2">
         {sortedTasks.map((task) => {
-          console.log(
-            "Rendering task:",
-            task.id,
-            "- enableDragDrop:",
-            enableDragDrop,
-            "- will use:",
-            enableDragDrop ? "DraggableTaskRow" : "TaskRow"
-          );
-          const linkedItem = linkedItems.find((item) => item.id === task.closetItemId);
+          const linkedItem = linkedItems.find((item) => item._id === task.closetItemId);
           return enableDragDrop ? (
             <DraggableTaskRow
-              key={task.id}
+              key={task._id}
               task={task}
               linkedItem={linkedItem}
-              onToggle={(checked) => handleToggleTask(task.id, checked)}
-              onDelete={() => handleDeleteTask(task.id)}
-              onAssign={() => handleOpenAssignModal(task.id)}
+              onToggle={(checked) => handleToggleTask(task._id, checked)}
+              onDelete={() => handleDeleteTask(task._id)}
+              onAssign={() => handleOpenAssignModal(task._id)}
             />
           ) : (
             <TaskRow
-              key={task.id}
+              key={task._id}
               task={task}
               linkedItem={linkedItem}
-              onToggle={(checked) => handleToggleTask(task.id, checked)}
-              onDelete={() => handleDeleteTask(task.id)}
-              onAssign={() => handleOpenAssignModal(task.id)}
+              onToggle={(checked) => handleToggleTask(task._id, checked)}
+              onDelete={() => handleDeleteTask(task._id)}
+              onAssign={() => handleOpenAssignModal(task._id)}
             />
           );
         })}
@@ -165,7 +128,6 @@ export function TaskChecklist({
         )}
       </div>
 
-      {/* Add Task Form */}
       <div className="flex gap-2 pt-4 border-t border-kyar-border">
         <input
           type="text"
@@ -177,18 +139,17 @@ export function TaskChecklist({
         />
         <button
           onClick={handleAddTask}
-          disabled={!newTaskLabel.trim() || createTaskMutation.isPending}
+          disabled={!newTaskLabel.trim() || isPendingCreate}
           className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
         >
-          {createTaskMutation.isPending ? "Adding..." : "Add"}
+          {isPendingCreate ? "Adding..." : "Add"}
         </button>
       </div>
 
-      {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
         <button
           onClick={() => {
-            sortedTasks.forEach((t) => !t.checked && handleToggleTask(t.id, true));
+            sortedTasks.forEach((t) => !t.checked && handleToggleTask(t._id, true));
           }}
           className="flex-1 border border-kyar-border hover:border-black py-2 text-xs font-semibold uppercase tracking-wider"
         >
@@ -196,7 +157,6 @@ export function TaskChecklist({
         </button>
       </div>
 
-      {/* Assignment Modal */}
       {assignModalOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -217,7 +177,7 @@ export function TaskChecklist({
             </div>
             <div className="space-y-2">
               <button
-                onClick={() => handleAssignTask(null)}
+                onClick={() => handleAssignTask(undefined)}
                 className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
               >
                 <span className="material-symbols-outlined text-gray-400">close</span>
@@ -225,8 +185,8 @@ export function TaskChecklist({
               </button>
               {linkedItems.map((item) => (
                 <button
-                  key={item.id}
-                  onClick={() => handleAssignTask(item.id)}
+                  key={item._id}
+                  onClick={() => handleAssignTask(item._id)}
                   className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
                 >
                   {item.imageUrl ? (
@@ -256,10 +216,9 @@ export function TaskChecklist({
   );
 }
 
-// Regular task row (non-draggable)
 interface TaskRowProps {
   task: BuildTask;
-  linkedItem?: { id: string; name: string; imageUrl?: string | null };
+  linkedItem?: { _id: string; name: string; imageUrl?: string | null };
   onToggle: (checked: boolean) => void;
   onDelete: () => void;
   onAssign: () => void;
@@ -279,7 +238,9 @@ function TaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProp
           {task.label}
         </span>
         {linkedItem && (
-          <span className="text-xs text-kyar-textTertiary block mt-0.5">→ {linkedItem.name}</span>
+          <span className="text-xs text-kyar-textTertiary block mt-0.5">
+            &rarr; {linkedItem.name}
+          </span>
         )}
       </div>
       <button
@@ -300,10 +261,9 @@ function TaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProp
   );
 }
 
-// Draggable task row
 function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.id,
+    id: task._id,
     data: { type: "task", task },
   });
 
@@ -329,7 +289,9 @@ function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: Ta
           {task.label}
         </span>
         {linkedItem && (
-          <span className="text-xs text-kyar-textTertiary block mt-0.5">→ {linkedItem.name}</span>
+          <span className="text-xs text-kyar-textTertiary block mt-0.5">
+            &rarr; {linkedItem.name}
+          </span>
         )}
       </div>
       <button

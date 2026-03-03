@@ -1,6 +1,6 @@
 /**
  * In-memory DB for web (no expo-sqlite WASM).
- * Same API as db.native.ts so closetRepo/outboxRepo/sqlite work unchanged.
+ * Same API as db.native.ts so storage repos work unchanged.
  */
 
 export interface DbLike {
@@ -22,15 +22,8 @@ const closetItems: Array<{
   cost_cents: number | null;
   created_at: string;
   updated_at: string;
+  convex_id: string | null;
 }> = [];
-const outbox: Array<{
-  id: number;
-  type: string;
-  payload_json: string;
-  created_at: string;
-}> = [];
-let outboxId = 0;
-
 const builds: Array<{
   id: string;
   name: string;
@@ -41,6 +34,7 @@ const builds: Array<{
   budget_cents: number | null;
   created_at: string;
   updated_at: string;
+  convex_id: string | null;
 }> = [];
 const buildTasks: Array<{
   id: string;
@@ -51,8 +45,16 @@ const buildTasks: Array<{
   checked: number;
   created_at: string;
   updated_at: string;
+  convex_id: string | null;
 }> = [];
 const buildItemLinks: Array<{ build_id: string; closet_item_id: string }> = [];
+const outbox: Array<{
+  id: number;
+  type: string;
+  payload_json: string;
+  created_at: string;
+}> = [];
+let outboxSeq = 0;
 const conventions: Array<{
   id: string;
   name: string;
@@ -61,6 +63,7 @@ const conventions: Array<{
   end_date: string;
   created_at: string;
   updated_at: string;
+  convex_id: string | null;
 }> = [];
 const conventionDayPlans: Array<{
   id: string;
@@ -79,6 +82,7 @@ const packingListItems: Array<{
   checked: number;
   created_at: string;
   updated_at: string;
+  convex_id: string | null;
 }> = [];
 
 let db: DbLike | null = null;
@@ -115,6 +119,7 @@ function getWebDb(): DbLike {
         const created_at = (p.length > 8 ? p[8] : new Date().toISOString()) as string;
         const updated_at = (p.length > 9 ? p[9] : created_at) as string;
         const idx = closetItems.findIndex((r) => r.id === id);
+        const convex_id = (p.length > 10 ? p[10] : null) as string | null;
         const row = {
           id,
           name,
@@ -126,6 +131,7 @@ function getWebDb(): DbLike {
           cost_cents: cost_cents ?? null,
           created_at,
           updated_at,
+          convex_id: convex_id ?? null,
         };
         if (idx >= 0) closetItems[idx] = row;
         else closetItems.push(row);
@@ -136,19 +142,25 @@ function getWebDb(): DbLike {
         if (idx >= 0) closetItems.splice(idx, 1);
         return;
       }
+      if (sql.includes("UPDATE closet_items SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = closetItems.findIndex((r) => r.id === localId);
+        if (idx >= 0) closetItems[idx] = { ...closetItems[idx], convex_id: convexId };
+        return;
+      }
       // outbox
       if (sql.includes("INSERT INTO outbox")) {
-        outboxId += 1;
+        outboxSeq += 1;
         outbox.push({
-          id: outboxId,
+          id: outboxSeq,
           type: params[0] as string,
           payload_json: params[1] as string,
-          created_at: new Date().toISOString(),
+          created_at: params[2] as string ?? new Date().toISOString(),
         });
         return;
       }
       if (sql.includes("DELETE FROM outbox WHERE id")) {
-        const idx = outbox.findIndex((r) => r.id === params[0]);
+        const idx = outbox.findIndex((r) => r.id === (params[0] as number));
         if (idx >= 0) outbox.splice(idx, 1);
         return;
       }
@@ -175,6 +187,9 @@ function getWebDb(): DbLike {
           string,
           string,
         ];
+        const convex_id = (params as unknown[]).length > 9
+          ? ((params as unknown[])[9] as string | null)
+          : null;
         builds.push({
           id,
           name,
@@ -185,6 +200,7 @@ function getWebDb(): DbLike {
           budget_cents: budget_cents ?? null,
           created_at,
           updated_at,
+          convex_id: convex_id ?? null,
         });
         return;
       }
@@ -220,10 +236,17 @@ function getWebDb(): DbLike {
         if (idx >= 0) builds.splice(idx, 1);
         return;
       }
+      if (sql.includes("UPDATE builds SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = builds.findIndex((r) => r.id === localId);
+        if (idx >= 0) builds[idx] = { ...builds[idx], convex_id: convexId };
+        return;
+      }
       // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
       if (sql.includes("INSERT INTO build_tasks (")) {
-        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] =
-          params as [string, string, string, string | null, number, string, string];
+        const p = params as unknown[];
+        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] = p as [string, string, string, string | null, number, string, string];
+        const convex_id = p.length > 7 ? (p[7] as string | null) : null;
         buildTasks.push({
           id,
           build_id,
@@ -233,6 +256,7 @@ function getWebDb(): DbLike {
           checked: 0,
           created_at,
           updated_at,
+          convex_id: convex_id ?? null,
         });
         return;
       }
@@ -279,6 +303,12 @@ function getWebDb(): DbLike {
         }
         return;
       }
+      if (sql.includes("UPDATE build_tasks SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = buildTasks.findIndex((r) => r.id === localId);
+        if (idx >= 0) buildTasks[idx] = { ...buildTasks[idx], convex_id: convexId };
+        return;
+      }
       // build_item_links
       if (sql.includes("DELETE FROM build_item_links WHERE build_id")) {
         const buildId = params[0] as string;
@@ -294,15 +324,9 @@ function getWebDb(): DbLike {
       }
       // conventions
       if (sql.includes("INSERT INTO conventions (")) {
-        const [id, name, location, start_date, end_date, created_at, updated_at] = params as [
-          string,
-          string,
-          string | null,
-          string,
-          string,
-          string,
-          string,
-        ];
+        const p = params as unknown[];
+        const [id, name, location, start_date, end_date, created_at, updated_at] = p as [string, string, string | null, string, string, string, string];
+        const convex_id = p.length > 7 ? (p[7] as string | null) : null;
         conventions.push({
           id,
           name,
@@ -311,6 +335,7 @@ function getWebDb(): DbLike {
           end_date,
           created_at,
           updated_at,
+          convex_id: convex_id ?? null,
         });
         return;
       }
@@ -339,6 +364,12 @@ function getWebDb(): DbLike {
       if (sql.includes("DELETE FROM conventions WHERE id")) {
         const idx = conventions.findIndex((r) => r.id === params[0]);
         if (idx >= 0) conventions.splice(idx, 1);
+        return;
+      }
+      if (sql.includes("UPDATE conventions SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = conventions.findIndex((r) => r.id === localId);
+        if (idx >= 0) conventions[idx] = { ...conventions[idx], convex_id: convexId };
         return;
       }
       // convention_day_plans
@@ -388,9 +419,23 @@ function getWebDb(): DbLike {
         }
         return;
       }
+      if (sql.includes("UPDATE packing_list_items SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = packingListItems.findIndex((r) => r.id === localId);
+        if (idx >= 0) packingListItems[idx] = { ...packingListItems[idx], convex_id: convexId };
+        return;
+      }
       if (sql.includes("INSERT INTO packing_list_items (")) {
         const p = params as unknown[];
-        if (p.length === 8) {
+        if (p.length >= 10) {
+          // Full insert with convex_id (from pull): id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at, convex_id
+          const [id, convention_id, date, build_id, closet_item_id, label, , created_at, updated_at, convex_id] =
+            p as [string, string, string | null, string | null, string | null, string, number, string, string, string | null];
+          packingListItems.push({
+            id, convention_id, date, build_id, closet_item_id,
+            label, checked: 0, created_at, updated_at, convex_id: convex_id ?? null,
+          });
+        } else if (p.length === 8) {
           const [id, convention_id, date, build_id, closet_item_id, label, created_at, updated_at] =
             p as [string, string, string, string | null, string, string, string, string];
           packingListItems.push({
@@ -403,6 +448,7 @@ function getWebDb(): DbLike {
             checked: 0,
             created_at,
             updated_at,
+            convex_id: null,
           });
         } else if (p.length === 7) {
           const [id, convention_id, date, build_id, label, created_at, updated_at] = p as [
@@ -424,6 +470,7 @@ function getWebDb(): DbLike {
             checked: 0,
             created_at,
             updated_at,
+            convex_id: null,
           });
         } else if (p.length === 5) {
           const [id, convention_id, label, created_at, updated_at] = p as [
@@ -443,6 +490,7 @@ function getWebDb(): DbLike {
             checked: 0,
             created_at,
             updated_at,
+            convex_id: null,
           });
         }
         return;
@@ -477,19 +525,41 @@ function getWebDb(): DbLike {
             updated_at: row.updated_at,
           })) as T[];
       }
+      if (sql.includes("FROM outbox ORDER BY")) {
+        return outbox.map((r) => ({ ...r })) as T[];
+      }
+      if (sql.includes("COUNT(*) as c FROM outbox")) {
+        return [{ c: outbox.length }] as T[];
+      }
       if (sql.includes("FROM closet_items ORDER BY")) {
         return [...closetItems].sort(
           (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         ) as T[];
       }
-      if (sql.includes("FROM outbox ORDER BY")) {
-        return outbox.map((r) => ({ ...r })) as T[];
+      if (sql.includes("FROM closet_items WHERE convex_id IS NULL")) {
+        return closetItems.filter((r) => r.convex_id == null) as T[];
+      }
+      if (sql.includes("FROM closet_items WHERE convex_id =")) {
+        const cid = params[0] as string;
+        return closetItems.filter((r) => r.convex_id === cid) as T[];
+      }
+      if (sql.includes("FROM closet_items WHERE id =")) {
+        const id = params[0] as string;
+        const row = closetItems.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
       }
       // builds
       if (sql.includes("FROM builds WHERE id")) {
         const id = params[0] as string;
         const row = builds.find((r) => r.id === id);
         return (row ? [row] : []) as T[];
+      }
+      if (sql.includes("FROM builds WHERE convex_id IS NULL")) {
+        return builds.filter((r) => r.convex_id == null) as T[];
+      }
+      if (sql.includes("FROM builds WHERE convex_id =")) {
+        const cid = params[0] as string;
+        return builds.filter((r) => r.convex_id === cid) as T[];
       }
       if (sql.includes("FROM builds ORDER BY")) {
         return [...builds].sort(
@@ -520,11 +590,21 @@ function getWebDb(): DbLike {
             (a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)
           ) as T[];
       }
+      if (sql.includes("FROM build_tasks WHERE convex_id IS NULL")) {
+        return buildTasks.filter((r) => r.convex_id == null) as T[];
+      }
       // conventions
       if (sql.includes("FROM conventions WHERE id")) {
         const id = params[0] as string;
         const row = conventions.find((r) => r.id === id);
         return (row ? [row] : []) as T[];
+      }
+      if (sql.includes("FROM conventions WHERE convex_id IS NULL")) {
+        return conventions.filter((r) => r.convex_id == null) as T[];
+      }
+      if (sql.includes("FROM conventions WHERE convex_id =")) {
+        const cid = params[0] as string;
+        return conventions.filter((r) => r.convex_id === cid) as T[];
       }
       if (sql.includes("FROM conventions ORDER BY")) {
         return [...conventions].sort(
@@ -549,6 +629,11 @@ function getWebDb(): DbLike {
       if (sql.includes("FROM packing_list_items WHERE id")) {
         const id = params[0] as string;
         const row = packingListItems.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes("FROM packing_list_items WHERE convex_id =")) {
+        const cid = params[0] as string;
+        const row = packingListItems.find((r) => r.convex_id === cid);
         return (row ? [row] : []) as T[];
       }
       if (sql.includes("FROM packing_list_items WHERE convention_id")) {

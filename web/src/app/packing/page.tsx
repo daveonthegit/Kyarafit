@@ -1,15 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "convex/react";
 import Link from "next/link";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { fetchConventions } from "@/lib/api/conventions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 
 export default function PackingListPage() {
-  const { data: conventions = [], isLoading } = useQuery({
-    queryKey: ["conventions"],
-    queryFn: fetchConventions,
-  });
+  const { userId } = useCurrentUser();
+  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
+  const isLoading = conventions === undefined;
 
   return (
     <div className="min-h-screen flex flex-col pb-32">
@@ -24,12 +24,12 @@ export default function PackingListPage() {
         <p className="text-sm text-kyar-meta">
           Select a convention to view or edit its packing list.
         </p>
-        {isLoading && <p className="meta-label">Loading…</p>}
+        {isLoading && <p className="meta-label">Loading...</p>}
         <ul className="space-y-0">
           {conventions.map((c) => (
-            <li key={c.id}>
+            <li key={c._id}>
               <Link
-                href={`/conventions/${c.id}/packing`}
+                href={`/conventions/${c._id}/packing`}
                 className="flex items-center gap-3 py-5 border-b border-kyar-borderSubtle hover:opacity-80"
               >
                 <span className="flex-1 font-serif text-xl font-bold italic">{c.name}</span>

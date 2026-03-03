@@ -3,10 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchConvention, fetchPlan, replacePlan, regeneratePacking } from "@/lib/api/conventions";
-import { fetchBuilds } from "@/lib/api/builds";
-import type { DayPlanEntry } from "@kyarafit/design-system/types";
+import { useQuery, useMutation } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 function dateRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -21,41 +21,17 @@ function dateRange(start: string, end: string): string[] {
 
 export default function ConventionDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params.id as Id<"conventions">;
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
   const [pickerDate, setPickerDate] = useState<string | null>(null);
 
-  const { data: convention, isLoading: loadingConv } = useQuery({
-    queryKey: ["convention", id],
-    queryFn: () => fetchConvention(id),
-    enabled: !!id,
-  });
-  const { data: plan = [], isLoading: loadingPlan } = useQuery({
-    queryKey: ["convention-plan", id],
-    queryFn: () => fetchPlan(id),
-    enabled: !!id,
-  });
-  const { data: builds = [] } = useQuery({
-    queryKey: ["builds"],
-    queryFn: fetchBuilds,
-  });
+  const convention = useQuery(api.conventions.get, id ? { id } : "skip");
+  const plan = useQuery(api.conventions.getPlan, id ? { conventionId: id } : "skip") ?? [];
+  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
 
-  const replacePlanMutation = useMutation({
-    mutationFn: (newPlan: DayPlanEntry[]) => replacePlan(id, newPlan),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["convention-plan", id] });
-      setPickerDate(null);
-    },
-  });
-
-  const regenerateMutation = useMutation({
-    mutationFn: () => regeneratePacking(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
-      router.push(`/conventions/${id}/packing`);
-    },
-  });
+  const replacePlanMut = useMutation(api.conventions.replacePlan);
+  const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
 
   const dates = useMemo(
     () => (convention ? dateRange(convention.startDate, convention.endDate) : []),
@@ -65,23 +41,36 @@ export default function ConventionDetailPage() {
 
   const handleAssign = useCallback(
     (date: string, buildId: string | null) => {
-      const newPlan: DayPlanEntry[] = dates.map((d) => {
+      if (!userId) return;
+      const newPlan = dates.map((d) => {
         const existing = planByDate.get(d);
         return {
           date: d,
-          buildId: d === date ? buildId : (existing?.buildId ?? null),
+          buildId:
+            d === date
+              ? buildId
+                ? (buildId as Id<"builds">)
+                : undefined
+              : (existing?.buildId ?? undefined),
           notes: existing?.notes,
         };
       });
-      replacePlanMutation.mutate(newPlan);
+      replacePlanMut({ userId, conventionId: id, plan: newPlan });
+      setPickerDate(null);
     },
-    [dates, planByDate, replacePlanMutation]
+    [dates, planByDate, replacePlanMut, userId, id]
   );
 
-  if (loadingConv) {
+  const handleRegenerate = async () => {
+    if (!userId) return;
+    await regeneratePackingMut({ userId, conventionId: id });
+    router.push(`/conventions/${id}/packing`);
+  };
+
+  if (convention === undefined) {
     return (
       <div className="min-h-screen flex flex-col pb-32 px-6 pt-12">
-        <p className="meta-label">Loading…</p>
+        <p className="meta-label">Loading...</p>
       </div>
     );
   }
@@ -113,12 +102,11 @@ export default function ConventionDetailPage() {
         </p>
 
         <p className="meta-label mt-8 mb-4">DAY-BY-DAY PLAN</p>
-        {loadingPlan && <p className="meta-label">Loading plan…</p>}
         <ul className="space-y-0 border-b border-kyar-borderSubtle">
           {dates.map((date) => {
             const entry = planByDate.get(date);
             const buildName = entry?.buildId
-              ? (builds.find((b) => b.id === entry.buildId)?.name ?? "—")
+              ? (builds.find((b) => b._id === entry.buildId)?.name ?? "—")
               : "Rest day";
             return (
               <li key={date}>
@@ -140,8 +128,7 @@ export default function ConventionDetailPage() {
 
         <button
           type="button"
-          onClick={() => regenerateMutation.mutate()}
-          disabled={regenerateMutation.isPending}
+          onClick={handleRegenerate}
           className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider mt-8 disabled:opacity-50"
         >
           GENERATE PACKING LIST
@@ -172,9 +159,9 @@ export default function ConventionDetailPage() {
             </button>
             {builds.map((b) => (
               <button
-                key={b.id}
+                key={b._id}
                 type="button"
-                onClick={() => handleAssign(pickerDate, b.id)}
+                onClick={() => handleAssign(pickerDate, b._id)}
                 className="block w-full text-left py-3 border-b border-kyar-borderSubtle text-sm"
               >
                 {b.name}

@@ -1,19 +1,32 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useSession } from "@/lib/auth/client";
-import { fetchMe, type MeResponse } from "./me";
+import { authClient } from "@/lib/auth/auth-client";
 
-/** Returns tier and storage from GET /api/v1/me. Null when not signed in or request fails. */
+export interface MeResponse {
+  tier: string;
+  currentUsageMb: number;
+  storageLimitMb: number;
+}
+
+/**
+ * Returns tier and storage info.
+ * During migration, all authenticated users default to FREE tier.
+ * Convex user.tier will be the source of truth once wired.
+ */
 export function useTier(): { data: MeResponse | null; isLoading: boolean } {
-  const { session } = useSession();
-  const token = session?.access_token ?? null;
-  const { data, isLoading } = useQuery({
-    queryKey: ["me", token],
-    queryFn: () => fetchMe(token),
-    enabled: !!token,
-  });
-  return { data: data ?? null, isLoading };
+  const { data: session, isPending } = authClient.useSession();
+
+  if (isPending) return { data: null, isLoading: true };
+  if (!session) return { data: null, isLoading: false };
+
+  return {
+    data: {
+      tier: "FREE",
+      currentUsageMb: 0,
+      storageLimitMb: 100,
+    },
+    isLoading: false,
+  };
 }
 
 /** Returns feature access based on user's tier */

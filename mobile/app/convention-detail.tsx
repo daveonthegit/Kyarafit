@@ -8,7 +8,6 @@ import { getConvention } from "../src/storage/conventionsRepo";
 import { getPlan, setPlan } from "../src/storage/plansRepo";
 import { listBuilds } from "../src/storage/buildsRepo";
 import { regenerateLocal } from "../src/storage/packingRepo";
-import { getSyncPendingCount } from "../src/services/sync";
 
 function dateRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -30,7 +29,6 @@ export default function ConventionDetailScreen() {
   const [plan, setPlanState] = useState<ConventionDayPlan[]>([]);
   const [builds, setBuilds] = useState<Build[]>([]);
   const [dates, setDates] = useState<string[]>([]);
-  const [syncPending, setSyncPending] = useState(0);
   const [regenerating, setRegenerating] = useState(false);
   const [pickerDate, setPickerDate] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -40,11 +38,10 @@ export default function ConventionDetailScreen() {
       setLoaded(true);
       return;
     }
-    const [c, p, bList, pending] = await Promise.all([
+    const [c, p, bList] = await Promise.all([
       getConvention(id),
       getPlan(id),
       listBuilds(),
-      getSyncPendingCount(),
     ]);
     if (c) {
       setConvention(c);
@@ -52,7 +49,6 @@ export default function ConventionDetailScreen() {
     }
     setPlanState(p ?? []);
     setBuilds(bList);
-    setSyncPending(pending);
     setLoaded(true);
   }, [id]);
 
@@ -135,10 +131,6 @@ export default function ConventionDetailScreen() {
           {convention.startDate} – {convention.endDate}
           {convention.location ? ` · ${convention.location}` : ""}
         </Text>
-        {syncPending > 0 && (
-          <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
-        )}
-
         <Text style={styles.sectionLabel}>DAY-BY-DAY PLAN</Text>
         {dates.map((date) => {
           const entry = planByDate.get(date);
@@ -243,14 +235,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: colors.textTertiary,
     marginTop: 8,
-  },
-  syncLabel: {
-    marginTop: 8,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
   },
   sectionLabel: {
     fontSize: 9,

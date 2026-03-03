@@ -1,5 +1,5 @@
 /**
- * Build tasks (checklist items) local repository. Offline-first; enqueue outbox for sync.
+ * Build tasks (checklist items) local repository. Offline-first; anonymous users only.
  */
 
 import type {
@@ -57,7 +57,11 @@ export async function createTask(buildId: string, input: CreateBuildTaskInput): 
     createdAt: now,
     updatedAt: now,
   };
-  await enqueue("build.task.upsert", { task });
+  await enqueue("buildTask.upsert", {
+    localId: id, buildLocalId: buildId, label: task.label,
+    sortOrder: task.sortOrder, checked: false,
+    closetItemLocalId: task.closetItemId ?? undefined,
+  });
   return task;
 }
 
@@ -98,7 +102,11 @@ export async function updateTask(
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
-  await enqueue("build.task.upsert", { task });
+  await enqueue("buildTask.upsert", {
+    localId: taskId, buildLocalId: buildId, label,
+    sortOrder: sort_order, checked: checked !== 0,
+    closetItemLocalId: closet_item_id ?? undefined,
+  });
   return task;
 }
 
@@ -109,7 +117,7 @@ export async function deleteTask(taskId: string, buildId?: string): Promise<bool
       taskId,
       buildId,
     ]);
-    await enqueue("build.task.delete", { taskId, buildId });
+    await enqueue("buildTask.delete", { localId: taskId, buildLocalId: buildId });
   } else {
     // For sync: delete by taskId only
     await database.runAsync(`DELETE FROM build_tasks WHERE id = ?`, [taskId]);
@@ -155,8 +163,25 @@ export async function toggleTaskChecked(
     task.closetItemId = full.closet_item_id ?? undefined;
     task.sortOrder = full.sort_order;
   }
-  await enqueue("build.task.upsert", { task });
+  await enqueue("buildTask.upsert", {
+    localId: taskId, buildLocalId: buildId, label: task.label,
+    sortOrder: task.sortOrder, checked: task.checked,
+    closetItemLocalId: task.closetItemId ?? undefined,
+  });
   return task;
+}
+
+export async function getConvexId(localId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ convex_id: string | null }>(
+    `SELECT convex_id FROM build_tasks WHERE id = ?`, [localId]
+  );
+  return row?.convex_id ?? null;
+}
+
+export async function setConvexId(localId: string, convexId: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(`UPDATE build_tasks SET convex_id = ? WHERE id = ?`, [convexId, localId]);
 }
 
 export async function getById(id: string): Promise<BuildTask | null> {

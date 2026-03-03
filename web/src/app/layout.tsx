@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
-import { QueryProvider } from "@/components/QueryProvider";
+import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
   title: "Kyarafit – Editorial Cosplay Lookbook",
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 // Force dynamic rendering - most pages require authentication
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const token = await getToken();
+
   return (
     <html lang="en">
       <head>
@@ -24,9 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className="min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased"
         suppressHydrationWarning
       >
-        <QueryProvider>
+        <ConvexClientProvider initialToken={token}>
           <AuthGate>{children}</AuthGate>
-        </QueryProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

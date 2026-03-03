@@ -1,31 +1,41 @@
 import { useEffect, useState } from "react";
-import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useSession, getTokenForSync } from "../src/lib/auth/client";
+import { ConvexReactClient } from "convex/react";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+import * as Linking from "expo-linking";
+import { useSession, authClient, setStoredBearerToken } from "../src/lib/auth/client";
 import { getOrCreateDeviceId } from "../src/lib/deviceId";
 import { initClosetDb } from "../src/storage/db";
-import { setDeviceId, runSync } from "../src/services/sync";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
+import { useConvexSync } from "../src/hooks/useConvexSync";
 
 const queryClient = new QueryClient();
+
+// Always create a client so ConvexProvider is present; tabs use useQuery(api.*) and useCurrentUser().
+// Without a provider, useQuery throws. Use placeholder URL when env is missing (e.g. mobile web).
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? "";
+const convex = new ConvexReactClient(convexUrl || "https://placeholder.convex.cloud");
+
+const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
 
 function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const { session, loading } = useSession();
+  const { userId } = useCurrentUser();
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize app
+  // Keep SQLite ↔ Convex in sync for signed-in users
+  useConvexSync(userId ?? null);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
       await initClosetDb();
-      const deviceId = await getOrCreateDeviceId();
-      setDeviceId(deviceId);
+      await getOrCreateDeviceId();
       if (mounted) {
-        const token = await getTokenForSync();
-        await runSync(token);
         setIsInitialized(true);
       }
     })();
@@ -34,27 +44,50 @@ function RootLayoutNav() {
     };
   }, []);
 
-  // Sync on app state change
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        getTokenForSync().then((token) => runSync(token));
-      }
-    });
-    return () => sub.remove();
-  }, []);
-
-  // Optional routing: if logged in and on auth screen, redirect to tabs
   useEffect(() => {
     if (!isInitialized || loading) return;
 
     const inAuthGroup = segments[0] === "auth";
 
     if (session && inAuthGroup) {
-      // If logged in and on auth screen, go to tabs
       router.replace("/(tabs)");
     }
   }, [session, segments, loading, isInitialized]);
+
+  // Handle OAuth deep-link callback: kyarafit://(tabs)?ott=<one-time-token>
+  // The crossDomain server plugin appends ?ott= after the OAuth provider redirects back.
+  // We exchange the OTT for a session token, persist it, and trigger a session refresh.
+  const incomingUrl = Linking.useURL();
+  useEffect(() => {
+    if (!incomingUrl || !CONVEX_SITE_URL) return;
+    const parsed = Linking.parse(incomingUrl);
+    const ott = parsed.queryParams?.ott;
+    if (!ott || typeof ott !== "string") return;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${CONVEX_SITE_URL.replace(/\/$/, "")}/auth/cross-domain/one-time-token/verify`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: ott }),
+          },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const sessionToken: string | undefined = data?.session?.token;
+        if (!sessionToken) return;
+        // Persist the Bearer token so bearerStoragePlugin sends it on every request.
+        await setStoredBearerToken(sessionToken);
+        // Notify the session atom to re-fetch with the new Bearer token.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (authClient as any).$store?.notify("$sessionSignal");
+      } catch (err) {
+        console.error("[auth] OTT exchange failed:", err);
+      }
+    })();
+  }, [incomingUrl]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -65,10 +98,16 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  return (
+  const content = (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="dark" />
       <RootLayoutNav />
     </QueryClientProvider>
+  );
+
+  return (
+    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+      {content}
+    </ConvexBetterAuthProvider>
   );
 }

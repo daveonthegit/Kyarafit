@@ -1,132 +1,18 @@
 name: Deploy Backend to GCP Cloud Run
 
+# The Go backend has been archived. This workflow is disabled.
+# The application backend is now Convex (auto-deployed via npx convex deploy).
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/deploy-gcp-backend.yml"
-  workflow_dispatch:
-
-env:
-  PROJECT_ID: kyarafit
-  REGION: us-central1
-  SERVICE_NAME: kyarafit-backend
-
-# Prevent concurrent deployments
-concurrency:
-  group: deploy-backend-${{ github.ref }}
-  cancel-in-progress: false
+  workflow_dispatch: # Only run manually if needed
 
 jobs:
-  # Wait for CI to pass before deploying
-  check-ci:
+  skipped:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for CI checks
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.sha }}
-          check-name: "Backend CI"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-          allowed-conclusions: success
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: check-ci
-    environment:
-      name: production
-      url: ${{ steps.url.outputs.url }}
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
-
-      - name: Build Docker image
+      - name: Skip — backend archived
         run: |
-          docker build \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest \
-            ./backend
-
-      - name: Push to Artifact Registry
-        run: |
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:latest
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kyarafit/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --set-env-vars "PORT=8080,HOST=0.0.0.0" \
-            --set-secrets="DATABASE_URL=database-url:latest" \
-            --set-secrets="SUPABASE_URL=supabase-url:latest" \
-            --set-secrets="JWT_SECRET=jwt-secret:latest" \
-            --set-secrets="SUPABASE_SERVICE_KEY=supabase-service-key:latest" \
-            --set-secrets="SMTP_HOST=smtp-host:latest" \
-            --set-secrets="SMTP_PORT=smtp-port:latest" \
-            --set-secrets="SMTP_USERNAME=smtp-username:latest" \
-            --set-secrets="SMTP_PASSWORD=smtp-password:latest" \
-            --set-secrets="SMTP_FROM=smtp-from:latest" \
-            --memory 512Mi \
-            --cpu 1 \
-            --max-instances 10 \
-            --min-instances 0 \
-            --timeout 60s \
-            --concurrency 80
-
-      - name: Get Service URL
-        id: url
-        run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)')
-          echo "Service deployed to: $SERVICE_URL"
-          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
-
-      - name: Smoke test deployed service
-        run: |
-          echo "Testing deployed service..."
-          sleep 10  # Wait for service to stabilize
-          if curl -f "${{ steps.url.outputs.url }}/health"; then
-            echo "✅ Smoke test passed"
-          else
-            echo "❌ Smoke test failed"
-            exit 1
-          fi
-
-      - name: Create deployment summary
-        if: always()
-        run: |
-          echo "## ✅ Backend Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚠️ Backend Deployment Skipped" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL:** ${{ steps.url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** ${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔄 Rollback" >> $GITHUB_STEP_SUMMARY
-          echo "If needed, rollback with:" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} --to-revisions=PREVIOUS=100 --region ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "The Go Fiber backend has been archived." >> $GITHUB_STEP_SUMMARY
+          echo "The backend is now **Convex** — deploy via \`npx convex deploy\` or the Convex GitHub Action." >> $GITHUB_STEP_SUMMARY

@@ -3,35 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createConvention } from "@/lib/api/conventions";
+import { useMutation } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 
 export default function NewConventionPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
+  const createConvention = useMutation(api.conventions.create);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [isPending, setIsPending] = useState(false);
 
-  const create = useMutation({
-    mutationFn: () =>
-      createConvention({
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !startDate.trim() || !endDate.trim() || !userId) return;
+    setIsPending(true);
+    try {
+      const convention = await createConvention({
+        userId,
         name: name.trim(),
         location: location.trim() || undefined,
         startDate: startDate.trim(),
         endDate: endDate.trim(),
-      }),
-    onSuccess: (c) => {
-      queryClient.invalidateQueries({ queryKey: ["conventions"] });
-      router.push(`/conventions/${c.id}`);
-    },
-  });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !startDate.trim() || !endDate.trim()) return;
-    create.mutate();
+      });
+      if (convention) router.push(`/conventions/${convention._id}`);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -87,7 +88,7 @@ export default function NewConventionPage() {
           </div>
           <button
             type="submit"
-            disabled={create.isPending || !name.trim() || !startDate.trim() || !endDate.trim()}
+            disabled={isPending || !name.trim() || !startDate.trim() || !endDate.trim()}
             className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
             CREATE CONVENTION
