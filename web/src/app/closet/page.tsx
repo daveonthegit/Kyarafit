@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "convex/react";
 import Link from "next/link";
 import Image from "next/image";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
-import { fetchClosetItems } from "@/lib/api/closet";
-import type { ClosetItem } from "@kyarafit/design-system/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 
 const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
 
 export default function ClosetPage() {
-  const { data: items = [], isLoading } = useQuery({
-    queryKey: ["closet", "items"],
-    queryFn: fetchClosetItems,
-  });
+  const { userId } = useCurrentUser();
+  const items = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
+  const isLoading = items === undefined;
 
   const [activeCategory, setActiveCategory] = useState("All Items");
   const filtered =
@@ -60,45 +59,38 @@ export default function ClosetPage() {
       </nav>
 
       <main className="flex-1 px-4 py-6 grid grid-cols-2 gap-3">
-        {isLoading && <p className="col-span-2 text-[12px] opacity-50">Loading…</p>}
+        {isLoading && <p className="col-span-2 text-[12px] opacity-50">Loading...</p>}
         {!isLoading && filtered.length === 0 && (
           <p className="col-span-2 text-[12px] opacity-50">No items yet.</p>
         )}
         {filtered.map((item) => (
-          <ClosetCard key={item.id} item={item} />
+          <div key={item._id} className="flex flex-col gap-2">
+            <div className="aspect-square bg-kyar-muted overflow-hidden">
+              {item.imageUrl ? (
+                <Image
+                  src={item.imageUrl}
+                  alt={item.name}
+                  width={300}
+                  height={300}
+                  className="w-full h-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                  <span className="material-symbols-outlined text-4xl">checkroom</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-start">
+              <h3 className="text-[10px] uppercase tracking-wider font-semibold">{item.name}</h3>
+              <span className="text-[9px] opacity-40">{item.category}</span>
+            </div>
+          </div>
         ))}
       </main>
 
       <FloatingAdd href="/closet/new" />
       <BottomNav active="builds" />
-    </div>
-  );
-}
-
-function ClosetCard({ item }: { item: ClosetItem }) {
-  const src = item.imageUrl || item.imageLocalUri;
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="aspect-square bg-kyar-muted overflow-hidden">
-        {src ? (
-          <Image
-            src={src}
-            alt={item.name}
-            width={300}
-            height={300}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-            <span className="material-symbols-outlined text-4xl">checkroom</span>
-          </div>
-        )}
-      </div>
-      <div className="flex justify-between items-start">
-        <h3 className="text-[10px] uppercase tracking-wider font-semibold">{item.name}</h3>
-        <span className="text-[9px] opacity-40">{item.category}</span>
-      </div>
     </div>
   );
 }

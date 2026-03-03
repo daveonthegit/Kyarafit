@@ -1,60 +1,7 @@
 services:
-  # Local postgres disabled - using Supabase instead
-  # Uncomment below if you want to use local postgres for development
-  # postgres:
-  #   image: postgres:15-alpine
-  #   environment:
-  #     POSTGRES_DB: kyarafit
-  #     POSTGRES_USER: kyarafit
-  #     POSTGRES_PASSWORD: kyarafit
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U kyarafit"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      - PORT=8080
-      - HOST=0.0.0.0
-      # Database - loaded from .env file (required)
-      - DATABASE_URL=${DATABASE_URL}
-      - MIGRATIONS_PATH=/root/migrations
-      # Supabase configuration - loaded from .env file (required)
-      - SUPABASE_URL=${SUPABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      # JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      # CORS configuration
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8081,http://127.0.0.1:3000,http://127.0.0.1:8081}
-      # SMTP configuration (optional - app starts without these)
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USERNAME=${SMTP_USERNAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - SMTP_FROM=${SMTP_FROM}
-      # Application URL (for email links)
-      - APP_URL=${APP_URL:-http://localhost:3000}
-      # Image service
-      - IMAGE_SERVICE_URL=http://image-service:8000
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+  # image-service: Python background removal service (optional)
+  # This is the only service needed for local development.
+  # Database and auth are handled by Convex (cloud).
   image-service:
     build:
       context: ./image-service
@@ -69,6 +16,3 @@ networks:
       config:
         - subnet: 172.20.0.0/16
         - subnet: 2001:db8:1::/64
-
-volumes:
-  postgres_data:

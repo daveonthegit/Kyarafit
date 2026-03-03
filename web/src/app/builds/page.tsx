@@ -1,23 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "convex/react";
 import Link from "next/link";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
-import { fetchBuilds } from "@/lib/api/builds";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 
 type TabFilter = "current" | "archived" | "planning" | "completed";
 
 export default function BuildsPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("current");
-  const { data: builds = [], isLoading } = useQuery({
-    queryKey: ["builds"],
-    queryFn: fetchBuilds,
-  });
+  const { userId } = useCurrentUser();
+  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+  const isLoading = builds === undefined;
 
-  // Map tabs to build statuses
   const getStatusForTab = (tab: TabFilter): BuildStatus | null => {
     switch (tab) {
       case "current":
@@ -27,13 +26,13 @@ export default function BuildsPage() {
       case "completed":
         return "ready";
       case "archived":
-        return null; // No archived status yet
+        return null;
     }
   };
 
   const filteredBuilds = builds.filter((b) => {
     const targetStatus = getStatusForTab(activeTab);
-    if (targetStatus === null) return false; // Archived - empty for now
+    if (targetStatus === null) return false;
     return b.status === targetStatus;
   });
 
@@ -71,7 +70,7 @@ export default function BuildsPage() {
       </nav>
 
       <main className="flex-1 px-6 pb-32 mt-6">
-        {isLoading && <p className="meta-label">Loading…</p>}
+        {isLoading && <p className="meta-label">Loading...</p>}
         {!isLoading && builds.length === 0 && (
           <p className="text-sm text-kyar-meta">
             No builds yet. Create one to link closet items and use them in convention packing.
@@ -87,7 +86,7 @@ export default function BuildsPage() {
               b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
 
             return (
-              <section key={b.id}>
+              <section key={b._id}>
                 <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-6">
                   {b.imageUrl ? (
                     <img alt={b.name} src={b.imageUrl} className="w-full h-full object-cover" />
@@ -130,7 +129,7 @@ export default function BuildsPage() {
                       )}
                     </div>
                     <Link
-                      href={`/build-detail?id=${b.id}`}
+                      href={`/build-detail?id=${b._id}`}
                       className="text-[11px] font-medium underline underline-offset-4 tracking-tighter hover:opacity-70"
                     >
                       View Details

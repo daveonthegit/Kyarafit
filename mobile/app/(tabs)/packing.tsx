@@ -1,56 +1,156 @@
 import { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type { Convention, PackingListItem } from "@kyarafit/design-system/types";
 import { listConventions } from "../../src/storage/conventionsRepo";
 import { getPacking, toggleChecked } from "../../src/storage/packingRepo";
-import { getSyncPendingCount } from "../../src/services/sync";
 import { ChecklistRow } from "../../src/components/ui/ChecklistRow";
+import { useCurrentUser } from "../../src/hooks/useCurrentUser";
+
+/** Minimal convention shape for rendering */
+type ConventionRow = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  location?: string;
+};
+
+/** Minimal packing item shape for rendering */
+type PackingRow = {
+  id: string;
+  conventionId: string;
+  label: string;
+  checked: boolean;
+  date?: string;
+  buildId?: string;
+  closetItemId?: string;
+};
 
 export default function PackingScreen() {
   const params = useLocalSearchParams<{ conventionId?: string }>();
-  const [conventions, setConventions] = useState<Convention[]>([]);
+  const { userId } = useCurrentUser();
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [items, setItems] = useState<PackingListItem[]>([]);
-  const [syncPending, setSyncPending] = useState(0);
 
   useEffect(() => {
     if (params.conventionId) setSelectedId(params.conventionId);
   }, [params.conventionId]);
 
-  const load = useCallback(async () => {
-    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
-    setConventions(list);
-    setSyncPending(pending);
-    if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
-  }, [selectedId]);
+  // ─── Cloud path (Convex) ───────────────────────────────────────────────────
+  const convexConventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
+  const convexPacking = useQuery(
+    api.conventions.getPacking,
+    userId && selectedId ? { conventionId: selectedId as Id<"conventions"> } : "skip"
+  );
+  const updatePackingItem = useMutation(api.conventions.updatePackingItem);
+
+  // ─── Local path (SQLite) ───────────────────────────────────────────────────
+  const [localConventions, setLocalConventions] = useState<ConventionRow[]>([]);
+  const [localItems, setLocalItems] = useState<PackingRow[]>([]);
+  const [localLoading, setLocalLoading] = useState(!userId);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      if (!userId) {
+        setLocalLoading(true);
+        listConventions().then((list) => {
+          setLocalConventions(
+            list.map((c) => ({
+              id: c.id,
+              name: c.name,
+              startDate: c.startDate,
+              endDate: c.endDate,
+              location: c.location,
+            }))
+          );
+          setLocalLoading(false);
+          if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
+        });
+      }
+    }, [userId, selectedId])
   );
 
   useEffect(() => {
-    if (!selectedId) {
-      setItems([]);
-      return;
+    if (!userId && selectedId) {
+      getPacking(selectedId).then((list) => {
+        setLocalItems(
+          list.map((p) => ({
+            id: p.id,
+            conventionId: p.conventionId,
+            label: p.label,
+            checked: p.checked,
+            date: p.date ?? undefined,
+            buildId: p.buildId ?? undefined,
+            closetItemId: p.closetItemId ?? undefined,
+          }))
+        );
+      });
     }
-    getPacking(selectedId).then(setItems);
-  }, [selectedId]);
+  }, [userId, selectedId]);
 
-  const handleToggle = useCallback(async (item: PackingListItem) => {
-    const updated = await toggleChecked(item.id);
-    if (updated) setItems((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
-  }, []);
+  // ─── Unified data ──────────────────────────────────────────────────────────
+  const isCloud = !!userId;
 
-  const convention = conventions.find((c) => c.id === selectedId);
+  const conventions: ConventionRow[] = isCloud
+    ? (convexConventions ?? []).map((c) => ({
+        id: c._id as string,
+        name: c.name,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        location: c.location,
+      }))
+    : localConventions;
 
-  // Group items: General (no date), then by date/build
+  const items: PackingRow[] = isCloud
+    ? (convexPacking ?? []).map((p) => ({
+        id: p._id as string,
+        conventionId: p.conventionId as string,
+        label: p.label,
+        checked: p.checked,
+        date: p.date,
+        buildId: p.buildId as string | undefined,
+        closetItemId: p.closetItemId as string | undefined,
+      }))
+    : localItems;
+
+  const loading = isCloud
+    ? convexConventions === undefined || (!!selectedId && convexPacking === undefined)
+    : localLoading;
+
+  // Auto-select first convention when list loads
+  useEffect(() => {
+    if (conventions.length > 0 && !selectedId) {
+      setSelectedId(conventions[0].id);
+    }
+  }, [conventions, selectedId]);
+
+  const handleToggle = useCallback(
+    async (item: PackingRow) => {
+      if (isCloud && userId) {
+        await updatePackingItem({
+          id: item.id as Id<"packingListItems">,
+          userId,
+          checked: !item.checked,
+        });
+      } else {
+        const updated = await toggleChecked(item.id);
+        if (updated) {
+          setLocalItems((prev) =>
+            prev.map((p) => (p.id === item.id ? { ...p, checked: updated.checked } : p))
+          );
+        }
+      }
+    },
+    [isCloud, userId, updatePackingItem]
+  );
+
+  // Group items: General (no date/build), then by date
   const general = items.filter((i) => !i.date && !i.buildId);
-  const byDate = new Map<string, PackingListItem[]>();
+  const byDate = new Map<string, PackingRow[]>();
   for (const i of items.filter((i) => i.date || i.buildId)) {
     const key = i.date ?? "general";
     if (!byDate.has(key)) byDate.set(key, []);
@@ -65,7 +165,7 @@ export default function PackingScreen() {
           <Text style={styles.metaLabel}>Logistics</Text>
           <Text style={styles.title}>Packing List</Text>
         </View>
-        {syncPending > 0 && <Text style={styles.syncLabel}>SYNC PENDING</Text>}
+        {isCloud && <Text style={styles.syncLabel}>CLOUD SYNC ON</Text>}
       </View>
 
       <View style={styles.selectorRow}>
@@ -100,11 +200,12 @@ export default function PackingScreen() {
             Create a convention and generate a packing list from the Plan tab.
           </Text>
         )}
-        {selectedId && items.length === 0 && (
+        {selectedId && !loading && items.length === 0 && (
           <Text style={styles.meta}>
             No packing list yet. Generate one from the convention detail (Plan tab).
           </Text>
         )}
+        {loading && <Text style={styles.meta}>Loading…</Text>}
         {selectedId && items.length > 0 && (
           <>
             {general.length > 0 && (

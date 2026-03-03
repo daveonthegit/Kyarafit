@@ -21,7 +21,6 @@ import {
 } from "@kyarafit/design-system/types";
 import { UnderlineInput } from "../src/components/ui/UnderlineInput";
 import { upsertItem } from "../src/storage/closetRepo";
-import { enqueue } from "../src/storage/outboxRepo";
 
 function generateId(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -97,7 +96,6 @@ export default function AddItemScreen() {
       updatedAt: now,
     };
     await upsertItem(item);
-    await enqueue("upsert", { item });
     setSaving(false);
     router.back();
   };

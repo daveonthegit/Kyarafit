@@ -1,15 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "convex/react";
 import Link from "next/link";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { fetchConventions } from "@/lib/api/conventions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 
 export default function ConventionsPage() {
-  const { data: conventions = [], isLoading } = useQuery({
-    queryKey: ["conventions"],
-    queryFn: fetchConventions,
-  });
+  const { userId } = useCurrentUser();
+  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
+  const isLoading = conventions === undefined;
 
   return (
     <div className="min-h-screen flex flex-col pb-32">
@@ -26,7 +26,7 @@ export default function ConventionsPage() {
           NEW CONVENTION
         </Link>
 
-        {isLoading && <p className="meta-label">Loading…</p>}
+        {isLoading && <p className="meta-label">Loading...</p>}
         {!isLoading && conventions.length === 0 && (
           <p className="text-sm text-kyar-meta">
             No conventions yet. Create one to plan days and generate packing lists.
@@ -34,9 +34,9 @@ export default function ConventionsPage() {
         )}
         <ul className="space-y-0">
           {conventions.map((c) => (
-            <li key={c.id}>
+            <li key={c._id}>
               <Link
-                href={`/conventions/${c.id}`}
+                href={`/conventions/${c._id}`}
                 className="flex items-center gap-3 py-5 border-b border-kyar-borderSubtle hover:opacity-80"
               >
                 <span className="flex-1 font-serif text-xl font-bold italic">{c.name}</span>

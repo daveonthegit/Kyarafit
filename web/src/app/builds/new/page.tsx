@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createBuild } from "@/lib/api/builds";
+import { useMutation } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 
@@ -12,30 +13,30 @@ const STATUSES: BuildStatus[] = ["idea", "wip", "ready"];
 
 export default function NewBuildPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
+  const createBuild = useMutation(api.builds.create);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
   const [imageUrl, setImageUrl] = useState("");
   const [budgetCents, setBudgetCents] = useState<string>("");
+  const [isPending, setIsPending] = useState(false);
 
-  const create = useMutation({
-    mutationFn: () =>
-      createBuild({
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !imageUrl.trim() || !userId) return;
+    setIsPending(true);
+    try {
+      const build = await createBuild({
+        userId,
         name: name.trim(),
         status,
         imageUrl: imageUrl.trim(),
         budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
-      }),
-    onSuccess: (b) => {
-      queryClient.invalidateQueries({ queryKey: ["builds"] });
-      router.push(`/build-detail?id=${b.id}`);
-    },
-  });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !imageUrl.trim()) return;
-    create.mutate();
+      });
+      if (build) router.push(`/build-detail?id=${build._id}`);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -105,7 +106,7 @@ export default function NewBuildPage() {
           </div>
           <button
             type="submit"
-            disabled={create.isPending || !name.trim() || !imageUrl.trim()}
+            disabled={isPending || !name.trim() || !imageUrl.trim()}
             className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
             CREATE BUILD

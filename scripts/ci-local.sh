@@ -46,7 +46,8 @@ echo "========================================"
 
 run_check "Prettier format check" npm run format:check
 
-run_check "Go format check (gofmt)" bash -c "cd backend && test -z \"\$(gofmt -s -l . | grep -v vendor)\""
+# Go backend is archived — skip Go format check
+echo -e "${YELLOW}⚠️  Go backend archived, skipping Go format check${NC}"
 
 if command -v black &> /dev/null; then
     run_check "Python format check (black)" bash -c "cd image-service && black --check ."
@@ -69,13 +70,8 @@ run_check "Web linting" npm run lint:web
 
 run_check "Mobile linting" npm run lint:mobile
 
-run_check "Go linting (go vet)" bash -c "cd backend && go vet ./..."
-
-if command -v golangci-lint &> /dev/null; then
-    run_check "Go linting (golangci-lint)" bash -c "cd backend && golangci-lint run"
-else
-    echo -e "${YELLOW}⚠️  golangci-lint not installed, skipping${NC}"
-fi
+# Go backend is archived — skip Go lint checks
+echo -e "${YELLOW}⚠️  Go backend archived, skipping Go vet and golangci-lint${NC}"
 
 if command -v flake8 &> /dev/null; then
     run_check "Python linting (flake8)" bash -c "cd image-service && flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics"
@@ -99,7 +95,8 @@ echo "========================================"
 
 run_check "Web build" bash -c "npm run build:web 2>&1 | tee /tmp/web-build.log; if grep -q '✓ Generating static pages' /tmp/web-build.log; then exit 0; else exit 1; fi"
 
-run_check "Backend build" bash -c "cd backend && CGO_ENABLED=0 go build -o main ."
+# Go backend is archived — skip backend build
+echo -e "${YELLOW}⚠️  Go backend archived, skipping backend build${NC}"
 
 if command -v python3 &> /dev/null; then
     run_check "Image service compile check" bash -c "cd image-service && python3 -m compileall ."
@@ -112,17 +109,8 @@ echo "========================================"
 echo "🧪 Testing"
 echo "========================================"
 
-# Check if Docker is running (needed for backend tests)
-if docker info &> /dev/null; then
-    echo -e "${BLUE}Docker is running, starting services for tests...${NC}"
-    docker-compose up -d postgres redis || echo -e "${YELLOW}⚠️  Could not start Docker services${NC}"
-    sleep 3
-    
-    run_check "Backend tests" bash -c "cd backend && DATABASE_URL='postgres://postgres:postgres@localhost:5432/kyarafit_test?sslmode=disable' REDIS_URL='redis://localhost:6379' JWT_SECRET='test-secret' go test ./..."
-else
-    echo -e "${YELLOW}⚠️  Docker not running, skipping backend tests${NC}"
-    echo "   To run backend tests: docker-compose up -d && make test-backend"
-fi
+# Go backend is archived — skip backend tests
+echo -e "${YELLOW}⚠️  Go backend archived, skipping backend tests${NC}"
 
 run_check "Web tests" npm run test -w web || echo -e "${YELLOW}⚠️  No web tests configured yet${NC}"
 

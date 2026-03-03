@@ -1,78 +1,57 @@
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Session } from "@supabase/supabase-js";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
+import { bearerStoragePlugin } from "./bearer-storage-plugin";
 
-export const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  }
-);
+const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
 
+export const authClient = createAuthClient({
+  baseURL: CONVEX_SITE_URL ? `${CONVEX_SITE_URL}/auth` : undefined,
+  plugins: [convexClient(), bearerStoragePlugin()],
+});
+
+export { setStoredBearerToken } from "./bearer-storage-plugin";
+
+interface SessionData {
+  user: { id: string; name: string; email: string; image?: string } | null;
+}
+
+/**
+ * React hook that provides the current session state.
+ * Keeps the same API shape as the old Supabase hook.
+ */
 export function useSession() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  return { data: session, isPending: loading, session, loading };
+  const { data, isPending } = authClient.useSession();
+  return {
+    data,
+    isPending,
+    session: data,
+    loading: isPending,
+  };
 }
 
-export async function getSession() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session;
+/** Get current session (async, non-hook). */
+export async function getSession(): Promise<SessionData | null> {
+  const { data } = await authClient.getSession();
+  return data;
 }
 
-/** Token for backend API (sync). Anonymous returns null → no sync attempts. */
+/** Token for backend API sync. Returns null if not authenticated. */
 export async function getTokenForSync(): Promise<string | null> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
+  return null;
 }
 
 export const signIn = {
-  email: async ({ email, password }: { email: string; password: string }) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
-  },
-};
-
-export const signUp = {
-  email: async ({ email, password }: { email: string; password: string }) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    return { error };
+  social: async ({
+    provider,
+    callbackURL,
+  }: {
+    provider: "google" | "github";
+    callbackURL?: string;
+  }) => {
+    return authClient.signIn.social({ provider, callbackURL });
   },
 };
 
 export async function signOut() {
-  await supabase.auth.signOut();
+  await authClient.signOut();
 }

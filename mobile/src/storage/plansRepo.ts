@@ -1,5 +1,5 @@
 /**
- * Local convention day plans repository. Offline-first; enqueue outbox for sync.
+ * Local convention day plans repository. Offline-first; anonymous users only.
  */
 
 import type { ConventionDayPlan, DayPlanEntry } from "@kyarafit/design-system/types";
@@ -50,6 +50,9 @@ export async function setPlan(
       notes: e.notes,
     });
   }
-  await enqueue("convention.plan.replace", { conventionId, plan });
+  await enqueue("convention.plan.replace", {
+    conventionLocalId: conventionId,
+    plan: plan.map((e) => ({ date: e.date, buildLocalId: e.buildId ?? null, notes: e.notes })),
+  });
   return result;
 }

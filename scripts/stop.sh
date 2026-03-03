@@ -1,20 +1,53 @@
 #!/usr/bin/env bash
-# Stop Docker and dev servers (web on 3000, Expo on 19000).
+# Stop Docker services and any dev-server processes on known ports.
+# Ports:
+#   3000  - Next.js web
+#   8000  - Image service (Docker / FastAPI)
+#   8081  - Expo Metro bundler
+#   8082  - Expo Metro (fallback)
+#   19000 - Expo Go
+#   19001 - Expo DevTools
+#   19002 - Expo web DevTools
 
-set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "[stop] Stopping Docker services..."
-docker compose down
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+GRAY='\033[0;90m'
+NC='\033[0m'
 
-echo "[stop] Stopping dev servers (3000=web, 8081=Metro, 19000=Expo)..."
-for port in 3000 8081 19000; do
-  pid=$(lsof -ti ":$port" 2>/dev/null || true)
-  if [ -n "$pid" ]; then
-    echo "[stop] Killing process on port $port (PID: $pid)"
-    kill $pid 2>/dev/null || true
+kill_port() {
+  local port="$1"
+  local pids
+  # lsof covers macOS + Linux; fuser is a common fallback on Linux
+  if command -v lsof &>/dev/null; then
+    pids=$(lsof -ti ":$port" 2>/dev/null || true)
+  elif command -v fuser &>/dev/null; then
+    pids=$(fuser "$port/tcp" 2>/dev/null | tr ' ' '\n' || true)
   fi
-done
 
-echo "[stop] Done."
+  if [ -n "$pids" ]; then
+    for pid in $pids; do
+      echo -e "${YELLOW}[stop]${NC} Killing PID $pid on port $port"
+      kill -9 "$pid" 2>/dev/null || true
+    done
+  else
+    echo -e "${GRAY}[stop]${NC} Port $port is free"
+  fi
+}
+
+echo -e "${GRAY}[stop]${NC} Stopping Docker services..."
+docker compose down 2>/dev/null || true
+
+echo -e "${GRAY}[stop]${NC} Freeing ports..."
+kill_port 3000   # Next.js web
+kill_port 8000   # Image service
+kill_port 8081   # Expo Metro
+kill_port 8082   # Expo Metro fallback
+kill_port 19000  # Expo Go
+kill_port 19001  # Expo DevTools
+kill_port 19002  # Expo web DevTools
+
+echo -e "${GREEN}[stop]${NC} Done."

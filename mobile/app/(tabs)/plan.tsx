@@ -1,31 +1,65 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type { Convention } from "@kyarafit/design-system/types";
 import { listConventions } from "../../src/storage/conventionsRepo";
-import { getSyncPendingCount } from "../../src/services/sync";
+import { useCurrentUser } from "../../src/hooks/useCurrentUser";
+
+/** Minimal convention shape for rendering */
+type ConventionRow = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  location?: string;
+};
 
 export default function PlanScreen() {
   const router = useRouter();
-  const [conventions, setConventions] = useState<Convention[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncPending, setSyncPending] = useState(0);
+  const { userId } = useCurrentUser();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [list, pending] = await Promise.all([listConventions(), getSyncPendingCount()]);
-    setConventions(list);
-    setSyncPending(pending);
-    setLoading(false);
-  }, []);
+  // Cloud data (Convex) — used when signed in
+  const convexConventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
+
+  // Local data (SQLite) — used when anonymous
+  const [localConventions, setLocalConventions] = useState<ConventionRow[]>([]);
+  const [localLoading, setLocalLoading] = useState(!userId);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      if (!userId) {
+        setLocalLoading(true);
+        listConventions().then((list) => {
+          setLocalConventions(
+            list.map((c) => ({
+              id: c.id,
+              name: c.name,
+              startDate: c.startDate,
+              endDate: c.endDate,
+              location: c.location,
+            }))
+          );
+          setLocalLoading(false);
+        });
+      }
+    }, [userId])
   );
+
+  const isCloud = !!userId;
+  const loading = isCloud ? convexConventions === undefined : localLoading;
+
+  const conventions: ConventionRow[] = isCloud
+    ? (convexConventions ?? []).map((c) => ({
+        id: c._id as string,
+        name: c.name,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        location: c.location,
+      }))
+    : localConventions;
 
   return (
     <View style={styles.container}>
@@ -33,9 +67,7 @@ export default function PlanScreen() {
         <View style={styles.header}>
           <Text style={styles.metaLabel}>Circuit</Text>
           <Text style={styles.title}>Conventions</Text>
-          {syncPending > 0 && (
-            <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
-          )}
+          {isCloud && <Text style={styles.syncLabel}>SYNCED TO CLOUD</Text>}
         </View>
 
         <View style={styles.actions}>

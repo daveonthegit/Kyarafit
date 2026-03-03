@@ -20,7 +20,10 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "convex/_generated/api": ["../convex/_generated/api"],
+      "convex/_generated/dataModel": ["../convex/_generated/dataModel"],
+      "convex/_generated/server": ["../convex/_generated/server"]
     }
   },
   "include": [

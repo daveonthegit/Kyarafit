@@ -6,11 +6,10 @@
 
 ### Core Features
 
-- **Closet Management**: Upload and organize costume pieces, wigs, and props with AI-powered cutouts
+- **Closet Management**: Upload and organize costume pieces, wigs, and props
 - **Build Tracking**: Track cosplay builds from idea to completion with progress milestones
-- **Coord Builder**: Design outfits using a drag-and-drop layered canvas
 - **Convention Planning**: Generate packing lists and day-by-day cosplay schedules
-- **Notifications**: Push notifications and offline functionality during conventions
+- **Offline Support**: Mobile works fully offline; syncs to cloud via Convex when signed in
 
 ### Target Users
 
@@ -24,435 +23,260 @@
 
 ### Tech Stack
 
-- **Mobile**: React Native + Expo
-- **Web**: Next.js (landing page + optional desktop UI)
-- **Backend**: Go + Fiber framework
-- **Database**: PostgreSQL with pgvector for similarity search
-- **Image Processing**: Python FastAPI + rembg / Segment Anything Model
-- **Infrastructure**: Dockerized services deployed on Fly.io and Render
-- **CDN**: Cloudflare Images
-- **Notifications**: Expo Push Notifications
+| Layer         | Technology                                                   |
+| ------------- | ------------------------------------------------------------ |
+| Database      | [Convex](https://convex.dev) (document DB, real-time)        |
+| Auth          | [Better Auth](https://better-auth.com) (Google/GitHub OAuth) |
+| Web           | Next.js 15 (App Router), TailwindCSS                         |
+| Mobile        | React Native + Expo, local SQLite (offline-first)            |
+| Image Service | Python + rembg (optional background removal)                 |
+| Design System | Shared TypeScript types and design tokens                    |
 
 ### Project Structure
 
 ```
-Kyarafit/
-├── mobile/                 # React Native + Expo mobile app
-├── web/                   # Next.js web application
-├── backend/               # Go + Fiber API server
-├── image-service/         # Python FastAPI image processing
-├── docker-compose.yml     # Local development environment
-├── setup.sh              # Development setup script
-├── deploy/               # Deployment configurations
-└── .github/workflows/    # CI/CD pipelines
+kyarafit/
+├── convex/                   # Backend: database schema, queries, mutations
+│   ├── schema.ts             # All table definitions
+│   ├── closetItems.ts        # Closet CRUD (list, get, create, update, remove)
+│   ├── builds.ts             # Builds CRUD + linkItems, getItems
+│   ├── buildTasks.ts         # Build task checklist CRUD
+│   ├── conventions.ts        # Conventions + day plans + packing list
+│   ├── users.ts              # User profile (getMe, upsert)
+│   ├── files.ts              # File upload/download helpers
+│   ├── auth.ts               # getCurrentUser identity query
+│   ├── auth.config.ts        # Better Auth registration
+│   ├── convex.config.ts      # Component registration
+│   ├── http.ts               # HTTP router for auth routes
+│   └── betterAuth/           # Better Auth as a Convex component
+│       ├── auth.ts           # OAuth provider config, Convex DB adapter
+│       ├── schema.ts         # Auth tables (user, session, account, verification)
+│       └── adapter.ts        # CRUD operations for auth
+├── web/                      # Next.js web application
+│   ├── src/app/              # App Router pages
+│   ├── src/components/       # React components
+│   │   ├── AuthGate.tsx      # Client-side route protection
+│   │   └── ConvexClientProvider.tsx  # ConvexBetterAuthProvider wrapper
+│   ├── src/hooks/            # Custom hooks (useCurrentUser)
+│   └── src/lib/auth/         # Better Auth helpers (auth-client, auth-server)
+├── mobile/                   # React Native + Expo app
+│   ├── app/                  # Expo Router screens
+│   └── src/                  # Storage, auth, components
+├── image-service/            # Python background removal (optional)
+├── design-system/            # Shared TypeScript types and tokens
+├── backend-archived/         # Archived Go Fiber backend (no longer active)
+└── docs/                     # Documentation
 ```
 
 ---
 
-## Current Implementation Status
+## Data Model (Convex)
 
-### Completed Features
+All documents include `userId: string` for authorization. Every query/mutation checks ownership.
 
-#### 1. Project Infrastructure
+### closetItems
 
-- **Repository setup** with proper folder structure
-- **CI/CD pipelines** for all services (GitHub Actions)
-- **Docker Compose** for local development
-- **Deployment configs** for Fly.io and Render
-- **Database migrations** with PostgreSQL schema
+| Field     | Type                                                                       |
+| --------- | -------------------------------------------------------------------------- |
+| userId    | string                                                                     |
+| name      | string                                                                     |
+| category  | "wig" \| "prop" \| "armor" \| "garment" \| "shoe" \| "material" \| "other" |
+| tags      | string[]                                                                   |
+| notes     | string? (optional)                                                         |
+| imageUrl  | string? (optional)                                                         |
+| costCents | number? (optional)                                                         |
 
-#### 2. Authentication System
+Indexes: `by_userId`
 
-- **BetterAuth integration** for web and mobile
-- **JWT token validation** in backend
-- **User management** with Prisma ORM
-- **Protected routes** with middleware
+### builds
 
-#### 3. Database Schema
+| Field        | Type                           |
+| ------------ | ------------------------------ |
+| userId       | string                         |
+| name         | string                         |
+| status       | "idea" \| "wip" \| "ready"     |
+| character    | string? (optional)             |
+| notes        | string? (optional)             |
+| imageUrl     | string? (optional)             |
+| budgetCents  | number? (optional)             |
+| targetDate   | string? (optional, YYYY-MM-DD) |
+| tasksChecked | number (derived/cached)        |
+| tasksTotal   | number (derived/cached)        |
 
-- **Users table** with authentication fields
-- **Pieces table** for costume pieces and accessories
-- **Builds table** for cosplay project tracking
-- **BuildPieces table** for build-piece relationships
-- **WearLogs table** for outfit tracking
+Indexes: `by_userId`
 
-#### 4. Backend APIs
+### buildTasks
 
-##### Pieces API (`/api/v1/pieces`)
+| Field        | Type               |
+| ------------ | ------------------ |
+| userId       | string             |
+| buildId      | Id<"builds">       |
+| label        | string             |
+| checked      | boolean            |
+| sortOrder    | number             |
+| closetItemId | Id<"closetItems">? |
 
-- **CRUD operations**: Create, Read, Update, Delete
-- **Advanced filtering**: Category, search, pagination
-- **User isolation**: All operations scoped to authenticated user
-- **Validation**: Input sanitization and error handling
+Indexes: `by_buildId`, `by_userId`
 
-##### Builds API (`/api/v1/builds`)
+### buildItemLinks
 
-- **CRUD operations**: Complete project lifecycle management
-- **Status tracking**: 6-stage workflow (idea → sourcing → wip → complete)
-- **Priority system**: 1-5 scale for build prioritization
-- **Budget tracking**: Budget vs. spent amount monitoring
-- **Advanced filtering**: Status, priority, search, upcoming builds
-- **Statistics endpoint**: Dashboard-ready analytics
+| Field        | Type              |
+| ------------ | ----------------- |
+| buildId      | Id<"builds">      |
+| closetItemId | Id<"closetItems"> |
 
-#### 5. Frontend Applications
+Indexes: `by_buildId`, `by_closetItemId`
 
-##### Web Application (Next.js)
+### conventions
 
-- **Sakura-themed UI** with cherry blossom color palette
-- **Authentication pages** (sign-in/sign-up)
-- **Responsive design** with Tailwind CSS
-- **BetterAuth integration** for user management
+| Field     | Type                |
+| --------- | ------------------- |
+| userId    | string              |
+| name      | string              |
+| startDate | string (YYYY-MM-DD) |
+| endDate   | string (YYYY-MM-DD) |
+| location  | string? (optional)  |
 
-##### Mobile Application (React Native + Expo)
+Indexes: `by_userId`
 
-- **Cross-platform** iOS and Android support
-- **Authentication integration** with BetterAuth
-- **Expo configuration** for development and deployment
+### conventionDayPlans
 
-#### 6. Image Processing Service
+| Field        | Type                |
+| ------------ | ------------------- |
+| userId       | string              |
+| conventionId | Id<"conventions">   |
+| date         | string (YYYY-MM-DD) |
+| buildId      | Id<"builds">?       |
+| notes        | string?             |
 
-- **Python FastAPI** service for image processing
-- **Background removal** with rembg
-- **Docker containerization** for deployment
+Indexes: `by_conventionId`
 
----
+### packingListItems
 
-## Database Schema Details
+| Field        | Type               |
+| ------------ | ------------------ |
+| userId       | string             |
+| conventionId | Id<"conventions">  |
+| label        | string             |
+| checked      | boolean            |
+| date         | string?            |
+| buildId      | Id<"builds">?      |
+| closetItemId | Id<"closetItems">? |
+| isManual     | boolean            |
 
-### Users Table
-
-```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email CITEXT UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Pieces Table
-
-```sql
-CREATE TABLE pieces (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    image_url TEXT,
-    thumbnail_url TEXT,
-    category VARCHAR(100),
-    tags TEXT[],
-    source_link TEXT,
-    purchase_date DATE,
-    price DECIMAL(10,2),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Builds Table
-
-```sql
-CREATE TABLE builds (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    character VARCHAR(255),
-    series VARCHAR(255),
-    status VARCHAR(20) NOT NULL DEFAULT 'idea',
-    priority INTEGER CHECK (priority >= 1 AND priority <= 5),
-    budget DECIMAL(10,2),
-    spent DECIMAL(10,2),
-    start_date DATE,
-    target_date DATE,
-    completed_date DATE,
-    tags TEXT[],
-    notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
+Indexes: `by_conventionId`
 
 ---
 
-## API Endpoints Reference
+## Authentication
 
-### Pieces API
+Better Auth runs as a Convex HTTP component, handling Google OAuth (and optionally GitHub OAuth). There is no email/password auth.
 
-- `GET /api/v1/pieces` - Get all pieces (with filtering)
-- `POST /api/v1/pieces` - Create new piece
-- `GET /api/v1/pieces/{id}` - Get piece by ID
-- `PUT /api/v1/pieces/{id}` - Update piece
-- `DELETE /api/v1/pieces/{id}` - Delete piece
-- `GET /api/v1/pieces/categories` - Get available categories
+**Flow**: User clicks OAuth button → Better Auth redirects to provider → callback hits Convex HTTP action → session stored in Convex → `ConvexBetterAuthProvider` picks up token → all Convex queries run authenticated.
 
-### Builds API
-
-- `GET /api/v1/builds` - Get all builds (with filtering)
-- `POST /api/v1/builds` - Create new build
-- `GET /api/v1/builds/{id}` - Get build by ID
-- `PUT /api/v1/builds/{id}` - Update build
-- `DELETE /api/v1/builds/{id}` - Delete build
-- `GET /api/v1/builds/stats` - Get build statistics
-
-### Query Parameters
-
-- `limit` (optional): Number of items to return (default: 20, max: 100)
-- `offset` (optional): Number of items to skip (default: 0)
-- `search` (optional): Search in relevant fields
-- `category` (pieces only): Filter by category
-- `status` (builds only): Filter by build status
-- `priority` (builds only): Filter by priority (1-5)
-- `upcoming` (builds only): Get builds with approaching target dates
+See `docs/auth.md` for detailed flow, environment variables, and setup instructions.
 
 ---
 
-## Development Environment Setup
+## Convex Functions Reference
 
-### Prerequisites
+### closetItems
 
-- **Node.js** v18.17.0+ (use `nvm` for version management)
-- **Go** 1.21+
-- **Python** 3.9+
-- **Docker** and Docker Compose
-- **PostgreSQL** 15+
+- `api.closetItems.list({ userId })` — list all items for user
+- `api.closetItems.get({ id })` — get single item
+- `api.closetItems.create({ userId, name, category, ... })` — create item
+- `api.closetItems.update({ id, userId, ... })` — update item
+- `api.closetItems.remove({ id, userId })` — delete item
 
-### Quick Start
+### builds
 
-```bash
-# Clone and setup
-git clone <repository-url>
-cd Kyarafit
-chmod +x setup.sh
-./setup.sh
+- `api.builds.list({ userId })` — list all builds with task counts
+- `api.builds.get({ id })` — get single build
+- `api.builds.getItems({ buildId })` — list linked closet item IDs
+- `api.builds.create({ userId, name, status, ... })` — create build
+- `api.builds.update({ id, userId, ... })` — update build
+- `api.builds.remove({ id, userId })` — delete build + tasks + links
+- `api.builds.linkItems({ userId, buildId, closetItemIds })` — replace linked items
 
-# Start development environment
-docker-compose up -d postgres
-cd backend && go run main.go &
-cd web && npm run dev &
-cd mobile && npm start &
-cd image-service && python -m uvicorn main:app --reload &
-```
+### buildTasks
 
-### Environment Variables
+- `api.buildTasks.listByBuild({ buildId })` — list tasks for a build
+- `api.buildTasks.create({ userId, buildId, label, sortOrder })` — create task
+- `api.buildTasks.update({ id, userId, ... })` — update task (checked, closetItemId, label)
+- `api.buildTasks.remove({ id, userId })` — delete task
 
-```bash
-# Database
-DATABASE_URL=postgres://kyarafit:password@localhost:5433/kyarafit?sslmode=disable
-DB_HOST=localhost
-DB_PORT=5433
-DB_USER=kyarafit
-DB_PASSWORD=password
-DB_NAME=kyarafit
+### conventions
 
-# Server
-PORT=8080
-JWT_SECRET=your-super-secret-jwt-key-here
+- `api.conventions.list({ userId })` — list all conventions
+- `api.conventions.get({ id })` — get single convention
+- `api.conventions.getPlan({ conventionId })` — get day plans
+- `api.conventions.getPacking({ conventionId })` — get packing list items
+- `api.conventions.create({ userId, name, startDate, endDate, ... })` — create
+- `api.conventions.update({ id, userId, ... })` — update
+- `api.conventions.remove({ id, userId })` — delete convention + cascade
+- `api.conventions.replacePlan({ userId, conventionId, plan })` — replace day plan
+- `api.conventions.updatePackingItem({ id, userId, checked, label })` — toggle packing item
+- `api.conventions.addManualPackingItem({ userId, conventionId, label })` — add manual item
+- `api.conventions.regeneratePacking({ userId, conventionId })` — regenerate packing list
 
-# BetterAuth
-BETTER_AUTH_SECRET=your-betterauth-secret
-BETTER_AUTH_URL=http://localhost:3000/api/auth
+### auth
+
+- `api.auth.getCurrentUser()` — returns current user identity (subject, name, email)
+
+---
+
+## Web Application
+
+### Auth
+
+- `web/src/lib/auth/auth-client.ts` — `authClient` (useSession, signIn.social, signOut)
+- `web/src/lib/auth/auth-server.ts` — `getToken()` for SSR, `handler` for route
+- `web/src/app/api/auth/[...all]/route.ts` — auth routes (GET/POST)
+- `web/src/components/AuthGate.tsx` — redirects unauthenticated users to `/auth/signin`
+- `web/src/components/ConvexClientProvider.tsx` — `ConvexBetterAuthProvider` wrapping app
+
+### Data Access Pattern
+
+All pages use Convex hooks directly (no intermediate API layer):
+
+```tsx
+import { useQuery, useMutation } from "convex/react";
+import { api } from "convex/_generated/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+const { userId } = useCurrentUser();
+const items = useQuery(api.closetItems.list, userId ? { userId } : "skip");
+const create = useMutation(api.closetItems.create);
 ```
 
 ---
 
-## UI/UX Design System
+## Mobile Application
 
-### Color Palette (Sakura Theme)
+The mobile app uses **local SQLite** for offline-first storage (anonymous + free users). When signed in, the Convex client is available for cloud sync.
 
-- **Primary Pink**: `#f8b4d1` - Soft cherry blossom pink
-- **Deep Pink**: `#ec4899` - Rich sakura pink for accents
-- **Soft Pink**: `#fce7f3` - Gentle background pink
-- **Petal White**: `#fdf2f8` - Pure petal white
-- **Blossom Gold**: `#fbbf24` - Warm golden accent
-- **Lavender**: `#e0e7ff` - Soft purple accent
-- **Mint**: `#d1fae5` - Fresh green accent
-
-### Typography
-
-- **Primary Font**: Source Sans Pro
-- **Fallback**: system-ui, sans-serif
-
-### Component Classes
-
-- `.btn-primary` - Primary action buttons
-- `.btn-secondary` - Secondary action buttons
-- `.card` - Content containers
-- `.input` - Form inputs
-- `.navbar` - Navigation bar
-- `.gradient-primary` - Main gradient background
-- `.gradient-text` - Gradient text effects
+- Auth: `mobile/src/lib/auth/client.ts` — `authClient` (Better Auth + Convex plugin)
+- Local storage: `mobile/src/storage/` — SQLite repos for closet, builds, conventions, packing
+- The mobile screens currently use local SQLite repos; Convex cloud sync is wired via `ConvexBetterAuthProvider` in `_layout.tsx`
 
 ---
 
-## Current Development Status
+## Development Setup
 
-### Backend (Go + Fiber)
+See [README.md](../README.md) for full setup instructions.
 
-- ✅ **Database connection** with pgxpool
-- ✅ **JWT authentication** middleware
-- ✅ **Pieces CRUD API** with advanced filtering
-- ✅ **Builds CRUD API** with status tracking
-- ✅ **Error handling** and validation
-- ✅ **API documentation** with examples
+**Quick summary:**
 
-### Web App (Next.js)
-
-- ✅ **Sakura-themed UI** implementation
-- ✅ **Authentication pages** (sign-in/sign-up)
-- ✅ **BetterAuth integration**
-- ✅ **Responsive design** with Tailwind CSS
-- ✅ **Component library** with consistent styling
-
-### Mobile App (React Native + Expo)
-
-- ✅ **Cross-platform setup**
-- ✅ **BetterAuth integration**
-- ✅ **Authentication flow**
-- ✅ **Expo configuration**
-
-### Image Service (Python FastAPI)
-
-- ✅ **FastAPI setup**
-- ✅ **Docker containerization**
-- ✅ **Background removal** with rembg
-- ✅ **API endpoints** for image processing
+1. `npm install`
+2. `npx convex dev` (initializes Convex project, generates `.env.local`)
+3. Set OAuth credentials in Convex dashboard
+4. `npm run dev:web` + `npx convex dev` (two terminals)
 
 ---
 
-## Deployment Configuration
+## Code Standards
 
-### Fly.io Deployment
-
-- **Backend**: `fly.toml` configured for Go app
-- **Web**: `fly.toml` configured for Next.js app
-- **Image Service**: `fly.toml` configured for Python app
-- **GitHub Actions**: Automated deployment pipeline
-
-### Render Deployment
-
-- **render.yaml**: Multi-service configuration
-- **Environment variables**: Configured for production
-- **Health checks**: Implemented for all services
-
-### Docker Compose
-
-- **Local development**: PostgreSQL, Redis, all services
-- **Port mapping**: 5433 (PostgreSQL), 8080 (Backend), 3000 (Web)
-- **Volume persistence**: Database data persistence
-
----
-
-## Testing and Quality Assurance
-
-### Backend Testing
-
-- **API endpoints**: All CRUD operations tested
-- **Authentication**: JWT validation working
-- **Database operations**: All queries functional
-- **Error handling**: Comprehensive error responses
-
-### Frontend Testing
-
-- **Authentication flow**: Sign-in/sign-up working
-- **UI components**: Sakura theme applied
-- **Responsive design**: Mobile and desktop layouts
-- **API integration**: Ready for backend connection
-
-### CI/CD Pipeline
-
-- **Linting**: ESLint, Prettier, Go vet
-- **Testing**: Automated test execution
-- **Building**: Docker image creation
-- **Deployment**: Automated deployment to Fly.io/Render
-
----
-
-## Known Issues and Limitations
-
-### Current Issues
-
-1. **Database connection**: Fixed pgxpool context issue
-2. **Port conflicts**: PostgreSQL moved to port 5433
-3. **Node.js version**: Requires v18.17.0+ (use nvm)
-
-### Limitations
-
-1. **Authentication**: BetterAuth integration needs frontend connection
-2. **Image processing**: Service ready but not integrated with frontend
-3. **Mobile app**: Basic setup, needs feature implementation
-4. **Testing**: Manual testing only, no automated test suite
-
----
-
-## Next Development Priorities
-
-### Immediate Tasks
-
-1. **Frontend-Backend Integration**: Connect web app to APIs
-2. **Mobile App Features**: Implement core functionality
-3. **Image Upload**: Integrate image service with frontend
-4. **User Dashboard**: Create main application interface
-
-### Future Enhancements
-
-1. **BuildPieces API**: Link builds to specific pieces
-2. **WearLogs API**: Track outfit usage
-3. **Convention Planning**: Event and schedule management
-4. **Push Notifications**: Mobile notification system
-5. **AI Features**: Enhanced image processing and recommendations
-
----
-
-## Development Guidelines
-
-### Code Standards
-
-- **Go**: Follow standard Go conventions, use gofmt
-- **TypeScript/JavaScript**: Use ESLint and Prettier
-- **Python**: Follow PEP 8 standards
-- **Database**: Use parameterized queries, proper indexing
-
-### Git Workflow
-
-- **Main branch**: Production-ready code
-- **Feature branches**: New feature development
-- **Pull requests**: Code review required
-- **Commits**: Descriptive commit messages
-
-### API Design
-
-- **RESTful**: Follow REST conventions
-- **Consistent**: Uniform response formats
-- **Documented**: Comprehensive API documentation
-- **Versioned**: API versioning strategy
-
----
-
-## Contact and Resources
-
-### Documentation
-
-- **API Documentation**: `backend/API_DOCUMENTATION.md`
-- **Setup Guide**: `setup.sh` and `README.md`
-- **Deployment Guide**: `deploy/README.md`
-
-### Key Files
-
-- **Backend**: `backend/main.go`, `backend/handlers/`, `backend/models/`
-- **Web**: `web/src/app/`, `web/src/lib/auth/`
-- **Mobile**: `mobile/App.tsx`, `mobile/src/`
-- **Database**: `backend/migrations/`, `backend/database/`
-
-### Environment
-
-- **Development**: Local with Docker Compose
-- **Staging**: Fly.io deployment
-- **Production**: Render deployment
-- **Database**: PostgreSQL with migrations
-
----
-
-This context document provides a comprehensive overview of the Kyarafit project for any coding LLM. The project is well-structured with clear separation of concerns, modern tech stack, and comprehensive documentation. The backend APIs are fully functional, the frontend applications are set up with authentication, and the deployment pipeline is configured for both development and production environments.
+- **TypeScript**: Strict mode, no `any`, Zod for Convex input validation
+- **Formatting**: Prettier (all JS/TS/JSON/MD), gofmt (archived backend)
+- **Linting**: ESLint (web + mobile)
+- **CI**: Run `make validate` before pushing — zero failures expected

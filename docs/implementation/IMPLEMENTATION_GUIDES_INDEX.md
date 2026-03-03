@@ -8,11 +8,11 @@ Step-by-step implementation guides for each gap from the [final implementation p
 
 | Order | Guide                                                                            | Gap                                                                             |
 | ----- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| 1     | [BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md](BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md)     | Builds require image; builds list as card layout with progress and tabs         |
+| ~ 1   | [BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md](BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md)     | Builds require image; builds list as card layout with progress and tabs         |
 | 2     | [SEED_DATA_IMPLEMENTATION.md](SEED_DATA_IMPLEMENTATION.md)                       | Seed closet item + link to build                                                |
-| 3     | [WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md](WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md) | TaskChecklist on build detail; task create/update/delete and progress           |
-| 4     | [DRAG_DROP_IMPLEMENTATION.md](DRAG_DROP_IMPLEMENTATION.md)                       | Closet items → builds; tasks → closet items (assignment)                        |
-| 5     | [CONVENTION_ITINERARY.md](CONVENTION_ITINERARY.md)                               | Convention itinerary = convention tasks + build tasks from plan                 |
+| ~3    | [WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md](WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md) | TaskChecklist on build detail; task create/update/delete and progress           |
+| ~ 4   | [DRAG_DROP_IMPLEMENTATION.md](DRAG_DROP_IMPLEMENTATION.md)                       | Closet items → builds; tasks → closet items (assignment)                        |
+| ~5    | [CONVENTION_ITINERARY.md](CONVENTION_ITINERARY.md)                               | Convention itinerary = convention tasks + build tasks from plan                 |
 | 5b    | [PACKING_LIST.md](PACKING_LIST.md)                                               | Packing list: total progress, essentials, by-build sections, search, add item   |
 | 5c    | [PLANNING_VIEW.md](PLANNING_VIEW.md)                                             | Planner: timeframe, progress, deadline/other tasks, task–build–convention links |
 | 6     | [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md)                                   | Account Details, Subscription Plan, Notification Style; other menus             |

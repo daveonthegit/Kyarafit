@@ -3,12 +3,13 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
-import { fetchBuild, fetchBuildItems, fetchBuildTasks, updateBuildTask } from "@/lib/api/builds";
-import { fetchClosetItems } from "@/lib/api/closet";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
@@ -19,51 +20,25 @@ function formatCents(cents: number): string {
 export default function BuildDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
-  const queryClient = useQueryClient();
+  const id = searchParams.get("id") as Id<"builds"> | null;
+  const { userId } = useCurrentUser();
 
-  const { data: build, isLoading } = useQuery({
-    queryKey: ["build", id],
-    queryFn: () => fetchBuild(id!),
-    enabled: !!id,
-  });
-  const { data: closetItemIds = [] } = useQuery({
-    queryKey: ["build-items", id],
-    queryFn: () => fetchBuildItems(id!),
-    enabled: !!id,
-  });
-  const { data: closetItems = [] } = useQuery({
-    queryKey: ["closet", "items"],
-    queryFn: fetchClosetItems,
-  });
-  const { data: tasks = [] } = useQuery({
-    queryKey: ["build-tasks", id],
-    queryFn: () => fetchBuildTasks(id!),
-    enabled: !!id,
-  });
+  const build = useQuery(api.builds.get, id ? { id } : "skip");
+  const closetItemIds = useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ?? [];
+  const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
+  const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
-  const linkedItems = closetItems.filter((c) => closetItemIds.includes(c.id));
+  const updateTask = useMutation(api.buildTasks.update);
+
+  const linkedItems = closetItems.filter((c) => closetItemIds.includes(c._id));
   const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
 
-  // Task assignment mutation
-  const assignTask = useMutation({
-    mutationFn: ({ taskId, closetItemId }: { taskId: string; closetItemId: string | null }) =>
-      updateBuildTask(id!, taskId, { closetItemId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["build-tasks", id] });
-    },
-  });
-
-  // Handle drag end for task assignment
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const taskId = active.id as string;
-      const closetItemId = over.id as string;
-
-      // Assign task to closet item
-      assignTask.mutate({ taskId, closetItemId });
+    if (over && active.id !== over.id && userId) {
+      const taskId = active.id as Id<"buildTasks">;
+      const closetItemId = over.id as Id<"closetItems">;
+      updateTask({ id: taskId, userId, closetItemId });
     }
   };
 
@@ -78,10 +53,10 @@ export default function BuildDetailPage() {
     );
   }
 
-  if (isLoading) {
+  if (build === undefined) {
     return (
       <div className="min-h-screen flex flex-col pb-24 px-6 pt-12">
-        <p className="meta-label">Loading…</p>
+        <p className="meta-label">Loading...</p>
       </div>
     );
   }
@@ -101,16 +76,14 @@ export default function BuildDetailPage() {
   const tasksTotal = tasks.length;
   const completionPercent = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
 
-  // Calculate days until deadline
-  const getDaysRemaining = (targetDate: string | null | undefined) => {
+  const getDaysRemaining = (targetDate: string | undefined) => {
     if (!targetDate) return null;
     const target = new Date(targetDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     target.setHours(0, 0, 0, 0);
     const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const daysRemaining = getDaysRemaining(build.targetDate);
@@ -129,14 +102,12 @@ export default function BuildDetailPage() {
         </header>
 
         <main className="mt-20 mb-12">
-          {/* Hero image */}
           {build.imageUrl && (
             <div className="w-full aspect-[3/4] bg-gray-50 mb-6">
               <img src={build.imageUrl} alt={build.name} className="w-full h-full object-cover" />
             </div>
           )}
 
-          {/* Project overview */}
           <div className="px-6 mb-8">
             <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mb-2">
               {build.status}
@@ -149,7 +120,6 @@ export default function BuildDetailPage() {
             )}
           </div>
 
-          {/* Metrics / Summary */}
           <div className="px-6 mb-8 space-y-6">
             <div>
               <div className="flex justify-between items-end mb-2">
@@ -169,7 +139,6 @@ export default function BuildDetailPage() {
               </p>
             </div>
 
-            {/* Deadline */}
             {build.targetDate && daysRemaining !== null && (
               <div>
                 <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
@@ -211,15 +180,9 @@ export default function BuildDetailPage() {
             <p className="text-xs text-kyar-textTertiary mb-4 italic">
               Drag tasks onto closet items or click the link button to assign them
             </p>
-            <TaskChecklist
-              buildId={id}
-              tasks={tasks}
-              linkedItems={linkedItems}
-              enableDragDrop={true}
-            />
+            <TaskChecklist buildId={id} tasks={tasks} linkedItems={linkedItems} enableDragDrop />
           </section>
 
-          {/* Budget Tracker */}
           {build.budgetCents != null && (
             <section className="px-6 mb-12">
               <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
@@ -249,18 +212,6 @@ export default function BuildDetailPage() {
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="text-sm underline underline-offset-2 text-kyar-textSecondary hover:opacity-70"
-                  onClick={() => {
-                    // Navigate to expenses view (using linked items as expenses)
-                    alert(
-                      `Linked items total: ${formatCents(totalCostCents)}\n\nItems:\n${linkedItems.map((i) => `- ${i.name}: ${formatCents(i.costCents || 0)}`).join("\n")}`
-                    );
-                  }}
-                >
-                  View expenses breakdown
-                </button>
               </div>
             </section>
           )}
@@ -289,7 +240,7 @@ export default function BuildDetailPage() {
             )}
             <div className="grid grid-cols-2 gap-4">
               {linkedItems.map((item) => (
-                <DroppableClosetItem key={item.id} item={item}>
+                <DroppableClosetItem key={item._id} itemId={item._id}>
                   <div className="flex flex-col gap-2">
                     {item.imageUrl ? (
                       <div className="aspect-square bg-gray-50 overflow-hidden">
@@ -319,7 +270,6 @@ export default function BuildDetailPage() {
             </div>
           </section>
 
-          {/* Progress Photos - Placeholder for future implementation */}
           <section className="px-6 mb-12">
             <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
               Progress Photos
@@ -341,11 +291,10 @@ export default function BuildDetailPage() {
   );
 }
 
-// Droppable closet item component
-function DroppableClosetItem({ item, children }: { item: any; children: React.ReactNode }) {
+function DroppableClosetItem({ itemId, children }: { itemId: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: item.id,
-    data: { type: "closetItem", item },
+    id: itemId,
+    data: { type: "closetItem" },
   });
 
   return (

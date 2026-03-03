@@ -2,45 +2,26 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  fetchConvention,
-  fetchPacking,
-  updatePackingItem,
-  regeneratePacking,
-} from "@/lib/api/conventions";
+import { useQuery, useMutation } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { ChecklistRow } from "@/components/ui/ChecklistRow";
 
 export default function ConventionPackingPage() {
   const params = useParams();
-  const id = params.id as string;
-  const queryClient = useQueryClient();
+  const id = params.id as Id<"conventions">;
+  const { userId } = useCurrentUser();
 
-  const { data: convention } = useQuery({
-    queryKey: ["convention", id],
-    queryFn: () => fetchConvention(id),
-    enabled: !!id,
-  });
-  const { data: items = [] } = useQuery({
-    queryKey: ["convention-packing", id],
-    queryFn: () => fetchPacking(id),
-    enabled: !!id,
-  });
+  const convention = useQuery(api.conventions.get, id ? { id } : "skip");
+  const items = useQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
+  const updateItem = useMutation(api.conventions.updatePackingItem);
+  const regenerate = useMutation(api.conventions.regeneratePacking);
 
-  const updateItem = useMutation({
-    mutationFn: ({ itemId, checked }: { itemId: string; checked: boolean }) =>
-      updatePackingItem(itemId, { checked }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
-    },
-  });
-
-  const regenerate = useMutation({
-    mutationFn: () => regeneratePacking(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["convention-packing", id] });
-    },
-  });
+  const handleRegenerate = async () => {
+    if (!userId) return;
+    await regenerate({ userId, conventionId: id });
+  };
 
   const general = items.filter((i) => !i.date && !i.buildId);
   const byDate = new Map<string, typeof items>();
@@ -59,21 +40,20 @@ export default function ConventionPackingPage() {
         </Link>
         <div>
           <p className="meta-label">Packing</p>
-          <h1 className="font-serif text-2xl font-bold italic">{convention?.name ?? "…"}</h1>
+          <h1 className="font-serif text-2xl font-bold italic">{convention?.name ?? "..."}</h1>
         </div>
       </header>
 
       <main className="flex-1 px-6 py-8">
         <button
           type="button"
-          onClick={() => regenerate.mutate()}
-          disabled={regenerate.isPending}
+          onClick={handleRegenerate}
           className="w-full bg-black text-white py-3 text-[11px] font-bold uppercase tracking-wider mb-8 disabled:opacity-50"
         >
           REGENERATE LIST
         </button>
 
-        {items.length === 0 && !regenerate.isPending && (
+        {items.length === 0 && (
           <p className="text-sm text-kyar-meta">
             No packing list yet. Generate one from the convention plan.
           </p>
@@ -87,10 +67,13 @@ export default function ConventionPackingPage() {
             <div className="space-y-1">
               {general.map((item) => (
                 <ChecklistRow
-                  key={item.id}
+                  key={item._id}
                   label={item.label}
                   checked={item.checked}
-                  onToggle={() => updateItem.mutate({ itemId: item.id, checked: !item.checked })}
+                  onToggle={() => {
+                    if (!userId) return;
+                    updateItem({ id: item._id, userId, checked: !item.checked });
+                  }}
                 />
               ))}
             </div>
@@ -108,10 +91,13 @@ export default function ConventionPackingPage() {
               <div className="space-y-1">
                 {list.map((item) => (
                   <ChecklistRow
-                    key={item.id}
+                    key={item._id}
                     label={item.label}
                     checked={item.checked}
-                    onToggle={() => updateItem.mutate({ itemId: item.id, checked: !item.checked })}
+                    onToggle={() => {
+                      if (!userId) return;
+                      updateItem({ id: item._id, userId, checked: !item.checked });
+                    }}
                   />
                 ))}
               </div>

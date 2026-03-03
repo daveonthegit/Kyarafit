@@ -2,32 +2,76 @@ import { useCallback, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, Image } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import type { Build, BuildStatus } from "@kyarafit/design-system/types";
+import type { BuildStatus } from "@kyarafit/design-system/types";
 import { listBuilds } from "../../src/storage/buildsRepo";
+import { useCurrentUser } from "../../src/hooks/useCurrentUser";
 
 type TabFilter = "current" | "archived" | "planning" | "completed";
 
+/** Minimal build shape for rendering — avoids coupling to Go-era design-system types */
+type BuildRow = {
+  id: string;
+  name: string;
+  status: BuildStatus;
+  character?: string;
+  imageUrl?: string;
+  tasksChecked: number;
+  tasksTotal: number;
+};
+
 export default function BuildsScreen() {
   const router = useRouter();
-  const [builds, setBuilds] = useState<Build[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabFilter>("current");
+  const { userId } = useCurrentUser();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const list = await listBuilds();
-    setBuilds(list);
-    setLoading(false);
-  }, []);
+  // Cloud data (Convex) — used when signed in
+  const convexBuilds = useQuery(api.builds.list, userId ? { userId } : "skip");
+
+  // Local data (SQLite) — used when anonymous
+  const [localBuilds, setLocalBuilds] = useState<BuildRow[]>([]);
+  const [localLoading, setLocalLoading] = useState(!userId);
+
+  const [activeTab, setActiveTab] = useState<TabFilter>("current");
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      if (!userId) {
+        setLocalLoading(true);
+        listBuilds().then((list) => {
+          setLocalBuilds(
+            list.map((b) => ({
+              id: b.id,
+              name: b.name,
+              status: b.status as BuildStatus,
+              character: b.character,
+              imageUrl: b.imageUrl,
+              tasksChecked: b.tasksChecked ?? 0,
+              tasksTotal: b.tasksTotal ?? 0,
+            }))
+          );
+          setLocalLoading(false);
+        });
+      }
+    }, [userId])
   );
 
-  // Filter builds by tab
+  const isCloud = !!userId;
+  const loading = isCloud ? convexBuilds === undefined : localLoading;
+
+  const rawBuilds: BuildRow[] = isCloud
+    ? (convexBuilds ?? []).map((b) => ({
+        id: b._id as string,
+        name: b.name,
+        status: b.status as BuildStatus,
+        character: b.character,
+        imageUrl: b.imageUrl,
+        tasksChecked: b.tasksChecked ?? 0,
+        tasksTotal: b.tasksTotal ?? 0,
+      }))
+    : localBuilds;
+
   const getStatusForTab = (tab: TabFilter): BuildStatus | null => {
     switch (tab) {
       case "current":
@@ -37,11 +81,11 @@ export default function BuildsScreen() {
       case "completed":
         return "ready";
       case "archived":
-        return null; // No archived status yet
+        return null;
     }
   };
 
-  const filteredBuilds = builds.filter((b) => {
+  const filteredBuilds = rawBuilds.filter((b) => {
     const targetStatus = getStatusForTab(activeTab);
     if (targetStatus === null) return false;
     return b.status === targetStatus;
@@ -77,12 +121,12 @@ export default function BuildsScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {loading && <Text style={styles.meta}>Loading…</Text>}
-        {!loading && builds.length === 0 && (
+        {!loading && rawBuilds.length === 0 && (
           <Text style={styles.meta}>
             No builds yet. Create one to link closet items and use them in convention packing.
           </Text>
         )}
-        {!loading && filteredBuilds.length === 0 && builds.length > 0 && (
+        {!loading && filteredBuilds.length === 0 && rawBuilds.length > 0 && (
           <Text style={styles.meta}>No builds in this category.</Text>
         )}
         {filteredBuilds.map((b, index) => {
@@ -91,7 +135,6 @@ export default function BuildsScreen() {
 
           return (
             <View key={b.id} style={styles.card}>
-              {/* Build image */}
               <Pressable
                 onPress={() => router.push({ pathname: "/build-detail", params: { id: b.id } })}
               >
@@ -104,14 +147,12 @@ export default function BuildsScreen() {
                 )}
               </Pressable>
 
-              {/* Build info */}
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>{b.name}</Text>
                   <Text style={styles.cardProject}>PROJECT {projectNumber}</Text>
                 </View>
 
-                {/* Progress */}
                 <View style={styles.progressSection}>
                   <View style={styles.progressHeader}>
                     <Text style={styles.progressLabel}>CONSTRUCTION PROGRESS</Text>
@@ -122,7 +163,6 @@ export default function BuildsScreen() {
                   </View>
                 </View>
 
-                {/* Tags and details link */}
                 <View style={styles.cardFooter}>
                   <View style={styles.cardTags}>
                     <Text style={styles.cardTag}>{b.status}</Text>

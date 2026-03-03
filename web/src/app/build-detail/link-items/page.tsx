@@ -3,29 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ClosetItem } from "@kyarafit/design-system/types";
-import { fetchBuildItems, linkBuildItems } from "@/lib/api/builds";
-import { fetchClosetItems } from "@/lib/api/closet";
+import { useQuery, useMutation } from "convex/react";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 export default function BuildLinkItemsPage() {
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const id = searchParams.get("id") as Id<"builds"> | null;
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: closetItems = [] } = useQuery({
-    queryKey: ["closet", "items"],
-    queryFn: fetchClosetItems,
-  });
-  const { data: linkedIds = [] } = useQuery({
-    queryKey: ["build-items", id],
-    queryFn: () => fetchBuildItems(id!),
-    enabled: !!id,
-  });
+  const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
+  const linkedIds = useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ?? [];
+  const linkItemsMut = useMutation(api.builds.linkItems);
 
   useEffect(() => {
     if (linkedIds.length > 0) setSelectedIds(new Set(linkedIds));
@@ -40,26 +34,26 @@ export default function BuildLinkItemsPage() {
     });
   }, []);
 
-  const linkMutation = useMutation({
-    mutationFn: (ids: string[]) => linkBuildItems(id!, ids),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["build-items", id] });
-      queryClient.invalidateQueries({ queryKey: ["build", id] });
+  const [isSaving, setIsSaving] = useState(false);
+  const save = async () => {
+    if (!id || !userId) return;
+    setIsSaving(true);
+    try {
+      await linkItemsMut({
+        userId,
+        buildId: id,
+        closetItemIds: Array.from(selectedIds) as Id<"closetItems">[],
+      });
       router.push(`/build-detail?id=${id}`);
-    },
-  });
-
-  const save = () => {
-    if (!id) return;
-    linkMutation.mutate(Array.from(selectedIds));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && over.id === "build-drop-zone") {
       const itemId = active.id as string;
-      // Add the item to selectedIds
       setSelectedIds((prev) => {
         const next = new Set(prev);
         next.add(itemId);
@@ -93,7 +87,7 @@ export default function BuildLinkItemsPage() {
           <button
             type="button"
             onClick={save}
-            disabled={linkMutation.isPending}
+            disabled={isSaving}
             className="text-[10px] font-semibold uppercase tracking-widest text-black disabled:opacity-50"
           >
             Save
@@ -105,11 +99,7 @@ export default function BuildLinkItemsPage() {
             Select items to include in this build. They will appear in packing lists when this build
             is assigned to a day.
           </p>
-          <p className="text-xs text-kyar-textTertiary mb-6 italic">
-            Tip: Drag items onto the drop zone below to quickly add them
-          </p>
 
-          {/* Drop zone */}
           <DroppableBuildZone>
             <div className="flex items-center justify-center gap-2">
               <span className="material-symbols-outlined text-2xl">move_down</span>
@@ -130,10 +120,10 @@ export default function BuildLinkItemsPage() {
           <ul className="space-y-0 mt-6">
             {closetItems.map((item) => (
               <DraggableClosetItem
-                key={item.id}
+                key={item._id}
                 item={item}
-                isSelected={selectedIds.has(item.id)}
-                onToggle={() => toggle(item.id)}
+                isSelected={selectedIds.has(item._id)}
+                onToggle={() => toggle(item._id)}
               />
             ))}
           </ul>
@@ -145,18 +135,17 @@ export default function BuildLinkItemsPage() {
   );
 }
 
-// Draggable closet item component
 function DraggableClosetItem({
   item,
   isSelected,
   onToggle,
 }: {
-  item: ClosetItem;
+  item: { _id: string; name: string; category: string };
   isSelected: boolean;
   onToggle: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: item.id,
+    id: item._id,
     data: { type: "closetItem", item },
   });
 
@@ -185,7 +174,6 @@ function DraggableClosetItem({
   );
 }
 
-// Droppable build zone component
 function DroppableBuildZone({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "build-drop-zone",

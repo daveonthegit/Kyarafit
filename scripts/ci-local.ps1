@@ -48,16 +48,8 @@ Run-Check "Prettier format check" {
     npm run format:check
 }
 
-Run-Check "Go format check (gofmt)" {
-    Push-Location backend
-    $unformatted = gofmt -s -l . | Where-Object { $_ -notmatch "vendor" }
-    Pop-Location
-    if ($unformatted) {
-        Write-Host "Unformatted files:" -ForegroundColor Yellow
-        $unformatted | ForEach-Object { Write-Host "  $_" }
-        throw "Files need formatting"
-    }
-}
+# Go backend is archived - skip Go format check
+Write-Host "⚠️  Go backend archived, skipping Go format check" -ForegroundColor Yellow
 
 if (Get-Command black -ErrorAction SilentlyContinue) {
     Run-Check "Python format check (black)" {
@@ -92,21 +84,8 @@ Run-Check "Mobile linting" {
     npm run lint:mobile
 }
 
-Run-Check "Go linting (go vet)" {
-    Push-Location backend
-    go vet ./...
-    Pop-Location
-}
-
-if (Get-Command golangci-lint -ErrorAction SilentlyContinue) {
-    Run-Check "Go linting (golangci-lint)" {
-        Push-Location backend
-        golangci-lint run
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  golangci-lint not installed, skipping" -ForegroundColor Yellow
-}
+# Go backend is archived - skip Go lint checks
+Write-Host "⚠️  Go backend archived, skipping Go vet and golangci-lint" -ForegroundColor Yellow
 
 if (Get-Command flake8 -ErrorAction SilentlyContinue) {
     Run-Check "Python linting (flake8)" {
@@ -150,12 +129,8 @@ Run-Check "Web build" {
     }
 }
 
-Run-Check "Backend build" {
-    Push-Location backend
-    $env:CGO_ENABLED = "0"
-    go build -o main.exe .
-    Pop-Location
-}
+# Go backend is archived - skip backend build
+Write-Host "⚠️  Go backend archived, skipping backend build" -ForegroundColor Yellow
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
     Run-Check "Image service compile check" {
@@ -173,26 +148,8 @@ Write-Host "🧪 Testing"
 Write-Host "========================================"
 
 # Check if Docker is running
-try {
-    docker info 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Docker is running, starting services for tests..." -ForegroundColor Blue
-        docker-compose up -d postgres redis
-        Start-Sleep -Seconds 3
-        
-        Run-Check "Backend tests" {
-            Push-Location backend
-            $env:DATABASE_URL = "postgres://postgres:postgres@localhost:5432/kyarafit_test?sslmode=disable"
-            $env:REDIS_URL = "redis://localhost:6379"
-            $env:JWT_SECRET = "test-secret"
-            go test ./...
-            Pop-Location
-        }
-    }
-} catch {
-    Write-Host "⚠️  Docker not running, skipping backend tests" -ForegroundColor Yellow
-    Write-Host "   To run backend tests: docker-compose up -d && make test-backend"
-}
+# Go backend is archived - skip backend tests
+Write-Host "⚠️  Go backend archived, skipping backend tests" -ForegroundColor Yellow
 
 Run-Check "Web tests" {
     npm run test -w web

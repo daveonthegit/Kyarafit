@@ -4,7 +4,10 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "convex/_generated/api": ["../convex/_generated/api"],
+      "convex/_generated/dataModel": ["../convex/_generated/dataModel"],
+      "convex/_generated/server": ["../convex/_generated/server"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "global.d.ts"]

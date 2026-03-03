@@ -1,41 +1,76 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { View, Text, Image, ScrollView, Pressable, FlatList, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 import { colors, font } from "@kyarafit/design-system/rn";
-import type { ClosetItem } from "@kyarafit/design-system/types";
 import { listItems } from "../src/storage/closetRepo";
-import { getSyncPendingCount } from "../src/services/sync";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
+
+/** Minimal closet item shape for rendering — avoids coupling to Go-era design-system types */
+type ClosetRow = {
+  id: string;
+  name: string;
+  category: string;
+  imageUrl?: string;
+  imageLocalUri?: string;
+};
 
 const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
 
 export default function ClosetScreen() {
   const router = useRouter();
-  const [items, setItems] = useState<ClosetItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("All Items");
-  const [syncPending, setSyncPending] = useState(0);
+  const { userId } = useCurrentUser();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [list, pending] = await Promise.all([listItems(), getSyncPendingCount()]);
-    setItems(list);
-    setSyncPending(pending);
-    setLoading(false);
-  }, []);
+  // Cloud data (Convex) — used when signed in
+  const convexItems = useQuery(api.closetItems.list, userId ? { userId } : "skip");
+
+  // Local data (SQLite) — used when anonymous
+  const [localItems, setLocalItems] = useState<ClosetRow[]>([]);
+  const [localLoading, setLocalLoading] = useState(!userId);
+
+  const [activeCategory, setActiveCategory] = useState("All Items");
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      if (!userId) {
+        setLocalLoading(true);
+        listItems().then((list) => {
+          setLocalItems(
+            list.map((item) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              imageUrl: item.imageUrl,
+              imageLocalUri: item.imageLocalUri,
+            }))
+          );
+          setLocalLoading(false);
+        });
+      }
+    }, [userId])
   );
+
+  const isCloud = !!userId;
+  const loading = isCloud ? convexItems === undefined : localLoading;
+
+  const items: ClosetRow[] = isCloud
+    ? (convexItems ?? []).map((item) => ({
+        id: item._id as string,
+        name: item.name,
+        category: item.category,
+        imageUrl: item.imageUrl,
+        imageLocalUri: undefined,
+      }))
+    : localItems;
 
   const filtered =
     activeCategory === "All Items"
       ? items
       : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
 
-  const renderItem = ({ item }: { item: ClosetItem }) => (
+  const renderItem = ({ item }: { item: ClosetRow }) => (
     <View style={styles.gridItem}>
       <View style={styles.gridImageContainer}>
         {item.imageLocalUri || item.imageUrl ? (
@@ -74,9 +109,7 @@ export default function ClosetScreen() {
             <Ionicons name="search-outline" size={24} color={colors.black} />
           </Pressable>
         </View>
-        {syncPending > 0 && (
-          <Text style={styles.syncLabel}>SYNC PENDING — WILL SYNC WHEN ONLINE</Text>
-        )}
+        {isCloud && <Text style={styles.syncLabel}>CLOUD SYNC ON</Text>}
       </View>
 
       <View style={styles.categoryNavContainer}>
@@ -198,34 +231,28 @@ const styles = StyleSheet.create({
   },
   gridImage: { width: "100%", height: "100%" },
   placeholder: {
-    width: "100%",
-    height: "100%",
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  gridInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
+  gridInfo: { paddingHorizontal: 4 },
   gridName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.black,
+    marginBottom: 2,
+  },
+  gridMeta: {
     fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: 1,
-    fontWeight: "600",
-    color: colors.black,
-    flex: 1,
-    marginRight: 8,
-  },
-  gridMeta: {
-    fontSize: 9,
     color: "rgba(0,0,0,0.4)",
   },
   emptyText: {
-    fontSize: 12,
-    color: "rgba(0,0,0,0.5)",
     textAlign: "center",
-    padding: 32,
+    marginTop: 60,
+    fontSize: 14,
+    color: "rgba(0,0,0,0.4)",
   },
   fab: {
     position: "absolute",

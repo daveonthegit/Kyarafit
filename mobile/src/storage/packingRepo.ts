@@ -1,5 +1,5 @@
 /**
- * Local packing list repository. Offline-first; checklist persistence + outbox for sync.
+ * Local packing list repository. Offline-first; anonymous users only.
  */
 
 import type { PackingListItem, AddManualPackingItemInput } from "@kyarafit/design-system/types";
@@ -51,7 +51,7 @@ export async function toggleChecked(packingItemId: string): Promise<PackingListI
     `UPDATE packing_list_items SET checked = ?, updated_at = ? WHERE id = ?`,
     [checked, updated_at, packingItemId]
   );
-  await enqueue("packing.toggle", { packingItemId, checked: checked === 1 });
+  await enqueue("packing.toggle", { localId: packingItemId, checked: checked === 1 });
   const all = await database.getFirstAsync<{
     id: string;
     convention_id: string;
@@ -92,7 +92,10 @@ export async function addManual(
      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
     [id, conventionId, input.date ?? null, input.buildId ?? null, input.label, now, now]
   );
-  await enqueue("packing.addManual", { conventionId, item: { ...input, id } });
+  await enqueue("packing.addManual", {
+    conventionLocalId: conventionId, label: input.label,
+    date: input.date ?? undefined, buildLocalId: input.buildId ?? undefined,
+  });
   return {
     id,
     conventionId,
@@ -155,6 +158,21 @@ export async function regenerateLocal(conventionId: string): Promise<PackingList
     }
   }
 
-  await enqueue("packing.regenerate", { conventionId });
+  await enqueue("packing.regenerate", { conventionLocalId: conventionId });
   return getPacking(conventionId);
+}
+
+export async function getPackingItemConvexId(localId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ convex_id: string | null }>(
+    `SELECT convex_id FROM packing_list_items WHERE id = ?`, [localId]
+  );
+  return row?.convex_id ?? null;
+}
+
+export async function setPackingItemConvexId(localId: string, convexId: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(
+    `UPDATE packing_list_items SET convex_id = ? WHERE id = ?`, [convexId, localId]
+  );
 }

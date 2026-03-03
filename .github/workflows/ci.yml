@@ -13,12 +13,6 @@ permissions:
   security-events: write
 
 jobs:
-  # Backend service
-  backend:
-    name: Backend CI
-    uses: ./.github/workflows/backend.yml
-    secrets: inherit
-
   # Web application
   web:
     name: Web Frontend CI
@@ -37,95 +31,32 @@ jobs:
     uses: ./.github/workflows/mobile.yml
     secrets: inherit
 
-  # Simplified integration smoke tests
+  # Integration smoke test — only image-service (backend replaced by Convex)
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [backend, web, image-service, mobile]
+    needs: [web, image-service, mobile]
     if: github.event_name == 'pull_request'
-    timeout-minutes: 15
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: kyarafit_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install image service dependencies
         run: |
-          # Backend
-          cd backend && go mod download && cd ..
-
-          # Web
-          cd web && npm ci && cd ..
-
-          # Image service
-          cd image-service && pip install -r requirements.txt && cd ..
-
-      - name: Start backend service
-        run: |
-          cd backend
-          DATABASE_URL=postgres://postgres:postgres@localhost:5432/kyarafit_test?sslmode=disable \
-          REDIS_URL=redis://localhost:6379 \
-          JWT_SECRET=test-secret \
-          IMAGE_SERVICE_URL=http://localhost:8000 \
-          go run main.go &
-          cd ..
-
-          # Wait for backend to be ready
-          echo "Waiting for backend..."
-          for i in {1..30}; do
-            if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-              echo "✅ Backend ready"
-              break
-            fi
-            sleep 1
-          done
+          cd image-service && pip install -r requirements.txt
 
       - name: Start image service
         run: |
           cd image-service
           PORT=8000 python main.py &
-          cd ..
 
-          # Wait for image service
           echo "Waiting for image service..."
           for i in {1..30}; do
             if curl -s http://localhost:8000/health > /dev/null 2>&1; then
@@ -140,16 +71,6 @@ jobs:
           echo "## 🧪 Integration Tests" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Test backend health
-          echo "Testing backend health..."
-          if curl -f http://localhost:8080/health; then
-            echo "- ✅ Backend health check" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ❌ Backend health check failed" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Test image service
           echo "Testing image service..."
           if curl -f http://localhost:8000/health; then
             echo "- ✅ Image service health check" >> $GITHUB_STEP_SUMMARY
@@ -158,17 +79,10 @@ jobs:
             exit 1
           fi
 
-          # Test basic API endpoints (without auth)
-          echo "Testing public API endpoints..."
-          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
-          if [ "$STATUS_CODE" == "200" ]; then
-            echo "- ✅ API endpoints responding" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⚠️ API endpoints returned $STATUS_CODE" >> $GITHUB_STEP_SUMMARY
-          fi
-
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ All integration smoke tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Backend is now Convex (cloud). No self-hosted backend to test." >> $GITHUB_STEP_SUMMARY
 
   # Security scan
   security-scan:
@@ -180,7 +94,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for secret scanning
+          fetch-depth: 0
 
       - name: Run Gitleaks secret scanner
         uses: gitleaks/gitleaks-action@v2
@@ -218,36 +132,11 @@ jobs:
           echo "- ✅ Vulnerability scanning completed (Trivy)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Dependency audit completed (npm audit)" >> $GITHUB_STEP_SUMMARY
 
-  # Code quality (optional - only if SonarCloud is configured)
-  code-quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && vars.SONAR_ENABLED == 'true'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=kyarafit
-            -Dsonar.projectKey=kyarafit
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/.next/**,**/coverage/**,**/migrations/**
-
   # Build summary
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [backend, web, image-service, mobile]
+    needs: [web, image-service, mobile]
     if: always()
 
     steps:
@@ -259,23 +148,20 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Status | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔧 Backend API | ${{ needs.backend.result == 'success' && '✅ Passed' || '❌ Failed' }} | Go/Fiber |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🌐 Web Frontend | ${{ needs.web.result == 'success' && '✅ Passed' || '❌ Failed' }} | Next.js |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🖼️ Image Service | ${{ needs.image-service.result == 'success' && '✅ Passed' || '❌ Failed' }} | Python/FastAPI |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📱 Mobile App | ${{ needs.mobile.result == 'success' && '✅ Passed' || '❌ Failed' }} | React Native |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 Web Frontend | ${{ needs.web.result == 'success' && '✅ Passed' || '❌ Failed' }} | Next.js + Convex |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🖼️ Image Service | ${{ needs.image-service.result == 'success' && '✅ Passed' || '❌ Failed' }} | Python/rembg |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📱 Mobile App | ${{ needs.mobile.result == 'success' && '✅ Passed' || '❌ Failed' }} | React Native + Convex |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> Backend is **Convex** (cloud-hosted). No Go backend CI needed." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [[ "${{ needs.backend.result }}" == "success" && "${{ needs.web.result }}" == "success" && "${{ needs.image-service.result }}" == "success" && "${{ needs.mobile.result }}" == "success" ]]; then
+          if [[ "${{ needs.web.result }}" == "success" && "${{ needs.image-service.result }}" == "success" && "${{ needs.mobile.result }}" == "success" ]]; then
             echo "### ✅ Overall Status: SUCCESS" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "All services passed CI checks and are ready for deployment!" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-            echo "- Merge to \`main\` will trigger GCP Cloud Run deployment" >> $GITHUB_STEP_SUMMARY
-            echo "- Services will be deployed to production automatically" >> $GITHUB_STEP_SUMMARY
           else
             echo "### ❌ Overall Status: FAILED" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Some services failed CI checks. Please review the logs above and fix the issues." >> $GITHUB_STEP_SUMMARY
+            echo "Some services failed CI checks. Please review the logs above." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

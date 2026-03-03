@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useTier } from "@/lib/api/useTier";
-import { signOut } from "@/lib/auth/client";
+import { authClient } from "@/lib/auth/auth-client";
 
 const menuItems = ["Account Details", "Subscription Plan", "Notification Style"];
 
@@ -13,7 +12,7 @@ export default function Settings() {
   const isFree = tier?.tier === "FREE";
 
   const handleSignOut = async () => {
-    await signOut();
+    await authClient.signOut();
     router.push("/");
   };
 

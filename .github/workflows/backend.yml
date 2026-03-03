@@ -1,182 +1,19 @@
 name: Backend CI
 
+# The Go backend has been archived (backend-archived/).
+# The application now uses Convex as the backend.
+# This workflow is disabled — it's kept for historical reference only.
+
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
-  workflow_call: # Allow calling from other workflows
+  workflow_dispatch: # Only run manually if needed
 
 jobs:
-  test:
+  skipped:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: kyarafit_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Install dependencies
-        working-directory: ./backend
-        run: go mod download
-
-      - name: Run go vet
-        working-directory: ./backend
-        run: go vet ./...
-
-      - name: Run go fmt check
-        working-directory: ./backend
+      - name: Skip — backend archived
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted:"
-            gofmt -s -l .
-            exit 1
-          fi
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: latest
-          working-directory: ./backend
-          args: --timeout=5m
-          skip-cache: false
-          skip-pkg-cache: false
-          skip-build-cache: false
-
-      - name: Run tests
-        working-directory: ./backend
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/kyarafit_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret-key
-          IMAGE_SERVICE_URL: http://localhost:8001
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Generate coverage report
-        working-directory: ./backend
-        run: go tool cover -html=coverage.out -o coverage.html
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        with:
-          file: ./backend/coverage.out
-          flags: backend
-          name: backend-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-
-      - name: Build binary
-        working-directory: ./backend
-        run: |
-          CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
-
-      - name: Test binary
-        working-directory: ./backend
-        run: |
-          ./main --help || true
-          echo "Binary built successfully"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-binary
-          path: backend/main
-          retention-days: 7
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: false
-          tags: kyarafit-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Test Docker image
-        run: |
-          # Test basic run
-          docker run --rm kyarafit-backend:latest --help || echo "Binary test complete"
-
-          # Test image size
-          IMAGE_SIZE=$(docker images kyarafit-backend:latest --format "{{.Size}}")
-          echo "Docker image size: $IMAGE_SIZE"
-          echo "✅ Docker image built successfully"
-
-      - name: Create build summary
-        if: always()
-        run: |
-          echo "## 🐳 Docker Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚠️ Backend CI Skipped" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** kyarafit-backend:latest" >> $GITHUB_STEP_SUMMARY
-          echo "- **Size:** $(docker images kyarafit-backend:latest --format '{{.Size}}')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Ready for:** GCP Cloud Run deployment" >> $GITHUB_STEP_SUMMARY
+          echo "The Go Fiber backend has been archived. The app now uses **Convex** as its backend." >> $GITHUB_STEP_SUMMARY
+          echo "See \`backend-archived/\` for the archived code." >> $GITHUB_STEP_SUMMARY

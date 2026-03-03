@@ -1,5 +1,5 @@
 /**
- * Local builds repository (SQLite). Offline-first; enqueue outbox for sync.
+ * Local builds repository (SQLite). Offline-first; anonymous users only.
  */
 
 import type { Build, CreateBuildInput, UpdateBuildInput } from "@kyarafit/design-system/types";
@@ -71,7 +71,11 @@ export async function createBuild(input: CreateBuildInput): Promise<Build> {
     createdAt: now,
     updatedAt: now,
   };
-  await enqueue("build.upsert", { build });
+  await enqueue("build.upsert", {
+    localId: id, name: build.name, character: build.character,
+    status: build.status, notes: build.notes, imageUrl: build.imageUrl,
+    budgetCents: build.budgetCents ?? undefined, targetDate: build.targetDate ?? undefined,
+  });
   return build;
 }
 
@@ -125,7 +129,11 @@ export async function updateBuild(id: string, input: UpdateBuildInput): Promise<
     createdAt: existing.created_at,
     updatedAt: updated_at,
   };
-  await enqueue("build.upsert", { build });
+  await enqueue("build.upsert", {
+    localId: id, name, character: character ?? undefined,
+    status, notes: notes ?? undefined, imageUrl: image_url ?? undefined,
+    budgetCents: budget_cents ?? undefined,
+  });
   return build;
 }
 
@@ -180,7 +188,7 @@ export async function linkBuildItems(buildId: string, closetItemIds: string[]): 
       [buildId, cid]
     );
   }
-  await enqueue("build.linkItems", { buildId, closetItemIds });
+  await enqueue("build.linkItems", { buildLocalId: buildId, closetItemLocalIds: closetItemIds });
 }
 
 export async function getById(id: string): Promise<Build | null> {
@@ -228,4 +236,46 @@ export async function upsertFromSync(
 export async function deleteBuild(id: string): Promise<void> {
   const database = await initClosetDb();
   await database.runAsync(`DELETE FROM builds WHERE id = ?`, [id]);
+  await enqueue("build.delete", { localId: id });
+}
+
+export async function getConvexId(localId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ convex_id: string | null }>(
+    `SELECT convex_id FROM builds WHERE id = ?`, [localId]
+  );
+  return row?.convex_id ?? null;
+}
+
+export async function setConvexId(localId: string, convexId: string): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(`UPDATE builds SET convex_id = ? WHERE id = ?`, [convexId, localId]);
+}
+
+export async function getLocalIdByConvexId(convexId: string): Promise<string | null> {
+  const database = await initClosetDb();
+  const row = await database.getFirstAsync<{ id: string }>(
+    `SELECT id FROM builds WHERE convex_id = ?`, [convexId]
+  );
+  return row?.id ?? null;
+}
+
+/** Called during Convex pull — upserts without enqueuing. */
+export async function upsertFromConvex(
+  build: Omit<Build, "tasksTotal" | "tasksChecked"> & { convexId: string }
+): Promise<void> {
+  const database = await initClosetDb();
+  await database.runAsync(
+    `INSERT INTO builds (id, name, character, status, notes, image_url, budget_cents, created_at, updated_at, convex_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name, character=excluded.character, status=excluded.status,
+       notes=excluded.notes, image_url=excluded.image_url, budget_cents=excluded.budget_cents,
+       updated_at=excluded.updated_at, convex_id=excluded.convex_id`,
+    [
+      build.id, build.name, build.character ?? null, build.status,
+      build.notes ?? null, build.imageUrl ?? null, build.budgetCents ?? null,
+      build.createdAt, build.updatedAt, build.convexId,
+    ]
+  );
 }
