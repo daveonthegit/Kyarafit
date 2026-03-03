@@ -50,7 +50,11 @@ export default function AuthScreen() {
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: "kyarafit://(tabs)",
+        // kyarafit:/// is the deep link root (empty host, "/" path) — a valid URL that
+        // Better Auth can accept as a trusted callbackURL. The crossDomain plugin appends
+        // ?ott=<token> so the URL becomes kyarafit:///?ott=xxx; _layout.tsx exchanges it.
+        // Do NOT use kyarafit://(tabs) — parentheses are invalid hostname characters.
+        callbackURL: "kyarafit:///",
       });
       // On React Native, better-auth/react skips window.location (undefined),
       // so signIn.social() returns { data: { url } } instead of redirecting.
@@ -80,14 +84,20 @@ export default function AuthScreen() {
           /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
         setShowResendVerification(isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
-      } else {
-        // Persist the session token so bearerStoragePlugin sends it on every request.
-        if (data?.token) {
-          await setStoredBearerToken(data.token);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (authClient as any).$store?.notify("$sessionSignal");
-        }
+        setLoading(false);
+        return;
+      }
+      if (data?.token) {
+        // Persist the token. The in-memory cache is set synchronously so the
+        // 10ms session-signal timer (fired by better-auth after signIn.email()
+        // resolves) sends GET /auth/get-session with the bearer token, updating
+        // useSession() in the background. Navigate immediately — don't block on
+        // the session atom; the tabs page will authenticate via ConvexBetterAuthProvider
+        // once the session loads.
+        await setStoredBearerToken(data.token);
         router.replace("/(tabs)");
+      } else {
+        setLoading(false);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
@@ -95,7 +105,6 @@ export default function AuthScreen() {
         /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
       setShowResendVerification(isUnverified);
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
@@ -109,7 +118,7 @@ export default function AuthScreen() {
     try {
       const { error: authError } = await authClient.sendVerificationEmail({
         email: email.trim(),
-        callbackURL: "kyarafit://(tabs)",
+        callbackURL: "kyarafit:///",
       });
       if (authError) {
         setError(authError.message ?? "Failed to resend verification email.");
@@ -141,7 +150,9 @@ export default function AuthScreen() {
         name: name.trim(),
         email: email.trim(),
         password,
-        callbackURL: "kyarafit://(tabs)",
+        // After clicking the verification link in the email, Better Auth redirects here.
+        // On iOS/Android the OS intercepts kyarafit:/// and opens the app at the root.
+        callbackURL: "kyarafit:///",
       });
       if (authError) {
         setError(authError.message ?? "Sign up failed. Please try again.");

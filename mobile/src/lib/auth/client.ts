@@ -1,4 +1,4 @@
-import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { bearerStoragePlugin } from "./bearer-storage-plugin";
 
@@ -6,7 +6,14 @@ const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
 
 export const authClient = createAuthClient({
   baseURL: CONVEX_SITE_URL ? `${CONVEX_SITE_URL}/auth` : undefined,
-  plugins: [convexClient(), bearerStoragePlugin()],
+  // crossDomainClient MUST be included alongside bearerStoragePlugin.
+  // Without it, better-auth defaults to credentials:"include" on every fetch.
+  // On Expo Web that means cross-origin requests require Access-Control-Allow-Credentials,
+  // which Convex doesn't set — the browser silently blocks the response, GET /auth/get-session
+  // fails, the session atom stays null, and useSession() never sees a logged-in user.
+  // crossDomainClient sets credentials:"omit" so only the explicit Authorization:Bearer
+  // header (from bearerStoragePlugin) carries auth — no cookie negotiation needed.
+  plugins: [convexClient(), crossDomainClient(), bearerStoragePlugin()],
 });
 
 export { setStoredBearerToken } from "./bearer-storage-plugin";

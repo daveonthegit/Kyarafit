@@ -28,9 +28,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       .map((s) => s.trim())
       .filter((s): s is string => s.length > 0) ?? [];
 
-  // trustedOrigins must include every origin that is allowed in http.ts cors.allowedOrigins.
-  // better-auth checks this list independently from CORS and returns 403 for unrecognized origins.
-  // This covers Expo Web (localhost:8081), Next.js dev (localhost:3000), and production (SITE_URL).
+  // IMPORTANT: trustedOrigins is Better Auth's own CSRF check — completely separate from the
+  // HTTP-level CORS config in http.ts. If an origin passes CORS but is absent here, Better Auth
+  // returns 403 Forbidden on every auth request. Keep this list in sync with allowedOrigins in
+  // http.ts. See docs/auth.md → "Origin Configuration" for the full explanation.
+  // Device LAN IPs (e.g. for Expo Go on a phone) should be added via ADDITIONAL_CORS_ORIGINS in
+  // the Convex dashboard; they are automatically merged in via extraOrigins below.
   const trustedOrigins: string[] = [
     // Local dev origins (must match http.ts allowedOrigins)
     "http://localhost:3000",
@@ -39,7 +42,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     "http://127.0.0.1:8081",
     "exp://localhost:8081",
     "exp://127.0.0.1:8081",
-    // Production app origin and any custom additions
+    // Mobile deep-link scheme. Better Auth validates callbackURL origins against this list.
+    // Use kyarafit:/// (not kyarafit://(tabs)) — parentheses are invalid hostname characters
+    // and cause Better Auth to reject the request with 403 + "Invalid callbackURL".
+    "kyarafit://",
+    // Production app origin and any custom additions (e.g. device LAN IPs from ADDITIONAL_CORS_ORIGINS)
     ...(siteUrl ? [siteUrl] : []),
     ...extraOrigins,
   ];
