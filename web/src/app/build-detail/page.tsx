@@ -8,6 +8,8 @@ import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
+import { BuildReferenceImagesSection } from "@/components/builds/BuildReferenceImagesSection";
+import { BuildProcessPicturesSection } from "@/components/builds/BuildProcessPicturesSection";
 import { BuildSummaryModal } from "@/components/builds/BuildSummaryModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -459,19 +461,8 @@ export default function BuildDetailPage() {
                     </div>
                   </div>
                 )}
-                <div>
-                  <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
-                    Progress Photos
-                  </h2>
-                  <div className="border border-dashed border-kyar-border p-6 text-center">
-                    <span className="material-symbols-outlined text-4xl text-kyar-textTertiary mb-2">
-                      photo_library
-                    </span>
-                    <p className="text-sm text-kyar-textTertiary">
-                      Progress photos feature coming soon. Track your build with photos and dates.
-                    </p>
-                  </div>
-                </div>
+                {userId && <BuildReferenceImagesSection buildId={id} userId={userId} />}
+                {userId && <BuildProcessPicturesSection buildId={id} userId={userId} />}
               </div>
 
               {/* Right: tasks, link items, progress */}
@@ -533,14 +524,8 @@ export default function BuildDetailPage() {
                           items={linkedItems}
                           keyExtractor={(item) => item._id}
                           renderItem={(item) => (
-                            <DroppableClosetItem
-                              item={item}
-                              justDroppedRef={justDroppedRef}
-                            >
-                              <ClosetCarouselCardContent
-                                item={item}
-                                formatCents={formatCents}
-                              />
+                            <DroppableClosetItem item={item} justDroppedRef={justDroppedRef}>
+                              <ClosetCarouselCardContent item={item} formatCents={formatCents} />
                             </DroppableClosetItem>
                           )}
                         />

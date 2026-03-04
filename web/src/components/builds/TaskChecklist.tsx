@@ -118,27 +118,27 @@ export function TaskChecklist({
           aria-label={`Task list, ${totalCount} tasks`}
         >
           {sortedTasks.map((task) => {
-          const linkedItem = linkedItems.find((item) => item._id === task.closetItemId);
-          return enableDragDrop ? (
-            <DraggableTaskRow
-              key={task._id}
-              task={task}
-              linkedItem={linkedItem}
-              onToggle={(checked) => handleToggleTask(task._id, checked)}
-              onDelete={() => handleDeleteTask(task._id)}
-              onAssign={() => handleOpenAssignModal(task._id)}
-            />
-          ) : (
-            <TaskRow
-              key={task._id}
-              task={task}
-              linkedItem={linkedItem}
-              onToggle={(checked) => handleToggleTask(task._id, checked)}
-              onDelete={() => handleDeleteTask(task._id)}
-              onAssign={() => handleOpenAssignModal(task._id)}
-            />
-          );
-        })}
+            const linkedItem = linkedItems.find((item) => item._id === task.closetItemId);
+            return enableDragDrop ? (
+              <DraggableTaskRow
+                key={task._id}
+                task={task}
+                linkedItem={linkedItem}
+                onToggle={(checked) => handleToggleTask(task._id, checked)}
+                onDelete={() => handleDeleteTask(task._id)}
+                onAssign={() => handleOpenAssignModal(task._id)}
+              />
+            ) : (
+              <TaskRow
+                key={task._id}
+                task={task}
+                linkedItem={linkedItem}
+                onToggle={(checked) => handleToggleTask(task._id, checked)}
+                onDelete={() => handleDeleteTask(task._id)}
+                onAssign={() => handleOpenAssignModal(task._id)}
+              />
+            );
+          })}
 
           {sortedTasks.length === 0 && (
             <p className="text-sm text-kyar-textTertiary text-center py-8">
@@ -148,10 +148,7 @@ export function TaskChecklist({
         </div>
         <div className="absolute right-2 bottom-3 pointer-events-none flex justify-end">
           <div className="pointer-events-auto">
-            <ScrollButton
-              containerRef={taskListContainerRef}
-              threshold={80}
-            />
+            <ScrollButton containerRef={taskListContainerRef} threshold={80} />
           </div>
         </div>
       </div>

@@ -9,6 +9,8 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as buildProcessPictures from "../buildProcessPictures.js";
+import type * as buildReferenceImages from "../buildReferenceImages.js";
 import type * as buildTasks from "../buildTasks.js";
 import type * as builds from "../builds.js";
 import type * as closetItems from "../closetItems.js";
@@ -27,6 +29,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  buildProcessPictures: typeof buildProcessPictures;
+  buildReferenceImages: typeof buildReferenceImages;
   buildTasks: typeof buildTasks;
   builds: typeof builds;
   closetItems: typeof closetItems;

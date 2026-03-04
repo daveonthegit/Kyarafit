@@ -63,12 +63,7 @@ describe("BuildSummaryModal", () => {
 
   it("shows loading message when open with null summary", () => {
     render(
-      <BuildSummaryModal
-        open={true}
-        onClose={() => {}}
-        summary={null}
-        formatCents={formatCents}
-      />
+      <BuildSummaryModal open={true} onClose={() => {}} summary={null} formatCents={formatCents} />
     );
     expect(screen.getByText("Loading summary…")).toBeInTheDocument();
   });
