@@ -1,0 +1,86 @@
+---
+description: Test pyramid, unit/integration/e2e, mocking, and templates for this repo
+globs: "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/tests/**"
+---
+
+# Testing Patterns
+
+Guidance for tests in Kyarafit. Current state: web and mobile have placeholder "No tests yet"; image-service uses pytest; Convex has no in-repo tests.
+
+## Test pyramid
+
+- **Unit:** Fast; test pure functions, helpers, and components in isolation with mocks. Prefer for business logic and UI components.
+- **Integration:** Test Convex functions (queries/mutations) against Convex backend or test harness; test API boundaries. Medium cost.
+- **E2E:** Full app flows (auth, create build, etc.). Highest cost; use for critical paths. Optional for MVP; add when stability is priority.
+
+**Do:** Start with unit tests for utilities and key components; add integration tests for Convex when tooling is in place; add E2E sparingly.  
+**Don't:** Don't block shipping on full coverage; ensure at least critical paths are manually tested (see TESTING_AND_DEPLOYMENT.md).
+
+## Unit vs integration vs E2E
+
+- **Unit:** No Convex/network; mock useQuery/useMutation or test pure functions. Example: design-system schema validation, formatters.
+- **Integration:** Convex: use Convex testing utilities (if adopted) to run mutations/queries in test env; or test against dev deployment. Example: createBuild returns build with userId.
+- **E2E:** Playwright or similar for web; Detox or manual for mobile. Example: sign in → create build → see build in list.
+
+## Directory and naming
+
+- **Web:** Co-locate tests: `ComponentName.test.tsx` next to component, or `__tests__/` in app/components. Naming: `*.test.ts`, `*.test.tsx`, or `*.spec.ts`.
+- **Mobile:** Same: co-locate or `__tests__/`; `*.test.tsx`.
+- **Convex:** If added: `convex/_tests__/` or `convex/builds.test.ts`; test handlers with Convex test runner.
+- **Image-service:** [image-service/](image-service/) — pytest; tests in `tests/` or next to module.
+
+**Do:** Consistent suffix (.test.ts/.test.tsx).  
+**Don't:** Don't put tests in dist/ or .next/.
+
+## Naming conventions
+
+- Describe behavior: `it("creates build with required image", ...)` or `test("create fails when imageUrl missing", ...)`.
+- Group: `describe("BuildDetailPage", () => { ... })`.
+
+## Mocking strategy
+
+- **Convex:** Mock Convex provider and pass fake useQuery/useMutation, or use Convex's testing utilities (e.g. ConvexTestContext) if available. For unit tests, mock `api` and return fixed data.
+- **Auth:** Mock useCurrentUser to return { userId: "test" } or null.
+- **Fetch/HTTP:** Not used for app data (Convex); if testing code that calls external HTTP, mock fetch or use MSW.
+
+## Minimal templates
+
+### Web component (unit)
+
+```tsx
+// web/src/components/ui/Button.test.tsx
+import { render, screen } from "@testing-library/react";
+import { Button } from "./Button";
+
+describe("Button", () => {
+  it("renders label", () => {
+    render(<Button>Submit</Button>);
+    expect(screen.getByRole("button", { name: /submit/i })).toBeInTheDocument();
+  });
+});
+```
+
+### Convex (when tests added)
+
+```ts
+// convex/builds.test.ts (example; use Convex test runner if available)
+// Test: create mutation with valid args returns build; create with missing userId throws.
+```
+
+### Image-service (pytest)
+
+```python
+# image-service/tests/test_main.py
+def test_health():
+    response = client.get("/health")
+    assert response.status_code == 200
+```
+
+## Current reality
+
+- **Web:** `npm run test` is placeholder ("No tests yet"). Add Vitest or Jest when adding tests; run in CI (see ci-cd-patterns).
+- **Mobile:** Same placeholder. Add tests when needed; run in CI.
+- **Convex:** No automated tests in repo; manual verification via dashboard and app.
+- **Image-service:** pytest; run with `cd image-service && pytest`. CI runs it when pytest is available.
+
+**Recommended direction:** Add unit tests for shared utils and critical components first; add Convex integration tests when Convex testing story is adopted; document in this file.

@@ -1,0 +1,35 @@
+---
+description: Logging, metrics, and tracing basics for Convex and app
+globs: convex/**/*
+---
+
+# Observability Patterns
+
+Lightweight guidance. No heavy APM required for MVP.
+
+## Logging
+
+- **Convex:** Use `console.log`, `console.error` in query/mutation/action handlers. Logs appear in Convex dashboard (Logs). Use for errors and key decision points (e.g. "Seed skipped: user already has builds").
+- **Web/Mobile:** Browser/React Native console in development; optional logging service for production (e.g. errors only). No structured logging required for MVP.
+- **Do:** Log errors with context (e.g. userId, id). Avoid logging PII or tokens.  
+**Don't:** Don't log full request bodies or secrets; don't over-log in hot paths.
+
+## Metrics
+
+- **Current:** No custom metrics in repo. Convex dashboard shows usage (function invocations, etc.). Vercel shows web traffic.
+- **Optional:** When needed, add Convex action that increments a counter or writes to external metric store; or use Vercel Analytics / similar for web.  
+**Do:** Start with Convex dashboard and Vercel; add custom metrics only when debugging or product needs.  
+**Don't:** Don't add heavy metric instrumentation before product is stable.
+
+## Tracing
+
+- **Current:** No distributed tracing. Convex requests are traced internally by Convex.
+- **Optional:** For complex flows, add correlation id (e.g. requestId) in logs. Full OpenTelemetry/tracing is out of scope for MVP.  
+**Do:** Use Convex logs to trace a request (function name, logs in order).  
+**Don't:** Don't add tracing libraries until needed.
+
+## Summary
+
+- **Logging:** console in Convex; view in dashboard. Errors and key events only.
+- **Metrics:** Convex dashboard + Vercel; add custom only when needed.
+- **Tracing:** Not required for MVP; use Convex logs for debugging.

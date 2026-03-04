@@ -1,6 +1,6 @@
 # Web vs Mobile Parity Review
 
-This document summarizes feature parity between the **web** app and the **mobile** (Expo/React Native) app, with focus on drag-and-drop and related flows.
+This document summarizes feature parity between the **web** app and the **mobile** (Expo/React Native) app, with focus on drag-and-drop and related flows. **Stack:** Convex + Better Auth. Last reviewed: March 2026.
 
 ---
 

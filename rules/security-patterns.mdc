@@ -1,0 +1,64 @@
+---
+description: Auth, CORS, validation, secrets, and dependency security
+globs: convex/**/*, web/src/lib/auth/**/*, mobile/src/lib/auth/**/*
+---
+
+# Security Patterns
+
+Auth is **Better Auth** on Convex; app origins differ from auth API origin. Follow these patterns to avoid 403s and leaks.
+
+## Auth: session and JWT storage
+
+- **Web:** Session is **bearer token** in localStorage (not cookie) because auth API is on *.convex.site and app is on different origin (cookies blocked cross-origin). Plugin: [web/src/lib/auth/bearer-storage-plugin.ts](web/src/lib/auth/bearer-storage-plugin.ts).
+- **Mobile:** Bearer token in AsyncStorage; same plugin pattern. Send `Authorization: Bearer <token>` with Convex and auth requests.
+- **Do:** Use the existing Better Auth client and bearer storage; don't switch to cookie-based session for cross-origin app.  
+**Don't:** Don't store tokens in plain text in logs or in URLs.
+
+## OAuth callback handling
+
+- Better Auth uses **cross-domain** flow: OAuth redirect goes to Convex auth URL; server appends `?ott=<one-time-token>` to callback; client exchanges OTT for session token so cookie is not required. See docs/auth.md.
+- **Do:** Keep CORS and trusted origins in sync (below). Add Expo Go / production URLs to Convex env (ADDITIONAL_CORS_ORIGINS, SITE_URL) and to trustedOrigins in convex/betterAuth/auth.ts.  
+**Don't:** Don't add an origin to CORS only; it must also be in trustedOrigins or auth returns 403.
+
+## CORS and trusted origins
+
+- **convex/http.ts:** `allowedOrigins` for CORS preflight.  
+- **convex/betterAuth/auth.ts:** `trustedOrigins` — Better Auth checks Origin header and rejects if not in this list.  
+- **Rule:** Every entry in allowedOrigins must appear in trustedOrigins. See docs/auth.md "Origin Configuration".
+- **Do:** When adding a new app origin (e.g. Vercel preview, Expo Go LAN URL), add to both places (or use SITE_URL/ADDITIONAL_CORS_ORIGINS and ensure they are passed into both).  
+**Don't:** Don't use wildcard origin in production for auth.
+
+## Input validation and sanitization
+
+- **Convex:** All args validated with Convex validators (v.string(), v.id(), etc.). Invalid args are rejected before handler runs.
+- **Do:** Use strict validators; reject empty or invalid ids. For strings that go to storage, Convex handles persistence; avoid storing raw HTML in user-facing fields if rendering unsanitized.  
+**Don't:** Don't trust client-only validation; Convex args are the server contract.
+
+## Rate limiting
+
+- **Current:** No application-level rate limiting in Convex. Convex has its own quotas. For public HTTP (e.g. webhooks), consider rate limiting in Convex action or external proxy.
+- **Recommended:** When adding Stripe webhook or public endpoints, verify signature and (if needed) throttle by IP or key.  
+**Don't:** Don't skip webhook signature verification (e.g. Stripe).
+
+## Secrets and env hygiene
+
+- **Convex:** BETTER_AUTH_SECRET, OAuth client secrets, RESEND, STRIPE_* — set in Convex dashboard only. Never commit to repo.
+- **Web:** NEXT_PUBLIC_* and CONVEX_* in .env.local (or Vercel env); .env.local in .gitignore.
+- **Do:** Use env vars for all secrets; rotate if exposed. Run `npm audit` and fix critical/high when possible (CI runs npm audit).  
+**Don't:** Don't commit .env or .env.local; don't log tokens or secrets.
+
+## Dependency updates
+
+- **CI:** npm audit --audit-level=critical runs in CI (continue-on-error in current setup). Address critical/high vulnerabilities.
+- **Do:** Bump dependencies periodically; prefer Dependabot or Renovate for automated PRs.  
+**Don't:** Don't ignore critical audit findings without a documented exception.
+
+## Summary
+
+| Area | Do | Don't |
+|------|----|-------|
+| Session | Bearer in localStorage/AsyncStorage; send header | Cookie for cross-origin app; log token |
+| CORS | Keep allowedOrigins and trustedOrigins in sync | Add origin to only one |
+| Validation | Convex validators on all args | Trust client-only checks |
+| Webhooks | Verify Stripe (and similar) signature | Process unverified payloads |
+| Secrets | Env only; Convex dashboard / Vercel | Commit .env; log secrets |

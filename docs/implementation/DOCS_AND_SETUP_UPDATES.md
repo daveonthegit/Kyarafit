@@ -2,14 +2,16 @@
 
 Keep **IMPLEMENTATION_STATUS**, **NEXT_STEPS**, and other docs aligned with the **Convex + Better Auth** stack so they reflect the current state and guide new contributors.
 
-**Current state (post-migration)**: IMPLEMENTATION_STATUS and NEXT_STEPS have been updated for Convex. Supabase/Go setup docs are deprecated or marked legacy. Use the steps below when you add features or change the stack.
+**Last verified:** 2026-03-04.
+
+**Current state (post-migration)**: IMPLEMENTATION_STATUS and NEXT_STEPS are updated for Convex. Supabase/Go setup docs have been removed (see DOC_INVENTORY). Use the steps below when you add features or change the stack.
 
 ---
 
 ## Goal
 
 - **IMPLEMENTATION_STATUS.md**: Keep "Completed" and "Remaining" accurate for Convex (no Go API, no web IndexedDB sync).
-- **SUPABASE_TODO.md**: Deprecated; project uses Convex. Do not add new Supabase migration steps.
+- Supabase/Go setup docs have been deleted; project uses Convex only.
 - **NEXT_STEPS / docs**: README, architecture, API docs, DEVELOPMENT — point to Convex and Better Auth; mark legacy Supabase/Go references.
 
 ---
@@ -30,9 +32,9 @@ Keep **IMPLEMENTATION_STATUS**, **NEXT_STEPS**, and other docs aligned with the 
 
 ---
 
-## Step 2: (Supabase TODO — deprecated)
+## Step 2: No Supabase/Go setup
 
-Supabase and Go backend are no longer used. SUPABASE_TODO.md is deprecated. Do not add new Supabase migration steps.
+Supabase and Go backend are no longer used. Do not add new Supabase migration steps or Go API features.
 
 ---
 
@@ -72,10 +74,10 @@ Update the project README.md: add or adjust a short section on features (builds 
 
 ## Summary
 
-| Step | Action                                                                     |
-| ---- | -------------------------------------------------------------------------- |
-| 1    | IMPLEMENTATION_STATUS: keep accurate for Convex (done vs remaining).      |
-| 2    | SUPABASE_TODO: deprecated; do not add Supabase steps.                     |
-| 3    | README: features and links to Convex + Better Auth setup.                |
-| 4    | Optional: tier table when subscription exists.                            |
-| 5    | API: Convex in api_overview + CONTEXT; Go API doc is legacy.                |
+| Step | Action                                                               |
+| ---- | -------------------------------------------------------------------- |
+| 1    | IMPLEMENTATION_STATUS: keep accurate for Convex (done vs remaining). |
+| 2    | SUPABASE_TODO: deprecated; do not add Supabase steps.                |
+| 3    | README: features and links to Convex + Better Auth setup.            |
+| 4    | Optional: tier table when subscription exists.                       |
+| 5    | API: Convex in api_overview + CONTEXT; Go API doc is legacy.         |

@@ -1,0 +1,80 @@
+---
+description: Next.js and Expo frontend patterns, Convex hooks, components, styling
+globs: web/**/*, mobile/**/*
+---
+
+# Frontend Patterns
+
+Web: **Next.js 16 (App Router)** + Convex. Mobile: **Expo (React Native)** + Convex. No Go API calls; no IndexedDB sync on web.
+
+## Routing (web)
+
+- **App Router:** All pages under `web/src/app/`. File-based routes: `page.tsx` = route segment; `layout.tsx` = layout; dynamic `[id]` folders.
+- **Evidence:** [web/src/app/build-detail/page.tsx](web/src/app/build-detail/page.tsx), [web/src/app/conventions/[id]/packing/page.tsx](web/src/app/conventions/[id]/packing/page.tsx).
+- **Do:** Use `"use client"` for pages that use Convex hooks or browser APIs. Use Next.js `Link` and `useRouter` for navigation.
+- **Don't:** Don't add routes under pages/ (Pages Router); don't call fetch to Go backend for app data.
+
+## Component organization (web)
+
+- **web/src/app/** — Page components (one per route).
+- **web/src/components/** — Reusable UI: layout (BottomNav), builds (TaskChecklist), ui (Button, ImageUpload, ChecklistRow, ResolvedImage), ConvexClientProvider, AuthGate.
+- **web/src/hooks/** — useCurrentUser, etc.
+- **web/src/lib/** — auth (auth-client, auth-server, bearer-storage-plugin), api (useTier only), utils, imageUtils.
+- **Do:** Keep pages thin; put reusable logic in hooks or components. Use Convex hooks in components that need data.
+- **Don't:** Don't add web/src/lib/api/* for Convex (data comes from `convex/react` useQuery/useMutation with `api` from `convex/_generated/api`).
+
+## Data fetching (web)
+
+- **Convex only:** `useQuery(api.module.fn, args)` and `useMutation(api.module.fn)` from `convex/react`. Pass `"skip"` when args are not ready (e.g. `id ? { id } : "skip"`).
+- **Evidence:** [web/src/app/build-detail/page.tsx](web/src/app/build-detail/page.tsx) — useQuery(api.builds.get), useQuery(api.buildTasks.listByBuild), useMutation(api.buildTasks.update).
+- **Do:** Use Convex hooks; let Convex handle caching and reactivity.
+- **Don't:** Don't use React Query or fetch for Convex data; don't use web/src/lib/api/builds.ts or similar REST clients for app features.
+
+## State management
+
+- **Server state:** Convex (useQuery/useMutation). No global Convex cache to configure.
+- **Local UI state:** useState/useReducer in components. Optional: Zustand or context for cross-component UI state (e.g. mobile uses Zustand).
+- **Auth state:** Better Auth session via authClient.useSession(); Convex identity via useCurrentUser (Convex getCurrentUser or auth).
+
+## Loading and error
+
+- **Loading:** useQuery returns undefined while loading; check and show loading UI (e.g. `if (build === undefined) return <div>Loading...</div>`) or use Suspense if Convex provider supports it.
+- **Errors:** Failed mutations throw; handle with try/catch and setState for inline error message. Convex query errors surface to error boundary or onError if configured.
+
+## Forms and validation
+
+- **Controlled components:** useState for form fields; onSubmit call useMutation with parsed payload.
+- **Validation:** Use design-system schemas (zod) on frontend for create/update payloads before calling Convex mutation; Convex also validates args. Example: [web/src/app/closet/new/page.tsx](web/src/app/closet/new/page.tsx) — createClosetItemSchema.safeParse before create.
+
+## API client
+
+- **Web:** No REST client for app data. Import `api` from `convex/_generated/api` and use with useQuery/useMutation. For tier/feature access: [web/src/lib/api/useTier.ts](web/src/lib/api/useTier.ts) (useTier, useFeatureAccess).
+- **Mobile:** Same — Convex provider and useQuery/useMutation; auth via Better Auth client and bearer token.
+
+## Styling (web)
+
+- **Tailwind:** Use Tailwind classes. Config in web (and root tailwind for design-system if needed).
+- **Design system:** Shared types and tokens from `@kyarafit/design-system`. Use shared Button, inputs, and tokens for consistency.
+- **Do:** Prefer Tailwind; use design-system components where they exist.
+- **Don't:** Don't add CSS modules or global CSS unless necessary; keep styling in Tailwind.
+
+## Mobile (Expo)
+
+- **Routing:** Expo Router under `mobile/app/` (tabs, stack). Same Convex useQuery/useMutation; auth via Better Auth; Convex provider in _layout.tsx.
+- **Offline/sync:** SQLite in mobile/src/storage/; useConvexSync (Convex→SQLite); convexSync.ts (push local changes to Convex). See [mobile/src/hooks/useConvexSync.ts](mobile/src/hooks/useConvexSync.ts).
+- **Do:** Use same Convex API as web for feature parity; use Convex file upload (generateUploadUrl, getUrl) for images.
+- **Don't:** Don't call Go backend or EXPO_PUBLIC_API_URL for app data.
+
+## Example: new feature page (web)
+
+1. Add `web/src/app/my-feature/page.tsx` with `"use client"`.
+2. Import useQuery/useMutation from convex/react and api from convex/_generated/api.
+3. Get userId from useCurrentUser(); if required and no user, redirect or show AuthGate.
+4. useQuery(api.myResource.list, { userId }) and useMutation(api.myResource.create).
+5. Render form (controlled state) and list; onSubmit parse, then mutation(args); show loading/error.
+6. Use Tailwind and design-system components. Add link from nav or existing page.
+
+## Current reality vs recommended
+
+- **Current:** Build detail uses Convex directly; no lib/api/builds.ts. useTier hardcodes FREE (recommended: wire to Convex users.getMe when tier is live).
+- **Migration:** When adding tier from Convex, change useTier to call useQuery(api.users.getMe) and map to MeResponse; keep useFeatureAccess() as-is.

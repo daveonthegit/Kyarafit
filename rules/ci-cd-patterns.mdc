@@ -1,0 +1,80 @@
+---
+description: CI/CD pipeline, local validation, caching, secrets, env, previews
+globs: .github/**/*
+---
+
+# CI/CD Patterns
+
+Pipeline runs on push/PR to main and develop. **No Makefile** in repo; use npm scripts.
+
+## Pipeline stages
+
+1. **Web** (lint, typecheck, test, optional build) — [.github/workflows/web.yml](.github/workflows/web.yml). Runs on path changes to web/, convex/, design-system/.
+2. **Mobile** — [.github/workflows/mobile.yml](.github/workflows/mobile.yml). Lint, typecheck.
+3. **Security** — Gitleaks (secrets), Trivy (vulnerabilities), npm audit (critical). On PR.
+4. **Build summary** — Aggregates web + mobile result.
+
+**Do:** Keep jobs focused; run lint and typecheck before build.  
+**Don't:** Don't add Go backend steps (backend is archived); don't rely on make (use npm).
+
+## Local validation (canonical commands)
+
+Run **before every push**:
+
+```bash
+npm run validate
+```
+
+Or OS-specific:
+
+```bash
+npm run ci          # Unix/Mac/WSL: bash scripts/ci-local.sh
+npm run ci:win      # Windows PowerShell: scripts/ci-local.ps1
+```
+
+**What runs:** Format check (Prettier), lint (ESLint web + mobile), typecheck (TypeScript web + mobile), build (web), tests (web placeholder, image-service pytest if available). Go and Make are skipped (backend archived; no Makefile).
+
+See also [.cursor/rules/local-ci-validation.mdc](.cursor/rules/local-ci-validation.mdc). If docs or rules reference `make validate`, use `npm run validate` instead (or add a minimal Makefile that delegates to npm).
+
+## Caching
+
+- **Node:** GitHub Actions uses `cache: "npm"` with setup-node for web/mobile. Dependencies installed with `npm install` at repo root (workspaces).
+- **Convex:** No cache in pipeline; Convex deploy is separate (e.g. on merge to main or manual).
+
+## Secrets
+
+- **GITHUB_TOKEN:** Provided by Actions; used for checkout, PR write, security uploads.
+- **GITLEAKS_LICENSE:** For Gitleaks action if required.
+- **Convex:** Not in GitHub secrets for CI (CI does not deploy Convex); Convex env vars (BETTER_AUTH_SECRET, OAuth, etc.) are set in Convex dashboard.
+- **Do:** Never commit secrets; use GitHub Secrets or Convex dashboard.  
+**Don't:** Don't log secrets in workflows.
+
+## Environment strategy
+
+- **Development:** Local .env.local (web), Convex dev deployment, Expo dev server.
+- **Staging:** Optional; Convex staging deployment and Vercel preview (see below).
+- **Production:** Convex production deployment; Vercel production; env in Convex dashboard and Vercel project settings. CORS and Better Auth trusted origins must include production URLs.
+
+## Previews (Vercel)
+
+- Web is deployed on Vercel. PR previews (if enabled) get a unique URL. Add that URL (or pattern) to Convex CORS and Better Auth trusted origins for preview auth to work (e.g. ADDITIONAL_CORS_ORIGINS or SITE_URL per preview).
+- **Do:** Document in setup docs that preview URLs must be allowed in Convex when using auth.  
+**Don't:** Don't commit production secrets to repo.
+
+## Release / versioning
+
+- No automated release tagging in current workflows. Version in package.json (web, mobile) and optionally tags (e.g. v1.0.0) for releases.
+- **Do:** Bump version and tag when releasing; document in commit-and-pr-guidelines if needed.  
+**Don't:** Don't auto-publish to app stores from CI without explicit approval.
+
+## Summary
+
+| Item | Current |
+|------|---------|
+| Lint | ESLint (web, mobile) |
+| Typecheck | tsc --noEmit (web, mobile) |
+| Build | Next.js build (web) |
+| Test | Web/mobile placeholder; image-service pytest |
+| Deploy web | Vercel (separate from this CI or via Vercel integration) |
+| Deploy Convex | `npx convex deploy` (manual or separate workflow) |
+| Local run | `npm run validate` or `npm run ci` / `npm run ci:win` |

@@ -1,0 +1,76 @@
+---
+description: Convex backend patterns, structure, auth, and conventions
+globs: convex/**/*
+---
+
+# Backend Patterns (Convex)
+
+Backend is **Convex** only. Go code in `backend-archived/` is not used. Follow these patterns for queries, mutations, actions, and HTTP.
+
+## Folder structure (current)
+
+- **convex/** — All backend code.
+  - `schema.ts` — Table definitions and indexes.
+  - `*.ts` per domain: `closetItems.ts`, `builds.ts`, `buildTasks.ts`, `conventions.ts`, `users.ts`, `files.ts`, `auth.ts`, `auth.config.ts`, `http.ts`, `emailHelpers.ts`.
+  - `betterAuth/` — Better Auth Convex component (auth, schema, adapter).
+- **No** separate "controllers" or "services" folders; each file exports query/mutation/action handlers.
+
+## Routing / "controller" layer
+
+- **Queries** — Read data; return serializable values. Use `query({ args: { ... }, handler: async (ctx, args) => { ... } })`.
+- **Mutations** — Write data; run in transaction. Use `mutation({ args: { ... }, handler: async (ctx, args) => { ... } })`.
+- **Actions** — Side effects (HTTP, external APIs). Use `action({ args: { ... }, handler: async (ctx, args) => { ... } })`.
+- **HTTP** — Auth and webhooks only in `convex/http.ts`; thin router that delegates to Better Auth or Convex handlers. Keep CORS and trusted origins in sync with `convex/betterAuth/auth.ts` (see docs/auth.md).
+
+**Do:** One file per resource (e.g. builds.ts). Export named query/mutation/action.  
+**Don't:** Put business logic in http.ts beyond routing; don't add Go REST routes.
+
+## Service / orchestration
+
+- Complex workflows: implement inside mutation or action handlers, or in helper functions in the same file (or a shared `_helpers.ts`). No separate "service" folder required.
+- For Stripe or external APIs: use Convex **actions** (or HTTP endpoint that calls a mutation with verified payload).
+
+## Data access
+
+- All data access via `ctx.db` (get, query, insert, patch, delete). Use indexes from schema (e.g. `by_userId`, `by_buildId`).
+- **Ownership:** Every table has `userId`; in every handler that writes or reads user-scoped data, resolve identity and enforce: `const identity = await ctx.auth.getUserIdentity(); if (!identity) throw new Error("Unauthorized");` then pass `identity.subject` (or equivalent) as `userId` and filter by it.
+
+## Schema and validation
+
+- **Schema:** `convex/schema.ts` with `defineTable`, `defineSchema`; indexes via `.index("name", ["field"])`.
+- **Args validation:** Use Convex validators: `v.string()`, `v.id("builds")`, `v.optional(v.string())`, etc. in `args`. No zod in Convex handlers for args (Convex validators only).
+- **Shared types:** design-system/types/ for frontend and shared DTOs; Convex infers types from schema and args.
+
+## Error handling
+
+- Throw in handler: `throw new Error("message")`; Convex surfaces to client. Use clear messages for validation (e.g. "imageUrl is required").
+- Don't return error objects from mutations; throw so the client gets a failed promise.
+
+## Authentication and authorization
+
+- **Identity:** `const identity = await ctx.auth.getUserIdentity();` in mutations/queries that require auth. Use `identity.subject` as the canonical userId (string) for Convex tables.
+- **Auth config:** JWT from Better Auth in `convex/auth.config.ts`; HTTP routes in `convex/http.ts` with CORS and trusted origins (see security-patterns and docs/auth.md).
+
+## Pagination / filtering
+
+- Use index filters: `.withIndex("by_userId", q => q.eq("userId", args.userId))`. For cursor pagination, use Convex pagination helpers if needed (e.g. `paginationOptsValidator` from convex/server).
+- Current pattern: `.collect()` for small lists; add pagination when lists grow large.
+
+## Logging and config
+
+- **Logging:** `console.log` / `console.error` in handlers; view in Convex dashboard logs.
+- **Config:** Environment variables in Convex dashboard (BETTER_AUTH_SECRET, OAuth credentials, RESEND, STRIPE_*, etc.). No `.env` in Convex repo; use `process.env` in Convex code.
+
+## Example: new resource end-to-end
+
+1. **Schema** — In `convex/schema.ts`, add table with userId and indexes.
+2. **Query** — e.g. `convex/myResource.ts`: `export const list = query({ args: { userId: v.string() }, handler: async (ctx, args) => { ... } });`
+3. **Mutation** — `export const create = mutation({ args: { userId: v.string(), name: v.string(), ... }, handler: async (ctx, args) => { const id = await ctx.db.insert("myResource", args); return await ctx.db.get(id); } });`
+4. **Auth** — In handler, optionally verify identity and that args.userId matches identity.subject for user-scoped resources.
+5. **Frontend** — Use `useQuery(api.myResource.list, { userId })` and `useMutation(api.myResource.create)` from web/mobile.
+
+## Current reality vs recommended
+
+- **Current:** Convex-only; no Go. File storage via `convex/files.ts` (generateUploadUrl, getUrl). Better Auth in convex/betterAuth/.
+- **Recommended:** Stay Convex. For Stripe/subscription: Convex action (or HTTP) that verifies webhook and updates Convex users; Checkout/Portal URL from action or HTTP.
+- **Migration:** N/A for backend (Go is archived).

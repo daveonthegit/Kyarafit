@@ -6,7 +6,7 @@ Mobile-first cosplay wardrobe and planning app. Backend and auth are provided by
 
 - **Backend & DB**: Convex (document database, real-time queries, mutations, file storage)
 - **Auth**: Better Auth (Google/GitHub OAuth, email+password) running as a Convex HTTP component
-- **Web**: Next.js 15, Convex React hooks (`useQuery` / `useMutation`)
+- **Web**: Next.js 16, Convex React hooks (`useQuery` / `useMutation`)
 - **Mobile**: React Native + Expo; local SQLite for offline; Convex for cloud when signed in (with Convex→SQLite sync)
 
 ## High-Level Flow

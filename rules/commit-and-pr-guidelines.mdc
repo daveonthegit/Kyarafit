@@ -1,0 +1,53 @@
+---
+description: Commit style, PR size, checklist, and definition of done
+globs: .github/**/*
+---
+
+# Commit and PR Guidelines
+
+Keep history clear and PRs reviewable. Use the repo PR template.
+
+## Commit style
+
+- **Preferred:** Conventional commits — `type(scope): message` (e.g. `feat(web): add ImageUpload to convention new`, `fix(convex): require imageUrl on build create`). Types: feat, fix, docs, style, refactor, test, chore.
+- **Acceptable:** Short present-tense message (e.g. "Add packing list search", "Fix CORS for preview URLs"). One logical change per commit.
+- **Do:** One commit per logical change; message explains what and why when non-obvious.  
+**Don't:** Don't commit unrelated changes in one commit; don't use vague messages ("WIP", "fix stuff").
+
+## PR sizing
+
+- **Prefer:** Vertical slices — one feature or fix, testable on its own. Small enough to review in one sitting (e.g. < 400 lines when possible).
+- **Do:** Split large work into multiple PRs (e.g. "Add settings routes" then "Add account page content").  
+**Don't:** Don't open a single PR with many unrelated features; don't mix refactors with new behavior without clear sections.
+
+## Required checklist (per PR)
+
+Use the checklist in [.github/pull_request_template.md](.github/pull_request_template.md):
+
+- Type of change (bug fix, feature, docs, etc.)
+- Service(s) affected (web, mobile, backend, docs, CI)
+- Testing: unit/integration/manual as applicable
+- Code style, self-review, docs updates, no new warnings
+- New/existing tests pass
+
+**Additional:**
+
+- Run **`npm run validate`** (or `npm run ci` / `npm run ci:win`) locally and fix any failures before requesting review.
+- If the change touches auth or CORS: confirm trusted origins and allowedOrigins still match (docs/auth.md).
+- For new features: add or update implementation docs if needed (see docs/implementation/).
+
+## Screenshots and migration notes
+
+- **UI changes:** Add screenshots (or short video) to the PR so reviewers can see the result.
+- **Breaking or config changes:** Note in PR description and in docs (e.g. new env var, Convex schema change). If migration is needed (e.g. data backfill), describe steps.
+
+## Review and definition of done
+
+- **Review:** At least one approval from maintainer; all CI jobs green. Address review comments or document why not.
+- **Definition of done:** Feature/fix is implemented; tests added or updated where appropriate; docs updated if behavior or setup changed; local validation passes; no known regressions.
+
+## Reference
+
+- PR template: [.github/pull_request_template.md](.github/pull_request_template.md)
+- Local CI: [.cursor/rules/local-ci-validation.mdc](.cursor/rules/local-ci-validation.mdc) and [rules/ci-cd-patterns.mdc](ci-cd-patterns.mdc)
+- Implementation docs: [docs/implementation/README.md](../docs/implementation/README.md)

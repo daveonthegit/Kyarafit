@@ -138,7 +138,7 @@ npx convex test
 cd image-service && python -m pytest
 ```
 
-Run `make validate` (or `npm run validate`) before pushing to run the full CI suite locally.
+Run **`npm run validate`** (or `npm run ci` / `npm run ci:win` on Windows) before pushing to run the full CI suite locally. See [CI_LOCAL.md](../CI_LOCAL.md). (No Makefile in repo.)
 
 ## Pull Request Guidelines
 

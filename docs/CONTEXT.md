@@ -27,7 +27,7 @@
 | ------------- | ------------------------------------------------------------ |
 | Database      | [Convex](https://convex.dev) (document DB, real-time)        |
 | Auth          | [Better Auth](https://better-auth.com) (Google/GitHub OAuth) |
-| Web           | Next.js 15 (App Router), TailwindCSS                         |
+| Web           | Next.js 16 (App Router), TailwindCSS                         |
 | Mobile        | React Native + Expo, local SQLite (offline-first)            |
 | Image Service | Python + rembg (optional background removal)                 |
 | Design System | Shared TypeScript types and design tokens                    |
@@ -279,4 +279,4 @@ See [README.md](../README.md) for full setup instructions.
 - **TypeScript**: Strict mode, no `any`, Zod for Convex input validation
 - **Formatting**: Prettier (all JS/TS/JSON/MD), gofmt (archived backend)
 - **Linting**: ESLint (web + mobile)
-- **CI**: Run `make validate` before pushing — zero failures expected
+- **CI**: Run `npm run validate` (or `npm run ci` / `npm run ci:win`) before pushing — zero failures expected

@@ -6,7 +6,9 @@ Step-by-step implementation guides for each gap from the [final implementation p
 
 **Feature parity**: Unless a guide is marked **web-only** or **mobile-only**, implement the **same features on both web and mobile**. Guides that describe a feature (e.g. settings, itinerary, planner, build profile) include parity notes or steps for the other platform.
 
-**Recommended order**: Do guides in the table sequence where dependencies allow. Skip or reframe guides marked **Obsolete** below.
+**Recommended order**: Do guides in the table sequence where dependencies allow.
+
+**Last verified:** 2026-03-04. Obsolete guides (WEB*SYNC*_, WEB*REPOS*_, USER*SYNC*\*, SUPABASE_TODO, AUTH_WEB) have been removed; see [DOC_INVENTORY.md](DOC_INVENTORY.md).
 
 | Order | Guide                                                                            | Gap                                                                             |
 | ----- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -18,22 +20,18 @@ Step-by-step implementation guides for each gap from the [final implementation p
 | 5b    | [PACKING_LIST.md](PACKING_LIST.md)                                               | Packing list: total progress, essentials, by-build sections, search, add item   |
 | 5c    | [PLANNING_VIEW.md](PLANNING_VIEW.md)                                             | Planner: timeframe, progress, deadline/other tasks, task–build–convention links |
 | 6     | [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md)                                   | Account Details, Subscription Plan, Notification Style; other menus             |
-| 7     | [SUBSCRIPTION_SERVICE.md](SUBSCRIPTION_SERVICE.md)                               | Stripe webhook + Checkout/Customer Portal                                       |
-| 8     | [WEB_SYNC_WIRING.md](WEB_SYNC_WIRING.md)                                         | **Obsolete** — Web uses Convex only; no sync to Go.                             |
-| 9     | [WEB_REPOS_AND_FULL_SYNC.md](WEB_REPOS_AND_FULL_SYNC.md)                         | **Obsolete** — No web IndexedDB repos or push/pull to Go.                       |
-| 10    | [WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS.md](WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS.md) | ImageUpload in closet/new and convention new/edit (use Convex files, not Go)     |
-| 11    | [WEB_SYNC_STATUS_INDICATOR.md](WEB_SYNC_STATUS_INDICATOR.md)                     | **Obsolete** — No web sync service; any status would be Convex subscription.    |
-| 12    | [WEB_FEATURE_GATES.md](WEB_FEATURE_GATES.md)                                     | Reframe for Convex when tiers exist (no Go tier API).                           |
-| 13    | [DOCS_AND_SETUP_UPDATES.md](DOCS_AND_SETUP_UPDATES.md)                           | Keep docs aligned with Convex + Better Auth (see IMPLEMENTATION_STATUS).         |
-| 14    | [AUTH_WEB.md](AUTH_WEB.md)                                                       | **Done** — Better Auth; see [auth.md](../auth.md).                               |
-| 15    | [MOBILE_NEXT_STEPS.md](MOBILE_NEXT_STEPS.md)                                     | Mobile image upload, task UI, convention/packing pull                           |
-| 16    | [TESTING_AND_DEPLOYMENT.md](TESTING_AND_DEPLOYMENT.md)                           | Run checklists; deployment prep and verification                                |
+| 7     | [SUBSCRIPTION_SERVICE.md](SUBSCRIPTION_SERVICE.md)                               | Stripe webhook + Checkout/Customer Portal (Convex)                              |
+| 8     | [WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS.md](WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS.md) | ImageUpload in closet/new and convention new/edit (Convex files)                |
+| 9     | [WEB_FEATURE_GATES.md](WEB_FEATURE_GATES.md)                                     | Upgrade prompts for FREE users (Convex users.tier when wired)                   |
+| 10    | [DOCS_AND_SETUP_UPDATES.md](DOCS_AND_SETUP_UPDATES.md)                           | Keep docs aligned with Convex + Better Auth                                     |
+| 11    | [MOBILE_NEXT_STEPS.md](MOBILE_NEXT_STEPS.md)                                     | Mobile image upload, task UI, convention/packing (Convex)                       |
+| 12    | [TESTING_AND_DEPLOYMENT.md](TESTING_AND_DEPLOYMENT.md)                           | Run checklists; deployment prep and verification                                |
 
 ---
 
 ## Quick reference
 
 - **Backend (Convex)**: SEED_DATA (reframe for Convex), SUBSCRIPTION_SERVICE (Stripe + Convex when implemented). AUTH is Better Auth — done.
-- **Web**: Use Convex only. Relevant guides (adapt for Convex): WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS, WEB_TASK_CHECKLIST_AND_BUILD_DETAIL, DRAG_DROP_IMPLEMENTATION, CONVENTION_ITINERARY, PACKING_LIST, PLANNING_VIEW, SETTINGS_AND_MENUS, WEB_FEATURE_GATES (when tiers exist). WEB_SYNC_* guides are obsolete.
+- **Web**: Use Convex only. Relevant guides: WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS, WEB_TASK_CHECKLIST_AND_BUILD_DETAIL, DRAG_DROP_IMPLEMENTATION, CONVENTION_ITINERARY, PACKING_LIST, PLANNING_VIEW, SETTINGS_AND_MENUS, WEB_FEATURE_GATES.
 - **Mobile**: MOBILE_NEXT_STEPS; feature parity with web (image upload, task UI, itinerary/packing/planner/settings). Sync is Convex ↔ SQLite (useConvexSync).
 - **Docs/ops**: DOCS_AND_SETUP_UPDATES, TESTING_AND_DEPLOYMENT.

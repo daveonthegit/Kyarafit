@@ -11,7 +11,7 @@
    Ensure all docs reflect Convex + Better Auth. Update or deprecate Supabase/Go-era setup (QUICKSTART_SUPABASE, SUPABASE_TODO, API_DOCUMENTATION for Go, etc.). See [DOCS_AND_SETUP_UPDATES.md](DOCS_AND_SETUP_UPDATES.md).
 
 2. **Run local CI**  
-   Before pushing, run `make validate` (or `npm run validate`) and fix any failures. See [CI_LOCAL.md](../../CI_LOCAL.md).
+   Before pushing, run **`npm run validate`** (or `npm run ci` / `npm run ci:win` on Windows) and fix any failures. See [CI_LOCAL.md](../../CI_LOCAL.md). (No Makefile in repo.)
 
 3. **Mobile offline/signed-out experience**  
    Confirm flows (closet, builds, conventions, packing) work clearly when offline or signed out (SQLite-only). Add or refine “Sign in to sync” and any pending-sync indicators if needed.
@@ -39,9 +39,9 @@
 8. **Testing**  
    Use [TESTING_AND_DEPLOYMENT.md](TESTING_AND_DEPLOYMENT.md) for checklists. Verify auth (email + OAuth), Convex CRUD, file upload, and mobile Convex↔SQLite sync.
 
-9. **Deployment**  
-   - Convex: `npx convex deploy` (or CI). Set env vars in Convex dashboard (BETTER_AUTH_SECRET, OAuth credentials, RESEND for email, etc.).  
-   - Web: e.g. GCP Cloud Run; see [GCP_DEPLOYMENT.md](../GCP_DEPLOYMENT.md) (update any Supabase/Go references to Convex where applicable).  
+9. **Deployment**
+   - Convex: `npx convex deploy` (or CI). Set env vars in Convex dashboard (BETTER_AUTH_SECRET, OAuth credentials, RESEND for email, etc.).
+   - Web: e.g. GCP Cloud Run; see [GCP_DEPLOYMENT.md](../GCP_DEPLOYMENT.md) (update any Supabase/Go references to Convex where applicable).
    - Ensure CORS and Better Auth trusted origins include production URLs (see [auth.md](../auth.md)).
 
 ---
@@ -57,7 +57,7 @@
 
 ## References
 
-- [MIGRATION.md](../MIGRATION.md) — Supabase/Go → Convex migration summary  
-- [auth.md](../auth.md) — Better Auth setup, CORS, trusted origins  
-- [CONTEXT.md](../CONTEXT.md) — Data model and Convex function reference  
+- [MIGRATION.md](../MIGRATION.md) — Supabase/Go → Convex migration summary
+- [auth.md](../auth.md) — Better Auth setup, CORS, trusted origins
+- [CONTEXT.md](../CONTEXT.md) — Data model and Convex function reference
 - [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) — Current status and remaining work
