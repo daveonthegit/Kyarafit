@@ -1,6 +1,8 @@
 # Supabase Setup - Final Steps
 
-## ✅ Completed:
+> **Deprecated**: The project has migrated to **Convex** and **Better Auth**. Supabase and the Go backend are no longer used. Use the [project README](../../README.md) and [MIGRATION.md](../../MIGRATION.md) for current setup. This file is kept for historical reference only.
+
+## ✅ Completed (Legacy):
 
 - [x] Created Supabase project
 - [x] Environment files configured

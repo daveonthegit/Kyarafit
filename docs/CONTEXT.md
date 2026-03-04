@@ -170,7 +170,7 @@ Indexes: `by_conventionId`
 
 ## Authentication
 
-Better Auth runs as a Convex HTTP component, handling Google OAuth (and optionally GitHub OAuth). There is no email/password auth.
+Better Auth runs as a Convex HTTP component. Supported methods: **email + password** (with verification and password reset) and **OAuth** (Google required, GitHub optional).
 
 **Flow**: User clicks OAuth button → Better Auth redirects to provider → callback hits Convex HTTP action → session stored in Convex → `ConvexBetterAuthProvider` picks up token → all Convex queries run authenticated.
 

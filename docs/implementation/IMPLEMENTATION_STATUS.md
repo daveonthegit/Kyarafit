@@ -1,161 +1,97 @@
-# Implementation Status: Multi-Platform Sync & Features
+# Implementation Status: Convex + Better Auth
 
-**Status**: ✅ 11/11 tasks completed (IMPLEMENTATION COMPLETE)
-**Date**: 2026-02-04
+**Status**: Core backend and auth complete; web and mobile use Convex. Some UX and parity items remain.  
+**Last Updated**: 2026-03-04
+
+## Current Stack
+
+- **Backend**: Convex (database, queries, mutations, file storage)
+- **Auth**: Better Auth (Google/GitHub OAuth, email+password) as Convex HTTP component
+- **Web**: Next.js 15, Convex hooks only (no Go API, no IndexedDB sync)
+- **Mobile**: Expo, Convex when signed in + local SQLite; Convex→SQLite sync via `useConvexSync` / `convexSync.ts`
+
+See [MIGRATION.md](../MIGRATION.md) for the Supabase/Go → Convex migration summary.
+
+---
 
 ## ✅ Completed
 
-### Backend Infrastructure (Complete)
+### Backend (Convex)
 
-1. **Image Upload System** ✅
-   - Created `POST /api/v1/upload/image` endpoint
-   - File validation (type, size 5MB max)
-   - Storage quota checks per tier
-   - Supabase Storage integration
-   - Auto-updates user storage usage
-   - Files: `backend/main.go`, `backend/internal/storage/supabase.go`
+- **Schema** — `convex/schema.ts`: users, closetItems, builds, buildItemLinks, buildTasks, conventions, conventionDayPlans, packingListItems; all with `userId` for auth.
+- **CRUD** — closetItems, builds, buildTasks, conventions (incl. day plans and packing), users; all with ownership checks.
+- **File storage** — `api.files.generateUploadUrl` / `api.files.getUrl` for images.
+- **Auth** — Better Auth in `convex/betterAuth/`; `api.auth.getCurrentUser`; Convex JWT provider; HTTP routes in `convex/http.ts` (CORS + trusted origins).
 
-2. **Convention Image Support** ✅
-   - Migration `009_convention_images_and_sync.up.sql`
-   - Added `image_url` field to conventions table
-   - Updated backend types: `backend/internal/convention/types.go`
-   - Updated repository CRUD operations
-   - Updated frontend types: `design-system/types/convention.ts`
+### Web
 
-3. **Tier System & Restrictions** ✅
-   - FREE tier: Web access, local-only, 50MB, 5 builds, 1 convention
-   - PREMIUM_BASIC: Cloud sync, backup, 500MB, 20 builds, 5 conventions
-   - PREMIUM_PRO: Unlimited everything
-   - Added `RequireCloudSync` middleware
-   - Files: `backend/middleware/tier.go`
-
-4. **Seed Data System** ✅
-   - Auto-creates "My First Build" with 4 starter tasks
-   - Auto-creates "My First Convention" (3 months from today)
-   - Uses placeholder images from prototype
-   - Triggered on first device access
-   - Manual endpoint: `POST /api/seed`
-   - Files: `backend/internal/seed/`
-
-5. **Sync Pull Endpoint** ✅
-   - `GET /api/v1/sync/pull?since={timestamp}`
-   - Requires PREMIUM_BASIC+ tier
-   - Returns all changes since timestamp
-   - Supports incremental sync
-   - Files: `backend/internal/sync/sync.go`
-
-6. **Bidirectional Sync (Mobile)** ✅
-   - Updated mobile sync to support pull phase
-   - Conflict resolution: last-write-wins
-   - Tracks `last_sync_timestamp` in KV store
-   - Merges closet items, builds, tasks, conventions
-   - Files: `mobile/src/services/sync.ts`
-
-7. **Updated Triggers** ✅
-   - Migration adds `updated_at` triggers to all tables
-   - Ensures conflict resolution works correctly
-   - Files: `backend/migrations/009_convention_images_and_sync.up.sql`
-
-## ✅ All Tasks Complete
-
-8. **File Upload UI** ✅
-   - Created reusable `ImageUpload` component
-   - Supports file upload AND URL input
-   - Integrated into builds new page
-   - Ready for use in conventions and closet
-   - Files: `web/src/components/ui/ImageUpload.tsx`, `web/src/app/builds/new/page.tsx`
-
-9. **Web IndexedDB Storage** ✅
-   - Created complete IndexedDB schema matching mobile SQLite
-   - Repository pattern with `buildsRepo.ts` and `outboxRepo.ts`
-   - KV store for sync timestamps
-   - Ready for additional repositories (closet, conventions, tasks)
-   - Files: `web/src/lib/storage/db.ts`, `web/src/lib/storage/buildsRepo.ts`, `web/src/lib/storage/outboxRepo.ts`
-
-10. **Web Sync Service** ✅
-    - Full bidirectional sync implementation
-    - Push phase: Outbox to server
-    - Pull phase: Server changes to IndexedDB
-    - FREE tier: Local-only mode
-    - PREMIUM_BASIC+: Cloud sync enabled
-    - Auto-triggers on: load, focus, beforeunload
-    - Files: `web/src/lib/services/sync.ts`
-
-11. **Task Checklist UI** ✅
-    - TaskChecklist component with progress bar
-    - Check/uncheck tasks
-    - Add/delete tasks
-    - Progress percentage display
-    - "Mark All Complete" action
-    - Files: `web/src/components/builds/TaskChecklist.tsx`
-
-12. **Feature Access Hooks** ✅
-    - Enhanced `useTier` with `useFeatureAccess` hook
-    - Per-tier capability checks (canUseCloudSync, canExport, etc.)
-    - Ready for UI feature gating
-    - Files: `web/src/lib/api/useTier.ts`
-
-## 🎯 Next Steps
-
-### Immediate (Essential for MVP)
-
-1. Build file upload UI for web (builds, conventions, closet)
-2. Set up web IndexedDB with repositories
-3. Create web sync service
-
-### Secondary (UX Enhancements)
-
-4. Task checklist UI with progress tracking
-5. Drag-and-drop task assignment
-
-## 📝 Testing Checklist
-
-Once remaining tasks are complete:
-
-- [ ] Upload images for builds/conventions/closet from web
-- [ ] Upload images from mobile and verify sync
-- [ ] Verify FREE users can use web but not sync
-- [ ] Verify PREMIUM users can sync across devices
-- [ ] Create data on mobile, see on web (and vice versa)
-- [ ] Test conflict resolution (edit same item on two devices)
-- [ ] Verify new users get seed data automatically
-- [ ] Check/uncheck tasks, verify progress bar
-- [ ] Assign tasks to closet items via drag-drop
-- [ ] Verify storage quotas enforced
-- [ ] Test offline mode on web (FREE tier)
-
-## 🚀 Deployment
-
-When ready to deploy:
-
-1. Run migration `009_convention_images_and_sync`
-2. Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set
-3. Clear IndexedDB on web after schema changes
-4. Force mobile app update for new sync logic
-5. Monitor `app_users.current_usage_mb` for storage tracking
-
-## 📚 Key Files Reference
-
-### Backend
-
-- `backend/main.go` - Main server, upload endpoint, sync endpoint, seed endpoint
-- `backend/internal/tier/tier.go` - Tier definitions
-- `backend/middleware/tier.go` - Tier middleware
-- `backend/internal/sync/sync.go` - Sync pull repository
-- `backend/internal/seed/` - Seed data generation
-- `backend/migrations/009_*` - Convention images + sync triggers
+- **Auth** — Sign-in/sign-up (email+password + OAuth), AuthGate, ConvexBetterAuthProvider, bearer token storage.
+- **Data** — All main flows use Convex: closet, builds, build detail + tasks, conventions, itinerary, packing; TaskChecklist with create/update/delete; ImageUpload using Convex file storage.
+- **No legacy** — No Supabase client, no Go API calls, no IndexedDB repos, no web sync service to Go.
 
 ### Mobile
 
-- `mobile/src/services/sync.ts` - Bidirectional sync with conflict resolution
-- `mobile/src/storage/*Repo.ts` - Local-first repositories
+- **Auth** — Better Auth client; OAuth (incl. deep link OTT); ConvexBetterAuthProvider in `_layout.tsx`.
+- **Data** — Signed-in screens use Convex (`useQuery` / `useMutation`) for closet, builds, conventions, packing, itinerary, build detail + tasks.
+- **Offline / sync** — Local SQLite; `useConvexSync` syncs Convex data into SQLite; `convexSync.ts` pushes local changes to Convex.
 
-### Web (Partially Complete)
+---
 
-- `web/src/lib/supabase/storage.ts` - Upload helpers (existing)
-- `web/src/lib/api/useTier.ts` - Tier hooks (to be enhanced)
+## 🔲 Remaining / To Implement
+
+### High level
+
+1. **Mobile offline-first UX** — When signed out or offline, mobile still uses SQLite; ensure flows (closet, builds, conventions, packing) and any “pending sync” UI are clear and consistent.
+2. **Feature parity** — Any gaps between web and mobile (e.g. image upload everywhere, task assignment to closet items, planner view) per [IMPLEMENTATION_GUIDES_INDEX.md](IMPLEMENTATION_GUIDES_INDEX.md).
+3. **Tiers / subscription** — No tier enforcement in Convex yet; no Stripe integration. See [SUBSCRIPTION_SERVICE.md](SUBSCRIPTION_SERVICE.md) when implementing.
+4. **Settings & account** — Account details, subscription plan, notification preferences; see [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md).
+5. **Docs and setup** — Keep README, DEVELOPMENT, and API docs aligned with Convex + Better Auth; mark or archive Supabase/Go-era docs. See [DOCS_AND_SETUP_UPDATES.md](DOCS_AND_SETUP_UPDATES.md).
+
+### Implementation guides (still relevant)
+
+- [BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md](BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.md) — Builds list as cards, progress, tabs.
+- [WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md](WEB_TASK_CHECKLIST_AND_BUILD_DETAIL.md) — Task checklist on build detail (partially done; refine as needed).
+- [DRAG_DROP_IMPLEMENTATION.md](DRAG_DROP_IMPLEMENTATION.md) — Link closet items to builds; assign tasks to closet items.
+- [CONVENTION_ITINERARY.md](CONVENTION_ITINERARY.md), [PACKING_LIST.md](PACKING_LIST.md), [PLANNING_VIEW.md](PLANNING_VIEW.md) — Itinerary, packing, planner.
+- [SETTINGS_AND_MENUS.md](SETTINGS_AND_MENUS.md), [SUBSCRIPTION_SERVICE.md](SUBSCRIPTION_SERVICE.md).
+- [MOBILE_NEXT_STEPS.md](MOBILE_NEXT_STEPS.md) — Mobile-specific parity and polish.
+- [DOCS_AND_SETUP_UPDATES.md](DOCS_AND_SETUP_UPDATES.md) — Docs and setup.
+- [TESTING_AND_DEPLOYMENT.md](TESTING_AND_DEPLOYMENT.md) — Testing and deployment.
+
+### Obsolete (post-migration)
+
+- **WEB_SYNC_WIRING**, **WEB_REPOS_AND_FULL_SYNC**, **WEB_SYNC_STATUS_INDICATOR** — Described IndexedDB + sync to Go backend; web now uses Convex only. Do not implement those guides as written; any “sync status” would be Convex subscription state, not outbox/sync to Go.
+- **WEB_FEATURE_GATES** — Was for tier gating against Go backend; when tiers exist, they will be enforced via Convex or auth, not the old API.
+- **WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS** — Target (ImageUpload in closet/convention forms) still valid; implementation uses Convex file storage, not Go upload endpoint.
+- **SEED_DATA_IMPLEMENTATION** — Described Go seed endpoint; if seed data is needed, implement via Convex (e.g. mutation or dashboard script).
+
+---
+
+## Key Files Reference
+
+### Convex
+
+- `convex/schema.ts` — Schema
+- `convex/closetItems.ts`, `builds.ts`, `buildTasks.ts`, `conventions.ts`, `users.ts`, `files.ts` — CRUD and files
+- `convex/auth.ts`, `convex/auth.config.ts` — Identity and JWT
+- `convex/http.ts` — HTTP router and CORS
+- `convex/betterAuth/` — Better Auth component
+
+### Web
+
+- `web/src/lib/auth/` — Auth client, server helpers, bearer storage
+- `web/src/components/ConvexClientProvider.tsx`, `AuthGate.tsx`
+- `web/src/hooks/useCurrentUser.ts`
+- Pages under `web/src/app/` use `useQuery` / `useMutation` from `convex/react` with `api` from `convex/_generated/api`
+
+### Mobile
+
+- `mobile/src/lib/auth/` — Auth client, bearer storage
+- `mobile/app/_layout.tsx` — Convex + Better Auth providers, OTT handler
+- `mobile/src/hooks/useConvexSync.ts` — Convex → SQLite sync
+- `mobile/src/services/convexSync.ts` — Push local changes to Convex
+- `mobile/src/storage/` — SQLite repos (offline)
 
 ### Types
 
-- `design-system/types/convention.ts` - Convention types with imageUrl
-- `design-system/types/builds.ts` - Build task types
+- `design-system/types/` — Shared types (convention, builds, etc.)

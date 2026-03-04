@@ -1,8 +1,10 @@
 # Authentication Implementation Summary
 
-## Overview
+> **Legacy**: This document describes the **Supabase Auth** implementation, which has been replaced by **Better Auth** (Google/GitHub OAuth + email/password) running as a Convex component. For current auth setup, flows, and troubleshooting, see **[docs/auth.md](../auth.md)**.
 
-Kyarafit now uses **Supabase Auth** across all platforms with tiered access control. The implementation respects the different use cases of web (editor-focused, requires login) and mobile (offline-first, optional sync).
+## Overview (Legacy)
+
+Kyarafit previously used **Supabase Auth** across all platforms with tiered access control. The implementation respected the different use cases of web (editor-focused, requires login) and mobile (offline-first, optional sync).
 
 ---
 

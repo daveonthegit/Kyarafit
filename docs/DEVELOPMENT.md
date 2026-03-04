@@ -100,12 +100,11 @@ refactor(ui): extract reusable components
 - Use Tailwind CSS for styling
 - Follow React best practices
 
-### Backend (Go)
+### Backend (Convex)
 
-- Follow Go naming conventions
-- Use proper error handling
-- Add comprehensive tests
-- Document public functions
+- Use TypeScript; follow Convex patterns (queries, mutations, auth checks)
+- Validate inputs; document public functions
+- The Go backend in `backend-archived/` is no longer used
 
 ### Mobile (React Native)
 
@@ -132,12 +131,14 @@ cd web && npm test
 # Mobile app
 cd mobile && npm test
 
-# Backend
-cd backend && go test ./...
+# Convex (if applicable)
+npx convex test
 
-# Image service
+# Image service (optional)
 cd image-service && python -m pytest
 ```
+
+Run `make validate` (or `npm run validate`) before pushing to run the full CI suite locally.
 
 ## Pull Request Guidelines
 
@@ -198,29 +199,28 @@ cd image-service && python -m pytest
 ### Required Tools
 
 - Node.js 18+
-- Go 1.21+
-- Python 3.11+
-- Docker and Docker Compose
+- A Convex account (https://dashboard.convex.dev)
+- Python 3.11+ (optional, for image service)
 - Git
 
 ### Local Development
 
+See the [project README](../README.md) for full setup. Summary:
+
 ```bash
-# Clone repository
 git clone <repo-url>
 cd Kyarafit
-
-# Install dependencies
-./setup.sh
-
-# Start development servers
-./start-project.sh
+npm install
+npx convex dev   # Create/link Convex project; sets .env.local
+# Set OAuth and BETTER_AUTH_SECRET in Convex dashboard
+npm run dev:web  # and/or npm run start -w mobile
 ```
 
 ## Resources
 
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [React Best Practices](https://react.dev/learn)
-- [Go Best Practices](https://golang.org/doc/effective_go.html)
+- [Convex Documentation](https://docs.convex.dev)
+- [Better Auth](https://better-auth.com)
 - [React Native Best Practices](https://reactnative.dev/docs/performance)
 - [Next.js Documentation](https://nextjs.org/docs)

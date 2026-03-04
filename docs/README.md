@@ -83,16 +83,17 @@ The following documentation remains at the root `/docs` level:
 
 ### For Developers
 
-- **Getting Started**: Start with `/setup/QUICKSTART_SUPABASE.md`
+- **Getting Started**: Start with the [project README](../README.md) (Convex + Better Auth setup). Legacy Supabase setup: `/setup/QUICKSTART_SUPABASE.md` (no longer the active stack).
 - **Development**: Read `DEVELOPMENT.md` and `CONTRIBUTING.md`
-- **API Reference**: Check `/api/API_DOCUMENTATION.md`
+- **API Reference**: Convex functions — see `CONTEXT.md` (Convex function reference). Legacy Go REST API: `/api/API_DOCUMENTATION.md`.
 - **Architecture**: See `architecture.md` and `project_structure.md`
+- **Migration**: See `MIGRATION.md` for Supabase/Go → Convex migration summary.
 
 ### For Integrators
 
-- **Email Setup**: See `/integrations/SMTP_QUICKSTART.md` or `/integrations/RESEND_SETUP.md`
-- **Authentication**: Check `/integrations/AUTH_IMPLEMENTATION.md`
-- **Storage**: See `/setup/SUPABASE_STORAGE_SETUP.md`
+- **Email Setup**: See `/integrations/SMTP_QUICKSTART.md` or `/integrations/RESEND_SETUP.md` (e.g. for Better Auth verification/reset).
+- **Authentication**: Better Auth — see `auth.md`. Legacy Supabase auth: `/integrations/AUTH_IMPLEMENTATION.md`.
+- **Storage**: File storage is Convex (see `convex/files.ts`). Legacy: `/setup/SUPABASE_STORAGE_SETUP.md`.
 
 ### For Contributors
 
@@ -124,4 +125,4 @@ All documentation has been reorganized into topical folders for better discovera
 
 ---
 
-**Last Updated**: February 4, 2026
+**Last Updated**: March 4, 2026

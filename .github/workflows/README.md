@@ -8,17 +8,14 @@ This directory contains GitHub Actions workflows for CI/CD and automated testing
 
 These workflows deploy to GCP Cloud Run automatically on push to `main`:
 
-- **`deploy-gcp-backend.yml`** - Backend API deployment
-  - Triggers: Push to `main` (backend changes)
-  - Builds: Go/Fiber API
-  - Deploys to: Cloud Run (us-central1)
-  - URL: `api.kyarafit.com`
+- **`deploy-gcp-backend.yml`** - **Disabled** (backend is Convex; deploy via `npx convex deploy`)
 
 - **`deploy-gcp-web.yml`** - Web frontend deployment
   - Triggers: Push to `main` (web changes)
-  - Builds: Next.js application
+  - Builds: Next.js application (Convex + Better Auth; no Go API)
   - Deploys to: Cloud Run (us-central1)
   - URL: `www.kyarafit.com`
+  - **Required GitHub secrets:** `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL` (from Convex dashboard; used as build-args)
 
 - **`deploy-gcp-image-service.yml`** - Image processing service
   - Triggers: Push to `main` (image-service changes)
@@ -28,21 +25,20 @@ These workflows deploy to GCP Cloud Run automatically on push to `main`:
 
 **Requirements:**
 
-- GitHub Secrets: `GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`
-- GCP Secrets: database-url, supabase-url, jwt-secret, etc.
+- GitHub Secrets: `GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`
+- GCP Secret Manager: `auth-secret` (Better Auth; referenced as `BETTER_AUTH_SECRET` in Cloud Run)
 
 ## ✅ CI/Testing Workflows
 
 ### Service-Specific CI
 
-- **`backend.yml`** - Backend testing and linting
-  - Runs: Tests, go vet, golangci-lint
-  - Coverage: Uploads to Codecov
-  - Docker: Validates image builds
+- **`backend.yml`** - **Disabled** (Go backend archived; app uses Convex)
 
 - **`web.yml`** - Web frontend CI
-  - Runs: Tests, linting, type checking
-  - Build: Validates production build
+  - Triggers: changes to `web/`, `convex/`, `design-system/`
+  - Runs: ESLint, TypeScript check, tests
+  - Build: Next.js production build (with Convex placeholder env vars)
+  - Docker: Validates web image build
 
 - **`image-service.yml`** - Image service CI
   - Runs: Python tests, linting
@@ -55,26 +51,21 @@ These workflows deploy to GCP Cloud Run automatically on push to `main`:
 ### General CI
 
 - **`ci.yml`** - Overall project CI
-  - Runs: Multi-service validation
-  - Checks: Code quality across all services
-
-- **`pr-checks.yml`** - Pull request validation
-  - Runs: On all PRs
-  - Validates: Tests pass before merge
+  - Runs: Web, image-service, mobile CI; integration smoke tests (image service); security scan; build summary
+  - Backend: Convex (no Go backend job)
 
 ## 📦 Workflow Status
 
-| Workflow                     | Status    | Purpose                             |
-| ---------------------------- | --------- | ----------------------------------- |
-| deploy-gcp-backend.yml       | ✅ Active | Production backend deployment       |
-| deploy-gcp-web.yml           | ✅ Active | Production web deployment           |
-| deploy-gcp-image-service.yml | ✅ Active | Production image service deployment |
-| backend.yml                  | ✅ Active | Backend CI/testing                  |
-| web.yml                      | ✅ Active | Web CI/testing                      |
-| image-service.yml            | ✅ Active | Image service CI/testing            |
-| mobile.yml                   | ✅ Active | Mobile CI/testing                   |
-| ci.yml                       | ✅ Active | General CI                          |
-| pr-checks.yml                | ✅ Active | PR validation                       |
+| Workflow                     | Status     | Purpose                             |
+| ---------------------------- | ---------- | ----------------------------------- |
+| deploy-gcp-backend.yml       | ⏸️ Disabled | Go backend archived (use Convex)    |
+| deploy-gcp-web.yml           | ✅ Active  | Production web deployment           |
+| deploy-gcp-image-service.yml | ✅ Active  | Production image service deployment |
+| backend.yml                  | ⏸️ Disabled | Go backend archived                 |
+| web.yml                      | ✅ Active  | Web CI (Convex + Next.js)           |
+| image-service.yml            | ✅ Active  | Image service CI/testing            |
+| mobile.yml                   | ✅ Active  | Mobile CI (Expo + Convex)           |
+| ci.yml                       | ✅ Active  | General CI                          |
 
 ## 🗄️ Disabled/Backup Workflows
 
@@ -115,20 +106,13 @@ Zero-downtime rollout
 
 - `GCP_WIF_PROVIDER` - Workload Identity Federation provider
 - `GCP_SERVICE_ACCOUNT` - Service account email
+- `NEXT_PUBLIC_CONVEX_URL` - Convex deployment URL (for web deploy build; from Convex dashboard)
+- `NEXT_PUBLIC_CONVEX_SITE_URL` - Convex HTTP/site URL (for web deploy build; from Convex dashboard)
 - `CODECOV_TOKEN` - Code coverage reporting (optional)
 
-#### GCP Secret Manager Secrets
+#### GCP Secret Manager (for Cloud Run web service)
 
-- `database-url` - Supabase PostgreSQL connection
-- `supabase-url` - Supabase project URL
-- `jwt-secret` - JWT signing secret
-- `supabase-service-key` - Supabase service role key
-- `auth-secret` - Better Auth secret
-- `smtp-host` - SMTP server
-- `smtp-port` - SMTP port
-- `smtp-username` - SMTP username
-- `smtp-password` - SMTP password
-- `smtp-from` - Email from address
+- `auth-secret` - Better Auth secret (referenced as `BETTER_AUTH_SECRET` in deploy-gcp-web.yml)
 
 ## 🚦 Manual Deployment
 
@@ -220,9 +204,7 @@ gcloud run logs read kyarafit-backend --region us-central1
 ## 🔄 Migration History
 
 - **2025**: Migrated from Fly.io/Render to GCP Cloud Run
-  - Reason: Better auto-scaling, lower costs, integrated infrastructure
-  - Old workflows preserved in `workflows-backup/`
-  - Zero-downtime migration completed
+- **2026**: Backend replaced by **Convex** (database, auth via Better Auth). Go backend and `deploy-gcp-backend.yml` / `backend.yml` disabled. Web deploy uses Convex env vars; no Supabase/Go API.
 
 ---
 

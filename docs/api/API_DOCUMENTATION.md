@@ -1,5 +1,7 @@
 # Kyarafit Backend API Documentation
 
+> **Legacy**: This document describes the **archived Go Fiber REST API** (Supabase-backed). The app now uses **Convex** for all backend operations. For the current API, see the [Convex function reference](../CONTEXT.md#convex-functions-reference) and `convex/*.ts` (e.g. `api.closetItems.list`, `api.builds.create`, `api.conventions.getPlan`). Auth is [Better Auth](https://better-auth.com) — see [auth.md](../auth.md).
+
 ## Table of Contents
 
 - [Pieces API Endpoints](#pieces-api-endpoints)

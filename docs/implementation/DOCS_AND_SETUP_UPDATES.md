@@ -1,67 +1,46 @@
 # Documentation and Setup Updates
 
-Update **IMPLEMENTATION_STATUS**, **SUPABASE_TODO**, and other docs so they reflect the current state and guide new contributors. Do steps in order; each has a **Cursor prompt**.
+Keep **IMPLEMENTATION_STATUS**, **NEXT_STEPS**, and other docs aligned with the **Convex + Better Auth** stack so they reflect the current state and guide new contributors.
+
+**Current state (post-migration)**: IMPLEMENTATION_STATUS and NEXT_STEPS have been updated for Convex. Supabase/Go setup docs are deprecated or marked legacy. Use the steps below when you add features or change the stack.
 
 ---
 
 ## Goal
 
-- **IMPLEMENTATION_STATUS.md**: "Next Steps" still lists completed items (file upload UI, IndexedDB, sync service); update or remove that section.
-- **SUPABASE_TODO.md**: Migration checklist stops at 006; add 007, 008, 009.
-- **NEXT_STEPS / docs**: README, architecture diagram, tier restrictions, developer guide, API docs — update or add as needed.
+- **IMPLEMENTATION_STATUS.md**: Keep "Completed" and "Remaining" accurate for Convex (no Go API, no web IndexedDB sync).
+- **SUPABASE_TODO.md**: Deprecated; project uses Convex. Do not add new Supabase migration steps.
+- **NEXT_STEPS / docs**: README, architecture, API docs, DEVELOPMENT — point to Convex and Better Auth; mark legacy Supabase/Go references.
 
 ---
 
 ## Prerequisites
 
 - [docs/implementation/IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
-- [docs/implementation/SUPABASE_TODO.md](SUPABASE_TODO.md) (or [docs/setup/SUPABASE_TODO.md](../setup/SUPABASE_TODO.md) if path differs)
 - [docs/implementation/NEXT_STEPS.md](NEXT_STEPS.md)
-- Migrations 007, 008, 009 in backend/migrations/
+- [docs/MIGRATION.md](../MIGRATION.md) — Convex migration summary
 
 ---
 
-## Step 1: IMPLEMENTATION_STATUS — fix "Next Steps" section
+## Step 1: IMPLEMENTATION_STATUS — keep current
 
 **What to do**
 
-- Open [docs/implementation/IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). Find the "Next Steps" or "Immediate (Essential for MVP)" section that lists "Build file upload UI", "Set up web IndexedDB", "Create web sync service". Remove those items (they are done) or replace with the actual remaining work (e.g. "Wire sync in app", "Add closet/convention repos and full sync", "Settings and subscription UI"). Keep the document accurate so new readers see what is done vs pending.
-
-**Files to touch**
-
-- docs/implementation/IMPLEMENTATION_STATUS.md
-
-**Cursor prompt**
-
-```
-In docs/implementation/IMPLEMENTATION_STATUS.md, update the Next Steps section: remove or rewrite any bullets that say 'Build file upload UI', 'Set up web IndexedDB', 'Create web sync service' (these are completed). Replace with a short list of actual remaining work from the final implementation plan (e.g. wire sync in app, full web repos and sync, settings and subscription, etc.). Keep the rest of the doc unchanged. No code changes.
-```
+- [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) is updated for Convex. When you add features, add them under "Remaining" or move to "Completed" as appropriate. Do not reintroduce Go API, IndexedDB sync, or Supabase as the active stack.
 
 ---
 
-## Step 2: SUPABASE_TODO — add migrations 007, 008, 009
+## Step 2: (Supabase TODO — deprecated)
 
-**What to do**
-
-- Open the Supabase TODO doc: [docs/implementation/SUPABASE_TODO.md](SUPABASE_TODO.md). In the migration checklist, add entries for 007_supabase_storage_setup, 008_enhanced_user_sync, 009_convention_images_and_sync with short descriptions (storage bucket, user sync columns, convention image_url and sync triggers). Mark as optional or required as appropriate.
-
-**Files to touch**
-
-- docs/implementation/SUPABASE_TODO.md or docs/setup/SUPABASE_TODO.md
-
-**Cursor prompt**
-
-```
-In docs/implementation/SUPABASE_TODO.md, add migrations 007, 008, 009 to the migration checklist: 007_supabase_storage_setup (storage bucket for images), 008_enhanced_user_sync (user sync columns), 009_convention_images_and_sync (convention image_url and updated_at triggers). Add one line each with file name and brief description. No code changes.
-```
+Supabase and Go backend are no longer used. SUPABASE_TODO.md is deprecated. Do not add new Supabase migration steps.
 
 ---
 
-## Step 3: README — mention new features and setup
+## Step 3: README — mention features and setup
 
 **What to do**
 
-- Update the project README to mention key features (builds with images, closet, conventions, sync, tiers, subscription) and point to implementation docs and setup guides (IndexedDB/sync, Supabase, Stripe) where relevant. Keep it concise.
+- Update the project README to mention key features (builds, closet, conventions, Convex, Better Auth) and point to implementation docs and setup (Convex dashboard, OAuth, optional Stripe when implemented). Keep it concise.
 
 **Files to touch**
 
@@ -75,48 +54,28 @@ Update the project README.md: add or adjust a short section on features (builds 
 
 ---
 
-## Step 4: Architecture diagram and tier docs (optional)
+## Step 4: Architecture and tiers (optional)
 
 **What to do**
 
-- Add or update a simple architecture diagram (e.g. in docs/architecture.md or docs/implementation/) showing web, mobile, backend, Supabase, Stripe, and sync flow. Add a short tier-restrictions table (FREE vs PREMIUM_BASIC vs PREMIUM_PRO) in a doc (e.g. IMPLEMENTATION_STATUS or a new docs/tiers.md).
-
-**Files to touch**
-
-- docs/architecture.md or docs/implementation/; optionally docs/tiers.md
-
-**Cursor prompt**
-
-```
-In docs/architecture.md (or docs/implementation/), add or update a simple architecture diagram: services (web, mobile, backend, Supabase, Stripe) and data flow (sync, upload). Use text or Mermaid. Optionally add a short tier table (FREE, PREMIUM_BASIC, PREMIUM_PRO) with limits (builds, storage, sync) in IMPLEMENTATION_STATUS or docs/tiers.md. No code changes.
-```
+- [architecture.md](../architecture.md) is updated for Convex + Better Auth. When you add tiers (e.g. Stripe), add a tier-restrictions table to IMPLEMENTATION_STATUS or docs/tiers.md.
 
 ---
 
-## Step 5: API docs (optional)
+## Step 5: API docs
 
 **What to do**
 
-- Document the main API endpoints (builds, closet, conventions, sync pull, upload, subscription) in docs/api/ or in the existing API doc. Include method, path, auth, and brief request/response. Can be a single markdown file.
-
-**Files to touch**
-
-- docs/api/ or existing API documentation
-
-**Cursor prompt**
-
-```
-Add or update API documentation: list main endpoints (GET/POST builds, closet, conventions, GET sync/pull, POST upload/image, POST subscription/checkout or portal) with method, path, auth requirement, and brief request/response. Place in docs/api/ or existing API doc. No code changes.
-```
+- Current API is **Convex** (queries/mutations). See [api_overview.md](../api/api_overview.md) and [CONTEXT.md](../CONTEXT.md). The Go REST API is documented in [API_DOCUMENTATION.md](../api/API_DOCUMENTATION.md) as legacy only.
 
 ---
 
 ## Summary
 
-| Step | Action                                                                    |
-| ---- | ------------------------------------------------------------------------- |
-| 1    | IMPLEMENTATION_STATUS: fix Next Steps (remove completed, list remaining). |
-| 2    | SUPABASE_TODO: add migrations 007, 008, 009.                              |
-| 3    | README: features and links to implementation/setup.                       |
-| 4    | Optional: architecture diagram and tier table.                            |
-| 5    | Optional: API endpoint list.                                              |
+| Step | Action                                                                     |
+| ---- | -------------------------------------------------------------------------- |
+| 1    | IMPLEMENTATION_STATUS: keep accurate for Convex (done vs remaining).      |
+| 2    | SUPABASE_TODO: deprecated; do not add Supabase steps.                     |
+| 3    | README: features and links to Convex + Better Auth setup.                |
+| 4    | Optional: tier table when subscription exists.                            |
+| 5    | API: Convex in api_overview + CONTEXT; Go API doc is legacy.                |

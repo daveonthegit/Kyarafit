@@ -75,11 +75,13 @@ export declare const components: {
             | {
                 data: {
                   createdAt: number;
+                  displayUsername?: string;
                   email: string;
                   emailVerified: boolean;
                   image?: string;
                   name: string;
                   updatedAt: number;
+                  username?: string;
                 };
                 model: "user";
               }
@@ -149,6 +151,8 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "username"
+                    | "displayUsername"
                     | "createdAt"
                     | "updatedAt"
                     | "_id";
@@ -330,6 +334,8 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "username"
+                    | "displayUsername"
                     | "createdAt"
                     | "updatedAt"
                     | "_id";
@@ -574,11 +580,13 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
+                  displayUsername?: string;
                   email?: string;
                   emailVerified?: boolean;
                   image?: string;
                   name?: string;
                   updatedAt?: number;
+                  username?: string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -587,6 +595,8 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "username"
+                    | "displayUsername"
                     | "createdAt"
                     | "updatedAt"
                     | "_id";
@@ -798,11 +808,13 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
+                  displayUsername?: string;
                   email?: string;
                   emailVerified?: boolean;
                   image?: string;
                   name?: string;
                   updatedAt?: number;
+                  username?: string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -811,6 +823,8 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "username"
+                    | "displayUsername"
                     | "createdAt"
                     | "updatedAt"
                     | "_id";
