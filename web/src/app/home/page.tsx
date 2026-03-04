@@ -16,10 +16,7 @@ const QUICK_LINKS = [
 
 export default function HomePage() {
   const { userId } = useCurrentUser();
-  const recentBuild = useQuery(
-    api.builds.getMostRecentForUser,
-    userId ? { userId } : "skip"
-  );
+  const recentBuild = useQuery(api.builds.getMostRecentForUser, userId ? { userId } : "skip");
 
   return (
     <WebAppShell>
@@ -57,7 +54,9 @@ export default function HomePage() {
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
-                  <span className="material-symbols-outlined text-6xl sm:text-7xl">photo_library</span>
+                  <span className="material-symbols-outlined text-6xl sm:text-7xl">
+                    photo_library
+                  </span>
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

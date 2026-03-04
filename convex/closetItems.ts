@@ -104,7 +104,8 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const status =
-      args.status && CLOSET_ITEM_STATUSES.includes(args.status as (typeof CLOSET_ITEM_STATUSES)[number])
+      args.status &&
+      CLOSET_ITEM_STATUSES.includes(args.status as (typeof CLOSET_ITEM_STATUSES)[number])
         ? args.status
         : "planned";
     const id = await ctx.db.insert("closetItems", {
@@ -140,7 +141,11 @@ export const update = mutation({
     for (const [k, val] of Object.entries(fields)) {
       if (val === null) patch[k] = undefined;
       else if (val !== undefined) {
-        if (k === "status" && !CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])) continue;
+        if (
+          k === "status" &&
+          !CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])
+        )
+          continue;
         patch[k] = val;
       }
     }

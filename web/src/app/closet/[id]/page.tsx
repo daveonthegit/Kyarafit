@@ -74,7 +74,8 @@ export default function ClosetItemDetailPage() {
       setEditImageUrl(item.imageUrl ?? "");
       setEditImageStorageId(item.imageStorageId ?? null);
       setEditStatus(
-        (item.status as ClosetItemStatus) && CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
+        (item.status as ClosetItemStatus) &&
+          CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
           ? (item.status as ClosetItemStatus)
           : "planned"
       );
@@ -372,7 +373,8 @@ export default function ClosetItemDetailPage() {
                     Status
                   </p>
                   <p className="text-sm capitalize">
-                    {(item.status as ClosetItemStatus) && CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
+                    {(item.status as ClosetItemStatus) &&
+                    CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
                       ? item.status === "in_progress"
                         ? "In progress"
                         : item.status
@@ -406,9 +408,7 @@ export default function ClosetItemDetailPage() {
               </div>
 
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">
-                  Builds
-                </p>
+                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">Builds</p>
                 {buildsUsing.length > 0 && (
                   <ul className="space-y-2 mb-2">
                     {buildsUsing.map((b) => (
@@ -445,9 +445,7 @@ export default function ClosetItemDetailPage() {
               </div>
 
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">
-                  Tasks
-                </p>
+                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">Tasks</p>
                 <p className="text-xs text-kyar-textTertiary mb-3">
                   Add tasks here or assign from builds. Mark one as this item’s completion task to
                   sync status when it’s checked.
@@ -519,9 +517,7 @@ export default function ClosetItemDetailPage() {
                             {item.completionTaskId === t._id ? (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  updateItem({ id, userId, completionTaskId: null })
-                                }
+                                onClick={() => updateItem({ id, userId, completionTaskId: null })}
                                 className="text-xs text-kyar-textTertiary hover:text-black"
                                 title="Clear completion task"
                               >
@@ -530,9 +526,7 @@ export default function ClosetItemDetailPage() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  updateItem({ id, userId, completionTaskId: t._id })
-                                }
+                                onClick={() => updateItem({ id, userId, completionTaskId: t._id })}
                                 className="text-xs text-kyar-textTertiary hover:text-black"
                                 title="Set as completion task"
                               >

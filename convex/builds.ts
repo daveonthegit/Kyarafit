@@ -279,6 +279,75 @@ export const getItems = query({
   },
 });
 
+/** Returns aggregated summary for one build (status, progress, dates, linked items, budget). Used by Summary dashboard. */
+export const getSummary = query({
+  args: {
+    buildId: v.id("builds"),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build || build.userId !== args.userId) return null;
+
+    const tasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+      .collect();
+    const tasksChecked = tasks.filter((t) => t.checked).length;
+    const tasksTotal = tasks.length;
+    const progressPercent = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+
+    const links = await ctx.db
+      .query("buildItemLinks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+      .collect();
+    let linkedItemCount = links.length;
+    let linkedItemsCompleteCount = 0;
+    let totalCostCents = 0;
+    for (const link of links) {
+      const item = await ctx.db.get(link.closetItemId);
+      if (item) {
+        if (item.status === "complete") linkedItemsCompleteCount += 1;
+        totalCostCents += item.costCents ?? 0;
+      }
+    }
+
+    const createdMs = (build as { _creationTime?: number })._creationTime ?? Date.now();
+    const createdDate = new Date(createdMs).toISOString().slice(0, 10);
+    const now = Date.now();
+    const elapsedMs = now - createdMs;
+    const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+
+    let remainingDays: number | null = null;
+    if (build.targetDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetStart = new Date(build.targetDate);
+      targetStart.setHours(0, 0, 0, 0);
+      remainingDays = Math.ceil((targetStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const budgetCents = build.budgetCents ?? null;
+    const budgetDifferenceCents = budgetCents != null ? budgetCents - totalCostCents : null;
+
+    return {
+      status: build.status,
+      progressPercent,
+      tasksChecked,
+      tasksTotal,
+      createdDate,
+      targetDate: build.targetDate ?? null,
+      elapsedDays,
+      remainingDays,
+      linkedItemCount,
+      linkedItemsCompleteCount,
+      totalCostCents,
+      budgetCents,
+      budgetDifferenceCents,
+    };
+  },
+});
+
 /** Returns builds with their tasks and linked closet-item IDs — used by mobile sync. */
 export const listWithDetails = query({
   args: { userId: v.string() },
@@ -335,10 +404,7 @@ export const linkItems = mutation({
         .collect();
       const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
       for (const task of tasksInBuild) await ctx.db.delete(task._id);
-      if (
-        item.completionTaskId &&
-        tasksInBuild.some((t) => t._id === item.completionTaskId)
-      ) {
+      if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
         await ctx.db.patch(l.closetItemId, { completionTaskId: undefined });
       }
     }
@@ -460,10 +526,7 @@ export const removeItemFromBuild = mutation({
     for (const task of tasksInBuild) {
       await ctx.db.delete(task._id);
     }
-    if (
-      item.completionTaskId &&
-      tasksInBuild.some((t) => t._id === item.completionTaskId)
-    ) {
+    if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
       await ctx.db.patch(args.closetItemId, { completionTaskId: undefined });
     }
   },
@@ -503,10 +566,7 @@ export const removeItemsFromBuild = mutation({
       for (const task of tasksInBuild) {
         await ctx.db.delete(task._id);
       }
-      if (
-        item.completionTaskId &&
-        tasksInBuild.some((t) => t._id === item.completionTaskId)
-      ) {
+      if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
         await ctx.db.patch(closetItemId, { completionTaskId: undefined });
       }
     }
