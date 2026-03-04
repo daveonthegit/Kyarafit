@@ -1,6 +1,10 @@
 # Phased Roadmap
 
-High-level phases for closing gaps and hardening. Aligned with [GAP_ANALYSIS.md](GAP_ANALYSIS.md) and [FEATURE_STATUS.md](FEATURE_STATUS.md). Last updated: 2026-03-04.
+High-level phases for closing gaps and hardening. Aligned with [GAP_ANALYSIS.md](GAP_ANALYSIS.md) and [FEATURE_STATUS.md](FEATURE_STATUS.md).
+
+**Competitor context:** For competitor-informed phases (Cosplanner parity: elements ≈ closet items + type/status, status filter, summary dashboard, completion validation, reference/process images, task reminders, etc.) see [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Section 6 (Phased Implementation Roadmap) and Section 7 (Engineering Task List). That doc’s Phase 1–4 can be merged with or used to refine the phases below.
+
+Last updated: 2026-03-04.
 
 ---
 
@@ -91,3 +95,4 @@ High-level phases for closing gaps and hardening. Aligned with [GAP_ANALYSIS.md]
 - [FEATURE_STATUS.md](FEATURE_STATUS.md) — Implemented vs partial
 - [COMMIT_PLAN.md](COMMIT_PLAN.md) — PR-sized breakdown
 - [FEATURES_CANONICAL.md](FEATURES_CANONICAL.md) — Acceptance criteria
+- [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Competitor feature comparison, gap prioritization (Tier 1–3), implementation design, phased roadmap, and engineering task list

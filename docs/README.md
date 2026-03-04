@@ -43,6 +43,12 @@ Implementation planning, status, and step-by-step guides. **Start here:** [imple
 
 Obsolete docs (web sync, Supabase TODO, user sync system, AUTH_WEB) were removed in the March 2026 audit; see `DOC_INVENTORY.md`.
 
+### `/competitor`
+
+Product research and competitor-informed implementation planning.
+
+- [COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md](competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) - Cosplanner screenshot analysis, feature comparison vs Kyarafit, gap prioritization (Tier 1–3), implementation design (e.g. elements ≈ closet items), phased roadmap, and engineering task list. Linked from implementation docs for competitor-parity work.
+
 ### `/api`
 
 API documentation and references. **Current:** Convex (queries/mutations). **Legacy:** Go REST API doc kept for reference only.

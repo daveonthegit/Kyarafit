@@ -35,3 +35,4 @@ Step-by-step implementation guides for each gap from the [final implementation p
 - **Web**: Use Convex only. Relevant guides: WEB_IMAGE_UPLOAD_CLOSET_CONVENTIONS, WEB_TASK_CHECKLIST_AND_BUILD_DETAIL, DRAG_DROP_IMPLEMENTATION, CONVENTION_ITINERARY, PACKING_LIST, PLANNING_VIEW, SETTINGS_AND_MENUS, WEB_FEATURE_GATES.
 - **Mobile**: MOBILE_NEXT_STEPS; feature parity with web (image upload, task UI, itinerary/packing/planner/settings). Sync is Convex ↔ SQLite (useConvexSync).
 - **Docs/ops**: DOCS_AND_SETUP_UPDATES, TESTING_AND_DEPLOYMENT.
+- **Competitor parity**: For Cosplanner-aligned work (elements ≈ closet items + type/status, build status filter, summary dashboard, completion validation, reference/process images, task reminders, search/sort, About/menu), see [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) (implementation design §5, roadmap §6, task list §7).

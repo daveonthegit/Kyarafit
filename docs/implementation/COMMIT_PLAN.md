@@ -80,4 +80,5 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 
 - [ROADMAP.md](ROADMAP.md) — Phases
 - [GAP_ANALYSIS.md](GAP_ANALYSIS.md) — Gap details and file paths
+- [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Competitor-parity tasks and engineering task list (Section 7); use to add or refine PRs for elements ≈ closet items, summary dashboard, status filter, completion validation, etc.
 - [.github/pull_request_template.md](../../.github/pull_request_template.md) — PR checklist

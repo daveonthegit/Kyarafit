@@ -1,6 +1,10 @@
 # Feature Status
 
-Audit of each canonical feature: IMPLEMENTED / PARTIAL / NOT IMPLEMENTED, with evidence (file paths). Last updated: 2026-03-04.
+Audit of each canonical feature: IMPLEMENTED / PARTIAL / NOT IMPLEMENTED, with evidence (file paths).
+
+For **competitor comparison** (Cosplanner vs Kyarafit) and gaps that map to these features (e.g. elements ≈ closet items, summary dashboard, status filter), see [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Section 3 (Feature Comparison Table) and Section 4 (High-Value Feature Gaps).
+
+Last updated: 2026-03-04.
 
 ---
 
@@ -21,6 +25,12 @@ Audit of each canonical feature: IMPLEMENTED / PARTIAL / NOT IMPLEMENTED, with e
 | Mobile offline/sync  | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                               |
 | Image upload         | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new; convention new has no image field; mobile may not use Convex upload everywhere |
 | Seed data            | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | No Convex seed mutation or script                                                                                                       |
+| Build summary dashboard (14) | NOT   | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §14, competitor doc §5                                                                           |
+| Build project notes dedicated (15) | PARTIAL | PARTIAL | PARTIAL        | IMPLEMENTED | —     | NOT              | PARTIAL         | build.notes exists; no dedicated Notes screen/modal                                                                                      |
+| Build reference images (16) | NOT  | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §16                                                                                             |
+| Build process pictures (17) | NOT | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §17                                                                                             |
+| Build list search/filter/sort (18) | PARTIAL | NOT | NOT            | IMPLEMENTED | —     | NOT              | PARTIAL         | builds.list by userId; no status filter arg, no search, no sort UI                                                                       |
+| i18n (19)            | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | Competitor parity (optional); see FEATURES_CANONICAL §19                                                                                  |
 
 ---
 
@@ -94,3 +104,27 @@ Audit of each canonical feature: IMPLEMENTED / PARTIAL / NOT IMPLEMENTED, with e
 
 - **Backend:** No Convex mutation or dashboard script; old Go seed endpoint removed.
 - **Frontend:** None.
+
+### Build summary dashboard (14)
+
+- **Status:** NOT IMPLEMENTED. Defined in FEATURES_CANONICAL §14; design in [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
+
+### Build project notes dedicated (15)
+
+- **Status:** PARTIAL. build.notes field exists; no dedicated Notes screen or modal on build detail.
+
+### Build reference images (16)
+
+- **Status:** NOT IMPLEMENTED. No buildReferenceImages table or UI; see FEATURES_CANONICAL §16.
+
+### Build process pictures (17)
+
+- **Status:** NOT IMPLEMENTED. No buildProcessPictures table or UI; see FEATURES_CANONICAL §17.
+
+### Build list search/filter/sort (18)
+
+- **Status:** PARTIAL. Backend can list by userId; index by_userId_status exists. No optional status filter in list API, no search param, no sort/order params, no UI for filter/search/sort.
+
+### i18n (19)
+
+- **Status:** NOT IMPLEMENTED. Optional; see FEATURES_CANONICAL §19.

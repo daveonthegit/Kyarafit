@@ -43,6 +43,7 @@ Evidence: [package.json](../../package.json), [web/package.json](../../web/packa
 4. [ROADMAP.md](ROADMAP.md) — Phased roadmap (Phase 0–4).
 5. [COMMIT_PLAN.md](COMMIT_PLAN.md) — PR-sized commit plan.
 6. [IMPLEMENTATION_GUIDES_INDEX.md](IMPLEMENTATION_GUIDES_INDEX.md) — Index of step-by-step implementation guides.
+7. [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Cosplanner screenshot analysis, feature comparison vs Kyarafit, gap prioritization, and implementation design (elements ≈ closet items, summary dashboard, status filter, etc.). Use for competitor-parity priorities and task breakdown.
 
 Patterns and conventions: see **[rules/](../../rules/)** at repo root ([backend-patterns](../../rules/backend-patterns.mdc), [frontend-patterns](../../rules/frontend-patterns.mdc)).
 
@@ -55,3 +56,4 @@ Patterns and conventions: see **[rules/](../../rules/)** at repo root ([backend-
 | [DOC_INVENTORY.md](DOC_INVENTORY.md)                 | Inventory and classification (KEEP/REWRITE/MERGE/DELETE) of implementation docs. |
 | [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) | Current completed vs remaining work (Convex + Better Auth).                      |
 | [NEXT_STEPS.md](NEXT_STEPS.md)                       | Post-migration priorities and what not to do.                                    |
+| [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) | Cosplanner feature analysis, comparison table, gap prioritization, implementation design, phased roadmap, and engineering task list. |

@@ -1,6 +1,10 @@
 # Gap Analysis
 
-Actionable remaining work grouped by area. Each gap: what to build, why, dependencies, complexity (S/M/L), and suggested file locations. Last updated: 2026-03-04.
+Actionable remaining work grouped by area. Each gap: what to build, why, dependencies, complexity (S/M/L), and suggested file locations.
+
+**Competitor-informed gaps:** For gaps derived from Cosplanner (competitor) analysis — e.g. **elements ≈ closet items** (type/status on buildItemLinks, optional inline elements), build status filter, summary dashboard per build, completion validation, reference/process images per build, task reminders, search/sort build list, About screen, rate/share/feedback — see [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md): Section 3 (Feature Comparison Table), Section 4 (High-Value Feature Gaps), and Section 5 (Implementation Design). That doc also provides backend/frontend/database details and Option A vs B for the “elements” work.
+
+Last updated: 2026-03-04.
 
 ---
 

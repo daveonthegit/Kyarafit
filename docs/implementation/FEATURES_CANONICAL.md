@@ -1,6 +1,6 @@
 # Canonical Feature List
 
-Source of truth for product features, acceptance criteria, and dependencies. Aligned with Convex + Better Auth stack. Last updated: 2026-03-04.
+Source of truth for product features, acceptance criteria, and dependencies. Aligned with Convex + Better Auth stack. **Competitor-informed:** Missing or partial features from [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) are included below (build elements ≈ closet items + type/status, build list search/filter/sort, summary dashboard, completion validation, reference/process images, task reminders, project notes, About, engagement, etc.). Last updated: 2026-03-04.
 
 ---
 
@@ -53,10 +53,13 @@ Source of truth for product features, acceptance criteria, and dependencies. Ali
 - User can link/unlink closet items to a build (buildItemLinks).
 - Build list can show card layout with image, progress (from tasks), and status tabs (optional enhancement).
 - Optionally: create/update requires non-empty imageUrl (enforcement in Convex mutation and/or frontend).
+- **Build list discovery (competitor parity):** User can filter build list by status (e.g. All, Planning/Idea, In progress, Completed); optionally search by name/character; sort by name, progress, targetDate, budget, etc.; choose order (asc/desc).
+- **Elements ≈ closet items (competitor parity):** Each build–closet link (and any inline “element”) has type (to buy / to make) and status (e.g. pending, bought, ongoing, made); user can add from closet or add inline element (name + type), reorder, and update status. Completion requires all elements ready (see completion validation below).
+- **Completion validation (competitor parity):** User can mark build complete only when all elements (linked + inline) are in a “ready” state (e.g. bought for buy, made for make); otherwise show clear message (e.g. “All elements must be 100% ready”).
 
 **Dependencies:** Convex schema (builds, buildItemLinks), auth, closetItems for linking.
 
-**Notes:** Progress derived from buildTasks (checked/total). Builds list as cards + tabs is a UX enhancement per BUILDS_REQUIRE_IMAGE_AND_OVERVIEW.
+**Notes:** Progress derived from buildTasks (checked/total). Builds list as cards + tabs is a UX enhancement per BUILDS_REQUIRE_IMAGE_AND_OVERVIEW. For elements design (extend buildItemLinks vs new table) see [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
 
 ---
 
@@ -72,6 +75,8 @@ Source of truth for product features, acceptance criteria, and dependencies. Ali
 - User can delete a task.
 - Build detail shows task checklist with progress (e.g. X of Y complete).
 - Optionally: drag-drop or UI to assign a task to a closet item (closetItemId).
+- **Task reminders (competitor parity):** User can set an optional reminder (date/time) per task; app notifies at that time (in-app and/or push when implemented).
+- **Task notes/details (competitor parity):** Task can have an optional notes or details field (in addition to label) for longer description.
 
 **Dependencies:** Convex schema (buildTasks), auth, builds.
 
@@ -166,6 +171,9 @@ Source of truth for product features, acceptance criteria, and dependencies. Ali
 - Subscription Plan: show current tier and usage (from useTier / Convex users when wired); link to upgrade or manage subscription (when Stripe implemented).
 - Notification Style: preferences (if implemented).
 - Other menus: About, Privacy, Help have content or links.
+- **About screen (competitor parity):** Dedicated About page/screen with app version, developer/credits, copyright; optionally language credits and link to request language.
+- **App engagement (competitor parity):** Menu or settings entry for “Rate in App Store”, “Tell a friend” (share app), and “Comments and suggestions” (feedback channel — e.g. mailto or feedback form).
+- **Theme / currency / thumbnail (competitor parity):** Optional user preferences for color/theme, display currency, and thumbnail size in lists/galleries; persisted and applied in UI.
 
 **Dependencies:** Auth (session), Convex users (tier, currentUsageMb); Stripe for subscription flows when implemented.
 
@@ -238,3 +246,103 @@ Source of truth for product features, acceptance criteria, and dependencies. Ali
 **Dependencies:** Convex schema (builds, conventions, closetItems, buildItemLinks, buildTasks optional), auth (userId).
 
 **Notes:** SEED_DATA_IMPLEMENTATION guide reframed for Convex; no POST /api/seed.
+
+---
+
+## 14. Build summary dashboard (competitor parity)
+
+**Description:** Per-build summary view: status, progress %, dates (initial, due, elapsed, remaining), element counts (to buy / to make with sub-states), optional developing time, budget, total spend, difference. Optional share/export.
+
+**Acceptance criteria:**
+
+- User can open a Summary view for a build (tab or section on build detail).
+- Summary shows: build status, progress % (and bar), initial date, due date, elapsed time, remaining time; elements to buy (bought/pending/total), to make (made/ongoing/total), total elements; optional developing time, budget, total spend, difference (budget − spend).
+- Data is derived from build, buildItemLinks (with type/status), buildTasks; optional future tables for time/spend if added.
+- Optionally: Share/export summary (native share or export).
+
+**Dependencies:** Builds, buildItemLinks (with type/status), buildTasks; optional time/spend tracking.
+
+**Notes:** See [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5 (Summary dashboard).
+
+---
+
+## 15. Build project notes (dedicated) (competitor parity)
+
+**Description:** Dedicated Notes screen or modal for a build (in addition to optional notes field on build).
+
+**Acceptance criteria:**
+
+- User can open “Notes” for a build from build detail (button or tab).
+- Notes screen/modal shows editable content tied to the build (e.g. build.notes or dedicated notes document); user can create, edit, and delete notes.
+- Content persists (e.g. via build update or dedicated notes table).
+
+**Dependencies:** Builds (existing notes field or new store).
+
+**Notes:** Build already has optional `notes` string; this feature adds a dedicated UI for editing it (or a richer notes entity).
+
+---
+
+## 16. Build reference images (competitor parity)
+
+**Description:** Per-build gallery of reference images (character/source reference pictures).
+
+**Acceptance criteria:**
+
+- User can add reference images to a build (upload via Convex file storage).
+- User can view and reorder reference images on build detail (tab or section).
+- User can remove a reference image.
+- Images are stored per build (e.g. buildReferenceImages table or equivalent).
+
+**Dependencies:** Convex schema (e.g. buildReferenceImages), Convex files API, auth, builds.
+
+**Notes:** See [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
+
+---
+
+## 17. Build process pictures (competitor parity)
+
+**Description:** Per-build gallery of process pictures (photos of the making process).
+
+**Acceptance criteria:**
+
+- User can add process pictures to a build (upload via Convex file storage).
+- User can view and reorder process pictures on build detail (tab or section).
+- User can remove a process picture.
+- Images are stored per build (e.g. buildProcessPictures table or equivalent).
+
+**Dependencies:** Convex schema (e.g. buildProcessPictures), Convex files API, auth, builds.
+
+**Notes:** Same pattern as reference images; see [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
+
+---
+
+## 18. Build list search, filter, and sort (competitor parity)
+
+**Description:** Build list supports search by name/character, filter by status, and sort by multiple criteria with ascending/descending order.
+
+**Acceptance criteria:**
+
+- User can search the build list by name or character (optional search input; list filters as user types or on submit).
+- User can filter the list by status (e.g. All, Idea/Planning, WIP/In progress, Ready/Completed) via tabs or dropdown.
+- User can choose sort by (e.g. name, progress %, target date, budget) and order (ascending/descending).
+- Backend list query accepts optional search, status, sortBy, and order parameters; results are filtered and sorted accordingly.
+
+**Dependencies:** Convex builds.list (extend args), builds schema and indexes.
+
+**Notes:** Overlaps with Builds §3 acceptance criteria; this section makes the discovery behavior explicit. See [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §4–5.
+
+---
+
+## 19. Internationalization (i18n) (competitor parity, optional)
+
+**Description:** App supports multiple languages; user can switch language; optional language credits and CTA to request a language.
+
+**Acceptance criteria:**
+
+- App UI (or key screens) can be shown in more than one language (e.g. via i18n library and locale selection).
+- User can select preferred language (e.g. in settings or on first run).
+- Optional: About or Settings shows language credits (contributors per language) and link/CTA to request or contribute a new language.
+
+**Dependencies:** i18n solution (e.g. next-intl, react-i18next); locale storage; translated strings or translation pipeline.
+
+**Notes:** Competitor has language credits and “see app in your language” CTA; Tier 3 in competitor analysis.
