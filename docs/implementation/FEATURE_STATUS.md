@@ -24,7 +24,7 @@ Last updated: 2026-03-04.
 | Tiers / subscription               | PARTIAL     | PARTIAL        | PARTIAL           | IMPLEMENTED | NOT   | NOT              | PARTIAL         | convex/schema.ts (users.tier, stripe\*), convex/users.ts (getMe), web useTier wired to api.users.getMe; no Stripe webhook/Checkout                                              |
 | Mobile offline/sync                | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                                                                       |
 | Image upload                       | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new + conventions/new and conventions/[id]/edit; convention detail shows image; mobile may not use Convex upload everywhere |
-| Seed data                          | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | No Convex seed mutation or script                                                                                                                                               |
+| Seed data                          | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | NOT              | IMPLEMENTED     | convex/seed.ts (createStarter); web dev route /dev/seed (type URL to access)                                                                                                  |
 | Build summary dashboard (14)       | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/builds.ts (getSummary), web BuildSummarySection + build-detail; BuildSummarySection.test.tsx; element breakdown deferred until buildItemLinks type/status                |
 | Build project notes dedicated (15) | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | build.notes; web: BuildNotesModal + Notes button on build detail; convex/builds.update(notes); BuildNotesModal.test.tsx                                                         |
 | Build reference images (16)        | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/schema.ts, convex/buildReferenceImages.ts, web BuildReferenceImagesSection + ImageGallery; build-detail; BuildReferenceImagesSection.test.tsx                            |
@@ -102,8 +102,11 @@ Last updated: 2026-03-04.
 
 ### Seed data
 
-- **Backend:** No Convex mutation or dashboard script; old Go seed endpoint removed.
-- **Frontend:** None.
+- **Intended for:** Dev/dashboard use only (not for regular end users). Use for local testing, demos, or Convex dashboard.
+- **Backend:** convex/seed.ts — `createStarter` mutation: requires auth; if user has any builds, returns `{ skipped: true }`; otherwise creates one build, one convention, one closet item (linked to build), one build task; returns `{ skipped: false, buildId, conventionId, closetItemId }`.
+- **Web:** web/src/app/dev/seed/page.tsx — dev-only route at `/dev/seed` (no link in app; type URL to access). Button runs `api.seed.createStarter`; shows result or error. In production the button is disabled and shows "Not available in production".
+- **Mobile:** No UI; mutation can be invoked from Convex dashboard or dev tooling.
+- **Tests:** Manual; no automated tests.
 
 ### Build summary dashboard (14)
 
