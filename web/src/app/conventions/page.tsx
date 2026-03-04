@@ -66,8 +66,7 @@ function filterAndSortConventions(
     let cmp = 0;
     if (sortBy === "name") cmp = a.name.localeCompare(b.name);
     else if (sortBy === "startDate") cmp = a.startDate.localeCompare(b.startDate);
-    else if (sortBy === "location")
-      cmp = (a.location ?? "").localeCompare(b.location ?? "");
+    else if (sortBy === "location") cmp = (a.location ?? "").localeCompare(b.location ?? "");
     return mult * cmp;
   });
 
@@ -94,10 +93,7 @@ export default function ConventionsPage() {
     () => filterAndSortConventions(conventions, search, filter, sortBy, order),
     [conventions, search, filter, sortBy, order]
   );
-  const accordionItems = useMemo(
-    () => filteredAndSorted.map(toAccordionItem),
-    [filteredAndSorted]
-  );
+  const accordionItems = useMemo(() => filteredAndSorted.map(toAccordionItem), [filteredAndSorted]);
 
   const toggleSelect = useCallback((id: Id<"conventions">) => {
     setSelectedIds((prev) => {
@@ -184,7 +180,10 @@ export default function ConventionsPage() {
             aria-label="Search conventions by name or location"
           />
           <div className="flex items-center gap-2 flex-wrap">
-            <label htmlFor="convention-sort" className="text-[10px] uppercase tracking-widest text-kyar-meta">
+            <label
+              htmlFor="convention-sort"
+              className="text-[10px] uppercase tracking-widest text-kyar-meta"
+            >
               Sort by
             </label>
             <select
@@ -316,9 +315,7 @@ export default function ConventionsPage() {
               );
             })}
           </ul>
-          <p className="text-xs text-kyar-meta mt-3">
-            {selectedIds.size} selected
-          </p>
+          <p className="text-xs text-kyar-meta mt-3">{selectedIds.size} selected</p>
           {selectedIds.size > 0 && (
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-kyar-borderSubtle">
               {filter !== "archived" && (

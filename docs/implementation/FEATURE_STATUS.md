@@ -21,7 +21,7 @@ Last updated: 2026-03-04.
 | Packing list                       | IMPLEMENTED | IMPLEMENTED    | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | convex/conventions.ts (packingListItems), web/src/app/conventions/[id]/packing/page.tsx                                                                                         |
 | Planner                            | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/buildTasks.ts, web/src/app/planner/page.tsx (Daily/Conventions toggle; tasks not fully wired)                                                                            |
 | Settings                           | N/A         | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | web/src/app/settings/page.tsx (labels only; no subpages), Convex users (tier fields)                                                                                            |
-| Tiers / subscription               | PARTIAL     | PARTIAL        | PARTIAL           | IMPLEMENTED | NOT   | NOT              | PARTIAL         | convex/schema.ts (users.tier, stripe\*), web/src/lib/api/useTier.ts (hardcoded FREE); no Stripe webhook/Checkout                                                                |
+| Tiers / subscription               | PARTIAL     | PARTIAL        | PARTIAL           | IMPLEMENTED | NOT   | NOT              | PARTIAL         | convex/schema.ts (users.tier, stripe\*), convex/users.ts (getMe), web useTier wired to api.users.getMe; no Stripe webhook/Checkout                                              |
 | Mobile offline/sync                | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                                                                       |
 | Image upload                       | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new + conventions/new and conventions/[id]/edit; convention detail shows image; mobile may not use Convex upload everywhere |
 | Seed data                          | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | NOT              | IMPLEMENTED     | convex/seed.ts (createStarter); web dev route /dev/seed (type URL to access)                                                                                                  |
@@ -87,8 +87,8 @@ Last updated: 2026-03-04.
 
 ### Tiers / subscription
 
-- **Backend:** Schema has tier and Stripe fields; no Stripe webhook or Checkout/Portal implementation.
-- **Frontend:** web/src/lib/api/useTier.ts returns hardcoded FREE; useFeatureAccess() derives gates from that. No UpgradePrompt/FeatureGate component in UI yet.
+- **Backend:** convex/users.ts getMe returns tier, currentUsageMb, storageLimitMb (storageLimitMb from TIER_LIMITS). Schema has tier and Stripe fields; no Stripe webhook or Checkout/Portal implementation.
+- **Frontend:** web/src/lib/api/useTier.ts calls useQuery(api.users.getMe, { externalId: userId }) when signed in (userId from useCurrentUser); returns real tier from Convex. useFeatureAccess() derives gates from useTier. No UpgradePrompt/FeatureGate component in UI yet.
 
 ### Mobile offline/sync
 
