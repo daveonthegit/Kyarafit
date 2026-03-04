@@ -10,7 +10,15 @@ const http = httpRouter();
 //
 // For Expo Go on a physical device, add the LAN IP via the Convex env var:
 //   ADDITIONAL_CORS_ORIGINS=exp://192.168.1.42:8081,http://192.168.1.42:8081
-// (that env var feeds into trustedOrigins automatically; manually mirror it here too)
+// Production: set SITE_URL in Convex dashboard (e.g. https://www.kyarafit.com).
+// Must match trustedOrigins in convex/betterAuth/auth.ts — we include SITE_URL and
+// ADDITIONAL_CORS_ORIGINS here so CORS preflight passes for those origins.
+const extraCorsOrigins = [
+  ...(process.env.SITE_URL ? [process.env.SITE_URL.replace(/\/$/, "")] : []),
+  ...(process.env.ADDITIONAL_CORS_ORIGINS?.split(",")
+    .map((s) => s.trim())
+    .filter((s): s is string => s.length > 0) ?? []),
+];
 authComponent.registerRoutes(http, createAuth, {
   cors: {
     allowedOrigins: [
@@ -22,6 +30,7 @@ authComponent.registerRoutes(http, createAuth, {
       "http://127.0.0.1:8081",
       "exp://localhost:8081",
       "exp://127.0.0.1:8081",
+      ...extraCorsOrigins,
     ],
   },
 });
