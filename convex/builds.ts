@@ -432,18 +432,25 @@ export const removeItemFromBuild = mutation({
         break;
       }
     }
-    // If this item's completion task is in the build we're leaving, clear ref and delete the task
-    if (item.completionTaskId) {
-      const task = await ctx.db.get(item.completionTaskId);
-      if (task?.buildId === args.buildId) {
-        await ctx.db.patch(args.closetItemId, { completionTaskId: undefined });
-        await ctx.db.delete(item.completionTaskId);
-      }
+    // Delete all tasks in this build that reference this closet item; clear completionTaskId if it was one of them
+    const tasksForItem = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
+      .collect();
+    const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
+    for (const task of tasksInBuild) {
+      await ctx.db.delete(task._id);
+    }
+    if (
+      item.completionTaskId &&
+      tasksInBuild.some((t) => t._id === item.completionTaskId)
+    ) {
+      await ctx.db.patch(args.closetItemId, { completionTaskId: undefined });
     }
   },
 });
 
-/** Remove multiple closet items from a build. Clears completionTaskId and deletes the task when it belongs to this build. */
+/** Remove multiple closet items from a build. Deletes all build tasks for each item in this build and clears completionTaskId when relevant. */
 export const removeItemsFromBuild = mutation({
   args: {
     userId: v.string(),
@@ -468,12 +475,20 @@ export const removeItemsFromBuild = mutation({
           break;
         }
       }
-      if (item.completionTaskId) {
-        const task = await ctx.db.get(item.completionTaskId);
-        if (task?.buildId === args.buildId) {
-          await ctx.db.patch(closetItemId, { completionTaskId: undefined });
-          await ctx.db.delete(item.completionTaskId);
-        }
+      // Delete all tasks in this build that reference this closet item; clear completionTaskId if it was one of them
+      const tasksForItem = await ctx.db
+        .query("buildTasks")
+        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", closetItemId))
+        .collect();
+      const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
+      for (const task of tasksInBuild) {
+        await ctx.db.delete(task._id);
+      }
+      if (
+        item.completionTaskId &&
+        tasksInBuild.some((t) => t._id === item.completionTaskId)
+      ) {
+        await ctx.db.patch(closetItemId, { completionTaskId: undefined });
       }
     }
   },
