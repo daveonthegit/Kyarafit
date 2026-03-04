@@ -9,7 +9,7 @@ import type { BuildStatus } from "@kyarafit/design-system/types";
 import { listBuilds } from "../../src/storage/buildsRepo";
 import { useCurrentUser } from "../../src/hooks/useCurrentUser";
 
-type TabFilter = "current" | "archived" | "planning" | "completed";
+type TabFilter = "all" | "current" | "archived" | "planning" | "completed";
 
 /** Minimal build shape for rendering — avoids coupling to Go-era design-system types */
 type BuildRow = {
@@ -33,7 +33,7 @@ export default function BuildsScreen() {
   const [localBuilds, setLocalBuilds] = useState<BuildRow[]>([]);
   const [localLoading, setLocalLoading] = useState(!userId);
 
-  const [activeTab, setActiveTab] = useState<TabFilter>("current");
+  const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
   useFocusEffect(
     useCallback(() => {
@@ -74,6 +74,8 @@ export default function BuildsScreen() {
 
   const getStatusForTab = (tab: TabFilter): BuildStatus | null => {
     switch (tab) {
+      case "all":
+        return null;
       case "current":
         return "wip";
       case "planning":
@@ -81,15 +83,14 @@ export default function BuildsScreen() {
       case "completed":
         return "ready";
       case "archived":
-        return null;
+        return "archived";
     }
   };
 
-  const filteredBuilds = rawBuilds.filter((b) => {
-    const targetStatus = getStatusForTab(activeTab);
-    if (targetStatus === null) return false;
-    return b.status === targetStatus;
-  });
+  const filteredBuilds =
+    getStatusForTab(activeTab) === null
+      ? rawBuilds
+      : rawBuilds.filter((b) => b.status === getStatusForTab(activeTab));
 
   return (
     <View style={styles.container}>
@@ -107,7 +108,7 @@ export default function BuildsScreen() {
 
         {/* Status tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
-          {(["current", "archived", "planning", "completed"] as TabFilter[]).map((tab) => (
+          {(["all", "current", "planning", "completed", "archived"] as TabFilter[]).map((tab) => (
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}

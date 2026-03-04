@@ -9,15 +9,15 @@ The app uses **Convex** as the backend. There is no REST API; data is accessed v
 
 ## Convex API (main modules)
 
-| Module        | Purpose                          | Examples |
-| ------------- | --------------------------------- | -------- |
-| `auth`       | Current user identity             | `api.auth.getCurrentUser` |
-| `closetItems`| Closet CRUD                       | `list`, `get`, `create`, `update`, `remove` |
-| `builds`     | Builds CRUD + linked items        | `list`, `get`, `getItems`, `create`, `update`, `remove`, `linkItems` |
-| `buildTasks` | Build task checklist              | `listByBuild`, `create`, `update`, `remove` |
-| `conventions`| Conventions, plans, packing       | `list`, `get`, `getPlan`, `getPacking`, `create`, `update`, `remove`, `replacePlan`, `regeneratePacking`, `updatePackingItem`, `addManualPackingItem` |
-| `users`      | User profile                      | `getMe`, `upsert` |
-| `files`      | File storage                      | `generateUploadUrl`, `getUrl` |
+| Module        | Purpose                     | Examples                                                                                                                                              |
+| ------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`        | Current user identity       | `api.auth.getCurrentUser`                                                                                                                             |
+| `closetItems` | Closet CRUD                 | `list`, `get`, `create`, `update`, `remove`                                                                                                           |
+| `builds`      | Builds CRUD + linked items  | `list`, `get`, `getItems`, `create`, `update`, `remove`, `linkItems`                                                                                  |
+| `buildTasks`  | Build task checklist        | `listByBuild`, `create`, `update`, `remove`                                                                                                           |
+| `conventions` | Conventions, plans, packing | `list`, `get`, `getPlan`, `getPacking`, `create`, `update`, `remove`, `replacePlan`, `regeneratePacking`, `updatePackingItem`, `addManualPackingItem` |
+| `users`       | User profile                | `getMe`, `upsert`                                                                                                                                     |
+| `files`       | File storage                | `generateUploadUrl`, `getUrl`                                                                                                                         |
 
 All mutations and queries that touch user data require an authenticated user and enforce ownership via `userId`.
 

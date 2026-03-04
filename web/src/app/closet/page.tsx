@@ -1,26 +1,81 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { CLOSET_CATEGORIES } from "@kyarafit/design-system/types";
+import type { Id } from "convex/_generated/dataModel";
 
-const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
+type SortBy = "name" | "category" | "cost";
+type SortOrder = "asc" | "desc";
+
+const CATEGORY_OPTIONS = [
+  { value: "", label: "All items" },
+  ...CLOSET_CATEGORIES.map((c) => ({
+    value: c,
+    label: c.charAt(0).toUpperCase() + c.slice(1),
+  })),
+];
 
 export default function ClosetPage() {
   const { userId } = useCurrentUser();
-  const items = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
-  const isLoading = items === undefined;
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [order, setOrder] = useState<SortOrder>("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<Id<"closetItems">>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
+  const removeMany = useMutation(api.closetItems.removeMany);
 
-  const [activeCategory, setActiveCategory] = useState("All Items");
-  const filtered =
-    activeCategory === "All Items"
-      ? items
-      : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
+  const listArgs = userId
+    ? {
+        userId,
+        category: category.trim() || undefined,
+        search: search.trim() || undefined,
+        sortBy,
+        order,
+      }
+    : "skip";
+  const items = useQuery(api.closetItems.list, listArgs) ?? [];
+  const isLoading = items === undefined;
+  const hasSearch = search.trim().length > 0;
+
+  const toggleSelect = useCallback((id: Id<"closetItems">) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (items.length === 0) return prev;
+      if (prev.size === items.length) return new Set();
+      return new Set(items.map((i) => i._id));
+    });
+  }, [items]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const handleDeleteSelected = async () => {
+    if (!userId || selectedIds.size === 0) return;
+    setActionPending(true);
+    try {
+      await removeMany({ ids: Array.from(selectedIds), userId });
+      setShowDeleteConfirm(false);
+      clearSelection();
+    } finally {
+      setActionPending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col pb-32">
@@ -31,61 +86,198 @@ export default function ClosetPage() {
           </Link>
           <p className="meta-label">Builds / Closet</p>
         </div>
-        <div className="flex justify-between items-end">
-          <h1 className="font-serif text-3xl font-bold tracking-tight italic">The Closet</h1>
-          <button className="mb-1" type="button" aria-label="Search">
-            <span className="material-symbols-outlined font-light text-2xl">search</span>
-          </button>
-        </div>
+        <h1 className="font-serif text-3xl font-bold tracking-tight italic">The Closet</h1>
       </header>
 
-      <nav className="sticky top-[128px] z-30 bg-white/95 backdrop-blur-sm pt-4 pb-6 border-b border-kyar-borderSubtle">
-        <div className="flex gap-8 px-6 overflow-x-auto no-scrollbar">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setActiveCategory(cat)}
-              className={`text-[11px] uppercase tracking-widest shrink-0 ${
-                activeCategory === cat
-                  ? "font-semibold border-b border-black"
-                  : "font-normal opacity-40"
-              }`}
+      <nav className="sticky top-[108px] z-30 bg-white/95 backdrop-blur-sm pt-2 pb-4 space-y-4 border-b border-kyar-borderSubtle overflow-visible max-h-none">
+        <div className="px-6 space-y-3">
+          <label htmlFor="closet-search" className="sr-only">
+            Search closet by name, notes, or tags
+          </label>
+          <input
+            id="closet-search"
+            type="search"
+            placeholder="Search by name, notes, or tags..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20"
+            aria-label="Search closet by name, notes, or tags"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="closet-category"
+              className="text-[10px] uppercase tracking-widest opacity-70"
             >
-              {cat}
+              Category
+            </label>
+            <select
+              id="closet-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20 min-w-[120px]"
+              aria-label="Filter by category"
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value || "all"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <label
+              htmlFor="closet-sort"
+              className="text-[10px] uppercase tracking-widest opacity-70"
+            >
+              Sort by
+            </label>
+            <select
+              id="closet-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20"
+              aria-label="Sort closet items by"
+            >
+              <option value="name">Name</option>
+              <option value="category">Category</option>
+              <option value="cost">Cost</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20 flex items-center gap-1"
+              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+              title={order === "asc" ? "Ascending" : "Descending"}
+            >
+              <span className="material-symbols-outlined text-base">
+                {order === "asc" ? "arrow_upward" : "arrow_downward"}
+              </span>
+              <span className="text-[10px] uppercase">{order}</span>
             </button>
-          ))}
+          </div>
         </div>
       </nav>
 
       <main className="flex-1 px-4 py-6 grid grid-cols-2 gap-3">
         {isLoading && <p className="col-span-2 text-[12px] opacity-50">Loading...</p>}
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && items.length === 0 && !hasSearch && (
           <p className="col-span-2 text-[12px] opacity-50">No items yet.</p>
         )}
-        {filtered.map((item) => (
-          <div key={item._id} className="flex flex-col gap-2">
-            <div className="aspect-square bg-kyar-muted overflow-hidden">
-              {item.imageStorageId || item.imageUrl ? (
-                <ResolvedImage
-                  imageStorageId={item.imageStorageId}
-                  imageUrl={item.imageUrl}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                  <span className="material-symbols-outlined text-4xl">checkroom</span>
+        {!isLoading && items.length === 0 && hasSearch && (
+          <p className="col-span-2 text-[12px] opacity-50">No items match your search.</p>
+        )}
+        {!isLoading && items.length > 0 && (
+          <div className="col-span-2 flex items-center gap-3 mb-2">
+            <p className="text-[10px] uppercase tracking-widest opacity-50">
+              {items.length} item{items.length !== 1 ? "s" : ""}
+            </p>
+            <button
+              type="button"
+              onClick={selectAll}
+              className="text-[10px] uppercase tracking-widest font-medium underline"
+            >
+              {selectedIds.size === items.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+        )}
+        {items.map((item) => {
+          const isSelected = selectedIds.has(item._id);
+          return (
+            <div key={item._id} className="relative">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelect(item._id)}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-1 right-1 z-10 w-4 h-4 rounded border-2 border-black bg-white/90 focus:ring-2 focus:ring-black/30"
+                aria-label={`Select ${item.name}`}
+              />
+              <Link
+                href={`/closet/${item._id}`}
+                className={`flex flex-col gap-2 block hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2 rounded-sm ${
+                  isSelected ? "ring-2 ring-black ring-offset-2" : ""
+                }`}
+                aria-label={`View ${item.name}`}
+              >
+                <div className="aspect-square bg-kyar-muted overflow-hidden">
+                  {item.imageStorageId || item.imageUrl ? (
+                    <ResolvedImage
+                      imageStorageId={item.imageStorageId}
+                      imageUrl={item.imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                      <span className="material-symbols-outlined text-4xl">checkroom</span>
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="flex justify-between items-start">
+                  <h3 className="text-[10px] uppercase tracking-wider font-semibold">
+                    {item.name}
+                  </h3>
+                  <span className="text-[9px] opacity-40">{item.category}</span>
+                </div>
+              </Link>
             </div>
-            <div className="flex justify-between items-start">
-              <h3 className="text-[10px] uppercase tracking-wider font-semibold">{item.name}</h3>
-              <span className="text-[9px] opacity-40">{item.category}</span>
+          );
+        })}
+      </main>
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={actionPending}
+              className="px-3 py-1.5 text-xs font-medium text-kyar-danger border border-kyar-danger rounded disabled:opacity-50"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-1.5 text-xs font-medium uppercase opacity-70"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="closet-delete-dialog-title"
+        >
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg">
+            <h2 id="closet-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
+              Delete {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}?
+            </h2>
+            <p className="text-sm text-kyar-meta mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2 border border-black text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={actionPending}
+                className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+              >
+                {actionPending ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
-        ))}
-      </main>
+        </div>
+      )}
 
       <FloatingAdd href="/closet/new" />
       <BottomNav active="builds" />

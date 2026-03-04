@@ -10,7 +10,7 @@ import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 
-const STATUSES: BuildStatus[] = ["idea", "wip", "ready"];
+const STATUSES: BuildStatus[] = ["idea", "wip", "ready", "archived"];
 
 export default function NewBuildPage() {
   const router = useRouter();

@@ -56,16 +56,16 @@ These workflows deploy to GCP Cloud Run automatically on push to `main`:
 
 ## 📦 Workflow Status
 
-| Workflow                     | Status     | Purpose                             |
-| ---------------------------- | ---------- | ----------------------------------- |
+| Workflow                     | Status      | Purpose                             |
+| ---------------------------- | ----------- | ----------------------------------- |
 | deploy-gcp-backend.yml       | ⏸️ Disabled | Go backend archived (use Convex)    |
-| deploy-gcp-web.yml           | ✅ Active  | Production web deployment           |
-| deploy-gcp-image-service.yml | ✅ Active  | Production image service deployment |
+| deploy-gcp-web.yml           | ✅ Active   | Production web deployment           |
+| deploy-gcp-image-service.yml | ✅ Active   | Production image service deployment |
 | backend.yml                  | ⏸️ Disabled | Go backend archived                 |
-| web.yml                      | ✅ Active  | Web CI (Convex + Next.js)           |
-| image-service.yml            | ✅ Active  | Image service CI/testing            |
-| mobile.yml                   | ✅ Active  | Mobile CI (Expo + Convex)           |
-| ci.yml                       | ✅ Active  | General CI                          |
+| web.yml                      | ✅ Active   | Web CI (Convex + Next.js)           |
+| image-service.yml            | ✅ Active   | Image service CI/testing            |
+| mobile.yml                   | ✅ Active   | Mobile CI (Expo + Convex)           |
+| ci.yml                       | ✅ Active   | General CI                          |
 
 ## 🗄️ Disabled/Backup Workflows
 

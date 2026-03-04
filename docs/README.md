@@ -143,7 +143,7 @@ When adding new documentation:
 
 ## 🔄 Recent Changes
 
-- **March 2026 – Docs review:** Deprecated docs removed: Supabase setup (QUICKSTART_SUPABASE, SUPABASE_SETUP, SUPABASE_STORAGE_SETUP, SUPABASE_DEV_CONFIG), legacy auth (integrations/AUTH_IMPLEMENTATION), one-off prompts (SONNET_*), and Go-era debug (AUTH_DEBUGGING_CONTEXT). Root docs (README, CONTEXT, DEVELOPMENT, USER_FLOWS) updated for Convex and `npm run validate`. Setup and integrations sections in this README updated to match.
+- **March 2026 – Docs review:** Deprecated docs removed: Supabase setup (QUICKSTART*SUPABASE, SUPABASE_SETUP, SUPABASE_STORAGE_SETUP, SUPABASE_DEV_CONFIG), legacy auth (integrations/AUTH_IMPLEMENTATION), one-off prompts (SONNET*\*), and Go-era debug (AUTH_DEBUGGING_CONTEXT). Root docs (README, CONTEXT, DEVELOPMENT, USER_FLOWS) updated for Convex and `npm run validate`. Setup and integrations sections in this README updated to match.
 - **March 2026 – Implementation audit:** Implementation folder updated with FEATURES_CANONICAL, FEATURE_STATUS, GAP_ANALYSIS, ROADMAP, COMMIT_PLAN; obsolete implementation docs removed; guides rewritten for Convex. **Rules** at repo root (`rules/`). See [implementation/README.md](implementation/README.md).
 
 ---

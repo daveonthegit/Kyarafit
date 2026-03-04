@@ -51,9 +51,9 @@ Patterns and conventions: see **[rules/](../../rules/)** at repo root ([backend-
 
 ## Key Docs
 
-| Doc                                                  | Purpose                                                                          |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [DOC_INVENTORY.md](DOC_INVENTORY.md)                 | Inventory and classification (KEEP/REWRITE/MERGE/DELETE) of implementation docs. |
-| [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) | Current completed vs remaining work (Convex + Better Auth).                      |
-| [NEXT_STEPS.md](NEXT_STEPS.md)                       | Post-migration priorities and what not to do.                                    |
+| Doc                                                                                                       | Purpose                                                                                                                              |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [DOC_INVENTORY.md](DOC_INVENTORY.md)                                                                      | Inventory and classification (KEEP/REWRITE/MERGE/DELETE) of implementation docs.                                                     |
+| [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)                                                      | Current completed vs remaining work (Convex + Better Auth).                                                                          |
+| [NEXT_STEPS.md](NEXT_STEPS.md)                                                                            | Post-migration priorities and what not to do.                                                                                        |
 | [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) | Cosplanner feature analysis, comparison table, gap prioritization, implementation design, phased roadmap, and engineering task list. |

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 
-export const BUILD_STATUSES = ["idea", "wip", "ready"] as const;
+export const BUILD_STATUSES = ["idea", "wip", "ready", "archived"] as const;
 export type BuildStatus = (typeof BUILD_STATUSES)[number];
 
 export const buildSchema = z.object({

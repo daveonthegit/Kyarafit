@@ -1,13 +1,41 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const VALID_STATUSES = ["idea", "wip", "ready", "archived"] as const;
+
+const sortByValidator = v.optional(
+  v.union(v.literal("name"), v.literal("progress"), v.literal("targetDate"), v.literal("budget"))
+);
+const orderValidator = v.optional(v.union(v.literal("asc"), v.literal("desc")));
+
 export const list = query({
-  args: { userId: v.string() },
+  args: {
+    userId: v.string(),
+    status: v.optional(v.string()),
+    search: v.optional(v.string()),
+    sortBy: sortByValidator,
+    order: orderValidator,
+  },
   handler: async (ctx, args) => {
-    const builds = await ctx.db
-      .query("builds")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
+    const order = args.order ?? "asc";
+    const sortBy = args.sortBy ?? "name";
+
+    const statusFilter =
+      args.status && VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])
+        ? args.status
+        : undefined;
+
+    const builds = await (statusFilter
+      ? ctx.db
+          .query("builds")
+          .withIndex("by_userId_status", (q) =>
+            q.eq("userId", args.userId).eq("status", statusFilter)
+          )
+          .collect()
+      : ctx.db
+          .query("builds")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .collect());
 
     const withCounts = await Promise.all(
       builds.map(async (b) => {
@@ -15,14 +43,58 @@ export const list = query({
           .query("buildTasks")
           .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
           .collect();
+        const tasksChecked = tasks.filter((t) => t.checked).length;
+        const tasksTotal = tasks.length;
+        const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
         return {
           ...b,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          tasksTotal,
+          tasksChecked,
+          progress,
         };
       })
     );
-    return withCounts;
+
+    let filtered = withCounts;
+    const searchTrimmed = args.search?.trim();
+    if (searchTrimmed) {
+      const lower = searchTrimmed.toLowerCase();
+      filtered = filtered.filter(
+        (b) =>
+          b.name.toLowerCase().includes(lower) || (b.character ?? "").toLowerCase().includes(lower)
+      );
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case "name":
+          cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
+        case "progress":
+          cmp = (a.progress ?? 0) - (b.progress ?? 0);
+          break;
+        case "targetDate": {
+          const ad = a.targetDate ?? "";
+          const bd = b.targetDate ?? "";
+          cmp = ad.localeCompare(bd);
+          if (cmp === 0) cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
+        }
+        case "budget": {
+          const ac = a.budgetCents ?? -1;
+          const bc = b.budgetCents ?? -1;
+          cmp = ac - bc;
+          if (cmp === 0) cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
+        }
+        default:
+          cmp = (a.name ?? "").localeCompare(b.name ?? "");
+      }
+      return order === "desc" ? -cmp : cmp;
+    });
+
+    return sorted.map(({ progress: _p, ...rest }) => rest);
   },
 });
 
@@ -115,6 +187,50 @@ export const remove = mutation({
   },
 });
 
+/** Delete multiple builds (cascade tasks + links). Authorized per build. */
+export const removeMany = mutation({
+  args: {
+    ids: v.array(v.id("builds")),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    for (const id of args.ids) {
+      const build = await ctx.db.get(id);
+      if (!build || build.userId !== args.userId) continue;
+      const tasks = await ctx.db
+        .query("buildTasks")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
+      for (const t of tasks) await ctx.db.delete(t._id);
+      const links = await ctx.db
+        .query("buildItemLinks")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
+      for (const l of links) await ctx.db.delete(l._id);
+      await ctx.db.delete(id);
+    }
+  },
+});
+
+/** Set status for multiple builds. Authorized per build. */
+export const updateStatusMany = mutation({
+  args: {
+    ids: v.array(v.id("builds")),
+    userId: v.string(),
+    status: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])) {
+      throw new Error("Invalid status");
+    }
+    for (const id of args.ids) {
+      const build = await ctx.db.get(id);
+      if (!build || build.userId !== args.userId) continue;
+      await ctx.db.patch(id, { status: args.status });
+    }
+  },
+});
+
 export const getItems = query({
   args: { buildId: v.id("builds") },
   handler: async (ctx, args) => {
@@ -181,5 +297,18 @@ export const linkItems = mutation({
         closetItemId,
       });
     }
+  },
+});
+
+/** Returns build ids and names that link to this closet item (for closet item detail). */
+export const getBuildsUsingClosetItem = query({
+  args: { closetItemId: v.id("closetItems") },
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("buildItemLinks")
+      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
+      .collect();
+    const builds = await Promise.all(links.map((l) => ctx.db.get(l.buildId)));
+    return builds.flatMap((b) => (b ? [{ _id: b._id, name: b.name }] : []));
   },
 });

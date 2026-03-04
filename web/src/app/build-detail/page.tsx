@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,7 +15,7 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 
-const STATUSES: BuildStatus[] = ["idea", "wip", "ready"];
+const STATUSES: BuildStatus[] = ["idea", "wip", "ready", "archived"];
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
@@ -36,6 +36,7 @@ export default function BuildDetailPage() {
 
   const updateTask = useMutation(api.buildTasks.update);
   const updateBuild = useMutation(api.builds.update);
+  const justDroppedRef = useRef(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -91,6 +92,10 @@ export default function BuildDetailPage() {
       const taskId = active.id as Id<"buildTasks">;
       const closetItemId = over.id as Id<"closetItems">;
       updateTask({ id: taskId, userId, closetItemId });
+      justDroppedRef.current = true;
+      setTimeout(() => {
+        justDroppedRef.current = false;
+      }, 150);
     }
   };
 
@@ -425,7 +430,7 @@ export default function BuildDetailPage() {
             )}
             <div className="grid grid-cols-2 gap-4">
               {linkedItems.map((item) => (
-                <DroppableClosetItem key={item._id} itemId={item._id}>
+                <DroppableClosetItem key={item._id} item={item} justDroppedRef={justDroppedRef}>
                   <div className="flex flex-col gap-2">
                     {item.imageStorageId || item.imageUrl ? (
                       <div className="aspect-square bg-gray-50 overflow-hidden">
@@ -477,9 +482,17 @@ export default function BuildDetailPage() {
   );
 }
 
-function DroppableClosetItem({ itemId, children }: { itemId: string; children: React.ReactNode }) {
+function DroppableClosetItem({
+  item,
+  justDroppedRef,
+  children,
+}: {
+  item: { _id: Id<"closetItems">; name: string };
+  justDroppedRef: React.MutableRefObject<boolean>;
+  children: React.ReactNode;
+}) {
   const { setNodeRef, isOver } = useDroppable({
-    id: itemId,
+    id: item._id,
     data: { type: "closetItem" },
   });
 
@@ -488,7 +501,18 @@ function DroppableClosetItem({ itemId, children }: { itemId: string; children: R
       ref={setNodeRef}
       className={`transition-all ${isOver ? "ring-2 ring-kyar-accent shadow-lg scale-105" : ""}`}
     >
-      {children}
+      <Link
+        href={`/closet/${item._id}`}
+        className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2 rounded-sm"
+        aria-label={`View ${item.name}`}
+        onClick={(e) => {
+          if (justDroppedRef.current) {
+            e.preventDefault();
+          }
+        }}
+      >
+        {children}
+      </Link>
     </div>
   );
 }
