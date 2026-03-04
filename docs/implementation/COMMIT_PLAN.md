@@ -49,13 +49,13 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 
 ## Phase 3 — Advanced
 
-| PR  | Scope                                                                                                                                  | Verification                                                |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| PR  | Scope                                                                                                                                                                                    | Verification                                                |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | 3.1 | ~~Convex users: ensure getMe... wire useTier in web~~ — **Done (2026-03-04):** getMe returns tier/currentUsageMb/storageLimitMb; useTier calls useQuery(api.users.getMe) when signed in. | useTier() returns real tier when set in Convex              |
-| 3.2 | Stripe webhook: HTTP route or Convex action; verify signature; on subscription.\* update Convex users (tier, subscriptionStatus, etc.) | Webhook updates user in Convex; manual test with Stripe CLI |
-| 3.3 | Stripe Checkout/Portal: Convex action returns Checkout and Portal URLs; frontend (settings) opens URL                                  | User can open upgrade and manage links                      |
-| 3.4 | UpgradePrompt component and use in settings (e.g. sync section when canUseCloudSync false)                                             | FREE user sees upgrade message; link works                  |
-| 3.5 | Feature gates: document which features are gated; add UpgradePrompt to other gated entry points if any                                 | WEB_FEATURE_GATES and UI aligned                            |
+| 3.2 | Stripe webhook: HTTP route or Convex action; verify signature; on subscription.\* update Convex users (tier, subscriptionStatus, etc.)                                                   | Webhook updates user in Convex; manual test with Stripe CLI |
+| 3.3 | Stripe Checkout/Portal: Convex action returns Checkout and Portal URLs; frontend (settings) opens URL                                                                                    | User can open upgrade and manage links                      |
+| 3.4 | UpgradePrompt component and use in settings (e.g. sync section when canUseCloudSync false)                                                                                               | FREE user sees upgrade message; link works                  |
+| 3.5 | Feature gates: document which features are gated; add UpgradePrompt to other gated entry points if any                                                                                   | WEB_FEATURE_GATES and UI aligned                            |
 
 ---
 
