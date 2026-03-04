@@ -319,11 +319,30 @@ export const linkItems = mutation({
     if (!build || build.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
-    // Remove existing links
+    const newIds = new Set(args.closetItemIds);
     const existing = await ctx.db
       .query("buildItemLinks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
+    // For items being unlinked: delete their build tasks and clear completionTaskId
+    for (const l of existing) {
+      if (newIds.has(l.closetItemId)) continue;
+      const item = await ctx.db.get(l.closetItemId);
+      if (!item || item.userId !== args.userId) continue;
+      const tasksForItem = await ctx.db
+        .query("buildTasks")
+        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", l.closetItemId))
+        .collect();
+      const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
+      for (const task of tasksInBuild) await ctx.db.delete(task._id);
+      if (
+        item.completionTaskId &&
+        tasksInBuild.some((t) => t._id === item.completionTaskId)
+      ) {
+        await ctx.db.patch(l.closetItemId, { completionTaskId: undefined });
+      }
+    }
+    // Remove existing links
     for (const l of existing) await ctx.db.delete(l._id);
 
     // Create new links
