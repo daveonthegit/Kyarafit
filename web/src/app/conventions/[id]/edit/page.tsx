@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -15,16 +15,35 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 
-export default function NewConventionPage() {
+export default function EditConventionPage() {
+  const params = useParams();
+  const id = params.id as Id<"conventions">;
   const router = useRouter();
   const { userId } = useCurrentUser();
-  const createConvention = useMutation(api.conventions.create);
+  const convention = useQuery(api.conventions.get, id ? { id } : "skip");
+  const updateConvention = useMutation(api.conventions.update);
+
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (convention && !initialized.current) {
+      initialized.current = true;
+      setName(convention.name);
+      setLocation(convention.location ?? "");
+      setDateRange({
+        from: new Date(convention.startDate),
+        to: new Date(convention.endDate),
+      });
+      setImageStorageId(convention.imageStorageId ?? null);
+      setImageUrl(convention.imageUrl ?? "");
+    }
+  }, [convention]);
 
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to
@@ -35,10 +54,12 @@ export default function NewConventionPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !startDate || !endDate || !userId) return;
+    if (!name.trim() || !startDate || !endDate || !userId || !convention) return;
+    if (convention.userId !== userId) return;
     setIsPending(true);
     try {
-      const convention = await createConvention({
+      await updateConvention({
+        id,
         userId,
         name: name.trim(),
         location: location.trim() || undefined,
@@ -47,19 +68,51 @@ export default function NewConventionPage() {
         imageUrl: imageUrl.trim() || undefined,
         imageStorageId: imageStorageId ?? undefined,
       });
-      if (convention) router.push(`/conventions/${convention._id}`);
+      router.push(`/conventions/${id}`);
     } finally {
       setIsPending(false);
     }
   };
 
+  if (convention === undefined) {
+    return (
+      <WebAppShell>
+        <p className="meta-label pt-12">Loading...</p>
+      </WebAppShell>
+    );
+  }
+  if (!convention) {
+    return (
+      <WebAppShell>
+        <p className="meta-label pt-12">Convention not found.</p>
+        <Link href="/conventions" className="mt-4 text-sm underline">
+          Back to Conventions
+        </Link>
+      </WebAppShell>
+    );
+  }
+  if (convention.userId !== userId) {
+    return (
+      <WebAppShell>
+        <p className="meta-label pt-12">Not authorized to edit this convention.</p>
+        <Link href={`/conventions/${id}`} className="mt-4 text-sm underline">
+          Back to Convention
+        </Link>
+      </WebAppShell>
+    );
+  }
+
   return (
     <WebAppShell>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
-        <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
+        <Link
+          href={`/conventions/${id}`}
+          className="material-symbols-outlined font-light text-2xl"
+          aria-label="Back to convention"
+        >
           arrow_back
         </Link>
-        <p className="meta-label">New Convention</p>
+        <p className="meta-label">Edit Convention</p>
       </header>
 
       <main className="flex-1 py-8">
@@ -133,7 +186,7 @@ export default function NewConventionPage() {
             disabled={isPending || !name.trim() || !startDate || !endDate}
             className="w-full"
           >
-            CREATE CONVENTION
+            SAVE CHANGES
           </Button>
         </form>
       </main>

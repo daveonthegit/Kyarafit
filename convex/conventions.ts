@@ -44,6 +44,7 @@ export const update = mutation({
     imageStorageId: v.optional(v.id("_storage")),
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
@@ -59,6 +60,42 @@ export const update = mutation({
       await ctx.db.patch(id, patch);
     }
     return await ctx.db.get(id);
+  },
+});
+
+export const archiveMany = mutation({
+  args: {
+    ids: v.array(v.id("conventions")),
+    userId: v.string(),
+    archived: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    for (const id of args.ids) {
+      const convention = await ctx.db.get(id);
+      if (!convention || convention.userId !== args.userId) continue;
+      await ctx.db.patch(id, { archived: args.archived });
+    }
+  },
+});
+
+export const removeMany = mutation({
+  args: { ids: v.array(v.id("conventions")), userId: v.string() },
+  handler: async (ctx, args) => {
+    for (const id of args.ids) {
+      const convention = await ctx.db.get(id);
+      if (!convention || convention.userId !== args.userId) continue;
+      const plans = await ctx.db
+        .query("conventionDayPlans")
+        .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
+        .collect();
+      for (const p of plans) await ctx.db.delete(p._id);
+      const packingItems = await ctx.db
+        .query("packingListItems")
+        .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
+        .collect();
+      for (const pi of packingItems) await ctx.db.delete(pi._id);
+      await ctx.db.delete(id);
+    }
   },
 });
 

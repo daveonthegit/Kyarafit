@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
@@ -88,14 +89,32 @@ export default function ConventionDetailPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
-        <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
-          arrow_back
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
+            arrow_back
+          </Link>
+          <p className="meta-label">Convention</p>
+        </div>
+        <Link
+          href={`/conventions/${id}/edit`}
+          className="text-sm font-medium underline hover:no-underline"
+        >
+          Edit
         </Link>
-        <p className="meta-label">Convention</p>
       </header>
 
       <main className="flex-1 py-8">
+        {(convention.imageStorageId || convention.imageUrl) && (
+          <div className="mb-6 rounded-lg overflow-hidden border border-kyar-borderSubtle aspect-[2/1] max-h-48 bg-kyar-muted/30">
+            <ResolvedImage
+              imageStorageId={convention.imageStorageId}
+              imageUrl={convention.imageUrl}
+              alt={convention.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
         <h1 className="font-serif text-3xl font-bold italic">{convention.name}</h1>
         <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mt-2">
           {convention.startDate} – {convention.endDate}

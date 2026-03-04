@@ -1,7 +1,6 @@
-# Stop Docker services and any dev-server processes on known ports.
+# Stop dev-server processes on known ports.
 # Ports:
 #   3000  - Next.js web
-#   8000  - Image service (Docker / FastAPI)
 #   8081  - Expo Metro bundler
 #   8082  - Expo Metro (fallback)
 #   19000 - Expo Go
@@ -48,12 +47,8 @@ function Stop-Port {
     }
 }
 
-Write-Host "[stop] Stopping Docker services..." -ForegroundColor Cyan
-docker compose down 2>$null
-
 Write-Host "[stop] Freeing ports..." -ForegroundColor Cyan
 Stop-Port -Port 3000   # Next.js web
-Stop-Port -Port 8000   # Image service
 Stop-Port -Port 8081   # Expo Metro
 Stop-Port -Port 8082   # Expo Metro fallback
 Stop-Port -Port 19000  # Expo Go

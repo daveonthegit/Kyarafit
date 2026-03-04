@@ -16,16 +16,16 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 
 ## Phase 1 — MVP
 
-| PR  | Scope                                                                                                                                                      | Verification                                                           |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1.1 | Convex: require image on build create (convex/builds.ts — validate imageUrl or imageStorageId); optional design-system createBuildSchema imageUrl required | Create build without image fails with clear error; with image succeeds |
-| 1.2 | Web builds/new: require image before submit (disable button, label "IMAGE (REQUIRED)"); send imageUrl/imageStorageId                                       | Cannot submit without image; npm run validate passes                   |
-| 1.3 | Web convention new: add ImageUpload; pass imageUrl/imageStorageId to conventions.create                                                                    | Create convention with image; npm run validate                         |
-| 1.4 | Web itinerary: load convention and day plan; show day-by-day build cards and countdown (see CONVENTION_ITINERARY)                                          | Itinerary page shows real data; manual check                           |
-| 1.5 | Packing page: add search filter; by-build expandable sections with per-group progress; ensure add item and regenerate work                                 | Packing list search and sections; manual check                         |
-| 1.6 | Mobile: Convex image upload in build and closet create (generateUploadUrl → upload → getUrl → create)                                                      | Create build and closet item with image on mobile                      |
-| 1.7 | Mobile: build detail with task list (create/update/delete tasks, progress X/Y)                                                                             | Task CRUD and progress on mobile; manual check                         |
-| 1.8 | Testing checklist: run through auth, build create, convention, packing, itinerary; document in TESTING_AND_DEPLOYMENT or TEST_RESULTS                      | Checklist completed; doc updated                                       |
+| PR  | Scope                                                                                                                                                           | Verification                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1.1 | Convex: require image on build create (convex/builds.ts — validate imageUrl or imageStorageId); optional design-system createBuildSchema imageUrl required      | Create build without image fails with clear error; with image succeeds |
+| 1.2 | Web builds/new: require image before submit (disable button, label "IMAGE (REQUIRED)"); send imageUrl/imageStorageId                                            | Cannot submit without image; npm run validate passes                   |
+| 1.3 | ~~Web convention new: add ImageUpload; pass imageUrl/imageStorageId to conventions.create~~ — **Done (2026-03-04):** convention new + edit page + detail image. | Create convention with image; npm run validate                         |
+| 1.4 | Web itinerary: load convention and day plan; show day-by-day build cards and countdown (see CONVENTION_ITINERARY)                                               | Itinerary page shows real data; manual check                           |
+| 1.5 | Packing page: add search filter; by-build expandable sections with per-group progress; ensure add item and regenerate work                                      | Packing list search and sections; manual check                         |
+| 1.6 | Mobile: Convex image upload in build and closet create (generateUploadUrl → upload → getUrl → create)                                                           | Create build and closet item with image on mobile                      |
+| 1.7 | Mobile: build detail with task list (create/update/delete tasks, progress X/Y)                                                                                  | Task CRUD and progress on mobile; manual check                         |
+| 1.8 | Testing checklist: run through auth, build create, convention, packing, itinerary; document in TESTING_AND_DEPLOYMENT or TEST_RESULTS                           | Checklist completed; doc updated                                       |
 
 ---
 

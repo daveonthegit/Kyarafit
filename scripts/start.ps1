@@ -1,9 +1,8 @@
 # Kyarafit startup script
-# Usage: .\scripts\start.ps1 [-NoDocker] [-NoWeb] [-NoMobile] [-NoConvex] [-SingleTerminal]
+# Usage: .\scripts\start.ps1 [-NoWeb] [-NoMobile] [-NoConvex] [-SingleTerminal]
 #   -SingleTerminal: run Convex/Web/Mobile in same terminal; type :q to stop all.
 
 param(
-    [switch]$NoDocker,
     [switch]$NoWeb,
     [switch]$NoMobile,
     [switch]$NoConvex,
@@ -44,10 +43,10 @@ function Kill-Port {
 }
 
 # Ports used by the stack (kill anything on these before starting)
-$NeededPorts = @(3000, 8000, 8081, 8082, 19000, 19001, 19002)
+$NeededPorts = @(3000, 8081, 8082, 19000, 19001, 19002)
 
 # ── 1. Clean slate ─────────────────────────────────────────────────────────────
-Log "Stopping existing Docker and dev servers..."
+Log "Stopping existing dev servers..."
 try { & "$Root\scripts\stop.ps1" } catch { Warn "Stop step had errors (continuing): $_" }
 Start-Sleep -Seconds 1
 Log "Killing any remaining processes on needed ports..."
@@ -70,42 +69,7 @@ if (-not (Test-Path "$Root\node_modules")) {
     Ok "npm install done"
 }
 
-# ── 4. Docker (image-service on :8000) ─────────────────────────────────────────
-function Test-DockerRunning {
-    try { $null = docker info 2>&1; return $LASTEXITCODE -eq 0 } catch { return $false }
-}
-
-if (-not $NoDocker) {
-    if (-not (Test-DockerRunning)) {
-        $dockerDesktop = "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe"
-        if ($IsWindows -ne $false -and (Test-Path $dockerDesktop)) {
-            Log "Docker is not running — starting Docker Desktop..."
-            Start-Process -FilePath $dockerDesktop
-            $maxWait = 90; $waited = 0
-            while (-not (Test-DockerRunning) -and $waited -lt $maxWait) {
-                Start-Sleep -Seconds 3; $waited += 3
-                Write-Host "  Waiting for Docker... ${waited}s" -ForegroundColor Gray
-            }
-            if (-not (Test-DockerRunning)) {
-                Warn "Docker Desktop did not become ready. Use -NoDocker to skip."; $NoDocker = $true
-            } else { Ok "Docker is ready" }
-        } else {
-            Warn "Docker not running or not installed. Use -NoDocker to skip."; $NoDocker = $true
-        }
-    }
-}
-
-if (-not $NoDocker) {
-    Log "Freeing port 8000 before image-service..."
-    Kill-Port -Port 8000
-    Log "Starting Docker (image-service)..."
-    docker compose up -d
-    Ok "Docker services up (image-service on :8000)"
-} else {
-    Warn "Skipping Docker (-NoDocker or Docker not available)"
-}
-
-# ── 5. Convex dev server ───────────────────────────────────────────────────────
+# ── 4. Convex dev server ───────────────────────────────────────────────────────
 if (-not $NoConvex) {
     if ($SingleTerminal) {
         Log "Starting Convex dev server (background)..."
@@ -120,7 +84,7 @@ if (-not $NoConvex) {
     }
 }
 
-# ── 6. Web (Next.js on :3000) ─────────────────────────────────────────────────
+# ── 5. Web (Next.js on :3000) ─────────────────────────────────────────────────
 if (-not $NoWeb) {
     Log "Freeing port 3000 before web..."
     Kill-Port -Port 3000
@@ -137,7 +101,7 @@ if (-not $NoWeb) {
     }
 }
 
-# ── 7. Mobile (Expo on :8081 / :19000) ───────────────────────────────────────
+# ── 6. Mobile (Expo on :8081 / :19000) ───────────────────────────────────────
 if (-not $NoMobile) {
     Log "Freeing Expo ports (8081, 8082, 19000, 19001, 19002)..."
     foreach ($p in 8081, 8082, 19000, 19001, 19002) { Kill-Port -Port $p }
@@ -158,8 +122,7 @@ Ok "Startup done."
 Write-Host "  Web:          http://localhost:3000"
 Write-Host "  Closet:       http://localhost:3000/closet"
 Write-Host "  Conventions:  http://localhost:3000/conventions"
-Write-Host "  Image Svc:    http://localhost:8000"
-Write-Host "  Stop:         .\scripts\stop.ps1 or docker compose down"
+Write-Host "  Stop:         .\scripts\stop.ps1"
 Write-Host "  One terminal + :q to stop:  .\scripts\start.ps1 -SingleTerminal" -ForegroundColor DarkGray
 if ($SingleTerminal) {
     Write-Host ""

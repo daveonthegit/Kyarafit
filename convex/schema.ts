@@ -75,6 +75,7 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     startDate: v.string(),
     endDate: v.string(),
+    archived: v.optional(v.boolean()),
   }).index("by_userId", ["userId"]),
 
   conventionDayPlans: defineTable({

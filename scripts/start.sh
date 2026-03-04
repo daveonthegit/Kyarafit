@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kyarafit startup script
-# Usage: ./scripts/start.sh [--no-docker] [--no-web] [--no-mobile] [--no-convex] [--single-terminal]
+# Usage: ./scripts/start.sh [--no-web] [--no-mobile] [--no-convex] [--single-terminal]
 #   --single-terminal: run Convex/Web/Mobile in same terminal; type :q to stop all.
 
 set -e
@@ -36,13 +36,12 @@ kill_port() {
 }
 
 # Ports used by the stack (kill anything on these before starting)
-NEEDED_PORTS="3000 8000 8081 8082 19000 19001 19002"
+NEEDED_PORTS="3000 8081 8082 19000 19001 19002"
 
 # Parse flags
-NO_DOCKER=false; NO_WEB=false; NO_MOBILE=false; NO_CONVEX=false; SINGLE_TERMINAL=false
+NO_WEB=false; NO_MOBILE=false; NO_CONVEX=false; SINGLE_TERMINAL=false
 for arg in "$@"; do
   case "$arg" in
-    --no-docker)        NO_DOCKER=true ;;
     --no-web)           NO_WEB=true ;;
     --no-mobile)        NO_MOBILE=true ;;
     --no-convex)        NO_CONVEX=true ;;
@@ -71,18 +70,7 @@ if [ ! -d "$ROOT/node_modules" ]; then
   ok "npm install done"
 fi
 
-# ── 4. Docker (image-service on :8000) ───────────────────────────────────────
-if [ "$NO_DOCKER" = false ]; then
-  log "Freeing port 8000 before image-service..."
-  kill_port 8000
-  log "Starting Docker (image-service)..."
-  docker compose up -d
-  ok "Docker services up (image-service on :8000)"
-else
-  warn "Skipping Docker (--no-docker)"
-fi
-
-# ── 5. Convex dev server ──────────────────────────────────────────────────────
+# ── 4. Convex dev server ──────────────────────────────────────────────────────
 if [ "$NO_CONVEX" = false ]; then
   log "Starting Convex dev server in background..."
   (cd "$ROOT" && nohup npx convex dev >> /tmp/kyarafit-convex.log 2>&1 &)
@@ -90,7 +78,7 @@ if [ "$NO_CONVEX" = false ]; then
   ok "Convex dev server starting (log: /tmp/kyarafit-convex.log)"
 fi
 
-# ── 6. Web (Next.js on :3000) ─────────────────────────────────────────────────
+# ── 5. Web (Next.js on :3000) ─────────────────────────────────────────────────
 if [ "$NO_WEB" = false ]; then
   log "Freeing port 3000 before web..."
   kill_port 3000
@@ -100,7 +88,7 @@ if [ "$NO_WEB" = false ]; then
   ok "Web: http://localhost:3000 (log: /tmp/kyarafit-web.log)"
 fi
 
-# ── 7. Mobile (Expo on :8081 / :19000) ───────────────────────────────────────
+# ── 6. Mobile (Expo on :8081 / :19000) ───────────────────────────────────────
 if [ "$NO_MOBILE" = false ]; then
   log "Freeing Expo ports (8081, 8082, 19000, 19001, 19002)..."
   for port in 8081 8082 19000 19001 19002; do kill_port "$port"; done
@@ -115,8 +103,7 @@ ok "Startup done."
 echo "  Web:          http://localhost:3000"
 echo "  Closet:       http://localhost:3000/closet"
 echo "  Conventions:  http://localhost:3000/conventions"
-echo "  Image Svc:    http://localhost:8000"
-echo "  Stop:         ./scripts/stop.sh or docker compose down"
+echo "  Stop:         ./scripts/stop.sh"
 echo "  One terminal + :q to stop:  ./scripts/start.sh --single-terminal"
 if [ "$SINGLE_TERMINAL" = true ]; then
   echo ""
