@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -67,11 +67,11 @@ export default function Itinerary() {
 
   if (!conventionId) {
     return (
-      <div className="min-h-screen flex flex-col bg-white pb-32">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+      <WebAppShell>
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
           <p className="meta-label">Itinerary</p>
         </header>
-        <main className="flex-1 px-6 pt-10">
+        <main className="flex-1 pt-10">
           <p className="text-sm text-kyar-textTertiary">
             Please select a convention to view its itinerary.
           </p>
@@ -79,41 +79,38 @@ export default function Itinerary() {
             View Conventions
           </Link>
         </main>
-        <BottomNav active="plan" />
-      </div>
+      </WebAppShell>
     );
   }
 
   if (convention === undefined) {
     return (
-      <div className="min-h-screen flex flex-col bg-white pb-32">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+      <WebAppShell>
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
           <p className="meta-label">Loading...</p>
         </header>
-        <BottomNav active="plan" />
-      </div>
+      </WebAppShell>
     );
   }
 
   if (!convention) {
     return (
-      <div className="min-h-screen flex flex-col bg-white pb-32">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+      <WebAppShell>
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
           <p className="meta-label">Convention not found</p>
         </header>
-        <main className="flex-1 px-6 pt-10">
+        <main className="flex-1 pt-10">
           <Link href="/conventions" className="text-sm underline">
             Back to Conventions
           </Link>
         </main>
-        <BottomNav active="plan" />
-      </div>
+      </WebAppShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
         <div className="flex items-center gap-4 mb-2">
           <button type="button" onClick={() => router.back()}>
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
@@ -147,7 +144,7 @@ export default function Itinerary() {
         </p>
       </header>
 
-      <main className="flex-1 px-6 pt-6 pb-32 space-y-8">
+      <main className="flex-1 pt-6 pb-32 space-y-8">
         {daysUntilStart !== null && (
           <div className="border border-kyar-borderSubtle p-4">
             <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-1">
@@ -282,8 +279,6 @@ export default function Itinerary() {
           </p>
         </div>
       </main>
-
-      <BottomNav active="plan" />
-    </div>
+    </WebAppShell>
   );
 }

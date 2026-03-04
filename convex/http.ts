@@ -13,11 +13,15 @@ const http = httpRouter();
 // Production: set SITE_URL in Convex dashboard (e.g. https://www.kyarafit.com).
 // Must match trustedOrigins in convex/betterAuth/auth.ts — we include SITE_URL and
 // ADDITIONAL_CORS_ORIGINS here so CORS preflight passes for those origins.
+// Production origins are included so auth works even if SITE_URL is not set in Convex.
 const extraCorsOrigins = [
   ...(process.env.SITE_URL ? [process.env.SITE_URL.replace(/\/$/, "")] : []),
   ...(process.env.ADDITIONAL_CORS_ORIGINS?.split(",")
     .map((s) => s.trim())
     .filter((s): s is string => s.length > 0) ?? []),
+  // Production app origins (keep in sync with convex/betterAuth/auth.ts trustedOrigins)
+  "https://www.kyarafit.com",
+  "https://kyarafit.com",
 ];
 authComponent.registerRoutes(http, createAuth, {
   cors: {

@@ -6,11 +6,12 @@ import { useDraggable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 
 export interface BuildTask {
   _id: Id<"buildTasks">;
-  buildId: Id<"builds">;
+  buildId?: Id<"builds">;
   label: string;
   closetItemId?: Id<"closetItems"> | null;
   sortOrder: number;
@@ -78,9 +79,13 @@ export function TaskChecklist({
     setAssignModalOpen(true);
   };
 
-  const handleAssignTask = async (closetItemId: Id<"closetItems"> | undefined) => {
+  const handleAssignTask = async (closetItemId: Id<"closetItems"> | null) => {
     if (!selectedTaskId || !userId) return;
-    await updateTask({ id: selectedTaskId, userId, closetItemId });
+    await updateTask({
+      id: selectedTaskId,
+      userId,
+      closetItemId,
+    });
     setAssignModalOpen(false);
     setSelectedTaskId(null);
   };
@@ -163,62 +168,47 @@ export function TaskChecklist({
         </button>
       </div>
 
-      {assignModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setAssignModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
+      <ResponsivePanel
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        title="Assign Task to Item"
+      >
+        <div className="space-y-2">
+          <button
+            onClick={() => handleAssignTask(null)}
+            className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
           >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Assign Task to Item</h3>
-              <button
-                onClick={() => setAssignModalOpen(false)}
-                className="text-gray-500 hover:text-black"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleAssignTask(undefined)}
-                className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
-              >
-                <span className="material-symbols-outlined text-gray-400">close</span>
-                <span className="text-sm">Unassign from any item</span>
-              </button>
-              {linkedItems.map((item) => (
-                <button
-                  key={item._id}
-                  onClick={() => handleAssignTask(item._id)}
-                  className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
-                >
-                  {item.imageStorageId || item.imageUrl ? (
-                    <ResolvedImage
-                      imageStorageId={item.imageStorageId}
-                      imageUrl={item.imageUrl}
-                      alt={item.name}
-                      className="w-10 h-10 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
-                      <span className="material-symbols-outlined text-gray-400">image</span>
-                    </div>
-                  )}
-                  <span className="text-sm flex-1 text-left">{item.name}</span>
-                </button>
-              ))}
-              {linkedItems.length === 0 && (
-                <p className="text-sm text-kyar-textTertiary text-center py-4">
-                  No closet items linked to this build. Link items first to assign tasks.
-                </p>
+            <span className="material-symbols-outlined text-gray-400">close</span>
+            <span className="text-sm">Unassign from any item</span>
+          </button>
+          {linkedItems.map((item) => (
+            <button
+              key={item._id}
+              onClick={() => handleAssignTask(item._id)}
+              className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
+            >
+              {item.imageStorageId || item.imageUrl ? (
+                <ResolvedImage
+                  imageStorageId={item.imageStorageId}
+                  imageUrl={item.imageUrl}
+                  alt={item.name}
+                  className="w-10 h-10 object-cover rounded"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                  <span className="material-symbols-outlined text-gray-400">image</span>
+                </div>
               )}
-            </div>
-          </div>
+              <span className="text-sm flex-1 text-left">{item.name}</span>
+            </button>
+          ))}
+          {linkedItems.length === 0 && (
+            <p className="text-sm text-kyar-textTertiary text-center py-4">
+              No closet items linked to this build. Link items first to assign tasks.
+            </p>
+          )}
         </div>
-      )}
+      </ResponsivePanel>
     </div>
   );
 }
@@ -282,19 +272,22 @@ function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: Ta
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       className={`flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group ${
-        isDragging ? "opacity-50 cursor-grabbing" : "cursor-grab"
+        isDragging ? "opacity-50 cursor-grabbing" : ""
       }`}
     >
-      <span className="material-symbols-outlined text-gray-400 text-base">drag_indicator</span>
+      <span
+        className="material-symbols-outlined text-gray-400 text-base cursor-grab touch-none"
+        {...listeners}
+        {...attributes}
+      >
+        drag_indicator
+      </span>
       <input
         type="checkbox"
         checked={task.checked}
         onChange={(e) => onToggle(e.target.checked)}
         className="w-4 h-4 accent-black"
-        onClick={(e) => e.stopPropagation()}
       />
       <div className="flex-1">
         <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>

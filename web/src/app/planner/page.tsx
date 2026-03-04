@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 
 const conventions = [
   { id: "ax", name: "Anime Expo", date: "July 2024", status: "Upcoming" },
@@ -13,8 +13,8 @@ export default function Planner() {
   const [view, setView] = useState<"daily" | "conventions">("daily");
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="px-8 pt-16 pb-8">
+    <WebAppShell>
+      <header className="pt-16 pb-8">
         <div className="flex gap-6 mb-8">
           <button
             onClick={() => setView("daily")}
@@ -39,7 +39,7 @@ export default function Planner() {
         )}
       </header>
 
-      <main className="flex-1 px-8">
+      <main className="flex-1">
         {view === "daily" ? (
           <section className="mb-16">
             <h2 className="text-[10px] uppercase tracking-[0.2em] font-bold mb-8 border-b border-black pb-2 inline-block">
@@ -85,8 +85,6 @@ export default function Planner() {
           </section>
         )}
       </main>
-
-      <BottomNav active="plan" />
-    </div>
+    </WebAppShell>
   );
 }

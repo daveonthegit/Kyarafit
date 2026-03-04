@@ -10,6 +10,7 @@ import {
 } from "@kyarafit/design-system/types";
 import { UnderlineInput } from "@/components/ui/UnderlineInput";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -71,8 +72,8 @@ export default function NewClosetItemPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-6 border-b border-kyar-borderSubtle">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-6 border-b border-kyar-borderSubtle">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -90,7 +91,7 @@ export default function NewClosetItemPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 py-8">
         <form onSubmit={handleSubmit} className="flex flex-col gap-8 max-w-md">
           <div>
             <label className="block text-[11px] font-sans-wide font-semibold uppercase tracking-wide text-kyar-meta mb-2">
@@ -168,6 +169,6 @@ export default function NewClosetItemPage() {
           </button>
         </form>
       </main>
-    </div>
+    </WebAppShell>
   );
 }

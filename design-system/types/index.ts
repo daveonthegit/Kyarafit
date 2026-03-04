@@ -1,10 +1,12 @@
 export {
   type ClosetItem,
   type ClosetCategory,
+  type ClosetItemStatus,
   type CreateClosetItemInput,
   type UpdateClosetItemInput,
   type ClosetListResponse,
   CLOSET_CATEGORIES,
+  CLOSET_ITEM_STATUSES,
   closetItemSchema,
   createClosetItemSchema,
   updateClosetItemSchema,

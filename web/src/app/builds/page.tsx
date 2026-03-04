@@ -3,8 +3,10 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -15,7 +17,21 @@ import {
   type SortBy,
   type SortOrder,
 } from "@/lib/buildsListArgs";
+import type { BuildStatus } from "@kyarafit/design-system/types";
 import type { Id } from "convex/_generated/dataModel";
+
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
+    cents / 100
+  );
+}
+
+const STATUS_OPTIONS: { value: BuildStatus; label: string }[] = [
+  { value: "idea", label: "Idea" },
+  { value: "wip", label: "WIP" },
+  { value: "ready", label: "Ready" },
+  { value: "archived", label: "Archive" },
+];
 
 export default function BuildsPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
@@ -59,14 +75,14 @@ export default function BuildsPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  const handleArchiveSelected = async () => {
+  const handleSetStatusSelected = async (status: BuildStatus) => {
     if (!userId || selectedIds.size === 0) return;
     setActionPending(true);
     try {
       await updateStatusMany({
         ids: Array.from(selectedIds),
         userId,
-        status: "archived",
+        status,
       });
       clearSelection();
     } finally {
@@ -87,8 +103,8 @@ export default function BuildsPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="px-6 pt-14 pb-4 bg-white/90 backdrop-blur-md sticky top-0 z-40">
+    <WebAppShell>
+      <header className="pt-14 pb-4 bg-white/90 backdrop-blur-md sticky top-0 z-40">
         <div className="flex justify-between items-end">
           <div>
             <p className="meta-label mb-1 opacity-40">Portfolio</p>
@@ -102,7 +118,7 @@ export default function BuildsPage() {
       </header>
 
       <nav className="sticky top-[108px] z-30 bg-white/90 backdrop-blur-md pt-2 pb-4 space-y-4 overflow-visible max-h-none">
-        <div className="px-6">
+        <div>
           <label htmlFor="build-status-filter" className="sr-only">
             Filter builds by status
           </label>
@@ -120,7 +136,7 @@ export default function BuildsPage() {
             ))}
           </select>
         </div>
-        <div className="px-6 flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
           <label className="sr-only" htmlFor="build-search">
             Search builds by name or character
           </label>
@@ -168,7 +184,7 @@ export default function BuildsPage() {
         </div>
       </nav>
 
-      <main className="flex-1 px-6 pb-32 mt-6">
+      <main className="flex-1 mt-6">
         {isLoading && <p className="meta-label">Loading...</p>}
         {!isLoading && builds.length === 0 && !hasSearch && (
           <p className="text-sm text-kyar-meta">
@@ -192,7 +208,7 @@ export default function BuildsPage() {
             </button>
           </div>
         )}
-        <div className="space-y-16">
+        <ResponsiveGrid>
           {builds.map((b, index) => {
             const projectNumber = String(index + 1).padStart(3, "0");
             const progress =
@@ -215,7 +231,7 @@ export default function BuildsPage() {
                   aria-label={`View details for ${b.name}`}
                 >
                   <section className={isSelected ? "ring-2 ring-black ring-offset-2" : ""}>
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-6">
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-4">
                       {b.imageStorageId || b.imageUrl ? (
                         <ResolvedImage
                           imageStorageId={b.imageStorageId}
@@ -250,6 +266,33 @@ export default function BuildsPage() {
                           />
                         </div>
                       </div>
+                      {b.budgetCents != null && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+                            <span>Budget</span>
+                            <span>
+                              {formatCents(b.totalCostCents ?? 0)} / {formatCents(b.budgetCents)}
+                            </span>
+                          </div>
+                          <div className="h-[1px] bg-gray-200 w-full">
+                            <div
+                              className="h-full bg-black transition-all"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  ((b.totalCostCents ?? 0) / (b.budgetCents || 1)) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                          {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
+                            <p className="text-[9px] text-red-600">
+                              Over by{" "}
+                              {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <div className="flex gap-4 pt-2">
                         <span className="text-[10px] uppercase tracking-widest opacity-60">
                           {b.status}
@@ -266,21 +309,24 @@ export default function BuildsPage() {
               </div>
             );
           })}
-        </div>
+        </ResponsiveGrid>
       </main>
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4">
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4 flex-wrap">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleArchiveSelected}
-              disabled={actionPending}
-              className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
-            >
-              Archive
-            </button>
+          <div className="flex gap-2 flex-wrap">
+            {STATUS_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => handleSetStatusSelected(value)}
+                disabled={actionPending}
+                className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+              >
+                {label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
@@ -300,43 +346,39 @@ export default function BuildsPage() {
         </div>
       )}
 
-      {showDeleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="builds-delete-dialog-title"
-        >
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg">
-            <h2 id="builds-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
-              Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
-            </h2>
-            <p className="text-sm text-kyar-meta mb-6">
-              This cannot be undone. Tasks and build links will be removed.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2 border border-black text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteSelected}
-                disabled={actionPending}
-                className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
-              >
-                {actionPending ? "Deleting..." : "Delete"}
-              </button>
-            </div>
+      <AdaptiveModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        aria-labelledby="builds-delete-dialog-title"
+      >
+        <div className="p-6">
+          <h2 id="builds-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
+            Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
+          </h2>
+          <p className="text-sm text-kyar-meta mb-6">
+            This cannot be undone. Tasks and build links will be removed.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1 py-2 border border-black text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={actionPending}
+              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+            >
+              {actionPending ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
-      )}
+      </AdaptiveModal>
 
       <FloatingAdd href="/builds/new" />
-      <BottomNav active="builds" />
-    </div>
+    </WebAppShell>
   );
 }

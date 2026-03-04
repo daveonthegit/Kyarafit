@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { Calendar } from "@/components/ui/calendar";
@@ -47,15 +48,15 @@ export default function NewConventionPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
         <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
           arrow_back
         </Link>
         <p className="meta-label">New Convention</p>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 py-8">
         <form onSubmit={submit} className="space-y-6">
           <div>
             <label className="block meta-label mb-2">NAME</label>
@@ -113,6 +114,6 @@ export default function NewConventionPage() {
           </Button>
         </form>
       </main>
-    </div>
+    </WebAppShell>
   );
 }

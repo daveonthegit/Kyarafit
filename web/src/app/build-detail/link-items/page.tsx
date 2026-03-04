@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -64,19 +64,19 @@ export default function BuildLinkItemsPage() {
 
   if (!id) {
     return (
-      <div className="min-h-screen flex flex-col pb-24 px-6 pt-12">
-        <p className="meta-label">Missing build id.</p>
+      <WebAppShell>
+        <p className="meta-label pt-12">Missing build id.</p>
         <Link href="/builds" className="mt-4 text-sm underline">
           Back to Builds
         </Link>
-      </div>
+      </WebAppShell>
     );
   }
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="min-h-screen flex flex-col pb-32">
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between">
+      <WebAppShell>
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between">
           <Link
             href={`/build-detail?id=${id}`}
             className="text-[10px] font-semibold uppercase tracking-widest text-kyar-meta"
@@ -94,7 +94,7 @@ export default function BuildLinkItemsPage() {
           </button>
         </header>
 
-        <main className="flex-1 px-6 py-8">
+        <main className="flex-1 py-8">
           <p className="text-sm text-kyar-textTertiary mb-4">
             Select items to include in this build. They will appear in packing lists when this build
             is assigned to a day.
@@ -128,9 +128,7 @@ export default function BuildLinkItemsPage() {
             ))}
           </ul>
         </main>
-
-        <BottomNav active="builds" />
-      </div>
+      </WebAppShell>
     </DndContext>
   );
 }

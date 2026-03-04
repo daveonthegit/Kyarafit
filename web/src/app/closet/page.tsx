@@ -3,16 +3,24 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { CLOSET_CATEGORIES } from "@kyarafit/design-system/types";
 import type { Id } from "convex/_generated/dataModel";
 
-type SortBy = "name" | "category" | "cost";
+type SortBy = "name" | "category" | "cost" | "status";
 type SortOrder = "asc" | "desc";
+
+function statusLabel(s: string | undefined): string {
+  if (s === "in_progress") return "In progress";
+  if (s === "complete") return "Complete";
+  return "Planned";
+}
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "All items" },
@@ -78,8 +86,8 @@ export default function ClosetPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
         <div className="flex items-center gap-4 mb-4">
           <Link href="/builds">
             <span className="material-symbols-outlined font-light">arrow_back</span>
@@ -90,7 +98,7 @@ export default function ClosetPage() {
       </header>
 
       <nav className="sticky top-[108px] z-30 bg-white/95 backdrop-blur-sm pt-2 pb-4 space-y-4 border-b border-kyar-borderSubtle overflow-visible max-h-none">
-        <div className="px-6 space-y-3">
+        <div className="space-y-3">
           <label htmlFor="closet-search" className="sr-only">
             Search closet by name, notes, or tags
           </label>
@@ -139,6 +147,7 @@ export default function ClosetPage() {
               <option value="name">Name</option>
               <option value="category">Category</option>
               <option value="cost">Cost</option>
+              <option value="status">Completion status</option>
             </select>
             <button
               type="button"
@@ -156,71 +165,88 @@ export default function ClosetPage() {
         </div>
       </nav>
 
-      <main className="flex-1 px-4 py-6 grid grid-cols-2 gap-3">
-        {isLoading && <p className="col-span-2 text-[12px] opacity-50">Loading...</p>}
+      <main className="flex-1 py-6">
+        {isLoading && <p className="text-[12px] opacity-50">Loading...</p>}
         {!isLoading && items.length === 0 && !hasSearch && (
-          <p className="col-span-2 text-[12px] opacity-50">No items yet.</p>
+          <p className="text-[12px] opacity-50">No items yet.</p>
         )}
         {!isLoading && items.length === 0 && hasSearch && (
-          <p className="col-span-2 text-[12px] opacity-50">No items match your search.</p>
+          <p className="text-[12px] opacity-50">No items match your search.</p>
         )}
         {!isLoading && items.length > 0 && (
-          <div className="col-span-2 flex items-center gap-3 mb-2">
-            <p className="text-[10px] uppercase tracking-widest opacity-50">
-              {items.length} item{items.length !== 1 ? "s" : ""}
-            </p>
-            <button
-              type="button"
-              onClick={selectAll}
-              className="text-[10px] uppercase tracking-widest font-medium underline"
-            >
-              {selectedIds.size === items.length ? "Deselect all" : "Select all"}
-            </button>
-          </div>
-        )}
-        {items.map((item) => {
-          const isSelected = selectedIds.has(item._id);
-          return (
-            <div key={item._id} className="relative">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleSelect(item._id)}
-                onClick={(e) => e.stopPropagation()}
-                className="absolute top-1 right-1 z-10 w-4 h-4 rounded border-2 border-black bg-white/90 focus:ring-2 focus:ring-black/30"
-                aria-label={`Select ${item.name}`}
-              />
-              <Link
-                href={`/closet/${item._id}`}
-                className={`flex flex-col gap-2 block hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2 rounded-sm ${
-                  isSelected ? "ring-2 ring-black ring-offset-2" : ""
-                }`}
-                aria-label={`View ${item.name}`}
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-[10px] uppercase tracking-widest opacity-50">
+                {items.length} item{items.length !== 1 ? "s" : ""}
+              </p>
+              <button
+                type="button"
+                onClick={selectAll}
+                className="text-[10px] uppercase tracking-widest font-medium underline"
               >
-                <div className="aspect-square bg-kyar-muted overflow-hidden">
-                  {item.imageStorageId || item.imageUrl ? (
-                    <ResolvedImage
-                      imageStorageId={item.imageStorageId}
-                      imageUrl={item.imageUrl}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                      <span className="material-symbols-outlined text-4xl">checkroom</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-between items-start">
-                  <h3 className="text-[10px] uppercase tracking-wider font-semibold">
-                    {item.name}
-                  </h3>
-                  <span className="text-[9px] opacity-40">{item.category}</span>
-                </div>
-              </Link>
+                {selectedIds.size === items.length ? "Deselect all" : "Select all"}
+              </button>
             </div>
-          );
-        })}
+            <ResponsiveGrid className="gap-3">
+              {items.map((item) => {
+                const isSelected = selectedIds.has(item._id);
+                return (
+                  <div key={item._id} className="relative">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(item._id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-1 right-1 z-10 w-4 h-4 rounded border-2 border-black bg-white/90 focus:ring-2 focus:ring-black/30"
+                      aria-label={`Select ${item.name}`}
+                    />
+                    <Link
+                      href={`/closet/${item._id}`}
+                      className={`flex flex-col gap-2 block hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2 rounded-sm ${
+                        isSelected ? "ring-2 ring-black ring-offset-2" : ""
+                      }`}
+                      aria-label={`View ${item.name}`}
+                    >
+                      <div className="aspect-square bg-kyar-muted overflow-hidden">
+                        {item.imageStorageId || item.imageUrl ? (
+                          <ResolvedImage
+                            imageStorageId={item.imageStorageId}
+                            imageUrl={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                            <span className="material-symbols-outlined text-4xl">checkroom</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-[10px] uppercase tracking-wider font-semibold">
+                            {item.name}
+                          </h3>
+                          <span className="text-[9px] opacity-40">{item.category}</span>
+                        </div>
+                        <span
+                          className={`text-[9px] uppercase tracking-wider font-medium w-fit ${
+                            item.status === "complete"
+                              ? "text-green-700"
+                              : item.status === "in_progress"
+                                ? "text-amber-700"
+                                : "text-kyar-textTertiary"
+                          }`}
+                        >
+                          {statusLabel(item.status)}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                );
+              })}
+            </ResponsiveGrid>
+          </>
+        )}
       </main>
 
       {selectedIds.size > 0 && (
@@ -246,41 +272,37 @@ export default function ClosetPage() {
         </div>
       )}
 
-      {showDeleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="closet-delete-dialog-title"
-        >
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg">
-            <h2 id="closet-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
-              Delete {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}?
-            </h2>
-            <p className="text-sm text-kyar-meta mb-6">This cannot be undone.</p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2 border border-black text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteSelected}
-                disabled={actionPending}
-                className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
-              >
-                {actionPending ? "Deleting..." : "Delete"}
-              </button>
-            </div>
+      <AdaptiveModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        aria-labelledby="closet-delete-dialog-title"
+      >
+        <div className="p-6">
+          <h2 id="closet-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
+            Delete {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}?
+          </h2>
+          <p className="text-sm text-kyar-meta mb-6">This cannot be undone.</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1 py-2 border border-black text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={actionPending}
+              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+            >
+              {actionPending ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
-      )}
+      </AdaptiveModal>
 
       <FloatingAdd href="/closet/new" />
-      <BottomNav active="builds" />
-    </div>
+    </WebAppShell>
   );
 }

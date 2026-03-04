@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 
@@ -12,15 +12,15 @@ export default function PackingListPage() {
   const isLoading = conventions === undefined;
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="px-6 pt-12 pb-6 flex justify-between items-end">
+    <WebAppShell>
+      <header className="pt-12 pb-6 flex justify-between items-end">
         <div>
           <p className="meta-label opacity-50 mb-1">Logistics</p>
           <h1 className="font-serif text-3xl font-bold italic">Packing List</h1>
         </div>
       </header>
 
-      <main className="px-6 space-y-4">
+      <main className="space-y-4">
         <p className="text-sm text-kyar-meta">
           Select a convention to view or edit its packing list.
         </p>
@@ -49,8 +49,6 @@ export default function PackingListPage() {
           </p>
         )}
       </main>
-
-      <BottomNav active="packing" />
-    </div>
+    </WebAppShell>
   );
 }

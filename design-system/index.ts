@@ -3,3 +3,4 @@
 // For shared types (e.g. ClosetItem): import { ... } from "@kyarafit/design-system/types"
 export * from "./rn_tokens";
 export * from "./types";
+export { NAV_SECTIONS, type NavSection, type NavSectionId } from "./navConfig";

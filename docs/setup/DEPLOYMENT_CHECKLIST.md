@@ -234,7 +234,7 @@ gcloud billing budgets create \
 ### ✅ Security Review
 
 - [ ] Secrets not in code
-- [ ] CORS configured correctly
+- [ ] CORS configured correctly (Convex: production origins www.kyarafit.com / kyarafit.com are allowed; set `SITE_URL` in Convex dashboard for email links and any extra origins — see docs/auth.md)
 - [ ] HTTPS enforced
 - [ ] Service accounts have minimal permissions
 - [ ] No public access to secrets

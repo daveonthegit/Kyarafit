@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -69,32 +70,32 @@ export default function ConventionDetailPage() {
 
   if (convention === undefined) {
     return (
-      <div className="min-h-screen flex flex-col pb-32 px-6 pt-12">
-        <p className="meta-label">Loading...</p>
-      </div>
+      <WebAppShell>
+        <p className="meta-label pt-12">Loading...</p>
+      </WebAppShell>
     );
   }
   if (!convention) {
     return (
-      <div className="min-h-screen flex flex-col pb-32 px-6 pt-12">
-        <p className="meta-label">Convention not found.</p>
+      <WebAppShell>
+        <p className="meta-label pt-12">Convention not found.</p>
         <Link href="/conventions" className="mt-4 text-sm underline">
           Back to Conventions
         </Link>
-      </div>
+      </WebAppShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
         <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
           arrow_back
         </Link>
         <p className="meta-label">Convention</p>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 py-8">
         <h1 className="font-serif text-3xl font-bold italic">{convention.name}</h1>
         <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mt-2">
           {convention.startDate} – {convention.endDate}
@@ -177,6 +178,6 @@ export default function ConventionDetailPage() {
           </div>
         </div>
       )}
-    </div>
+    </WebAppShell>
   );
 }

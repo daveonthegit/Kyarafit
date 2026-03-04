@@ -54,10 +54,10 @@ export const linkBuildItemsSchema = z.object({
 
 export type LinkBuildItemsInput = z.infer<typeof linkBuildItemsSchema>;
 
-/** Build task: required item or step that can be linked to a closet item. */
+/** Build task: can belong to a build and/or be assigned to a closet item. */
 export const buildTaskSchema = z.object({
   id: z.string().uuid(),
-  buildId: z.string().uuid(),
+  buildId: z.string().uuid().optional(),
   label: z.string().min(1),
   closetItemId: z.string().uuid().optional().nullable(),
   sortOrder: z.number().int(),

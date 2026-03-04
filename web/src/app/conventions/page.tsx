@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 
@@ -12,13 +12,13 @@ export default function ConventionsPage() {
   const isLoading = conventions === undefined;
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
         <p className="meta-label mb-1">Circuit</p>
         <h1 className="font-serif text-3xl font-bold tracking-tight italic">Conventions</h1>
       </header>
 
-      <main className="flex-1 px-6 py-6">
+      <main className="flex-1 py-6">
         <Link
           href="/conventions/new"
           className="block w-full bg-black text-white text-center py-3.5 text-[11px] font-bold uppercase tracking-wider mb-8"
@@ -52,8 +52,6 @@ export default function ConventionsPage() {
           ))}
         </ul>
       </main>
-
-      <BottomNav active="plan" />
-    </div>
+    </WebAppShell>
   );
 }

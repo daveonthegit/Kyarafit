@@ -6,4 +6,22 @@ module.exports = [
   {
     ignores: ["dist/*"],
   },
+  {
+    rules: {
+      // Guardrail: mobile must not import from the web app (keeps platforms independent).
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            "kyarafit-web",
+            "**/web/**",
+            "../web",
+            "../web/**",
+            "../../web",
+            "../../web/**",
+          ],
+        },
+      ],
+    },
+  },
 ];

@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const CLOSET_ITEM_STATUSES = ["planned", "in_progress", "complete"] as const;
+
 const sortByValidator = v.optional(
-  v.union(v.literal("name"), v.literal("category"), v.literal("cost"))
+  v.union(v.literal("name"), v.literal("category"), v.literal("cost"), v.literal("status"))
 );
 const orderValidator = v.optional(v.union(v.literal("asc"), v.literal("desc")));
 
@@ -44,6 +46,11 @@ export const list = query({
       );
     }
 
+    const statusRank = (s: string | undefined) => {
+      if (s === "complete") return 2;
+      if (s === "in_progress") return 1;
+      return 0;
+    };
     const sorted = [...filtered].sort((a, b) => {
       let cmp = 0;
       switch (sortBy) {
@@ -61,6 +68,10 @@ export const list = query({
           if (cmp === 0) cmp = (a.name ?? "").localeCompare(b.name ?? "");
           break;
         }
+        case "status":
+          cmp = statusRank(a.status) - statusRank(b.status);
+          if (cmp === 0) cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
         default:
           cmp = (a.name ?? "").localeCompare(b.name ?? "");
       }
@@ -88,9 +99,19 @@ export const create = mutation({
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     costCents: v.optional(v.number()),
+    status: v.optional(v.string()),
+    completionTaskId: v.optional(v.id("buildTasks")),
   },
   handler: async (ctx, args) => {
-    const id = await ctx.db.insert("closetItems", args);
+    const status =
+      args.status && CLOSET_ITEM_STATUSES.includes(args.status as (typeof CLOSET_ITEM_STATUSES)[number])
+        ? args.status
+        : "planned";
+    const id = await ctx.db.insert("closetItems", {
+      ...args,
+      status,
+      completionTaskId: args.completionTaskId,
+    });
     return await ctx.db.get(id);
   },
 });
@@ -106,6 +127,8 @@ export const update = mutation({
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     costCents: v.optional(v.number()),
+    status: v.optional(v.string()),
+    completionTaskId: v.optional(v.union(v.id("buildTasks"), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
@@ -115,7 +138,11 @@ export const update = mutation({
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
-      if (val !== undefined) patch[k] = val;
+      if (val === null) patch[k] = undefined;
+      else if (val !== undefined) {
+        if (k === "status" && !CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])) continue;
+        patch[k] = val;
+      }
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);

@@ -11,7 +11,7 @@
     "./tailwind": "./tailwind.config.js"
   },
   "scripts": {
-    "lint": "echo \"No lint configured yet\" && exit 0",
+    "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",
     "typecheck": "tsc --noEmit --esModuleInterop --skipLibCheck *.ts types/*.ts rn/*.ts",
     "format:check": "prettier --check \"**/*.{js,ts,json,md}\""
   },

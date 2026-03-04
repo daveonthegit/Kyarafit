@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTier } from "@/lib/api/useTier";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { authClient } from "@/lib/auth/auth-client";
 
 const menuItems = ["Account Details", "Subscription Plan", "Notification Style"];
@@ -17,8 +18,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="px-8 pt-16 pb-6 flex justify-between items-end">
+    <WebAppShell>
+      <header className="pt-16 pb-6 flex justify-between items-end">
         <div>
           <p className="meta-label mb-2 opacity-40">System Preferences</p>
           <h1 className="font-serif text-4xl tracking-tight">Settings</h1>
@@ -28,7 +29,7 @@ export default function Settings() {
         </button>
       </header>
 
-      <main className="px-8 mt-10 space-y-12">
+      <main className="mt-10 space-y-12">
         {!isLoading && tier && (
           <section>
             <h2 className="font-serif text-xl italic mb-6">Backup & storage</h2>
@@ -76,6 +77,6 @@ export default function Settings() {
           Sign Out
         </button>
       </main>
-    </div>
+    </WebAppShell>
   );
 }

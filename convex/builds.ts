@@ -46,11 +46,21 @@ export const list = query({
         const tasksChecked = tasks.filter((t) => t.checked).length;
         const tasksTotal = tasks.length;
         const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+        const links = await ctx.db
+          .query("buildItemLinks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
+          .collect();
+        let totalCostCents = 0;
+        for (const link of links) {
+          const item = await ctx.db.get(link.closetItemId);
+          if (item?.costCents != null) totalCostCents += item.costCents;
+        }
         return {
           ...b,
           tasksTotal,
           tasksChecked,
           progress,
+          totalCostCents,
         };
       })
     );
@@ -95,6 +105,33 @@ export const list = query({
     });
 
     return sorted.map(({ progress: _p, ...rest }) => rest);
+  },
+});
+
+/** Returns the user's most recently created build (for home hero). Includes task counts. */
+export const getMostRecentForUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    if (builds.length === 0) return null;
+    const sorted = [...builds].sort((a, b) => b._creationTime - a._creationTime);
+    const build = sorted[0];
+    const tasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+      .collect();
+    const tasksChecked = tasks.filter((t) => t.checked).length;
+    const tasksTotal = tasks.length;
+    const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+    return {
+      ...build,
+      tasksTotal,
+      tasksChecked,
+      progress,
+    };
   },
 });
 
@@ -297,10 +334,30 @@ export const linkItems = mutation({
         closetItemId,
       });
     }
+
+    // Auto-create a completion task for each linked item that doesn't have one
+    const existingTasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
+      .collect();
+    let nextSortOrder = existingTasks.length;
+    for (const closetItemId of args.closetItemIds) {
+      const item = await ctx.db.get(closetItemId);
+      if (!item || item.completionTaskId) continue;
+      const taskId = await ctx.db.insert("buildTasks", {
+        userId: args.userId,
+        buildId: args.buildId,
+        label: `Complete ${item.name}`,
+        closetItemId,
+        sortOrder: nextSortOrder++,
+        checked: false,
+      });
+      await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+    }
   },
 });
 
-/** Returns build ids and names that link to this closet item (for closet item detail). */
+/** Returns build ids and names that link to this closet item (for closet item detail). Deduplicated by build id. */
 export const getBuildsUsingClosetItem = query({
   args: { closetItemId: v.id("closetItems") },
   handler: async (ctx, args) => {
@@ -308,7 +365,10 @@ export const getBuildsUsingClosetItem = query({
       .query("buildItemLinks")
       .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
       .collect();
-    const builds = await Promise.all(links.map((l) => ctx.db.get(l.buildId)));
-    return builds.flatMap((b) => (b ? [{ _id: b._id, name: b.name }] : []));
+    const buildIds = Array.from(new Set(links.map((l) => l.buildId)));
+    const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
+    return builds.flatMap((b) =>
+      b && "name" in b ? [{ _id: b._id, name: b.name }] : []
+    );
   },
 });

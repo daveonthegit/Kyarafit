@@ -1,82 +1,118 @@
-import Link from "next/link";
-import { BottomNav } from "@/components/layout/BottomNav";
-import { FloatingAdd } from "@/components/layout/FloatingAdd";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useQuery } from "convex/react";
+import { FloatingAdd } from "@/components/layout/FloatingAdd";
+import { WebAppShell } from "@/components/layout/WebAppShell";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { api } from "convex/_generated/api";
+
+const QUICK_LINKS = [
+  { href: "/builds", label: "My Builds", icon: "checkroom" },
+  { href: "/conventions", label: "Conventions", icon: "event" },
+  { href: "/closet", label: "Closet", icon: "inventory_2" },
+] as const;
+
+export default function HomePage() {
+  const { userId } = useCurrentUser();
+  const recentBuild = useQuery(
+    api.builds.getMostRecentForUser,
+    userId ? { userId } : "skip"
+  );
+
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="pt-14 px-8 pb-6 flex justify-between items-end">
+    <WebAppShell>
+      <header className="pt-14 pb-4 sm:pb-6 flex justify-between items-end px-4 sm:px-6 lg:pl-[calc(16rem+1.5rem)]">
         <div>
-          <p className="meta-label mb-1">Kyarafit</p>
-          <h1 className="font-serif text-4xl font-normal italic tracking-tight">The Lookbook</h1>
+          <p className="meta-label mb-1 opacity-60">Kyarafit</p>
+          <h1 className="font-serif text-3xl sm:text-4xl font-normal italic tracking-tight">
+            The Lookbook
+          </h1>
         </div>
-        <div className="flex gap-4 mb-1">
-          <span className="material-symbols-outlined font-light text-2xl cursor-pointer">
-            search
-          </span>
-          <Link
-            href="/settings"
-            className="material-symbols-outlined font-light text-2xl cursor-pointer"
-          >
-            menu
-          </Link>
-        </div>
+        <Link
+          href="/settings"
+          className="material-symbols-outlined font-light text-2xl cursor-pointer p-1"
+          aria-label="Settings"
+        >
+          menu
+        </Link>
       </header>
 
-      <main className="flex-1 px-8">
-        <section className="mb-12">
-          <div className="w-full aspect-[4/5] bg-kyar-muted flex items-center justify-center border border-kyar-borderSubtle">
-            <span className="material-symbols-outlined text-4xl text-kyar-textTertiary">
-              photo_library
-            </span>
-          </div>
-          <div className="mt-6 flex justify-between items-end">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] font-light mb-1 text-kyar-meta">
-                Current Focus
-              </p>
-              <p className="font-serif text-2xl italic font-normal text-kyar-textTertiary">
-                Add builds to feature here
-              </p>
+      <main className="flex-1 px-4 sm:px-6 lg:px-8 pb-24 max-w-5xl mx-auto lg:mx-0">
+        {/* Hero: recent build or placeholder */}
+        <section className="mb-10 sm:mb-12">
+          <Link
+            href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
+            className="block group"
+            aria-label={recentBuild ? `Current focus: ${recentBuild.name}` : "View builds"}
+          >
+            <div className="relative w-full aspect-[4/5] sm:aspect-[3/2] lg:aspect-[21/9] max-h-[70vh] overflow-hidden bg-kyar-muted border border-kyar-borderSubtle rounded-sm">
+              {recentBuild?.imageStorageId || recentBuild?.imageUrl ? (
+                <ResolvedImage
+                  imageStorageId={recentBuild.imageStorageId}
+                  imageUrl={recentBuild.imageUrl}
+                  alt={recentBuild.name}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
+                  <span className="material-symbols-outlined text-6xl sm:text-7xl">photo_library</span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
+                <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium opacity-90 mb-1">
+                  Current Focus
+                </p>
+                <p className="font-serif text-xl sm:text-2xl lg:text-3xl italic font-normal">
+                  {recentBuild ? recentBuild.name : "Add builds to feature here"}
+                </p>
+                {recentBuild && (
+                  <p className="text-xs sm:text-sm mt-1 opacity-90">
+                    {recentBuild.progress}% complete
+                    {recentBuild.character ? ` · ${recentBuild.character}` : ""}
+                  </p>
+                )}
+              </div>
             </div>
+          </Link>
+          <div className="mt-4 flex justify-between items-center flex-wrap gap-2">
+            <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
+              {recentBuild ? "Your most recent build" : "Create a build to see it here"}
+            </p>
             <Link
-              href="/builds"
-              className="text-[10px] uppercase tracking-widest border border-black px-3 py-1"
+              href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
+              className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors"
             >
-              View Builds
+              {recentBuild ? "View build" : "View builds"}
             </Link>
           </div>
         </section>
 
-        <section className="border-t border-black/5 pt-6">
-          <div className="flex justify-between items-baseline mb-4">
-            <h3 className="text-[11px] uppercase tracking-[0.3em] font-semibold">Quick links</h3>
-          </div>
-          <div className="flex flex-col gap-4">
-            <Link
-              href="/builds"
-              className="font-serif text-xl italic border-b border-kyar-borderSubtle pb-3"
-            >
-              My Builds
-            </Link>
-            <Link
-              href="/conventions"
-              className="font-serif text-xl italic border-b border-kyar-borderSubtle pb-3"
-            >
-              Conventions
-            </Link>
-            <Link
-              href="/closet"
-              className="font-serif text-xl italic border-b border-kyar-borderSubtle pb-3"
-            >
-              Closet
-            </Link>
+        {/* Quick links */}
+        <section className="border-t border-kyar-borderSubtle pt-6 sm:pt-8">
+          <h2 className="text-[11px] uppercase tracking-[0.3em] font-semibold text-kyar-meta mb-4 sm:mb-6">
+            Quick links
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            {QUICK_LINKS.map(({ href, label, icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group"
+              >
+                <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
+                  {icon}
+                </span>
+                <span className="font-serif text-lg sm:text-xl italic">{label}</span>
+              </Link>
+            ))}
           </div>
         </section>
       </main>
 
-      <FloatingAdd />
-      <BottomNav active="home" />
-    </div>
+      <FloatingAdd href="/builds/new" />
+    </WebAppShell>
   );
 }

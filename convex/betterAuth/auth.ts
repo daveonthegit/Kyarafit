@@ -50,6 +50,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     // Production app origin and any custom additions (e.g. device LAN IPs from ADDITIONAL_CORS_ORIGINS)
     ...(siteUrl ? [siteUrl.replace(/\/$/, "")] : []),
     ...extraOrigins,
+    // Production app origins (keep in sync with convex/http.ts allowedOrigins)
+    "https://www.kyarafit.com",
+    "https://kyarafit.com",
   ];
   return {
     appName: "Kyarafit",

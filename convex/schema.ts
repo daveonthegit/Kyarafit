@@ -26,9 +26,12 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     costCents: v.optional(v.number()),
+    status: v.optional(v.string()),
+    completionTaskId: v.optional(v.id("buildTasks")),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_category", ["userId", "category"]),
+    .index("by_userId_category", ["userId", "category"])
+    .index("by_completionTaskId", ["completionTaskId"]),
 
   builds: defineTable({
     userId: v.string(),
@@ -54,14 +57,15 @@ export default defineSchema({
 
   buildTasks: defineTable({
     userId: v.string(),
-    buildId: v.id("builds"),
+    buildId: v.optional(v.id("builds")),
     label: v.string(),
     closetItemId: v.optional(v.id("closetItems")),
     sortOrder: v.number(),
     checked: v.boolean(),
   })
     .index("by_buildId", ["buildId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_closetItemId", ["closetItemId"]),
 
   conventions: defineTable({
     userId: v.string(),

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
+import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -33,8 +34,8 @@ export default function ConventionPackingPage() {
   const dateKeys = Array.from(byDate.keys()).sort();
 
   return (
-    <div className="min-h-screen flex flex-col pb-32">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm px-6 pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
+    <WebAppShell>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
         <Link href={`/conventions/${id}`} className="material-symbols-outlined font-light text-2xl">
           arrow_back
         </Link>
@@ -44,7 +45,7 @@ export default function ConventionPackingPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 py-8">
         <button
           type="button"
           onClick={handleRegenerate}
@@ -105,6 +106,6 @@ export default function ConventionPackingPage() {
           );
         })}
       </main>
-    </div>
+    </WebAppShell>
   );
 }
