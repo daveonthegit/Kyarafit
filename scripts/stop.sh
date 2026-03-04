@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Stop Docker services and any dev-server processes on known ports.
+# Stop dev-server processes on known ports.
 # Ports:
 #   3000  - Next.js web
-#   8000  - Image service (Docker / FastAPI)
 #   8081  - Expo Metro bundler
 #   8082  - Expo Metro (fallback)
 #   19000 - Expo Go
@@ -38,12 +37,8 @@ kill_port() {
   fi
 }
 
-echo -e "${GRAY}[stop]${NC} Stopping Docker services..."
-docker compose down 2>/dev/null || true
-
 echo -e "${GRAY}[stop]${NC} Freeing ports..."
 kill_port 3000   # Next.js web
-kill_port 8000   # Image service
 kill_port 8081   # Expo Metro
 kill_port 8082   # Expo Metro fallback
 kill_port 19000  # Expo Go
