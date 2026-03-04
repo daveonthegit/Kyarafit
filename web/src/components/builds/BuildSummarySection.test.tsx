@@ -22,9 +22,7 @@ const mockSummary = {
 
 describe("BuildSummarySection", () => {
   it("renders nothing when summary is null", () => {
-    const { container } = render(
-      <BuildSummarySection summary={null} formatCents={formatCents} />
-    );
+    const { container } = render(<BuildSummarySection summary={null} formatCents={formatCents} />);
     expect(container.firstChild).toBeNull();
   });
 

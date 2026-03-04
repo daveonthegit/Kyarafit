@@ -96,4 +96,24 @@ export default defineSchema({
   })
     .index("by_conventionId", ["conventionId"])
     .index("by_userId", ["userId"]),
+
+  buildReferenceImages: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    sortOrder: v.number(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"]),
+
+  buildProcessPictures: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    sortOrder: v.number(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"]),
 });

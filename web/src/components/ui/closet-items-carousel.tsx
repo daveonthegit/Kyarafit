@@ -97,10 +97,7 @@ function ClosetItemsCarouselInner<T>({
         className="flex overflow-x-auto overflow-y-hidden scroll-smooth snap-x snap-mandatory gap-4 pb-2"
       >
         {items.map((item) => (
-          <div
-            key={keyExtractor(item)}
-            className="flex-shrink-0 w-[220px] sm:w-[260px] snap-start"
-          >
+          <div key={keyExtractor(item)} className="flex-shrink-0 w-[220px] sm:w-[260px] snap-start">
             {renderItem(item)}
           </div>
         ))}
@@ -109,7 +106,9 @@ function ClosetItemsCarouselInner<T>({
   );
 }
 
-export const ClosetItemsCarousel = React.memo(ClosetItemsCarouselInner) as typeof ClosetItemsCarouselInner;
+export const ClosetItemsCarousel = React.memo(
+  ClosetItemsCarouselInner
+) as typeof ClosetItemsCarouselInner;
 
 /** Card content for one closet item (use inside DroppableClosetItem on build detail). */
 export function ClosetCarouselCardContent({
@@ -137,13 +136,9 @@ export function ClosetCarouselCardContent({
       </div>
       <div className="p-3">
         <p className="text-sm font-medium text-kyar-text line-clamp-2">{item.name}</p>
-        {item.category && (
-          <p className="text-xs text-kyar-textTertiary mt-0.5">{item.category}</p>
-        )}
+        {item.category && <p className="text-xs text-kyar-textTertiary mt-0.5">{item.category}</p>}
         {item.costCents != null && (
-          <p className="text-xs text-kyar-textTertiary mt-0.5">
-            {formatCents(item.costCents)}
-          </p>
+          <p className="text-xs text-kyar-textTertiary mt-0.5">{formatCents(item.costCents)}</p>
         )}
         {item.status && (
           <span

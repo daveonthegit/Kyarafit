@@ -19,6 +19,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
     "@kyarafit/design-system": "*",
+    "@radix-ui/react-aspect-ratio": "^1.1.8",
     "better-auth": "1.4.9",
     "clsx": "^2.1.1",
     "convex": "^1.32.0",
