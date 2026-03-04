@@ -14,8 +14,10 @@ export default function SignInPage() {
   const resetSuccess = searchParams.get("reset") === "success";
   const [mode, setMode] = useState<Mode>("signin");
 
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signInWithEmail, setSignInWithEmail] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -34,16 +36,14 @@ export default function SignInPage() {
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleUsernameSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setShowResendVerification(false);
     setLoading(true);
     try {
-      // Omit callbackURL so we sync session with the returned token and then navigate.
-      // This avoids the redirect plugin and ensures the client has the session (cross-origin cookies may not be sent).
-      const { data, error: authError } = await authClient.signIn.email({
-        email,
+      const { data, error: authError } = await authClient.signIn.username({
+        username: username.trim(),
         password,
       });
       if (authError) {
@@ -52,7 +52,43 @@ export default function SignInPage() {
         setShowResendVerification(!!isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
       } else {
-        // Persist token so every auth request (get-session, etc.) sends it (cross-origin cookies don't work)
+        if (data?.token) {
+          setStoredBearerToken(data.token);
+          await authClient.getSession({
+            fetchOptions: {
+              headers: { Authorization: `Bearer ${data.token}` },
+            },
+          });
+        }
+        router.push("/home");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      const isUnverified =
+        /verif/i.test(msg) || String(msg).toLowerCase().includes("email not verified");
+      setShowResendVerification(!!isUnverified);
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setShowResendVerification(false);
+    setLoading(true);
+    try {
+      const { data, error: authError } = await authClient.signIn.email({
+        email: email.trim(),
+        password,
+      });
+      if (authError) {
+        const msg = authError.message ?? "";
+        const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+        setShowResendVerification(!!isUnverified);
+        setError(msg || "Sign in failed. Check your credentials.");
+      } else {
         if (data?.token) {
           setStoredBearerToken(data.token);
           await authClient.getSession({
@@ -226,19 +262,37 @@ export default function SignInPage() {
               <div className="flex-1 border-t border-kyar-border" />
             </div>
 
-            {/* Email + password */}
-            <form onSubmit={handleEmailSignIn} className="space-y-4">
-              <div>
-                <label className="meta-label block mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
-                />
-              </div>
+            {/* Username or email + password */}
+            <form
+              onSubmit={signInWithEmail ? handleEmailSignIn : handleUsernameSignIn}
+              className="space-y-4"
+            >
+              {signInWithEmail ? (
+                <div>
+                  <label className="meta-label block mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="meta-label block mb-1">Username</label>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Your username"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+              )}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="meta-label">Password</label>
@@ -270,16 +324,41 @@ export default function SignInPage() {
                 {loading ? "Signing in…" : "Sign In"}
               </button>
               {showResendVerification && (
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={anyLoading || resendLoading || !email.trim()}
-                  className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-black transition-colors disabled:opacity-50 text-kyar-textSecondary hover:text-black"
-                >
-                  {resendLoading ? "Sending…" : "Resend verification email"}
-                </button>
+                <div className="space-y-2">
+                  <label className="meta-label block">
+                    Enter your email to resend verification
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={anyLoading || resendLoading || !email.trim()}
+                    className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-black transition-colors disabled:opacity-50 text-kyar-textSecondary hover:text-black"
+                  >
+                    {resendLoading ? "Sending…" : "Resend verification email"}
+                  </button>
+                </div>
               )}
             </form>
+
+            <p className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setSignInWithEmail(!signInWithEmail);
+                  setError(null);
+                }}
+                className="text-xs text-kyar-textTertiary hover:text-black underline"
+              >
+                {signInWithEmail ? "Sign in with username instead" : "Sign in with email instead"}
+              </button>
+            </p>
 
             <p className="mt-6 text-center text-xs text-kyar-textTertiary">
               Don&apos;t have an account?{" "}

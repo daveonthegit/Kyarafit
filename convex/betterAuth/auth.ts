@@ -3,6 +3,7 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import type { GenericCtx } from "@convex-dev/better-auth/utils";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
+import { username } from "better-auth/plugins";
 import { components } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
@@ -97,6 +98,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       // callbackURL) works even without SITE_URL set; set SITE_URL in production
       // so web relative callbackURLs are rewritten to the app domain correctly.
       crossDomain({ siteUrl: (siteUrl ?? convexSiteUrl)! }),
+      username(),
     ],
   } satisfies BetterAuthOptions;
 };

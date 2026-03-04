@@ -1,5 +1,6 @@
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import { usernameClient } from "better-auth/client/plugins";
 import { bearerStoragePlugin } from "./bearer-storage-plugin";
 
 const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
@@ -29,6 +30,7 @@ export const authClient = createAuthClient({
   plugins: [
     convexClient(),
     crossDomainClient({ storage: crossDomainStorage }),
+    usernameClient(),
     bearerStoragePlugin(),
   ],
 });

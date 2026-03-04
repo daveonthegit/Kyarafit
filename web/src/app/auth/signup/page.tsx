@@ -8,6 +8,7 @@ import { authClient } from "@/lib/auth/auth-client";
 export default function SignUpPage() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -38,6 +39,10 @@ export default function SignUpPage() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (username.trim().length < 3) {
+      setError("Username must be at least 3 characters.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -48,6 +53,7 @@ export default function SignUpPage() {
         name: name.trim(),
         email,
         password,
+        username: username.trim(),
         callbackURL,
       });
       if (authError) {
@@ -126,7 +132,7 @@ export default function SignUpPage() {
           <div className="flex-1 border-t border-kyar-border" />
         </div>
 
-        {/* Email sign-up form */}
+        {/* Sign-up form */}
         <form onSubmit={handleSignUp} className="space-y-4">
           <div>
             <label className="meta-label block mb-1">Name</label>
@@ -136,6 +142,19 @@ export default function SignUpPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+          <div>
+            <label className="meta-label block mb-1">Username</label>
+            <input
+              type="text"
+              required
+              minLength={3}
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Choose a username (3+ characters)"
               className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
             />
           </div>

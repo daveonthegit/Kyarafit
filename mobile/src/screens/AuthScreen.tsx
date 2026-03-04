@@ -22,10 +22,12 @@ export default function AuthScreen() {
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
+  const [signInWithEmail, setSignInWithEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
@@ -67,7 +69,41 @@ export default function AuthScreen() {
     }
   };
 
-  // ── Email sign-in ──────────────────────────────────────────────────────────
+  // ── Username sign-in ──────────────────────────────────────────────────────
+  const handleUsernameSignIn = async () => {
+    setError(null);
+    setInfo(null);
+    setShowResendVerification(false);
+    setLoading(true);
+    try {
+      const { data, error: authError } = await authClient.signIn.username({
+        username: username.trim(),
+        password,
+      });
+      if (authError) {
+        const msg = authError.message ?? "";
+        const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+        setShowResendVerification(isUnverified);
+        setError(msg || "Sign in failed. Check your credentials.");
+        setLoading(false);
+        return;
+      }
+      if (data?.token) {
+        await setStoredBearerToken(data.token);
+        router.replace("/(tabs)");
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+      setShowResendVerification(isUnverified);
+      setError(msg);
+      setLoading(false);
+    }
+  };
+
+  // ── Email sign-in (fallback for existing accounts) ───────────────────────────
   const handleEmailSignIn = async () => {
     setError(null);
     setInfo(null);
@@ -87,12 +123,6 @@ export default function AuthScreen() {
         return;
       }
       if (data?.token) {
-        // Persist the token. The in-memory cache is set synchronously so the
-        // 10ms session-signal timer (fired by better-auth after signIn.email()
-        // resolves) sends GET /auth/get-session with the bearer token, updating
-        // useSession() in the background. Navigate immediately — don't block on
-        // the session atom; the tabs page will authenticate via ConvexBetterAuthProvider
-        // once the session loads.
         await setStoredBearerToken(data.token);
         router.replace("/(tabs)");
       } else {
@@ -100,7 +130,8 @@ export default function AuthScreen() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
-      const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+      const isUnverified =
+        /verif/i.test(msg) || String(msg).toLowerCase().includes("email not verified");
       setShowResendVerification(isUnverified);
       setError(msg);
       setLoading(false);
@@ -142,14 +173,17 @@ export default function AuthScreen() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (username.trim().length < 3) {
+      setError("Username must be at least 3 characters.");
+      return;
+    }
     setLoading(true);
     try {
       const { error: authError } = await authClient.signUp.email({
         name: name.trim(),
         email: email.trim(),
         password,
-        // After clicking the verification link in the email, Better Auth redirects here.
-        // On iOS/Android the OS intercepts kyarafit:/// and opens the app at the root.
+        username: username.trim(),
         callbackURL: "kyarafit:///",
       });
       if (authError) {
@@ -253,19 +287,34 @@ export default function AuthScreen() {
             <OAuthButtons />
             <Divider />
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-                editable={!anyLoading}
-              />
-            </View>
+            {signInWithEmail ? (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  editable={!anyLoading}
+                />
+              </View>
+            ) : (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput
+                  style={styles.input}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Your username"
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  editable={!anyLoading}
+                />
+              </View>
+            )}
 
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
@@ -287,26 +336,51 @@ export default function AuthScreen() {
 
             <TouchableOpacity
               style={[styles.buttonPrimary, anyLoading && styles.buttonDisabled]}
-              onPress={handleEmailSignIn}
+              onPress={signInWithEmail ? handleEmailSignIn : handleUsernameSignIn}
               disabled={anyLoading}
             >
               <Text style={styles.buttonPrimaryText}>{loading ? "Signing in…" : "Sign In"}</Text>
             </TouchableOpacity>
 
+            <Pressable
+              onPress={() => {
+                setSignInWithEmail(!signInWithEmail);
+                setError(null);
+              }}
+              style={styles.mt8}
+              disabled={anyLoading}
+            >
+              <Text style={styles.linkSmall}>
+                {signInWithEmail ? "Sign in with username instead" : "Sign in with email instead"}
+              </Text>
+            </Pressable>
+
             {showResendVerification && (
-              <TouchableOpacity
-                style={[
-                  styles.buttonSecondary,
-                  styles.mt8,
-                  (anyLoading || resendLoading || !email.trim()) && styles.buttonDisabled,
-                ]}
-                onPress={handleResendVerification}
-                disabled={anyLoading || resendLoading || !email.trim()}
-              >
-                <Text style={styles.buttonSecondaryText}>
-                  {resendLoading ? "Sending…" : "Resend Verification Email"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.mt8}>
+                <Text style={styles.label}>Enter your email to resend verification</Text>
+                <TextInput
+                  style={[styles.input, styles.mt4]}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  editable={!anyLoading}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.buttonSecondary,
+                    styles.mt4,
+                    (anyLoading || resendLoading || !email.trim()) && styles.buttonDisabled,
+                  ]}
+                  onPress={handleResendVerification}
+                  disabled={anyLoading || resendLoading || !email.trim()}
+                >
+                  <Text style={styles.buttonSecondaryText}>
+                    {resendLoading ? "Sending…" : "Resend Verification Email"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             <Text style={styles.switchText}>
@@ -332,6 +406,19 @@ export default function AuthScreen() {
                 onChangeText={setName}
                 placeholder="Your name"
                 autoComplete="name"
+                editable={!anyLoading}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Choose a username (3+ characters)"
+                autoCapitalize="none"
+                autoComplete="username"
                 editable={!anyLoading}
               />
             </View>
@@ -598,6 +685,9 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: "600",
     color: colors.textSecondary,
+  },
+  mt4: {
+    marginTop: 4,
   },
   mt8: {
     marginTop: 8,
