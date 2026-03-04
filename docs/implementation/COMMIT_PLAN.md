@@ -42,6 +42,7 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 | 2.7 | Build detail: task → closet item assignment (drag-drop or menu); call buildTasks.update with closetItemId                                                                                      | Assign task to item; UI reflects it                                                                            |
 | 2.8 | **Build list search, filter, sort (Feature 18):** Convex builds.list optional status, search, sortBy, order; web builds page search input + sort controls; unit tests (buildsListArgs).        | Filter by tab, search by name, sort by name/date/progress/budget; npm run validate; npm run test -w web passes |
 | 2.9 | **Build project notes dedicated (Feature 15):** Notes button on build detail; BuildNotesModal (edit/save/clear notes); persists via builds.update(notes); unit tests BuildNotesModal.test.tsx. | Open build → Notes → edit, save, clear; npm run validate; npm run test -w web passes                           |
+| 2.10 | **Build summary dashboard (Feature 14):** Convex builds.getSummary(buildId, userId); BuildSummarySection on build detail (status, progress, dates, linked items, budget/spend/difference); unit tests BuildSummarySection.test.tsx. | Build detail shows Summary section; npm run validate; npm run test -w web passes |
 
 ---
 

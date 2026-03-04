@@ -25,7 +25,7 @@ Last updated: 2026-03-04.
 | Mobile offline/sync                | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                                            |
 | Image upload                       | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new; convention new has no image field; mobile may not use Convex upload everywhere              |
 | Seed data                          | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | No Convex seed mutation or script                                                                                                                    |
-| Build summary dashboard (14)       | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §14, competitor doc §5                                                                                     |
+| Build summary dashboard (14)       | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/builds.ts (getSummary), web BuildSummarySection + build-detail; BuildSummarySection.test.tsx; element breakdown deferred until buildItemLinks type/status |
 | Build project notes dedicated (15) | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | build.notes; web: BuildNotesModal + Notes button on build detail; convex/builds.update(notes); BuildNotesModal.test.tsx                              |
 | Build reference images (16)        | NOT         | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §16                                                                                                        |
 | Build process pictures (17)        | NOT         | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §17                                                                                                        |
@@ -107,7 +107,7 @@ Last updated: 2026-03-04.
 
 ### Build summary dashboard (14)
 
-- **Status:** NOT IMPLEMENTED. Defined in FEATURES_CANONICAL §14; design in [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
+- **Status:** IMPLEMENTED (web). Convex `builds.getSummary` query (buildId, userId) returns status, progress %, tasksChecked/Total, createdDate, targetDate, elapsedDays, remainingDays, linkedItemCount, linkedItemsCompleteCount, totalCostCents, budgetCents, budgetDifferenceCents. Build detail page includes Summary section (right column) via `BuildSummarySection` component; shows status, progress bar, initial/due dates, elapsed/remaining, linked items complete count, budget/spend/difference. Unit tests: `web/src/components/builds/BuildSummarySection.test.tsx`. Element breakdown (to buy / to make with sub-states) deferred until buildItemLinks has type/status (FEATURES_CANONICAL §3). Mobile: not yet (optional follow-up).
 
 ### Build project notes dedicated (15)
 
