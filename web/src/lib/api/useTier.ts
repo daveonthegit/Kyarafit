@@ -1,6 +1,8 @@
 "use client";
 
-import { authClient } from "@/lib/auth/auth-client";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export interface MeResponse {
   tier: string;
@@ -8,22 +10,31 @@ export interface MeResponse {
   storageLimitMb: number;
 }
 
+const FREE_DEFAULT: MeResponse = {
+  tier: "FREE",
+  currentUsageMb: 0,
+  storageLimitMb: 50,
+};
+
 /**
- * Returns tier and storage info.
- * During migration, all authenticated users default to FREE tier.
- * Convex user.tier will be the source of truth once wired.
+ * Returns tier and storage info from Convex users.getMe.
+ * When signed in, uses identity.subject (userId) to fetch user doc; when not
+ * signed in or user doc missing, returns null or FREE default.
  */
 export function useTier(): { data: MeResponse | null; isLoading: boolean } {
-  const { data: session, isPending } = authClient.useSession();
+  const { userId, isLoading: identityLoading } = useCurrentUser();
+  const me = useQuery(api.users.getMe, userId ? { externalId: userId } : "skip");
 
-  if (isPending) return { data: null, isLoading: true };
-  if (!session) return { data: null, isLoading: false };
+  if (identityLoading) return { data: null, isLoading: true };
+  if (!userId) return { data: null, isLoading: false };
+  if (me === undefined) return { data: null, isLoading: true };
+  if (me === null) return { data: FREE_DEFAULT, isLoading: false };
 
   return {
     data: {
-      tier: "FREE",
-      currentUsageMb: 0,
-      storageLimitMb: 100,
+      tier: me.tier,
+      currentUsageMb: me.currentUsageMb,
+      storageLimitMb: me.storageLimitMb,
     },
     isLoading: false,
   };
