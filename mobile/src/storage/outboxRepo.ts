@@ -94,10 +94,11 @@ export async function enqueue<T extends OutboxEventType>(
   payload: OutboxPayloadMap[T]
 ): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(
-    `INSERT INTO outbox (type, payload_json, created_at) VALUES (?, ?, ?)`,
-    [type, JSON.stringify(payload), new Date().toISOString()]
-  );
+  await database.runAsync(`INSERT INTO outbox (type, payload_json, created_at) VALUES (?, ?, ?)`, [
+    type,
+    JSON.stringify(payload),
+    new Date().toISOString(),
+  ]);
 }
 
 export async function listPending(): Promise<OutboxEntry[]> {
@@ -114,8 +115,6 @@ export async function remove(id: number): Promise<void> {
 
 export async function getPendingCount(): Promise<number> {
   const database = await initClosetDb();
-  const row = await database.getFirstAsync<{ c: number }>(
-    `SELECT COUNT(*) as c FROM outbox`
-  );
+  const row = await database.getFirstAsync<{ c: number }>(`SELECT COUNT(*) as c FROM outbox`);
   return row?.c ?? 0;
 }

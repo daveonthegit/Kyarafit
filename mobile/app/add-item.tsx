@@ -13,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import { processImageForUpload } from "../src/lib/imageUtils";
 import { colors, font } from "@kyarafit/design-system/rn";
 import {
   CLOSET_CATEGORIES,
@@ -50,13 +51,18 @@ export default function AddItemScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageLocalUri(result.assets[0].uri);
+      try {
+        const processedUri = await processImageForUpload(result.assets[0].uri);
+        setImageLocalUri(processedUri);
+      } catch (e) {
+        Alert.alert("Image error", "Failed to process image. Try another.");
+      }
     }
   };
 

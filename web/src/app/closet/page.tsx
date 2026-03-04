@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import Image from "next/image";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 
 const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
 
@@ -66,14 +66,12 @@ export default function ClosetPage() {
         {filtered.map((item) => (
           <div key={item._id} className="flex flex-col gap-2">
             <div className="aspect-square bg-kyar-muted overflow-hidden">
-              {item.imageUrl ? (
-                <Image
-                  src={item.imageUrl}
+              {item.imageStorageId || item.imageUrl ? (
+                <ResolvedImage
+                  imageStorageId={item.imageStorageId}
+                  imageUrl={item.imageUrl}
                   alt={item.name}
-                  width={300}
-                  height={300}
                   className="w-full h-full object-cover"
-                  unoptimized
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">

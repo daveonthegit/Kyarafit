@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,9 +8,14 @@ import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import type { BuildStatus } from "@kyarafit/design-system/types";
+
+const STATUSES: BuildStatus[] = ["idea", "wip", "ready"];
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
@@ -29,9 +35,55 @@ export default function BuildDetailPage() {
   const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
   const updateTask = useMutation(api.buildTasks.update);
+  const updateBuild = useMutation(api.builds.update);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCharacter, setEditCharacter] = useState("");
+  const [editStatus, setEditStatus] = useState<BuildStatus>("wip");
+  const [editBudgetCents, setEditBudgetCents] = useState("");
+  const [editTargetDate, setEditTargetDate] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
+  const [savePending, setSavePending] = useState(false);
+
+  useEffect(() => {
+    if (build && isEditing) {
+      setEditName(build.name);
+      setEditCharacter(build.character ?? "");
+      setEditStatus((build.status as BuildStatus) ?? "wip");
+      setEditBudgetCents(build.budgetCents != null ? (build.budgetCents / 100).toFixed(2) : "");
+      setEditTargetDate(build.targetDate ?? "");
+      setEditImageUrl(build.imageUrl ?? "");
+      setEditImageStorageId(build.imageStorageId ?? null);
+    }
+  }, [build, isEditing]);
 
   const linkedItems = closetItems.filter((c) => closetItemIds.includes(c._id));
   const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
+
+  const handleSaveEdit = async () => {
+    if (!id || !userId || !build) return;
+    setSavePending(true);
+    try {
+      await updateBuild({
+        id,
+        userId,
+        name: editName.trim(),
+        character: editCharacter.trim() || undefined,
+        status: editStatus,
+        budgetCents: editBudgetCents.trim()
+          ? Math.round(parseFloat(editBudgetCents) * 100)
+          : undefined,
+        targetDate: editTargetDate.trim() || undefined,
+        imageUrl: editImageUrl.trim() || undefined,
+        imageStorageId: editImageStorageId ?? undefined,
+      });
+      setIsEditing(false);
+    } finally {
+      setSavePending(false);
+    }
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -95,85 +147,218 @@ export default function BuildDetailPage() {
           <button type="button" onClick={() => router.back()}>
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </button>
-          <span className="flex-1 meta-label">{build.name}</span>
-          <Link href={`/builds/edit?id=${id}`} className="hover:opacity-70">
-            <span className="material-symbols-outlined font-light text-xl">edit</span>
-          </Link>
+          <span className="flex-1 meta-label truncate">{build.name}</span>
+          {!isEditing ? (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="hover:opacity-70 p-1"
+              aria-label="Edit build"
+            >
+              <span className="material-symbols-outlined font-light text-xl">edit</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="text-[10px] font-semibold uppercase tracking-widest text-kyar-textTertiary hover:text-black"
+            >
+              Cancel
+            </button>
+          )}
         </header>
 
         <main className="mt-20 mb-12">
-          {build.imageUrl && (
-            <div className="w-full aspect-[3/4] bg-gray-50 mb-6">
-              <img src={build.imageUrl} alt={build.name} className="w-full h-full object-cover" />
-            </div>
-          )}
-
-          <div className="px-6 mb-8">
-            <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mb-2">
-              {build.status}
-            </p>
-            <h1 className="font-serif text-4xl font-bold italic tracking-tight mb-2">
-              {build.name}
-            </h1>
-            {build.character && (
-              <p className="text-sm text-kyar-textTertiary">Character: {build.character}</p>
-            )}
-          </div>
-
-          <div className="px-6 mb-8 space-y-6">
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-                  Completion
-                </span>
-                <span className="text-xl font-bold">{completionPercent}%</span>
-              </div>
-              <div className="h-[2px] bg-gray-200 w-full">
-                <div
-                  className="h-full bg-black transition-all"
-                  style={{ width: `${completionPercent}%` }}
+          {isEditing ? (
+            <div className="px-6 mb-8 space-y-6">
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Image
+                </label>
+                <ImageUpload
+                  category="builds"
+                  onImageSelected={(result) => {
+                    if ("imageStorageId" in result && result.imageStorageId) {
+                      setEditImageStorageId(result.imageStorageId);
+                      setEditImageUrl("");
+                    } else {
+                      setEditImageUrl(result.imageUrl ?? "");
+                      setEditImageStorageId(null);
+                    }
+                  }}
+                  currentImage={editImageUrl || undefined}
+                  currentStorageId={editImageStorageId ?? undefined}
                 />
               </div>
-              <p className="text-xs text-kyar-textTertiary mt-1">
-                {tasksChecked} of {tasksTotal} tasks complete
-              </p>
-            </div>
-
-            {build.targetDate && daysRemaining !== null && (
               <div>
-                <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
-                  Deadline
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">event</span>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {new Date(build.targetDate).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        daysRemaining < 0
-                          ? "text-red-600"
-                          : daysRemaining <= 7
-                            ? "text-orange-600"
-                            : "text-kyar-textTertiary"
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full border-0 border-b border-black bg-transparent py-2 text-lg font-serif italic font-bold focus:outline-none focus:border-kyar-accent"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Character (optional)
+                </label>
+                <input
+                  type="text"
+                  value={editCharacter}
+                  onChange={(e) => setEditCharacter(e.target.value)}
+                  placeholder="e.g. Arlecchino"
+                  className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-black"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Status
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setEditStatus(s)}
+                      className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
+                        editStatus === s
+                          ? "border-black bg-kyar-muted text-black"
+                          : "border-kyar-border text-kyar-textTertiary hover:border-black"
                       }`}
                     >
-                      {daysRemaining < 0
-                        ? `${Math.abs(daysRemaining)} days overdue`
-                        : daysRemaining === 0
-                          ? "Due today!"
-                          : `${daysRemaining} days remaining`}
-                    </p>
-                  </div>
+                      {s}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Budget $ (optional)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editBudgetCents}
+                  onChange={(e) => setEditBudgetCents(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-black"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                  Deadline (optional)
+                </label>
+                <input
+                  type="date"
+                  value={editTargetDate}
+                  onChange={(e) => setEditTargetDate(e.target.value)}
+                  className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm focus:outline-none focus:border-black"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={savePending || !editName.trim()}
+                  className="flex-1 bg-black text-white py-3 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
+                >
+                  {savePending ? "Saving…" : "Save changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={savePending}
+                  className="px-6 py-3 border border-kyar-border text-sm font-semibold uppercase tracking-wider hover:border-black disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {(build.imageStorageId || build.imageUrl) && (
+                <div className="w-full aspect-[3/4] bg-gray-50 mb-6">
+                  <ResolvedImage
+                    imageStorageId={build.imageStorageId}
+                    imageUrl={build.imageUrl}
+                    alt={build.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              <div className="px-6 mb-8">
+                <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mb-2">
+                  {build.status}
+                </p>
+                <h1 className="font-serif text-4xl font-bold italic tracking-tight mb-2">
+                  {build.name}
+                </h1>
+                {build.character && (
+                  <p className="text-sm text-kyar-textTertiary">Character: {build.character}</p>
+                )}
+              </div>
+
+              <div className="px-6 mb-8 space-y-6">
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+                      Completion
+                    </span>
+                    <span className="text-xl font-bold">{completionPercent}%</span>
+                  </div>
+                  <div className="h-[2px] bg-gray-200 w-full">
+                    <div
+                      className="h-full bg-black transition-all"
+                      style={{ width: `${completionPercent}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-kyar-textTertiary mt-1">
+                    {tasksChecked} of {tasksTotal} tasks complete
+                  </p>
+                </div>
+
+                {build.targetDate && daysRemaining !== null && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                      Deadline
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg">event</span>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {new Date(build.targetDate).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                        <p
+                          className={`text-xs ${
+                            daysRemaining < 0
+                              ? "text-red-600"
+                              : daysRemaining <= 7
+                                ? "text-orange-600"
+                                : "text-kyar-textTertiary"
+                          }`}
+                        >
+                          {daysRemaining < 0
+                            ? `${Math.abs(daysRemaining)} days overdue`
+                            : daysRemaining === 0
+                              ? "Due today!"
+                              : `${daysRemaining} days remaining`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <section className="px-6 mb-10">
             <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">Tasks</h2>
@@ -242,10 +427,11 @@ export default function BuildDetailPage() {
               {linkedItems.map((item) => (
                 <DroppableClosetItem key={item._id} itemId={item._id}>
                   <div className="flex flex-col gap-2">
-                    {item.imageUrl ? (
+                    {item.imageStorageId || item.imageUrl ? (
                       <div className="aspect-square bg-gray-50 overflow-hidden">
-                        <img
-                          src={item.imageUrl}
+                        <ResolvedImage
+                          imageStorageId={item.imageStorageId}
+                          imageUrl={item.imageUrl}
                           alt={item.name}
                           className="w-full h-full object-cover"
                         />

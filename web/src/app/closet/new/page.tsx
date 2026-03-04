@@ -12,6 +12,7 @@ import { UnderlineInput } from "@/components/ui/UnderlineInput";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 
 export default function NewClosetItemPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function NewClosetItemPage() {
   const [tagsStr, setTagsStr] = useState("");
   const [notes, setNotes] = useState("");
   const [costDollars, setCostDollars] = useState("");
+  const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -56,6 +58,7 @@ export default function NewClosetItemPage() {
         category: parsed.data.category,
         tags: parsed.data.tags ?? [],
         notes: parsed.data.notes,
+        imageStorageId: imageStorageId ?? undefined,
         imageUrl: parsed.data.imageUrl,
         costCents: parsed.data.costCents ?? undefined,
       });
@@ -95,8 +98,17 @@ export default function NewClosetItemPage() {
             </label>
             <ImageUpload
               category="closet"
-              onImageSelected={(url) => setImageUrl(url)}
-              currentImage={imageUrl}
+              onImageSelected={(result) => {
+                if ("imageStorageId" in result && result.imageStorageId) {
+                  setImageStorageId(result.imageStorageId);
+                  setImageUrl("");
+                } else {
+                  setImageUrl(result.imageUrl ?? "");
+                  setImageStorageId(null);
+                }
+              }}
+              currentImage={imageUrl || undefined}
+              currentStorageId={imageStorageId ?? undefined}
             />
           </div>
           <UnderlineInput

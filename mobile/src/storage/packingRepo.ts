@@ -93,8 +93,10 @@ export async function addManual(
     [id, conventionId, input.date ?? null, input.buildId ?? null, input.label, now, now]
   );
   await enqueue("packing.addManual", {
-    conventionLocalId: conventionId, label: input.label,
-    date: input.date ?? undefined, buildLocalId: input.buildId ?? undefined,
+    conventionLocalId: conventionId,
+    label: input.label,
+    date: input.date ?? undefined,
+    buildLocalId: input.buildId ?? undefined,
   });
   return {
     id,
@@ -165,14 +167,16 @@ export async function regenerateLocal(conventionId: string): Promise<PackingList
 export async function getPackingItemConvexId(localId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ convex_id: string | null }>(
-    `SELECT convex_id FROM packing_list_items WHERE id = ?`, [localId]
+    `SELECT convex_id FROM packing_list_items WHERE id = ?`,
+    [localId]
   );
   return row?.convex_id ?? null;
 }
 
 export async function setPackingItemConvexId(localId: string, convexId: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(
-    `UPDATE packing_list_items SET convex_id = ? WHERE id = ?`, [convexId, localId]
-  );
+  await database.runAsync(`UPDATE packing_list_items SET convex_id = ? WHERE id = ?`, [
+    convexId,
+    localId,
+  ]);
 }

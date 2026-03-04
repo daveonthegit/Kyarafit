@@ -17,7 +17,8 @@ export default function VerifyEmailInboxPage() {
     setError(null);
     setResending(true);
     try {
-      const callbackURL = typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
+      const callbackURL =
+        typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
       const { error: authError } = await authClient.sendVerificationEmail({
         email,
         callbackURL,

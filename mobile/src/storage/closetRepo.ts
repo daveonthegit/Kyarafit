@@ -97,24 +97,39 @@ export async function getConvexId(localId: string): Promise<string | null> {
 
 export async function setConvexId(localId: string, convexId: string): Promise<void> {
   const database = await initClosetDb();
-  await database.runAsync(`UPDATE closet_items SET convex_id = ? WHERE id = ?`, [convexId, localId]);
+  await database.runAsync(`UPDATE closet_items SET convex_id = ? WHERE id = ?`, [
+    convexId,
+    localId,
+  ]);
 }
 
 export async function listUnsynced(): Promise<ClosetItem[]> {
   const database = await initClosetDb();
   const rows = await database.getAllAsync<{
-    id: string; name: string; category: string; tags: string;
-    notes: string | null; image_local_uri: string | null;
-    image_url: string | null; cost_cents: number | null;
-    created_at: string; updated_at: string;
-  }>(`SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at FROM closet_items WHERE convex_id IS NULL`);
+    id: string;
+    name: string;
+    category: string;
+    tags: string;
+    notes: string | null;
+    image_local_uri: string | null;
+    image_url: string | null;
+    cost_cents: number | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id, name, category, tags, notes, image_local_uri, image_url, cost_cents, created_at, updated_at FROM closet_items WHERE convex_id IS NULL`
+  );
   return rows.map((r) => ({
-    id: r.id, name: r.name,
+    id: r.id,
+    name: r.name,
     category: r.category as ClosetItem["category"],
     tags: parseTags(r.tags),
-    notes: r.notes ?? undefined, imageLocalUri: r.image_local_uri ?? undefined,
-    imageUrl: r.image_url ?? undefined, costCents: r.cost_cents ?? undefined,
-    createdAt: r.created_at, updatedAt: r.updated_at,
+    notes: r.notes ?? undefined,
+    imageLocalUri: r.image_local_uri ?? undefined,
+    imageUrl: r.image_url ?? undefined,
+    costCents: r.cost_cents ?? undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   }));
 }
 
@@ -131,9 +146,17 @@ export async function upsertFromConvex(item: ClosetItem & { convexId: string }):
        cost_cents = excluded.cost_cents, updated_at = excluded.updated_at,
        convex_id = excluded.convex_id`,
     [
-      item.id, item.name, item.category, tagsJson,
-      item.notes ?? null, item.imageLocalUri ?? null, item.imageUrl ?? null,
-      item.costCents ?? null, item.createdAt, item.updatedAt, item.convexId,
+      item.id,
+      item.name,
+      item.category,
+      tagsJson,
+      item.notes ?? null,
+      item.imageLocalUri ?? null,
+      item.imageUrl ?? null,
+      item.costCents ?? null,
+      item.createdAt,
+      item.updatedAt,
+      item.convexId,
     ]
   );
 }

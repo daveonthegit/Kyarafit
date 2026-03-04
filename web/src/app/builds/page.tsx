@@ -8,6 +8,7 @@ import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { BuildStatus } from "@kyarafit/design-system/types";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 
 type TabFilter = "current" | "archived" | "planning" | "completed";
 
@@ -88,8 +89,13 @@ export default function BuildsPage() {
             return (
               <section key={b._id}>
                 <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-6">
-                  {b.imageUrl ? (
-                    <img alt={b.name} src={b.imageUrl} className="w-full h-full object-cover" />
+                  {b.imageStorageId || b.imageUrl ? (
+                    <ResolvedImage
+                      imageStorageId={b.imageStorageId}
+                      imageUrl={b.imageUrl}
+                      alt={b.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
                       <span className="material-symbols-outlined text-6xl">image</span>

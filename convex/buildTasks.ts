@@ -11,6 +11,22 @@ export const listByBuild = query({
   },
 });
 
+/** Returns tasks for multiple builds (e.g. for itinerary view). */
+export const listByBuilds = query({
+  args: { buildIds: v.array(v.id("builds")) },
+  handler: async (ctx, args) => {
+    const results = [];
+    for (const buildId of args.buildIds) {
+      const tasks = await ctx.db
+        .query("buildTasks")
+        .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+        .collect();
+      results.push({ buildId, tasks });
+    }
+    return results;
+  },
+});
+
 export const create = mutation({
   args: {
     userId: v.string(),

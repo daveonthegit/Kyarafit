@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMutation } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 
@@ -17,20 +18,24 @@ export default function NewBuildPage() {
   const createBuild = useMutation(api.builds.create);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
+  const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [budgetCents, setBudgetCents] = useState<string>("");
   const [isPending, setIsPending] = useState(false);
 
+  const hasImage = imageStorageId != null || imageUrl.trim() !== "";
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !imageUrl.trim() || !userId) return;
+    if (!name.trim() || !userId || (!imageStorageId && !imageUrl.trim())) return;
     setIsPending(true);
     try {
       const build = await createBuild({
         userId,
         name: name.trim(),
         status,
-        imageUrl: imageUrl.trim(),
+        imageStorageId: imageStorageId ?? undefined,
+        imageUrl: imageUrl.trim() || undefined,
         budgetCents: budgetCents.trim() ? Math.round(parseFloat(budgetCents) * 100) : undefined,
       });
       if (build) router.push(`/build-detail?id=${build._id}`);
@@ -64,10 +69,19 @@ export default function NewBuildPage() {
             <label className="block meta-label mb-2">IMAGE (REQUIRED)</label>
             <ImageUpload
               category="builds"
-              onImageSelected={(url) => setImageUrl(url)}
-              currentImage={imageUrl}
+              onImageSelected={(result) => {
+                if ("imageStorageId" in result && result.imageStorageId) {
+                  setImageStorageId(result.imageStorageId);
+                  setImageUrl("");
+                } else {
+                  setImageUrl(result.imageUrl ?? "");
+                  setImageStorageId(null);
+                }
+              }}
+              currentImage={imageUrl || undefined}
+              currentStorageId={imageStorageId ?? undefined}
             />
-            {!imageUrl && (
+            {!hasImage && (
               <p className="text-xs text-kyar-textTertiary mt-2">
                 An image is required to create a build
               </p>
@@ -106,7 +120,7 @@ export default function NewBuildPage() {
           </div>
           <button
             type="submit"
-            disabled={isPending || !name.trim() || !imageUrl.trim()}
+            disabled={isPending || !name.trim() || !hasImage}
             className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
             CREATE BUILD

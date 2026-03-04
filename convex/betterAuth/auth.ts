@@ -3,6 +3,7 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import type { GenericCtx } from "@convex-dev/better-auth/utils";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
+import { username } from "better-auth/plugins";
 import { components } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
@@ -23,8 +24,33 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     : convexSiteUrl
       ? `${convexSiteUrl.replace(/\/$/, "")}/auth`
       : undefined;
-  const extraOrigins = process.env.ADDITIONAL_CORS_ORIGINS?.split(",").map((s) => s.trim()).filter((s): s is string => s.length > 0) ?? [];
-  const trustedOrigins: string[] = [siteUrl, ...extraOrigins].filter((s): s is string => typeof s === "string" && s.length > 0);
+  const extraOrigins =
+    process.env.ADDITIONAL_CORS_ORIGINS?.split(",")
+      .map((s) => s.trim())
+      .filter((s): s is string => s.length > 0) ?? [];
+
+  // IMPORTANT: trustedOrigins is Better Auth's own CSRF check — completely separate from the
+  // HTTP-level CORS config in http.ts. If an origin passes CORS but is absent here, Better Auth
+  // returns 403 Forbidden on every auth request. Keep this list in sync with allowedOrigins in
+  // http.ts. See docs/auth.md → "Origin Configuration" for the full explanation.
+  // Device LAN IPs (e.g. for Expo Go on a phone) should be added via ADDITIONAL_CORS_ORIGINS in
+  // the Convex dashboard; they are automatically merged in via extraOrigins below.
+  const trustedOrigins: string[] = [
+    // Local dev origins (must match http.ts allowedOrigins)
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "exp://localhost:8081",
+    "exp://127.0.0.1:8081",
+    // Mobile deep-link scheme. Better Auth validates callbackURL origins against this list.
+    // Use kyarafit:/// (not kyarafit://(tabs)) — parentheses are invalid hostname characters
+    // and cause Better Auth to reject the request with 403 + "Invalid callbackURL".
+    "kyarafit://",
+    // Production app origin and any custom additions (e.g. device LAN IPs from ADDITIONAL_CORS_ORIGINS)
+    ...(siteUrl ? [siteUrl] : []),
+    ...extraOrigins,
+  ];
   return {
     appName: "Kyarafit",
     baseURL,
@@ -72,6 +98,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       // callbackURL) works even without SITE_URL set; set SITE_URL in production
       // so web relative callbackURLs are rewritten to the app domain correctly.
       crossDomain({ siteUrl: (siteUrl ?? convexSiteUrl)! }),
+      username(),
     ],
   } satisfies BetterAuthOptions;
 };

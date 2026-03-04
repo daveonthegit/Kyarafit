@@ -53,8 +53,11 @@ export async function createConvention(input: CreateConventionInput): Promise<Co
     updatedAt: now,
   };
   await enqueue("convention.upsert", {
-    localId: id, name: convention.name, location: convention.location,
-    startDate: convention.startDate, endDate: convention.endDate,
+    localId: id,
+    name: convention.name,
+    location: convention.location,
+    startDate: convention.startDate,
+    endDate: convention.endDate,
   });
   return convention;
 }
@@ -121,8 +124,11 @@ export async function updateConvention(
     updatedAt: updated_at,
   };
   await enqueue("convention.upsert", {
-    localId: id, name, location: location ?? undefined,
-    startDate: start_date, endDate: end_date,
+    localId: id,
+    name,
+    location: location ?? undefined,
+    startDate: start_date,
+    endDate: end_date,
   });
   return convention;
 }
@@ -174,7 +180,8 @@ export async function deleteConvention(id: string): Promise<void> {
 export async function getConvexId(localId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ convex_id: string | null }>(
-    `SELECT convex_id FROM conventions WHERE id = ?`, [localId]
+    `SELECT convex_id FROM conventions WHERE id = ?`,
+    [localId]
   );
   return row?.convex_id ?? null;
 }
@@ -187,7 +194,8 @@ export async function setConvexId(localId: string, convexId: string): Promise<vo
 export async function getLocalIdByConvexId(convexId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ id: string }>(
-    `SELECT id FROM conventions WHERE convex_id = ?`, [convexId]
+    `SELECT id FROM conventions WHERE convex_id = ?`,
+    [convexId]
   );
   return row?.id ?? null;
 }
@@ -205,9 +213,14 @@ export async function upsertFromConvex(
        start_date=excluded.start_date, end_date=excluded.end_date,
        updated_at=excluded.updated_at, convex_id=excluded.convex_id`,
     [
-      convention.id, convention.name, convention.location ?? null,
-      convention.startDate, convention.endDate,
-      convention.createdAt, convention.updatedAt, convention.convexId,
+      convention.id,
+      convention.name,
+      convention.location ?? null,
+      convention.startDate,
+      convention.endDate,
+      convention.createdAt,
+      convention.updatedAt,
+      convention.convexId,
     ]
   );
 }

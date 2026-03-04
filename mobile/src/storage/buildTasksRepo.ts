@@ -58,8 +58,11 @@ export async function createTask(buildId: string, input: CreateBuildTaskInput): 
     updatedAt: now,
   };
   await enqueue("buildTask.upsert", {
-    localId: id, buildLocalId: buildId, label: task.label,
-    sortOrder: task.sortOrder, checked: false,
+    localId: id,
+    buildLocalId: buildId,
+    label: task.label,
+    sortOrder: task.sortOrder,
+    checked: false,
     closetItemLocalId: task.closetItemId ?? undefined,
   });
   return task;
@@ -103,8 +106,11 @@ export async function updateTask(
     updatedAt: updated_at,
   };
   await enqueue("buildTask.upsert", {
-    localId: taskId, buildLocalId: buildId, label,
-    sortOrder: sort_order, checked: checked !== 0,
+    localId: taskId,
+    buildLocalId: buildId,
+    label,
+    sortOrder: sort_order,
+    checked: checked !== 0,
     closetItemLocalId: closet_item_id ?? undefined,
   });
   return task;
@@ -164,8 +170,11 @@ export async function toggleTaskChecked(
     task.sortOrder = full.sort_order;
   }
   await enqueue("buildTask.upsert", {
-    localId: taskId, buildLocalId: buildId, label: task.label,
-    sortOrder: task.sortOrder, checked: task.checked,
+    localId: taskId,
+    buildLocalId: buildId,
+    label: task.label,
+    sortOrder: task.sortOrder,
+    checked: task.checked,
     closetItemLocalId: task.closetItemId ?? undefined,
   });
   return task;
@@ -174,7 +183,8 @@ export async function toggleTaskChecked(
 export async function getConvexId(localId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ convex_id: string | null }>(
-    `SELECT convex_id FROM build_tasks WHERE id = ?`, [localId]
+    `SELECT convex_id FROM build_tasks WHERE id = ?`,
+    [localId]
   );
   return row?.convex_id ?? null;
 }

@@ -15,8 +15,12 @@ async function sendViaResend(payload: {
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.error("[email] RESEND_API_KEY is not set in Convex env — verification and password-reset emails will not be sent. Add it in Convex Dashboard → Settings → Environment Variables.");
-    throw new Error("Email not configured: RESEND_API_KEY missing. Add it in Convex Dashboard → Environment Variables.");
+    console.error(
+      "[email] RESEND_API_KEY is not set in Convex env — verification and password-reset emails will not be sent. Add it in Convex Dashboard → Settings → Environment Variables."
+    );
+    throw new Error(
+      "Email not configured: RESEND_API_KEY missing. Add it in Convex Dashboard → Environment Variables."
+    );
   }
 
   const from = FROM_ADDRESS();

@@ -1,45 +1,42 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { authClient } from "@/lib/auth/auth-client";
-import { useTier } from "@/lib/api/useTier";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
+import { processImageForUpload, isAllowedImageType } from "@/lib/imageUtils";
+
+export type ImageUploadResult =
+  | { imageStorageId: Id<"_storage">; imageUrl?: undefined }
+  | { imageUrl: string; imageStorageId?: undefined };
 
 interface ImageUploadProps {
-  onImageSelected: (url: string) => void;
+  onImageSelected: (result: ImageUploadResult) => void;
   category: "builds" | "conventions" | "closet";
   currentImage?: string;
+  /** When we have a Convex storage ID, pass it here so we can show a preview via getUrl */
+  currentStorageId?: Id<"_storage">;
 }
 
 export function ImageUpload({
   onImageSelected,
   category: _category,
   currentImage,
+  currentStorageId,
 }: ImageUploadProps) {
-  const { data: session } = authClient.useSession();
-  const { data: tier } = useTier();
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"file" | "url">("file");
   const [urlInput, setUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isPremium = tier?.tier && tier.tier !== "free";
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
-    if (!validTypes.includes(file.type)) {
+    if (!isAllowedImageType(file.type)) {
       setError("Invalid file type. Please upload: JPG, PNG, WebP, or GIF");
-      return;
-    }
-
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError("File too large. Maximum size is 5MB");
       return;
     }
 
@@ -47,34 +44,23 @@ export function ImageUpload({
     setUploading(true);
 
     try {
-      if (isPremium && session) {
-        // TODO: Phase C will replace this with Convex file storage
-        // For now, fall through to local data URL storage
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
-          onImageSelected(dataUrl);
-        };
-        reader.onerror = () => {
-          setError("Failed to read file");
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // Non-premium users: store as local data URL (base64)
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
-          onImageSelected(dataUrl);
-        };
-        reader.onerror = () => {
-          setError("Failed to read file");
-        };
-        reader.readAsDataURL(file);
+      const blob = await processImageForUpload(file);
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "image/jpeg" },
+        body: blob,
+      });
+      if (!response.ok) {
+        throw new Error("Upload failed");
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to upload image");
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+      onImageSelected({ imageStorageId: storageId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload image");
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -84,8 +70,8 @@ export function ImageUpload({
       return;
     }
     try {
-      new URL(urlInput); // Validate URL
-      onImageSelected(urlInput);
+      new URL(urlInput);
+      onImageSelected({ imageUrl: urlInput.trim() });
       setUrlInput("");
       setError(null);
     } catch {
@@ -95,7 +81,6 @@ export function ImageUpload({
 
   return (
     <div className="space-y-4">
-      {/* Mode toggle - always shown */}
       <div className="flex gap-2 mb-4">
         <button
           type="button"
@@ -137,16 +122,15 @@ export function ImageUpload({
             className="w-full border-2 border-dashed border-kyar-border hover:border-black py-8 text-center transition disabled:opacity-50"
           >
             {uploading ? (
-              <span className="text-sm uppercase tracking-wider">Uploading...</span>
+              <span className="text-sm uppercase tracking-wider">
+                Processing &amp; uploading...
+              </span>
             ) : (
               <div>
-                <span className="material-symbols-outlined text-3xl block mb-2">
-                  {isPremium ? "cloud_upload" : "upload"}
-                </span>
+                <span className="material-symbols-outlined text-3xl block mb-2">cloud_upload</span>
                 <span className="text-sm uppercase tracking-wider">Click to upload image</span>
                 <p className="text-xs text-kyar-textTertiary mt-1">
-                  JPG, PNG, WebP, GIF (max 5MB)
-                  {isPremium ? " • Cloud storage" : " • Stored locally"}
+                  JPG, PNG, WebP, GIF (any size — resized to 1080p and compressed)
                 </p>
               </div>
             )}
@@ -173,16 +157,39 @@ export function ImageUpload({
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
-      {currentImage && (
+      {(currentImage || currentStorageId) && (
         <div className="mt-4">
           <p className="text-xs uppercase tracking-wider mb-2">Current Image:</p>
-          <img
-            src={currentImage}
-            alt="Current"
-            className="w-full max-w-xs h-48 object-cover border border-kyar-border"
-          />
+          {currentStorageId ? (
+            <ResolvedImage
+              storageId={currentStorageId}
+              className="w-full max-w-xs h-48 object-cover border border-kyar-border"
+              alt="Current"
+            />
+          ) : currentImage ? (
+            <img
+              src={currentImage}
+              alt="Current"
+              className="w-full max-w-xs h-48 object-cover border border-kyar-border"
+            />
+          ) : null}
         </div>
       )}
     </div>
   );
+}
+
+/** Renders an img using Convex storage URL (for preview when we only have storageId). */
+function ResolvedImage({
+  storageId,
+  alt,
+  className,
+}: {
+  storageId: Id<"_storage">;
+  alt: string;
+  className?: string;
+}) {
+  const url = useQuery(api.files.getUrl, { storageId });
+  if (!url) return null;
+  return <img src={url} alt={alt} className={className} />;
 }

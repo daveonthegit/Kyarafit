@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
 
 function dateRange(start: string, end: string): string[] {
@@ -224,9 +225,10 @@ export default function Itinerary() {
                         <div className="border border-kyar-borderSubtle p-3 bg-white">
                           <div className="flex gap-3">
                             <div className="w-16 h-20 bg-kyar-muted flex items-center justify-center border border-kyar-borderSubtle overflow-hidden flex-shrink-0">
-                              {build.imageUrl ? (
-                                <img
-                                  src={build.imageUrl}
+                              {build.imageStorageId || build.imageUrl ? (
+                                <ResolvedImage
+                                  imageStorageId={build.imageStorageId}
+                                  imageUrl={build.imageUrl}
                                   alt={build.name}
                                   className="w-full h-full object-cover"
                                 />

@@ -54,9 +54,11 @@ function RootLayoutNav() {
     }
   }, [session, segments, loading, isInitialized]);
 
-  // Handle OAuth deep-link callback: kyarafit://(tabs)?ott=<one-time-token>
-  // The crossDomain server plugin appends ?ott= after the OAuth provider redirects back.
+  // Handle OAuth deep-link callback: kyarafit:///?ott=<one-time-token>
+  // The crossDomain server plugin appends ?ott= to the callbackURL after OAuth completes.
   // We exchange the OTT for a session token, persist it, and trigger a session refresh.
+  // Note: callbackURL must be kyarafit:/// (not kyarafit://(tabs)) — parentheses are
+  // invalid hostname characters and cause Better Auth to reject the request with 403.
   const incomingUrl = Linking.useURL();
   useEffect(() => {
     if (!incomingUrl || !CONVEX_SITE_URL) return;
@@ -72,17 +74,24 @@ function RootLayoutNav() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token: ott }),
-          },
+          }
         );
         if (!res.ok) return;
         const data = await res.json();
         const sessionToken: string | undefined = data?.session?.token;
         if (!sessionToken) return;
-        // Persist the Bearer token so bearerStoragePlugin sends it on every request.
+        // setStoredBearerToken sets the in-memory cache synchronously, so any
+        // subsequent auth fetch (including the session-signal refresh below) will
+        // include the bearer token without waiting for AsyncStorage to finish writing.
         await setStoredBearerToken(sessionToken);
-        // Notify the session atom to re-fetch with the new Bearer token.
+        // Trigger the reactive session refresh. The memory token is already set,
+        // so GET /auth/get-session will include the bearer token and update useSession().
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (authClient as any).$store?.notify("$sessionSignal");
+        const signal = (authClient as any).$sessionSignal;
+        if (signal) {
+          const val = signal.get();
+          signal.set(!val);
+        }
       } catch (err) {
         console.error("[auth] OTT exchange failed:", err);
       }
