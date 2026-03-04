@@ -10,8 +10,10 @@ import type { DateRange } from "react-day-picker";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 
 export default function NewConventionPage() {
   const router = useRouter();
@@ -20,6 +22,8 @@ export default function NewConventionPage() {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
@@ -40,6 +44,8 @@ export default function NewConventionPage() {
         location: location.trim() || undefined,
         startDate,
         endDate,
+        imageUrl: imageUrl.trim() || undefined,
+        imageStorageId: imageStorageId ?? undefined,
       });
       if (convention) router.push(`/conventions/${convention._id}`);
     } finally {
@@ -103,6 +109,23 @@ export default function NewConventionPage() {
                 </p>
               )}
             </div>
+          </div>
+          <div>
+            <label className="block meta-label mb-2">IMAGE (OPTIONAL)</label>
+            <ImageUpload
+              category="conventions"
+              onImageSelected={(result) => {
+                if ("imageStorageId" in result && result.imageStorageId) {
+                  setImageStorageId(result.imageStorageId);
+                  setImageUrl("");
+                } else {
+                  setImageUrl(result.imageUrl ?? "");
+                  setImageStorageId(null);
+                }
+              }}
+              currentImage={imageUrl || undefined}
+              currentStorageId={imageStorageId ?? undefined}
+            />
           </div>
           <Button
             type="submit"
