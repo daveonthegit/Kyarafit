@@ -9,6 +9,7 @@ import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
+import { BuildSummarySection } from "@/components/builds/BuildSummarySection";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -30,6 +31,7 @@ export default function BuildDetailPage() {
   const { userId } = useCurrentUser();
 
   const build = useQuery(api.builds.get, id ? { id } : "skip");
+  const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
   const closetItemIds = useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ?? [];
   const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
   const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
@@ -447,8 +449,9 @@ export default function BuildDetailPage() {
                 )}
               </div>
 
-              {/* Right: tasks, link items, progress */}
+              {/* Right: summary, tasks, link items, progress */}
               <div className="space-y-10 min-w-0">
+                <BuildSummarySection summary={summary ?? null} formatCents={formatCents} />
                 <section>
                   <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
                     Tasks
