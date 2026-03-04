@@ -2,8 +2,9 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 
 /**
- * Creates starter seed data for a first-time user: one build, one convention,
- * and one closet item linked to the build. Runs once per user (skips if user
+ * Dev-only: creates starter seed data (one build, one convention, one closet
+ * item linked to the build, one task). For local testing, demos, or Convex
+ * dashboard — not for regular end users. Runs once per user (skips if user
  * already has any builds). Requires authentication.
  *
  * See FEATURES_CANONICAL §13 (Seed data).
