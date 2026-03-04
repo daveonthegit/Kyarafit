@@ -44,6 +44,9 @@ export default function BuildsPage() {
   const { userId } = useCurrentUser();
   const removeMany = useMutation(api.builds.removeMany);
   const updateStatusMany = useMutation(api.builds.updateStatusMany);
+  const createStarterSeed = useMutation(api.seed.createStarter);
+  const [seedPending, setSeedPending] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
 
   const listArgs = buildListArgs({
     userId: userId ?? null,
@@ -99,6 +102,22 @@ export default function BuildsPage() {
       clearSelection();
     } finally {
       setActionPending(false);
+    }
+  };
+
+  const handleLoadSampleData = async () => {
+    if (!userId) return;
+    setSeedError(null);
+    setSeedPending(true);
+    try {
+      const result = await createStarterSeed({});
+      if (result.skipped) {
+        setSeedError("You already have data. Sample data is only for new accounts.");
+      }
+    } catch (e) {
+      setSeedError(e instanceof Error ? e.message : "Failed to load sample data");
+    } finally {
+      setSeedPending(false);
     }
   };
 
@@ -187,9 +206,35 @@ export default function BuildsPage() {
       <main className="flex-1 mt-6">
         {isLoading && <p className="meta-label">Loading...</p>}
         {!isLoading && builds.length === 0 && !hasSearch && (
-          <p className="text-sm text-kyar-meta">
-            No builds yet. Create one to link closet items and use them in convention packing.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-kyar-meta">
+              No builds yet. Create one to link closet items and use them in convention packing.
+            </p>
+            {userId && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleLoadSampleData}
+                  disabled={seedPending}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-black rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {seedPending ? (
+                    "Loading..."
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-lg">science</span>
+                      Load sample data
+                    </>
+                  )}
+                </button>
+                {seedError && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {seedError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         )}
         {!isLoading && builds.length === 0 && hasSearch && (
           <p className="text-sm text-kyar-textTertiary">No builds match your search.</p>
