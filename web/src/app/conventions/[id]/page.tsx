@@ -88,11 +88,19 @@ export default function ConventionDetailPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
-        <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
-          arrow_back
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
+            arrow_back
+          </Link>
+          <p className="meta-label">Convention</p>
+        </div>
+        <Link
+          href={`/conventions/${id}/edit`}
+          className="text-sm font-medium underline hover:no-underline"
+        >
+          Edit
         </Link>
-        <p className="meta-label">Convention</p>
       </header>
 
       <main className="flex-1 py-8">
