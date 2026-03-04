@@ -112,9 +112,9 @@ export default function Itinerary() {
     <WebAppShell>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
         <div className="flex items-center gap-4 mb-2">
-          <button type="button" onClick={() => router.back()}>
+          <Link href="/conventions" aria-label="Back to conventions">
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
-          </button>
+          </Link>
           <p className="meta-label flex-1">Itinerary</p>
           <Link href={`/conventions/${conventionId}`}>
             <span className="material-symbols-outlined font-light text-2xl">calendar_month</span>

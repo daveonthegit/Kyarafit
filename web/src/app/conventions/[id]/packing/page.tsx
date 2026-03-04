@@ -36,7 +36,7 @@ export default function ConventionPackingPage() {
   return (
     <WebAppShell>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
-        <Link href={`/conventions/${id}`} className="material-symbols-outlined font-light text-2xl">
+        <Link href="/conventions" className="material-symbols-outlined font-light text-2xl" aria-label="Back to conventions">
           arrow_back
         </Link>
         <div>

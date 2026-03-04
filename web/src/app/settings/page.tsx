@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTier } from "@/lib/api/useTier";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -24,9 +25,9 @@ export default function Settings() {
           <p className="meta-label mb-2 opacity-40">System Preferences</p>
           <h1 className="font-serif text-4xl tracking-tight">Settings</h1>
         </div>
-        <button onClick={() => router.back()} className="p-2 -mr-2">
+        <Link href="/" className="p-2 -mr-2" aria-label="Back to home">
           <span className="material-symbols-outlined font-thin text-2xl">close</span>
-        </button>
+        </Link>
       </header>
 
       <main className="mt-10 space-y-12">

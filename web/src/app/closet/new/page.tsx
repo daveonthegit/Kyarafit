@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import {
@@ -75,14 +76,13 @@ export default function NewClosetItemPage() {
     <WebAppShell>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-6 border-b border-kyar-borderSubtle">
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.back()}
+          <Link
+            href="/closet"
             className="flex items-center justify-center w-10 h-10"
-            aria-label="Close"
+            aria-label="Back to closet"
           >
             <span className="material-symbols-outlined font-light text-2xl">close</span>
-          </button>
+          </Link>
           <div className="text-center">
             <p className="meta-label">Kyarafit</p>
             <h1 className="font-serif text-2xl font-bold tracking-tight italic">New Item</h1>

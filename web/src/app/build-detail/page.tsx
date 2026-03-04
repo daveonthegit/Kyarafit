@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
@@ -25,7 +24,6 @@ function formatCents(cents: number): string {
 }
 
 export default function BuildDetailPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id") as Id<"builds"> | null;
   const { userId } = useCurrentUser();
@@ -150,9 +148,9 @@ export default function BuildDetailPage() {
     <DndContext onDragEnd={handleDragEnd}>
       <WebAppShell>
         <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md pt-12 pb-4 flex items-center gap-4 lg:left-64">
-          <button type="button" onClick={() => router.back()}>
+          <Link href="/builds" aria-label="Back to builds">
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
-          </button>
+          </Link>
           <span className="flex-1 meta-label truncate">{build.name}</span>
           {!isEditing ? (
             <button
