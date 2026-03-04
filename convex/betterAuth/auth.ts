@@ -48,7 +48,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     // and cause Better Auth to reject the request with 403 + "Invalid callbackURL".
     "kyarafit://",
     // Production app origin and any custom additions (e.g. device LAN IPs from ADDITIONAL_CORS_ORIGINS)
-    ...(siteUrl ? [siteUrl] : []),
+    ...(siteUrl ? [siteUrl.replace(/\/$/, "")] : []),
     ...extraOrigins,
   ];
   return {
