@@ -4,6 +4,19 @@ import { bearerStoragePlugin } from "./bearer-storage-plugin";
 
 const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
 
+// In-memory storage for crossDomainClient on React Native. The plugin falls back to
+// localStorage when window exists, but localStorage doesn't exist in RN — passing
+// an explicit storage avoids ReferenceError and keeps credentials:"omit" behavior.
+const crossDomainStorage = {
+  _data: {} as Record<string, string>,
+  getItem(key: string): string | null {
+    return this._data[key] ?? null;
+  },
+  setItem(key: string, value: string): void {
+    this._data[key] = value;
+  },
+};
+
 export const authClient = createAuthClient({
   baseURL: CONVEX_SITE_URL ? `${CONVEX_SITE_URL}/auth` : undefined,
   // crossDomainClient MUST be included alongside bearerStoragePlugin.
@@ -13,7 +26,11 @@ export const authClient = createAuthClient({
   // fails, the session atom stays null, and useSession() never sees a logged-in user.
   // crossDomainClient sets credentials:"omit" so only the explicit Authorization:Bearer
   // header (from bearerStoragePlugin) carries auth — no cookie negotiation needed.
-  plugins: [convexClient(), crossDomainClient(), bearerStoragePlugin()],
+  plugins: [
+    convexClient(),
+    crossDomainClient({ storage: crossDomainStorage }),
+    bearerStoragePlugin(),
+  ],
 });
 
 export { setStoredBearerToken } from "./bearer-storage-plugin";

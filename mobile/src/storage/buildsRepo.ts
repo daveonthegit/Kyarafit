@@ -72,9 +72,14 @@ export async function createBuild(input: CreateBuildInput): Promise<Build> {
     updatedAt: now,
   };
   await enqueue("build.upsert", {
-    localId: id, name: build.name, character: build.character,
-    status: build.status, notes: build.notes, imageUrl: build.imageUrl,
-    budgetCents: build.budgetCents ?? undefined, targetDate: build.targetDate ?? undefined,
+    localId: id,
+    name: build.name,
+    character: build.character,
+    status: build.status,
+    notes: build.notes,
+    imageUrl: build.imageUrl,
+    budgetCents: build.budgetCents ?? undefined,
+    targetDate: build.targetDate ?? undefined,
   });
   return build;
 }
@@ -130,8 +135,12 @@ export async function updateBuild(id: string, input: UpdateBuildInput): Promise<
     updatedAt: updated_at,
   };
   await enqueue("build.upsert", {
-    localId: id, name, character: character ?? undefined,
-    status, notes: notes ?? undefined, imageUrl: image_url ?? undefined,
+    localId: id,
+    name,
+    character: character ?? undefined,
+    status,
+    notes: notes ?? undefined,
+    imageUrl: image_url ?? undefined,
     budgetCents: budget_cents ?? undefined,
   });
   return build;
@@ -242,7 +251,8 @@ export async function deleteBuild(id: string): Promise<void> {
 export async function getConvexId(localId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ convex_id: string | null }>(
-    `SELECT convex_id FROM builds WHERE id = ?`, [localId]
+    `SELECT convex_id FROM builds WHERE id = ?`,
+    [localId]
   );
   return row?.convex_id ?? null;
 }
@@ -255,7 +265,8 @@ export async function setConvexId(localId: string, convexId: string): Promise<vo
 export async function getLocalIdByConvexId(convexId: string): Promise<string | null> {
   const database = await initClosetDb();
   const row = await database.getFirstAsync<{ id: string }>(
-    `SELECT id FROM builds WHERE convex_id = ?`, [convexId]
+    `SELECT id FROM builds WHERE convex_id = ?`,
+    [convexId]
   );
   return row?.id ?? null;
 }
@@ -273,9 +284,16 @@ export async function upsertFromConvex(
        notes=excluded.notes, image_url=excluded.image_url, budget_cents=excluded.budget_cents,
        updated_at=excluded.updated_at, convex_id=excluded.convex_id`,
     [
-      build.id, build.name, build.character ?? null, build.status,
-      build.notes ?? null, build.imageUrl ?? null, build.budgetCents ?? null,
-      build.createdAt, build.updatedAt, build.convexId,
+      build.id,
+      build.name,
+      build.character ?? null,
+      build.status,
+      build.notes ?? null,
+      build.imageUrl ?? null,
+      build.budgetCents ?? null,
+      build.createdAt,
+      build.updatedAt,
+      build.convexId,
     ]
   );
 }

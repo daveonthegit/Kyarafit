@@ -155,7 +155,7 @@ function getWebDb(): DbLike {
           id: outboxSeq,
           type: params[0] as string,
           payload_json: params[1] as string,
-          created_at: params[2] as string ?? new Date().toISOString(),
+          created_at: (params[2] as string) ?? new Date().toISOString(),
         });
         return;
       }
@@ -187,9 +187,8 @@ function getWebDb(): DbLike {
           string,
           string,
         ];
-        const convex_id = (params as unknown[]).length > 9
-          ? ((params as unknown[])[9] as string | null)
-          : null;
+        const convex_id =
+          (params as unknown[]).length > 9 ? ((params as unknown[])[9] as string | null) : null;
         builds.push({
           id,
           name,
@@ -245,7 +244,15 @@ function getWebDb(): DbLike {
       // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
       if (sql.includes("INSERT INTO build_tasks (")) {
         const p = params as unknown[];
-        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] = p as [string, string, string, string | null, number, string, string];
+        const [id, build_id, label, closet_item_id, sort_order, created_at, updated_at] = p as [
+          string,
+          string,
+          string,
+          string | null,
+          number,
+          string,
+          string,
+        ];
         const convex_id = p.length > 7 ? (p[7] as string | null) : null;
         buildTasks.push({
           id,
@@ -325,7 +332,15 @@ function getWebDb(): DbLike {
       // conventions
       if (sql.includes("INSERT INTO conventions (")) {
         const p = params as unknown[];
-        const [id, name, location, start_date, end_date, created_at, updated_at] = p as [string, string, string | null, string, string, string, string];
+        const [id, name, location, start_date, end_date, created_at, updated_at] = p as [
+          string,
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+        ];
         const convex_id = p.length > 7 ? (p[7] as string | null) : null;
         conventions.push({
           id,
@@ -429,11 +444,40 @@ function getWebDb(): DbLike {
         const p = params as unknown[];
         if (p.length >= 10) {
           // Full insert with convex_id (from pull): id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at, convex_id
-          const [id, convention_id, date, build_id, closet_item_id, label, , created_at, updated_at, convex_id] =
-            p as [string, string, string | null, string | null, string | null, string, number, string, string, string | null];
+          const [
+            id,
+            convention_id,
+            date,
+            build_id,
+            closet_item_id,
+            label,
+            ,
+            created_at,
+            updated_at,
+            convex_id,
+          ] = p as [
+            string,
+            string,
+            string | null,
+            string | null,
+            string | null,
+            string,
+            number,
+            string,
+            string,
+            string | null,
+          ];
           packingListItems.push({
-            id, convention_id, date, build_id, closet_item_id,
-            label, checked: 0, created_at, updated_at, convex_id: convex_id ?? null,
+            id,
+            convention_id,
+            date,
+            build_id,
+            closet_item_id,
+            label,
+            checked: 0,
+            created_at,
+            updated_at,
+            convex_id: convex_id ?? null,
           });
         } else if (p.length === 8) {
           const [id, convention_id, date, build_id, closet_item_id, label, created_at, updated_at] =

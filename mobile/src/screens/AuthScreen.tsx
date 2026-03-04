@@ -80,8 +80,7 @@ export default function AuthScreen() {
       });
       if (authError) {
         const msg = authError.message ?? "";
-        const isUnverified =
-          /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+        const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
         setShowResendVerification(isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
         setLoading(false);
@@ -101,8 +100,7 @@ export default function AuthScreen() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign in failed";
-      const isUnverified =
-        /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+      const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
       setShowResendVerification(isUnverified);
       setError(msg);
       setLoading(false);
@@ -158,7 +156,7 @@ export default function AuthScreen() {
         setError(authError.message ?? "Sign up failed. Please try again.");
       } else {
         setInfo(
-          "Account created! Check your inbox for a verification email and tap the link to activate your account.",
+          "Account created! Check your inbox for a verification email and tap the link to activate your account."
         );
       }
     } catch (err) {
@@ -230,10 +228,7 @@ export default function AuthScreen() {
       style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.metaLabel}>Welcome to</Text>
@@ -295,14 +290,16 @@ export default function AuthScreen() {
               onPress={handleEmailSignIn}
               disabled={anyLoading}
             >
-              <Text style={styles.buttonPrimaryText}>
-                {loading ? "Signing in…" : "Sign In"}
-              </Text>
+              <Text style={styles.buttonPrimaryText}>{loading ? "Signing in…" : "Sign In"}</Text>
             </TouchableOpacity>
 
             {showResendVerification && (
               <TouchableOpacity
-                style={[styles.buttonSecondary, styles.mt8, (anyLoading || resendLoading || !email.trim()) && styles.buttonDisabled]}
+                style={[
+                  styles.buttonSecondary,
+                  styles.mt8,
+                  (anyLoading || resendLoading || !email.trim()) && styles.buttonDisabled,
+                ]}
                 onPress={handleResendVerification}
                 disabled={anyLoading || resendLoading || !email.trim()}
               >

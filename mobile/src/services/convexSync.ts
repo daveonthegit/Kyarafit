@@ -122,10 +122,7 @@ async function setConvexIdInTable(table: string, localId: string, convexId: stri
  * Entries that depend on unsynced parents (e.g. build task before build) are
  * skipped and retried on the next call once the parent is pushed first.
  */
-export async function pushToConvex(
-  client: ConvexReactClient,
-  userId: string
-): Promise<SyncResult> {
+export async function pushToConvex(client: ConvexReactClient, userId: string): Promise<SyncResult> {
   const entries = await listPending();
   let processed = 0;
   let skipped = 0;
@@ -468,7 +465,8 @@ export async function pullBuilds(builds: ConvexBuildWithDetails[]): Promise<void
     if (db) {
       for (const task of build.tasks) {
         const existing = await db.getFirstAsync<{ id: string }>(
-          `SELECT id FROM build_tasks WHERE convex_id = ?`, [task._id]
+          `SELECT id FROM build_tasks WHERE convex_id = ?`,
+          [task._id]
         );
         if (!existing) {
           const now = new Date().toISOString();
@@ -476,10 +474,15 @@ export async function pullBuilds(builds: ConvexBuildWithDetails[]): Promise<void
             `INSERT OR IGNORE INTO build_tasks (id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at, convex_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              task._id, build._id, task.label,
+              task._id,
+              build._id,
+              task.label,
               task.closetItemId ?? null,
-              task.sortOrder, task.checked ? 1 : 0,
-              now, now, task._id,
+              task.sortOrder,
+              task.checked ? 1 : 0,
+              now,
+              now,
+              task._id,
             ]
           );
         } else {
@@ -530,7 +533,9 @@ export async function pullConventions(conventions: ConvexConventionWithDetails[]
       );
       // Use setPlan but skip the outbox enqueue — we're pulling from Convex
       if (db) {
-        await db.runAsync(`DELETE FROM convention_day_plans WHERE convention_id = ?`, [convention._id]);
+        await db.runAsync(`DELETE FROM convention_day_plans WHERE convention_id = ?`, [
+          convention._id,
+        ]);
         for (const entry of planEntries) {
           const planId = Math.random().toString(36).slice(2);
           await db.runAsync(
@@ -550,9 +555,16 @@ export async function pullConventions(conventions: ConvexConventionWithDetails[]
           `INSERT INTO packing_list_items (id, convention_id, date, build_id, closet_item_id, label, checked, created_at, updated_at, convex_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            item._id, convention._id,
-            item.date ?? null, item.buildId ?? null, item.closetItemId ?? null,
-            item.label, item.checked ? 1 : 0, now, now, item._id,
+            item._id,
+            convention._id,
+            item.date ?? null,
+            item.buildId ?? null,
+            item.closetItemId ?? null,
+            item.label,
+            item.checked ? 1 : 0,
+            now,
+            now,
+            item._id,
           ]
         );
       }

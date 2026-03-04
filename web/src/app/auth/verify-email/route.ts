@@ -10,8 +10,7 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("token");
 
   if (token) {
-    const convexSiteUrl =
-      process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
     if (!convexSiteUrl) {
       return NextResponse.json(
         { error: "Auth not configured (missing CONVEX_SITE_URL)" },

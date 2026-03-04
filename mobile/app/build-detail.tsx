@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,9 +12,17 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { Build, BuildTask } from "@kyarafit/design-system/types";
-import { getBuild, getLinkedClosetItemIds } from "../src/storage/buildsRepo";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
+import {
+  getBuild,
+  getLinkedClosetItemIds,
+  updateBuild as updateBuildLocal,
+} from "../src/storage/buildsRepo";
 import {
   listTasks,
   createTask,
@@ -24,6 +32,8 @@ import {
 } from "../src/storage/buildTasksRepo";
 import { listItems } from "../src/storage/closetRepo";
 import type { ClosetItem } from "@kyarafit/design-system/types";
+
+const STATUSES = ["idea", "wip", "ready"] as const;
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -37,18 +47,31 @@ export default function BuildDetailScreen() {
   const id =
     typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
   const router = useRouter();
-  const [build, setBuild] = useState<Build | null>(null);
+  const { userId } = useCurrentUser();
+
+  const buildId = id as Id<"builds"> | undefined;
+  const convexBuild = useQuery(api.builds.get, userId && buildId ? { id: buildId } : "skip");
+  const convexItemIds = useQuery(api.builds.getItems, userId && buildId ? { buildId } : "skip");
+  const convexClosetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip");
+  const convexTasks = useQuery(
+    api.buildTasks.listByBuild,
+    userId && buildId ? { buildId } : "skip"
+  );
+  const updateBuildMut = useMutation(api.builds.update);
+  const createTaskMut = useMutation(api.buildTasks.create);
+  const updateTaskMut = useMutation(api.buildTasks.update);
+  const deleteTaskMut = useMutation(api.buildTasks.remove);
+  const toggleTaskMut = useMutation(api.buildTasks.update);
+
+  const [localBuild, setLocalBuild] = useState<Build | null>(null);
   const [linkedIds, setLinkedIds] = useState<string[]>([]);
   const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
-  const [tasks, setTasks] = useState<BuildTask[]>([]);
-  const [newTaskLabel, setNewTaskLabel] = useState("");
-  const [loaded, setLoaded] = useState(false);
-  const [assignModalVisible, setAssignModalVisible] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [localTasks, setLocalTasks] = useState<BuildTask[]>([]);
+  const [localLoaded, setLocalLoaded] = useState(false);
 
   const load = useCallback(async () => {
-    if (!id) {
-      setLoaded(true);
+    if (!id || userId) {
+      if (!userId) setLocalLoaded(true);
       return;
     }
     const [b, ids, items, taskList] = await Promise.all([
@@ -57,19 +80,89 @@ export default function BuildDetailScreen() {
       listItems(),
       listTasks(id),
     ]);
-    setBuild(b ?? null);
+    setLocalBuild(b ?? null);
     setLinkedIds(ids);
     setClosetItems(items);
-    setTasks(taskList);
-    setLoaded(true);
-  }, [id]);
+    setLocalTasks(taskList);
+    setLocalLoaded(true);
+  }, [id, userId]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoaded(false);
+      if (!userId) setLocalLoaded(false);
       load();
-    }, [load])
+    }, [load, userId])
   );
+
+  const isCloud = !!userId;
+  const build: Build | null = isCloud
+    ? convexBuild
+      ? {
+          id: convexBuild._id,
+          name: convexBuild.name,
+          character: convexBuild.character,
+          status: convexBuild.status as Build["status"],
+          imageUrl: convexBuild.imageUrl,
+          budgetCents: convexBuild.budgetCents,
+          targetDate: convexBuild.targetDate,
+          tasksTotal: convexBuild.tasksTotal ?? 0,
+          tasksChecked: convexBuild.tasksChecked ?? 0,
+          createdAt: "",
+          updatedAt: "",
+        }
+      : null
+    : localBuild;
+
+  const linkedItems: ClosetItem[] = isCloud
+    ? (convexClosetItems ?? [])
+        .filter((c) => (convexItemIds ?? []).includes(c._id))
+        .map((c) => ({
+          id: c._id as string,
+          name: c.name,
+          category: c.category as ClosetItem["category"],
+          tags: [],
+          imageUrl: c.imageUrl,
+          costCents: c.costCents,
+          createdAt: "",
+          updatedAt: "",
+        }))
+    : closetItems.filter((c) => linkedIds.includes(c.id));
+
+  const tasks: BuildTask[] = isCloud
+    ? (convexTasks ?? []).map((t) => ({
+        id: t._id,
+        buildId: t.buildId,
+        label: t.label,
+        closetItemId: t.closetItemId ?? undefined,
+        sortOrder: t.sortOrder,
+        checked: t.checked,
+        createdAt: "",
+        updatedAt: "",
+      }))
+    : localTasks;
+
+  const [newTaskLabel, setNewTaskLabel] = useState("");
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCharacter, setEditCharacter] = useState("");
+  const [editStatus, setEditStatus] = useState<string>("wip");
+  const [editBudgetCents, setEditBudgetCents] = useState("");
+  const [editTargetDate, setEditTargetDate] = useState("");
+  const [savePending, setSavePending] = useState(false);
+
+  useEffect(() => {
+    if (build && isEditing) {
+      setEditName(build.name);
+      setEditCharacter(build.character ?? "");
+      setEditStatus(build.status ?? "wip");
+      setEditBudgetCents(build.budgetCents != null ? (build.budgetCents / 100).toFixed(2) : "");
+      setEditTargetDate(build.targetDate ?? "");
+    }
+  }, [build, isEditing]);
+
+  const loaded = isCloud ? convexBuild !== undefined : localLoaded;
 
   if (!id) {
     return (
@@ -107,7 +200,6 @@ export default function BuildDetailScreen() {
     );
   }
 
-  const linkedItems = closetItems.filter((c) => linkedIds.includes(c.id));
   const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
 
   const tasksChecked = tasks.filter((t) => t.checked).length;
@@ -130,26 +222,46 @@ export default function BuildDetailScreen() {
 
   const onAddTask = async () => {
     if (!newTaskLabel.trim() || !id) return;
-    await createTask(id, {
-      label: newTaskLabel.trim(),
-      sortOrder: tasks.length,
-    });
+    if (isCloud && userId) {
+      await createTaskMut({
+        userId,
+        buildId: buildId!,
+        label: newTaskLabel.trim(),
+        sortOrder: tasks.length,
+      });
+    } else if (!isCloud) {
+      await createTask(id, {
+        label: newTaskLabel.trim(),
+        sortOrder: tasks.length,
+      });
+      const next = await listTasks(id);
+      setLocalTasks(next);
+    }
     setNewTaskLabel("");
-    const next = await listTasks(id);
-    setTasks(next);
   };
 
   const onToggleTask = async (taskId: string) => {
     if (!id) return;
-    // Optimistic update
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, checked: !t.checked } : t)));
-    // Persist to database
-    try {
-      await toggleTaskChecked(taskId, id);
-    } catch (error) {
-      console.error("Failed to toggle task:", error);
-      // Revert on error
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, checked: !t.checked } : t)));
+    const task = tasks.find((t) => t.id === taskId);
+    const newChecked = task ? !task.checked : false;
+    if (isCloud && userId) {
+      await toggleTaskMut({
+        id: taskId as Id<"buildTasks">,
+        userId,
+        checked: newChecked,
+      });
+    } else {
+      setLocalTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, checked: newChecked } : t))
+      );
+      try {
+        await toggleTaskChecked(taskId, id);
+      } catch (error) {
+        console.error("Failed to toggle task:", error);
+        setLocalTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, checked: !newChecked } : t))
+        );
+      }
     }
   };
 
@@ -161,15 +273,17 @@ export default function BuildDetailScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          // Optimistic update
-          setTasks((prev) => prev.filter((t) => t.id !== taskId));
-          try {
-            await deleteTask(taskId, id);
-          } catch (error) {
-            console.error("Failed to delete task:", error);
-            // Reload on error
-            const reloaded = await listTasks(id);
-            setTasks(reloaded);
+          if (isCloud && userId) {
+            await deleteTaskMut({ id: taskId as Id<"buildTasks">, userId });
+          } else {
+            setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
+            try {
+              await deleteTask(taskId, id);
+            } catch (error) {
+              console.error("Failed to delete task:", error);
+              const reloaded = await listTasks(id);
+              setLocalTasks(reloaded);
+            }
           }
         },
       },
@@ -183,21 +297,74 @@ export default function BuildDetailScreen() {
 
   const onAssignTask = async (closetItemId: string | null) => {
     if (!id || !selectedTaskId) return;
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === selectedTaskId ? { ...t, closetItemId: closetItemId ?? undefined } : t
-      )
-    );
     setAssignModalVisible(false);
     setSelectedTaskId(null);
+    if (isCloud && userId) {
+      await updateTaskMut({
+        id: selectedTaskId as Id<"buildTasks">,
+        userId,
+        closetItemId: closetItemId ? (closetItemId as Id<"closetItems">) : undefined,
+      });
+    } else {
+      setLocalTasks((prev) =>
+        prev.map((t) =>
+          t.id === selectedTaskId ? { ...t, closetItemId: closetItemId ?? undefined } : t
+        )
+      );
+      try {
+        await updateTask(selectedTaskId, id, { closetItemId });
+      } catch (error) {
+        console.error("Failed to assign task:", error);
+        const reloaded = await listTasks(id);
+        setLocalTasks(reloaded);
+      }
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!build || !editName.trim()) return;
+    setSavePending(true);
     try {
-      await updateTask(selectedTaskId, id, { closetItemId });
-    } catch (error) {
-      console.error("Failed to assign task:", error);
-      // Reload on error
-      const reloaded = await listTasks(id);
-      setTasks(reloaded);
+      if (isCloud && userId) {
+        await updateBuildMut({
+          id: build.id as Id<"builds">,
+          userId,
+          name: editName.trim(),
+          character: editCharacter.trim() || undefined,
+          status: editStatus as Build["status"],
+          budgetCents: editBudgetCents.trim()
+            ? Math.round(parseFloat(editBudgetCents) * 100)
+            : undefined,
+          targetDate: editTargetDate.trim() || undefined,
+        });
+      } else {
+        await updateBuildLocal(build.id, {
+          name: editName.trim(),
+          character: editCharacter.trim() || undefined,
+          status: editStatus as Build["status"],
+          budgetCents: editBudgetCents.trim()
+            ? Math.round(parseFloat(editBudgetCents) * 100)
+            : undefined,
+          targetDate: editTargetDate.trim() || undefined,
+        });
+        setLocalBuild((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: editName.trim(),
+                character: editCharacter.trim() || undefined,
+                status: editStatus as Build["status"],
+                budgetCents: editBudgetCents.trim()
+                  ? Math.round(parseFloat(editBudgetCents) * 100)
+                  : undefined,
+                targetDate: editTargetDate.trim() || undefined,
+              }
+            : null
+        );
+      }
+      setIsEditing(false);
+    } finally {
+      setSavePending(false);
     }
   };
 
@@ -207,201 +374,299 @@ export default function BuildDetailScreen() {
         <Pressable onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.black} />
         </Pressable>
-        <Text style={styles.metaLabel}>{build.name}</Text>
+        <Text style={styles.metaLabel} numberOfLines={1}>
+          {build.name}
+        </Text>
+        {!isEditing ? (
+          <Pressable onPress={() => setIsEditing(true)} hitSlop={12}>
+            <Ionicons name="pencil-outline" size={22} color={colors.black} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => setIsEditing(false)} disabled={savePending}>
+            <Text style={styles.cancelEditText}>Cancel</Text>
+          </Pressable>
+        )}
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Hero image */}
-        {build.imageUrl && (
-          <View style={styles.heroImage}>
-            <Image source={{ uri: build.imageUrl }} style={styles.image} resizeMode="cover" />
-          </View>
-        )}
-
-        {/* Project overview */}
-        <View style={styles.overview}>
-          <Text style={styles.statusText}>{build.status.toUpperCase()}</Text>
-          <Text style={styles.title}>{build.name}</Text>
-          {build.character && <Text style={styles.subtitle}>Character: {build.character}</Text>}
-        </View>
-
-        {/* Metrics / Summary */}
-        <View style={styles.metrics}>
-          {/* Completion */}
-          <View style={styles.metricBlock}>
-            <View style={styles.metricHeader}>
-              <Text style={styles.metricLabel}>COMPLETION</Text>
-              <Text style={styles.metricValue}>{completionPercent}%</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${completionPercent}%` }]} />
-            </View>
-            <Text style={styles.metricCaption}>
-              {tasksChecked} of {tasksTotal} tasks complete
-            </Text>
-          </View>
-
-          {/* Deadline */}
-          {build.targetDate && daysRemaining !== null && (
-            <View style={styles.metricBlock}>
-              <Text style={styles.metricLabel}>DEADLINE</Text>
-              <View style={styles.deadlineRow}>
-                <Ionicons name="calendar-outline" size={18} color={colors.text} />
-                <View style={styles.deadlineContent}>
-                  <Text style={styles.deadlineDate}>
-                    {new Date(build.targetDate).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.deadlineRemaining,
-                      daysRemaining < 0
-                        ? styles.deadlineOverdue
-                        : daysRemaining <= 7
-                          ? styles.deadlineUrgent
-                          : {},
-                    ]}
-                  >
-                    {daysRemaining < 0
-                      ? `${Math.abs(daysRemaining)} days overdue`
-                      : daysRemaining === 0
-                        ? "Due today!"
-                        : `${daysRemaining} days remaining`}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Budget Tracker */}
-        {build.budgetCents != null && (
+        {isEditing ? (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>BUDGET TRACKER</Text>
-            <View style={styles.budgetBlock}>
-              <View style={styles.budgetHeader}>
-                <Text style={styles.budgetText}>Spent: {formatCents(totalCostCents)}</Text>
-                <Text style={styles.budgetText}>Budget: {formatCents(build.budgetCents)}</Text>
+            <Text style={styles.sectionLabel}>EDIT BUILD</Text>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Name</Text>
+              <TextInput
+                style={styles.taskInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Build name"
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Character (optional)</Text>
+              <TextInput
+                style={styles.taskInput}
+                value={editCharacter}
+                onChangeText={setEditCharacter}
+                placeholder="e.g. Arlecchino"
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Status</Text>
+              <View style={styles.statusRow}>
+                {STATUSES.map((s) => (
+                  <Pressable
+                    key={s}
+                    style={[styles.statusBtn, editStatus === s && styles.statusBtnActive]}
+                    onPress={() => setEditStatus(s)}
+                  >
+                    <Text
+                      style={[styles.statusBtnText, editStatus === s && styles.statusBtnTextActive]}
+                    >
+                      {s}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-              <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
-                    },
-                  ]}
-                />
-              </View>
-              {totalCostCents > (build.budgetCents || 0) && (
-                <Text style={styles.overbudget}>
-                  Over budget by {formatCents(totalCostCents - (build.budgetCents || 0))}
+            </View>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Budget $ (optional)</Text>
+              <TextInput
+                style={styles.taskInput}
+                value={editBudgetCents}
+                onChangeText={setEditBudgetCents}
+                placeholder="0.00"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Deadline (optional)</Text>
+              <TextInput
+                style={styles.taskInput}
+                value={editTargetDate}
+                onChangeText={setEditTargetDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+            <View style={styles.editActions}>
+              <Pressable
+                style={[styles.primaryBtn, savePending && styles.disabled]}
+                onPress={handleSaveEdit}
+                disabled={savePending || !editName.trim()}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {savePending ? "Saving…" : "Save changes"}
                 </Text>
+              </Pressable>
+              <Pressable
+                style={styles.secondaryBtn}
+                onPress={() => setIsEditing(false)}
+                disabled={savePending}
+              >
+                <Text style={styles.secondaryBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* Hero image */}
+            {build.imageUrl && (
+              <View style={styles.heroImage}>
+                <Image source={{ uri: build.imageUrl }} style={styles.image} resizeMode="cover" />
+              </View>
+            )}
+
+            {/* Project overview */}
+            <View style={styles.overview}>
+              <Text style={styles.statusText}>{build.status.toUpperCase()}</Text>
+              <Text style={styles.title}>{build.name}</Text>
+              {build.character && <Text style={styles.subtitle}>Character: {build.character}</Text>}
+            </View>
+
+            {/* Metrics / Summary */}
+            <View style={styles.metrics}>
+              {/* Completion */}
+              <View style={styles.metricBlock}>
+                <View style={styles.metricHeader}>
+                  <Text style={styles.metricLabel}>COMPLETION</Text>
+                  <Text style={styles.metricValue}>{completionPercent}%</Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: `${completionPercent}%` }]} />
+                </View>
+                <Text style={styles.metricCaption}>
+                  {tasksChecked} of {tasksTotal} tasks complete
+                </Text>
+              </View>
+
+              {/* Deadline */}
+              {build.targetDate && daysRemaining !== null && (
+                <View style={styles.metricBlock}>
+                  <Text style={styles.metricLabel}>DEADLINE</Text>
+                  <View style={styles.deadlineRow}>
+                    <Ionicons name="calendar-outline" size={18} color={colors.text} />
+                    <View style={styles.deadlineContent}>
+                      <Text style={styles.deadlineDate}>
+                        {new Date(build.targetDate).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.deadlineRemaining,
+                          daysRemaining < 0
+                            ? styles.deadlineOverdue
+                            : daysRemaining <= 7
+                              ? styles.deadlineUrgent
+                              : {},
+                        ]}
+                      >
+                        {daysRemaining < 0
+                          ? `${Math.abs(daysRemaining)} days overdue`
+                          : daysRemaining === 0
+                            ? "Due today!"
+                            : `${daysRemaining} days remaining`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               )}
             </View>
-          </View>
-        )}
 
-        {/* Tasks */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TASKS</Text>
-          <View style={styles.taskAddRow}>
-            <TextInput
-              style={styles.taskInput}
-              value={newTaskLabel}
-              onChangeText={setNewTaskLabel}
-              placeholder="Required item or step…"
-              placeholderTextColor={colors.textTertiary}
-            />
-            <Pressable style={styles.taskAddBtn} onPress={onAddTask}>
-              <Text style={styles.taskAddBtnText}>ADD</Text>
-            </Pressable>
-          </View>
-          {tasks.map((t) => {
-            const linkedItem = linkedItems.find((item) => item.id === t.closetItemId);
-            return (
-              <View key={t.id} style={styles.taskRowContainer}>
-                <Pressable style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
-                  <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
-                    {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
+            {/* Budget Tracker */}
+            {build.budgetCents != null && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>BUDGET TRACKER</Text>
+                <View style={styles.budgetBlock}>
+                  <View style={styles.budgetHeader}>
+                    <Text style={styles.budgetText}>Spent: {formatCents(totalCostCents)}</Text>
+                    <Text style={styles.budgetText}>Budget: {formatCents(build.budgetCents)}</Text>
                   </View>
-                  <View style={styles.taskContent}>
-                    <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
-                      {t.label}
+                  <View style={styles.progressBarBg}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {totalCostCents > (build.budgetCents || 0) && (
+                    <Text style={styles.overbudget}>
+                      Over budget by {formatCents(totalCostCents - (build.budgetCents || 0))}
                     </Text>
-                    {linkedItem && <Text style={styles.taskAssigned}>→ {linkedItem.name}</Text>}
-                  </View>
-                </Pressable>
-                <Pressable style={styles.taskActionBtn} onPress={() => onLongPressTask(t.id)}>
-                  <Ionicons name="link-outline" size={18} color={colors.textSecondary} />
-                </Pressable>
-                <Pressable style={styles.taskActionBtn} onPress={() => onDeleteTask(t.id)}>
-                  <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Tasks */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>TASKS</Text>
+              <View style={styles.taskAddRow}>
+                <TextInput
+                  style={styles.taskInput}
+                  value={newTaskLabel}
+                  onChangeText={setNewTaskLabel}
+                  placeholder="Required item or step…"
+                  placeholderTextColor={colors.textTertiary}
+                />
+                <Pressable style={styles.taskAddBtn} onPress={onAddTask}>
+                  <Text style={styles.taskAddBtnText}>ADD</Text>
                 </Pressable>
               </View>
-            );
-          })}
-        </View>
-
-        {/* Associated Closet Items */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>ASSOCIATED CLOSET ITEMS ({linkedItems.length})</Text>
-            <Pressable
-              style={styles.linkBtn}
-              onPress={() =>
-                router.push({
-                  pathname: "/build-link-items",
-                  params: { buildId: id! },
-                })
-              }
-            >
-              <Text style={styles.linkBtnText}>LINK ITEMS</Text>
-            </Pressable>
-          </View>
-          {linkedItems.length === 0 && (
-            <Text style={styles.meta}>
-              No items linked. Tap "Link items" to add pieces from your closet.
-            </Text>
-          )}
-          <View style={styles.gallery}>
-            {linkedItems.map((item) => (
-              <View key={item.id} style={styles.galleryItem}>
-                {item.imageUrl ? (
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.galleryImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.galleryImage, styles.galleryImagePlaceholder]}>
-                    <Ionicons name="image-outline" size={32} color={colors.textTertiary} />
+              {tasks.map((t) => {
+                const linkedItem = linkedItems.find((item) => item.id === t.closetItemId);
+                return (
+                  <View key={t.id} style={styles.taskRowContainer}>
+                    <Pressable style={styles.taskRow} onPress={() => onToggleTask(t.id)}>
+                      <View style={[styles.checkbox, t.checked && styles.checkboxChecked]}>
+                        {t.checked && <Ionicons name="checkmark" size={12} color={colors.white} />}
+                      </View>
+                      <View style={styles.taskContent}>
+                        <Text style={[styles.taskLabel, t.checked && styles.taskLabelChecked]}>
+                          {t.label}
+                        </Text>
+                        {linkedItem && <Text style={styles.taskAssigned}>→ {linkedItem.name}</Text>}
+                      </View>
+                    </Pressable>
+                    <Pressable style={styles.taskActionBtn} onPress={() => onLongPressTask(t.id)}>
+                      <Ionicons name="link-outline" size={18} color={colors.textSecondary} />
+                    </Pressable>
+                    <Pressable style={styles.taskActionBtn} onPress={() => onDeleteTask(t.id)}>
+                      <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                    </Pressable>
                   </View>
-                )}
-                <Text style={styles.galleryItemName} numberOfLines={1}>
-                  {item.name}
+                );
+              })}
+            </View>
+
+            {/* Associated Closet Items */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionLabel}>
+                  ASSOCIATED CLOSET ITEMS ({linkedItems.length})
                 </Text>
-                <Text style={styles.galleryItemMeta}>
-                  {item.category}
-                  {item.costCents != null ? ` · ${formatCents(item.costCents)}` : ""}
+                <Pressable
+                  style={styles.linkBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/build-link-items",
+                      params: { buildId: id! },
+                    })
+                  }
+                >
+                  <Text style={styles.linkBtnText}>LINK ITEMS</Text>
+                </Pressable>
+              </View>
+              {linkedItems.length === 0 && (
+                <Text style={styles.meta}>
+                  No items linked. Tap "Link items" to add pieces from your closet.
+                </Text>
+              )}
+              <View style={styles.gallery}>
+                {linkedItems.map((item) => (
+                  <View key={item.id} style={styles.galleryItem}>
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.galleryImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.galleryImage, styles.galleryImagePlaceholder]}>
+                        <Ionicons name="image-outline" size={32} color={colors.textTertiary} />
+                      </View>
+                    )}
+                    <Text style={styles.galleryItemName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.galleryItemMeta}>
+                      {item.category}
+                      {item.costCents != null ? ` · ${formatCents(item.costCents)}` : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Progress Photos Placeholder */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>PROGRESS PHOTOS</Text>
+              <View style={styles.placeholder}>
+                <Ionicons name="images-outline" size={48} color={colors.textTertiary} />
+                <Text style={styles.placeholderText}>
+                  Progress photos feature coming soon. Track your build with photos and dates.
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Progress Photos Placeholder */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>PROGRESS PHOTOS</Text>
-          <View style={styles.placeholder}>
-            <Ionicons name="images-outline" size={48} color={colors.textTertiary} />
-            <Text style={styles.placeholderText}>
-              Progress photos feature coming soon. Track your build with photos and dates.
-            </Text>
-          </View>
-        </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Task Assignment Modal */}
@@ -472,11 +737,19 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSubtle,
   },
   metaLabel: {
+    flex: 1,
     fontSize: 9,
     letterSpacing: 2,
     textTransform: "uppercase",
     fontWeight: "600",
     color: colors.meta,
+  },
+  cancelEditText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: colors.textTertiary,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },
@@ -624,6 +897,55 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: colors.black,
   },
+  editField: { marginBottom: 20 },
+  editLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    fontWeight: "600",
+    color: colors.meta,
+    marginBottom: 8,
+  },
+  editActions: { gap: 12, marginTop: 24 },
+  primaryBtn: {
+    backgroundColor: colors.black,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 2,
+  },
+  primaryBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: colors.white,
+  },
+  secondaryBtn: {
+    borderWidth: 1,
+    borderColor: colors.black,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 2,
+  },
+  secondaryBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: colors.black,
+  },
+  statusRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  statusBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 2,
+  },
+  statusBtnActive: { borderColor: colors.black, backgroundColor: colors.muted },
+  statusBtnText: { fontSize: 12, fontWeight: "600", color: colors.textTertiary },
+  statusBtnTextActive: { color: colors.black },
+  disabled: { opacity: 0.5 },
   meta: { fontSize: 12, color: colors.textTertiary, marginTop: 8 },
   taskAddRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
   taskInput: {

@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, Modal, StyleSheet } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { Convention, ConventionDayPlan, Build } from "@kyarafit/design-system/types";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
 import { getConvention } from "../src/storage/conventionsRepo";
 import { getPlan, setPlan } from "../src/storage/plansRepo";
 import { listBuilds } from "../src/storage/buildsRepo";
@@ -25,41 +29,80 @@ export default function ConventionDetailScreen() {
   const id =
     typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
   const router = useRouter();
-  const [convention, setConvention] = useState<Convention | null>(null);
-  const [plan, setPlanState] = useState<ConventionDayPlan[]>([]);
-  const [builds, setBuilds] = useState<Build[]>([]);
-  const [dates, setDates] = useState<string[]>([]);
-  const [regenerating, setRegenerating] = useState(false);
-  const [pickerDate, setPickerDate] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const { userId } = useCurrentUser();
+
+  // Convex (when signed in)
+  const conventionId = id as Id<"conventions"> | undefined;
+  const convexConvention = useQuery(
+    api.conventions.get,
+    userId && conventionId ? { id: conventionId } : "skip"
+  );
+  const convexPlan = useQuery(
+    api.conventions.getPlan,
+    userId && conventionId ? { conventionId } : "skip"
+  );
+  const convexBuilds = useQuery(api.builds.list, userId ? { userId } : "skip");
+  const replacePlanMut = useMutation(api.conventions.replacePlan);
+  const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
+
+  // Local (when anonymous)
+  const [localConvention, setLocalConvention] = useState<Convention | null>(null);
+  const [localPlan, setLocalPlanState] = useState<ConventionDayPlan[]>([]);
+  const [localBuilds, setLocalBuilds] = useState<Build[]>([]);
+  const [localLoaded, setLocalLoaded] = useState(false);
 
   const load = useCallback(async () => {
-    if (!id) {
-      setLoaded(true);
+    if (!id || userId) {
+      if (!userId) setLocalLoaded(true);
       return;
     }
-    const [c, p, bList] = await Promise.all([
-      getConvention(id),
-      getPlan(id),
-      listBuilds(),
-    ]);
-    if (c) {
-      setConvention(c);
-      setDates(dateRange(c.startDate, c.endDate));
-    }
-    setPlanState(p ?? []);
-    setBuilds(bList);
-    setLoaded(true);
-  }, [id]);
+    const [c, p, bList] = await Promise.all([getConvention(id), getPlan(id), listBuilds()]);
+    if (c) setLocalConvention(c);
+    setLocalPlanState(p ?? []);
+    setLocalBuilds(bList);
+    setLocalLoaded(true);
+  }, [id, userId]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoaded(false);
+      if (!userId) setLocalLoaded(false);
       load();
-    }, [load])
+    }, [load, userId])
   );
 
+  const isCloud = !!userId;
+  const convention: Convention | null = isCloud
+    ? convexConvention
+      ? {
+          id: convexConvention._id,
+          name: convexConvention.name,
+          startDate: convexConvention.startDate,
+          endDate: convexConvention.endDate,
+          location: convexConvention.location,
+          createdAt: "",
+          updatedAt: "",
+        }
+      : null
+    : localConvention;
+
+  const plan: ConventionDayPlan[] = isCloud
+    ? (convexPlan ?? []).map((e) => ({
+        id: e._id,
+        conventionId: e.conventionId,
+        date: e.date,
+        buildId: e.buildId ?? null,
+        notes: e.notes,
+      }))
+    : localPlan;
+
+  const builds: { id: string; name: string }[] = isCloud
+    ? (convexBuilds ?? []).map((b) => ({ id: b._id as string, name: b.name }))
+    : localBuilds.map((b) => ({ id: b.id, name: b.name }));
+
+  const dates = convention ? dateRange(convention.startDate, convention.endDate) : [];
   const planByDate = new Map(plan.map((e) => [e.date, e]));
+  const loaded = isCloud ? convexConvention !== undefined : localLoaded;
+
   const handleReplacePlan = useCallback(
     async (updates: { date: string; buildId: string | null }[]) => {
       if (!id) return;
@@ -73,19 +116,38 @@ export default function ConventionDetailScreen() {
           notes: existing?.notes,
         };
       });
-      await setPlan(id, newPlan);
-      const updated = await getPlan(id);
-      setPlanState(updated ?? []);
+      if (userId) {
+        await replacePlanMut({
+          userId,
+          conventionId: id as Id<"conventions">,
+          plan: newPlan.map((e) => ({
+            date: e.date,
+            buildId: e.buildId ? (e.buildId as Id<"builds">) : undefined,
+            notes: e.notes,
+          })),
+        });
+      } else {
+        await setPlan(id, newPlan);
+        const updated = await getPlan(id);
+        setLocalPlanState(updated ?? []);
+      }
       setPickerDate(null);
     },
-    [id, dates, plan]
+    [id, dates, plan, userId, replacePlanMut]
   );
+
+  const [regenerating, setRegenerating] = useState(false);
+  const [pickerDate, setPickerDate] = useState<string | null>(null);
 
   const handleGeneratePacking = useCallback(async () => {
     if (!id) return;
     setRegenerating(true);
     try {
-      await regenerateLocal(id);
+      if (userId) {
+        await regeneratePackingMut({ userId, conventionId: id as Id<"conventions"> });
+      } else {
+        await regenerateLocal(id);
+      }
       router.push({
         pathname: "/(tabs)/packing",
         params: { conventionId: id },
@@ -93,7 +155,7 @@ export default function ConventionDetailScreen() {
     } finally {
       setRegenerating(false);
     }
-  }, [id, router]);
+  }, [id, userId, router, regeneratePackingMut]);
 
   if (!id) {
     return (

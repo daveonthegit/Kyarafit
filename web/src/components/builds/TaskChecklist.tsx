@@ -6,6 +6,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 
 export interface BuildTask {
   _id: Id<"buildTasks">;
@@ -19,7 +20,12 @@ export interface BuildTask {
 interface TaskChecklistProps {
   buildId: Id<"builds">;
   tasks: BuildTask[];
-  linkedItems?: Array<{ _id: Id<"closetItems">; name: string; imageUrl?: string | null }>;
+  linkedItems?: Array<{
+    _id: Id<"closetItems">;
+    name: string;
+    imageUrl?: string | null;
+    imageStorageId?: Id<"_storage"> | null;
+  }>;
   onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
   enableDragDrop?: boolean;
 }
@@ -189,9 +195,10 @@ export function TaskChecklist({
                   onClick={() => handleAssignTask(item._id)}
                   className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
                 >
-                  {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
+                  {item.imageStorageId || item.imageUrl ? (
+                    <ResolvedImage
+                      imageStorageId={item.imageStorageId}
+                      imageUrl={item.imageUrl}
                       alt={item.name}
                       className="w-10 h-10 object-cover rounded"
                     />
@@ -218,7 +225,12 @@ export function TaskChecklist({
 
 interface TaskRowProps {
   task: BuildTask;
-  linkedItem?: { _id: string; name: string; imageUrl?: string | null };
+  linkedItem?: {
+    _id: string;
+    name: string;
+    imageUrl?: string | null;
+    imageStorageId?: Id<"_storage"> | null;
+  };
   onToggle: (checked: boolean) => void;
   onDelete: () => void;
   onAssign: () => void;

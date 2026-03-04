@@ -74,7 +74,7 @@ function RootLayoutNav() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token: ott }),
-          },
+          }
         );
         if (!res.ok) return;
         const data = await res.json();

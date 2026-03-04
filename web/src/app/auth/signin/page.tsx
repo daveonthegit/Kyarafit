@@ -48,8 +48,7 @@ export default function SignInPage() {
       });
       if (authError) {
         const msg = authError.message ?? "";
-        const isUnverified =
-          /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
+        const isUnverified = /verif/i.test(msg) || msg.toLowerCase().includes("email not verified");
         setShowResendVerification(!!isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
       } else {
@@ -82,7 +81,8 @@ export default function SignInPage() {
     setInfo(null);
     setResendLoading(true);
     try {
-      const callbackURL = typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
+      const callbackURL =
+        typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
       const { error: authError } = await authClient.sendVerificationEmail({
         email: email.trim(),
         callbackURL,

@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
+import { processImageForUpload } from "../src/lib/imageUtils";
 import { createBuild } from "../src/storage/buildsRepo";
 
 export default function BuildNewScreen() {
@@ -32,13 +33,18 @@ export default function BuildNewScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
       allowsEditing: true,
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageLocalUri(result.assets[0].uri);
-      setImageUrl(result.assets[0].uri); // Use local URI as imageUrl
+      try {
+        const processedUri = await processImageForUpload(result.assets[0].uri);
+        setImageLocalUri(processedUri);
+        setImageUrl(processedUri);
+      } catch (e) {
+        Alert.alert("Image error", "Failed to process image. Try another.");
+      }
     }
   };
 

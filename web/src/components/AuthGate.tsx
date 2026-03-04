@@ -4,7 +4,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { authClient } from "@/lib/auth/auth-client";
 
-const PUBLIC_PATHS = ["/", "/auth/signin", "/auth/signup", "/auth/verify-email", "/auth/reset-password"];
+const PUBLIC_PATHS = [
+  "/",
+  "/auth/signin",
+  "/auth/signup",
+  "/auth/verify-email",
+  "/auth/reset-password",
+];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();

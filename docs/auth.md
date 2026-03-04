@@ -30,11 +30,11 @@ The auth API lives on `*.convex.site` while the app lives on `localhost:3000`
 (web) or `localhost:8081` / `exp://` (mobile). Cookies are blocked cross-origin, so
 sessions are persisted via **Bearer tokens** instead:
 
-| Client | Plugin | Storage | Header sent |
-|--------|--------|---------|-------------|
-| Web | `bearerStoragePlugin` | `localStorage` | `Authorization: Bearer <token>` |
-| Web (OAuth) | `crossDomainClient` | `localStorage` | `Better-Auth-Cookie: <cookie-json>` |
-| Mobile | `bearerStoragePlugin` | `AsyncStorage` | `Authorization: Bearer <token>` |
+| Client      | Plugin                | Storage        | Header sent                         |
+| ----------- | --------------------- | -------------- | ----------------------------------- |
+| Web         | `bearerStoragePlugin` | `localStorage` | `Authorization: Bearer <token>`     |
+| Web (OAuth) | `crossDomainClient`   | `localStorage` | `Better-Auth-Cookie: <cookie-json>` |
+| Mobile      | `bearerStoragePlugin` | `AsyncStorage` | `Authorization: Bearer <token>`     |
 
 The server's **`bearer`** plugin (bundled inside `@convex-dev/better-auth`'s `convex()` plugin)
 converts an `Authorization: Bearer <session-token>` header into a cookie so Better Auth can
@@ -156,30 +156,30 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Convex dashboard (Settings → Environment Variables)
 
-| Variable | Description | Required |
-|---|---|---|
-| `BETTER_AUTH_SECRET` | Random secret for signing sessions (`openssl rand -base64 32`) | **Yes** |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | **Yes** |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | **Yes** |
-| `SITE_URL` | Production web app origin (e.g. `https://kyarafit.app`) for CORS + email links | Yes (prod) |
-| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins (e.g. device LAN IP for Expo Go) | No |
-| `RESEND_API_KEY` | Resend API key — required for verification + reset emails | No |
-| `EMAIL_FROM` | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend | No |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | No |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | No |
+| Variable                  | Description                                                                              | Required   |
+| ------------------------- | ---------------------------------------------------------------------------------------- | ---------- |
+| `BETTER_AUTH_SECRET`      | Random secret for signing sessions (`openssl rand -base64 32`)                           | **Yes**    |
+| `GOOGLE_CLIENT_ID`        | Google OAuth client ID                                                                   | **Yes**    |
+| `GOOGLE_CLIENT_SECRET`    | Google OAuth client secret                                                               | **Yes**    |
+| `SITE_URL`                | Production web app origin (e.g. `https://kyarafit.app`) for CORS + email links           | Yes (prod) |
+| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins (e.g. device LAN IP for Expo Go)                           | No         |
+| `RESEND_API_KEY`          | Resend API key — required for verification + reset emails                                | No         |
+| `EMAIL_FROM`              | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend | No         |
+| `GITHUB_CLIENT_ID`        | GitHub OAuth client ID                                                                   | No         |
+| `GITHUB_CLIENT_SECRET`    | GitHub OAuth client secret                                                               | No         |
 
 ### Web (`web/.env.local`)
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_CONVEX_URL` | Convex backend URL |
+| Variable                      | Description                               |
+| ----------------------------- | ----------------------------------------- |
+| `NEXT_PUBLIC_CONVEX_URL`      | Convex backend URL                        |
 | `NEXT_PUBLIC_CONVEX_SITE_URL` | Convex HTTP actions URL (`*.convex.site`) |
 
 ### Mobile (`mobile/.env`)
 
-| Variable | Description |
-|---|---|
-| `EXPO_PUBLIC_CONVEX_URL` | Convex backend URL |
+| Variable                      | Description                               |
+| ----------------------------- | ----------------------------------------- |
+| `EXPO_PUBLIC_CONVEX_URL`      | Convex backend URL                        |
 | `EXPO_PUBLIC_CONVEX_SITE_URL` | Convex HTTP actions URL (`*.convex.site`) |
 
 ---
@@ -188,37 +188,37 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Convex (server)
 
-| File | Purpose |
-|---|---|
-| `convex/betterAuth/auth.ts` | Better Auth instance — providers, `trustedOrigins`, plugins |
+| File                          | Purpose                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| `convex/betterAuth/auth.ts`   | Better Auth instance — providers, `trustedOrigins`, plugins |
 | `convex/betterAuth/schema.ts` | Auth DB tables (user, session, account, verification, jwks) |
-| `convex/http.ts` | HTTP router, CORS `allowedOrigins` |
-| `convex/auth.config.ts` | Convex JWT provider config |
-| `convex/emailHelpers.ts` | Email sending via Resend (verification + reset) |
+| `convex/http.ts`              | HTTP router, CORS `allowedOrigins`                          |
+| `convex/auth.config.ts`       | Convex JWT provider config                                  |
+| `convex/emailHelpers.ts`      | Email sending via Resend (verification + reset)             |
 
 ### Web
 
-| File | Purpose |
-|---|---|
-| `web/src/lib/auth/auth-client.ts` | `authClient` — `convexClient`, `crossDomainClient`, `bearerStoragePlugin` |
-| `web/src/lib/auth/bearer-storage-plugin.ts` | Stores and sends Bearer token from `localStorage` |
-| `web/src/lib/auth/auth-server.ts` | Next.js server helpers (`getToken`, `handler`) |
-| `web/src/app/api/auth/[...all]/route.ts` | Next.js auth route proxy |
-| `web/src/app/auth/signin/page.tsx` | Sign-in page (email + password + OAuth) |
-| `web/src/app/auth/signup/page.tsx` | Sign-up page |
-| `web/src/app/auth/verify-email/route.ts` | Proxies verification link from email to Convex |
-| `web/src/app/auth/reset-password/page.tsx` | Password reset form |
-| `web/src/components/AuthGate.tsx` | Client-side route protection |
-| `web/src/components/ConvexClientProvider.tsx` | `ConvexBetterAuthProvider` wrapper |
+| File                                          | Purpose                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| `web/src/lib/auth/auth-client.ts`             | `authClient` — `convexClient`, `crossDomainClient`, `bearerStoragePlugin` |
+| `web/src/lib/auth/bearer-storage-plugin.ts`   | Stores and sends Bearer token from `localStorage`                         |
+| `web/src/lib/auth/auth-server.ts`             | Next.js server helpers (`getToken`, `handler`)                            |
+| `web/src/app/api/auth/[...all]/route.ts`      | Next.js auth route proxy                                                  |
+| `web/src/app/auth/signin/page.tsx`            | Sign-in page (email + password + OAuth)                                   |
+| `web/src/app/auth/signup/page.tsx`            | Sign-up page                                                              |
+| `web/src/app/auth/verify-email/route.ts`      | Proxies verification link from email to Convex                            |
+| `web/src/app/auth/reset-password/page.tsx`    | Password reset form                                                       |
+| `web/src/components/AuthGate.tsx`             | Client-side route protection                                              |
+| `web/src/components/ConvexClientProvider.tsx` | `ConvexBetterAuthProvider` wrapper                                        |
 
 ### Mobile
 
-| File | Purpose |
-|---|---|
-| `mobile/src/lib/auth/client.ts` | `authClient`, `useSession`, `setStoredBearerToken` |
-| `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores and sends Bearer token from `AsyncStorage` |
-| `mobile/src/screens/AuthScreen.tsx` | Auth screen (email + password + OAuth) |
-| `mobile/app/_layout.tsx` | `ConvexBetterAuthProvider`, deep-link OTT handler |
+| File                                           | Purpose                                            |
+| ---------------------------------------------- | -------------------------------------------------- |
+| `mobile/src/lib/auth/client.ts`                | `authClient`, `useSession`, `setStoredBearerToken` |
+| `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores and sends Bearer token from `AsyncStorage`  |
+| `mobile/src/screens/AuthScreen.tsx`            | Auth screen (email + password + OAuth)             |
+| `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, deep-link OTT handler  |
 
 ---
 

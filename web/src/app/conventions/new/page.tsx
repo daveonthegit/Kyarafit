@@ -4,8 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation } from "convex/react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/Button";
 
 export default function NewConventionPage() {
   const router = useRouter();
@@ -13,21 +18,27 @@ export default function NewConventionPage() {
   const createConvention = useMutation(api.conventions.create);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isPending, setIsPending] = useState(false);
+
+  const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const endDate = dateRange?.to
+    ? format(dateRange.to, "yyyy-MM-dd")
+    : dateRange?.from
+      ? format(dateRange.from, "yyyy-MM-dd")
+      : "";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !startDate.trim() || !endDate.trim() || !userId) return;
+    if (!name.trim() || !startDate || !endDate || !userId) return;
     setIsPending(true);
     try {
       const convention = await createConvention({
         userId,
         name: name.trim(),
         location: location.trim() || undefined,
-        startDate: startDate.trim(),
-        endDate: endDate.trim(),
+        startDate,
+        endDate,
       });
       if (convention) router.push(`/conventions/${convention._id}`);
     } finally {
@@ -67,32 +78,39 @@ export default function NewConventionPage() {
             />
           </div>
           <div>
-            <label className="block meta-label mb-2">START DATE (YYYY-MM-DD)</label>
-            <input
-              type="text"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="2025-07-04"
-              className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
-            />
+            <label className="block meta-label mb-2">DATES</label>
+            <div className="rounded-lg border border-kyar-borderSubtle bg-kyar-muted/30 p-3">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                pagedNavigation
+                showOutsideDays={false}
+                className="mx-auto"
+                classNames={{
+                  months: "gap-6 sm:gap-8",
+                  month:
+                    "relative first-of-type:before:hidden before:absolute max-sm:before:inset-x-2 max-sm:before:h-px max-sm:before:-top-2 sm:before:inset-y-2 sm:before:w-px before:bg-kyar-borderSubtle sm:before:-left-4",
+                }}
+              />
+              {(startDate || endDate) && (
+                <p className="mt-3 pt-3 border-t border-kyar-borderSubtle text-xs text-kyar-meta flex items-center gap-1.5">
+                  <CalendarIcon className="size-3.5" />
+                  {startDate}
+                  {endDate && startDate !== endDate ? ` – ${endDate}` : ""}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="block meta-label mb-2">END DATE (YYYY-MM-DD)</label>
-            <input
-              type="text"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder="2025-07-06"
-              className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
-            />
-          </div>
-          <button
+          <Button
             type="submit"
-            disabled={isPending || !name.trim() || !startDate.trim() || !endDate.trim()}
-            className="w-full bg-black text-white py-3.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
+            variant="primary"
+            disabled={isPending || !name.trim() || !startDate || !endDate}
+            className="w-full"
           >
             CREATE CONVENTION
-          </button>
+          </Button>
         </form>
       </main>
     </div>

@@ -42,7 +42,8 @@ export default function SignUpPage() {
     setLoading(true);
     try {
       // Full URL so after verification Convex redirects to the app, not to Convex /home
-      const callbackURL = typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
+      const callbackURL =
+        typeof window !== "undefined" ? `${window.location.origin}/home` : "/home";
       const { error: authError } = await authClient.signUp.email({
         name: name.trim(),
         email,

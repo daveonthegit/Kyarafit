@@ -3,3 +3,5 @@ node_modules
 .expo
 dist
 *.lock
+convex/_generated
+convex/betterAuth/_generated

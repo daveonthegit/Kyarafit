@@ -2,6 +2,9 @@ import { useCallback, useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, Image } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type {
   Convention,
@@ -10,6 +13,7 @@ import type {
   BuildTask,
   PackingListItem,
 } from "@kyarafit/design-system/types";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
 import { getConvention, listConventions } from "../src/storage/conventionsRepo";
 import { getPlan } from "../src/storage/plansRepo";
 import { listBuilds } from "../src/storage/buildsRepo";
@@ -46,53 +50,115 @@ export default function ItineraryScreen() {
         ? params.conventionId[0]
         : undefined;
 
-  const [allConventions, setAllConventions] = useState<Convention[]>([]);
-  const [convention, setConvention] = useState<Convention | null>(null);
-  const [plan, setPlan] = useState<ConventionDayPlan[]>([]);
-  const [builds, setBuilds] = useState<Build[]>([]);
-  const [packingItems, setPackingItems] = useState<PackingListItem[]>([]);
-  const [tasksByBuildId, setTasksByBuildId] = useState<Map<string, BuildTask[]>>(new Map());
-  const [loaded, setLoaded] = useState(false);
+  const { userId } = useCurrentUser();
 
-  // Default to most recent convention if no conventionId provided
-  const conventionId = useMemo(() => {
+  // Convex (when signed in)
+  const convexConventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
+  const allConventionsFromCloud = useMemo(
+    () =>
+      (convexConventions ?? []).map((c) => ({
+        id: c._id,
+        name: c.name,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        location: c.location,
+      })),
+    [convexConventions]
+  );
+  const conventionIdFromCloud = useMemo(() => {
     if (conventionIdParam) return conventionIdParam;
-    if (allConventions.length > 0) {
-      const sorted = [...allConventions].sort(
+    if (allConventionsFromCloud.length > 0) {
+      const sorted = [...allConventionsFromCloud].sort(
         (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
       );
       return sorted[0].id;
     }
     return null;
-  }, [conventionIdParam, allConventions]);
+  }, [conventionIdParam, allConventionsFromCloud]);
+
+  const convexConvention = useQuery(
+    api.conventions.get,
+    userId && conventionIdFromCloud ? { id: conventionIdFromCloud as Id<"conventions"> } : "skip"
+  );
+  const convexPlan = useQuery(
+    api.conventions.getPlan,
+    userId && conventionIdFromCloud
+      ? { conventionId: conventionIdFromCloud as Id<"conventions"> }
+      : "skip"
+  );
+  const convexBuilds = useQuery(api.builds.list, userId ? { userId } : "skip");
+  const convexPacking = useQuery(
+    api.conventions.getPacking,
+    userId && conventionIdFromCloud
+      ? { conventionId: conventionIdFromCloud as Id<"conventions"> }
+      : "skip"
+  );
+  const buildIdsForTasks = useMemo(() => {
+    const plan = convexPlan ?? [];
+    const ids: Id<"builds">[] = [];
+    const seen = new Set<string>();
+    plan.forEach((e) => {
+      if (e.buildId && !seen.has(e.buildId)) {
+        seen.add(e.buildId);
+        ids.push(e.buildId);
+      }
+    });
+    return ids;
+  }, [convexPlan]);
+  const convexTasksByBuilds = useQuery(
+    api.buildTasks.listByBuilds,
+    userId && buildIdsForTasks.length > 0 ? { buildIds: buildIdsForTasks } : "skip"
+  );
+
+  // Local (when anonymous)
+  const [localConventions, setLocalConventions] = useState<Convention[]>([]);
+  const [localConvention, setLocalConventionOne] = useState<Convention | null>(null);
+  const [localPlan, setLocalPlan] = useState<ConventionDayPlan[]>([]);
+  const [localBuilds, setLocalBuilds] = useState<Build[]>([]);
+  const [localPacking, setLocalPacking] = useState<PackingListItem[]>([]);
+  const [localTasksByBuildId, setLocalTasksByBuildId] = useState<Map<string, BuildTask[]>>(
+    new Map()
+  );
+  const [localLoaded, setLocalLoaded] = useState(false);
+
+  const conventionId = userId
+    ? conventionIdFromCloud
+    : (conventionIdParam ??
+      (localConventions.length > 0
+        ? [...localConventions].sort(
+            (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+          )[0].id
+        : null));
 
   const load = useCallback(async () => {
+    if (userId) return;
     const conventions = await listConventions();
-    setAllConventions(conventions);
-
-    if (!conventionId) {
-      setLoaded(true);
+    setLocalConventions(conventions);
+    const cid =
+      conventionIdParam ??
+      (conventions.length > 0
+        ? [...conventions].sort(
+            (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+          )[0].id
+        : null);
+    if (!cid) {
+      setLocalLoaded(true);
       return;
     }
-
     const [c, p, bList, packing] = await Promise.all([
-      getConvention(conventionId),
-      getPlan(conventionId),
+      getConvention(cid),
+      getPlan(cid),
       listBuilds(),
-      getPacking(conventionId),
+      getPacking(cid),
     ]);
-
-    setConvention(c);
-    setPlan(p ?? []);
-    setBuilds(bList);
-    setPackingItems(packing);
-
-    // Load tasks for each build in the plan
+    setLocalConventionOne(c);
+    setLocalPlan(p ?? []);
+    setLocalBuilds(bList);
+    setLocalPacking(packing);
     const uniqueBuildIds = new Set<string>();
     (p ?? []).forEach((entry) => {
       if (entry.buildId) uniqueBuildIds.add(entry.buildId);
     });
-
     const tasksMap = new Map<string, BuildTask[]>();
     await Promise.all(
       Array.from(uniqueBuildIds).map(async (buildId) => {
@@ -100,16 +166,105 @@ export default function ItineraryScreen() {
         tasksMap.set(buildId, tasks);
       })
     );
-    setTasksByBuildId(tasksMap);
-    setLoaded(true);
-  }, [conventionId]);
+    setLocalTasksByBuildId(tasksMap);
+    setLocalLoaded(true);
+  }, [conventionIdParam, userId]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoaded(false);
+      if (!userId) setLocalLoaded(false);
       load();
-    }, [load])
+    }, [load, userId])
   );
+
+  const isCloud = !!userId;
+  const allConventions = isCloud ? allConventionsFromCloud : localConventions;
+  const convention: Convention | null = isCloud
+    ? convexConvention
+      ? {
+          id: convexConvention._id,
+          name: convexConvention.name,
+          startDate: convexConvention.startDate,
+          endDate: convexConvention.endDate,
+          location: convexConvention.location,
+          createdAt: "",
+          updatedAt: "",
+        }
+      : null
+    : localConvention;
+
+  const plan: ConventionDayPlan[] = isCloud
+    ? (convexPlan ?? []).map((e) => ({
+        id: e._id,
+        conventionId: e.conventionId,
+        date: e.date,
+        buildId: e.buildId ?? null,
+        notes: e.notes,
+      }))
+    : localPlan;
+
+  const builds: Build[] = isCloud
+    ? (convexBuilds ?? []).map((b) => ({
+        id: b._id as string,
+        name: b.name,
+        status: b.status as Build["status"],
+        character: b.character,
+        imageUrl: b.imageUrl,
+        budgetCents: b.budgetCents,
+        targetDate: b.targetDate,
+        tasksTotal: b.tasksTotal ?? 0,
+        tasksChecked: b.tasksChecked ?? 0,
+        createdAt: "",
+        updatedAt: "",
+      }))
+    : localBuilds;
+
+  const packingItems: PackingListItem[] = isCloud
+    ? (convexPacking ?? []).map((p) => ({
+        id: p._id,
+        conventionId: p.conventionId as string,
+        label: p.label,
+        checked: p.checked,
+        date: p.date ?? null,
+        buildId: p.buildId ? (p.buildId as string) : null,
+        closetItemId: p.closetItemId ? (p.closetItemId as string) : null,
+        createdAt: "",
+        updatedAt: "",
+      }))
+    : localPacking;
+
+  const tasksByBuildId = useMemo(() => {
+    if (isCloud && convexTasksByBuilds) {
+      const map = new Map<string, BuildTask[]>();
+      convexTasksByBuilds.forEach(({ buildId, tasks }) => {
+        map.set(
+          buildId as string,
+          tasks.map((t) => ({
+            id: t._id,
+            buildId: t.buildId,
+            label: t.label,
+            closetItemId: t.closetItemId ?? undefined,
+            sortOrder: t.sortOrder,
+            checked: t.checked,
+            createdAt: "",
+            updatedAt: "",
+          }))
+        );
+      });
+      return map;
+    }
+    return localTasksByBuildId;
+  }, [isCloud, convexTasksByBuilds, localTasksByBuildId]);
+
+  const loaded = isCloud
+    ? conventionIdFromCloud
+      ? convexConvention !== undefined &&
+        convexPlan !== undefined &&
+        convexBuilds !== undefined &&
+        convexPacking !== undefined &&
+        (buildIdsForTasks.length === 0 || convexTasksByBuilds !== undefined)
+      : convexConventions !== undefined
+    : localLoaded;
 
   const dates = useMemo(
     () => (convention ? dateRange(convention.startDate, convention.endDate) : []),
