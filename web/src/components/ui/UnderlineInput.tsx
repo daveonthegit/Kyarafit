@@ -8,7 +8,7 @@ interface UnderlineInputProps extends React.InputHTMLAttributes<HTMLInputElement
 }
 
 export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
-  ({ label, error, className = "", ...props }, ref) => {
+  ({ label, error, className = "", value, ...props }, ref) => {
     const [focused, setFocused] = useState(false);
     return (
       <div className="w-full">
@@ -19,6 +19,7 @@ export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
         )}
         <input
           ref={ref}
+          value={value ?? ""}
           onFocus={(e) => {
             setFocused(true);
             props.onFocus?.(e);

@@ -148,11 +148,22 @@ function DraggableClosetItem({
   });
 
   return (
-    <li ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? "opacity-50" : ""}>
+    <li
+      ref={setNodeRef}
+      className={`flex items-center gap-3 py-4 border-b border-kyar-borderSubtle ${isDragging ? "opacity-50" : ""}`}
+    >
+      <span
+        className="material-symbols-outlined text-kyar-textTertiary cursor-grab touch-none shrink-0"
+        {...listeners}
+        {...attributes}
+        aria-hidden
+      >
+        drag_indicator
+      </span>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-3 py-4 border-b border-kyar-borderSubtle text-left hover:opacity-80"
+        className="flex-1 flex items-center gap-3 text-left hover:opacity-80 min-w-0"
       >
         <span
           className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
@@ -163,8 +174,10 @@ function DraggableClosetItem({
             <span className="material-symbols-outlined text-white text-sm">check</span>
           )}
         </span>
-        <span className="flex-1 text-sm font-medium uppercase tracking-wide">{item.name}</span>
-        <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+        <span className="flex-1 text-sm font-medium uppercase tracking-wide truncate">
+          {item.name}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary shrink-0">
           {item.category}
         </span>
       </button>

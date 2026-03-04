@@ -357,6 +357,128 @@ export const linkItems = mutation({
   },
 });
 
+/** Add closet items to a build (merge with existing links). Does not remove current links. */
+export const addItemsToBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    closetItemIds: v.array(v.id("closetItems")),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build || build.userId !== args.userId) {
+      throw new Error("Not found or not authorized");
+    }
+    const existing = await ctx.db
+      .query("buildItemLinks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
+      .collect();
+    const existingIds = new Set(existing.map((l) => l.closetItemId));
+    const toAdd = args.closetItemIds.filter((id) => !existingIds.has(id));
+    if (toAdd.length === 0) return;
+
+    for (const closetItemId of toAdd) {
+      await ctx.db.insert("buildItemLinks", {
+        userId: args.userId,
+        buildId: args.buildId,
+        closetItemId,
+      });
+    }
+
+    const existingTasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
+      .collect();
+    let nextSortOrder = existingTasks.length;
+    for (const closetItemId of toAdd) {
+      const item = await ctx.db.get(closetItemId);
+      if (!item || item.completionTaskId) continue;
+      const taskId = await ctx.db.insert("buildTasks", {
+        userId: args.userId,
+        buildId: args.buildId,
+        label: `Complete ${item.name}`,
+        closetItemId,
+        sortOrder: nextSortOrder++,
+        checked: false,
+      });
+      await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+    }
+  },
+});
+
+/** Remove a closet item from a build (delete the buildItemLink). Clears item's completionTaskId if that task belongs to this build. */
+export const removeItemFromBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    closetItemId: v.id("closetItems"),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build || build.userId !== args.userId) {
+      throw new Error("Not found or not authorized");
+    }
+    const item = await ctx.db.get(args.closetItemId);
+    if (!item || item.userId !== args.userId) {
+      throw new Error("Not found or not authorized");
+    }
+    const links = await ctx.db
+      .query("buildItemLinks")
+      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
+      .collect();
+    for (const link of links) {
+      if (link.buildId === args.buildId) {
+        await ctx.db.delete(link._id);
+        break;
+      }
+    }
+    // If this item's completion task is in the build we're leaving, clear ref and delete the task
+    if (item.completionTaskId) {
+      const task = await ctx.db.get(item.completionTaskId);
+      if (task?.buildId === args.buildId) {
+        await ctx.db.patch(args.closetItemId, { completionTaskId: undefined });
+        await ctx.db.delete(item.completionTaskId);
+      }
+    }
+  },
+});
+
+/** Remove multiple closet items from a build. Clears completionTaskId and deletes the task when it belongs to this build. */
+export const removeItemsFromBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    closetItemIds: v.array(v.id("closetItems")),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build || build.userId !== args.userId) {
+      throw new Error("Not found or not authorized");
+    }
+    for (const closetItemId of args.closetItemIds) {
+      const item = await ctx.db.get(closetItemId);
+      if (!item || item.userId !== args.userId) continue;
+      const links = await ctx.db
+        .query("buildItemLinks")
+        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", closetItemId))
+        .collect();
+      for (const link of links) {
+        if (link.buildId === args.buildId) {
+          await ctx.db.delete(link._id);
+          break;
+        }
+      }
+      if (item.completionTaskId) {
+        const task = await ctx.db.get(item.completionTaskId);
+        if (task?.buildId === args.buildId) {
+          await ctx.db.patch(closetItemId, { completionTaskId: undefined });
+          await ctx.db.delete(item.completionTaskId);
+        }
+      }
+    }
+  },
+});
+
 /** Returns build ids and names that link to this closet item (for closet item detail). Deduplicated by build id. */
 export const getBuildsUsingClosetItem = query({
   args: { closetItemId: v.id("closetItems") },
@@ -367,8 +489,6 @@ export const getBuildsUsingClosetItem = query({
       .collect();
     const buildIds = Array.from(new Set(links.map((l) => l.buildId)));
     const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
-    return builds.flatMap((b) =>
-      b && "name" in b ? [{ _id: b._id, name: b.name }] : []
-    );
+    return builds.flatMap((b) => (b && "name" in b ? [{ _id: b._id, name: b.name }] : []));
   },
 });

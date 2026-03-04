@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -42,6 +43,9 @@ export default function ClosetItemDetailPage() {
   const createTask = useMutation(api.buildTasks.create);
   const updateTask = useMutation(api.buildTasks.update);
   const deleteTask = useMutation(api.buildTasks.remove);
+  const addItemsToBuild = useMutation(api.builds.addItemsToBuild);
+  const removeItemFromBuild = useMutation(api.builds.removeItemFromBuild);
+  const allBuilds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -57,6 +61,8 @@ export default function ClosetItemDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [taskActionPending, setTaskActionPending] = useState(false);
+  const [showAddToBuildPanel, setShowAddToBuildPanel] = useState(false);
+  const [addToBuildPending, setAddToBuildPending] = useState(false);
 
   useEffect(() => {
     if (item && isEditing) {
@@ -134,6 +140,28 @@ export default function ClosetItemDetailPage() {
   const handleDeleteTask = (taskId: Id<"buildTasks">) => {
     if (!userId) return;
     deleteTask({ id: taskId, userId });
+  };
+
+  const buildsUsingIds = new Set(buildsUsing.map((b) => b._id));
+  const handleAddToBuild = async (buildId: Id<"builds">) => {
+    if (!id || !userId) return;
+    setAddToBuildPending(true);
+    try {
+      await addItemsToBuild({ userId, buildId, closetItemIds: [id] });
+      setShowAddToBuildPanel(false);
+    } finally {
+      setAddToBuildPending(false);
+    }
+  };
+
+  const handleRemoveFromBuild = async (buildId: Id<"builds">) => {
+    if (!id || !userId) return;
+    setAddToBuildPending(true);
+    try {
+      await removeItemFromBuild({ userId, buildId, closetItemId: id });
+    } finally {
+      setAddToBuildPending(false);
+    }
   };
 
   if (!id) {
@@ -377,25 +405,44 @@ export default function ClosetItemDetailPage() {
                 )}
               </div>
 
-              {buildsUsing.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">
-                    Used in builds
-                  </p>
-                  <ul className="space-y-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">
+                  Builds
+                </p>
+                {buildsUsing.length > 0 && (
+                  <ul className="space-y-2 mb-2">
                     {buildsUsing.map((b) => (
-                      <li key={b._id}>
+                      <li key={b._id} className="flex items-center gap-2 flex-wrap">
                         <Link
                           href={`/build-detail?id=${b._id}`}
                           className="text-sm font-medium underline underline-offset-2 hover:opacity-70"
                         >
                           {b.name}
                         </Link>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromBuild(b._id)}
+                            disabled={addToBuildPending}
+                            className="text-xs text-kyar-textTertiary hover:text-red-600 underline disabled:opacity-50"
+                          >
+                            Remove from build
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                )}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddToBuildPanel(true)}
+                    className="text-sm font-medium underline underline-offset-2 hover:opacity-70"
+                  >
+                    Add to build
+                  </button>
+                )}
+              </div>
 
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">
@@ -555,6 +602,47 @@ export default function ClosetItemDetailPage() {
           </div>
         </div>
       </AdaptiveModal>
+
+      <ResponsivePanel
+        open={showAddToBuildPanel}
+        onClose={() => setShowAddToBuildPanel(false)}
+        title="Add to build"
+      >
+        <div className="space-y-2">
+          {allBuilds.length === 0 ? (
+            <p className="text-sm text-kyar-textTertiary">No builds yet. Create a build first.</p>
+          ) : (
+            allBuilds.map((b) => {
+              const alreadyLinked = buildsUsingIds.has(b._id);
+              return (
+                <div
+                  key={b._id}
+                  className="flex items-center justify-between gap-3 p-3 border border-kyar-border hover:border-black transition"
+                >
+                  <Link
+                    href={`/build-detail?id=${b._id}`}
+                    className="text-sm font-medium flex-1 min-w-0 truncate hover:underline"
+                  >
+                    {b.name}
+                  </Link>
+                  {alreadyLinked ? (
+                    <span className="text-xs text-kyar-textTertiary shrink-0">Linked</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleAddToBuild(b._id)}
+                      disabled={addToBuildPending}
+                      className="text-xs font-semibold uppercase tracking-wider border border-black px-3 py-1.5 hover:bg-black hover:text-white disabled:opacity-50 shrink-0"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </ResponsivePanel>
     </WebAppShell>
   );
 }

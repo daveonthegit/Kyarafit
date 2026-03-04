@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
+import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -38,8 +39,13 @@ export default function ClosetPage() {
   const [order, setOrder] = useState<SortOrder>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<Id<"closetItems">>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAssignToBuildPanel, setShowAssignToBuildPanel] = useState(false);
+  const [showUnassignFromBuildPanel, setShowUnassignFromBuildPanel] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const removeMany = useMutation(api.closetItems.removeMany);
+  const addItemsToBuild = useMutation(api.builds.addItemsToBuild);
+  const removeItemsFromBuild = useMutation(api.builds.removeItemsFromBuild);
+  const allBuilds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
 
   const listArgs = userId
     ? {
@@ -79,6 +85,38 @@ export default function ClosetPage() {
     try {
       await removeMany({ ids: Array.from(selectedIds), userId });
       setShowDeleteConfirm(false);
+      clearSelection();
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleAssignToBuild = async (buildId: Id<"builds">) => {
+    if (!userId || selectedIds.size === 0) return;
+    setActionPending(true);
+    try {
+      await addItemsToBuild({
+        userId,
+        buildId,
+        closetItemIds: Array.from(selectedIds),
+      });
+      setShowAssignToBuildPanel(false);
+      clearSelection();
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleUnassignFromBuild = async (buildId: Id<"builds">) => {
+    if (!userId || selectedIds.size === 0) return;
+    setActionPending(true);
+    try {
+      await removeItemsFromBuild({
+        userId,
+        buildId,
+        closetItemIds: Array.from(selectedIds),
+      });
+      setShowUnassignFromBuildPanel(false);
       clearSelection();
     } finally {
       setActionPending(false);
@@ -250,9 +288,25 @@ export default function ClosetPage() {
       </main>
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4">
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4 flex-wrap">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowAssignToBuildPanel(true)}
+              disabled={actionPending}
+              className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+            >
+              Assign to build
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUnassignFromBuildPanel(true)}
+              disabled={actionPending}
+              className="px-3 py-1.5 text-xs font-medium uppercase border border-kyar-border rounded hover:border-black disabled:opacity-50"
+            >
+              Unassign from build
+            </button>
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
@@ -301,6 +355,62 @@ export default function ClosetPage() {
           </div>
         </div>
       </AdaptiveModal>
+
+      <ResponsivePanel
+        open={showAssignToBuildPanel}
+        onClose={() => setShowAssignToBuildPanel(false)}
+        title="Assign to build"
+      >
+        <p className="text-sm text-kyar-textTertiary mb-4">
+          Add {selectedIds.size} selected item{selectedIds.size !== 1 ? "s" : ""} to a build.
+        </p>
+        <div className="space-y-2">
+          {allBuilds.length === 0 ? (
+            <p className="text-sm text-kyar-textTertiary">No builds yet. Create a build first.</p>
+          ) : (
+            allBuilds.map((b) => (
+              <button
+                key={b._id}
+                type="button"
+                onClick={() => handleAssignToBuild(b._id)}
+                disabled={actionPending}
+                className="w-full flex items-center justify-between gap-3 p-3 border border-kyar-border hover:border-black transition text-left disabled:opacity-50"
+              >
+                <span className="text-sm font-medium truncate">{b.name}</span>
+                <span className="text-[10px] uppercase tracking-wider shrink-0">Add</span>
+              </button>
+            ))
+          )}
+        </div>
+      </ResponsivePanel>
+
+      <ResponsivePanel
+        open={showUnassignFromBuildPanel}
+        onClose={() => setShowUnassignFromBuildPanel(false)}
+        title="Unassign from build"
+      >
+        <p className="text-sm text-kyar-textTertiary mb-4">
+          Remove {selectedIds.size} selected item{selectedIds.size !== 1 ? "s" : ""} from a build.
+        </p>
+        <div className="space-y-2">
+          {allBuilds.length === 0 ? (
+            <p className="text-sm text-kyar-textTertiary">No builds yet.</p>
+          ) : (
+            allBuilds.map((b) => (
+              <button
+                key={b._id}
+                type="button"
+                onClick={() => handleUnassignFromBuild(b._id)}
+                disabled={actionPending}
+                className="w-full flex items-center justify-between gap-3 p-3 border border-kyar-border hover:border-black transition text-left disabled:opacity-50"
+              >
+                <span className="text-sm font-medium truncate">{b.name}</span>
+                <span className="text-[10px] uppercase tracking-wider shrink-0">Remove</span>
+              </button>
+            ))
+          )}
+        </div>
+      </ResponsivePanel>
 
       <FloatingAdd href="/closet/new" />
     </WebAppShell>

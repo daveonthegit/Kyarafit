@@ -28,6 +28,9 @@ See [MIGRATION.md](../MIGRATION.md) for the Supabase/Go → Convex migration sum
 - **Auth** — Sign-in/sign-up (email+password + OAuth), AuthGate, ConvexBetterAuthProvider, bearer token storage.
 - **Data** — All main flows use Convex: closet, builds, build detail + tasks, conventions, itinerary, packing; TaskChecklist with create/update/delete; ImageUpload using Convex file storage.
 - **No legacy** — No Supabase client, no Go API calls, no IndexedDB repos, no web sync service to Go.
+- **Responsive layout** — WebAppShell, WebSidebar, WebTopBar, ResponsiveGrid, AdaptiveModal, ResponsivePanel; two-column build/closet detail; home hero (most recent build); see [web-responsive-redesign.md](../ui/web-responsive-redesign.md).
+- **Closet** — Item status (planned / in progress / complete); completion task (syncs when task checked); sort by status; tasks on closet item page (add/toggle/delete/set completion); “Add to build” from closet detail; multi-select “Assign to build” from closet list.
+- **Builds** — Multi-select with status buttons (Idea, WIP, Ready, Archive); budget tracker on list cards; budget in build detail left column; addItemsToBuild (from closet detail and list); link-items page checkbox works (drag handle only).
 
 ### Mobile
 

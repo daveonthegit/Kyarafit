@@ -2,6 +2,17 @@
 
 Redesigning the Kyarafit web app to scale on desktop and tablet while preserving shared logic and Expo parity.
 
+## Implemented (current state)
+
+- **Phases 0–5:** Shared nav config in `design-system/navConfig.ts`; WebAppShell, WebContentContainer, WebSidebar, WebTopBar; ResponsiveGrid; AdaptiveModal and ResponsivePanel; FAB hidden on `lg`; authenticated pages use the new shell. Sidebar is sticky and full-height on desktop; only main content scrolls.
+- **Build detail:** Two-column layout (image + meta + completion + deadline + budget left, sticky; tasks + linked closet items + progress photos right). Budget tracker in left column. Closet items section shows completion bar and per-item status; drag handle only on task rows so checkbox/delete/link work.
+- **Closet detail:** Two-column layout (image left, details right); status (planned / in progress / complete) and completion task; tasks section with add/toggle/delete/set completion; “Add to build” panel to assign this item to builds (addItemsToBuild).
+- **Closet list:** Sort by completion status; status shown on cards; multi-select with “Assign to build” (addItemsToBuild) and Delete; ResponsivePanel to pick build.
+- **Builds list:** Multi-select with status buttons (Idea, WIP, Ready, Archive); budget tracker on each card when budget set; list returns totalCostCents.
+- **Home:** Hero with most recent build image or placeholder; responsive quick links; getMostRecentForUser query.
+- **Link-items page:** Drag handle only on closet item rows so checkbox (select for linking) works; same pattern as TaskChecklist.
+- **Closet item status and tasks:** Status and completionTaskId in schema; buildTasks.update syncs item status when completion task is toggled; buildTasks.remove clears completionTaskId; tasks can be build-only or closet-item-only (buildId optional); create from closet item page; linkItems and addItemsToBuild auto-create completion task for items that don’t have one.
+
 ## Current architecture summary
 
 - **Monorepo:** npm workspaces: `web`, `mobile`, `design-system`.

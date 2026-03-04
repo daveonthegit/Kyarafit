@@ -76,47 +76,51 @@ All documents include `userId: string` for authorization. Every query/mutation c
 
 ### closetItems
 
-| Field     | Type                                                                       |
-| --------- | -------------------------------------------------------------------------- |
-| userId    | string                                                                     |
-| name      | string                                                                     |
-| category  | "wig" \| "prop" \| "armor" \| "garment" \| "shoe" \| "material" \| "other" |
-| tags      | string[]                                                                   |
-| notes     | string? (optional)                                                         |
-| imageUrl  | string? (optional)                                                         |
-| costCents | number? (optional)                                                         |
+| Field             | Type                                                                       |
+| ----------------- | -------------------------------------------------------------------------- |
+| userId            | string                                                                     |
+| name              | string                                                                     |
+| category          | "wig" \| "prop" \| "armor" \| "garment" \| "shoe" \| "material" \| "other" |
+| tags              | string[]                                                                   |
+| notes             | string? (optional)                                                         |
+| imageUrl          | string? (optional)                                                         |
+| imageStorageId    | Id<"_storage">? (optional)                                                 |
+| costCents         | number? (optional)                                                         |
+| status            | string? (optional) — "planned" \| "in_progress" \| "complete"               |
+| completionTaskId | Id<"buildTasks">? (optional) — task that drives item completion status    |
 
-Indexes: `by_userId`
+Indexes: `by_userId`, `by_userId_category`, `by_completionTaskId`
 
 ### builds
 
-| Field        | Type                           |
-| ------------ | ------------------------------ |
-| userId       | string                         |
-| name         | string                         |
-| status       | "idea" \| "wip" \| "ready"     |
-| character    | string? (optional)             |
-| notes        | string? (optional)             |
-| imageUrl     | string? (optional)             |
-| budgetCents  | number? (optional)             |
-| targetDate   | string? (optional, YYYY-MM-DD) |
-| tasksChecked | number (derived/cached)        |
-| tasksTotal   | number (derived/cached)        |
+| Field        | Type                                       |
+| ------------ | ------------------------------------------ |
+| userId       | string                                     |
+| name         | string                                     |
+| status       | "idea" \| "wip" \| "ready" \| "archived"   |
+| character    | string? (optional)                         |
+| notes        | string? (optional)                         |
+| imageUrl     | string? (optional)                         |
+| imageStorageId | Id<"_storage">? (optional)                 |
+| budgetCents  | number? (optional)                         |
+| targetDate   | string? (optional, YYYY-MM-DD)             |
+| tasksChecked | number (derived from buildTasks)           |
+| tasksTotal   | number (derived from buildTasks)           |
 
-Indexes: `by_userId`
+List query also returns `totalCostCents` (sum of linked closet items’ cost). Indexes: `by_userId`, `by_userId_status`
 
 ### buildTasks
 
 | Field        | Type               |
 | ------------ | ------------------ |
 | userId       | string             |
-| buildId      | Id<"builds">       |
+| buildId      | Id<"builds">? (optional — omit for closet-item-only tasks) |
 | label        | string             |
 | checked      | boolean            |
 | sortOrder    | number             |
-| closetItemId | Id<"closetItems">? |
+| closetItemId | Id<"closetItems">? (optional) |
 
-Indexes: `by_buildId`, `by_userId`
+Indexes: `by_buildId`, `by_userId`, `by_closetItemId`
 
 ### buildItemLinks
 
@@ -182,28 +186,34 @@ See `docs/auth.md` for detailed flow, environment variables, and setup instructi
 
 ### closetItems
 
-- `api.closetItems.list({ userId })` — list all items for user
+- `api.closetItems.list({ userId, category?, search?, sortBy?, order? })` — list items (sortBy: name, category, cost, status)
 - `api.closetItems.get({ id })` — get single item
-- `api.closetItems.create({ userId, name, category, ... })` — create item
-- `api.closetItems.update({ id, userId, ... })` — update item
+- `api.closetItems.create({ userId, name, category, ..., status?, completionTaskId? })` — create item
+- `api.closetItems.update({ id, userId, ..., status?, completionTaskId? })` — update item (completionTaskId null to clear)
 - `api.closetItems.remove({ id, userId })` — delete item
+- `api.closetItems.removeMany({ ids, userId })` — delete multiple items
 
 ### builds
 
-- `api.builds.list({ userId })` — list all builds with task counts
-- `api.builds.get({ id })` — get single build
+- `api.builds.list({ userId, status?, search?, sortBy?, order? })` — list builds with task counts and totalCostCents
+- `api.builds.get({ id })` — get single build with task counts
 - `api.builds.getItems({ buildId })` — list linked closet item IDs
+- `api.builds.getMostRecentForUser({ userId })` — most recently created build (for home hero)
+- `api.builds.getBuildsUsingClosetItem({ closetItemId })` — builds that link this closet item (deduplicated)
 - `api.builds.create({ userId, name, status, ... })` — create build
 - `api.builds.update({ id, userId, ... })` — update build
 - `api.builds.remove({ id, userId })` — delete build + tasks + links
-- `api.builds.linkItems({ userId, buildId, closetItemIds })` — replace linked items
+- `api.builds.linkItems({ userId, buildId, closetItemIds })` — replace linked items (and auto-create completion tasks for new items without one)
+- `api.builds.addItemsToBuild({ userId, buildId, closetItemIds })` — add closet items to a build (merge with existing; auto-create completion tasks for new items)
+- `api.builds.updateStatusMany({ ids, userId, status })` — set status for multiple builds
 
 ### buildTasks
 
 - `api.buildTasks.listByBuild({ buildId })` — list tasks for a build
-- `api.buildTasks.create({ userId, buildId, label, sortOrder })` — create task
-- `api.buildTasks.update({ id, userId, ... })` — update task (checked, closetItemId, label)
-- `api.buildTasks.remove({ id, userId })` — delete task
+- `api.buildTasks.listByClosetItem({ closetItemId })` — list tasks for a closet item (build + standalone), with buildName
+- `api.buildTasks.create({ userId, buildId?, closetItemId?, label, sortOrder? })` — create task (either buildId or closetItemId required)
+- `api.buildTasks.update({ id, userId, ... })` — update task (checked, closetItemId, label; toggling completion task syncs closet item status)
+- `api.buildTasks.remove({ id, userId })` — delete task (clears closet item completionTaskId if set)
 
 ### conventions
 

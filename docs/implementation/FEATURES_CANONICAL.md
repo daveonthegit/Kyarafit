@@ -25,62 +25,70 @@ Source of truth for product features, acceptance criteria, and dependencies. Ali
 
 ## 2. Closet
 
-**Description:** CRUD for closet items (costume pieces); categories; image upload via Convex file storage; optional cost, tags, notes.
+**Description:** CRUD for closet items (costume pieces); categories; image upload via Convex file storage; optional cost, tags, notes; status and completion task; assign item to builds from detail; multi-select assign to build from list.
 
 **Acceptance criteria:**
 
-- User can list closet items (filtered by userId).
-- User can create a closet item with name, category, optional tags, notes, cost, and image.
-- User can update and delete closet items.
+- User can list closet items (filtered by userId); optional filter by category, search; sort by name, category, cost, or completion status.
+- User can create a closet item with name, category, optional tags, notes, cost, image, and optional status (planned / in progress / complete).
+- User can update and delete closet items (including status and completion task).
 - Image is uploaded via Convex (generateUploadUrl → upload → getUrl); stored imageUrl/imageStorageId on item.
 - Categories align with schema (e.g. wig, prop, armor, garment, shoe, material, other).
+- **Closet item status:** Each item has status: planned, in_progress, or complete; displayed on closet list and build detail (linked items). Sort by status on closet list.
+- **Completion task:** Item can have one “completion task” (buildTasks id). When that task is checked/unchecked in a build (or on closet item page), item status syncs to complete / in progress. Completion task can be set or cleared from closet detail (“Set completion” / “Clear completion” on a task). Auto-created when linking item to a build (if item has none).
+- **Assign to build from closet detail:** From closet item detail, user can open “Add to build” and pick a build to link this item to (addItemsToBuild); builds already linked show “Linked”.
+- **Multi-select assign to build:** On closet list, user can select multiple items and choose “Assign to build”, then pick a build; selected items are added to that build’s links (addItemsToBuild).
 
-**Dependencies:** Convex schema (closetItems), Convex files API, auth (userId).
+**Dependencies:** Convex schema (closetItems: status, completionTaskId, by_completionTaskId index), Convex files API, auth (userId), buildTasks, builds (linkItems, addItemsToBuild).
 
-**Notes:** design-system types in design-system/types/ for ClosetItem if shared.
+**Notes:** design-system types: CLOSET_ITEM_STATUSES, ClosetItemStatus; closetItemSchema includes status and completionTaskId.
 
 ---
 
 ## 3. Builds
 
-**Description:** CRUD for builds (cosplay projects); optional required-image enforcement; link closet items to build; status (idea/wip/ready); budget and target date.
+**Description:** CRUD for builds (cosplay projects); optional required-image enforcement; link closet items to build; status (idea/wip/ready/archived); budget and target date; multi-select status; budget on cards; assign closet items from list.
 
 **Acceptance criteria:**
 
-- User can list builds (by userId; optional status filter).
+- User can list builds (by userId; optional status filter); list returns totalCostCents (sum of linked items’ cost) for budget display.
 - User can create a build with name, status, optional character, notes, image, budgetCents, targetDate.
 - User can update and delete builds.
-- User can link/unlink closet items to a build (buildItemLinks).
-- Build list can show card layout with image, progress (from tasks), and status tabs (optional enhancement).
+- User can link/unlink closet items to a build (buildItemLinks); linkItems replaces build’s links; addItemsToBuild merges items into build (used from closet detail and closet list multi-select).
+- Build list shows card layout with image, task progress, status; **budget tracker** on each card when budgetCents set (spent vs budget, over-budget warning).
+- **Multi-select status:** User can select multiple builds and set status to Idea, WIP, Ready, or Archive in one action (updateStatusMany).
+- Build detail: two-column responsive layout (image/meta/budget left, tasks and linked items right); budget in left column.
 - Optionally: create/update requires non-empty imageUrl (enforcement in Convex mutation and/or frontend).
-- **Build list discovery (competitor parity):** User can filter build list by status (e.g. All, Planning/Idea, In progress, Completed); optionally search by name/character; sort by name, progress, targetDate, budget, etc.; choose order (asc/desc).
+- **Build list discovery (competitor parity):** User can filter build list by status (e.g. All, Planning/Idea, In progress, Completed, Archived); optionally search by name/character; sort by name, progress, targetDate, budget, etc.; choose order (asc/desc).
 - **Elements ≈ closet items (competitor parity):** Each build–closet link (and any inline “element”) has type (to buy / to make) and status (e.g. pending, bought, ongoing, made); user can add from closet or add inline element (name + type), reorder, and update status. Completion requires all elements ready (see completion validation below).
 - **Completion validation (competitor parity):** User can mark build complete only when all elements (linked + inline) are in a “ready” state (e.g. bought for buy, made for make); otherwise show clear message (e.g. “All elements must be 100% ready”).
 
 **Dependencies:** Convex schema (builds, buildItemLinks), auth, closetItems for linking.
 
-**Notes:** Progress derived from buildTasks (checked/total). Builds list as cards + tabs is a UX enhancement per BUILDS_REQUIRE_IMAGE_AND_OVERVIEW. For elements design (extend buildItemLinks vs new table) see [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
+**Notes:** Progress derived from buildTasks (checked/total). getMostRecentForUser used for home hero. getBuildsUsingClosetItem deduplicated by build id. For elements design see [Competitor Analysis](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) §5.
 
 ---
 
 ## 4. Build tasks
 
-**Description:** CRUD for build tasks (checklist items); checked state; optional assignment to closet item; sort order.
+**Description:** CRUD for build tasks (checklist items); checked state; optional assignment to closet item; sort order; tasks can belong to a build and/or a closet item (buildId optional for closet-item-only tasks).
 
 **Acceptance criteria:**
 
-- User can list tasks for a build (by buildId).
-- User can create a task (label, sortOrder, checked default false).
-- User can update a task (label, checked, sortOrder, optional closetItemId).
-- User can delete a task.
-- Build detail shows task checklist with progress (e.g. X of Y complete).
-- Optionally: drag-drop or UI to assign a task to a closet item (closetItemId).
+- User can list tasks for a build (by buildId; listByBuild returns only tasks with that buildId).
+- User can list tasks for a closet item (listByClosetItem: all tasks with that closetItemId, including standalone item tasks and build tasks assigned to the item).
+- User can create a task with buildId (build task) or with only closetItemId (closet-item-only task, e.g. from closet item detail page).
+- User can update a task (label, checked, sortOrder, optional closetItemId or closetItemId null to unassign).
+- User can delete a task; if the task was a closet item’s completion task, that item’s completionTaskId is cleared.
+- Build detail shows task checklist with progress; drag handle only (not full row) so checkbox, delete, and “assign to item” buttons work; assign via ResponsivePanel.
+- Closet item detail: user can add tasks (standalone), toggle checked, delete, and set/clear completion task; completion task’s checked state syncs item status (complete / in progress).
+- When a task that is an item’s completion task is toggled (checked/unchecked), the linked closet item’s status is updated to complete or in progress (buildTasks.update).
 - **Task reminders (competitor parity):** User can set an optional reminder (date/time) per task; app notifies at that time (in-app and/or push when implemented).
 - **Task notes/details (competitor parity):** Task can have an optional notes or details field (in addition to label) for longer description.
 
-**Dependencies:** Convex schema (buildTasks), auth, builds.
+**Dependencies:** Convex schema (buildTasks: buildId optional, by_closetItemId index), auth, builds, closetItems (completionTaskId, by_completionTaskId).
 
-**Notes:** TaskChecklist component on build detail; Convex api.buildTasks.listByBuild, create, update, remove.
+**Notes:** TaskChecklist on build detail; closet item page has inline task list and create. create accepts either buildId or closetItemId. listByClosetItem returns buildName for build tasks.
 
 ---
 
