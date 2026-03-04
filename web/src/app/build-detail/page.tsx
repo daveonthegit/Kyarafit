@@ -5,13 +5,16 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
-import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
-import { BuildSummarySection } from "@/components/builds/BuildSummarySection";
+import { BuildSummaryModal } from "@/components/builds/BuildSummaryModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import {
+  ClosetItemsCarousel,
+  ClosetCarouselCardContent,
+} from "@/components/ui/closet-items-carousel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -50,6 +53,7 @@ export default function BuildDetailPage() {
   const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [savePending, setSavePending] = useState(false);
   const [notesModalOpen, setNotesModalOpen] = useState(false);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [notesSavePending, setNotesSavePending] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
@@ -201,6 +205,14 @@ export default function BuildDetailPage() {
           <span className="flex-1 meta-label truncate">{build.name}</span>
           {!isEditing ? (
             <>
+              <button
+                type="button"
+                onClick={() => setSummaryModalOpen(true)}
+                className="hover:opacity-70 p-1"
+                aria-label="Open build summary"
+              >
+                <span className="material-symbols-outlined font-light text-xl">summarize</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setNotesModalOpen(true)}
@@ -447,11 +459,23 @@ export default function BuildDetailPage() {
                     </div>
                   </div>
                 )}
+                <div>
+                  <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
+                    Progress Photos
+                  </h2>
+                  <div className="border border-dashed border-kyar-border p-6 text-center">
+                    <span className="material-symbols-outlined text-4xl text-kyar-textTertiary mb-2">
+                      photo_library
+                    </span>
+                    <p className="text-sm text-kyar-textTertiary">
+                      Progress photos feature coming soon. Track your build with photos and dates.
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Right: summary, tasks, link items, progress */}
+              {/* Right: tasks, link items, progress */}
               <div className="space-y-10 min-w-0">
-                <BuildSummarySection summary={summary ?? null} formatCents={formatCents} />
                 <section>
                   <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
                     Tasks
@@ -504,75 +528,25 @@ export default function BuildDetailPage() {
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-kyar-textTertiary mb-4 italic">
-                        Drop tasks here to assign them to items
-                      </p>
+                      <div aria-label={`Associated closet items, ${linkedItems.length} items`}>
+                        <ClosetItemsCarousel
+                          items={linkedItems}
+                          keyExtractor={(item) => item._id}
+                          renderItem={(item) => (
+                            <DroppableClosetItem
+                              item={item}
+                              justDroppedRef={justDroppedRef}
+                            >
+                              <ClosetCarouselCardContent
+                                item={item}
+                                formatCents={formatCents}
+                              />
+                            </DroppableClosetItem>
+                          )}
+                        />
+                      </div>
                     </>
                   )}
-                  <ResponsiveGrid>
-                    {linkedItems.map((item) => (
-                      <DroppableClosetItem
-                        key={item._id}
-                        item={item}
-                        justDroppedRef={justDroppedRef}
-                      >
-                        <div className="flex flex-col gap-2">
-                          {item.imageStorageId || item.imageUrl ? (
-                            <div className="aspect-square bg-gray-50 overflow-hidden">
-                              <ResolvedImage
-                                imageStorageId={item.imageStorageId}
-                                imageUrl={item.imageUrl}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="aspect-square bg-gray-50 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-4xl text-kyar-textTertiary">
-                                image
-                              </span>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-sm font-medium line-clamp-1">{item.name}</p>
-                            <p className="text-xs text-kyar-textTertiary">
-                              {item.category}
-                              {item.costCents != null ? ` · ${formatCents(item.costCents)}` : ""}
-                            </p>
-                            <span
-                              className={`inline-block mt-1 text-[10px] uppercase tracking-wider font-medium ${
-                                item.status === "complete"
-                                  ? "text-green-700"
-                                  : item.status === "in_progress"
-                                    ? "text-amber-700"
-                                    : "text-kyar-textTertiary"
-                              }`}
-                            >
-                              {item.status === "complete"
-                                ? "Complete"
-                                : item.status === "in_progress"
-                                  ? "In progress"
-                                  : "Planned"}
-                            </span>
-                          </div>
-                        </div>
-                      </DroppableClosetItem>
-                    ))}
-                  </ResponsiveGrid>
-                </section>
-
-                <section>
-                  <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
-                    Progress Photos
-                  </h2>
-                  <div className="border border-dashed border-kyar-border p-6 text-center">
-                    <span className="material-symbols-outlined text-4xl text-kyar-textTertiary mb-2">
-                      photo_library
-                    </span>
-                    <p className="text-sm text-kyar-textTertiary">
-                      Progress photos feature coming soon. Track your build with photos and dates.
-                    </p>
-                  </div>
                 </section>
               </div>
             </div>
@@ -588,6 +562,12 @@ export default function BuildDetailPage() {
           onClose={() => !notesSavePending && setNotesModalOpen(false)}
           saving={notesSavePending}
           error={notesError}
+        />
+        <BuildSummaryModal
+          open={summaryModalOpen}
+          onClose={() => setSummaryModalOpen(false)}
+          summary={summary ?? null}
+          formatCents={formatCents}
         />
       </WebAppShell>
     </DndContext>

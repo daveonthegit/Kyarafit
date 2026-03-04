@@ -22,21 +22,20 @@ const mockSummary = {
 
 describe("BuildSummarySection", () => {
   it("renders nothing when summary is null", () => {
-    const { container } = render(<BuildSummarySection summary={null} formatCents={formatCents} />);
+    const { container } = render(
+      <BuildSummarySection summary={null} formatCents={formatCents} />
+    );
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders Summary heading and status", () => {
+  it("renders status and progress", () => {
     render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
-    expect(screen.getByRole("heading", { name: /summary/i })).toBeInTheDocument();
     expect(screen.getByText("wip")).toBeInTheDocument();
-  });
-
-  it("renders progress bar and task counts", () => {
-    render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
     expect(screen.getByText("60%")).toBeInTheDocument();
     expect(screen.getByText("3 of 5 tasks complete")).toBeInTheDocument();
-    const progressbar = screen.getByRole("progressbar", { name: /task completion progress/i });
+    const progressbar = screen.getByRole("progressbar", {
+      name: /task completion progress/i,
+    });
     expect(progressbar).toHaveAttribute("aria-valuenow", "60");
   });
 

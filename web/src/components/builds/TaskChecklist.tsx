@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { useDraggable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -8,6 +8,7 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { ScrollButton } from "@/components/ui/scroll-button";
 
 export interface BuildTask {
   _id: Id<"buildTasks">;
@@ -52,6 +53,7 @@ export function TaskChecklist({
   const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const [isPendingCreate, setIsPendingCreate] = useState(false);
+  const taskListContainerRef = useRef<HTMLDivElement>(null);
 
   const handleToggleTask = (taskId: Id<"buildTasks">, checked: boolean) => {
     if (!userId) return;
@@ -108,8 +110,14 @@ export function TaskChecklist({
         </p>
       </div>
 
-      <div className="space-y-2">
-        {sortedTasks.map((task) => {
+      <div className="relative">
+        <div
+          ref={taskListContainerRef}
+          className="space-y-2 max-h-[min(400px,60vh)] overflow-y-auto overflow-x-hidden overscroll-contain pr-1 -mr-1"
+          role="list"
+          aria-label={`Task list, ${totalCount} tasks`}
+        >
+          {sortedTasks.map((task) => {
           const linkedItem = linkedItems.find((item) => item._id === task.closetItemId);
           return enableDragDrop ? (
             <DraggableTaskRow
@@ -132,11 +140,20 @@ export function TaskChecklist({
           );
         })}
 
-        {sortedTasks.length === 0 && (
-          <p className="text-sm text-kyar-textTertiary text-center py-8">
-            No tasks yet. Add your first task below.
-          </p>
-        )}
+          {sortedTasks.length === 0 && (
+            <p className="text-sm text-kyar-textTertiary text-center py-8">
+              No tasks yet. Add your first task below.
+            </p>
+          )}
+        </div>
+        <div className="absolute right-2 bottom-3 pointer-events-none flex justify-end">
+          <div className="pointer-events-auto">
+            <ScrollButton
+              containerRef={taskListContainerRef}
+              threshold={80}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2 pt-4 border-t border-kyar-border">
@@ -228,7 +245,10 @@ interface TaskRowProps {
 
 function TaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
   return (
-    <div className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group">
+    <div
+      role="listitem"
+      className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group"
+    >
       <input
         type="checkbox"
         checked={task.checked}
@@ -272,6 +292,7 @@ function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: Ta
   return (
     <div
       ref={setNodeRef}
+      role="listitem"
       className={`flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group ${
         isDragging ? "opacity-50 cursor-grabbing" : ""
       }`}

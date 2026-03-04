@@ -76,49 +76,49 @@ All documents include `userId: string` for authorization. Every query/mutation c
 
 ### closetItems
 
-| Field             | Type                                                                       |
-| ----------------- | -------------------------------------------------------------------------- |
-| userId            | string                                                                     |
-| name              | string                                                                     |
-| category          | "wig" \| "prop" \| "armor" \| "garment" \| "shoe" \| "material" \| "other" |
-| tags              | string[]                                                                   |
-| notes             | string? (optional)                                                         |
-| imageUrl          | string? (optional)                                                         |
-| imageStorageId    | Id<"_storage">? (optional)                                                 |
-| costCents         | number? (optional)                                                         |
-| status            | string? (optional) — "planned" \| "in_progress" \| "complete"               |
-| completionTaskId | Id<"buildTasks">? (optional) — task that drives item completion status    |
+| Field            | Type                                                                       |
+| ---------------- | -------------------------------------------------------------------------- |
+| userId           | string                                                                     |
+| name             | string                                                                     |
+| category         | "wig" \| "prop" \| "armor" \| "garment" \| "shoe" \| "material" \| "other" |
+| tags             | string[]                                                                   |
+| notes            | string? (optional)                                                         |
+| imageUrl         | string? (optional)                                                         |
+| imageStorageId   | Id<"\_storage">? (optional)                                                |
+| costCents        | number? (optional)                                                         |
+| status           | string? (optional) — "planned" \| "in_progress" \| "complete"              |
+| completionTaskId | Id<"buildTasks">? (optional) — task that drives item completion status     |
 
 Indexes: `by_userId`, `by_userId_category`, `by_completionTaskId`
 
 ### builds
 
-| Field        | Type                                       |
-| ------------ | ------------------------------------------ |
-| userId       | string                                     |
-| name         | string                                     |
-| status       | "idea" \| "wip" \| "ready" \| "archived"   |
-| character    | string? (optional)                         |
-| notes        | string? (optional)                         |
-| imageUrl     | string? (optional)                         |
-| imageStorageId | Id<"_storage">? (optional)                 |
-| budgetCents  | number? (optional)                         |
-| targetDate   | string? (optional, YYYY-MM-DD)             |
-| tasksChecked | number (derived from buildTasks)           |
-| tasksTotal   | number (derived from buildTasks)           |
+| Field          | Type                                     |
+| -------------- | ---------------------------------------- |
+| userId         | string                                   |
+| name           | string                                   |
+| status         | "idea" \| "wip" \| "ready" \| "archived" |
+| character      | string? (optional)                       |
+| notes          | string? (optional)                       |
+| imageUrl       | string? (optional)                       |
+| imageStorageId | Id<"\_storage">? (optional)              |
+| budgetCents    | number? (optional)                       |
+| targetDate     | string? (optional, YYYY-MM-DD)           |
+| tasksChecked   | number (derived from buildTasks)         |
+| tasksTotal     | number (derived from buildTasks)         |
 
 List query also returns `totalCostCents` (sum of linked closet items’ cost). Indexes: `by_userId`, `by_userId_status`
 
 ### buildTasks
 
-| Field        | Type               |
-| ------------ | ------------------ |
-| userId       | string             |
+| Field        | Type                                                       |
+| ------------ | ---------------------------------------------------------- |
+| userId       | string                                                     |
 | buildId      | Id<"builds">? (optional — omit for closet-item-only tasks) |
-| label        | string             |
-| checked      | boolean            |
-| sortOrder    | number             |
-| closetItemId | Id<"closetItems">? (optional) |
+| label        | string                                                     |
+| checked      | boolean                                                    |
+| sortOrder    | number                                                     |
+| closetItemId | Id<"closetItems">? (optional)                              |
 
 Indexes: `by_buildId`, `by_userId`, `by_closetItemId`
 

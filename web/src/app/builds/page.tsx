@@ -287,8 +287,7 @@ export default function BuildsPage() {
                           </div>
                           {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
                             <p className="text-[9px] text-red-600">
-                              Over by{" "}
-                              {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
+                              Over by {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
                             </p>
                           )}
                         </div>
