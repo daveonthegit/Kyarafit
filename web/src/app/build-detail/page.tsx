@@ -8,6 +8,7 @@ import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
+import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -46,6 +47,10 @@ export default function BuildDetailPage() {
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [savePending, setSavePending] = useState(false);
+  const [notesModalOpen, setNotesModalOpen] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [notesSavePending, setNotesSavePending] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (build && isEditing) {
@@ -58,6 +63,13 @@ export default function BuildDetailPage() {
       setEditImageStorageId(build.imageStorageId ?? null);
     }
   }, [build, isEditing]);
+
+  useEffect(() => {
+    if (notesModalOpen && build) {
+      setEditNotes(build.notes ?? "");
+      setNotesError(null);
+    }
+  }, [notesModalOpen, build]);
 
   const linkedItems = closetItems.filter((c) => closetItemIds.includes(c._id));
   const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
@@ -82,6 +94,39 @@ export default function BuildDetailPage() {
       setIsEditing(false);
     } finally {
       setSavePending(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!id || !userId) return;
+    setNotesSavePending(true);
+    setNotesError(null);
+    try {
+      await updateBuild({
+        id,
+        userId,
+        notes: editNotes.trim() || undefined,
+      });
+      setNotesModalOpen(false);
+    } catch (e) {
+      setNotesError(e instanceof Error ? e.message : "Failed to save notes");
+    } finally {
+      setNotesSavePending(false);
+    }
+  };
+
+  const handleClearNotes = async () => {
+    if (!id || !userId) return;
+    setNotesSavePending(true);
+    setNotesError(null);
+    try {
+      await updateBuild({ id, userId, notes: "" });
+      setEditNotes("");
+      setNotesModalOpen(false);
+    } catch (e) {
+      setNotesError(e instanceof Error ? e.message : "Failed to clear notes");
+    } finally {
+      setNotesSavePending(false);
     }
   };
 
@@ -153,14 +198,24 @@ export default function BuildDetailPage() {
           </Link>
           <span className="flex-1 meta-label truncate">{build.name}</span>
           {!isEditing ? (
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="hover:opacity-70 p-1"
-              aria-label="Edit build"
-            >
-              <span className="material-symbols-outlined font-light text-xl">edit</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setNotesModalOpen(true)}
+                className="hover:opacity-70 p-1"
+                aria-label="Open build notes"
+              >
+                <span className="material-symbols-outlined font-light text-xl">description</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="hover:opacity-70 p-1"
+                aria-label="Edit build"
+              >
+                <span className="material-symbols-outlined font-light text-xl">edit</span>
+              </button>
+            </>
           ) : (
             <button
               type="button"
@@ -520,6 +575,17 @@ export default function BuildDetailPage() {
             </div>
           )}
         </main>
+
+        <BuildNotesModal
+          open={notesModalOpen}
+          notes={editNotes}
+          onNotesChange={setEditNotes}
+          onSave={handleSaveNotes}
+          onClear={handleClearNotes}
+          onClose={() => !notesSavePending && setNotesModalOpen(false)}
+          saving={notesSavePending}
+          error={notesError}
+        />
       </WebAppShell>
     </DndContext>
   );
