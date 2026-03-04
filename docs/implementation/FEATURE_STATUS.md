@@ -26,7 +26,7 @@ Last updated: 2026-03-04.
 | Image upload                       | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new; convention new has no image field; mobile may not use Convex upload everywhere              |
 | Seed data                          | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | No Convex seed mutation or script                                                                                                                    |
 | Build summary dashboard (14)       | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §14, competitor doc §5                                                                                     |
-| Build project notes dedicated (15) | PARTIAL     | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | build.notes exists; no dedicated Notes screen/modal                                                                                                  |
+| Build project notes dedicated (15) | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | build.notes; web: BuildNotesModal + Notes button on build detail; convex/builds.update(notes); BuildNotesModal.test.tsx                              |
 | Build reference images (16)        | NOT         | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §16                                                                                                        |
 | Build process pictures (17)        | NOT         | NOT            | NOT               | NOT         | —     | NOT              | NOT IMPLEMENTED | Competitor parity; see FEATURES_CANONICAL §17                                                                                                        |
 | Build list search/filter/sort (18) | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/builds.ts (list: status, search, sortBy, order), web/src/app/builds/page.tsx, web/src/lib/buildsListArgs.ts, web/src/app/builds/page.test.tsx |
@@ -111,7 +111,7 @@ Last updated: 2026-03-04.
 
 ### Build project notes dedicated (15)
 
-- **Status:** PARTIAL. build.notes field exists; no dedicated Notes screen or modal on build detail.
+- **Status:** IMPLEMENTED (web). build.notes field in schema; convex/builds.ts update mutation accepts notes. Web: build detail page has "Notes" button (description icon) opening BuildNotesModal (web/src/components/builds/BuildNotesModal.tsx); user can edit, save, clear notes; content persisted via api.builds.update. Unit tests: web/src/components/builds/BuildNotesModal.test.tsx. Mobile: no dedicated Notes screen yet (PARTIAL).
 
 ### Build reference images (16)
 
