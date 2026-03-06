@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { MAX_LENGTH, sanitizeAndLimit } from "./lib/validation";
+import { MAX_LENGTH, sanitizeAndLimit, validateDateString } from "./lib/validation";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds") },
@@ -93,21 +93,42 @@ export const listForPlanner = query({
       _id: (typeof tasks)[0]["_id"];
       label: string;
       checked: boolean;
-      buildId: (typeof buildTasksOnly)[0]["buildId"];
+      buildId?: (typeof buildTasksOnly)[0]["buildId"];
       buildName: string;
+      conventionId?: import("./_generated/dataModel").Id<"conventions">;
       dueDate?: string;
       sortOrder: number;
     }> = [];
     for (const task of buildTasksOnly) {
       const build = await ctx.db.get(task.buildId);
       if (!build || build.userId !== args.userId) continue;
+      const dueDate =
+        task.dueDate ?? buildIdToDate.get(task.buildId);
       result.push({
         _id: task._id,
         label: task.label,
         checked: task.checked,
         buildId: task.buildId,
         buildName: build.name,
-        dueDate: buildIdToDate.get(task.buildId),
+        dueDate,
+        sortOrder: task.sortOrder,
+      });
+    }
+    // Include tasks linked to manual packing items (show on Todo, sync checked)
+    const packingOnlyTasks = tasks.filter((t) => t.packingListItemId != null);
+    for (const task of packingOnlyTasks) {
+      const packingItem = await ctx.db.get(task.packingListItemId!);
+      if (!packingItem || packingItem.userId !== args.userId) continue;
+      const convention = await ctx.db.get(packingItem.conventionId);
+      if (!convention) continue;
+      const dueDate = task.dueDate ?? packingItem.date;
+      result.push({
+        _id: task._id,
+        label: task.label,
+        checked: task.checked,
+        buildName: convention.name,
+        conventionId: packingItem.conventionId,
+        dueDate,
         sortOrder: task.sortOrder,
       });
     }
@@ -128,9 +149,13 @@ export const create = mutation({
     label: v.string(),
     closetItemId: v.optional(v.id("closetItems")),
     sortOrder: v.optional(v.number()),
+    dueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
+    const dueDate = args.dueDate
+      ? validateDateString(args.dueDate, "Due date")
+      : undefined;
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
       if (!build || build.userId !== args.userId) {
@@ -147,6 +172,7 @@ export const create = mutation({
         closetItemId: args.closetItemId,
         sortOrder: args.sortOrder ?? existing.length,
         checked: false,
+        dueDate,
       });
       return await ctx.db.get(id);
     }
@@ -168,6 +194,7 @@ export const create = mutation({
       closetItemId: args.closetItemId,
       sortOrder: args.sortOrder ?? existing.length,
       checked: false,
+      dueDate,
     });
     return await ctx.db.get(id);
   },
@@ -181,6 +208,7 @@ export const update = mutation({
     closetItemId: v.optional(v.union(v.id("closetItems"), v.null())),
     sortOrder: v.optional(v.number()),
     checked: v.optional(v.boolean()),
+    dueDate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
@@ -193,6 +221,8 @@ export const update = mutation({
       if (val === null) patch[k] = undefined;
       else if (val !== undefined) {
         if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
+        else if (k === "dueDate")
+          patch.dueDate = val ? validateDateString(val as string, "Due date") : undefined;
         else patch[k] = val;
       }
     }
@@ -211,6 +241,13 @@ export const update = mutation({
           await ctx.db.patch(item._id, {
             status: args.checked ? "complete" : "in_progress",
           });
+        }
+      }
+      // When Pack task for manual packing item is toggled, sync packing list item
+      if (task.packingListItemId) {
+        const packingItem = await ctx.db.get(task.packingListItemId);
+        if (packingItem && packingItem.userId === userId) {
+          await ctx.db.patch(task.packingListItemId, { checked: args.checked });
         }
       }
     }

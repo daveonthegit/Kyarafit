@@ -1,54 +1,21 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import Link from "next/link";
-import { WebAppShell } from "@/components/layout/WebAppShell";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { api } from "convex/_generated/api";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function PackingListPage() {
-  const { userId } = useCurrentUser();
-  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
-  const isLoading = conventions === undefined;
+/**
+ * Packing lives under Events (conventions). Redirect so existing links work.
+ */
+export default function PackingRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/conventions");
+  }, [router]);
 
   return (
-    <WebAppShell>
-      <header className="pt-12 pb-6 flex justify-between items-end">
-        <div>
-          <p className="meta-label opacity-50 mb-1">Logistics</p>
-          <h1 className="font-serif text-3xl font-bold italic">Packing List</h1>
-        </div>
-      </header>
-
-      <main className="space-y-4">
-        <p className="text-sm text-kyar-meta">
-          Select a convention to view or edit its packing list.
-        </p>
-        {isLoading && <p className="meta-label">Loading...</p>}
-        <ul className="space-y-0">
-          {conventions.map((c) => (
-            <li key={c._id}>
-              <Link
-                href={`/conventions/${c._id}/packing`}
-                className="flex items-center gap-3 py-5 border-b border-kyar-borderSubtle hover:opacity-80"
-              >
-                <span className="flex-1 font-serif text-xl font-bold italic">{c.name}</span>
-                <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
-                  {c.startDate} – {c.endDate}
-                </span>
-                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
-                  chevron_right
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {!isLoading && conventions.length === 0 && (
-          <p className="text-sm text-kyar-meta pt-4">
-            No conventions yet. Create one from the Plan tab and generate a packing list.
-          </p>
-        )}
-      </main>
-    </WebAppShell>
+    <div className="flex min-h-[40vh] items-center justify-center p-8">
+      <p className="text-sm text-kyar-textTertiary">Redirecting…</p>
+    </div>
   );
 }

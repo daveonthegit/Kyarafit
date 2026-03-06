@@ -60,12 +60,15 @@ export default defineSchema({
     buildId: v.optional(v.id("builds")),
     label: v.string(),
     closetItemId: v.optional(v.id("closetItems")),
+    packingListItemId: v.optional(v.id("packingListItems")),
     sortOrder: v.number(),
     checked: v.boolean(),
+    dueDate: v.optional(v.string()),
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
-    .index("by_closetItemId", ["closetItemId"]),
+    .index("by_closetItemId", ["closetItemId"])
+    .index("by_packingListItemId", ["packingListItemId"]),
 
   conventions: defineTable({
     userId: v.string(),
@@ -93,6 +96,7 @@ export default defineSchema({
     buildId: v.optional(v.id("builds")),
     closetItemId: v.optional(v.id("closetItems")),
     label: v.string(),
+    notes: v.optional(v.string()),
     checked: v.boolean(),
   })
     .index("by_conventionId", ["conventionId"])
