@@ -19,7 +19,7 @@ Last updated: 2026-03-05.
 | Conventions                        | IMPLEMENTED | IMPLEMENTED    | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED | convex/conventions.ts, web/src/app/conventions/, mobile                                                                                                                                               |
 | Itinerary                          | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL     | convex/conventions.ts (day plans), web/src/app/itinerary/page.tsx (stub or basic)                                                                                                                     |
 | Packing list                       | IMPLEMENTED | IMPLEMENTED    | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED | convex/conventions.ts (packingListItems), web/src/app/conventions/[id]/packing/page.tsx                                                                                                               |
-| Planner                            | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL     | convex/buildTasks.ts, web/src/app/planner/page.tsx (Daily/Conventions toggle; tasks not fully wired)                                                                                                  |
+| Planner                            | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED | convex/buildTasks.ts (listForPlanner), web/src/app/planner/page.tsx (Daily: tasks, progress, deadline/other, checkbox, add-task; Conventions: real list + links); web/src/app/planner/page.test.tsx          |
 | Settings                           | N/A         | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED | web/src/app/settings/page.tsx (menu links), /settings/account, /settings/subscription, /settings/notifications; Convex users (tier); settings/\*.test.tsx                                             |
 | Tiers / subscription               | PARTIAL     | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | NOT   | PARTIAL (unit)   | PARTIAL     | convex/users.ts (getMe), useTier + useFeatureAccess; web UpgradePrompt + FeatureGate; settings shows prompt when !canUseCloudSync; no Stripe webhook/Checkout                                         |
 | Mobile offline/sync                | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                                                                                             |
@@ -77,8 +77,9 @@ Last updated: 2026-03-05.
 
 ### Planner
 
-- **Backend:** buildTasks.listByBuild (and builds, convention day plans for due dates).
-- **Web:** web/src/app/planner/page.tsx has Daily/Conventions toggle; Conventions lists conventions with Itinerary/Packing links; tasks not fully loaded from builds or grouped by deadline (PARTIAL).
+- **Backend:** convex/buildTasks.ts listForPlanner(userId) returns build tasks with buildName and optional dueDate (from convention day plan); auth enforced.
+- **Web:** web/src/app/planner/page.tsx — Daily view: useQuery(listForPlanner), timeframe filter (All/Today/This week), progress summary (X of Y tasks + bar), Deadline approaching and Other sections, task rows (checkbox → buildTasks.update, build name link to build-detail, optional due date), Add task link to /builds; Conventions view: useQuery(conventions.list), convention rows with Itinerary and Packing List links.
+- **Tests:** web/src/app/planner/page.test.tsx (Vitest) — tabs, progress summary, deadline section, task labels and build links, Add task link, Conventions tab with convention list and itinerary/packing links).
 
 ### Settings
 
