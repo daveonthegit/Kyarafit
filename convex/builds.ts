@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 const VALID_STATUSES = ["idea", "wip", "ready", "archived"] as const;
 
@@ -165,6 +166,9 @@ export const create = mutation({
     targetDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.imageStorageId) {
+      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+    }
     const id = await ctx.db.insert("builds", args);
     return await ctx.db.get(id);
   },
@@ -189,6 +193,14 @@ export const update = mutation({
     if (!build || build.userId !== userId) {
       throw new Error("Not found or not authorized");
     }
+    const newStorageId = fields.imageStorageId;
+    const oldStorageId = build.imageStorageId;
+    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+    }
+    if (newStorageId !== undefined && newStorageId !== oldStorageId) {
+      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+    }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
       if (val !== undefined) patch[k] = val;
@@ -207,6 +219,21 @@ export const remove = mutation({
     if (!build || build.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
+    await subtractUsageForStorageId(ctx, args.userId, build.imageStorageId);
+    const refImages = await ctx.db
+      .query("buildReferenceImages")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
+      .collect();
+    for (const r of refImages) {
+      await subtractUsageForStorageId(ctx, args.userId, r.imageStorageId);
+    }
+    const processPics = await ctx.db
+      .query("buildProcessPictures")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
+      .collect();
+    for (const p of processPics) {
+      await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
+    }
     // Cascade: delete tasks and item links
     const tasks = await ctx.db
       .query("buildTasks")
@@ -220,6 +247,8 @@ export const remove = mutation({
       .collect();
     for (const l of links) await ctx.db.delete(l._id);
 
+    for (const r of refImages) await ctx.db.delete(r._id);
+    for (const p of processPics) await ctx.db.delete(p._id);
     await ctx.db.delete(args.id);
   },
 });
@@ -234,6 +263,23 @@ export const removeMany = mutation({
     for (const id of args.ids) {
       const build = await ctx.db.get(id);
       if (!build || build.userId !== args.userId) continue;
+      await subtractUsageForStorageId(ctx, args.userId, build.imageStorageId);
+      const refImages = await ctx.db
+        .query("buildReferenceImages")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
+      for (const r of refImages) {
+        await subtractUsageForStorageId(ctx, args.userId, r.imageStorageId);
+        await ctx.db.delete(r._id);
+      }
+      const processPics = await ctx.db
+        .query("buildProcessPictures")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
+      for (const p of processPics) {
+        await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
+        await ctx.db.delete(p._id);
+      }
       const tasks = await ctx.db
         .query("buildTasks")
         .withIndex("by_buildId", (q) => q.eq("buildId", id))

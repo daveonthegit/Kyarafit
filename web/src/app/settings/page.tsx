@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTier } from "@/lib/api/useTier";
+import { formatStorageMb } from "@/lib/utils";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { authClient } from "@/lib/auth/auth-client";
 
-const menuItems = ["Account Details", "Subscription Plan", "Notification Style"];
+const menuItems: { label: string; href: string }[] = [
+  { label: "Account Details", href: "/settings/account" },
+  { label: "Subscription Plan", href: "/settings/subscription" },
+  { label: "Notification Style", href: "/settings/notifications" },
+];
 
 export default function Settings() {
   const router = useRouter();
@@ -15,7 +20,7 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    router.push("/");
+    router.push("/home");
   };
 
   return (
@@ -25,8 +30,8 @@ export default function Settings() {
           <p className="meta-label mb-2 opacity-40">System Preferences</p>
           <h1 className="font-serif text-4xl tracking-tight">Settings</h1>
         </div>
-        <Link href="/" className="p-2 -mr-2" aria-label="Back to home">
-          <span className="material-symbols-outlined font-thin text-2xl">close</span>
+        <Link href="/home" className="p-2 -mr-2" aria-label="Back to home">
+          <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
         </Link>
       </header>
 
@@ -40,7 +45,7 @@ export default function Settings() {
                   Storage
                 </p>
                 <p className="text-sm">
-                  {tier.currentUsageMb} MB / {tier.storageLimitMb} MB
+                  {formatStorageMb(tier.currentUsageMb)} / {formatStorageMb(tier.storageLimitMb)}
                 </p>
               </div>
             )}
@@ -49,7 +54,7 @@ export default function Settings() {
                 <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
                   Storage
                 </p>
-                <p className="text-sm">{tier.currentUsageMb} MB used (unlimited)</p>
+                <p className="text-sm">{formatStorageMb(tier.currentUsageMb)} used (unlimited)</p>
               </div>
             )}
             {isFree && (
@@ -61,14 +66,15 @@ export default function Settings() {
         )}
         <section>
           <h2 className="font-serif text-xl italic mb-6">Profile & Identity</h2>
-          {menuItems.map((item) => (
-            <div
-              key={item}
-              className="flex justify-between items-center py-5 border-b border-gray-100 cursor-pointer"
+          {menuItems.map(({ label, href }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex justify-between items-center py-5 border-b border-gray-100 cursor-pointer hover:bg-gray-50/50 -mx-2 px-2 rounded"
             >
-              <span className="text-[11px] uppercase tracking-widest font-medium">{item}</span>
+              <span className="text-[11px] uppercase tracking-widest font-medium">{label}</span>
               <span className="material-symbols-outlined text-sm opacity-30">chevron_right</span>
-            </div>
+            </Link>
           ))}
         </section>
         <button

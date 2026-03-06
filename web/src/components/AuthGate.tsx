@@ -1,8 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useMutation } from "convex/react";
 import { authClient } from "@/lib/auth/auth-client";
+import { api } from "convex/_generated/api";
 
 const PUBLIC_PATHS = [
   "/",
@@ -16,6 +18,31 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const upsertUser = useMutation(api.users.upsert);
+  const recalculateUsage = useMutation(api.users.recalculateUsage);
+  const lastSyncedId = useRef<string | null>(null);
+
+  // Ensure Convex app user row exists when signed in (needed for storage tracking and getMe).
+  // After upsert, recalc storage so uploads from before the user row existed are counted.
+  useEffect(() => {
+    if (!session?.user) {
+      lastSyncedId.current = null;
+      return;
+    }
+    const id = session.user.id;
+    if (id === lastSyncedId.current) return;
+    lastSyncedId.current = id;
+    upsertUser({
+      externalId: id,
+      email: session.user.email ?? "",
+      name: session.user.name ?? undefined,
+      image: session.user.image ?? undefined,
+    })
+      .then(() => recalculateUsage())
+      .catch(() => {
+        lastSyncedId.current = null;
+      });
+  }, [session?.user, upsertUser, recalculateUsage]);
 
   useEffect(() => {
     if (isPending) return;
