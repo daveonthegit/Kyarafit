@@ -11,7 +11,12 @@ export default async function VerifyEmailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const token = typeof params.token === "string" ? params.token : undefined;
+  const rawToken = typeof params.token === "string" ? params.token : undefined;
+  // Validate token format to avoid header injection / malformed redirects (alphanumeric, max 512 chars)
+  const token =
+    rawToken && /^[a-zA-Z0-9_-]+$/.test(rawToken) && rawToken.length >= 1 && rawToken.length <= 512
+      ? rawToken
+      : undefined;
 
   if (token) {
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;

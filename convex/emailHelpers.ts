@@ -43,7 +43,8 @@ async function sendViaResend(payload: {
     console.error("[email] Resend API error:", res.status, text);
     throw new Error(`Failed to send email: ${res.status} ${text}`);
   }
-  console.log("[email] Sent successfully to", payload.to, "subject:", payload.subject);
+  // Do not log recipient (PII); subject only for operational debugging
+  console.log("[email] Sent successfully, subject:", payload.subject);
 }
 
 function baseLayout(content: string): string {

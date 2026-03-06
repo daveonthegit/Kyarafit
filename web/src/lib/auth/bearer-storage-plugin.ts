@@ -4,6 +4,7 @@ const BEARER_TOKEN_KEY = "better_auth_bearer_token";
 
 /**
  * Persist and send Bearer token for cross-origin auth (e.g. app on localhost, auth on Convex).
+ * Only the session token is stored (opaque to the client); no secrets or refresh tokens.
  * - After sign-in we store the token; this plugin sends it on every auth request.
  * - On sign-out we clear it.
  * Use setStoredBearerToken() after sign-in so session persists across navigation/refetches.
