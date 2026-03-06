@@ -86,6 +86,29 @@
 
 ---
 
+### G. CSP review (2026-03-05)
+
+Content-Security-Policy in `web/next.config.js` was reviewed to ensure it does not block required resources.
+
+**What the app uses and how CSP allows it:**
+
+| Resource | Where used | Directive | Allowlist |
+| -------- | ---------- | --------- | --------- |
+| Google Fonts stylesheet | `layout.tsx` &lt;link&gt;, `globals.css` @import (Inter, Playfair, Bodoni, Montserrat, Material Symbols) | style-src | 'self' 'unsafe-inline' https://fonts.googleapis.com |
+| Font files (woff2) | Loaded by Google Fonts CSS from gstatic | font-src | 'self' data: https://fonts.gstatic.com |
+| Convex data & auth | useQuery/useMutation, fetch(uploadUrl), Better Auth | connect-src | 'self' https: \*.convex.cloud \*.convex.site wss: |
+| Convex storage images, OAuth avatars, Unsplash (demo) | &lt;img src&gt;, ResolvedImage, ImageUpload | img-src | 'self' data: https: blob: |
+| Next.js / React | Inline scripts, eval (dev/build) | script-src | 'self' 'unsafe-inline' 'unsafe-eval' |
+| Embedding | Prevent app from being framed | frame-ancestors | 'self' |
+
+**Fixes applied:** Previously font-src did not allow `https://fonts.gstatic.com` and style-src did not allow `https://fonts.googleapis.com`, which caused Material Symbols (and other Google Fonts) to fail to load and show icon names as text. Both origins are now allowlisted.
+
+**Hardening added:** `object-src 'none'` (blocks plugins/Flash); `base-uri 'self'` (prevents &lt;base&gt; tag injection).
+
+**Not blocked:** Convex, auth, Google Fonts, external images (Convex storage, Google avatars, Unsplash in demo), OAuth (full-page redirects, not fetch). If you add Stripe, analytics, or other third-party scripts/frames, update script-src or frame-src in `web/next.config.js`.
+
+---
+
 ## 2. Risks Accepted / Architecture Notes
 
 - **Rate limiting:** In-memory limiter is per-instance. For multi-instance or serverless, use a shared store (e.g. Redis) or edge rate limiting; document in runbooks.

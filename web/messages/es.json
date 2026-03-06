@@ -1,0 +1,50 @@
+{
+  "Nav": {
+    "home": "Inicio",
+    "builds": "Proyectos",
+    "plan": "Plan",
+    "packing": "Equipaje"
+  },
+  "Common": {
+    "add": "Añadir",
+    "settings": "Ajustes",
+    "addItem": "Añadir elemento"
+  },
+  "Home": {
+    "theLookbook": "El lookbook",
+    "currentFocus": "En foco",
+    "addBuildsToFeature": "Añade proyectos para verlos aquí",
+    "percentComplete": "{progress}% completado",
+    "yourMostRecentBuild": "Tu proyecto más reciente",
+    "createBuildToSee": "Crea un proyecto para verlo aquí",
+    "viewBuild": "Ver proyecto",
+    "viewBuilds": "Ver proyectos",
+    "quickLinks": "Accesos rápidos",
+    "myBuilds": "Mis proyectos",
+    "conventions": "Eventos",
+    "closet": "Armario",
+    "currentFocusAria": "En foco: {name}",
+    "viewBuildsAria": "Ver proyectos"
+  },
+  "Settings": {
+    "title": "Ajustes",
+    "systemPreferences": "Preferencias del sistema",
+    "backupStorage": "Copia de seguridad y almacenamiento",
+    "storage": "Almacenamiento",
+    "storageUsedUnlimited": "{used} usados (ilimitado)",
+    "storageOf": "{used} / {limit}",
+    "upgradeForBackup": "Actualiza para copia de seguridad y exportación.",
+    "profileIdentity": "Perfil e identidad",
+    "accountDetails": "Detalles de la cuenta",
+    "subscriptionPlan": "Plan de suscripción",
+    "notificationStyle": "Estilo de notificaciones",
+    "language": "Idioma",
+    "signOut": "Cerrar sesión",
+    "backToHome": "Volver al inicio"
+  },
+  "Language": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español"
+  }
+}

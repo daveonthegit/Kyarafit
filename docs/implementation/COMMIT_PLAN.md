@@ -67,6 +67,7 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 | 4.2 | Security pass: CORS and trusted origins for prod; npm audit; no secrets in logs                              | Audit and CORS doc updated                                             |
 | 4.3 | Doc pass: remove any remaining Supabase/Go references; README and CONTEXT point to Convex + Better Auth only | Grep for Supabase/Go in docs — only in MIGRATION or "archived" context |
 | 4.4 | Optional: Convex integration tests or E2E for one critical path                                              | Tests run in CI or documented manual                                   |
+| 4.5 | **i18n (Feature 19):** next-intl, LocaleProvider, Settings translated (en/es), language selector, locale in localStorage; locale.test.ts, settings test with LocaleProvider.                                                       | Settings shows English/Español; switch persists; npm run validate       |
 
 ---
 

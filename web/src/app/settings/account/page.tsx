@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { authClient } from "@/lib/auth/auth-client";
 import { WebAppShell } from "@/components/layout/WebAppShell";
-import {
-  AccountDetailsContent,
-  type UserWithUsername,
-} from "./AccountDetailsContent";
+import { AccountDetailsContent, type UserWithUsername } from "./AccountDetailsContent";
 
 export default function SettingsAccountPage() {
   const { data: session, isPending } = authClient.useSession();
@@ -26,15 +23,11 @@ export default function SettingsAccountPage() {
 
       <main className="mt-10">
         {isPending && <p className="text-sm text-kyar-textSecondary">Loading…</p>}
-        {!isPending && !user && (
-          <p className="text-sm text-kyar-textSecondary">Not signed in.</p>
-        )}
+        {!isPending && !user && <p className="text-sm text-kyar-textSecondary">Not signed in.</p>}
         {!isPending && user && (
           <AccountDetailsContent
             user={user}
-            onUpdateUsername={async (username) =>
-              authClient.updateUser({ username })
-            }
+            onUpdateUsername={async (username) => authClient.updateUser({ username })}
           />
         )}
       </main>

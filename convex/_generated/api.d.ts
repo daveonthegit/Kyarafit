@@ -19,6 +19,7 @@ import type * as email from "../email.js";
 import type * as emailHelpers from "../emailHelpers.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as lib_validation from "../lib/validation.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
 import type * as users from "../users.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   emailHelpers: typeof emailHelpers;
   files: typeof files;
   http: typeof http;
+  "lib/validation": typeof lib_validation;
   seed: typeof seed;
   storageUsage: typeof storageUsage;
   users: typeof users;

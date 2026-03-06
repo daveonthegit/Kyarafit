@@ -1,0 +1,50 @@
+{
+  "Nav": {
+    "home": "Home",
+    "builds": "Builds",
+    "plan": "Plan",
+    "packing": "Packing"
+  },
+  "Common": {
+    "add": "Add",
+    "settings": "Settings",
+    "addItem": "Add item"
+  },
+  "Home": {
+    "theLookbook": "The Lookbook",
+    "currentFocus": "Current Focus",
+    "addBuildsToFeature": "Add builds to feature here",
+    "percentComplete": "{progress}% complete",
+    "yourMostRecentBuild": "Your most recent build",
+    "createBuildToSee": "Create a build to see it here",
+    "viewBuild": "View build",
+    "viewBuilds": "View builds",
+    "quickLinks": "Quick links",
+    "myBuilds": "My Builds",
+    "conventions": "Conventions",
+    "closet": "Closet",
+    "currentFocusAria": "Current focus: {name}",
+    "viewBuildsAria": "View builds"
+  },
+  "Settings": {
+    "title": "Settings",
+    "systemPreferences": "System Preferences",
+    "backupStorage": "Backup & storage",
+    "storage": "Storage",
+    "storageUsedUnlimited": "{used} used (unlimited)",
+    "storageOf": "{used} / {limit}",
+    "upgradeForBackup": "Upgrade for backup and export.",
+    "profileIdentity": "Profile & Identity",
+    "accountDetails": "Account Details",
+    "subscriptionPlan": "Subscription Plan",
+    "notificationStyle": "Notification Style",
+    "language": "Language",
+    "signOut": "Sign Out",
+    "backToHome": "Back to home"
+  },
+  "Language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español"
+  }
+}

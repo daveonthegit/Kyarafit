@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { NAV_SECTIONS } from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
 
 /** Mobile bottom nav; uses shared nav config. */
 export function BottomNav({ active, className = "" }: { active?: string; className?: string }) {
   const pathname = usePathname();
+  const t = useTranslations("Nav");
   const currentActive =
     active ?? NAV_SECTIONS.find((n) => pathname?.startsWith(n.path))?.id ?? "home";
 
@@ -27,7 +29,7 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
             >
               <span className="material-symbols-outlined text-2xl font-light">{icon}</span>
               <span className="text-[9px] font-semibold uppercase tracking-widest">
-                {section.label}
+                {t(section.id)}
               </span>
               {isActive && <div className="w-1 h-1 bg-black rounded-full mt-0.5" />}
             </Link>

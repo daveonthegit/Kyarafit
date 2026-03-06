@@ -29,16 +29,19 @@ const nextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-XSS-Protection", value: "1; mode=block" },
-      // CSP: allow self, Convex, and inline/eval required by Next.js
+      // CSP: allow self, Convex, auth, fonts, and inline/eval required by Next.js.
+      // If you add analytics, Stripe, or other third-party scripts/frames, update the relevant directive.
       {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-          "style-src 'self' 'unsafe-inline'",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "connect-src 'self' https: *.convex.cloud *.convex.site wss:",
           "img-src 'self' data: https: blob:",
-          "font-src 'self' data:",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "object-src 'none'",
+          "base-uri 'self'",
           "frame-ancestors 'self'",
         ].join("; "),
       },
