@@ -25,14 +25,14 @@ export function UpgradePrompt({
 }: UpgradePromptProps) {
   return (
     <div
-      className={`rounded border border-kyar-accent/30 bg-kyar-accent/5 p-4 ${className}`}
+      className={`rounded-sm border border-kyar-borderSubtle bg-kyar-muted p-4 ${className}`}
       role="region"
       aria-label="Upgrade prompt"
     >
-      <p className="text-sm text-kyar-text mb-2">{message}</p>
+      <p className="text-sm text-kyar-text mb-3">{message}</p>
       <Link
         href={linkHref}
-        className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded"
+        className="text-[11px] uppercase tracking-widest font-semibold text-kyar-accent hover:underline focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm"
       >
         {linkText}
       </Link>
