@@ -92,14 +92,14 @@ Content-Security-Policy in `web/next.config.js` was reviewed to ensure it does n
 
 **What the app uses and how CSP allows it:**
 
-| Resource | Where used | Directive | Allowlist |
-| -------- | ---------- | --------- | --------- |
-| Google Fonts stylesheet | `layout.tsx` &lt;link&gt;, `globals.css` @import (Inter, Playfair, Bodoni, Montserrat, Material Symbols) | style-src | 'self' 'unsafe-inline' https://fonts.googleapis.com |
-| Font files (woff2) | Loaded by Google Fonts CSS from gstatic | font-src | 'self' data: https://fonts.gstatic.com |
-| Convex data & auth | useQuery/useMutation, fetch(uploadUrl), Better Auth | connect-src | 'self' https: \*.convex.cloud \*.convex.site wss: |
-| Convex storage images, OAuth avatars, Unsplash (demo) | &lt;img src&gt;, ResolvedImage, ImageUpload | img-src | 'self' data: https: blob: |
-| Next.js / React | Inline scripts, eval (dev/build) | script-src | 'self' 'unsafe-inline' 'unsafe-eval' |
-| Embedding | Prevent app from being framed | frame-ancestors | 'self' |
+| Resource                                              | Where used                                                                                               | Directive       | Allowlist                                           |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------- |
+| Google Fonts stylesheet                               | `layout.tsx` &lt;link&gt;, `globals.css` @import (Inter, Playfair, Bodoni, Montserrat, Material Symbols) | style-src       | 'self' 'unsafe-inline' https://fonts.googleapis.com |
+| Font files (woff2)                                    | Loaded by Google Fonts CSS from gstatic                                                                  | font-src        | 'self' data: https://fonts.gstatic.com              |
+| Convex data & auth                                    | useQuery/useMutation, fetch(uploadUrl), Better Auth                                                      | connect-src     | 'self' https: \*.convex.cloud \*.convex.site wss:   |
+| Convex storage images, OAuth avatars, Unsplash (demo) | &lt;img src&gt;, ResolvedImage, ImageUpload                                                              | img-src         | 'self' data: https: blob:                           |
+| Next.js / React                                       | Inline scripts, eval (dev/build)                                                                         | script-src      | 'self' 'unsafe-inline' 'unsafe-eval'                |
+| Embedding                                             | Prevent app from being framed                                                                            | frame-ancestors | 'self'                                              |
 
 **Fixes applied:** Previously font-src did not allow `https://fonts.gstatic.com` and style-src did not allow `https://fonts.googleapis.com`, which caused Material Symbols (and other Google Fonts) to fail to load and show icon names as text. Both origins are now allowlisted.
 
