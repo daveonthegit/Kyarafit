@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { NAV_SECTIONS } from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
 
@@ -10,6 +11,7 @@ import { NAV_ICON_MAP } from "@/lib/navIcons";
  */
 export function WebSidebar() {
   const pathname = usePathname();
+  const t = useTranslations("Nav");
   const active =
     pathname?.startsWith("/builds") ||
     pathname?.startsWith("/build-detail") ||
@@ -43,7 +45,7 @@ export function WebSidebar() {
               }`}
             >
               <span className="material-symbols-outlined text-xl font-light">{icon}</span>
-              <span>{section.label}</span>
+              <span>{t(section.id)}</span>
             </Link>
           );
         })}

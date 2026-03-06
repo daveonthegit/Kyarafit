@@ -1,4 +1,31 @@
 {
+  "Nav": {
+    "home": "Home",
+    "builds": "Builds",
+    "plan": "Plan",
+    "packing": "Packing"
+  },
+  "Common": {
+    "add": "Add",
+    "settings": "Settings",
+    "addItem": "Add item"
+  },
+  "Home": {
+    "theLookbook": "The Lookbook",
+    "currentFocus": "Current Focus",
+    "addBuildsToFeature": "Add builds to feature here",
+    "percentComplete": "{progress}% complete",
+    "yourMostRecentBuild": "Your most recent build",
+    "createBuildToSee": "Create a build to see it here",
+    "viewBuild": "View build",
+    "viewBuilds": "View builds",
+    "quickLinks": "Quick links",
+    "myBuilds": "My Builds",
+    "conventions": "Conventions",
+    "closet": "Closet",
+    "currentFocusAria": "Current focus: {name}",
+    "viewBuildsAria": "View builds"
+  },
   "Settings": {
     "title": "Settings",
     "systemPreferences": "System Preferences",

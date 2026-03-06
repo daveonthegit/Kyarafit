@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
+import { useTranslations } from "next-intl";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 
-const QUICK_LINKS = [
-  { href: "/builds", label: "My Builds", icon: "checkroom" },
-  { href: "/conventions", label: "Conventions", icon: "event" },
-  { href: "/closet", label: "Closet", icon: "inventory_2" },
-] as const;
+const QUICK_LINKS: { href: string; labelKey: "myBuilds" | "conventions" | "closet"; icon: string }[] = [
+  { href: "/builds", labelKey: "myBuilds", icon: "checkroom" },
+  { href: "/conventions", labelKey: "conventions", icon: "event" },
+  { href: "/closet", labelKey: "closet", icon: "inventory_2" },
+];
 
 export default function HomePage() {
   const { userId } = useCurrentUser();
+  const t = useTranslations("Home");
+  const tCommon = useTranslations("Common");
   const recentBuild = useQuery(api.builds.getMostRecentForUser, userId ? { userId } : "skip");
 
   return (
@@ -24,13 +27,13 @@ export default function HomePage() {
         <div>
           <p className="meta-label mb-1 opacity-60">Kyarafit</p>
           <h1 className="font-serif text-3xl sm:text-4xl font-normal italic tracking-tight">
-            The Lookbook
+            {t("theLookbook")}
           </h1>
         </div>
         <Link
           href="/settings"
           className="material-symbols-outlined font-light text-2xl cursor-pointer p-1"
-          aria-label="Settings"
+          aria-label={tCommon("settings")}
         >
           menu
         </Link>
@@ -42,7 +45,9 @@ export default function HomePage() {
           <Link
             href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
             className="block group"
-            aria-label={recentBuild ? `Current focus: ${recentBuild.name}` : "View builds"}
+            aria-label={
+              recentBuild ? t("currentFocusAria", { name: recentBuild.name }) : t("viewBuildsAria")
+            }
           >
             <div className="relative w-full aspect-[4/5] sm:aspect-[3/2] lg:aspect-[21/9] max-h-[70vh] overflow-hidden bg-kyar-muted border border-kyar-borderSubtle rounded-sm">
               {recentBuild?.imageStorageId || recentBuild?.imageUrl ? (
@@ -62,14 +67,14 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
                 <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium opacity-90 mb-1">
-                  Current Focus
+                  {t("currentFocus")}
                 </p>
                 <p className="font-serif text-xl sm:text-2xl lg:text-3xl italic font-normal">
-                  {recentBuild ? recentBuild.name : "Add builds to feature here"}
+                  {recentBuild ? recentBuild.name : t("addBuildsToFeature")}
                 </p>
                 {recentBuild && (
                   <p className="text-xs sm:text-sm mt-1 opacity-90">
-                    {recentBuild.progress}% complete
+                    {t("percentComplete", { progress: recentBuild.progress })}
                     {recentBuild.character ? ` · ${recentBuild.character}` : ""}
                   </p>
                 )}
@@ -78,13 +83,13 @@ export default function HomePage() {
           </Link>
           <div className="mt-4 flex justify-between items-center flex-wrap gap-2">
             <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
-              {recentBuild ? "Your most recent build" : "Create a build to see it here"}
+              {recentBuild ? t("yourMostRecentBuild") : t("createBuildToSee")}
             </p>
             <Link
               href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
               className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors"
             >
-              {recentBuild ? "View build" : "View builds"}
+              {recentBuild ? t("viewBuild") : t("viewBuilds")}
             </Link>
           </div>
         </section>
@@ -92,10 +97,10 @@ export default function HomePage() {
         {/* Quick links */}
         <section className="border-t border-kyar-borderSubtle pt-6 sm:pt-8">
           <h2 className="text-[11px] uppercase tracking-[0.3em] font-semibold text-kyar-meta mb-4 sm:mb-6">
-            Quick links
+            {t("quickLinks")}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            {QUICK_LINKS.map(({ href, label, icon }) => (
+            {QUICK_LINKS.map(({ href, labelKey, icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -104,7 +109,7 @@ export default function HomePage() {
                 <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
                   {icon}
                 </span>
-                <span className="font-serif text-lg sm:text-xl italic">{label}</span>
+                <span className="font-serif text-lg sm:text-xl italic">{t(labelKey)}</span>
               </Link>
             ))}
           </div>

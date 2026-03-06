@@ -48,9 +48,7 @@ export function AccountDetailsContent({ user, onUpdateUsername }: Props) {
   return (
     <section className="space-y-6">
       <div className="py-3 border-b border-gray-100">
-        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
-          Email
-        </p>
+        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">Email</p>
         <p className="text-sm" data-testid="account-email">
           {user.email ?? "—"}
         </p>
