@@ -30,7 +30,7 @@ Last updated: 2026-03-05.
 | Build reference images (16)        | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/schema.ts, convex/buildReferenceImages.ts, web BuildReferenceImagesSection + ImageGallery; build-detail; BuildReferenceImagesSection.test.tsx                            |
 | Build process pictures (17)        | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/schema.ts, convex/buildProcessPictures.ts, web BuildProcessPicturesSection + ImageGallery; build-detail; BuildProcessPicturesSection.test.tsx                            |
 | Build list search/filter/sort (18) | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/builds.ts (list: status, search, sortBy, order), web/src/app/builds/page.tsx, web/src/lib/buildsListArgs.ts, web/src/app/builds/page.test.tsx                            |
-| i18n (19)                          | NOT         | NOT            | NOT               | —           | —     | NOT              | NOT IMPLEMENTED | Competitor parity (optional); see FEATURES_CANONICAL §19                                                                                                                        |
+| i18n (19)                          | N/A         | IMPLEMENTED    | NOT               | —           | —     | PARTIAL (unit)   | IMPLEMENTED     | next-intl; web/messages/en.json, es.json; web/src/lib/i18n/, LocaleProvider; Settings translated + language selector; locale in localStorage; web/src/lib/i18n/locale.test.ts, settings/page.test.tsx |
 
 ---
 
@@ -130,4 +130,7 @@ Last updated: 2026-03-05.
 
 ### i18n (19)
 
-- **Status:** NOT IMPLEMENTED. Optional; see FEATURES_CANONICAL §19.
+- **Status:** IMPLEMENTED (web). No backend or DB; locale is client-only (localStorage).
+- **Web:** next-intl; web/messages/en.json, web/messages/es.json; web/src/lib/i18n/locale.ts (getStoredLocale, setStoredLocale, SUPPORTED_LOCALES); web/src/lib/i18n/context.tsx (LocaleContext, useLocaleContext); web/src/components/LocaleProvider.tsx (NextIntlClientProvider + locale state); root layout wraps with LocaleProvider. Settings page uses useTranslations("Settings") and useTranslations("Language"); language selector (English / Español) in Settings under Profile & Identity; locale persisted in localStorage key kyarafit-locale.
+- **Tests:** web/src/lib/i18n/locale.test.ts (getStoredLocale, setStoredLocale); web/src/app/settings/page.test.tsx (LocaleProvider wrapper, language selector buttons).
+- **Optional (not in this PR):** About/Settings language credits and CTA to request language; mobile i18n; more screens translated.

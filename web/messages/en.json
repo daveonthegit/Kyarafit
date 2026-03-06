@@ -1,0 +1,23 @@
+{
+  "Settings": {
+    "title": "Settings",
+    "systemPreferences": "System Preferences",
+    "backupStorage": "Backup & storage",
+    "storage": "Storage",
+    "storageUsedUnlimited": "{used} used (unlimited)",
+    "storageOf": "{used} / {limit}",
+    "upgradeForBackup": "Upgrade for backup and export.",
+    "profileIdentity": "Profile & Identity",
+    "accountDetails": "Account Details",
+    "subscriptionPlan": "Subscription Plan",
+    "notificationStyle": "Notification Style",
+    "language": "Language",
+    "signOut": "Sign Out",
+    "backToHome": "Back to home"
+  },
+  "Language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español"
+  }
+}

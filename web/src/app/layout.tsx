@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
@@ -28,7 +29,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         suppressHydrationWarning
       >
         <ConvexClientProvider initialToken={token}>
-          <AuthGate>{children}</AuthGate>
+          <LocaleProvider>
+            <AuthGate>{children}</AuthGate>
+          </LocaleProvider>
         </ConvexClientProvider>
       </body>
     </html>
