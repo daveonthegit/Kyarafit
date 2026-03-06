@@ -111,7 +111,7 @@ export default function HomePage() {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group"
+                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
               >
                 <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
                   {icon}
