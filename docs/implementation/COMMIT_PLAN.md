@@ -54,20 +54,20 @@ Breakdown of roadmap into testable, shippable PRs. Prefer vertical slices. Order
 | 3.1 | ~~Convex users: ensure getMe... wire useTier in web~~ — **Done (2026-03-04):** getMe returns tier/currentUsageMb/storageLimitMb; useTier calls useQuery(api.users.getMe) when signed in. | useTier() returns real tier when set in Convex              |
 | 3.2 | Stripe webhook: HTTP route or Convex action; verify signature; on subscription.\* update Convex users (tier, subscriptionStatus, etc.)                                                   | Webhook updates user in Convex; manual test with Stripe CLI |
 | 3.3 | Stripe Checkout/Portal: Convex action returns Checkout and Portal URLs; frontend (settings) opens URL                                                                                    | User can open upgrade and manage links                      |
-| 3.4 | UpgradePrompt component and use in settings (e.g. sync section when canUseCloudSync false)                                                                                               | FREE user sees upgrade message; link works                  |
+| 3.4 | ~~UpgradePrompt component and use in settings~~ — **Done (2026-03-05):** UpgradePrompt + FeatureGate; settings Backup & storage when !canUseCloudSync; link to /settings/subscription.   | FREE user sees upgrade message; link works                  |
 | 3.5 | Feature gates: document which features are gated; add UpgradePrompt to other gated entry points if any                                                                                   | WEB_FEATURE_GATES and UI aligned                            |
 
 ---
 
 ## Phase 4 — Polish
 
-| PR  | Scope                                                                                                        | Verification                                                           |
-| --- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| 4.1 | Add unit tests for shared utils or critical components (e.g. design-system schema, one key component)        | npm run test passes with new tests                                     |
-| 4.2 | Security pass: CORS and trusted origins for prod; npm audit; no secrets in logs                              | Audit and CORS doc updated                                             |
-| 4.3 | Doc pass: remove any remaining Supabase/Go references; README and CONTEXT point to Convex + Better Auth only | Grep for Supabase/Go in docs — only in MIGRATION or "archived" context |
-| 4.4 | Optional: Convex integration tests or E2E for one critical path                                              | Tests run in CI or documented manual                                   |
-| 4.5 | **i18n (Feature 19):** next-intl, LocaleProvider, Settings translated (en/es), language selector, locale in localStorage; locale.test.ts, settings test with LocaleProvider.                                                       | Settings shows English/Español; switch persists; npm run validate       |
+| PR  | Scope                                                                                                                                                                        | Verification                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 4.1 | Add unit tests for shared utils or critical components (e.g. design-system schema, one key component)                                                                        | npm run test passes with new tests                                     |
+| 4.2 | Security pass: CORS and trusted origins for prod; npm audit; no secrets in logs                                                                                              | Audit and CORS doc updated                                             |
+| 4.3 | Doc pass: remove any remaining Supabase/Go references; README and CONTEXT point to Convex + Better Auth only                                                                 | Grep for Supabase/Go in docs — only in MIGRATION or "archived" context |
+| 4.4 | Optional: Convex integration tests or E2E for one critical path                                                                                                              | Tests run in CI or documented manual                                   |
+| 4.5 | **i18n (Feature 19):** next-intl, LocaleProvider, Settings translated (en/es), language selector, locale in localStorage; locale.test.ts, settings test with LocaleProvider. | Settings shows English/Español; switch persists; npm run validate      |
 
 ---
 

@@ -9,7 +9,11 @@ import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 
-const QUICK_LINKS: { href: string; labelKey: "myBuilds" | "conventions" | "closet"; icon: string }[] = [
+const QUICK_LINKS: {
+  href: string;
+  labelKey: "myBuilds" | "conventions" | "closet";
+  icon: string;
+}[] = [
   { href: "/builds", labelKey: "myBuilds", icon: "checkroom" },
   { href: "/conventions", labelKey: "conventions", icon: "event" },
   { href: "/closet", labelKey: "closet", icon: "inventory_2" },

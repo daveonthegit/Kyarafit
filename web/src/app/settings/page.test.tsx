@@ -12,6 +12,7 @@ vi.mock("@/lib/api/useTier", () => ({
     data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 50 },
     isLoading: false,
   }),
+  useFeatureAccess: () => ({ canUseCloudSync: false }),
 }));
 
 vi.mock("@/lib/auth/auth-client", () => ({
@@ -58,5 +59,12 @@ describe("Settings page", () => {
     renderWithLocale(<Settings />);
     expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
+  });
+
+  it("shows upgrade prompt with link to subscription when cloud sync is not available", () => {
+    renderWithLocale(<Settings />);
+    expect(screen.getByText(/upgrade for backup and export/i)).toBeInTheDocument();
+    const planLink = screen.getByRole("link", { name: /view plan/i });
+    expect(planLink).toHaveAttribute("href", "/settings/subscription");
   });
 });
