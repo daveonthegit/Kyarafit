@@ -49,7 +49,7 @@ export default function Settings() {
           <section>
             <h2 className="font-serif text-xl italic mb-6">{t("backupStorage")}</h2>
             {tier.storageLimitMb >= 0 && (
-              <div className="py-3 border-b border-gray-100">
+              <div className="py-3 border-b border-kyar-borderSubtle">
                 <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
                   {t("storage")}
                 </p>
@@ -62,7 +62,7 @@ export default function Settings() {
               </div>
             )}
             {tier.storageLimitMb === -1 && (
-              <div className="py-3 border-b border-gray-100">
+              <div className="py-3 border-b border-kyar-borderSubtle">
                 <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
                   {t("storage")}
                 </p>
@@ -84,7 +84,7 @@ export default function Settings() {
         )}
         <section>
           <h2 className="font-serif text-xl italic mb-6">{t("profileIdentity")}</h2>
-          <div className="py-5 border-b border-gray-100 -mx-2 px-2">
+          <div className="py-5 border-b border-kyar-borderSubtle -mx-2 px-2">
             <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-2">
               {t("language")}
             </p>
@@ -94,10 +94,10 @@ export default function Settings() {
                   key={loc}
                   type="button"
                   onClick={() => setLocale(loc as SupportedLocale)}
-                  className={`px-3 py-1.5 rounded text-sm font-medium ${
+                  className={`px-3 py-1.5 rounded-sm text-sm font-medium ${
                     locale === loc
                       ? "bg-kyar-text text-kyar-bg"
-                      : "bg-gray-100 text-kyar-text hover:bg-gray-200"
+                      : "bg-kyar-muted text-kyar-text hover:bg-kyar-border"
                   }`}
                   aria-pressed={locale === loc}
                 >
@@ -110,7 +110,7 @@ export default function Settings() {
             <Link
               key={href}
               href={href}
-              className="flex justify-between items-center py-5 border-b border-gray-100 cursor-pointer hover:bg-gray-50/50 -mx-2 px-2 rounded"
+              className="flex justify-between items-center py-5 border-b border-kyar-borderSubtle cursor-pointer hover:bg-kyar-muted/50 -mx-2 px-2 rounded-sm"
             >
               <span className="text-[11px] uppercase tracking-widest font-medium">
                 {t(labelKey)}
@@ -121,7 +121,7 @@ export default function Settings() {
         </section>
         <button
           onClick={handleSignOut}
-          className="text-[10px] uppercase tracking-[0.3em] font-semibold text-red-500/80 text-left"
+          className="text-[10px] uppercase tracking-[0.3em] font-semibold text-kyar-danger text-left rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2"
         >
           {t("signOut")}
         </button>

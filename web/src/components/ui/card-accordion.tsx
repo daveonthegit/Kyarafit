@@ -53,7 +53,7 @@ function CardAccordionPanelInner<T extends CardAccordionItem>({
   const content = (
     <div
       className={cn(
-        "relative rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-end",
+        "relative rounded-sm overflow-hidden cursor-pointer flex flex-col justify-end",
         "transition-all duration-700 ease-in-out"
       )}
       style={{
@@ -102,7 +102,7 @@ function CardAccordionPanelInner<T extends CardAccordionItem>({
   const panel = href ? (
     <Link
       href={href}
-      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 focus-visible:ring-offset-2 rounded-2xl"
+      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-sm"
       aria-label={item.title}
     >
       {content}

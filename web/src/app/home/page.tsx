@@ -68,7 +68,10 @@ export default function HomePage() {
                   </span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+                aria-hidden
+              />
               <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
                 <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium opacity-90 mb-1">
                   {t("currentFocus")}
@@ -108,7 +111,7 @@ export default function HomePage() {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group"
+                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
               >
                 <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
                   {icon}

@@ -158,7 +158,7 @@ export default function ConventionsPage() {
             id="convention-filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value as ConventionFilter)}
-            className="w-full sm:w-auto min-w-[140px] text-sm border border-kyar-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
+            className="w-full sm:w-auto min-w-[140px] text-sm border border-kyar-border rounded-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 uppercase tracking-widest"
             aria-label="Filter conventions"
           >
             {FILTER_OPTIONS.map((opt) => (
@@ -176,7 +176,7 @@ export default function ConventionsPage() {
             placeholder="Search by name or location..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 text-sm border border-kyar-border rounded-md focus:outline-none focus:ring-2 focus:ring-black/20"
+            className="flex-1 min-w-0 px-3 py-2 text-sm border border-kyar-border rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
             aria-label="Search conventions by name or location"
           />
           <div className="flex items-center gap-2 flex-wrap">
@@ -190,7 +190,7 @@ export default function ConventionsPage() {
               id="convention-sort"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
-              className="text-sm border border-kyar-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20"
+              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
               aria-label="Sort conventions by"
             >
               {SORT_OPTIONS.map((opt) => (
@@ -202,7 +202,7 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              className="text-sm border border-kyar-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20 flex items-center gap-1"
+              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 flex items-center gap-1"
               aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
               title={order === "asc" ? "Ascending" : "Descending"}
             >
@@ -288,7 +288,7 @@ export default function ConventionsPage() {
               Clear
             </button>
           </div>
-          <ul className="max-h-[50vh] overflow-y-auto border border-kyar-borderSubtle rounded-md divide-y divide-kyar-borderSubtle">
+          <ul className="max-h-[50vh] overflow-y-auto border border-kyar-borderSubtle rounded-sm divide-y divide-kyar-borderSubtle">
             {filteredAndSorted.map((c) => {
               const isSelected = selectedIds.has(c._id);
               return (
@@ -298,7 +298,7 @@ export default function ConventionsPage() {
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c._id)}
-                      className="w-5 h-5 rounded border-2 border-black bg-white focus:ring-2 focus:ring-black/30"
+                      className="w-5 h-5 rounded-sm border-2 border-black bg-white focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
                       aria-label={`Select ${c.name}`}
                     />
                     <div className="min-w-0 flex-1">

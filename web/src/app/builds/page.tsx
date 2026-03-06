@@ -10,6 +10,7 @@ import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   buildListArgs,
   getTabFilterOptions,
@@ -126,7 +127,7 @@ export default function BuildsPage() {
             id="build-status-filter"
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as TabFilter)}
-            className="w-full sm:w-auto min-w-[180px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/20 uppercase tracking-widest"
+            className="w-full sm:w-auto min-w-[180px] text-sm border border-kyar-border rounded-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 uppercase tracking-widest"
             aria-label="Filter builds by status"
           >
             {getTabFilterOptions().map((opt) => (
@@ -146,7 +147,7 @@ export default function BuildsPage() {
             placeholder="Search by name or character..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black/20"
+            className="flex-1 min-w-0 px-3 py-2 text-sm border border-kyar-border rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
             aria-label="Search builds by name or character"
           />
           <div className="flex items-center gap-2 flex-wrap">
@@ -160,7 +161,7 @@ export default function BuildsPage() {
               id="build-sort"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20"
+              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
               aria-label="Sort builds by"
             >
               <option value="name">Name</option>
@@ -171,7 +172,7 @@ export default function BuildsPage() {
             <button
               type="button"
               onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-black/20 flex items-center gap-1"
+              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 flex items-center gap-1"
               aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
               title={order === "asc" ? "Ascending" : "Descending"}
             >
@@ -185,14 +186,24 @@ export default function BuildsPage() {
       </nav>
 
       <main className="flex-1 mt-6">
-        {isLoading && <p className="meta-label">Loading...</p>}
+        {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
         {!isLoading && builds.length === 0 && !hasSearch && (
-          <p className="text-sm text-kyar-meta">
-            No builds yet. Create one to link closet items and use them in convention packing.
-          </p>
+          <EmptyState
+            icon="construction"
+            message="No builds yet."
+            secondary="Create one to link closet items and use them in convention packing."
+            action={
+              <Link
+                href="/builds/new"
+                className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors"
+              >
+                New build
+              </Link>
+            }
+          />
         )}
         {!isLoading && builds.length === 0 && hasSearch && (
-          <p className="text-sm text-kyar-textTertiary">No builds match your search.</p>
+          <EmptyState icon="search_off" message="No builds match your search." />
         )}
         {!isLoading && builds.length > 0 && (
           <div className="flex items-center gap-3 mb-4">
@@ -222,7 +233,7 @@ export default function BuildsPage() {
                   checked={isSelected}
                   onChange={() => toggleSelect(b._id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute top-2 right-2 z-10 w-5 h-5 rounded border-2 border-black bg-white/90 focus:ring-2 focus:ring-black/30"
+                  className="absolute top-2 right-2 z-10 w-5 h-5 rounded-sm border-2 border-black bg-white/90 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
                   aria-label={`Select ${b.name}`}
                 />
                 <Link
@@ -231,7 +242,7 @@ export default function BuildsPage() {
                   aria-label={`View details for ${b.name}`}
                 >
                   <section className={isSelected ? "ring-2 ring-black ring-offset-2" : ""}>
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-gray-50 mb-4">
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-muted mb-4">
                       {b.imageStorageId || b.imageUrl ? (
                         <ResolvedImage
                           imageStorageId={b.imageStorageId}
@@ -259,7 +270,7 @@ export default function BuildsPage() {
                           <span>Construction Progress</span>
                           <span>{progress}%</span>
                         </div>
-                        <div className="h-[1px] bg-gray-200 w-full">
+                        <div className="h-[1px] bg-kyar-border w-full">
                           <div
                             className="h-full bg-black transition-all"
                             style={{ width: `${progress}%` }}
@@ -274,7 +285,7 @@ export default function BuildsPage() {
                               {formatCents(b.totalCostCents ?? 0)} / {formatCents(b.budgetCents)}
                             </span>
                           </div>
-                          <div className="h-[1px] bg-gray-200 w-full">
+                          <div className="h-[1px] bg-kyar-border w-full">
                             <div
                               className="h-full bg-black transition-all"
                               style={{
@@ -286,7 +297,7 @@ export default function BuildsPage() {
                             />
                           </div>
                           {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
-                            <p className="text-[9px] text-red-600">
+                            <p className="text-[9px] text-kyar-danger">
                               Over by {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
                             </p>
                           )}
@@ -312,7 +323,7 @@ export default function BuildsPage() {
       </main>
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-gray-200 shadow-lg flex items-center justify-between gap-4 flex-wrap">
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-kyar-border shadow-soft flex items-center justify-between gap-4 flex-wrap">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="flex gap-2 flex-wrap">
             {STATUS_OPTIONS.map(({ value, label }) => (
@@ -361,7 +372,7 @@ export default function BuildsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-2 border border-black text-sm font-medium"
+              className="flex-1 py-2 border border-black text-sm font-medium rounded-sm"
             >
               Cancel
             </button>
@@ -369,7 +380,7 @@ export default function BuildsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium rounded-sm disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>

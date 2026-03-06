@@ -182,9 +182,9 @@ export default function Planner() {
                       <p className="text-lg font-medium">
                         {checkedCount} of {totalCount} tasks
                       </p>
-                      <div className="mt-2 h-2 w-full max-w-xs bg-kyar-muted rounded overflow-hidden">
+                      <div className="mt-2 h-2 w-full max-w-xs bg-kyar-muted rounded-sm overflow-hidden">
                         <div
-                          className="h-full bg-kyar-primary rounded transition-[width]"
+                          className="h-full bg-kyar-accent rounded-sm transition-[width]"
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
@@ -241,7 +241,7 @@ export default function Planner() {
               </>
             ) : (
               conventions.map((con) => (
-                <div key={con._id} className="border-b border-gray-100 pb-6 group">
+                <div key={con._id} className="border-b border-kyar-borderSubtle pb-6 group">
                   <div className="flex justify-between items-end mb-2">
                     <Link
                       href={`/conventions/${con._id}`}
@@ -313,7 +313,7 @@ function PlannerTaskRow({
         checked={task.checked}
         onChange={() => onToggle(task._id, !task.checked)}
         disabled={!userId}
-        className="mt-1 rounded border-kyar-borderSubtle"
+        className="mt-1 rounded-sm border-kyar-border w-4 h-4 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
         aria-label={`Mark "${task.label}" as ${task.checked ? "incomplete" : "complete"}`}
       />
       <div className="flex-1 min-w-0">
