@@ -25,6 +25,64 @@ export const get = query({
   },
 });
 
+/** Returns the soonest convention (name + startDate) that has this build in a day plan, or null. For hero "Planned for X". */
+export const getEventForBuild = query({
+  args: {
+    buildId: v.id("builds"),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const conventions = await ctx.db
+      .query("conventions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const notArchived = conventions.filter((c) => c.archived !== true);
+    const withPlans: Array<{ name: string; startDate: string }> = [];
+    for (const c of notArchived) {
+      const plans = await ctx.db
+        .query("conventionDayPlans")
+        .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
+        .collect();
+      const hasBuild = plans.some((p) => p.buildId === args.buildId);
+      if (hasBuild) withPlans.push({ name: c.name, startDate: c.startDate });
+    }
+    if (withPlans.length === 0) return null;
+    withPlans.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return withPlans[0];
+  },
+});
+
+/** Returns upcoming conventions (endDate >= today, not archived) with outfit count, sorted by startDate. */
+export const listUpcomingWithPlanCounts = query({
+  args: {
+    userId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const conventions = await ctx.db
+      .query("conventions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const upcoming = conventions
+      .filter((c) => c.archived !== true && c.endDate >= today)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const limited = args.limit ? upcoming.slice(0, args.limit) : upcoming;
+    const result = await Promise.all(
+      limited.map(async (c) => {
+        const plans = await ctx.db
+          .query("conventionDayPlans")
+          .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
+          .collect();
+        const outfitCount = new Set(plans.filter((p) => p.buildId != null).map((p) => p.buildId))
+          .size;
+        return { convention: c, outfitCount };
+      })
+    );
+    return result;
+  },
+});
+
 export const create = mutation({
   args: {
     userId: v.string(),
@@ -262,7 +320,8 @@ export const updatePackingItem = mutation({
       if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
       else if (k === "date")
         patch.date = val === "" ? undefined : validateDateString(val as string, "Date");
-      else if (k === "notes") patch.notes = sanitizeOptional(val as string, MAX_LENGTH.notes, "Notes");
+      else if (k === "notes")
+        patch.notes = sanitizeOptional(val as string, MAX_LENGTH.notes, "Notes");
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
@@ -391,8 +450,7 @@ export const listWithDetails = query({
                 .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
                 .collect();
               const packTask = tasks.find(
-                (t) =>
-                  t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
+                (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
               );
               return { ...item, checked: packTask ? packTask.checked : item.checked };
             }

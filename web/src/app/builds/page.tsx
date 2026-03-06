@@ -388,7 +388,7 @@ export default function BuildsPage() {
         </div>
       </AdaptiveModal>
 
-      <FloatingAdd href="/builds/new" />
+      <FloatingAdd />
     </WebAppShell>
   );
 }

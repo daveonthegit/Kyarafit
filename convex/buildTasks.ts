@@ -102,8 +102,7 @@ export const listForPlanner = query({
     for (const task of buildTasksOnly) {
       const build = await ctx.db.get(task.buildId);
       if (!build || build.userId !== args.userId) continue;
-      const dueDate =
-        task.dueDate ?? buildIdToDate.get(task.buildId);
+      const dueDate = task.dueDate ?? buildIdToDate.get(task.buildId);
       result.push({
         _id: task._id,
         label: task.label,
@@ -153,9 +152,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
-    const dueDate = args.dueDate
-      ? validateDateString(args.dueDate, "Due date")
-      : undefined;
+    const dueDate = args.dueDate ? validateDateString(args.dueDate, "Due date") : undefined;
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
       if (!build || build.userId !== args.userId) {

@@ -149,7 +149,7 @@ export default function ConventionDetailScreen() {
         await regenerateLocal(id);
       }
       router.push({
-        pathname: "/(tabs)/packing",
+        pathname: "/packing",
         params: { conventionId: id },
       });
     } finally {
@@ -222,7 +222,7 @@ export default function ConventionDetailScreen() {
           style={styles.secondaryBtn}
           onPress={() =>
             router.push({
-              pathname: "/(tabs)/packing",
+              pathname: "/packing",
               params: { conventionId: id },
             })
           }

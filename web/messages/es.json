@@ -1,30 +1,57 @@
 {
   "Nav": {
     "home": "Inicio",
-    "builds": "Proyectos",
-    "todo": "Tareas",
-    "events": "Eventos"
+    "builds": "Outfits",
+    "closet": "Armario",
+    "events": "Eventos",
+    "planner": "Planificador",
+    "settings": "Ajustes",
+    "profile": "Perfil"
   },
   "Common": {
     "add": "Añadir",
     "settings": "Ajustes",
-    "addItem": "Añadir elemento"
+    "addItem": "Añadir elemento",
+    "addOutfit": "Añadir outfit",
+    "addEvent": "Añadir evento"
   },
   "Home": {
     "theLookbook": "El lookbook",
     "currentFocus": "En foco",
     "addBuildsToFeature": "Añade proyectos para verlos aquí",
     "percentComplete": "{progress}% completado",
+    "itemsComplete": "{checked} / {total} elementos completados",
     "yourMostRecentBuild": "Tu proyecto más reciente",
     "createBuildToSee": "Crea un proyecto para verlo aquí",
     "viewBuild": "Ver proyecto",
     "viewBuilds": "Ver proyectos",
+    "continueEditing": "Seguir editando",
+    "plannedFor": "Planificado para {name}",
     "quickLinks": "Accesos rápidos",
+    "quickActions": "Acciones rápidas",
+    "addOutfit": "Añadir outfit",
+    "addClothingItem": "Añadir prenda",
+    "planNewCosplay": "Planificar nuevo cosplay",
     "myBuilds": "Mis proyectos",
     "conventions": "Eventos",
     "closet": "Armario",
     "currentFocusAria": "En foco: {name}",
-    "viewBuildsAria": "Ver proyectos"
+    "viewBuildsAria": "Ver proyectos",
+    "upcomingEvents": "Próximos eventos",
+    "daysLeft": "En {count} días",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "outfitsPlanned": "{count} outfit(s)",
+    "viewAllEvents": "Ver todos los eventos",
+    "currentProjects": "Proyectos de cosplay en curso",
+    "viewAllBuilds": "Ver todos los proyectos",
+    "missingItems": "Elementos pendientes",
+    "noMissingItems": "No hay elementos pendientes.",
+    "seeAllTasks": "Ver todas las tareas",
+    "closetOverview": "Resumen del armario",
+    "totalItems": "{count} elementos",
+    "addNewItem": "Añadir elemento",
+    "viewAll": "Ver todo"
   },
   "Settings": {
     "title": "Ajustes",

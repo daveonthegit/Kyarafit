@@ -40,7 +40,15 @@ export default function TabLayout() {
         name="builds"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon="layers-outline" label="Builds" />
+            <TabIcon focused={focused} icon="layers-outline" label="Outfits" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="closet"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} icon="shirt-outline" label="Closet" />
           ),
         }}
       />
@@ -48,15 +56,15 @@ export default function TabLayout() {
         name="plan"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon="calendar-outline" label="Plan" />
+            <TabIcon focused={focused} icon="calendar-outline" label="Events" />
           ),
         }}
       />
       <Tabs.Screen
-        name="packing"
+        name="profile"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon="cube-outline" label="Packing" />
+            <TabIcon focused={focused} icon="person-outline" label="Profile" />
           ),
         }}
       />

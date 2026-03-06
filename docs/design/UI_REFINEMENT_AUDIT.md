@@ -41,12 +41,16 @@
 
 - **EmptyState:** New reusable component (`web/src/components/ui/EmptyState.tsx`) with optional icon, message, and CTA. Used on builds and closet empty states for consistent hierarchy and spacing.
 
-### 3.3 Magic UI usage
+### 3.3 Magic UI usage (redesigned to fit design system)
 
-- **blur-fade:** Considered for list/section entrances. Deferred to keep the PR focused on token alignment and to avoid adding motion dependency; can be introduced later with design-system motion rules (subtle opacity/translation only).
-- **magic-card (spotlight):** Not added. Spotlight effect would require theming to black/white and sharp corners; current card treatment (borders, hover opacity) already matches the spec.
+- **BlurFade** (`web/src/components/ui/blur-fade.tsx`): Magic UI blur-fade entrance, **redesigned** for Kyarafit (shorter duration, subtle blur, `prefers-reduced-motion` support). Available for use elsewhere; **not used on home quick links** (per preference).
+- **MagicCard** (`web/src/components/ui/magic-card.tsx`): Magic UI magic-card spotlight, **redesigned** for Kyarafit:
+  - **Black-only** spotlight: `gradientFrom`/`gradientTo`/`gradientColor` are black/transparent only (no purple/pink). Border glow and inner hover glow use black at low opacity.
+  - Default `rounded-sm` and `border-kyar-borderSubtle` to match component spec.
+  - `gradientOpacity` set to 0.12 so the inner glow is subtle, not neon.
+  - **Used on:** Home quick link cards (Builds, Conventions, Closet) so hover reveals a soft black edge highlight.
 
-All improvements stay within the design system: kyar colors, spacing, typography, radius, and shadow. No new accent colors, gradients in chrome, or decorative motion.
+All improvements stay within the design system: kyar colors, spacing, typography, radius, and shadow. No new accent colors, no gradients in chrome (MagicCard uses black only), and motion is subtle.
 
 ## 4. Why these choices fit the design system
 
@@ -55,11 +59,12 @@ All improvements stay within the design system: kyar colors, spacing, typography
 - **Status without color chips:** Closet status is communicated with opacity and weight, not green/amber, respecting "no colorful chips or badges."
 - **Minimal overlay:** Landing hero overlay was reduced so imagery stays dominant and the overlay stays editorial.
 - **EmptyState:** Improves clarity and reuse without introducing new visual language; uses existing typography and spacing.
+- **BlurFade / MagicCard:** Magic UI components are restyled so they support the product identity: BlurFade with shorter, subtler animation and reduced-motion support; MagicCard with black-only spotlight and sharp corners (no gradients, no neon).
 
 ## 5. Screens/components updated
 
 - `web/src/app/page.tsx` – Landing: tokens, hero overlay
-- `web/src/app/home/page.tsx` – (no change; already token-aligned)
+- `web/src/app/home/page.tsx` – Quick links: MagicCard wrapper per link (no BlurFade)
 - `web/src/app/builds/page.tsx` – Forms, cards, empty state, selection bar, modal
 - `web/src/app/closet/page.tsx` – Forms, cards, status, empty state, selection bar, panels
 - `web/src/app/settings/page.tsx` – Sections, language switcher, sign out
@@ -69,14 +74,17 @@ All improvements stay within the design system: kyar colors, spacing, typography
 - `web/src/components/ui/card-accordion.tsx` – Panel radius
 - `web/src/components/ui/EmptyState.tsx` – New component
 - `web/src/app/conventions/page.tsx` – Form controls (border, radius, focus ring), modal checkboxes
+- `web/src/components/ui/blur-fade.tsx` – New (Magic UI BlurFade, redesigned)
+- `web/src/components/ui/magic-card.tsx` – New (Magic UI MagicCard, redesigned)
 
 ## 6. Magic UI elements introduced
 
-- None in this pass. The audit prioritized token and pattern consistency. Magic UI (e.g. blur-fade for entrances) can be added in a follow-up with design-system–aligned motion.
+- **BlurFade:** Scroll-triggered blur-fade entrance; tuned for short duration, subtle blur, and `prefers-reduced-motion`. Available; not used on home quick links.
+- **MagicCard:** Mouse-following border and inner glow; redesigned to black-only (no purple/pink), `rounded-sm`, low-opacity glow. Used on home quick link cards.
 
 ## 7. Remaining UI debt / future opportunities
 
 - **Underline inputs in filter bars:** Builds/closet/conventions use full-border inputs for search/filter. Design spec prefers underline-only for primary inputs; filter bars could later use UnderlineInput or a minimal variant for consistency.
-- **Blur-fade entrances:** Subtle blur-fade on home quick links or list sections would align with "Animations are subtle (opacity/translation)" if motion is added.
-- **Reduced motion:** When introducing animation, respect `prefers-reduced-motion` per accessibility guidelines.
+- **Blur-fade:** Implemented on home quick links with reduced-motion support.
+- **Reduced motion:** BlurFade respects `prefers-reduced-motion`; MagicCard motion is cursor-follow only (no auto-motion).
 - **Mobile:** Same token and component fixes apply on mobile; RN uses `@kyarafit/design-system/rn` and was not modified in this branch.

@@ -120,9 +120,7 @@ export default function ConventionPackingPage() {
                     if (!userId) return;
                     updateItem({ id: item._id, userId, checked: !item.checked });
                   }}
-                  onUpdate={(patch) =>
-                    userId && updateItem({ id: item._id, userId, ...patch })
-                  }
+                  onUpdate={(patch) => userId && updateItem({ id: item._id, userId, ...patch })}
                   onDelete={
                     item.closetItemId === undefined
                       ? () => userId && deleteItem({ id: item._id, userId })
@@ -160,9 +158,7 @@ export default function ConventionPackingPage() {
                       if (!userId) return;
                       updateItem({ id: item._id, userId, checked: !item.checked });
                     }}
-                    onUpdate={(patch) =>
-                      userId && updateItem({ id: item._id, userId, ...patch })
-                    }
+                    onUpdate={(patch) => userId && updateItem({ id: item._id, userId, ...patch })}
                     onDelete={
                       item.closetItemId === undefined
                         ? () => userId && deleteItem({ id: item._id, userId })

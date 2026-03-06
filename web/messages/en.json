@@ -1,30 +1,57 @@
 {
   "Nav": {
     "home": "Home",
-    "builds": "Builds",
-    "todo": "Todo",
-    "events": "Events"
+    "builds": "Outfits",
+    "closet": "Closet",
+    "events": "Events",
+    "planner": "Planner",
+    "settings": "Settings",
+    "profile": "Profile"
   },
   "Common": {
     "add": "Add",
     "settings": "Settings",
-    "addItem": "Add item"
+    "addItem": "Add item",
+    "addOutfit": "Add outfit",
+    "addEvent": "Add event"
   },
   "Home": {
     "theLookbook": "The Lookbook",
     "currentFocus": "Current Focus",
     "addBuildsToFeature": "Add builds to feature here",
     "percentComplete": "{progress}% complete",
+    "itemsComplete": "{checked} / {total} items completed",
     "yourMostRecentBuild": "Your most recent build",
     "createBuildToSee": "Create a build to see it here",
     "viewBuild": "View build",
     "viewBuilds": "View builds",
+    "continueEditing": "Continue editing",
+    "plannedFor": "Planned for {name}",
     "quickLinks": "Quick links",
+    "quickActions": "Quick actions",
+    "addOutfit": "Add Outfit",
+    "addClothingItem": "Add Clothing Item",
+    "planNewCosplay": "Plan New Cosplay",
     "myBuilds": "My Builds",
     "conventions": "Conventions",
     "closet": "Closet",
     "currentFocusAria": "Current focus: {name}",
-    "viewBuildsAria": "View builds"
+    "viewBuildsAria": "View builds",
+    "upcomingEvents": "Upcoming events",
+    "daysLeft": "In {count} days",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "outfitsPlanned": "{count} outfit(s)",
+    "viewAllEvents": "View all events",
+    "currentProjects": "Current cosplay projects",
+    "viewAllBuilds": "View all builds",
+    "missingItems": "Missing items",
+    "noMissingItems": "No missing items right now.",
+    "seeAllTasks": "See all tasks",
+    "closetOverview": "Closet overview",
+    "totalItems": "{count} items",
+    "addNewItem": "Add new item",
+    "viewAll": "View all"
   },
   "Settings": {
     "title": "Settings",
