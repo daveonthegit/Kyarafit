@@ -11,7 +11,7 @@ vi.mock("@/lib/auth/auth-client", () => ({
 }));
 
 vi.mock("@/components/layout/WebAppShell", () => ({
-  WebAppShell: ({ children }: { children: unknown }) => <div>{children}</div>,
+  WebAppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 describe("Settings Account page", () => {
