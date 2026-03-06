@@ -1,14 +1,19 @@
 {
   "Nav": {
     "home": "Home",
-    "builds": "Builds",
-    "todo": "Todo",
-    "events": "Events"
+    "builds": "Outfits",
+    "closet": "Closet",
+    "events": "Events",
+    "planner": "Planner",
+    "settings": "Settings",
+    "profile": "Profile"
   },
   "Common": {
     "add": "Add",
     "settings": "Settings",
-    "addItem": "Add item"
+    "addItem": "Add item",
+    "addOutfit": "Add outfit",
+    "addEvent": "Add event"
   },
   "Home": {
     "theLookbook": "The Lookbook",

@@ -284,8 +284,7 @@ function TaskRow({
     task.dueDate ?? new Date().toISOString().slice(0, 10)
   );
   useEffect(() => {
-    if (isEditingDueDate)
-      setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
+    if (isEditingDueDate) setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
   }, [isEditingDueDate, task.dueDate]);
 
   return (
@@ -368,7 +367,11 @@ function TaskRow({
               Clear
             </button>
           )}
-          <button type="button" onClick={onCancelDueDateEdit} className="text-xs text-kyar-textTertiary">
+          <button
+            type="button"
+            onClick={onCancelDueDateEdit}
+            className="text-xs text-kyar-textTertiary"
+          >
             Cancel
           </button>
         </div>
@@ -396,8 +399,7 @@ function DraggableTaskRow({
     task.dueDate ?? new Date().toISOString().slice(0, 10)
   );
   useEffect(() => {
-    if (isEditingDueDate)
-      setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
+    if (isEditingDueDate) setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
   }, [isEditingDueDate, task.dueDate]);
 
   return (

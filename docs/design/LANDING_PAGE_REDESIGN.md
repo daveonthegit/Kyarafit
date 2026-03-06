@@ -70,7 +70,7 @@
 
 ## 3. Design reasoning
 
-- **Design system as source of truth:** All spacing, color, typography, and radius come from `design_tokens.json` and the component spec (serif for display, sans-wide for labels, kyar.* colors, radius.sm, no gradients in chrome).
+- **Design system as source of truth:** All spacing, color, typography, and radius come from `design_tokens.json` and the component spec (serif for display, sans-wide for labels, kyar.\* colors, radius.sm, no gradients in chrome).
 - **Hero-first messaging:** Headline and CTA appear at the top so the product and next step are obvious quickly.
 - **Sections in order:** Problem → How it works → Features → Preview → CTA follows a conventional landing flow and supports conversion.
 - **Reuse:** Button component for CTAs; existing typography classes; optional MagicCard only where it adds clarity without changing identity.

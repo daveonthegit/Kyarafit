@@ -345,7 +345,8 @@ export default function ConventionDetailPage() {
                                   }
                                   onDelete={
                                     item.closetItemId === undefined
-                                      ? () => userId && deletePackingItemMut({ id: item._id, userId })
+                                      ? () =>
+                                          userId && deletePackingItemMut({ id: item._id, userId })
                                       : undefined
                                   }
                                 />
@@ -391,8 +392,7 @@ export default function ConventionDetailPage() {
                                     onDelete={
                                       item.closetItemId === undefined
                                         ? () =>
-                                            userId &&
-                                            deletePackingItemMut({ id: item._id, userId })
+                                            userId && deletePackingItemMut({ id: item._id, userId })
                                         : undefined
                                     }
                                   />

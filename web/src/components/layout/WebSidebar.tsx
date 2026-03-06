@@ -3,27 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { NAV_SECTIONS } from "@kyarafit/design-system";
+import {
+  getActiveSection,
+  NAV_SECTIONS_PRIMARY,
+  NAV_SECTION_SETTINGS,
+} from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
 
 /**
- * Web-only: sidebar nav for desktop/tablet (lg+). Renders from shared nav config.
+ * Web-only: sidebar nav for desktop/tablet (lg+). Primary nav, divider, then Settings.
  */
 export function WebSidebar() {
   const pathname = usePathname();
   const t = useTranslations("Nav");
-  const active =
-    pathname?.startsWith("/builds") ||
-    pathname?.startsWith("/build-detail") ||
-    pathname?.startsWith("/closet")
-      ? "builds"
-      : pathname?.startsWith("/conventions") || pathname?.startsWith("/itinerary")
-        ? "events"
-        : pathname?.startsWith("/planner") || pathname?.startsWith("/packing")
-          ? "todo"
-          : pathname?.startsWith("/home")
-            ? "home"
-            : "home";
+  const active = getActiveSection(pathname ?? null);
 
   return (
     <aside
@@ -31,7 +24,7 @@ export function WebSidebar() {
       aria-label="Main navigation"
     >
       <nav className="flex flex-col gap-1 p-4">
-        {NAV_SECTIONS.map((section) => {
+        {NAV_SECTIONS_PRIMARY.map((section) => {
           const isActive = active === section.id;
           const icon = NAV_ICON_MAP[section.id] ?? "circle";
           return (
@@ -47,6 +40,23 @@ export function WebSidebar() {
             </Link>
           );
         })}
+        <div className="my-2 border-t border-kyar-borderSubtle" aria-hidden />
+        {(() => {
+          const section = NAV_SECTION_SETTINGS;
+          const isActive = active === section.id;
+          const icon = NAV_ICON_MAP[section.id] ?? "circle";
+          return (
+            <Link
+              href={section.path}
+              className={`flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive ? "bg-black text-white" : "text-kyar-text hover:bg-kyar-borderSubtle"
+              }`}
+            >
+              <span className="material-symbols-outlined text-xl font-light">{icon}</span>
+              <span>{t(section.id)}</span>
+            </Link>
+          );
+        })()}
       </nav>
     </aside>
   );

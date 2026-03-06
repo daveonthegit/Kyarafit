@@ -1,14 +1,19 @@
 {
   "Nav": {
     "home": "Inicio",
-    "builds": "Proyectos",
-    "todo": "Tareas",
-    "events": "Eventos"
+    "builds": "Outfits",
+    "closet": "Armario",
+    "events": "Eventos",
+    "planner": "Planificador",
+    "settings": "Ajustes",
+    "profile": "Perfil"
   },
   "Common": {
     "add": "Añadir",
     "settings": "Ajustes",
-    "addItem": "Añadir elemento"
+    "addItem": "Añadir elemento",
+    "addOutfit": "Añadir outfit",
+    "addEvent": "Añadir evento"
   },
   "Home": {
     "theLookbook": "El lookbook",

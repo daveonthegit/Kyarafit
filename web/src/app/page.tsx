@@ -133,10 +133,26 @@ export default function LandingPage() {
           </p>
           <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 list-none p-0 m-0 counter-reset">
             {[
-              { step: "1", title: "Catalog", desc: "Add pieces to your digital closet. Cost, category, status." },
-              { step: "2", title: "Build", desc: "Create builds per character or costume. Link items and track tasks." },
-              { step: "3", title: "Plan", desc: "Add events (conventions, shoots). Attach builds and day plans." },
-              { step: "4", title: "Pack", desc: "Generate packing lists per event. One place for outfits and gear." },
+              {
+                step: "1",
+                title: "Catalog",
+                desc: "Add pieces to your digital closet. Cost, category, status.",
+              },
+              {
+                step: "2",
+                title: "Build",
+                desc: "Create builds per character or costume. Link items and track tasks.",
+              },
+              {
+                step: "3",
+                title: "Plan",
+                desc: "Add events (conventions, shoots). Attach builds and day plans.",
+              },
+              {
+                step: "4",
+                title: "Pack",
+                desc: "Generate packing lists per event. One place for outfits and gear.",
+              },
             ].map((item) => (
               <li
                 key={item.step}

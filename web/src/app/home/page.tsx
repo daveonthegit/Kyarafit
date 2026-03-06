@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { CardAccordion, type CardAccordionItem } from "@/components/ui/card-accordion";
 import { MagicCard } from "@/components/ui/magic-card";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -46,10 +47,26 @@ export default function HomePage() {
   const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip") ?? [];
   const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
 
-  const otherBuilds = useMemo(() => {
-    if (!recentBuild) return builds.slice(0, 6);
-    return builds.filter((b) => b._id !== recentBuild._id).slice(0, 6);
+  const recentProjectsForAccordion = useMemo(() => {
+    const excluded = recentBuild ? builds.filter((b) => b._id !== recentBuild._id) : [...builds];
+    const withCreation = excluded as Array<(typeof builds)[number] & { _creationTime?: number }>;
+    const sorted = [...withCreation].sort(
+      (a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0)
+    );
+    return sorted.slice(0, 3);
   }, [builds, recentBuild]);
+
+  const accordionItems: CardAccordionItem[] = useMemo(
+    () =>
+      recentProjectsForAccordion.map((build) => ({
+        id: build._id,
+        title: build.name,
+        subtitle: `${build.tasksChecked} / ${build.tasksTotal} items`,
+        imageUrl: build.imageUrl ?? null,
+        imageStorageId: build.imageStorageId ?? null,
+      })),
+    [recentProjectsForAccordion]
+  );
 
   const missingTasks = useMemo(
     () => plannerTasks.filter((task) => !task.checked).slice(0, 8),
@@ -179,17 +196,16 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {QUICK_ACTIONS.map(({ href, labelKey, icon }) => (
-              <MagicCard key={labelKey}>
-                <Link
-                  href={href}
-                  className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-sm"
-                >
-                  <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
-                    {icon}
-                  </span>
-                  <span className="font-serif text-lg sm:text-xl italic">{t(labelKey)}</span>
-                </Link>
-              </MagicCard>
+              <Link
+                key={labelKey}
+                href={href}
+                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              >
+                <span className="material-symbols-outlined text-2xl sm:text-3xl text-kyar-textTertiary group-hover:text-black">
+                  {icon}
+                </span>
+                <span className="font-serif text-lg sm:text-xl italic">{t(labelKey)}</span>
+              </Link>
             ))}
           </div>
         </section>
@@ -211,21 +227,48 @@ export default function HomePage() {
                       : days === 1
                         ? t("tomorrow")
                         : t("daysLeft", { count: days });
+                  const hasImage = convention.imageStorageId != null || convention.imageUrl != null;
                   return (
                     <li key={convention._id}>
                       <Link
                         href={`/conventions/${convention._id}`}
-                        className="block p-4 border border-kyar-borderSubtle rounded-sm hover:border-black hover:bg-kyar-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                        className="block border border-kyar-borderSubtle rounded-sm overflow-hidden hover:border-black hover:bg-kyar-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                       >
-                        <p className="font-serif text-lg italic">{convention.name}</p>
-                        <p className="text-xs text-kyar-meta mt-1">
-                          {convention.startDate === convention.endDate
-                            ? convention.startDate
-                            : `${convention.startDate} – ${convention.endDate}`}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
-                          {dayLabel} · {t("outfitsPlanned", { count: outfitCount })}
-                        </p>
+                        {hasImage ? (
+                          <>
+                            <div className="aspect-[21/9] w-full bg-kyar-muted relative">
+                              <ResolvedImage
+                                imageStorageId={convention.imageStorageId ?? undefined}
+                                imageUrl={convention.imageUrl ?? undefined}
+                                alt={convention.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="p-4">
+                              <p className="font-serif text-lg italic">{convention.name}</p>
+                              <p className="text-xs text-kyar-meta mt-1">
+                                {convention.startDate === convention.endDate
+                                  ? convention.startDate
+                                  : `${convention.startDate} – ${convention.endDate}`}
+                              </p>
+                              <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
+                                {dayLabel} · {t("outfitsPlanned", { count: outfitCount })}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="p-4">
+                            <p className="font-serif text-lg italic">{convention.name}</p>
+                            <p className="text-xs text-kyar-meta mt-1">
+                              {convention.startDate === convention.endDate
+                                ? convention.startDate
+                                : `${convention.startDate} – ${convention.endDate}`}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
+                              {dayLabel} · {t("outfitsPlanned", { count: outfitCount })}
+                            </p>
+                          </div>
+                        )}
                       </Link>
                     </li>
                   );
@@ -248,74 +291,35 @@ export default function HomePage() {
             )}
           </section>
 
-          {/* Current cosplay projects */}
+          {/* Current cosplay projects — accordion of 3 most recent builds */}
           <section>
             <h2 className="text-[11px] uppercase tracking-[0.3em] font-semibold text-kyar-meta mb-4 sm:mb-6">
               {t("currentProjects")}
             </h2>
-            {otherBuilds.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {otherBuilds.map((build) => {
-                  const progress =
-                    build.tasksTotal > 0
-                      ? Math.round((100 * build.tasksChecked) / build.tasksTotal)
-                      : 0;
-                  return (
-                    <Link
-                      key={build._id}
-                      href={`/build-detail?id=${build._id}`}
-                      className="block border border-kyar-borderSubtle rounded-sm overflow-hidden hover:border-black hover:bg-kyar-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
-                    >
-                      <div className="aspect-[4/3] bg-kyar-muted relative">
-                        {build.imageStorageId || build.imageUrl ? (
-                          <ResolvedImage
-                            imageStorageId={build.imageStorageId}
-                            imageUrl={build.imageUrl}
-                            alt={build.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="material-symbols-outlined absolute inset-0 m-auto text-4xl text-kyar-textTertiary">
-                            photo_library
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <p className="font-serif text-base italic truncate">{build.name}</p>
-                        <p className="text-[10px] text-kyar-meta mt-0.5">
-                          {build.tasksChecked} / {build.tasksTotal} items
-                        </p>
-                        <div
-                          className="mt-2 h-0.5 w-full bg-kyar-borderSubtle rounded-sm overflow-hidden"
-                          role="progressbar"
-                          aria-valuenow={progress}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                        >
-                          <div
-                            className="h-full bg-black rounded-sm"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+            {accordionItems.length > 0 ? (
+              <>
+                <CardAccordion
+                  items={accordionItems}
+                  getHref={(item) => `/build-detail?id=${item.id}`}
+                  defaultActiveIndex={0}
+                  panelHeight={280}
+                  expandedWidth={320}
+                  collapsedWidth={56}
+                  className="border border-kyar-borderSubtle rounded-sm overflow-hidden"
+                />
+                <Link
+                  href="/builds"
+                  className="inline-block mt-3 text-[10px] font-semibold uppercase tracking-widest text-kyar-meta hover:text-black"
+                >
+                  {t("viewAllBuilds")}
+                </Link>
+              </>
             ) : (
               <p className="text-sm text-kyar-textSecondary">
                 <Link href="/builds" className="underline">
                   {t("viewAllBuilds")}
                 </Link>
               </p>
-            )}
-            {otherBuilds.length > 0 && (
-              <Link
-                href="/builds"
-                className="inline-block mt-3 text-[10px] font-semibold uppercase tracking-widest text-kyar-meta hover:text-black"
-              >
-                {t("viewAllBuilds")}
-              </Link>
             )}
           </section>
         </div>
@@ -380,7 +384,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <FloatingAdd href="/builds/new" />
+      <FloatingAdd />
     </WebAppShell>
   );
 }

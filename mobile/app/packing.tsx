@@ -5,10 +5,10 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { colors, font, layout } from "@kyarafit/design-system/rn";
-import { listConventions } from "../../src/storage/conventionsRepo";
-import { getPacking, toggleChecked } from "../../src/storage/packingRepo";
-import { ChecklistRow } from "../../src/components/ui/ChecklistRow";
-import { useCurrentUser } from "../../src/hooks/useCurrentUser";
+import { listConventions } from "../src/storage/conventionsRepo";
+import { getPacking, toggleChecked } from "../src/storage/packingRepo";
+import { ChecklistRow } from "../src/components/ui/ChecklistRow";
+import { useCurrentUser } from "../src/hooks/useCurrentUser";
 
 /** Minimal convention shape for rendering */
 type ConventionRow = {
@@ -197,12 +197,12 @@ export default function PackingScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {!selectedId && conventions.length === 0 && (
           <Text style={styles.meta}>
-            Create a convention and generate a packing list from the Plan tab.
+            Create a convention and generate a packing list from the Events tab.
           </Text>
         )}
         {selectedId && !loading && items.length === 0 && (
           <Text style={styles.meta}>
-            No packing list yet. Generate one from the convention detail (Plan tab).
+            No packing list yet. Generate one from the convention detail (Events tab).
           </Text>
         )}
         {loading && <Text style={styles.meta}>Loading…</Text>}

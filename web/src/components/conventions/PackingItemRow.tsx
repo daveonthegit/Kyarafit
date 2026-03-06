@@ -21,14 +21,7 @@ type Props = {
   onDelete?: () => void;
 };
 
-export function PackingItemRow({
-  item,
-  isManual,
-  userId,
-  onToggle,
-  onUpdate,
-  onDelete,
-}: Props) {
+export function PackingItemRow({ item, isManual, userId, onToggle, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false);
   const [editDate, setEditDate] = useState(item.date ?? "");
   const [editNotes, setEditNotes] = useState(item.notes ?? "");
@@ -50,11 +43,7 @@ export function PackingItemRow({
   return (
     <div className="border-b border-kyar-borderSubtle/50 last:border-0">
       <div className="flex items-center gap-2">
-        <ChecklistRow
-          label={item.label}
-          checked={item.checked}
-          onToggle={onToggle}
-        />
+        <ChecklistRow label={item.label} checked={item.checked} onToggle={onToggle} />
         {isManual && (
           <>
             {!editing ? (

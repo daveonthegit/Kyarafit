@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { getActiveSection } from "@kyarafit/design-system";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { WebContentContainer } from "@/components/layout/WebContentContainer";
 import { WebSidebar } from "@/components/layout/WebSidebar";
@@ -11,18 +12,7 @@ import { WebTopBar } from "@/components/layout/WebTopBar";
  */
 export function WebAppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const active =
-    pathname?.startsWith("/builds") ||
-    pathname?.startsWith("/build-detail") ||
-    pathname?.startsWith("/closet")
-      ? "builds"
-      : pathname?.startsWith("/conventions") || pathname?.startsWith("/itinerary")
-        ? "events"
-        : pathname?.startsWith("/planner") || pathname?.startsWith("/packing")
-          ? "todo"
-          : pathname?.startsWith("/home")
-            ? "home"
-            : "home";
+  const active = getActiveSection(pathname ?? null);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">

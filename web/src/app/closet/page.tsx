@@ -425,7 +425,7 @@ export default function ClosetPage() {
         </div>
       </ResponsivePanel>
 
-      <FloatingAdd href="/closet/new" />
+      <FloatingAdd />
     </WebAppShell>
   );
 }

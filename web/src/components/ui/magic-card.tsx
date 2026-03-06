@@ -54,8 +54,7 @@ export function MagicCard({
     type Edge = "left" | "right" | "top" | "bottom";
     const entries = Object.entries(distances) as [Edge, number][];
     const closestEdge = entries.reduce(
-      (closest, [edge, distance]) =>
-        distance < closest.distance ? { edge, distance } : closest,
+      (closest, [edge, distance]) => (distance < closest.distance ? { edge, distance } : closest),
       { edge: "left" as Edge, distance: distances.left }
     ).edge;
     switch (closestEdge) {
