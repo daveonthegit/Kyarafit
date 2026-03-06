@@ -68,7 +68,10 @@ export default function HomePage() {
                   </span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+                aria-hidden
+              />
               <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
                 <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium opacity-90 mb-1">
                   {t("currentFocus")}

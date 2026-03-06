@@ -26,7 +26,7 @@ export function AdaptiveModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-h-[90vh] overflow-auto min-h-[200px] max-w-sm sm:max-w-md lg:max-w-lg"
+        className="bg-white rounded-sm shadow-soft w-full max-h-[90vh] overflow-auto min-h-[200px] max-w-sm sm:max-w-md lg:max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

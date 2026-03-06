@@ -10,7 +10,7 @@ export default function SplashLanding() {
         </span>
         <Link
           href="/auth/signin"
-          className="font-sans-wide text-[10px] text-zinc-900 hover:text-black border-b border-black pb-0.5"
+          className="font-sans-wide text-[10px] text-kyar-text hover:text-black border-b border-black pb-0.5"
         >
           Log In
         </Link>
@@ -32,7 +32,7 @@ export default function SplashLanding() {
 
         <div className="px-8 space-y-6 flex flex-col mb-16">
           <div>
-            <p className="font-sans-wide text-[9px] text-zinc-500 mb-2">
+            <p className="font-sans-wide text-[9px] text-kyar-meta mb-2">
               The Art of Transformation
             </p>
             <h1 className="font-serif-elegant text-5xl leading-[1.1] font-normal">
@@ -42,7 +42,7 @@ export default function SplashLanding() {
           </div>
           <div className="flex items-center gap-4">
             <div className="h-[1px] bg-black w-10" />
-            <p className="font-sans-wide text-[10px] leading-loose text-zinc-600 max-w-[280px]">
+            <p className="font-sans-wide text-[10px] leading-loose text-kyar-textSecondary max-w-[280px]">
               A curated digital space for the modern artisan. Organize your wardrobe, track builds,
               and plan character coords with editorial precision.
             </p>
@@ -86,7 +86,7 @@ export default function SplashLanding() {
           <div className="border-t border-kyar-border pt-12">
             <div className="flex items-center gap-4 mb-8">
               <div className="h-[1px] bg-black w-10" />
-              <p className="font-sans-wide text-[9px] text-zinc-500 uppercase tracking-widest">
+              <p className="font-sans-wide text-[9px] text-kyar-meta uppercase tracking-widest">
                 Available on Mobile
               </p>
             </div>
@@ -141,9 +141,9 @@ export default function SplashLanding() {
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <div className="w-8 h-[1px] bg-black" />
-              <div className="w-2 h-[1px] bg-zinc-200" />
+              <div className="w-2 h-[1px] bg-kyar-border" />
             </div>
-            <p className="text-[9px] text-kyar-textTertiary uppercase tracking-widest">
+            <p className="text-[9px] text-kyar-meta uppercase tracking-widest">
               Web app requires sign-in
             </p>
           </div>
