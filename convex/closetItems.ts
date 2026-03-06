@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 const CLOSET_ITEM_STATUSES = ["planned", "in_progress", "complete"] as const;
 
@@ -103,6 +104,9 @@ export const create = mutation({
     completionTaskId: v.optional(v.id("buildTasks")),
   },
   handler: async (ctx, args) => {
+    if (args.imageStorageId) {
+      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+    }
     const status =
       args.status &&
       CLOSET_ITEM_STATUSES.includes(args.status as (typeof CLOSET_ITEM_STATUSES)[number])
@@ -137,6 +141,14 @@ export const update = mutation({
     if (!item || item.userId !== userId) {
       throw new Error("Not found or not authorized");
     }
+    const newStorageId = fields.imageStorageId;
+    const oldStorageId = item.imageStorageId;
+    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+    }
+    if (newStorageId !== undefined && newStorageId !== oldStorageId) {
+      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+    }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
       if (val === null) patch[k] = undefined;
@@ -163,6 +175,7 @@ export const remove = mutation({
     if (!item || item.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
+    await subtractUsageForStorageId(ctx, args.userId, item.imageStorageId);
     await ctx.db.delete(args.id);
   },
 });
@@ -177,6 +190,7 @@ export const removeMany = mutation({
     for (const id of args.ids) {
       const item = await ctx.db.get(id);
       if (!item || item.userId !== args.userId) continue;
+      await subtractUsageForStorageId(ctx, args.userId, item.imageStorageId);
       await ctx.db.delete(id);
     }
   },

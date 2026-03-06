@@ -45,12 +45,10 @@ export default function DevSeedPage() {
     <div className="min-h-screen p-8 max-w-md">
       <h1 className="font-serif text-2xl font-bold mb-2">Dev: Seed data</h1>
       <p className="text-sm text-kyar-meta mb-6">
-        Creates one build, one convention, one closet item (linked to the build), and one task.
-        Runs once per user (skips if you already have builds).
+        Creates one build, one convention, one closet item (linked to the build), and one task. Runs
+        once per user (skips if you already have builds).
       </p>
-      {!isDev && (
-        <p className="text-sm text-red-600 mb-4">Not available in production.</p>
-      )}
+      {!isDev && <p className="text-sm text-red-600 mb-4">Not available in production.</p>}
       {userId ? (
         <>
           <button

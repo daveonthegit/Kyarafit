@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { getStorageSizeMb } from "./storageUsage";
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -82,6 +84,64 @@ export const getMe = query({
       currentUsageMb: user.currentUsageMb,
       storageLimitMb: TIER_LIMITS[user.tier] ?? 50,
     };
+  },
+});
+
+/**
+ * Recalculate currentUsageMb from all stored files referenced by this user's
+ * entities. Call after sign-in to backfill usage if uploads happened before
+ * the user row existed, or to fix drift.
+ */
+export const recalculateUsage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) return null;
+    const externalId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .unique();
+    if (!user) return null;
+
+    let totalMb = 0;
+    const addSize = async (doc: { imageStorageId?: Id<"_storage"> } | undefined) => {
+      if (!doc?.imageStorageId) return;
+      totalMb += await getStorageSizeMb(ctx, doc.imageStorageId);
+    };
+
+    const closetItems = await ctx.db
+      .query("closetItems")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const item of closetItems) await addSize(item);
+
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const b of builds) await addSize(b);
+
+    const conventions = await ctx.db
+      .query("conventions")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const c of conventions) await addSize(c);
+
+    const refImages = await ctx.db
+      .query("buildReferenceImages")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const r of refImages) await addSize(r);
+
+    const processPics = await ctx.db
+      .query("buildProcessPictures")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const p of processPics) await addSize(p);
+
+    await ctx.db.patch(user._id, { currentUsageMb: totalMb });
+    return totalMb;
   },
 });
 

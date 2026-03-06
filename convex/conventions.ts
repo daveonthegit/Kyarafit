@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 export const list = query({
   args: { userId: v.string() },
@@ -29,6 +30,9 @@ export const create = mutation({
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.imageStorageId) {
+      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+    }
     const id = await ctx.db.insert("conventions", args);
     return await ctx.db.get(id);
   },
@@ -51,6 +55,14 @@ export const update = mutation({
     const convention = await ctx.db.get(id);
     if (!convention || convention.userId !== userId) {
       throw new Error("Not found or not authorized");
+    }
+    const newStorageId = fields.imageStorageId;
+    const oldStorageId = convention.imageStorageId;
+    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+    }
+    if (newStorageId !== undefined && newStorageId !== oldStorageId) {
+      await checkLimitAndAddUsage(ctx, userId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
@@ -84,6 +96,7 @@ export const removeMany = mutation({
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
       if (!convention || convention.userId !== args.userId) continue;
+      await subtractUsageForStorageId(ctx, args.userId, convention.imageStorageId);
       const plans = await ctx.db
         .query("conventionDayPlans")
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
@@ -106,6 +119,7 @@ export const remove = mutation({
     if (!convention || convention.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
+    await subtractUsageForStorageId(ctx, args.userId, convention.imageStorageId);
     // Cascade: delete day plans and packing items
     const plans = await ctx.db
       .query("conventionDayPlans")

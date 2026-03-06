@@ -12,7 +12,7 @@ export default function SettingsNotificationsPage() {
           <h1 className="font-serif text-4xl tracking-tight">Notification Style</h1>
         </div>
         <Link href="/settings" className="p-2 -mr-2" aria-label="Back to settings">
-          <span className="material-symbols-outlined font-thin text-2xl">close</span>
+          <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
         </Link>
       </header>
 

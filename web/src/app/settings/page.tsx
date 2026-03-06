@@ -20,7 +20,7 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    router.push("/");
+    router.push("/home");
   };
 
   return (
@@ -30,8 +30,8 @@ export default function Settings() {
           <p className="meta-label mb-2 opacity-40">System Preferences</p>
           <h1 className="font-serif text-4xl tracking-tight">Settings</h1>
         </div>
-        <Link href="/" className="p-2 -mr-2" aria-label="Back to home">
-          <span className="material-symbols-outlined font-thin text-2xl">close</span>
+        <Link href="/home" className="p-2 -mr-2" aria-label="Back to home">
+          <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
         </Link>
       </header>
 

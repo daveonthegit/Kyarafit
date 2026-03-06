@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds") },
@@ -27,6 +28,9 @@ export const add = mutation({
     if (!args.imageStorageId && !args.imageUrl) {
       throw new Error("Either imageStorageId or imageUrl is required");
     }
+    if (args.imageStorageId) {
+      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+    }
     const existing = await ctx.db
       .query("buildReferenceImages")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
@@ -53,6 +57,7 @@ export const remove = mutation({
     if (!doc || doc.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
+    await subtractUsageForStorageId(ctx, args.userId, doc.imageStorageId);
     await ctx.db.delete(args.id);
   },
 });
