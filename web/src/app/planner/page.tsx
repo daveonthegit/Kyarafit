@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+
+type TodoView = "daily" | "events";
 
 type Timeframe = "all" | "today" | "week";
 
@@ -49,9 +52,14 @@ function formatDueDate(dateStr: string): string {
 }
 
 export default function Planner() {
-  const [view, setView] = useState<"daily" | "conventions">("daily");
+  const searchParams = useSearchParams();
+  const [view, setView] = useState<TodoView>("daily");
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const { userId } = useCurrentUser();
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "events") setView("events");
+  }, [searchParams]);
 
   const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip");
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
@@ -114,10 +122,10 @@ export default function Planner() {
           </button>
           <button
             type="button"
-            onClick={() => setView("conventions")}
-            className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === "conventions" ? "border-b-2 border-black" : "opacity-30"}`}
+            onClick={() => setView("events")}
+            className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === "events" ? "border-b-2 border-black" : "opacity-30"}`}
           >
-            Conventions
+            Events
           </button>
         </div>
         {view === "daily" ? (
@@ -223,19 +231,24 @@ export default function Planner() {
         ) : (
           <section className="space-y-10">
             {isLoadingConventions ? (
-              <p className="text-sm text-kyar-textTertiary">Loading conventions...</p>
+              <p className="text-sm text-kyar-textTertiary">Loading events…</p>
             ) : !conventions || conventions.length === 0 ? (
               <>
-                <p className="text-sm text-kyar-textTertiary mb-2">No conventions yet.</p>
+                <p className="text-sm text-kyar-textTertiary mb-2">No events yet.</p>
                 <Link href="/conventions" className="text-sm underline">
-                  Create a convention
+                  Create an event
                 </Link>
               </>
             ) : (
               conventions.map((con) => (
-                <div key={con._id} className="border-b border-gray-100 pb-6 group cursor-pointer">
+                <div key={con._id} className="border-b border-gray-100 pb-6 group">
                   <div className="flex justify-between items-end mb-2">
-                    <h3 className="font-serif text-2xl italic font-bold">{con.name}</h3>
+                    <Link
+                      href={`/conventions/${con._id}`}
+                      className="font-serif text-2xl italic font-bold hover:underline"
+                    >
+                      {con.name}
+                    </Link>
                     <span className="text-[10px] opacity-40">
                       {new Date(con.startDate).toLocaleDateString("en-US", {
                         month: "short",
@@ -251,10 +264,10 @@ export default function Planner() {
                   </div>
                   <div className="flex gap-4">
                     <Link
-                      href={`/itinerary?conventionId=${con._id}`}
+                      href={`/conventions/${con._id}`}
                       className="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1"
                     >
-                      Itinerary
+                      Plan
                     </Link>
                     <Link
                       href={`/conventions/${con._id}/packing`}
@@ -282,13 +295,17 @@ function PlannerTaskRow({
     _id: Id<"buildTasks">;
     label: string;
     checked: boolean;
-    buildId: Id<"builds">;
+    buildId?: Id<"builds">;
     buildName: string;
+    conventionId?: Id<"conventions">;
     dueDate?: string;
   };
   userId: string | null;
   onToggle: (id: Id<"buildTasks">, checked: boolean) => void;
 }) {
+  const contextHref = task.conventionId
+    ? `/conventions/${task.conventionId}/packing`
+    : `/build-detail?id=${task.buildId}`;
   return (
     <div className="flex items-start gap-3 border border-kyar-borderSubtle p-3 bg-white">
       <input
@@ -307,7 +324,7 @@ function PlannerTaskRow({
         </p>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <Link
-            href={`/build-detail?id=${task.buildId}`}
+            href={contextHref}
             className="text-[11px] uppercase tracking-widest opacity-70 hover:underline"
           >
             {task.buildName}

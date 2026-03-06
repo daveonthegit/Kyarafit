@@ -2,8 +2,8 @@
   "Nav": {
     "home": "Home",
     "builds": "Builds",
-    "plan": "Plan",
-    "packing": "Packing"
+    "todo": "Todo",
+    "events": "Events"
   },
   "Common": {
     "add": "Add",

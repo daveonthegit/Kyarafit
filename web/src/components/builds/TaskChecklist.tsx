@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { useDraggable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -17,6 +17,7 @@ export interface BuildTask {
   closetItemId?: Id<"closetItems"> | null;
   sortOrder: number;
   checked: boolean;
+  dueDate?: string;
 }
 
 interface TaskChecklistProps {
@@ -41,6 +42,7 @@ export function TaskChecklist({
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"buildTasks"> | null>(null);
+  const [dueDateEditTaskId, setDueDateEditTaskId] = useState<Id<"buildTasks"> | null>(null);
   const { userId } = useCurrentUser();
 
   const createTask = useMutation(api.buildTasks.create);
@@ -92,6 +94,12 @@ export function TaskChecklist({
     setSelectedTaskId(null);
   };
 
+  const handleDueDateChange = (taskId: Id<"buildTasks">, dueDate: string | null) => {
+    if (!userId) return;
+    setDueDateEditTaskId(null);
+    updateTask({ id: taskId, userId, dueDate });
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -127,6 +135,10 @@ export function TaskChecklist({
                 onToggle={(checked) => handleToggleTask(task._id, checked)}
                 onDelete={() => handleDeleteTask(task._id)}
                 onAssign={() => handleOpenAssignModal(task._id)}
+                isEditingDueDate={dueDateEditTaskId === task._id}
+                onStartDueDateEdit={() => setDueDateEditTaskId(task._id)}
+                onCancelDueDateEdit={() => setDueDateEditTaskId(null)}
+                onDueDateChange={(dueDate) => handleDueDateChange(task._id, dueDate)}
               />
             ) : (
               <TaskRow
@@ -136,6 +148,10 @@ export function TaskChecklist({
                 onToggle={(checked) => handleToggleTask(task._id, checked)}
                 onDelete={() => handleDeleteTask(task._id)}
                 onAssign={() => handleOpenAssignModal(task._id)}
+                isEditingDueDate={dueDateEditTaskId === task._id}
+                onStartDueDateEdit={() => setDueDateEditTaskId(task._id)}
+                onCancelDueDateEdit={() => setDueDateEditTaskId(null)}
+                onDueDateChange={(dueDate) => handleDueDateChange(task._id, dueDate)}
               />
             );
           })}
@@ -227,6 +243,15 @@ export function TaskChecklist({
   );
 }
 
+function formatDueDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 interface TaskRowProps {
   task: BuildTask;
   linkedItem?: {
@@ -238,105 +263,260 @@ interface TaskRowProps {
   onToggle: (checked: boolean) => void;
   onDelete: () => void;
   onAssign: () => void;
+  isEditingDueDate?: boolean;
+  onStartDueDateEdit?: () => void;
+  onCancelDueDateEdit?: () => void;
+  onDueDateChange?: (dueDate: string | null) => void;
 }
 
-function TaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
+function TaskRow({
+  task,
+  linkedItem,
+  onToggle,
+  onDelete,
+  onAssign,
+  isEditingDueDate,
+  onStartDueDateEdit,
+  onCancelDueDateEdit,
+  onDueDateChange,
+}: TaskRowProps) {
+  const [editDateValue, setEditDateValue] = useState(
+    task.dueDate ?? new Date().toISOString().slice(0, 10)
+  );
+  useEffect(() => {
+    if (isEditingDueDate)
+      setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
+  }, [isEditingDueDate, task.dueDate]);
+
   return (
     <div
       role="listitem"
-      className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group"
+      className="flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-black transition group"
     >
-      <input
-        type="checkbox"
-        checked={task.checked}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="w-4 h-4 accent-black"
-      />
-      <div className="flex-1">
-        <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
-          {task.label}
-        </span>
-        {linkedItem && (
-          <span className="text-xs text-kyar-textTertiary block mt-0.5">
-            &rarr; {linkedItem.name}
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={task.checked}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="w-4 h-4 accent-black"
+        />
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
+            {task.label}
           </span>
+          {linkedItem && (
+            <span className="text-xs text-kyar-textTertiary block mt-0.5">
+              &rarr; {linkedItem.name}
+            </span>
+          )}
+          {task.dueDate && !isEditingDueDate && (
+            <span className="text-[10px] text-kyar-textTertiary block mt-0.5 flex items-center gap-1">
+              <span className="material-symbols-outlined text-xs">calendar_today</span>
+              {formatDueDate(task.dueDate)}
+            </span>
+          )}
+        </div>
+        {onDueDateChange && (
+          <button
+            type="button"
+            onClick={onStartDueDateEdit}
+            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+            title={task.dueDate ? "Change due date" : "Set due date"}
+          >
+            <span className="material-symbols-outlined text-base">calendar_today</span>
+          </button>
         )}
+        <button
+          type="button"
+          onClick={onAssign}
+          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+          title="Assign to item"
+        >
+          <span className="material-symbols-outlined text-base">link</span>
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+          title="Delete task"
+        >
+          <span className="material-symbols-outlined text-base">delete</span>
+        </button>
       </div>
-      <button
-        onClick={onAssign}
-        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
-        title="Assign to item"
-      >
-        <span className="material-symbols-outlined text-base">link</span>
-      </button>
-      <button
-        onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
-        title="Delete task"
-      >
-        <span className="material-symbols-outlined text-base">delete</span>
-      </button>
+      {isEditingDueDate && onDueDateChange && (
+        <div className="flex items-center gap-2 pl-7">
+          <input
+            type="date"
+            value={editDateValue}
+            onChange={(e) => setEditDateValue(e.target.value)}
+            className="text-xs border border-kyar-borderSubtle px-2 py-1 rounded"
+            aria-label="Due date"
+          />
+          <button
+            type="button"
+            onClick={() => onDueDateChange(editDateValue)}
+            className="text-xs font-medium underline"
+          >
+            Save
+          </button>
+          {task.dueDate && (
+            <button
+              type="button"
+              onClick={() => onDueDateChange(null)}
+              className="text-xs text-kyar-textTertiary underline"
+            >
+              Clear
+            </button>
+          )}
+          <button type="button" onClick={onCancelDueDateEdit} className="text-xs text-kyar-textTertiary">
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function DraggableTaskRow({ task, linkedItem, onToggle, onDelete, onAssign }: TaskRowProps) {
+function DraggableTaskRow({
+  task,
+  linkedItem,
+  onToggle,
+  onDelete,
+  onAssign,
+  isEditingDueDate,
+  onStartDueDateEdit,
+  onCancelDueDateEdit,
+  onDueDateChange,
+}: TaskRowProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task._id,
     data: { type: "task", task },
   });
+  const [editDateValue, setEditDateValue] = useState(
+    task.dueDate ?? new Date().toISOString().slice(0, 10)
+  );
+  useEffect(() => {
+    if (isEditingDueDate)
+      setEditDateValue(task.dueDate ?? new Date().toISOString().slice(0, 10));
+  }, [isEditingDueDate, task.dueDate]);
 
   return (
     <div
       ref={setNodeRef}
       role="listitem"
-      className={`flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group ${
+      className={`flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-black transition group ${
         isDragging ? "opacity-50 cursor-grabbing" : ""
       }`}
     >
-      <span
-        className="material-symbols-outlined text-gray-400 text-base cursor-grab touch-none"
-        {...listeners}
-        {...attributes}
-      >
-        drag_indicator
-      </span>
-      <input
-        type="checkbox"
-        checked={task.checked}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="w-4 h-4 accent-black"
-      />
-      <div className="flex-1">
-        <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
-          {task.label}
+      <div className="flex items-center gap-3">
+        <span
+          className="material-symbols-outlined text-gray-400 text-base cursor-grab touch-none"
+          {...listeners}
+          {...attributes}
+        >
+          drag_indicator
         </span>
-        {linkedItem && (
-          <span className="text-xs text-kyar-textTertiary block mt-0.5">
-            &rarr; {linkedItem.name}
+        <input
+          type="checkbox"
+          checked={task.checked}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="w-4 h-4 accent-black"
+        />
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
+            {task.label}
           </span>
+          {linkedItem && (
+            <span className="text-xs text-kyar-textTertiary block mt-0.5">
+              &rarr; {linkedItem.name}
+            </span>
+          )}
+          {task.dueDate && !isEditingDueDate && (
+            <span className="text-[10px] text-kyar-textTertiary block mt-0.5 flex items-center gap-1">
+              <span className="material-symbols-outlined text-xs">calendar_today</span>
+              {formatDueDate(task.dueDate)}
+            </span>
+          )}
+        </div>
+        {onDueDateChange && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartDueDateEdit?.();
+            }}
+            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+            title={task.dueDate ? "Change due date" : "Set due date"}
+          >
+            <span className="material-symbols-outlined text-base">calendar_today</span>
+          </button>
         )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAssign();
+          }}
+          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+          title="Assign to item"
+        >
+          <span className="material-symbols-outlined text-base">link</span>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+          title="Delete task"
+        >
+          <span className="material-symbols-outlined text-base">delete</span>
+        </button>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onAssign();
-        }}
-        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
-        title="Assign to item"
-      >
-        <span className="material-symbols-outlined text-base">link</span>
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
-        title="Delete task"
-      >
-        <span className="material-symbols-outlined text-base">delete</span>
-      </button>
+      {isEditingDueDate && onDueDateChange && (
+        <div className="flex items-center gap-2 pl-12">
+          <input
+            type="date"
+            value={editDateValue}
+            onChange={(e) => setEditDateValue(e.target.value)}
+            className="text-xs border border-kyar-borderSubtle px-2 py-1 rounded"
+            aria-label="Due date"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDueDateChange(editDateValue);
+            }}
+            className="text-xs font-medium underline"
+          >
+            Save
+          </button>
+          {task.dueDate && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDueDateChange(null);
+              }}
+              className="text-xs text-kyar-textTertiary underline"
+            >
+              Clear
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancelDueDateEdit?.();
+            }}
+            className="text-xs text-kyar-textTertiary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }

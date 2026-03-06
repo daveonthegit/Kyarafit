@@ -7,6 +7,6 @@ import type { NavSectionId } from "@kyarafit/design-system";
 export const NAV_ICON_MAP: Record<NavSectionId, string> = {
   home: "home",
   builds: "layers",
-  plan: "calendar_today",
-  packing: "package_2",
+  todo: "task_alt",
+  events: "event",
 };

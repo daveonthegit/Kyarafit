@@ -16,12 +16,10 @@ export function WebAppShell({ children }: { children: React.ReactNode }) {
     pathname?.startsWith("/build-detail") ||
     pathname?.startsWith("/closet")
       ? "builds"
-      : pathname?.startsWith("/conventions") ||
-          pathname?.startsWith("/itinerary") ||
-          pathname?.startsWith("/planner")
-        ? "plan"
-        : pathname?.startsWith("/packing")
-          ? "packing"
+      : pathname?.startsWith("/conventions") || pathname?.startsWith("/itinerary")
+        ? "events"
+        : pathname?.startsWith("/planner") || pathname?.startsWith("/packing")
+          ? "todo"
           : pathname?.startsWith("/home")
             ? "home"
             : "home";

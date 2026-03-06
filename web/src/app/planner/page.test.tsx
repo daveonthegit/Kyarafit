@@ -66,10 +66,10 @@ describe("Planner page", () => {
     vi.clearAllMocks();
   });
 
-  it("renders Daily and Conventions tabs", () => {
+  it("renders Daily and Events tabs", () => {
     render(<Planner />);
     expect(screen.getByRole("button", { name: /daily/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /conventions/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /events/i })).toBeInTheDocument();
   });
 
   it("shows progress summary when tasks are loaded", () => {
@@ -98,16 +98,16 @@ describe("Planner page", () => {
     expect(addTask).toHaveAttribute("href", "/builds");
   });
 
-  it("switching to Conventions tab shows convention list with Itinerary and Packing links", async () => {
+  it("switching to Events tab shows event list with Plan and Packing links", async () => {
     const user = userEvent.setup();
     render(<Planner />);
-    await user.click(screen.getByRole("button", { name: /conventions/i }));
+    await user.click(screen.getByRole("button", { name: /events/i }));
     expect(screen.getByText("Anime Expo")).toBeInTheDocument();
-    const itineraryLinks = screen.getAllByRole("link", { name: /itinerary/i });
+    const planLinks = screen.getAllByRole("link", { name: /^plan$/i });
     const packingLinks = screen.getAllByRole("link", { name: /packing list/i });
-    expect(itineraryLinks.length).toBeGreaterThanOrEqual(1);
+    expect(planLinks.length).toBeGreaterThanOrEqual(1);
     expect(packingLinks.length).toBeGreaterThanOrEqual(1);
-    expect(itineraryLinks[0]).toHaveAttribute("href", "/itinerary?conventionId=conv1");
+    expect(planLinks[0]).toHaveAttribute("href", "/conventions/conv1");
     expect(packingLinks[0]).toHaveAttribute("href", "/conventions/conv1/packing");
   });
 });

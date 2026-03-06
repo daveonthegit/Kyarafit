@@ -217,10 +217,27 @@ export const replacePlan = mutation({
 export const getPacking = query({
   args: { conventionId: v.id("conventions") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const items = await ctx.db
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
+    // For build-linked items, checked state lives on the Pack build task
+    const result = await Promise.all(
+      items.map(async (item) => {
+        if (item.buildId && item.closetItemId) {
+          const task = await ctx.db
+            .query("buildTasks")
+            .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
+            .collect();
+          const packTask = task.find(
+            (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
+          );
+          return { ...item, checked: packTask ? packTask.checked : item.checked };
+        }
+        return item;
+      })
+    );
+    return result;
   },
 });
 
@@ -230,6 +247,8 @@ export const updatePackingItem = mutation({
     userId: v.string(),
     checked: v.optional(v.boolean()),
     label: v.optional(v.string()),
+    date: v.optional(v.string()),
+    notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
@@ -241,12 +260,48 @@ export const updatePackingItem = mutation({
     for (const [k, val] of Object.entries(fields)) {
       if (val === undefined) continue;
       if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
+      else if (k === "date")
+        patch.date = val === "" ? undefined : validateDateString(val as string, "Date");
+      else if (k === "notes") patch.notes = sanitizeOptional(val as string, MAX_LENGTH.notes, "Notes");
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
-    return await ctx.db.get(id);
+    // Sync checked to the Pack build task so Todo/task list and packing list stay in sync
+    if (args.checked !== undefined) {
+      if (item.buildId && item.closetItemId) {
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
+          .collect();
+        const packTask = tasks.find(
+          (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
+        );
+        if (packTask) await ctx.db.patch(packTask._id, { checked: args.checked });
+      } else {
+        // Manual packing item: sync to task linked by packingListItemId
+        const task = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_packingListItemId", (q) => q.eq("packingListItemId", id))
+          .first();
+        if (task) await ctx.db.patch(task._id, { checked: args.checked });
+      }
+    }
+    const updated = await ctx.db.get(id);
+    // Return with resolved checked from task for build-linked items (for consistent UI);
+    // manual items store checked on the row and we synced to task above
+    if (updated && updated.buildId && updated.closetItemId) {
+      const tasks = await ctx.db
+        .query("buildTasks")
+        .withIndex("by_buildId", (q) => q.eq("buildId", updated.buildId!))
+        .collect();
+      const packTask = tasks.find(
+        (t) => t.closetItemId === updated.closetItemId && t.label.startsWith("Pack:")
+      );
+      return { ...updated, checked: packTask ? packTask.checked : updated.checked };
+    }
+    return updated;
   },
 });
 
@@ -256,6 +311,7 @@ export const addManualPackingItem = mutation({
     conventionId: v.id("conventions"),
     label: v.string(),
     date: v.optional(v.string()),
+    notes: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
   },
   handler: async (ctx, args) => {
@@ -265,15 +321,46 @@ export const addManualPackingItem = mutation({
     }
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const date = args.date ? validateDateString(args.date, "Date") : undefined;
+    const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
     const id = await ctx.db.insert("packingListItems", {
       userId: args.userId,
       conventionId: args.conventionId,
       label,
       date,
+      notes,
       buildId: args.buildId,
       checked: false,
+      // No closetItemId = manual item; won't be removed when regenerating from builds
+    });
+    // Create a Pack task so manual packing items show on Todo and stay in sync
+    await ctx.db.insert("buildTasks", {
+      userId: args.userId,
+      label: "Pack: " + label,
+      packingListItemId: id,
+      sortOrder: 0,
+      checked: false,
+      dueDate: date,
     });
     return await ctx.db.get(id);
+  },
+});
+
+export const deletePackingItem = mutation({
+  args: {
+    id: v.id("packingListItems"),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.id);
+    if (!item || item.userId !== args.userId) {
+      throw new Error("Not found or not authorized");
+    }
+    const linkedTask = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_packingListItemId", (q) => q.eq("packingListItemId", args.id))
+      .first();
+    if (linkedTask) await ctx.db.delete(linkedTask._id);
+    await ctx.db.delete(args.id);
   },
 });
 
@@ -292,10 +379,26 @@ export const listWithDetails = query({
           .query("conventionDayPlans")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packing = await ctx.db
+        const packingRaw = await ctx.db
           .query("packingListItems")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
+        const packing = await Promise.all(
+          packingRaw.map(async (item) => {
+            if (item.buildId && item.closetItemId) {
+              const tasks = await ctx.db
+                .query("buildTasks")
+                .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
+                .collect();
+              const packTask = tasks.find(
+                (t) =>
+                  t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
+              );
+              return { ...item, checked: packTask ? packTask.checked : item.checked };
+            }
+            return item;
+          })
+        );
         return { ...c, plans, packing };
       })
     );
@@ -313,13 +416,13 @@ export const regeneratePacking = mutation({
       throw new Error("Not found or not authorized");
     }
 
-    // Delete auto-generated items (keep manual ones that have no closetItemId and no buildId)
+    // Delete only auto-generated items (from builds); keep manual items (no closetItemId)
     const existing = await ctx.db
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     for (const item of existing) {
-      await ctx.db.delete(item._id);
+      if (item.closetItemId !== undefined) await ctx.db.delete(item._id);
     }
 
     // Get day plans to generate packing items from linked builds
@@ -329,6 +432,9 @@ export const regeneratePacking = mutation({
       .collect();
 
     const newItems = [];
+    const processedBuildIds = new Set<string>();
+    const addedBuildCloset = new Set<string>();
+
     for (const plan of plans) {
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
@@ -339,6 +445,10 @@ export const regeneratePacking = mutation({
         .collect();
 
       for (const link of links) {
+        const key = `${buildId}:${link.closetItemId}`;
+        if (addedBuildCloset.has(key)) continue;
+        addedBuildCloset.add(key);
+
         const closetItem = await ctx.db.get(link.closetItemId);
         if (!closetItem) continue;
         const id = await ctx.db.insert("packingListItems", {
@@ -351,6 +461,37 @@ export const regeneratePacking = mutation({
           checked: false,
         });
         newItems.push(await ctx.db.get(id));
+      }
+
+      // Auto-create a "Pack: {item name}" build task for each closet item (once per build)
+      if (!processedBuildIds.has(buildId)) {
+        processedBuildIds.add(buildId);
+        const build = await ctx.db.get(buildId);
+        if (!build || build.userId !== args.userId) continue;
+        const existingTasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+          .collect();
+        for (const link of links) {
+          const closetItem = await ctx.db.get(link.closetItemId);
+          if (!closetItem) continue;
+          const packLabel = "Pack: " + closetItem.name;
+          const hasPackTask = existingTasks.some(
+            (t) => t.closetItemId === link.closetItemId && t.label.startsWith("Pack:")
+          );
+          if (!hasPackTask) {
+            const taskId = await ctx.db.insert("buildTasks", {
+              userId: build.userId,
+              buildId,
+              label: packLabel,
+              closetItemId: link.closetItemId,
+              sortOrder: existingTasks.length,
+              checked: false,
+            });
+            const newTask = await ctx.db.get(taskId);
+            if (newTask) existingTasks.push(newTask);
+          }
+        }
       }
     }
     return newItems;

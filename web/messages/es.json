@@ -2,8 +2,8 @@
   "Nav": {
     "home": "Inicio",
     "builds": "Proyectos",
-    "plan": "Plan",
-    "packing": "Equipaje"
+    "todo": "Tareas",
+    "events": "Eventos"
   },
   "Common": {
     "add": "Añadir",
