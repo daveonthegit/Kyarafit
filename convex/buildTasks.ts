@@ -54,6 +54,73 @@ export const listByBuilds = query({
   },
 });
 
+/** Returns all build tasks for the planner with build name and optional due date from convention day plan. */
+export const listForPlanner = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+    const tasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const buildTasksOnly = tasks.filter(
+      (t): t is typeof t & { buildId: NonNullable<typeof t.buildId> } => t.buildId != null
+    );
+
+    const conventions = await ctx.db
+      .query("conventions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const buildIdToDate = new Map<string, string>();
+    for (const conv of conventions) {
+      const plans = await ctx.db
+        .query("conventionDayPlans")
+        .withIndex("by_conventionId", (q) => q.eq("conventionId", conv._id))
+        .collect();
+      for (const p of plans) {
+        if (p.buildId) {
+          const id = p.buildId;
+          const existing = buildIdToDate.get(id);
+          if (!existing || p.date < existing) buildIdToDate.set(id, p.date);
+        }
+      }
+    }
+
+    const result: Array<{
+      _id: (typeof tasks)[0]["_id"];
+      label: string;
+      checked: boolean;
+      buildId: (typeof buildTasksOnly)[0]["buildId"];
+      buildName: string;
+      dueDate?: string;
+      sortOrder: number;
+    }> = [];
+    for (const task of buildTasksOnly) {
+      const build = await ctx.db.get(task.buildId);
+      if (!build || build.userId !== args.userId) continue;
+      result.push({
+        _id: task._id,
+        label: task.label,
+        checked: task.checked,
+        buildId: task.buildId,
+        buildName: build.name,
+        dueDate: buildIdToDate.get(task.buildId),
+        sortOrder: task.sortOrder,
+      });
+    }
+    result.sort((a, b) => {
+      const dateA = a.dueDate ?? "9999-12-31";
+      const dateB = b.dueDate ?? "9999-12-31";
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return a.sortOrder - b.sortOrder;
+    });
+    return result;
+  },
+});
+
 export const create = mutation({
   args: {
     userId: v.string(),
