@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import {
+  MAX_LENGTH,
+  sanitizeAndLimit,
+  sanitizeOptional,
+  sanitizeString,
+  validateDateString,
+} from "./lib/validation";
 
 const VALID_STATUSES = ["idea", "wip", "ready", "archived"] as const;
 
@@ -169,7 +176,26 @@ export const create = mutation({
     if (args.imageStorageId) {
       await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
     }
-    const id = await ctx.db.insert("builds", args);
+    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+    const character = sanitizeOptional(args.character, MAX_LENGTH.character, "Character");
+    const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
+    const status = VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])
+      ? sanitizeString(args.status)
+      : "idea";
+    const targetDate = args.targetDate
+      ? validateDateString(args.targetDate, "Target date")
+      : undefined;
+    const id = await ctx.db.insert("builds", {
+      userId: args.userId,
+      name,
+      character,
+      status,
+      notes,
+      imageUrl: args.imageUrl,
+      imageStorageId: args.imageStorageId,
+      budgetCents: args.budgetCents,
+      targetDate,
+    });
     return await ctx.db.get(id);
   },
 });
@@ -203,7 +229,19 @@ export const update = mutation({
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
-      if (val !== undefined) patch[k] = val;
+      if (val === undefined) continue;
+      if (k === "name") patch.name = sanitizeAndLimit(val as string, MAX_LENGTH.name, "Name");
+      else if (k === "character")
+        patch.character = sanitizeOptional(val as string, MAX_LENGTH.character, "Character");
+      else if (k === "notes")
+        patch.notes = sanitizeOptional(val as string, MAX_LENGTH.notes, "Notes");
+      else if (k === "status") {
+        if (VALID_STATUSES.includes(val as (typeof VALID_STATUSES)[number])) {
+          patch.status = sanitizeString(val as string);
+        }
+      } else if (k === "targetDate")
+        patch.targetDate = validateDateString(val as string, "Target date");
+      else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional, sanitizeString } from "./lib/validation";
 
 const CLOSET_ITEM_STATUSES = ["planned", "in_progress", "complete"] as const;
 
@@ -107,13 +108,26 @@ export const create = mutation({
     if (args.imageStorageId) {
       await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
     }
+    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+    const category = sanitizeAndLimit(args.category, MAX_LENGTH.category, "Category");
+    const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
+    const tags = args.tags
+      .map((t, i) => sanitizeAndLimit(t, MAX_LENGTH.tag, `Tag ${i + 1}`))
+      .filter(Boolean);
     const status =
       args.status &&
       CLOSET_ITEM_STATUSES.includes(args.status as (typeof CLOSET_ITEM_STATUSES)[number])
-        ? args.status
+        ? sanitizeString(args.status)
         : "planned";
     const id = await ctx.db.insert("closetItems", {
-      ...args,
+      userId: args.userId,
+      name,
+      category,
+      tags,
+      notes,
+      imageUrl: args.imageUrl,
+      imageStorageId: args.imageStorageId,
+      costCents: args.costCents,
       status,
       completionTaskId: args.completionTaskId,
     });
@@ -151,13 +165,25 @@ export const update = mutation({
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
-      if (val === null) patch[k] = undefined;
-      else if (val !== undefined) {
-        if (
-          k === "status" &&
-          !CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])
-        )
-          continue;
+      if (val === null) {
+        patch[k] = undefined;
+        continue;
+      }
+      if (val === undefined) continue;
+      if (k === "name") {
+        patch.name = sanitizeAndLimit(val as string, MAX_LENGTH.name, "Name");
+      } else if (k === "category") {
+        patch.category = sanitizeAndLimit(val as string, MAX_LENGTH.category, "Category");
+      } else if (k === "notes") {
+        patch.notes = sanitizeOptional(val as string, MAX_LENGTH.notes, "Notes");
+      } else if (k === "tags") {
+        patch.tags = (val as string[])
+          .map((t, i) => sanitizeAndLimit(t, MAX_LENGTH.tag, `Tag ${i + 1}`))
+          .filter(Boolean);
+      } else if (k === "status") {
+        if (!CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])) continue;
+        patch[k] = sanitizeString(val as string);
+      } else {
         patch[k] = val;
       }
     }

@@ -3,6 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
+import { MAX_LENGTH, sanitizeOptional } from "./lib/validation";
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -30,6 +31,14 @@ export const upsert = mutation({
     image: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const email =
+      args.email.length <= MAX_LENGTH.email
+        ? args.email.trim()
+        : args.email.slice(0, MAX_LENGTH.email);
+    const name = sanitizeOptional(args.name, MAX_LENGTH.name, "Name");
+    const image =
+      args.image != null && args.image.length <= MAX_LENGTH.url ? args.image : undefined;
+
     const existing = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
@@ -37,18 +46,18 @@ export const upsert = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        email: args.email,
-        name: args.name,
-        image: args.image,
+        email,
+        name,
+        image,
       });
       return existing._id;
     }
 
     const id = await ctx.db.insert("users", {
       externalId: args.externalId,
-      email: args.email,
-      name: args.name,
-      image: args.image,
+      email,
+      name,
+      image,
       tier: "FREE",
       currentUsageMb: 0,
     });

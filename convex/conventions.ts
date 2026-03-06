@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import {
+  MAX_LENGTH,
+  sanitizeAndLimit,
+  sanitizeOptional,
+  validateDateString,
+} from "./lib/validation";
 
 export const list = query({
   args: { userId: v.string() },
@@ -33,7 +39,19 @@ export const create = mutation({
     if (args.imageStorageId) {
       await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
     }
-    const id = await ctx.db.insert("conventions", args);
+    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+    const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
+    const startDate = validateDateString(args.startDate, "Start date");
+    const endDate = validateDateString(args.endDate, "End date");
+    const id = await ctx.db.insert("conventions", {
+      userId: args.userId,
+      name,
+      location,
+      imageUrl: args.imageUrl,
+      imageStorageId: args.imageStorageId,
+      startDate,
+      endDate,
+    });
     return await ctx.db.get(id);
   },
 });
@@ -66,7 +84,13 @@ export const update = mutation({
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
-      if (val !== undefined) patch[k] = val;
+      if (val === undefined) continue;
+      if (k === "name") patch.name = sanitizeAndLimit(val as string, MAX_LENGTH.name, "Name");
+      else if (k === "location")
+        patch.location = sanitizeOptional(val as string, MAX_LENGTH.location, "Location");
+      else if (k === "startDate") patch.startDate = validateDateString(val as string, "Start date");
+      else if (k === "endDate") patch.endDate = validateDateString(val as string, "End date");
+      else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
@@ -173,13 +197,16 @@ export const replacePlan = mutation({
 
     // Insert new plans
     const results = [];
-    for (const entry of args.plan) {
+    for (let i = 0; i < args.plan.length; i++) {
+      const entry = args.plan[i];
+      const date = validateDateString(entry.date, `Plan ${i + 1} date`);
+      const notes = sanitizeOptional(entry.notes, MAX_LENGTH.notes, `Plan ${i + 1} notes`);
       const id = await ctx.db.insert("conventionDayPlans", {
         userId: args.userId,
         conventionId: args.conventionId,
-        date: entry.date,
+        date,
         buildId: entry.buildId,
-        notes: entry.notes,
+        notes,
       });
       results.push(await ctx.db.get(id));
     }
@@ -212,7 +239,9 @@ export const updatePackingItem = mutation({
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
-      if (val !== undefined) patch[k] = val;
+      if (val === undefined) continue;
+      if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
+      else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
@@ -234,11 +263,13 @@ export const addManualPackingItem = mutation({
     if (!convention || convention.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
+    const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
+    const date = args.date ? validateDateString(args.date, "Date") : undefined;
     const id = await ctx.db.insert("packingListItems", {
       userId: args.userId,
       conventionId: args.conventionId,
-      label: args.label,
-      date: args.date,
+      label,
+      date,
       buildId: args.buildId,
       checked: false,
     });

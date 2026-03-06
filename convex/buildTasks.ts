@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { MAX_LENGTH, sanitizeAndLimit } from "./lib/validation";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds") },
@@ -62,6 +63,7 @@ export const create = mutation({
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
       if (!build || build.userId !== args.userId) {
@@ -74,7 +76,7 @@ export const create = mutation({
       const id = await ctx.db.insert("buildTasks", {
         userId: args.userId,
         buildId: args.buildId,
-        label: args.label,
+        label,
         closetItemId: args.closetItemId,
         sortOrder: args.sortOrder ?? existing.length,
         checked: false,
@@ -95,7 +97,7 @@ export const create = mutation({
     const id = await ctx.db.insert("buildTasks", {
       userId: args.userId,
       buildId: undefined,
-      label: args.label,
+      label,
       closetItemId: args.closetItemId,
       sortOrder: args.sortOrder ?? existing.length,
       checked: false,
@@ -122,7 +124,10 @@ export const update = mutation({
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
       if (val === null) patch[k] = undefined;
-      else if (val !== undefined) patch[k] = val;
+      else if (val !== undefined) {
+        if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
+        else patch[k] = val;
+      }
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
