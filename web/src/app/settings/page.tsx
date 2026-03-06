@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTier } from "@/lib/api/useTier";
+import { useFeatureAccess } from "@/lib/api/useTier";
 import { formatStorageMb } from "@/lib/utils";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { authClient } from "@/lib/auth/auth-client";
 import { useLocaleContext } from "@/lib/i18n/context";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/i18n/locale";
@@ -21,8 +23,9 @@ export default function Settings() {
   const t = useTranslations("Settings");
   const tLang = useTranslations("Language");
   const { data: tier, isLoading } = useTier();
+  const { canUseCloudSync } = useFeatureAccess();
   const { locale, setLocale } = useLocaleContext();
-  const isFree = tier?.tier === "FREE";
+  const showUpgradePrompt = !canUseCloudSync;
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -70,8 +73,12 @@ export default function Settings() {
                 </p>
               </div>
             )}
-            {isFree && (
-              <p className="mt-3 text-[11px] text-kyar-textSecondary">{t("upgradeForBackup")}</p>
+            {showUpgradePrompt && (
+              <UpgradePrompt
+                message={t("upgradeForBackup")}
+                linkText={t("viewPlan")}
+                className="mt-4"
+              />
             )}
           </section>
         )}

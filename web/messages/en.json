@@ -34,6 +34,7 @@
     "storageUsedUnlimited": "{used} used (unlimited)",
     "storageOf": "{used} / {limit}",
     "upgradeForBackup": "Upgrade for backup and export.",
+    "viewPlan": "View plan",
     "profileIdentity": "Profile & Identity",
     "accountDetails": "Account Details",
     "subscriptionPlan": "Subscription Plan",
