@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { getActiveSection, NAV_SECTIONS_BOTTOM } from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
 
-/** Mobile bottom nav: Home, Outfits, Closet, Events, Profile. Uses shared nav config. */
+/** Mobile viewport bottom nav: Home, Outfits, Planner, Events, Profile. Uses shared nav config. */
 export function BottomNav({ active, className = "" }: { active?: string; className?: string }) {
   const pathname = usePathname();
   const t = useTranslations("Nav");

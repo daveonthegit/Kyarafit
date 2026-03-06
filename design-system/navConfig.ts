@@ -33,11 +33,11 @@ export const NAV_SECTION_SETTINGS: NavSection = {
 /** All sections in order: primary first, then settings. */
 export const NAV_SECTIONS: NavSection[] = [...NAV_SECTIONS_PRIMARY, NAV_SECTION_SETTINGS];
 
-/** Bottom nav (mobile): Home, Outfits, Closet, Events, Profile. No Planner in tabs. */
+/** Bottom nav (mobile viewport): Home, Outfits, Planner, Events, Profile. */
 export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
-  { id: "closet", label: "Closet", path: "/closet", iconKey: "closet" },
+  { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
   { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
   NAV_SECTION_SETTINGS,
 ];

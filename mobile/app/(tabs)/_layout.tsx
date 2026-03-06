@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { View, Text, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font } from "@kyarafit/design-system/rn";
 
@@ -12,7 +13,7 @@ type TabIconProps = {
 function TabIcon({ focused, icon, label }: TabIconProps) {
   return (
     <View style={styles.tabItem}>
-      <Ionicons name={icon} size={24} color={focused ? colors.black : "rgba(0,0,0,0.3)"} />
+      <Ionicons name={icon} size={24} color={focused ? colors.black : colors.textMuted} />
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
       {focused && <View style={styles.tabDot} />}
     </View>
@@ -20,12 +21,19 @@ function TabIcon({ focused, icon, label }: TabIconProps) {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarStyle = {
+    ...styles.tabBar,
+    paddingBottom: Math.max(12, insets.bottom) + 12,
+    height: 56 + 12 + Math.max(12, insets.bottom) + 12,
+  };
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle,
       }}
     >
       <Tabs.Screen
@@ -45,10 +53,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="closet"
+        name="planner"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon="shirt-outline" label="Closet" />
+            <TabIcon focused={focused} icon="checkbox-outline" label="Planner" />
           ),
         }}
       />
@@ -74,12 +82,10 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "rgba(255,255,255,0.95)",
+    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: "#f3f3f3",
-    height: 100,
+    borderTopColor: colors.borderSubtle,
     paddingTop: 12,
-    paddingBottom: 32,
     position: "absolute",
     bottom: 0,
     left: 0,
@@ -96,7 +102,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1.5,
     fontWeight: "600",
-    color: "rgba(0,0,0,0.3)",
+    color: colors.textMuted,
   },
   tabLabelActive: {
     color: colors.black,
