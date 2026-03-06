@@ -4,7 +4,7 @@ Audit of each canonical feature: IMPLEMENTED / PARTIAL / NOT IMPLEMENTED, with e
 
 For **competitor comparison** (Cosplanner vs Kyarafit) and gaps that map to these features (e.g. elements ≈ closet items, summary dashboard, status filter), see [Competitor Analysis & Implementation Plan](../competitor/COMPETITOR_ANALYSIS_AND_IMPLEMENTATION_PLAN.md) — Section 3 (Feature Comparison Table) and Section 4 (High-Value Feature Gaps).
 
-Last updated: 2026-03-04.
+Last updated: 2026-03-05.
 
 ---
 
@@ -20,11 +20,11 @@ Last updated: 2026-03-04.
 | Itinerary                          | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/conventions.ts (day plans), web/src/app/itinerary/page.tsx (stub or basic)                                                                                               |
 | Packing list                       | IMPLEMENTED | IMPLEMENTED    | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | convex/conventions.ts (packingListItems), web/src/app/conventions/[id]/packing/page.tsx                                                                                         |
 | Planner                            | IMPLEMENTED | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/buildTasks.ts, web/src/app/planner/page.tsx (Daily/Conventions toggle; tasks not fully wired)                                                                            |
-| Settings                           | N/A         | PARTIAL        | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | web/src/app/settings/page.tsx (labels only; no subpages), Convex users (tier fields)                                                                                            |
+| Settings                           | N/A         | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | web/src/app/settings/page.tsx (menu links), /settings/account, /settings/subscription, /settings/notifications; Convex users (tier); settings/\*.test.tsx                       |
 | Tiers / subscription               | PARTIAL     | PARTIAL        | PARTIAL           | IMPLEMENTED | NOT   | NOT              | PARTIAL         | convex/schema.ts (users.tier, stripe\*), convex/users.ts (getMe), web useTier wired to api.users.getMe; no Stripe webhook/Checkout                                              |
 | Mobile offline/sync                | IMPLEMENTED | N/A            | IMPLEMENTED       | IMPLEMENTED | —     | NOT              | IMPLEMENTED     | mobile/src/storage/, mobile/src/hooks/useConvexSync.ts, mobile/src/services/convexSync.ts                                                                                       |
 | Image upload                       | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | NOT              | PARTIAL         | convex/files.ts, web ImageUpload in builds + closet/new + conventions/new and conventions/[id]/edit; convention detail shows image; mobile may not use Convex upload everywhere |
-| Seed data                          | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | NOT              | IMPLEMENTED     | convex/seed.ts (createStarter); web dev route /dev/seed (type URL to access)                                                                                                  |
+| Seed data                          | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | NOT              | IMPLEMENTED     | convex/seed.ts (createStarter); web dev route /dev/seed (type URL to access)                                                                                                    |
 | Build summary dashboard (14)       | IMPLEMENTED | IMPLEMENTED    | NOT               | —           | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/builds.ts (getSummary), web BuildSummarySection + build-detail; BuildSummarySection.test.tsx; element breakdown deferred until buildItemLinks type/status                |
 | Build project notes dedicated (15) | IMPLEMENTED | IMPLEMENTED    | PARTIAL           | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | build.notes; web: BuildNotesModal + Notes button on build detail; convex/builds.update(notes); BuildNotesModal.test.tsx                                                         |
 | Build reference images (16)        | IMPLEMENTED | IMPLEMENTED    | NOT               | IMPLEMENTED | —     | PARTIAL (unit)   | IMPLEMENTED     | convex/schema.ts, convex/buildReferenceImages.ts, web BuildReferenceImagesSection + ImageGallery; build-detail; BuildReferenceImagesSection.test.tsx                            |
@@ -82,8 +82,8 @@ Last updated: 2026-03-04.
 
 ### Settings
 
-- **Web:** web/src/app/settings/page.tsx shows tier/storage (useTier) and labels (Account Details, Subscription Plan, Notification Style) with no destination routes or forms.
-- **DB:** users table has tier, currentUsageMb, stripeCustomerId, etc.; useTier hardcodes FREE (no Convex users.getMe for tier yet).
+- **Web:** web/src/app/settings/page.tsx shows tier/storage (useTier) and menu links to Account Details, Subscription Plan, Notification Style. Routes: /settings/account (email, display name, change password link), /settings/subscription (tier, storage from useTier; upgrade/manage placeholder), /settings/notifications (placeholder). Unit tests: web/src/app/settings/page.test.tsx, account/page.test.tsx, subscription/page.test.tsx, notifications/page.test.tsx.
+- **DB:** users table has tier, currentUsageMb, stripeCustomerId, etc.; useTier wired to Convex users.getMe.
 
 ### Tiers / subscription
 
