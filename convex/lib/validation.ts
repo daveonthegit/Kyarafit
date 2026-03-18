@@ -54,7 +54,19 @@ export const MAX_LENGTH = {
   email: 320,
   url: 2048,
   dateString: 20, // YYYY-MM-DD or similar
+  username: 80,
+  displayName: 200,
+  bio: 500,
 } as const;
+
+/** Username: lowercase alphanumeric and underscores only; 1–username max length. */
+export function validateUsername(value: string): string {
+  const s = sanitizeString(value).toLowerCase();
+  if (s.length === 0) throw new Error("Username is required");
+  if (s.length > MAX_LENGTH.username) throw new Error(`Username must be at most ${MAX_LENGTH.username} characters`);
+  if (!/^[a-z0-9_]+$/.test(s)) throw new Error("Username can only contain letters, numbers, and underscores");
+  return s;
+}
 
 /** Validate date string format (YYYY-MM-DD). */
 export function validateDateString(value: string, fieldName: string): string {

@@ -3,7 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
-import { MAX_LENGTH, sanitizeOptional } from "./lib/validation";
+import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -23,12 +23,36 @@ export const getByExternalId = query({
   },
 });
 
+/** Public profile by username (for /u/[username]). Returns null if not found or profile not public. userId is externalId for use with listPublicByUser. */
+export const getByUsername = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", args.username.toLowerCase().trim()))
+      .unique();
+    if (!user || user.profileVisibility !== "public") return null;
+    return {
+      _id: user._id,
+      userId: user.externalId,
+      name: user.name,
+      displayName: user.displayName,
+      username: user.username,
+      image: user.image,
+      imageStorageId: user.imageStorageId,
+      bio: user.bio,
+    };
+  },
+});
+
 export const upsert = mutation({
   args: {
     externalId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
+    /** Sync from Better Auth session so app users table has username for getByUsername. */
+    username: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const email =
@@ -38,6 +62,14 @@ export const upsert = mutation({
     const name = sanitizeOptional(args.name, MAX_LENGTH.name, "Name");
     const image =
       args.image != null && args.image.length <= MAX_LENGTH.url ? args.image : undefined;
+    let username: string | undefined;
+    if (args.username != null && args.username.trim() !== "") {
+      try {
+        username = validateUsername(args.username);
+      } catch {
+        username = undefined;
+      }
+    }
 
     const existing = await ctx.db
       .query("users")
@@ -45,14 +77,32 @@ export const upsert = mutation({
       .unique();
 
     if (existing) {
-      // Do not overwrite image on patch — profile pic may have been uploaded; only sync email/name from session.
-      await ctx.db.patch(existing._id, {
+      // Sync email/name from session. Sync username from Better Auth only when Convex doesn't have one yet, so getByUsername finds the user without overwriting a username set only in app Settings.
+      const patch: { email: string; name: string | undefined; username?: string } = {
         email,
         name,
-      });
+      };
+      if (username !== undefined && existing.username === undefined) {
+        const taken = await ctx.db
+          .query("users")
+          .withIndex("by_username", (q) => q.eq("username", username))
+          .unique();
+        if (!taken || taken._id === existing._id) {
+          patch.username = username;
+        }
+      }
+      await ctx.db.patch(existing._id, patch);
       return existing._id;
     }
 
+    let usernameToInsert: string | undefined;
+    if (username !== undefined) {
+      const taken = await ctx.db
+        .query("users")
+        .withIndex("by_username", (q) => q.eq("username", username))
+        .unique();
+      if (!taken) usernameToInsert = username;
+    }
     const id = await ctx.db.insert("users", {
       externalId: args.externalId,
       email,
@@ -60,6 +110,7 @@ export const upsert = mutation({
       image,
       tier: "FREE",
       currentUsageMb: 0,
+      ...(usernameToInsert !== undefined && { username: usernameToInsert }),
     });
 
     // Send welcome email on first sign-up (non-blocking)
@@ -214,6 +265,65 @@ export const setFocusedBuild = mutation({
     }
 
     await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
+    return user._id;
+  },
+});
+
+/**
+ * Update current user's profile (username, displayName, bio, profileVisibility).
+ * Auth required. Username must be unique; validated as slug.
+ */
+export const updateProfile = mutation({
+  args: {
+    username: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    profileVisibility: v.optional(v.union(v.literal("private"), v.literal("public"))),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) {
+      throw new Error("You must be signed in to update your profile");
+    }
+    const externalId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .unique();
+    if (!user) {
+      throw new Error("User record not found");
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (args.displayName !== undefined) {
+      patch.displayName = args.displayName === ""
+        ? undefined
+        : sanitizeOptional(args.displayName, MAX_LENGTH.displayName, "Display name");
+    }
+    if (args.bio !== undefined) {
+      patch.bio = args.bio === "" ? undefined : sanitizeOptional(args.bio, MAX_LENGTH.bio, "Bio");
+    }
+    if (args.profileVisibility !== undefined) {
+      patch.profileVisibility = args.profileVisibility;
+    }
+    if (args.username !== undefined) {
+      const username = args.username === "" ? undefined : validateUsername(args.username);
+      if (username) {
+        const existing = await ctx.db
+          .query("users")
+          .withIndex("by_username", (q) => q.eq("username", username))
+          .unique();
+        if (existing && existing._id !== user._id) {
+          throw new Error("Username is already taken");
+        }
+        patch.username = username;
+      } else {
+        patch.username = undefined;
+      }
+    }
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(user._id, patch);
+    }
     return user._id;
   },
 });

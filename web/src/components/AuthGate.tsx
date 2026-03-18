@@ -12,6 +12,10 @@ const PUBLIC_PATHS = [
   "/auth/signup",
   "/auth/verify-email",
   "/auth/reset-password",
+  "/u",
+  "/b",
+  "/discover",
+  "/feed",
 ];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -32,11 +36,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const id = session.user.id;
     if (id === lastSyncedId.current) return;
     lastSyncedId.current = id;
+    const authUser = session.user as { username?: string; displayUsername?: string };
+    const username =
+      authUser.username ?? authUser.displayUsername ?? undefined;
     upsertUser({
       externalId: id,
       email: session.user.email ?? "",
       name: session.user.name ?? undefined,
       image: session.user.image ?? undefined,
+      username: username?.trim() ? username.trim().toLowerCase() : undefined,
     })
       .then(() => recalculateUsage())
       .catch(() => {

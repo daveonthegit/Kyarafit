@@ -9,6 +9,9 @@ export const NAV_ICON_MAP: Record<NavSectionId, string> = {
   builds: "layers",
   closet: "checkroom",
   events: "event",
+  groups: "group",
   planner: "task_alt",
+  discover: "explore",
+  feed: "newspaper",
   settings: "settings",
 };

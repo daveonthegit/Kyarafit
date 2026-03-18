@@ -72,6 +72,7 @@ export default function BuildsPage() {
     order,
   });
   const builds = useQuery(api.builds.list, listArgs) ?? [];
+  const sharedBuilds = useQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip") ?? [];
   const isLoading = builds === undefined;
   const hasSearch = search.trim().length > 0;
 
@@ -181,15 +182,25 @@ export default function BuildsPage() {
         subtitle="Portfolio"
         primaryAction={{ label: "New build", href: "/builds/new" }}
         trailing={
-          <Link
-            href="/closet"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-            aria-label="Open closet"
-          >
-            <span className="material-symbols-outlined text-lg font-light" aria-hidden>
-              inventory_2
-            </span>
-          </Link>
+          <div className="flex items-center gap-2">
+            {sharedBuilds.length > 0 && (
+              <a
+                href="#shared-with-me"
+                className="min-h-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+              >
+                Shared with me ({sharedBuilds.length})
+              </a>
+            )}
+            <Link
+              href="/closet"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+              aria-label="Open closet"
+            >
+              <span className="material-symbols-outlined text-lg font-light" aria-hidden>
+                inventory_2
+              </span>
+            </Link>
+          </div>
         }
       />
 
@@ -390,6 +401,63 @@ export default function BuildsPage() {
               );
             })}
         </ResponsiveGrid>
+
+        {sharedBuilds.length > 0 && (
+          <section id="shared-with-me" className="mt-12 pt-8 border-t border-kyar-borderSubtle scroll-mt-24">
+            <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-4">
+              Shared with you ({sharedBuilds.length})
+            </h2>
+            <ResponsiveGrid>
+              {sharedBuilds.map((b) => {
+                const progress =
+                  b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
+                return (
+                  <Link
+                    key={b._id}
+                    href={`/build-detail?id=${b._id}`}
+                    className="block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                  >
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
+                      {b.imageStorageId || b.imageUrl ? (
+                        <ResolvedImage
+                          imageStorageId={b.imageStorageId}
+                          imageUrl={b.imageUrl}
+                          alt={b.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                          <span className="material-symbols-outlined text-6xl">image</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-4 p-4">
+                      <h2 className="font-serif text-2xl font-bold italic tracking-tight">
+                        {b.name}
+                      </h2>
+                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest opacity-60">
+                        <span>{b.status}</span>
+                        {b.myRole && <span className="text-kyar-accent">{b.myRole}</span>}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
+                          <span>Progress</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <div className="h-[1px] bg-kyar-border w-full">
+                          <div
+                            className="h-full bg-black transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </ResponsiveGrid>
+          </section>
+        )}
       </main>
 
       {selectedIds.size > 0 && (

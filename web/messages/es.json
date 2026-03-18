@@ -4,7 +4,10 @@
     "builds": "Proyectos",
     "closet": "Armario",
     "events": "Eventos",
+    "groups": "Grupos",
     "planner": "Planificador",
+    "discover": "Descubrir",
+    "feed": "Feed",
     "settings": "Ajustes",
     "profile": "Perfil"
   },

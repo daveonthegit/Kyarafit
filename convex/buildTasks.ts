@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { canUserEditBuild } from "./lib/buildAccess";
 import { MAX_LENGTH, sanitizeAndLimit, validateDateString } from "./lib/validation";
 
 export const listByBuild = query({
@@ -164,9 +165,9 @@ export const create = mutation({
     const dueDate = args.dueDate ? validateDateString(args.dueDate, "Due date") : undefined;
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
-      if (!build || build.userId !== args.userId) {
-        throw new Error("Not found or not authorized");
-      }
+      if (!build) throw new Error("Build not found");
+      const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+      if (!canEdit) throw new Error("Not authorized");
       const existing = await ctx.db
         .query("buildTasks")
         .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
@@ -219,9 +220,9 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
     const task = await ctx.db.get(id);
-    if (!task || task.userId !== userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!task) throw new Error("Task not found");
+    const allowed = task.userId === userId || (task.buildId && await canUserEditBuild(ctx, task.buildId, userId));
+    if (!allowed) throw new Error("Not authorized");
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
       if (val === null) patch[k] = undefined;
@@ -266,9 +267,9 @@ export const remove = mutation({
   args: { id: v.id("buildTasks"), userId: v.string() },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
-    if (!task || task.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!task) throw new Error("Task not found");
+    const allowed = task.userId === args.userId || (task.buildId && await canUserEditBuild(ctx, task.buildId, args.userId));
+    if (!allowed) throw new Error("Not authorized");
     await ctx.db.delete(args.id);
     // Clear completionTaskId from any closet item that used this task
     const items = await ctx.db

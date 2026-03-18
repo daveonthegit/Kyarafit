@@ -36,6 +36,7 @@ export default function ConventionDetailPage() {
   const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
   const packingItems =
     useQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
+  const groupsAtCon = useQuery(api.groupConventionDays.listGroupsForConvention, id ? { conventionId: id } : "skip") ?? [];
 
   const replacePlanMut = useMutation(api.conventions.replacePlan);
   const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
@@ -184,6 +185,26 @@ export default function ConventionDetailPage() {
                   : `Started ${Math.abs(daysUntilStart)} day${Math.abs(daysUntilStart) === 1 ? "" : "s"} ago`}
             </p>
           </div>
+        )}
+
+        {groupsAtCon.length > 0 && (
+          <section>
+            <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">
+              Group cosplays at this con
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {groupsAtCon.map((g) => (
+                <li key={g._id}>
+                  <Link
+                    href={`/g/${g._id}`}
+                    className="inline-flex items-center gap-2 px-3 py-2 border border-kyar-cardBorder rounded-md text-sm hover:border-kyar-accent/50"
+                  >
+                    {g.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">

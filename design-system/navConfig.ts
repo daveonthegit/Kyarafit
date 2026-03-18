@@ -3,7 +3,7 @@
  * Primary: Home, Outfits (builds), Closet, Events, Planner. Secondary: Settings.
  */
 
-export type NavSectionId = "home" | "builds" | "closet" | "events" | "planner" | "settings";
+export type NavSectionId = "home" | "builds" | "closet" | "events" | "groups" | "planner" | "discover" | "feed" | "settings";
 
 export interface NavSection {
   id: NavSectionId;
@@ -13,13 +13,16 @@ export interface NavSection {
   iconKey: string;
 }
 
-/** Primary nav sections (sidebar/tabs): Home, Outfits, Closet, Events, Planner. */
+/** Primary nav sections (sidebar/tabs): Home, Outfits, Closet, Events, Groups, Planner, Discover, Feed. */
 export const NAV_SECTIONS_PRIMARY: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
   { id: "closet", label: "Closet", path: "/closet", iconKey: "closet" },
   { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
+  { id: "groups", label: "Groups", path: "/groups", iconKey: "groups" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
+  { id: "discover", label: "Discover", path: "/discover", iconKey: "discover" },
+  { id: "feed", label: "Feed", path: "/feed", iconKey: "feed" },
 ];
 
 /** Settings section (sidebar below divider, or Profile tab on mobile). */
@@ -33,12 +36,13 @@ export const NAV_SECTION_SETTINGS: NavSection = {
 /** All sections in order: primary first, then settings. */
 export const NAV_SECTIONS: NavSection[] = [...NAV_SECTIONS_PRIMARY, NAV_SECTION_SETTINGS];
 
-/** Bottom nav (mobile viewport): Home, Outfits, Planner, Events, Profile. */
+/** Bottom nav (mobile viewport): Home, Outfits, Planner, Events, Groups, Profile. */
 export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
   { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
+  { id: "groups", label: "Groups", path: "/groups", iconKey: "groups" },
   NAV_SECTION_SETTINGS,
 ];
 
@@ -63,7 +67,10 @@ export function getActiveSection(pathname: string | null): NavSectionId {
   if (pathname.startsWith("/builds") || pathname.startsWith("/build-detail")) return "builds";
   if (pathname.startsWith("/closet")) return "closet";
   if (pathname.startsWith("/conventions") || pathname.startsWith("/itinerary")) return "events";
+  if (pathname.startsWith("/groups") || pathname.startsWith("/g/")) return "groups";
   if (pathname.startsWith("/planner") || pathname.startsWith("/packing")) return "planner";
+  if (pathname.startsWith("/discover")) return "discover";
+  if (pathname.startsWith("/feed")) return "feed";
   if (pathname.startsWith("/settings")) return "settings";
   return "home";
 }

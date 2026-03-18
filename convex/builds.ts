@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { canUserEditBuild } from "./lib/buildAccess";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -11,6 +12,15 @@ import {
 } from "./lib/validation";
 
 const VALID_STATUSES = ["idea", "wip", "ready", "archived"] as const;
+const VALID_VISIBILITIES = ["private", "unlisted", "public"] as const;
+
+function generateShareToken(): string {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 const sortByValidator = v.optional(
   v.union(v.literal("name"), v.literal("progress"), v.literal("targetDate"), v.literal("budget"))
@@ -205,6 +215,181 @@ export const get = query({
   },
 });
 
+/** Get build by unlisted share token. Returns build with task counts if token matches. */
+export const getByShareToken = query({
+  args: { shareToken: v.string() },
+  handler: async (ctx, args) => {
+    const build = await ctx.db
+      .query("builds")
+      .withIndex("by_shareToken", (q) => q.eq("shareToken", args.shareToken))
+      .unique();
+    if (!build) return null;
+    const tasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+      .collect();
+    return {
+      ...build,
+      tasksTotal: tasks.length,
+      tasksChecked: tasks.filter((t) => t.checked).length,
+    };
+  },
+});
+
+/** List public builds for a user (for public profile page). */
+export const listPublicByUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const publicOnly = builds.filter((b) => b.visibility === "public");
+    return await Promise.all(
+      publicOnly.map(async (b) => {
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
+          .collect();
+        return {
+          ...b,
+          tasksTotal: tasks.length,
+          tasksChecked: tasks.filter((t) => t.checked).length,
+        };
+      })
+    );
+  },
+});
+
+/** List builds in a group (for group page). Returns builds with task counts. */
+export const listByGroup = query({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, args) => {
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
+      .collect();
+    return await Promise.all(
+      builds.map(async (b) => {
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
+          .collect();
+        return {
+          ...b,
+          tasksTotal: tasks.length,
+          tasksChecked: tasks.filter((t) => t.checked).length,
+        };
+      })
+    );
+  },
+});
+
+/** Discover: recent public builds, optionally limited. Returns builds with task counts and owner username. */
+export const listDiscover = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
+      .collect();
+    const sorted = [...builds].sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
+    const limited = args.limit ? sorted.slice(0, args.limit) : sorted;
+    const withDetails = await Promise.all(
+      limited.map(async (b) => {
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
+          .collect();
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
+          .unique();
+        return {
+          ...b,
+          tasksTotal: tasks.length,
+          tasksChecked: tasks.filter((t) => t.checked).length,
+          ownerUsername: user?.username ?? null,
+          ownerName: user?.displayName ?? user?.name ?? null,
+        };
+      })
+    );
+    return withDetails;
+  },
+});
+
+/** Feed: public builds from people the current user follows. */
+export const listFeedFromFollowing = query({
+  args: { userId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const following = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerId", args.userId))
+      .collect();
+    const followingIds = Array.from(new Set(following.map((f) => f.followingId)));
+    if (followingIds.length === 0) return [];
+    const allPublic: Array<Doc<"builds">> = [];
+    for (const uid of followingIds) {
+      const userBuilds = await ctx.db
+        .query("builds")
+        .withIndex("by_userId", (q) => q.eq("userId", uid))
+        .collect();
+      allPublic.push(...userBuilds.filter((b) => b.visibility === "public"));
+    }
+    const sorted = [...allPublic].sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
+    const limited = args.limit ? sorted.slice(0, args.limit) : sorted;
+    return await Promise.all(
+      limited.map(async (b) => {
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
+          .collect();
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
+          .unique();
+        return {
+          ...b,
+          tasksTotal: tasks.length,
+          tasksChecked: tasks.filter((t) => t.checked).length,
+          ownerUsername: user?.username ?? null,
+          ownerName: user?.displayName ?? user?.name ?? null,
+        };
+      })
+    );
+  },
+});
+
+/** List builds shared with the current user (as collaborator). For "Shared with me" on Builds page. */
+export const listSharedWithUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("buildCollaborators")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const buildIds = rows.map((r) => r.buildId);
+    const withDetails = await Promise.all(
+      buildIds.map(async (buildId) => {
+        const build = await ctx.db.get(buildId);
+        if (!build) return null;
+        const tasks = await ctx.db
+          .query("buildTasks")
+          .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+          .collect();
+        const row = rows.find((r) => r.buildId === buildId);
+        return {
+          ...build,
+          tasksTotal: tasks.length,
+          tasksChecked: tasks.filter((t) => t.checked).length,
+          myRole: row?.role ?? null,
+        };
+      })
+    );
+    return withDetails.filter((b): b is NonNullable<typeof b> => b != null);
+  },
+});
+
 export const create = mutation({
   args: {
     userId: v.string(),
@@ -216,6 +401,7 @@ export const create = mutation({
     imageStorageId: v.optional(v.id("_storage")),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
+    visibility: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.imageStorageId) {
@@ -230,6 +416,13 @@ export const create = mutation({
     const targetDate = args.targetDate
       ? validateDateString(args.targetDate, "Target date")
       : undefined;
+    const visibility = VALID_VISIBILITIES.includes(
+      args.visibility as (typeof VALID_VISIBILITIES)[number]
+    )
+      ? args.visibility
+      : "private";
+    const shareToken =
+      visibility === "unlisted" ? generateShareToken() : undefined;
     const id = await ctx.db.insert("builds", {
       userId: args.userId,
       name,
@@ -240,6 +433,8 @@ export const create = mutation({
       imageStorageId: args.imageStorageId,
       budgetCents: args.budgetCents,
       targetDate,
+      visibility,
+      shareToken,
     });
     return await ctx.db.get(id);
   },
@@ -259,13 +454,16 @@ export const update = mutation({
     imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
+    visibility: v.optional(v.string()),
+    shareToken: v.optional(v.union(v.string(), v.null())),
+    groupId: v.optional(v.union(v.id("groups"), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
     const build = await ctx.db.get(id);
-    if (!build || build.userId !== userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, id, userId);
+    if (!canEdit) throw new Error("Not authorized to update this build");
     const newStorageId = fields.imageStorageId;
     const oldStorageId = build.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
@@ -292,12 +490,52 @@ export const update = mutation({
         patch.imageFocalX = Math.max(0, Math.min(1, val));
       else if (k === "imageFocalY" && typeof val === "number")
         patch.imageFocalY = Math.max(0, Math.min(1, val));
-      else patch[k] = val;
+      else if (k === "visibility") {
+        if (VALID_VISIBILITIES.includes(val as (typeof VALID_VISIBILITIES)[number])) {
+          patch.visibility = val;
+          if (val === "unlisted" && build.shareToken == null) {
+            (patch as Record<string, unknown>).shareToken = generateShareToken();
+          } else if (val !== "unlisted") {
+            (patch as Record<string, unknown>).shareToken = undefined;
+          }
+        }
+      } else if (k === "shareToken") {
+        patch.shareToken = val === null || val === "" ? undefined : val;
+      } else if (k === "groupId") {
+        patch.groupId = val === null || val === "" ? undefined : val;
+      } else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
     return await ctx.db.get(id);
+  },
+});
+
+/** Set or clear build's group. User must own the build and be a member of the group (if setting). */
+export const setGroupId = mutation({
+  args: {
+    buildId: v.id("builds"),
+    userId: v.string(),
+    groupId: v.optional(v.union(v.id("groups"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
+    const newGroupId = args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
+    if (newGroupId) {
+      const membership = await ctx.db
+        .query("groupMembers")
+        .withIndex("by_groupId_userId", (q) =>
+          q.eq("groupId", newGroupId).eq("userId", args.userId)
+        )
+        .unique();
+      if (!membership) throw new Error("You must be a member of the group to add this build");
+    }
+    await ctx.db.patch(args.buildId, { groupId: newGroupId });
+    return await ctx.db.get(args.buildId);
   },
 });
 
@@ -520,9 +758,9 @@ export const linkItems = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     const uniqueRequestedIds = Array.from(new Set(args.closetItemIds));
     const existing = await ctx.db
       .query("buildItemLinks")
@@ -611,9 +849,9 @@ export const addItemsToBuild = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     const existing = await ctx.db
       .query("buildItemLinks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
@@ -685,9 +923,9 @@ export const removeItemFromBuild = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     const item = await ctx.db.get(args.closetItemId);
     if (!item || item.userId !== args.userId) {
       throw new Error("Not found or not authorized");
@@ -726,9 +964,9 @@ export const removeItemsFromBuild = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     for (const closetItemId of args.closetItemIds) {
       const item = await ctx.db.get(closetItemId);
       if (!item || item.userId !== args.userId) continue;

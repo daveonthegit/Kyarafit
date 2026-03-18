@@ -4,7 +4,10 @@
     "builds": "Builds",
     "closet": "Closet",
     "events": "Events",
+    "groups": "Groups",
     "planner": "Planner",
+    "discover": "Discover",
+    "feed": "Feed",
     "settings": "Settings",
     "profile": "Profile"
   },

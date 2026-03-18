@@ -9,6 +9,9 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as buildCollaborators from "../buildCollaborators.js";
+import type * as buildComments from "../buildComments.js";
+import type * as buildLikes from "../buildLikes.js";
 import type * as buildProcessPictures from "../buildProcessPictures.js";
 import type * as buildReferenceImages from "../buildReferenceImages.js";
 import type * as buildTasks from "../buildTasks.js";
@@ -18,7 +21,11 @@ import type * as conventions from "../conventions.js";
 import type * as email from "../email.js";
 import type * as emailHelpers from "../emailHelpers.js";
 import type * as files from "../files.js";
+import type * as follows from "../follows.js";
+import type * as groupConventionDays from "../groupConventionDays.js";
+import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
@@ -32,6 +39,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  buildCollaborators: typeof buildCollaborators;
+  buildComments: typeof buildComments;
+  buildLikes: typeof buildLikes;
   buildProcessPictures: typeof buildProcessPictures;
   buildReferenceImages: typeof buildReferenceImages;
   buildTasks: typeof buildTasks;
@@ -41,7 +51,11 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   emailHelpers: typeof emailHelpers;
   files: typeof files;
+  follows: typeof follows;
+  groupConventionDays: typeof groupConventionDays;
+  groups: typeof groups;
   http: typeof http;
+  "lib/buildAccess": typeof lib_buildAccess;
   "lib/validation": typeof lib_validation;
   seed: typeof seed;
   storageUsage: typeof storageUsage;

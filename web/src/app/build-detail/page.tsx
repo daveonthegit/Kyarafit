@@ -44,6 +44,9 @@ export default function BuildDetailPage() {
 
   const updateTask = useMutation(api.buildTasks.update);
   const updateBuild = useMutation(api.builds.update);
+  const collaborators = useQuery(api.buildCollaborators.listByBuild, id ? { buildId: id } : "skip") ?? [];
+  const addCollaborator = useMutation(api.buildCollaborators.addByEmail);
+  const removeCollaborator = useMutation(api.buildCollaborators.remove);
   const justDroppedRef = useRef(false);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -63,6 +66,12 @@ export default function BuildDetailPage() {
   const [showOutline, setShowOutline] = useState(false);
   const tasksSectionRef = useRef<HTMLElement>(null);
   const itemsSectionRef = useRef<HTMLElement>(null);
+  const [editVisibility, setEditVisibility] = useState<"private" | "unlisted" | "public">("private");
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [collabEmail, setCollabEmail] = useState("");
+  const [collabRole, setCollabRole] = useState<"viewer" | "editor">("viewer");
+  const [collabPending, setCollabPending] = useState(false);
+  const [collabError, setCollabError] = useState<string | null>(null);
 
   const handleOutlineSelect = (nodeId: string) => {
     if (nodeId === "tasks" || nodeId.startsWith("task-")) {
@@ -81,6 +90,7 @@ export default function BuildDetailPage() {
       setEditTargetDate(build.targetDate ?? "");
       setEditImageUrl(build.imageUrl ?? "");
       setEditImageStorageId(build.imageStorageId ?? null);
+      setEditVisibility((build.visibility as "private" | "unlisted" | "public") ?? "private");
     }
   }, [build, isEditing]);
 
@@ -110,10 +120,23 @@ export default function BuildDetailPage() {
         targetDate: editTargetDate.trim() || undefined,
         imageUrl: editImageUrl.trim() || undefined,
         imageStorageId: editImageStorageId ?? undefined,
+        visibility: editVisibility,
       });
       setIsEditing(false);
     } finally {
       setSavePending(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!build?.shareToken) return;
+    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/b/s/${build.shareToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareLinkCopied(true);
+      setTimeout(() => setShareLinkCopied(false), 2000);
+    } catch {
+      setShareLinkCopied(false);
     }
   };
 
@@ -349,6 +372,30 @@ export default function BuildDetailPage() {
                     className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm focus:outline-none focus:border-black"
                   />
                 </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                    Visibility
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {(["private", "unlisted", "public"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setEditVisibility(v)}
+                        className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
+                          editVisibility === v
+                            ? "border-black bg-kyar-muted text-black"
+                            : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-kyar-textTertiary mt-1">
+                    Private: only you. Unlisted: anyone with link. Public: on your profile.
+                  </p>
+                </div>
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
@@ -471,6 +518,89 @@ export default function BuildDetailPage() {
                         </p>
                       )}
                     </div>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-kyar-borderSubtle">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                    Sharing
+                  </span>
+                  <p className="text-sm text-kyar-textSecondary mb-2">
+                    {build.visibility === "public"
+                      ? "Public — visible on your profile"
+                      : build.visibility === "unlisted"
+                        ? "Unlisted — only people with the link"
+                        : "Private — only you"}
+                  </p>
+                  {(build.visibility === "unlisted" && build.shareToken) && (
+                    <button
+                      type="button"
+                      onClick={handleCopyShareLink}
+                      className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+                    >
+                      {shareLinkCopied ? "Copied!" : "Copy share link"}
+                    </button>
+                  )}
+                </div>
+                {userId && build.userId === userId && (
+                  <div className="pt-2 border-t border-kyar-borderSubtle">
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                      Collaborators
+                    </span>
+                    {collaborators.length > 0 && (
+                      <ul className="space-y-1 mb-3">
+                        {collaborators.map((c) => (
+                          <li key={c.userId} className="flex items-center justify-between text-sm">
+                            <span>{c.name ?? c.email ?? c.userId}</span>
+                            <span className="text-[11px] text-kyar-textTertiary capitalize">{c.role}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeCollaborator({ buildId: id, ownerId: userId, userId: c.userId })}
+                              className="text-[11px] text-red-600 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex gap-2 flex-wrap items-center">
+                      <input
+                        type="email"
+                        value={collabEmail}
+                        onChange={(e) => { setCollabEmail(e.target.value); setCollabError(null); }}
+                        placeholder="Email to share with"
+                        className="flex-1 min-w-[140px] border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
+                        disabled={collabPending}
+                      />
+                      <select
+                        value={collabRole}
+                        onChange={(e) => setCollabRole(e.target.value as "viewer" | "editor")}
+                        className="border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="editor">Editor</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!id || !userId || !collabEmail.trim() || collabPending) return;
+                          setCollabPending(true); setCollabError(null);
+                          try {
+                            await addCollaborator({ buildId: id, ownerId: userId, email: collabEmail.trim(), role: collabRole });
+                            setCollabEmail("");
+                          } catch (e) {
+                            setCollabError(e instanceof Error ? e.message : "Failed");
+                          } finally {
+                            setCollabPending(false);
+                          }
+                        }}
+                        disabled={collabPending || !collabEmail.trim()}
+                        className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {collabError && <p className="text-xs text-red-600 mt-1">{collabError}</p>}
                   </div>
                 )}
                 <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">

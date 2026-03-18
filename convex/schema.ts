@@ -15,9 +15,14 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()),
     subscriptionCurrentPeriodEnd: v.optional(v.string()),
     focusedBuildId: v.optional(v.id("builds")),
+    username: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    profileVisibility: v.optional(v.string()),
   })
     .index("by_externalId", ["externalId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_username", ["username"]),
 
   closetItems: defineTable({
     userId: v.string(),
@@ -49,9 +54,15 @@ export default defineSchema({
     imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
+    visibility: v.optional(v.string()),
+    shareToken: v.optional(v.string()),
+    groupId: v.optional(v.id("groups")),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_status", ["userId", "status"]),
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_shareToken", ["shareToken"])
+    .index("by_groupId", ["groupId"])
+    .index("by_visibility", ["visibility"]),
 
   buildItemLinks: defineTable({
     userId: v.string(),
@@ -127,4 +138,77 @@ export default defineSchema({
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"]),
+
+  groups: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
+    createdBy: v.string(),
+    visibility: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_createdBy", ["createdBy"])
+    .index("by_visibility", ["visibility"]),
+
+  groupMembers: defineTable({
+    groupId: v.id("groups"),
+    userId: v.string(),
+    role: v.string(),
+  })
+    .index("by_groupId", ["groupId"])
+    .index("by_userId", ["userId"])
+    .index("by_groupId_userId", ["groupId", "userId"]),
+
+  groupConventionDays: defineTable({
+    groupId: v.id("groups"),
+    conventionId: v.id("conventions"),
+    date: v.string(),
+  })
+    .index("by_groupId", ["groupId"])
+    .index("by_conventionId", ["conventionId"])
+    .index("by_groupId_conventionId_date", ["groupId", "conventionId", "date"]),
+
+  follows: defineTable({
+    followerId: v.string(),
+    followingId: v.string(),
+  })
+    .index("by_follower", ["followerId"])
+    .index("by_following", ["followingId"])
+    .index("by_follower_following", ["followerId", "followingId"]),
+
+  buildLikes: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"])
+    .index("by_userId_buildId", ["userId", "buildId"]),
+
+  buildComments: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    body: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"]),
+
+  buildCollaborators: defineTable({
+    buildId: v.id("builds"),
+    userId: v.string(),
+    role: v.string(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"]),
+
+  activities: defineTable({
+    userId: v.string(),
+    kind: v.string(),
+    buildId: v.optional(v.id("builds")),
+    groupId: v.optional(v.id("groups")),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_createdAt", ["userId", "createdAt"]),
 });

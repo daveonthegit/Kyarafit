@@ -20,7 +20,9 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
   const username =
     (user as { displayUsername?: string; username?: string } | undefined)?.displayUsername ??
     (user as { username?: string } | undefined)?.username ??
+    convexUser?.username ??
     null;
+  const profileIsPublic = convexUser?.profileVisibility === "public";
   const profileImageStorageId = convexUser?.imageStorageId ?? undefined;
   const profileImageUrl =
     !profileImageStorageId && convexUser?.image ? convexUser.image : (user?.image ?? undefined);
@@ -53,19 +55,29 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
         )}
       </Link>
       {!collapsed && (
-        <Link
-          href="/settings/account"
-          className="flex-1 min-w-0 flex flex-col items-start justify-center"
-        >
-          <span className="text-sm font-medium text-kyar-text truncate w-full text-left">
-            {displayName}
-          </span>
-          {username != null && username !== "" && (
-            <span className="text-xs text-kyar-textTertiary truncate w-full text-left">
-              @{username}
+        <div className="flex-1 min-w-0 flex flex-col items-start justify-center">
+          <Link
+            href="/settings/account"
+            className="flex flex-col items-start justify-center min-w-0 w-full"
+          >
+            <span className="text-sm font-medium text-kyar-text truncate w-full text-left">
+              {displayName}
             </span>
+            {username != null && username !== "" && (
+              <span className="text-xs text-kyar-textTertiary truncate w-full text-left">
+                @{username}
+              </span>
+            )}
+          </Link>
+          {profileIsPublic && username && (
+            <Link
+              href={`/u/${username}`}
+              className="text-[11px] uppercase tracking-widest text-kyar-accent hover:underline mt-0.5"
+            >
+              View profile
+            </Link>
           )}
-        </Link>
+        </div>
       )}
     </div>
   );

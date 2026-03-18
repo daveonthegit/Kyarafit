@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { canUserEditBuild } from "./lib/buildAccess";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 export const listByBuild = query({
@@ -22,9 +23,9 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     if (!args.imageStorageId && !args.imageUrl) {
       throw new Error("Either imageStorageId or imageUrl is required");
     }
@@ -54,10 +55,11 @@ export const remove = mutation({
   },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
-    await subtractUsageForStorageId(ctx, args.userId, doc.imageStorageId);
+    if (!doc) throw new Error("Not found");
+    const build = doc.buildId ? await ctx.db.get(doc.buildId) : null;
+    const canEdit = build && await canUserEditBuild(ctx, doc.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
+    await subtractUsageForStorageId(ctx, doc.userId, doc.imageStorageId);
     await ctx.db.delete(args.id);
   },
 });
@@ -70,9 +72,9 @@ export const reorder = mutation({
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
     const existing = await ctx.db
       .query("buildProcessPictures")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))

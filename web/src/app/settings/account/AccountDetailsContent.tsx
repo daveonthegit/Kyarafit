@@ -24,15 +24,23 @@ type Props = {
 };
 
 export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
-  const usernameDisplay = user.displayUsername ?? user.username ?? null;
+  const externalId = user.id ?? null;
+  const convexUser = useQuery(api.users.getByExternalId, externalId ? { externalId } : "skip");
+  const usernameDisplay = user.displayUsername ?? user.username ?? convexUser?.username ?? null;
+
   const [displayNameEdit, setDisplayNameEdit] = useState<string | null>(null);
   const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
-
-  const externalId = user.id ?? null;
-  const convexUser = useQuery(api.users.getByExternalId, externalId ? { externalId } : "skip");
+  const [usernameEdit, setUsernameEdit] = useState<string | null>(null);
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [bioEdit, setBioEdit] = useState<string | null>(null);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [profileVisibilityEdit, setProfileVisibilityEdit] = useState<string | null>(null);
+  const [profileVisibilityError, setProfileVisibilityError] = useState<string | null>(null);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const updateProfileImage = useMutation(api.users.updateProfileImage);
+  const updateProfile = useMutation(api.users.updateProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -98,6 +106,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
       if (error) {
         setDisplayNameError(error.message ?? "Could not update name.");
       } else {
+        await updateProfile({ displayName: trimmed || undefined });
         setDisplayNameEdit(null);
       }
     } catch {
@@ -110,6 +119,42 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
   const handleCancelDisplayName = () => {
     setDisplayNameEdit(null);
     setDisplayNameError(null);
+  };
+
+  const handleSaveUsername = async () => {
+    const raw = (usernameEdit ?? "").trim().toLowerCase();
+    setUsernameError(null);
+    setUsernameLoading(true);
+    try {
+      await updateProfile({ username: raw || undefined });
+      setUsernameEdit(null);
+    } catch (e) {
+      setUsernameError(e instanceof Error ? e.message : "Could not update username.");
+    } finally {
+      setUsernameLoading(false);
+    }
+  };
+
+  const handleSaveBio = async () => {
+    const trimmed = (bioEdit ?? "").trim();
+    setBioLoading(true);
+    try {
+      await updateProfile({ bio: trimmed || undefined });
+      setBioEdit(null);
+    } finally {
+      setBioLoading(false);
+    }
+  };
+
+  const handleSaveProfileVisibility = async (value: "private" | "public") => {
+    setProfileVisibilityError(null);
+    try {
+      await updateProfile({ profileVisibility: value });
+      setProfileVisibilityEdit(null);
+    } catch (e) {
+      setProfileVisibilityError(e instanceof Error ? e.message : "Could not save. Try again.");
+      setProfileVisibilityEdit(null);
+    }
   };
 
   return (
@@ -237,8 +282,171 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
           Username
         </p>
-        <p className="text-sm" data-testid="account-username">
-          {usernameDisplay ?? "—"}
+        {usernameEdit === null ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm" data-testid="account-username">
+              {usernameDisplay ? `@${usernameDisplay}` : "—"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setUsernameEdit(convexUser?.username ?? "")}
+              className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-2">
+            <input
+              type="text"
+              value={usernameEdit}
+              onChange={(e) => {
+                setUsernameEdit(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+                setUsernameError(null);
+              }}
+              placeholder="username"
+              maxLength={80}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
+              disabled={usernameLoading}
+              data-testid="account-username-input"
+              autoComplete="username"
+            />
+            <p className="text-[11px] text-kyar-textTertiary">Letters, numbers, underscores only. Your profile: kyarafit.com/u/username</p>
+            {usernameError && (
+              <p className="text-xs text-red-500" role="alert">{usernameError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveUsername}
+                disabled={usernameLoading}
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
+              >
+                {usernameLoading ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUsernameEdit(null); setUsernameError(null); }}
+                disabled={usernameLoading}
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-textSecondary hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="py-3 border-b border-gray-100">
+        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
+          Bio
+        </p>
+        {bioEdit === null ? (
+          <div className="flex items-start gap-2 flex-wrap">
+            <p className="text-sm text-kyar-textSecondary whitespace-pre-wrap flex-1 min-w-0">
+              {convexUser?.bio ?? "—"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setBioEdit(convexUser?.bio ?? "")}
+              className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={bioEdit}
+              onChange={(e) => setBioEdit(e.target.value)}
+              placeholder="Short bio for your public profile"
+              maxLength={500}
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
+              disabled={bioLoading}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveBio}
+                disabled={bioLoading}
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
+              >
+                {bioLoading ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBioEdit(null)}
+                disabled={bioLoading}
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-textSecondary hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="py-3 border-b border-gray-100">
+        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
+          Public profile
+        </p>
+        {profileVisibilityEdit === null ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm">
+              {convexUser?.profileVisibility === "public" ? "Public" : "Private"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setProfileVisibilityEdit(convexUser?.profileVisibility ?? "private")}
+              className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+            >
+              Change
+            </button>
+            {convexUser?.profileVisibility === "public" && convexUser?.username && (
+              <Link
+                href={`/u/${convexUser.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline ml-2"
+              >
+                View profile
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleSaveProfileVisibility("public")}
+              className="text-sm px-3 py-1.5 border border-kyar-cardBorder rounded-md hover:bg-kyar-mutedWarm"
+            >
+              Public
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSaveProfileVisibility("private")}
+              className="text-sm px-3 py-1.5 border border-kyar-cardBorder rounded-md hover:bg-kyar-mutedWarm"
+            >
+              Private
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setProfileVisibilityEdit(null);
+                setProfileVisibilityError(null);
+              }}
+              className="text-[11px] uppercase tracking-widest font-medium text-kyar-textSecondary hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {profileVisibilityError && (
+          <p className="text-xs text-red-500 mt-2" role="alert">
+            {profileVisibilityError}
+          </p>
+        )}
+        <p className="text-[11px] text-kyar-textTertiary mt-1">
+          Public: others can see your profile and public builds. Private: only you.
         </p>
       </div>
       <div className="pt-4">
