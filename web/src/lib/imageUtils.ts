@@ -106,22 +106,49 @@ function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Produce a square JPEG blob from a cropped region of an image.
- * Optionally scales down to maxSize (e.g. 512 for avatars). Used after user crops in UI.
+ * Options for getCroppedImageBlob.
+ * - maxSize: for square output (e.g. avatars); shorter side is capped.
+ * - maxWidth + maxHeight: for rectangular output; crop is scaled to fit within both, keeping aspect.
+ */
+export type GetCroppedImageBlobOptions = {
+  maxSize?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  quality?: number;
+};
+
+/**
+ * Produce a JPEG blob from a cropped region of an image.
+ * Use maxSize for square output (e.g. avatars), or maxWidth+maxHeight for rectangular (e.g. hero).
  */
 export async function getCroppedImageBlob(
   imageSrc: string,
   crop: CropArea,
-  options?: { maxSize?: number; quality?: number }
+  options?: GetCroppedImageBlobOptions
 ): Promise<Blob> {
-  const maxSize = options?.maxSize ?? AVATAR_MAX_SIZE;
   const quality = options?.quality ?? AVATAR_JPEG_QUALITY;
   const img = await loadImageFromUrl(imageSrc);
   const { x, y, width, height } = crop;
-  const size = Math.min(width, height, maxSize);
-  const scale = size / Math.min(width, height);
-  const scaledW = Math.round(width * scale);
-  const scaledH = Math.round(height * scale);
+
+  let scaledW: number;
+  let scaledH: number;
+  if (
+    options?.maxWidth != null &&
+    options?.maxHeight != null &&
+    options.maxWidth > 0 &&
+    options.maxHeight > 0
+  ) {
+    const scale = Math.min(options.maxWidth / width, options.maxHeight / height);
+    scaledW = Math.round(width * scale);
+    scaledH = Math.round(height * scale);
+  } else {
+    const maxSize = options?.maxSize ?? AVATAR_MAX_SIZE;
+    const size = Math.min(width, height, maxSize);
+    const scale = size / Math.min(width, height);
+    scaledW = Math.round(width * scale);
+    scaledH = Math.round(height * scale);
+  }
+
   const canvas = document.createElement("canvas");
   canvas.width = scaledW;
   canvas.height = scaledH;

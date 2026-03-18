@@ -74,7 +74,7 @@ export default function NewClosetItemPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-6 border-b border-kyar-borderSubtle">
+      <header className="sticky top-0 z-40 bg-kyar-bgWarm/95 backdrop-blur-sm pt-12 pb-6 border-b border-kyar-borderSubtle">
         <div className="flex items-center justify-between">
           <Link
             href="/closet"

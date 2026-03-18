@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import {
@@ -143,6 +144,50 @@ export const getMostRecentForUser = query({
   },
 });
 
+/**
+ * Returns the build to show as "Current Focus" on home: user's selected focused build
+ * if set and valid, otherwise the most recently created build. Includes task counts.
+ */
+export const getFocusedOrMostRecentForUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", args.userId))
+      .unique();
+
+    let build: Doc<"builds"> | null = null;
+    if (user?.focusedBuildId) {
+      const candidate = await ctx.db.get(user.focusedBuildId);
+      if (candidate && "name" in candidate && candidate.userId === args.userId)
+        build = candidate as Doc<"builds">;
+    }
+    if (!build) {
+      const builds = await ctx.db
+        .query("builds")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .collect();
+      if (builds.length === 0) return null;
+      const sorted = [...builds].sort((a, b) => b._creationTime - a._creationTime);
+      build = sorted[0];
+    }
+
+    const tasks = await ctx.db
+      .query("buildTasks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+      .collect();
+    const tasksChecked = tasks.filter((t) => t.checked).length;
+    const tasksTotal = tasks.length;
+    const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+    return {
+      ...build,
+      tasksTotal,
+      tasksChecked,
+      progress,
+    };
+  },
+});
+
 export const get = query({
   args: { id: v.id("builds") },
   handler: async (ctx, args) => {
@@ -210,6 +255,8 @@ export const update = mutation({
     notes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    imageFocalX: v.optional(v.number()),
+    imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
   },
@@ -239,8 +286,12 @@ export const update = mutation({
         if (VALID_STATUSES.includes(val as (typeof VALID_STATUSES)[number])) {
           patch.status = sanitizeString(val as string);
         }
-      } else if (k === "targetDate")
+      }       else if (k === "targetDate")
         patch.targetDate = validateDateString(val as string, "Target date");
+      else if (k === "imageFocalX" && typeof val === "number")
+        patch.imageFocalX = Math.max(0, Math.min(1, val));
+      else if (k === "imageFocalY" && typeof val === "number")
+        patch.imageFocalY = Math.max(0, Math.min(1, val));
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
