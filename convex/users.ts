@@ -72,6 +72,18 @@ export const upsert = mutation({
   },
 });
 
+/** Returns the current user's focused build id (for home hero), or null. */
+export const getFocusedBuildId = query({
+  args: { externalId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .unique();
+    return user?.focusedBuildId ?? null;
+  },
+});
+
 export const getMe = query({
   args: { externalId: v.string() },
   handler: async (ctx, args) => {
@@ -175,6 +187,33 @@ export const updateProfileImage = mutation({
       imageStorageId: args.storageId,
       // Keep image for OAuth fallback; storage takes precedence when present
     });
+    return user._id;
+  },
+});
+
+/**
+ * Set the build to show as "Current Focus" on the home hero.
+ * Pass buildId to set focus, or omit to clear (fall back to most recent).
+ * Auth required; build must belong to the current user.
+ */
+export const setFocusedBuild = mutation({
+  args: { buildId: v.optional(v.id("builds")) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) return null;
+    const externalId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .unique();
+    if (!user) return null;
+
+    if (args.buildId != null) {
+      const build = await ctx.db.get(args.buildId);
+      if (!build || build.userId !== externalId) return null;
+    }
+
+    await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
     return user._id;
   },
 });

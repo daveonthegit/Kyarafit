@@ -76,7 +76,7 @@ export default function BuildLinkItemsPage() {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <WebAppShell>
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between">
+        <header className="sticky top-0 z-40 bg-kyar-bgWarm/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between">
           <Link
             href="/builds"
             className="text-[10px] font-semibold uppercase tracking-widest text-kyar-meta"

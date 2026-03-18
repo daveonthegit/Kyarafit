@@ -46,7 +46,7 @@ export default function ConventionPackingPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
+      <header className="sticky top-0 z-40 bg-kyar-bgWarm/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center gap-4">
         <Link
           href="/conventions"
           className="material-symbols-outlined font-light text-2xl"

@@ -14,6 +14,7 @@ export default defineSchema({
     stripeSubscriptionId: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
     subscriptionCurrentPeriodEnd: v.optional(v.string()),
+    focusedBuildId: v.optional(v.id("builds")),
   })
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"]),
@@ -42,6 +43,9 @@ export default defineSchema({
     notes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    /** Focal point for hero display: 0–1, used as object-position (center of interest). */
+    imageFocalX: v.optional(v.number()),
+    imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
   })
