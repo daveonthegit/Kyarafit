@@ -3,8 +3,9 @@ import { LandingAuthCta } from "@/components/landing/LandingAuthCta";
 import { HeroScrollSection } from "@/components/landing/HeroScrollSection";
 
 const SECTION_PADDING = "px-6 sm:px-8 lg:px-12";
-const SECTION_GAP = "gap-12 lg:gap-14";
+const SECTION_GAP = "gap-12 lg:gap-16";
 const MAX_WIDTH = "max-w-6xl mx-auto w-full";
+const SECTION_PY = "py-14 sm:py-20 lg:py-24";
 
 export default function LandingPage() {
   return (
@@ -25,21 +26,21 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-1 flex flex-col" role="main">
-        {/* Hero: sticky copy left, scroll-reveal card right */}
+        {/* Hero */}
         <section
-          className={`grid grid-cols-1 lg:grid-cols-2 ${SECTION_GAP} ${SECTION_PADDING} pt-4 pb-8 lg:pb-12 ${MAX_WIDTH} min-h-0`}
+          className={`grid grid-cols-1 lg:grid-cols-2 ${SECTION_GAP} ${SECTION_PADDING} pt-2 pb-6 sm:pb-8 lg:pb-12 ${MAX_WIDTH} min-h-0`}
           aria-labelledby="hero-heading"
         >
-          <div className="flex flex-col justify-center min-w-0 lg:sticky lg:top-24 lg:self-start lg:py-16">
+          <div className="flex flex-col justify-center min-w-0 lg:sticky lg:top-24 lg:self-start lg:py-12">
             <p
-              className="font-sans-wide text-[9px] sm:text-[10px] text-kyar-meta uppercase tracking-widest mb-3"
+              className="font-sans-wide text-[9px] sm:text-[10px] text-kyar-meta uppercase tracking-widest mb-4"
               aria-hidden
             >
               Cosplay wardrobe · Builds · Events
             </p>
             <h1
               id="hero-heading"
-              className="font-serif-elegant text-4xl sm:text-5xl lg:text-6xl leading-[1.1] font-normal mb-6"
+              className="font-serif-elegant text-4xl sm:text-5xl lg:text-6xl xl:text-[3.5rem] leading-[1.08] font-normal mb-6"
             >
               Your closet, builds, and events in one place
             </h1>
@@ -49,53 +50,82 @@ export default function LandingPage() {
             </p>
             <LandingAuthCta variant="hero" />
           </div>
-          <div className="w-full min-h-[38rem] md:min-h-[48rem] flex items-center">
+          <div className="w-full min-h-[32rem] sm:min-h-[38rem] md:min-h-[44rem] flex items-center">
             <HeroScrollSection variant="hero" />
           </div>
         </section>
 
-        {/* Problem */}
+        {/* Core value */}
         <section
-          className={`${SECTION_PADDING} py-12 sm:py-16 border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
-          aria-labelledby="problem-heading"
+          className={`${SECTION_PADDING} ${SECTION_PY} border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
+          aria-labelledby="value-heading"
+        >
+          <div className="max-w-2xl">
+            <h2
+              id="value-heading"
+              className="font-serif-elegant text-2xl sm:text-3xl lg:text-4xl font-normal italic mb-4"
+            >
+              Less chaos, more craft
+            </h2>
+            <p className="text-sm sm:text-base text-kyar-textSecondary leading-relaxed">
+              Kyarafit keeps your cosplay world in one place: a digital closet for pieces, build
+              tracking for progress and tasks, and event planning for conventions—with packing lists
+              and day plans so you can focus on making and wearing.
+            </p>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section
+          className={`${SECTION_PADDING} ${SECTION_PY} border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
+          aria-labelledby="features-heading"
         >
           <h2
-            id="problem-heading"
-            className="font-serif-elegant text-2xl sm:text-3xl font-normal italic mb-8"
+            id="features-heading"
+            className="font-serif-elegant text-2xl sm:text-3xl font-normal italic mb-10 sm:mb-12"
           >
-            Less chaos, more craft
+            What you get
           </h2>
-          <ul className="grid sm:grid-cols-3 gap-6 sm:gap-8 list-none p-0 m-0">
+          <div className="grid md:grid-cols-3 gap-6 sm:gap-8">
             {[
               {
-                label: "Scattered closet",
-                body: "Pieces live in spreadsheets or your head. Hard to see what you have or what fits a character.",
+                icon: "inventory_2",
+                title: "Digital closet",
+                desc: "Catalog pieces, track costs, and visualize your collection with minimal fuss.",
               },
               {
-                label: "Builds slip through cracks",
-                body: "Tasks and deadlines for multiple costumes get messy. Progress and budget are unclear.",
+                icon: "construction",
+                title: "Build tracking",
+                desc: "Document progress, manage tasks, and keep cosplay projects on schedule.",
               },
               {
-                label: "Event planning is manual",
-                body: "Packing lists and day plans per convention are copy-paste or guesswork.",
+                icon: "calendar_month",
+                title: "Convention planning",
+                desc: "Plan outfits, create itineraries, and generate packing lists for events.",
               },
             ].map((item) => (
-              <li
-                key={item.label}
-                className="border-b border-kyar-border pb-4 sm:border-b-0 sm:border-l sm:border-kyar-borderSubtle sm:pl-6 first:sm:pl-0 first:sm:border-l-0"
+              <div
+                key={item.title}
+                className="border border-kyar-borderSubtle rounded-sm p-6 sm:p-7 bg-kyar-surface"
               >
-                <p className="font-sans-wide text-[11px] uppercase tracking-widest font-semibold text-kyar-text mb-2">
-                  {item.label}
-                </p>
-                <p className="text-sm text-kyar-textSecondary leading-relaxed">{item.body}</p>
-              </li>
+                <span
+                  className="material-symbols-outlined text-2xl text-kyar-text block mb-4"
+                  aria-hidden
+                >
+                  {item.icon}
+                </span>
+                <h3 className="font-sans-wide text-[11px] uppercase tracking-widest font-semibold mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-kyar-textSecondary leading-relaxed">{item.desc}</p>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
 
         {/* How it works */}
         <section
-          className={`${SECTION_PADDING} py-12 sm:py-16 border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
+          className={`${SECTION_PADDING} ${SECTION_PY} border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
           aria-labelledby="how-heading"
         >
           <h2
@@ -104,10 +134,10 @@ export default function LandingPage() {
           >
             How it works
           </h2>
-          <p className="text-sm text-kyar-textSecondary mb-10 max-w-lg">
+          <p className="text-sm text-kyar-textSecondary mb-8 sm:mb-10 max-w-lg">
             Four steps from messy to organized.
           </p>
-          <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 list-none p-0 m-0 counter-reset">
+          <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 list-none p-0 m-0">
             {[
               {
                 step: "1",
@@ -151,69 +181,60 @@ export default function LandingPage() {
           </ol>
         </section>
 
-        {/* Feature highlights */}
+        {/* Pain points — why it helps */}
         <section
-          className={`${SECTION_PADDING} py-12 sm:py-16 border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
-          aria-labelledby="features-heading"
+          className={`${SECTION_PADDING} py-10 sm:py-12 border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
+          aria-labelledby="why-heading"
         >
           <h2
-            id="features-heading"
-            className="font-serif-elegant text-2xl sm:text-3xl font-normal italic mb-10"
+            id="why-heading"
+            className="font-sans-wide text-[10px] sm:text-[11px] text-kyar-meta uppercase tracking-widest font-semibold mb-6"
           >
-            What you get
+            Problems you might know
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <ul className="grid sm:grid-cols-3 gap-6 sm:gap-8 list-none p-0 m-0">
             {[
               {
-                icon: "inventory_2",
-                title: "Digital closet",
-                desc: "Catalog pieces, track costs, and visualize your collection with minimal fuss.",
+                label: "Scattered closet",
+                body: "Pieces live in spreadsheets or your head. Hard to see what you have or what fits a character.",
               },
               {
-                icon: "construction",
-                title: "Build tracking",
-                desc: "Document progress, manage tasks, and keep cosplay projects on schedule.",
+                label: "Builds slip through cracks",
+                body: "Tasks and deadlines for multiple costumes get messy. Progress and budget are unclear.",
               },
               {
-                icon: "calendar_month",
-                title: "Convention planning",
-                desc: "Plan outfits, create itineraries, and generate packing lists for events.",
+                label: "Event planning is manual",
+                body: "Packing lists and day plans per convention are copy-paste or guesswork.",
               },
             ].map((item) => (
-              <div
-                key={item.title}
-                className="border border-kyar-borderSubtle rounded-sm p-6 bg-kyar-surface"
+              <li
+                key={item.label}
+                className="border-b border-kyar-border pb-4 sm:border-b-0 sm:border-l sm:border-kyar-borderSubtle sm:pl-6 first:sm:pl-0 first:sm:border-l-0"
               >
-                <span
-                  className="material-symbols-outlined text-2xl text-kyar-text block mb-4"
-                  aria-hidden
-                >
-                  {item.icon}
-                </span>
-                <h3 className="font-sans-wide text-[11px] uppercase tracking-widest font-semibold mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-sm text-kyar-textSecondary leading-relaxed">{item.desc}</p>
-              </div>
+                <p className="font-sans-wide text-[11px] uppercase tracking-widest font-semibold text-kyar-text mb-2">
+                  {item.label}
+                </p>
+                <p className="text-sm text-kyar-textSecondary leading-relaxed">{item.body}</p>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
 
-        {/* Product preview / App download */}
+        {/* Web & mobile */}
         <section
-          className={`${SECTION_PADDING} py-12 sm:py-16 border-t border-kyar-border ${MAX_WIDTH}`}
+          className={`${SECTION_PADDING} ${SECTION_PY} border-t border-kyar-border ${MAX_WIDTH}`}
           aria-labelledby="preview-heading"
         >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-            <div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 lg:gap-12">
+            <div className="min-w-0">
               <h2
                 id="preview-heading"
                 className="font-serif-elegant text-2xl sm:text-3xl font-normal italic mb-4"
               >
                 On web and mobile
               </h2>
-              <p className="text-sm text-kyar-textSecondary max-w-md mb-6">
-                Use the web app for full editing. Use the mobile app offline—sync when you’re back
+              <p className="text-sm text-kyar-textSecondary max-w-md mb-6 leading-relaxed">
+                Use the web app for full editing. Use the mobile app offline—sync when you're back
                 online. No account required for local use on mobile.
               </p>
               <div className="flex flex-wrap gap-3">
@@ -245,7 +266,7 @@ export default function LandingPage() {
                 </a>
               </div>
             </div>
-            <div className="flex-1 max-w-md aspect-video bg-kyar-muted rounded-sm border border-kyar-borderSubtle overflow-hidden flex items-center justify-center">
+            <div className="flex-shrink-0 w-full max-w-[280px] md:max-w-xs aspect-[9/19] bg-kyar-muted rounded-sm border border-kyar-borderSubtle overflow-hidden flex items-center justify-center mx-auto md:mx-0">
               <span
                 className="material-symbols-outlined text-5xl sm:text-6xl text-kyar-textTertiary"
                 aria-hidden
@@ -256,9 +277,9 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* CTA section */}
+        {/* Final CTA */}
         <section
-          className={`${SECTION_PADDING} py-12 sm:py-16 border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
+          className={`${SECTION_PADDING} ${SECTION_PY} border-t border-kyar-borderSubtle ${MAX_WIDTH}`}
           aria-labelledby="cta-heading"
         >
           <div className="text-center max-w-xl mx-auto">
@@ -268,7 +289,7 @@ export default function LandingPage() {
             >
               Start organizing today
             </h2>
-            <p className="text-sm text-kyar-textSecondary mb-8">
+            <p className="text-sm text-kyar-textSecondary mb-8 leading-relaxed">
               Create an account on web to sync your closet and builds across devices.
             </p>
             <LandingAuthCta variant="cta" />

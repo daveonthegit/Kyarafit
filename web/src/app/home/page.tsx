@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { SwipeCard } from "@/components/ui/SwipeCard";
 import { MagicCard } from "@/components/ui/magic-card";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -80,7 +81,7 @@ export default function HomePage() {
     const sorted = [...withCreation].sort(
       (a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0)
     );
-    return sorted.slice(0, 3);
+    return sorted.slice(0, 10);
   }, [builds, recentBuild]);
 
   const missingTasks = useMemo(
@@ -517,7 +518,7 @@ export default function HomePage() {
                 )}
               </SectionCard>
 
-              {/* Current projects — with build images */}
+              {/* Current projects — swipeable build cards */}
               <SectionCard
                 title={t("currentProjects")}
                 action={
@@ -527,42 +528,55 @@ export default function HomePage() {
                 }
               >
                 {recentProjectsList.length > 0 ? (
-                  <ul className="space-y-2">
-                    {recentProjectsList.slice(0, 3).map((build) => {
-                      const hasImage = build.imageStorageId != null || build.imageUrl != null;
-                      return (
-                        <li key={build._id}>
+                  <div className="flex justify-center -mx-2 py-2">
+                    <SwipeCard
+                      items={recentProjectsList}
+                      keyExtractor={(build) => build._id}
+                      renderSlide={(build) => {
+                        const hasImage =
+                          build.imageStorageId != null || build.imageUrl != null;
+                        return (
                           <Link
                             href={`/build-detail?id=${build._id}`}
-                            className="flex items-center gap-3 p-3 rounded-sm border border-kyar-cardBorder hover:border-kyar-text hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                            className="block h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-cardBorder bg-kyar-surface hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                           >
-                            <div className="w-14 h-14 shrink-0 rounded-sm overflow-hidden bg-kyar-mutedWarm">
+                            <div className="flex-1 min-h-0 relative aspect-[3/4] w-full bg-kyar-mutedWarm">
                               {hasImage ? (
                                 <ResolvedImage
-                                  imageStorageId={build.imageStorageId}
-                                  imageUrl={build.imageUrl}
+                                  imageStorageId={build.imageStorageId ?? undefined}
+                                  imageUrl={build.imageUrl ?? undefined}
                                   alt={build.name}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                                  <span className="material-symbols-outlined text-2xl">
+                                <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
+                                  <span className="material-symbols-outlined text-5xl">
                                     photo_library
                                   </span>
                                 </div>
                               )}
-                            </div>
-                            <div className="min-w-0 flex-1 flex items-center justify-between gap-2">
-                              <span className="font-serif italic truncate">{build.name}</span>
-                              <span className="text-xs text-kyar-meta shrink-0">
-                                {build.tasksChecked} / {build.tasksTotal}
-                              </span>
+                              <div
+                                className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"
+                                aria-hidden
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                                <p className="font-serif italic text-sm sm:text-base truncate">
+                                  {build.name}
+                                </p>
+                                <p className="text-[10px] uppercase tracking-wider opacity-90 mt-0.5">
+                                  {build.tasksChecked} / {build.tasksTotal} tasks
+                                </p>
+                              </div>
                             </div>
                           </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                        );
+                      }}
+                      showNavigation={recentProjectsList.length > 1}
+                      loop={recentProjectsList.length > 1}
+                      height={320}
+                      animate={false}
+                    />
+                  </div>
                 ) : (
                   <p className="text-sm text-kyar-textSecondary">
                     <Link

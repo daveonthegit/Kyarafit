@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
@@ -21,7 +21,7 @@ import {
   type SortOrder,
 } from "@/lib/buildsListArgs";
 import type { BuildStatus } from "@kyarafit/design-system/types";
-import type { Id } from "convex/_generated/dataModel";
+import type { Doc, Id } from "convex/_generated/dataModel";
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
@@ -44,8 +44,24 @@ export default function BuildsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<Id<"builds">>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionPending, setActionPending] = useState(false);
+  const [deletedForUndo, setDeletedForUndo] = useState<{
+    count: number;
+    payloads: Array<{
+      userId: string;
+      name: string;
+      character?: string;
+      status: string;
+      notes?: string;
+      imageUrl?: string;
+      imageStorageId?: Doc<"builds">["imageStorageId"];
+      budgetCents?: number;
+      targetDate?: string;
+    }>;
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { userId } = useCurrentUser();
   const removeMany = useMutation(api.builds.removeMany);
+  const createBuild = useMutation(api.builds.create);
   const updateStatusMany = useMutation(api.builds.updateStatusMany);
 
   const listArgs = buildListArgs({
@@ -78,6 +94,14 @@ export default function BuildsPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
+
+  const UNDO_WINDOW_MS = 8000;
+
   const handleSetStatusSelected = async (status: BuildStatus) => {
     if (!userId || selectedIds.size === 0) return;
     setActionPending(true);
@@ -95,15 +119,60 @@ export default function BuildsPage() {
 
   const handleDeleteSelected = async () => {
     if (!userId || selectedIds.size === 0) return;
+    const toDelete = builds.filter((b) => selectedIds.has(b._id));
+    const payloads = toDelete.map((b) => ({
+      userId: b.userId,
+      name: b.name,
+      character: b.character,
+      status: b.status,
+      notes: b.notes,
+      imageUrl: b.imageUrl,
+      imageStorageId: b.imageStorageId,
+      budgetCents: b.budgetCents,
+      targetDate: b.targetDate,
+    }));
     setActionPending(true);
     try {
       await removeMany({ ids: Array.from(selectedIds), userId });
       setShowDeleteConfirm(false);
       clearSelection();
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setDeletedForUndo({ count: payloads.length, payloads });
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedForUndo(null);
+        undoTimeoutRef.current = null;
+      }, UNDO_WINDOW_MS);
     } finally {
       setActionPending(false);
     }
   };
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!userId || !deletedForUndo) return;
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setActionPending(true);
+    try {
+      for (const p of deletedForUndo.payloads) {
+        await createBuild({
+          userId,
+          name: p.name,
+          character: p.character,
+          status: p.status,
+          notes: p.notes,
+          imageUrl: p.imageUrl,
+          imageStorageId: p.imageStorageId,
+          budgetCents: p.budgetCents,
+          targetDate: p.targetDate,
+        });
+      }
+      setDeletedForUndo(null);
+    } finally {
+      setActionPending(false);
+    }
+  }, [userId, deletedForUndo, createBuild]);
 
   return (
     <WebAppShell>
@@ -216,107 +285,110 @@ export default function BuildsPage() {
           </div>
         )}
         <ResponsiveGrid>
-          {builds.map((b, index) => {
-            const projectNumber = String(index + 1).padStart(3, "0");
-            const progress =
-              b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
-            const isSelected = selectedIds.has(b._id);
+          {!isLoading &&
+            builds.length > 0 &&
+            builds.map((b, index) => {
+              const projectNumber = String(index + 1).padStart(3, "0");
+              const progress =
+                b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
+              const isSelected = selectedIds.has(b._id);
 
-            return (
-              <div key={b._id} className="relative">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleSelect(b._id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-2 right-2 z-10 w-5 h-5 rounded-sm border-2 border-black bg-white/90 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-                  aria-label={`Select ${b.name}`}
-                />
-                <Link
-                  href={`/build-detail?id=${b._id}`}
-                  className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm rounded-sm"
-                  aria-label={`View details for ${b.name}`}
-                >
-                  <section
-                    className={`rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden ${isSelected ? "ring-2 ring-black ring-offset-2" : ""}`}
+              return (
+                <div key={b._id} className="relative">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(b._id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-2 right-2 z-10 w-5 h-5 rounded-sm border-2 border-black bg-white/90 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+                    aria-label={`Select ${b.name}`}
+                  />
+                  <Link
+                    href={`/build-detail?id=${b._id}`}
+                    className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm rounded-sm"
+                    aria-label={`View details for ${b.name}`}
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
-                      {b.imageStorageId || b.imageUrl ? (
-                        <ResolvedImage
-                          imageStorageId={b.imageStorageId}
-                          imageUrl={b.imageUrl}
-                          alt={b.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                          <span className="material-symbols-outlined text-6xl">image</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-baseline">
-                        <h2 className="font-serif text-2xl font-bold italic tracking-tight">
-                          {b.name}
-                        </h2>
-                        <span className="text-[10px] font-medium tracking-[0.2em] opacity-40 uppercase">
-                          Project {projectNumber}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
-                          <span>Construction Progress</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="h-[1px] bg-kyar-border w-full">
-                          <div
-                            className="h-full bg-black transition-all"
-                            style={{ width: `${progress}%` }}
+                    <section
+                      className={`rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden ${isSelected ? "ring-2 ring-black ring-offset-2" : ""}`}
+                    >
+                      <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
+                        {b.imageStorageId || b.imageUrl ? (
+                          <ResolvedImage
+                            imageStorageId={b.imageStorageId}
+                            imageUrl={b.imageUrl}
+                            alt={b.name}
+                            className="w-full h-full object-cover"
                           />
-                        </div>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                            <span className="material-symbols-outlined text-6xl">image</span>
+                          </div>
+                        )}
                       </div>
-                      {b.budgetCents != null && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-                            <span>Budget</span>
-                            <span>
-                              {formatCents(b.totalCostCents ?? 0)} / {formatCents(b.budgetCents)}
-                            </span>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-baseline">
+                          <h2 className="font-serif text-2xl font-bold italic tracking-tight">
+                            {b.name}
+                          </h2>
+                          <span className="text-[10px] font-medium tracking-[0.2em] opacity-40 uppercase">
+                            Project {projectNumber}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
+                            <span>Construction Progress</span>
+                            <span>{progress}%</span>
                           </div>
                           <div className="h-[1px] bg-kyar-border w-full">
                             <div
                               className="h-full bg-black transition-all"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  ((b.totalCostCents ?? 0) / (b.budgetCents || 1)) * 100
-                                )}%`,
-                              }}
+                              style={{ width: `${progress}%` }}
                             />
                           </div>
-                          {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
-                            <p className="text-[9px] text-kyar-danger">
-                              Over by {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
-                            </p>
+                        </div>
+                        {b.budgetCents != null && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+                              <span>Budget</span>
+                              <span>
+                                {formatCents(b.totalCostCents ?? 0)} / {formatCents(b.budgetCents)}
+                              </span>
+                            </div>
+                            <div className="h-[1px] bg-kyar-border w-full">
+                              <div
+                                className="h-full bg-black transition-all"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    ((b.totalCostCents ?? 0) / (b.budgetCents || 1)) * 100
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                            {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
+                              <p className="text-[9px] text-kyar-danger">
+                                Over by{" "}
+                                {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex gap-4 pt-2">
+                          <span className="text-[10px] uppercase tracking-widest opacity-60">
+                            {b.status}
+                          </span>
+                          {b.character && (
+                            <span className="text-[10px] uppercase tracking-widest opacity-60">
+                              {b.character}
+                            </span>
                           )}
                         </div>
-                      )}
-                      <div className="flex gap-4 pt-2">
-                        <span className="text-[10px] uppercase tracking-widest opacity-60">
-                          {b.status}
-                        </span>
-                        {b.character && (
-                          <span className="text-[10px] uppercase tracking-widest opacity-60">
-                            {b.character}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  </section>
-                </Link>
-              </div>
-            );
-          })}
+                    </section>
+                  </Link>
+                </div>
+              );
+            })}
         </ResponsiveGrid>
       </main>
 
@@ -388,6 +460,26 @@ export default function BuildsPage() {
           </div>
         </div>
       </AdaptiveModal>
+
+      {deletedForUndo && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-sm font-medium">
+            {deletedForUndo.count} build{deletedForUndo.count !== 1 ? "s" : ""} deleted
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            disabled={actionPending}
+            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+          >
+            {actionPending ? "Undoing…" : "Undo"}
+          </button>
+        </div>
+      )}
 
       <FloatingAdd />
     </WebAppShell>

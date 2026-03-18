@@ -286,7 +286,7 @@ export const update = mutation({
         if (VALID_STATUSES.includes(val as (typeof VALID_STATUSES)[number])) {
           patch.status = sanitizeString(val as string);
         }
-      }       else if (k === "targetDate")
+      } else if (k === "targetDate")
         patch.targetDate = validateDateString(val as string, "Target date");
       else if (k === "imageFocalX" && typeof val === "number")
         patch.imageFocalX = Math.max(0, Math.min(1, val));
@@ -523,11 +523,12 @@ export const linkItems = mutation({
     if (!build || build.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
-    const newIds = new Set(args.closetItemIds);
+    const uniqueRequestedIds = Array.from(new Set(args.closetItemIds));
     const existing = await ctx.db
       .query("buildItemLinks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
+    const newIds = new Set(uniqueRequestedIds);
     // For items being unlinked: delete their build tasks and clear completionTaskId
     for (const l of existing) {
       if (newIds.has(l.closetItemId)) continue;
@@ -546,8 +547,15 @@ export const linkItems = mutation({
     // Remove existing links
     for (const l of existing) await ctx.db.delete(l._id);
 
-    // Create new links
-    for (const closetItemId of args.closetItemIds) {
+    // Only link items that exist and belong to the user (avoid orphan links and auth bypass)
+    const validIds: typeof args.closetItemIds = [];
+    for (const closetItemId of uniqueRequestedIds) {
+      const item = await ctx.db.get(closetItemId);
+      if (item && item.userId === args.userId) validIds.push(closetItemId);
+    }
+
+    // Create new links (one per valid item, no duplicates)
+    for (const closetItemId of validIds) {
       await ctx.db.insert("buildItemLinks", {
         userId: args.userId,
         buildId: args.buildId,
@@ -555,15 +563,21 @@ export const linkItems = mutation({
       });
     }
 
-    // Auto-create a completion task for each linked item that doesn't have one
+    // Auto-create a completion task in this build for each linked item that doesn't already have one in this build
     const existingTasks = await ctx.db
       .query("buildTasks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
+    const itemIdsWithTaskInBuild = new Set(
+      existingTasks
+        .map((t) => t.closetItemId)
+        .filter((id): id is NonNullable<typeof id> => id != null)
+    );
     let nextSortOrder = existingTasks.length;
-    for (const closetItemId of args.closetItemIds) {
+    for (const closetItemId of validIds) {
+      if (itemIdsWithTaskInBuild.has(closetItemId)) continue;
       const item = await ctx.db.get(closetItemId);
-      if (!item || item.completionTaskId) continue;
+      if (!item || item.userId !== args.userId) continue;
       const taskId = await ctx.db.insert("buildTasks", {
         userId: args.userId,
         buildId: args.buildId,
@@ -572,7 +586,18 @@ export const linkItems = mutation({
         sortOrder: nextSortOrder++,
         checked: false,
       });
-      await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+      itemIdsWithTaskInBuild.add(closetItemId);
+      let shouldSetCompletionTask: boolean;
+      if (!item.completionTaskId) {
+        shouldSetCompletionTask = true;
+      } else {
+        const existingTask = await ctx.db.get(item.completionTaskId);
+        shouldSetCompletionTask =
+          !existingTask || existingTask.userId !== args.userId;
+      }
+      if (shouldSetCompletionTask) {
+        await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+      }
     }
   },
 });
@@ -594,7 +619,15 @@ export const addItemsToBuild = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
     const existingIds = new Set(existing.map((l) => l.closetItemId));
-    const toAdd = args.closetItemIds.filter((id) => !existingIds.has(id));
+    const uniqueToAdd = Array.from(
+      new Set(args.closetItemIds.filter((id) => !existingIds.has(id)))
+    );
+    // Only add items that exist and belong to the user
+    const toAdd: typeof args.closetItemIds = [];
+    for (const closetItemId of uniqueToAdd) {
+      const item = await ctx.db.get(closetItemId);
+      if (item && item.userId === args.userId) toAdd.push(closetItemId);
+    }
     if (toAdd.length === 0) return;
 
     for (const closetItemId of toAdd) {
@@ -609,10 +642,16 @@ export const addItemsToBuild = mutation({
       .query("buildTasks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
+    const itemIdsWithTaskInBuild = new Set(
+      existingTasks
+        .map((t) => t.closetItemId)
+        .filter((id): id is NonNullable<typeof id> => id != null)
+    );
     let nextSortOrder = existingTasks.length;
     for (const closetItemId of toAdd) {
+      if (itemIdsWithTaskInBuild.has(closetItemId)) continue;
       const item = await ctx.db.get(closetItemId);
-      if (!item || item.completionTaskId) continue;
+      if (!item || item.userId !== args.userId) continue;
       const taskId = await ctx.db.insert("buildTasks", {
         userId: args.userId,
         buildId: args.buildId,
@@ -621,7 +660,18 @@ export const addItemsToBuild = mutation({
         sortOrder: nextSortOrder++,
         checked: false,
       });
-      await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+      itemIdsWithTaskInBuild.add(closetItemId);
+      let shouldSetCompletionTask: boolean;
+      if (!item.completionTaskId) {
+        shouldSetCompletionTask = true;
+      } else {
+        const existingTask = await ctx.db.get(item.completionTaskId);
+        shouldSetCompletionTask =
+          !existingTask || existingTask.userId !== args.userId;
+      }
+      if (shouldSetCompletionTask) {
+        await ctx.db.patch(closetItemId, { completionTaskId: taskId });
+      }
     }
   },
 });

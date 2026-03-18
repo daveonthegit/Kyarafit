@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { CLOSET_CATEGORIES } from "@kyarafit/design-system/types";
 import type { Id } from "convex/_generated/dataModel";
+import type { Doc } from "convex/_generated/dataModel";
 
 type SortBy = "name" | "category" | "cost" | "status";
 type SortOrder = "asc" | "desc";
@@ -45,7 +46,13 @@ export default function ClosetPage() {
   const [showAssignToBuildPanel, setShowAssignToBuildPanel] = useState(false);
   const [showUnassignFromBuildPanel, setShowUnassignFromBuildPanel] = useState(false);
   const [actionPending, setActionPending] = useState(false);
+  const [deletedForUndo, setDeletedForUndo] = useState<{
+    count: number;
+    payloads: Array<Omit<Doc<"closetItems">, "_id" | "_creationTime">>;
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const removeMany = useMutation(api.closetItems.removeMany);
+  const createItem = useMutation(api.closetItems.create);
   const addItemsToBuild = useMutation(api.builds.addItemsToBuild);
   const removeItemsFromBuild = useMutation(api.builds.removeItemsFromBuild);
   const allBuilds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
@@ -82,17 +89,63 @@ export default function ClosetPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
+
+  const UNDO_WINDOW_MS = 8000;
+
   const handleDeleteSelected = async () => {
     if (!userId || selectedIds.size === 0) return;
+    const toDelete = items.filter((i) => selectedIds.has(i._id));
+    const payloads = toDelete.map((item) => {
+      const { _id, _creationTime, completionTaskId, ...rest } = item;
+      return rest;
+    });
     setActionPending(true);
     try {
       await removeMany({ ids: Array.from(selectedIds), userId });
       setShowDeleteConfirm(false);
       clearSelection();
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setDeletedForUndo({ count: payloads.length, payloads });
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedForUndo(null);
+        undoTimeoutRef.current = null;
+      }, UNDO_WINDOW_MS);
     } finally {
       setActionPending(false);
     }
   };
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!userId || !deletedForUndo) return;
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setActionPending(true);
+    try {
+      for (const p of deletedForUndo.payloads) {
+        await createItem({
+          userId,
+          name: p.name,
+          category: p.category,
+          tags: p.tags,
+          notes: p.notes,
+          imageUrl: p.imageUrl,
+          imageStorageId: p.imageStorageId,
+          costCents: p.costCents,
+          status: p.status,
+        });
+      }
+      setDeletedForUndo(null);
+    } finally {
+      setActionPending(false);
+    }
+  }, [userId, deletedForUndo, createItem]);
 
   const handleAssignToBuild = async (buildId: Id<"builds">) => {
     if (!userId || selectedIds.size === 0) return;
@@ -417,6 +470,26 @@ export default function ClosetPage() {
           )}
         </div>
       </ResponsivePanel>
+
+      {deletedForUndo && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-sm font-medium">
+            {deletedForUndo.count} item{deletedForUndo.count !== 1 ? "s" : ""} deleted
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            disabled={actionPending}
+            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+          >
+            {actionPending ? "Undoing…" : "Undo"}
+          </button>
+        </div>
+      )}
 
       <FloatingAdd />
     </WebAppShell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -80,11 +80,25 @@ export default function ConventionsPage() {
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionPending, setActionPending] = useState(false);
+  const [deletedForUndo, setDeletedForUndo] = useState<{
+    count: number;
+    payloads: Array<{
+      userId: string;
+      name: string;
+      location?: string;
+      imageUrl?: string;
+      imageStorageId?: Doc<"conventions">["imageStorageId"];
+      startDate: string;
+      endDate: string;
+    }>;
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { userId } = useCurrentUser();
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
   const archiveMany = useMutation(api.conventions.archiveMany);
   const removeMany = useMutation(api.conventions.removeMany);
+  const createConvention = useMutation(api.conventions.create);
   const isLoading = conventions === undefined;
 
   const filteredAndSorted = useMemo(
@@ -111,6 +125,14 @@ export default function ConventionsPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
+
+  const UNDO_WINDOW_MS = 8000;
+
   const handleArchiveSelected = useCallback(
     async (archived: boolean) => {
       if (!userId || selectedIds.size === 0) return;
@@ -128,16 +150,57 @@ export default function ConventionsPage() {
 
   const handleDeleteSelected = useCallback(async () => {
     if (!userId || selectedIds.size === 0) return;
+    const toDelete = conventions.filter((c) => selectedIds.has(c._id));
+    const payloads = toDelete.map((c) => ({
+      userId: c.userId,
+      name: c.name,
+      location: c.location,
+      imageUrl: c.imageUrl,
+      imageStorageId: c.imageStorageId,
+      startDate: c.startDate,
+      endDate: c.endDate,
+    }));
     setActionPending(true);
     try {
       await removeMany({ ids: Array.from(selectedIds), userId });
       setShowDeleteConfirm(false);
       clearSelection();
       setShowSelectModal(false);
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setDeletedForUndo({ count: payloads.length, payloads });
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedForUndo(null);
+        undoTimeoutRef.current = null;
+      }, UNDO_WINDOW_MS);
     } finally {
       setActionPending(false);
     }
-  }, [userId, selectedIds, removeMany, clearSelection]);
+  }, [userId, selectedIds, conventions, removeMany, clearSelection]);
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!userId || !deletedForUndo) return;
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setActionPending(true);
+    try {
+      for (const p of deletedForUndo.payloads) {
+        await createConvention({
+          userId,
+          name: p.name,
+          location: p.location,
+          imageUrl: p.imageUrl,
+          imageStorageId: p.imageStorageId,
+          startDate: p.startDate,
+          endDate: p.endDate,
+        });
+      }
+      setDeletedForUndo(null);
+    } finally {
+      setActionPending(false);
+    }
+  }, [userId, deletedForUndo, createConvention]);
 
   return (
     <WebAppShell>
@@ -412,6 +475,26 @@ export default function ConventionsPage() {
           </div>
         </div>
       </AdaptiveModal>
+
+      {deletedForUndo && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-sm font-medium">
+            {deletedForUndo.count} convention{deletedForUndo.count !== 1 ? "s" : ""} deleted
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            disabled={actionPending}
+            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+          >
+            {actionPending ? "Undoing…" : "Undo"}
+          </button>
+        </div>
+      )}
     </WebAppShell>
   );
 }
