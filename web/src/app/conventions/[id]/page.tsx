@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { ConventionOutlineTree } from "@/components/conventions/ConventionOutlineTree";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { PackingItemRow } from "@/components/conventions/PackingItemRow";
@@ -28,6 +29,7 @@ export default function ConventionDetailPage() {
   const { userId } = useCurrentUser();
   const [pickerDate, setPickerDate] = useState<string | null>(null);
   const [newPackingLabel, setNewPackingLabel] = useState("");
+  const [showOutline, setShowOutline] = useState(false);
 
   const convention = useQuery(api.conventions.get, id ? { id } : "skip");
   const plan = useQuery(api.conventions.getPlan, id ? { conventionId: id } : "skip") ?? [];
@@ -46,6 +48,31 @@ export default function ConventionDetailPage() {
     [convention]
   );
   const planByDate = useMemo(() => new Map(plan.map((e) => [e.date, e])), [plan]);
+
+  const outlineDays = useMemo(
+    () =>
+      dates.map((date) => {
+        const entry = planByDate.get(date);
+        const build = entry?.buildId ? builds.find((b) => b._id === entry.buildId) : null;
+        return { date, buildName: build?.name ?? null };
+      }),
+    [dates, planByDate, builds]
+  );
+
+  const handleOutlineSelect = useCallback((nodeId: string) => {
+    if (nodeId === "logistics") {
+      document.getElementById("convention-logistics")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    } else if (nodeId.startsWith("day-")) {
+      const date = nodeId.replace(/^day-/, "");
+      document.getElementById(`day-${date}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, []);
 
   const daysUntilStart = useMemo(() => {
     if (!convention) return null;
@@ -159,6 +186,31 @@ export default function ConventionDetailPage() {
           </div>
         )}
 
+        <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowOutline((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-kyar-textTertiary hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
+            aria-expanded={showOutline}
+          >
+            <span>Outline</span>
+            <span
+              className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
+            >
+              expand_more
+            </span>
+          </button>
+          {showOutline && (
+            <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
+              <ConventionOutlineTree
+                conventionName={convention.name}
+                days={outlineDays}
+                onSelect={handleOutlineSelect}
+              />
+            </div>
+          )}
+        </div>
+
         <div>
           <h2 className="font-serif text-2xl italic font-bold mb-6">Cosplay Timeline</h2>
           <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mb-4">
@@ -187,7 +239,7 @@ export default function ConventionDetailPage() {
               }
 
               return (
-                <div key={date} className="relative">
+                <div key={date} id={`day-${date}`} className="relative scroll-mt-4">
                   {idx < dates.length - 1 && (
                     <div className="absolute left-3 top-8 bottom-0 w-px bg-kyar-borderSubtle" />
                   )}
@@ -261,7 +313,10 @@ export default function ConventionDetailPage() {
           </div>
         </div>
 
-        <div className="border-t border-kyar-borderSubtle pt-8">
+        <div
+          id="convention-logistics"
+          className="border-t border-kyar-borderSubtle pt-8 scroll-mt-4"
+        >
           <h2 className="font-serif text-2xl italic font-bold mb-4">Logistics</h2>
           <div className="border border-kyar-borderSubtle p-4 mb-4">
             <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-2">

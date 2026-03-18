@@ -75,6 +75,10 @@ export const listForPlanner = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     const buildIdToDate = new Map<string, string>();
+    const buildIdToConventionId = new Map<
+      string,
+      import("./_generated/dataModel").Id<"conventions">
+    >();
     for (const conv of conventions) {
       const plans = await ctx.db
         .query("conventionDayPlans")
@@ -84,7 +88,10 @@ export const listForPlanner = query({
         if (p.buildId) {
           const id = p.buildId;
           const existing = buildIdToDate.get(id);
-          if (!existing || p.date < existing) buildIdToDate.set(id, p.date);
+          if (!existing || p.date < existing) {
+            buildIdToDate.set(id, p.date);
+            buildIdToConventionId.set(id, conv._id);
+          }
         }
       }
     }
@@ -103,6 +110,7 @@ export const listForPlanner = query({
       const build = await ctx.db.get(task.buildId);
       if (!build || build.userId !== args.userId) continue;
       const dueDate = task.dueDate ?? buildIdToDate.get(task.buildId);
+      const conventionId = buildIdToConventionId.get(task.buildId);
       result.push({
         _id: task._id,
         label: task.label,
@@ -111,6 +119,7 @@ export const listForPlanner = query({
         buildName: build.name,
         dueDate,
         sortOrder: task.sortOrder,
+        ...(conventionId && { conventionId }),
       });
     }
     // Include tasks linked to manual packing items (show on Todo, sync checked)

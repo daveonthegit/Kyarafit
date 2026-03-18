@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
-import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional, sanitizeString } from "./lib/validation";
+import {
+  MAX_LENGTH,
+  sanitizeAndLimit,
+  sanitizeOptional,
+  sanitizeOptionalUrl,
+  sanitizeString,
+} from "./lib/validation";
 
 const CLOSET_ITEM_STATUSES = ["planned", "in_progress", "complete"] as const;
 
@@ -100,6 +106,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    itemLink: v.optional(v.string()),
     costCents: v.optional(v.number()),
     status: v.optional(v.string()),
     completionTaskId: v.optional(v.id("buildTasks")),
@@ -111,6 +118,7 @@ export const create = mutation({
     const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
     const category = sanitizeAndLimit(args.category, MAX_LENGTH.category, "Category");
     const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
+    const itemLink = sanitizeOptionalUrl(args.itemLink);
     const tags = args.tags
       .map((t, i) => sanitizeAndLimit(t, MAX_LENGTH.tag, `Tag ${i + 1}`))
       .filter(Boolean);
@@ -127,6 +135,7 @@ export const create = mutation({
       notes,
       imageUrl: args.imageUrl,
       imageStorageId: args.imageStorageId,
+      itemLink,
       costCents: args.costCents,
       status,
       completionTaskId: args.completionTaskId,
@@ -145,6 +154,7 @@ export const update = mutation({
     notes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    itemLink: v.optional(v.union(v.string(), v.null())),
     costCents: v.optional(v.number()),
     status: v.optional(v.string()),
     completionTaskId: v.optional(v.union(v.id("buildTasks"), v.null())),
@@ -183,6 +193,8 @@ export const update = mutation({
       } else if (k === "status") {
         if (!CLOSET_ITEM_STATUSES.includes(val as (typeof CLOSET_ITEM_STATUSES)[number])) continue;
         patch[k] = sanitizeString(val as string);
+      } else if (k === "itemLink") {
+        patch.itemLink = val === null ? undefined : sanitizeOptionalUrl(val as string);
       } else {
         patch[k] = val;
       }

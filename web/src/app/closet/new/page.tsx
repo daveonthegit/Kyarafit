@@ -27,6 +27,7 @@ export default function NewClosetItemPage() {
   const [costDollars, setCostDollars] = useState("");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [itemLink, setItemLink] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
@@ -45,6 +46,7 @@ export default function NewClosetItemPage() {
       tags,
       notes: notes.trim() || undefined,
       imageUrl: imageUrl.trim() || undefined,
+      itemLink: itemLink.trim() || undefined,
       costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
@@ -62,6 +64,7 @@ export default function NewClosetItemPage() {
         notes: parsed.data.notes,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: parsed.data.imageUrl,
+        itemLink: parsed.data.itemLink,
         costCents: parsed.data.costCents ?? undefined,
       });
       router.push("/closet");
@@ -152,6 +155,13 @@ export default function NewClosetItemPage() {
             value={costDollars}
             onChange={(e) => setCostDollars(e.target.value)}
             placeholder="0.00"
+          />
+          <UnderlineInput
+            label="Item link (optional)"
+            type="url"
+            value={itemLink}
+            onChange={(e) => setItemLink(e.target.value)}
+            placeholder="https://… (product page, store link)"
           />
           <UnderlineInput
             label="Notes"

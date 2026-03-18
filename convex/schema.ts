@@ -27,6 +27,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    itemLink: v.optional(v.string()),
     costCents: v.optional(v.number()),
     status: v.optional(v.string()),
     completionTaskId: v.optional(v.id("buildTasks")),

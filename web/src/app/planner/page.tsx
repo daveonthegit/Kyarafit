@@ -10,8 +10,96 @@ import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
+import type { CalendarDayData, CalendarEvent } from "@/components/ui/fullscreen-calendar";
 
-type TodoView = "daily" | "events";
+type TodoView = "daily" | "events" | "calendar";
+
+type PlannerTask = {
+  _id: Id<"buildTasks">;
+  label: string;
+  checked: boolean;
+  buildId?: Id<"builds">;
+  buildName: string;
+  conventionId?: Id<"conventions">;
+  dueDate?: string;
+  sortOrder?: number;
+};
+
+type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
+type ConventionGroup = {
+  conventionId: Id<"conventions">;
+  conventionName: string;
+  builds: BuildGroup[];
+  packingTasks: PlannerTask[];
+};
+
+function buildTaskTree(
+  tasks: PlannerTask[],
+  conventionsList: Array<{ _id: Id<"conventions">; name: string }> | undefined
+): { conventionGroups: ConventionGroup[]; standaloneBuilds: BuildGroup[] } {
+  const conventionMap = new Map<
+    Id<"conventions">,
+    { conventionName: string; builds: Map<Id<"builds">, BuildGroup>; packingTasks: PlannerTask[] }
+  >();
+  const standaloneMap = new Map<Id<"builds">, BuildGroup>();
+
+  const getConventionName = (conventionId: Id<"conventions">) =>
+    conventionsList?.find((c) => c._id === conventionId)?.name ?? "Event";
+
+  for (const task of tasks) {
+    if (task.conventionId) {
+      let group = conventionMap.get(task.conventionId);
+      if (!group) {
+        group = {
+          conventionName: getConventionName(task.conventionId),
+          builds: new Map(),
+          packingTasks: [],
+        };
+        conventionMap.set(task.conventionId, group);
+      }
+      // Packing: manual packing-list tasks (no buildId) + auto-created "Pack: …" tasks from assigning build to convention
+      const isPackingTask =
+        !task.buildId || (task.buildId && task.label.startsWith("Pack:"));
+      if (isPackingTask) {
+        group.packingTasks.push(task);
+      } else {
+        let buildGroup = group.builds.get(task.buildId!);
+        if (!buildGroup) {
+          buildGroup = { buildId: task.buildId!, buildName: task.buildName, tasks: [] };
+          group.builds.set(task.buildId!, buildGroup);
+        }
+        buildGroup.tasks.push(task);
+      }
+    } else if (task.buildId) {
+      let buildGroup = standaloneMap.get(task.buildId);
+      if (!buildGroup) {
+        buildGroup = { buildId: task.buildId, buildName: task.buildName, tasks: [] };
+        standaloneMap.set(task.buildId, buildGroup);
+      }
+      buildGroup.tasks.push(task);
+    }
+    // Edge case: task has neither conventionId nor buildId (shouldn't happen for planner; skip or put in "Other")
+  }
+
+  const conventionGroups: ConventionGroup[] = Array.from(conventionMap.entries()).map(
+    ([conventionId, g]) => ({
+      conventionId,
+      conventionName: g.conventionName,
+      builds: Array.from(g.builds.values()).sort((a, b) =>
+        a.buildName.localeCompare(b.buildName)
+      ),
+      packingTasks: g.packingTasks,
+    })
+  );
+  conventionGroups.sort((a, b) => a.conventionName.localeCompare(b.conventionName));
+
+  const standaloneBuilds = Array.from(standaloneMap.values()).sort((a, b) =>
+    a.buildName.localeCompare(b.buildName)
+  );
+
+  return { conventionGroups, standaloneBuilds };
+}
 
 type Timeframe = "all" | "today" | "week";
 
@@ -60,7 +148,9 @@ export default function Planner() {
   const { userId } = useCurrentUser();
 
   useEffect(() => {
-    if (searchParams.get("tab") === "events") setView("events");
+    const tab = searchParams.get("tab");
+    if (tab === "events") setView("events");
+    else if (tab === "calendar") setView("calendar");
   }, [searchParams]);
 
   const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip");
@@ -71,15 +161,81 @@ export default function Planner() {
     return filterByTimeframe(list, timeframe);
   }, [plannerTasks, timeframe]);
 
+  const sortedTasks = useMemo(() => {
+    return [...filteredTasks].sort((a, b) => {
+      // 1. Incomplete first (what's left to do at the top)
+      if (a.checked !== b.checked) return a.checked ? 1 : -1;
+      // 2. Due date ascending (soonest first; no date last)
+      const dateA = a.dueDate ?? "9999-12-31";
+      const dateB = b.dueDate ?? "9999-12-31";
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      // 3. By build name for stable grouping
+      const nameCmp = (a.buildName ?? "").localeCompare(b.buildName ?? "");
+      if (nameCmp !== 0) return nameCmp;
+      // 4. By sortOrder
+      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+    });
+  }, [filteredTasks]);
+
   const { deadlineApproaching, other } = useMemo(() => {
-    const approaching: typeof filteredTasks = [];
-    const rest: typeof filteredTasks = [];
-    for (const t of filteredTasks) {
+    const approaching: typeof sortedTasks = [];
+    const rest: typeof sortedTasks = [];
+    for (const t of sortedTasks) {
       if (isDueApproaching(t.dueDate)) approaching.push(t);
       else rest.push(t);
     }
     return { deadlineApproaching: approaching, other: rest };
-  }, [filteredTasks]);
+  }, [sortedTasks]);
+
+  const treeApproaching = useMemo(
+    () => buildTaskTree(deadlineApproaching, conventions ?? undefined),
+    [deadlineApproaching, conventions]
+  );
+  const treeOther = useMemo(
+    () => buildTaskTree(other, conventions ?? undefined),
+    [other, conventions]
+  );
+  const treeAll = useMemo(
+    () => buildTaskTree(sortedTasks, conventions ?? undefined),
+    [sortedTasks, conventions]
+  );
+
+  const calendarData = useMemo((): CalendarDayData[] => {
+    const byDay = new Map<string, CalendarEvent[]>();
+    const add = (day: Date, event: CalendarEvent) => {
+      const key = day.toISOString().slice(0, 10);
+      const list = byDay.get(key) ?? [];
+      list.push(event);
+      byDay.set(key, list);
+    };
+    (plannerTasks ?? []).forEach((task) => {
+      if (!task.dueDate) return;
+      const day = new Date(task.dueDate + "T12:00:00");
+      add(day, {
+        id: task._id,
+        name: task.label,
+        time: "Due",
+        datetime: task.dueDate + "T00:00:00",
+        href: task.conventionId
+          ? `/conventions/${task.conventionId}/packing`
+          : `/build-detail?id=${task.buildId}`,
+      });
+    });
+    (conventions ?? []).forEach((con) => {
+      const start = new Date(con.startDate + "T12:00:00");
+      add(start, {
+        id: con._id,
+        name: con.name,
+        time: "Event",
+        datetime: con.startDate + "T00:00:00",
+        href: `/conventions/${con._id}`,
+      });
+    });
+    return Array.from(byDay.entries()).map(([dateStr, events]) => ({
+      day: new Date(dateStr + "T12:00:00"),
+      events,
+    }));
+  }, [plannerTasks, conventions]);
 
   const checkedCount = useMemo(
     () => filteredTasks.filter((t) => t.checked).length,
@@ -114,7 +270,13 @@ export default function Planner() {
   return (
     <WebAppShell>
       <PageHeader
-        title={view === "daily" ? dateLabel : "Circuit"}
+        title={
+          view === "daily"
+            ? dateLabel
+            : view === "calendar"
+              ? "Calendar"
+              : "Circuit"
+        }
         subtitle={view === "daily" ? weekdayLabel : undefined}
         sticky
       />
@@ -145,10 +307,35 @@ export default function Planner() {
         >
           Events
         </button>
+        <button
+          type="button"
+          onClick={() => setView("calendar")}
+          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+            view === "calendar"
+              ? "border-b-2 border-black text-kyar-text"
+              : "opacity-50 hover:opacity-100"
+          }`}
+          aria-pressed={view === "calendar"}
+          aria-label="Calendar view"
+        >
+          Calendar
+        </button>
       </div>
 
       <main className="flex-1 pb-24 lg:pb-8">
-        {view === "daily" ? (
+        {view === "calendar" ? (
+          <div className="flex flex-1 flex-col">
+            {isLoading ? (
+              <p className="text-sm text-kyar-textTertiary">Loading calendar...</p>
+            ) : (
+              <FullScreenCalendar
+                data={calendarData}
+                addHref="/builds"
+                addLabel="Add task"
+              />
+            )}
+          </div>
+        ) : view === "daily" ? (
           <>
             {isLoading ? (
               <p className="text-sm text-kyar-textTertiary">Loading tasks...</p>
@@ -214,31 +401,27 @@ export default function Planner() {
 
                     {deadlineApproaching.length > 0 && (
                       <SectionCard title="Deadline approaching" className="mb-8">
-                        <ul className="space-y-2">
-                          {deadlineApproaching.map((task) => (
-                            <li key={task._id}>
-                              <PlannerTaskRow task={task} userId={userId} onToggle={handleToggle} />
-                            </li>
-                          ))}
-                        </ul>
+                        <PlannerTaskTree
+                          tree={treeApproaching}
+                          userId={userId}
+                          onToggle={handleToggle}
+                        />
                       </SectionCard>
                     )}
 
                     <SectionCard title={deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}>
-                      <ul className="space-y-2">
-                        {(deadlineApproaching.length > 0 ? other : filteredTasks).map((task) => (
-                          <li key={task._id}>
-                            <PlannerTaskRow task={task} userId={userId} onToggle={handleToggle} />
-                          </li>
-                        ))}
-                      </ul>
+                      <PlannerTaskTree
+                        tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
+                        userId={userId}
+                        onToggle={handleToggle}
+                      />
                     </SectionCard>
                   </>
                 )}
               </>
             )}
           </>
-        ) : (
+        ) : view === "events" ? (
           <div className="space-y-6">
             {isLoadingConventions ? (
               <p className="text-sm text-kyar-textTertiary">Loading events…</p>
@@ -287,9 +470,118 @@ export default function Planner() {
               ))
             )}
           </div>
-        )}
+        ) : null}
       </main>
     </WebAppShell>
+  );
+}
+
+function PlannerTaskTree({
+  tree,
+  userId,
+  onToggle,
+}: {
+  tree: { conventionGroups: ConventionGroup[]; standaloneBuilds: BuildGroup[] };
+  userId: string | null;
+  onToggle: (id: Id<"buildTasks">, checked: boolean) => void;
+}) {
+  const { conventionGroups, standaloneBuilds } = tree;
+  const hasConventions = conventionGroups.length > 0;
+  const hasStandalone = standaloneBuilds.length > 0;
+  if (!hasConventions && !hasStandalone) return null;
+
+  return (
+    <div className="space-y-1">
+      {conventionGroups.map((convention) => (
+        <details
+          key={convention.conventionId}
+          className="group border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-surfaceWarm"
+        >
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+              ▶
+            </span>
+            <span className="flex-1">{convention.conventionName}</span>
+            <Link
+              href={`/conventions/${convention.conventionId}/packing`}
+              className="text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </Link>
+          </summary>
+          <div className="pl-4 pr-2 pb-2 pt-0 border-t border-kyar-cardBorder space-y-1">
+            {convention.builds.map((build) => (
+              <details
+                key={build.buildId}
+                className="group/build border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-bgWarm"
+              >
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                  <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/build:rotate-90 transition-transform">
+                    ▶
+                  </span>
+                  <span className="flex-1 font-light">{build.buildName}</span>
+                </summary>
+                <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
+                  {build.tasks.map((task) => (
+                    <li key={task._id}>
+                      <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+            {convention.packingTasks.length > 0 && (
+              <details
+                key={`packing-${convention.conventionId}`}
+                className="group/pack border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-bgWarm"
+              >
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                  <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/pack:rotate-90 transition-transform">
+                    ▶
+                  </span>
+                  <span className="flex-1 font-light">Packing</span>
+                </summary>
+                <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
+                  {convention.packingTasks.map((task) => (
+                    <li key={task._id}>
+                      <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        </details>
+      ))}
+      {standaloneBuilds.map((build) => (
+        <details
+          key={build.buildId}
+          className="group border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-surfaceWarm"
+        >
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+              ▶
+            </span>
+            <span className="flex-1">{build.buildName}</span>
+            <Link
+              href={`/build-detail?id=${build.buildId}`}
+              className="text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </Link>
+          </summary>
+          <ul className="pl-4 pr-2 pb-2 pt-2 space-y-2 border-t border-kyar-cardBorder">
+            {build.tasks.map((task) => (
+              <li key={task._id}>
+                <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -298,15 +590,7 @@ function PlannerTaskRow({
   userId,
   onToggle,
 }: {
-  task: {
-    _id: Id<"buildTasks">;
-    label: string;
-    checked: boolean;
-    buildId?: Id<"builds">;
-    buildName: string;
-    conventionId?: Id<"conventions">;
-    dueDate?: string;
-  };
+  task: PlannerTask;
   userId: string | null;
   onToggle: (id: Id<"buildTasks">, checked: boolean) => void;
 }) {

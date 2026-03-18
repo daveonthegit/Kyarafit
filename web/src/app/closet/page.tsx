@@ -137,6 +137,7 @@ export default function ClosetPage() {
           notes: p.notes,
           imageUrl: p.imageUrl,
           imageStorageId: p.imageStorageId,
+          itemLink: p.itemLink,
           costCents: p.costCents,
           status: p.status,
         });

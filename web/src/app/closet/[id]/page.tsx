@@ -55,6 +55,7 @@ export default function ClosetItemDetailPage() {
   const [editCostDollars, setEditCostDollars] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
+  const [editItemLink, setEditItemLink] = useState("");
   const [editStatus, setEditStatus] = useState<ClosetItemStatus>("planned");
   const [savePending, setSavePending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
@@ -73,6 +74,7 @@ export default function ClosetItemDetailPage() {
       setEditCostDollars(item.costCents != null ? (item.costCents / 100).toFixed(2) : "");
       setEditImageUrl(item.imageUrl ?? "");
       setEditImageStorageId(item.imageStorageId ?? null);
+      setEditItemLink((item as { itemLink?: string | null }).itemLink ?? "");
       setEditStatus(
         (item.status as ClosetItemStatus) &&
           CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
@@ -102,6 +104,7 @@ export default function ClosetItemDetailPage() {
           : undefined,
         imageUrl: editImageUrl.trim() || undefined,
         imageStorageId: editImageStorageId ?? undefined,
+        itemLink: editItemLink.trim() || null,
         status: editStatus,
       });
       setIsEditing(false);
@@ -310,6 +313,13 @@ export default function ClosetItemDetailPage() {
                 placeholder="0.00"
               />
               <UnderlineInput
+                label="Item link (optional)"
+                type="url"
+                value={editItemLink}
+                onChange={(e) => setEditItemLink(e.target.value)}
+                placeholder="https://… (product page, store link)"
+              />
+              <UnderlineInput
                 label="Notes"
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
@@ -395,6 +405,21 @@ export default function ClosetItemDetailPage() {
                       Cost
                     </p>
                     <p className="text-sm font-medium">{formatCents(item.costCents)}</p>
+                  </div>
+                )}
+                {(item as { itemLink?: string | null }).itemLink && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
+                      Link
+                    </p>
+                    <a
+                      href={(item as { itemLink: string }).itemLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium underline underline-offset-2 hover:opacity-70 break-all"
+                    >
+                      {(item as { itemLink: string }).itemLink}
+                    </a>
                   </div>
                 )}
                 {item.notes && (

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { BuildOutlineTree } from "@/components/builds/BuildOutlineTree";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
 import { BuildReferenceImagesSection } from "@/components/builds/BuildReferenceImagesSection";
@@ -59,6 +60,17 @@ export default function BuildDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [notesSavePending, setNotesSavePending] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
+  const [showOutline, setShowOutline] = useState(false);
+  const tasksSectionRef = useRef<HTMLElement>(null);
+  const itemsSectionRef = useRef<HTMLElement>(null);
+
+  const handleOutlineSelect = (nodeId: string) => {
+    if (nodeId === "tasks" || nodeId.startsWith("task-")) {
+      tasksSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (nodeId === "items" || nodeId.startsWith("item-")) {
+      itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   useEffect(() => {
     if (build && isEditing) {
@@ -461,13 +473,38 @@ export default function BuildDetailPage() {
                     </div>
                   </div>
                 )}
+                <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowOutline((v) => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-kyar-textTertiary hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
+                    aria-expanded={showOutline}
+                  >
+                    <span>Outline</span>
+                    <span
+                      className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
+                    >
+                      expand_more
+                    </span>
+                  </button>
+                  {showOutline && (
+                    <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
+                      <BuildOutlineTree
+                        buildName={build.name}
+                        tasks={tasks}
+                        linkedItems={linkedItems}
+                        onSelect={handleOutlineSelect}
+                      />
+                    </div>
+                  )}
+                </div>
                 {userId && <BuildReferenceImagesSection buildId={id} userId={userId} />}
                 {userId && <BuildProcessPicturesSection buildId={id} userId={userId} />}
               </div>
 
               {/* Right: tasks, link items, progress */}
               <div className="space-y-10 min-w-0">
-                <section>
+                <section ref={tasksSectionRef} id="build-tasks">
                   <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
                     Tasks
                   </h2>
@@ -482,7 +519,7 @@ export default function BuildDetailPage() {
                   />
                 </section>
 
-                <section>
+                <section ref={itemsSectionRef} id="build-items">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                     <h2 className="font-serif text-xl italic border-b border-black pb-2">
                       Associated Closet Items ({linkedItems.length})
