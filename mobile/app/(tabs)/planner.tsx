@@ -59,9 +59,7 @@ export default function PlannerTabScreen() {
       {totalCount > 0 && (
         <View style={styles.progressBarWrap}>
           <View style={styles.progressBar}>
-            <View
-              style={[styles.progressFill, { width: `${progressPct}%` }]}
-            />
+            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
           </View>
         </View>
       )}
@@ -151,8 +149,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
-  taskMeta: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 12, paddingLeft: 28 },
-  dueDate: { fontSize: 10, color: colors.textTertiary, textTransform: "uppercase", letterSpacing: 1 },
+  taskMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 12,
+    paddingLeft: 28,
+  },
+  dueDate: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
   buildLink: { fontSize: 11, color: colors.textSecondary, textDecorationLine: "underline" },
   empty: {
     textAlign: "center",

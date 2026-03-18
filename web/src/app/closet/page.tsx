@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { FilterToolbar } from "@/components/layout/FilterToolbar";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -126,83 +128,72 @@ export default function ClosetPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/builds">
-            <span className="material-symbols-outlined font-light">arrow_back</span>
-          </Link>
-          <p className="meta-label">Builds / Closet</p>
-        </div>
-        <h1 className="font-serif text-3xl font-bold tracking-tight italic">The Closet</h1>
-      </header>
+      <PageHeader
+        breadcrumb={[{ label: "Builds", href: "/builds" }, { label: "Closet" }]}
+        title="The Closet"
+        primaryAction={{ label: "Add item", href: "/closet/new" }}
+      />
 
-      <nav className="sticky top-[108px] z-30 bg-white/95 backdrop-blur-sm pt-2 pb-4 space-y-4 border-b border-kyar-borderSubtle overflow-visible max-h-none">
-        <div className="space-y-3">
-          <label htmlFor="closet-search" className="sr-only">
-            Search closet by name, notes, or tags
-          </label>
-          <input
-            id="closet-search"
-            type="search"
-            placeholder="Search by name, notes, or tags..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-kyar-border rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-            aria-label="Search closet by name, notes, or tags"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <label
-              htmlFor="closet-category"
-              className="text-[10px] uppercase tracking-widest opacity-70"
-            >
-              Category
-            </label>
-            <select
-              id="closet-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 min-w-[120px]"
-              aria-label="Filter by category"
-            >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value || "all"} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <label
-              htmlFor="closet-sort"
-              className="text-[10px] uppercase tracking-widest opacity-70"
-            >
-              Sort by
-            </label>
-            <select
-              id="closet-sort"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-              aria-label="Sort closet items by"
-            >
-              <option value="name">Name</option>
-              <option value="category">Category</option>
-              <option value="cost">Cost</option>
-              <option value="status">Completion status</option>
-            </select>
+      <FilterToolbar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: "Search by name, notes, or tags…",
+          "aria-label": "Search closet by name, notes, or tags",
+        }}
+        filtersLabel="Filters"
+      >
+        <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
+            Category
+          </span>
+          {CATEGORY_OPTIONS.map((opt) => (
             <button
+              key={opt.value || "all"}
               type="button"
-              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 flex items-center gap-1"
-              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-              title={order === "asc" ? "Ascending" : "Descending"}
+              onClick={() => setCategory(opt.value)}
+              className={`shrink-0 min-h-[44px] px-3 py-2 text-[10px] font-medium uppercase tracking-wider rounded-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+                category === opt.value
+                  ? "border-black bg-black text-white"
+                  : "border-kyar-border bg-kyar-surfaceWarm text-kyar-text hover:border-kyar-text"
+              }`}
+              aria-pressed={category === opt.value}
+              aria-label={`Filter by ${opt.label}`}
             >
-              <span className="material-symbols-outlined text-base">
-                {order === "asc" ? "arrow_upward" : "arrow_downward"}
-              </span>
-              <span className="text-[10px] uppercase">{order}</span>
+              {opt.label}
             </button>
-          </div>
+          ))}
         </div>
-      </nav>
+        <label
+          htmlFor="closet-sort"
+          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center shrink-0"
+        >
+          Sort by
+        </label>
+        <select
+          id="closet-sort"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
+          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label="Sort closet items by"
+        >
+          <option value="name">Name</option>
+          <option value="category">Category</option>
+          <option value="cost">Cost</option>
+          <option value="status">Completion status</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden>
+            {order === "asc" ? "arrow_upward" : "arrow_downward"}
+          </span>
+          <span className="text-[10px] uppercase">{order}</span>
+        </button>
+      </FilterToolbar>
 
       <main className="flex-1 py-6">
         {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
@@ -214,7 +205,7 @@ export default function ClosetPage() {
             action={
               <Link
                 href="/closet/new"
-                className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors"
+                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 Add item
               </Link>
@@ -253,12 +244,12 @@ export default function ClosetPage() {
                     />
                     <Link
                       href={`/closet/${item._id}`}
-                      className={`flex flex-col gap-2 block hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2 rounded-sm ${
+                      className={`flex flex-col gap-2 block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:border-kyar-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
                         isSelected ? "ring-2 ring-black ring-offset-2" : ""
                       }`}
                       aria-label={`View ${item.name}`}
                     >
-                      <div className="aspect-square bg-kyar-muted overflow-hidden">
+                      <div className="aspect-square bg-kyar-mutedWarm overflow-hidden relative">
                         {item.imageStorageId || item.imageUrl ? (
                           <ResolvedImage
                             imageStorageId={item.imageStorageId}
@@ -268,28 +259,27 @@ export default function ClosetPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                            <span className="material-symbols-outlined text-4xl">checkroom</span>
+                            <span className="material-symbols-outlined text-4xl" aria-hidden>
+                              checkroom
+                            </span>
                           </div>
                         )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-[10px] uppercase tracking-wider font-semibold">
-                            {item.name}
-                          </h3>
-                          <span className="text-[9px] opacity-40">{item.category}</span>
-                        </div>
                         <span
-                          className={`text-[9px] uppercase tracking-wider font-medium w-fit ${
-                            item.status === "complete"
-                              ? "text-kyar-text opacity-70"
-                              : item.status === "in_progress"
-                                ? "text-kyar-text opacity-90"
-                                : "text-kyar-textTertiary"
-                          }`}
+                          className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded-sm bg-kyar-bgWarm/90 border border-kyar-cardBorder"
+                          aria-hidden
                         >
                           {statusLabel(item.status)}
                         </span>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="text-[10px] uppercase tracking-wider font-semibold truncate min-w-0">
+                            {item.name}
+                          </h3>
+                          <span className="text-[9px] text-kyar-meta shrink-0">
+                            {item.category}
+                          </span>
+                        </div>
                       </div>
                     </Link>
                   </div>
@@ -301,7 +291,10 @@ export default function ClosetPage() {
       </main>
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-kyar-border shadow-soft flex items-center justify-between gap-4 flex-wrap">
+        <div
+          className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-kyar-bgWarm border-t border-kyar-cardBorder shadow-soft flex items-center justify-between gap-4 flex-wrap"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="flex gap-2 flex-wrap">
             <button

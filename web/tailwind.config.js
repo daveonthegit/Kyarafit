@@ -10,8 +10,11 @@ module.exports = {
       colors: {
         kyar: {
           bg: "#FFFFFF",
+          bgWarm: "#FAF9F7",
           surface: "#FFFFFF",
+          surfaceWarm: "#FFFFFF",
           muted: "#F9F9F9",
+          mutedWarm: "#F5F4F2",
           text: "#000000",
           textSecondary: "rgba(0,0,0,0.60)",
           textTertiary: "rgba(0,0,0,0.40)",
@@ -19,6 +22,7 @@ module.exports = {
           meta: "rgba(0,0,0,0.50)",
           border: "rgba(0,0,0,0.10)",
           borderSubtle: "rgba(0,0,0,0.05)",
+          cardBorder: "rgba(0,0,0,0.08)",
           accent: "#1152D4",
           danger: "rgba(239,68,68,0.80)",
         },
@@ -41,6 +45,7 @@ module.exports = {
       },
       boxShadow: {
         soft: "0 20px 40px rgba(0,0,0,0.05)",
+        card: "0 1px 3px rgba(0,0,0,0.04)",
         fab: "0 10px 20px rgba(0,0,0,0.12)",
       },
     },

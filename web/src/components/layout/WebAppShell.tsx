@@ -15,13 +15,15 @@ export function WebAppShell({ children }: { children: React.ReactNode }) {
   const active = getActiveSection(pathname ?? null);
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-kyar-bgWarm">
       <WebSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen lg:min-w-0">
         <WebTopBar />
-        <main className="flex-1 flex flex-col pb-32 lg:pb-0">
-          <WebContentContainer className="flex-1 flex flex-col">{children}</WebContentContainer>
+        <main className="flex-1 flex flex-col pb-24 lg:pb-0">
+          <WebContentContainer className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
+            {children}
+          </WebContentContainer>
         </main>
 
         <BottomNav active={active} className="lg:hidden" />

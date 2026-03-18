@@ -6,14 +6,59 @@
 
 :root {
   --primary: #1152d4;
+  --kyar-bg-warm: #FAF9F7;
+  --kyar-card-border: rgba(0, 0, 0, 0.08);
 }
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #ffffff;
+  background-color: var(--kyar-bg-warm);
   color: #000000;
   -webkit-font-smoothing: antialiased;
   line-height: 1.6;
+}
+
+/* Section spacing utilities */
+.section-spacing {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+@media (min-width: 640px) {
+  .section-spacing {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+@media (min-width: 1024px) {
+  .section-spacing {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+}
+
+.section-spacing-tight {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+/* Focus states for accessibility */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Prototype typography */

@@ -12,15 +12,20 @@ export function FloatingAdd({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`fixed bottom-28 right-6 z-50 lg:hidden ${className}`.trim()}
+      className={`fixed right-4 z-40 lg:hidden ${className}`.trim()}
+      style={{
+        bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
+      }}
       aria-label={t("add")}
     >
       <AddContextMenu
         variant="fab"
         align="bottom-right"
         trigger={
-          <span className="flex h-14 w-14 items-center justify-center">
-            <span className="material-symbols-outlined font-light text-2xl">add</span>
+          <span className="flex h-14 w-14 min-h-[44px] min-w-[44px] items-center justify-center rounded-sm transition-transform hover:scale-105 focus-within:scale-105 active:scale-95">
+            <span className="material-symbols-outlined font-light text-2xl" aria-hidden>
+              add
+            </span>
           </span>
         }
       />

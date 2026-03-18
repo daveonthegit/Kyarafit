@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { FilterToolbar } from "@/components/layout/FilterToolbar";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -105,85 +107,79 @@ export default function BuildsPage() {
 
   return (
     <WebAppShell>
-      <header className="pt-14 pb-4 bg-white/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="flex justify-between items-end">
-          <div>
-            <p className="meta-label mb-1 opacity-40">Portfolio</p>
-            <h1 className="font-serif text-3xl font-bold tracking-tight italic">My Builds</h1>
-          </div>
-          <Link href="/closet" className="flex items-center gap-2 border border-black px-3 py-1">
-            <span className="material-symbols-outlined font-light text-sm">inventory_2</span>
-            <span className="text-[9px] uppercase tracking-widest font-bold">Closet</span>
-          </Link>
-        </div>
-      </header>
-
-      <nav className="sticky top-[108px] z-30 bg-white/90 backdrop-blur-md pt-2 pb-4 space-y-4 overflow-visible max-h-none">
-        <div>
-          <label htmlFor="build-status-filter" className="sr-only">
-            Filter builds by status
-          </label>
-          <select
-            id="build-status-filter"
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value as TabFilter)}
-            className="w-full sm:w-auto min-w-[180px] text-sm border border-kyar-border rounded-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 uppercase tracking-widest"
-            aria-label="Filter builds by status"
+      <PageHeader
+        title="My Builds"
+        subtitle="Portfolio"
+        primaryAction={{ label: "New build", href: "/builds/new" }}
+        trailing={
+          <Link
+            href="/closet"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+            aria-label="Open closet"
           >
-            {getTabFilterOptions().map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          <label className="sr-only" htmlFor="build-search">
-            Search builds by name or character
-          </label>
-          <input
-            id="build-search"
-            type="search"
-            placeholder="Search by name or character..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 text-sm border border-kyar-border rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-            aria-label="Search builds by name or character"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            <label
-              htmlFor="build-sort"
-              className="text-[10px] uppercase tracking-widest opacity-70"
-            >
-              Sort by
-            </label>
-            <select
-              id="build-sort"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-              aria-label="Sort builds by"
-            >
-              <option value="name">Name</option>
-              <option value="progress">Progress</option>
-              <option value="targetDate">Target date</option>
-              <option value="budget">Budget</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 flex items-center gap-1"
-              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-              title={order === "asc" ? "Ascending" : "Descending"}
-            >
-              <span className="material-symbols-outlined text-base">
-                {order === "asc" ? "arrow_upward" : "arrow_downward"}
-              </span>
-              <span className="text-[10px] uppercase">{order}</span>
-            </button>
-          </div>
-        </div>
-      </nav>
+            <span className="material-symbols-outlined text-lg font-light" aria-hidden>
+              inventory_2
+            </span>
+          </Link>
+        }
+      />
+
+      <FilterToolbar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: "Search by name or character…",
+          "aria-label": "Search builds by name or character",
+        }}
+        filtersLabel="Filters"
+      >
+        <label htmlFor="build-status-filter" className="sr-only">
+          Filter builds by status
+        </label>
+        <select
+          id="build-status-filter"
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as TabFilter)}
+          className="w-full sm:w-auto min-w-[140px] min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm uppercase tracking-widest"
+          aria-label="Filter builds by status"
+        >
+          {getTabFilterOptions().map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <label
+          htmlFor="build-sort"
+          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center"
+        >
+          Sort by
+        </label>
+        <select
+          id="build-sort"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
+          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label="Sort builds by"
+        >
+          <option value="name">Name</option>
+          <option value="progress">Progress</option>
+          <option value="targetDate">Target date</option>
+          <option value="budget">Budget</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+          title={order === "asc" ? "Ascending" : "Descending"}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden>
+            {order === "asc" ? "arrow_upward" : "arrow_downward"}
+          </span>
+          <span className="text-[10px] uppercase">{order}</span>
+        </button>
+      </FilterToolbar>
 
       <main className="flex-1 mt-6">
         {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
@@ -195,7 +191,7 @@ export default function BuildsPage() {
             action={
               <Link
                 href="/builds/new"
-                className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors"
+                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 New build
               </Link>
@@ -238,11 +234,13 @@ export default function BuildsPage() {
                 />
                 <Link
                   href={`/build-detail?id=${b._id}`}
-                  className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 focus-visible:ring-offset-2 rounded-sm"
+                  className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm rounded-sm"
                   aria-label={`View details for ${b.name}`}
                 >
-                  <section className={isSelected ? "ring-2 ring-black ring-offset-2" : ""}>
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-muted mb-4">
+                  <section
+                    className={`rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden ${isSelected ? "ring-2 ring-black ring-offset-2" : ""}`}
+                  >
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
                       {b.imageStorageId || b.imageUrl ? (
                         <ResolvedImage
                           imageStorageId={b.imageStorageId}
@@ -323,7 +321,10 @@ export default function BuildsPage() {
       </main>
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-white border-t border-kyar-border shadow-soft flex items-center justify-between gap-4 flex-wrap">
+        <div
+          className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-kyar-bgWarm border-t border-kyar-cardBorder shadow-soft flex items-center justify-between gap-4 flex-wrap"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="flex gap-2 flex-wrap">
             {STATUS_OPTIONS.map(({ value, label }) => (

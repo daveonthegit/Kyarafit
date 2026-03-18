@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -111,48 +113,60 @@ export default function Planner() {
 
   return (
     <WebAppShell>
-      <header className="pt-16 pb-8">
-        <div className="flex gap-6 mb-8">
-          <button
-            type="button"
-            onClick={() => setView("daily")}
-            className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === "daily" ? "border-b-2 border-black" : "opacity-30"}`}
-          >
-            Daily
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("events")}
-            className={`text-[10px] uppercase tracking-[0.2em] font-bold pb-1 ${view === "events" ? "border-b-2 border-black" : "opacity-30"}`}
-          >
-            Events
-          </button>
-        </div>
-        {view === "daily" ? (
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h1 className="font-serif text-5xl font-bold italic tracking-tighter">{dateLabel}</h1>
-            <span className="text-[11px] uppercase tracking-widest opacity-60">{weekdayLabel}</span>
-          </div>
-        ) : (
-          <h1 className="font-serif text-5xl font-bold italic tracking-tighter">Circuit</h1>
-        )}
-      </header>
+      <PageHeader
+        title={view === "daily" ? dateLabel : "Circuit"}
+        subtitle={view === "daily" ? weekdayLabel : undefined}
+        sticky
+      />
+      <div className="flex gap-4 border-b border-kyar-cardBorder pb-4 mb-6">
+        <button
+          type="button"
+          onClick={() => setView("daily")}
+          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+            view === "daily"
+              ? "border-b-2 border-black text-kyar-text"
+              : "opacity-50 hover:opacity-100"
+          }`}
+          aria-pressed={view === "daily"}
+          aria-label="Daily view"
+        >
+          Daily
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("events")}
+          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+            view === "events"
+              ? "border-b-2 border-black text-kyar-text"
+              : "opacity-50 hover:opacity-100"
+          }`}
+          aria-pressed={view === "events"}
+          aria-label="Events view"
+        >
+          Events
+        </button>
+      </div>
 
-      <main className="flex-1">
+      <main className="flex-1 pb-24 lg:pb-8">
         {view === "daily" ? (
           <>
             {isLoading ? (
               <p className="text-sm text-kyar-textTertiary">Loading tasks...</p>
             ) : (
               <>
-                <div className="mb-6 flex flex-wrap items-center gap-4">
-                  <div className="flex gap-2">
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                  <div className="flex gap-2 flex-wrap">
                     {(["all", "today", "week"] as const).map((tf) => (
                       <button
                         key={tf}
                         type="button"
                         onClick={() => setTimeframe(tf)}
-                        className={`text-[10px] uppercase tracking-wider px-2 py-1 border ${timeframe === tf ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                        className={`min-h-[44px] px-4 py-2 text-[10px] uppercase tracking-wider rounded-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+                          timeframe === tf
+                            ? "border-black bg-black text-white"
+                            : "border-kyar-cardBorder bg-kyar-surfaceWarm text-kyar-text hover:border-kyar-text"
+                        }`}
+                        aria-pressed={timeframe === tf}
                       >
                         {tf === "all" ? "All" : tf === "today" ? "Today" : "This week"}
                       </button>
@@ -160,96 +174,89 @@ export default function Planner() {
                   </div>
                   <Link
                     href="/builds"
-                    className="text-[10px] uppercase tracking-widest border border-black/20 px-3 py-1"
+                    className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
                   >
                     Add task
                   </Link>
                 </div>
 
                 {totalCount === 0 ? (
-                  <section className="mb-16">
+                  <SectionCard title="Tasks">
                     <p className="text-sm text-kyar-textTertiary mb-2">No tasks yet.</p>
-                    <Link href="/builds" className="text-sm underline">
+                    <Link
+                      href="/builds"
+                      className="text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+                    >
                       Open a build to add tasks
                     </Link>
-                  </section>
+                  </SectionCard>
                 ) : (
                   <>
-                    <section className="mb-8">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-kyar-textTertiary mb-2">
-                        Progress
-                      </p>
-                      <p className="text-lg font-medium">
-                        {checkedCount} of {totalCount} tasks
-                      </p>
-                      <div className="mt-2 h-2 w-full max-w-xs bg-kyar-muted rounded-sm overflow-hidden">
+                    <SectionCard title="Progress" className="mb-8">
+                      <div className="flex items-baseline gap-4 flex-wrap">
+                        <p className="text-lg font-medium text-kyar-text">
+                          {checkedCount} of {totalCount} tasks
+                        </p>
                         <div
-                          className="h-full bg-kyar-accent rounded-sm transition-[width]"
-                          style={{ width: `${progressPct}%` }}
-                        />
+                          className="flex-1 min-w-[120px] h-3 max-w-xs bg-kyar-mutedWarm rounded-sm overflow-hidden border border-kyar-cardBorder"
+                          role="progressbar"
+                          aria-valuenow={checkedCount}
+                          aria-valuemin={0}
+                          aria-valuemax={totalCount}
+                        >
+                          <div
+                            className="h-full bg-black rounded-sm transition-[width] duration-300"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
                       </div>
-                    </section>
+                    </SectionCard>
 
                     {deadlineApproaching.length > 0 && (
-                      <section className="mb-16">
-                        <h2 className="text-[10px] uppercase tracking-[0.2em] font-bold mb-6 border-b border-black pb-2 inline-block">
-                          Deadline approaching
-                        </h2>
-                        <div className="space-y-4">
+                      <SectionCard title="Deadline approaching" className="mb-8">
+                        <ul className="space-y-2">
                           {deadlineApproaching.map((task) => (
-                            <PlannerTaskRow
-                              key={task._id}
-                              task={task}
-                              userId={userId}
-                              onToggle={handleToggle}
-                            />
+                            <li key={task._id}>
+                              <PlannerTaskRow task={task} userId={userId} onToggle={handleToggle} />
+                            </li>
                           ))}
-                        </div>
-                      </section>
+                        </ul>
+                      </SectionCard>
                     )}
 
-                    <section className="mb-16">
-                      <h2 className="text-[10px] uppercase tracking-[0.2em] font-bold mb-6 border-b border-black pb-2 inline-block">
-                        {deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}
-                      </h2>
-                      <div className="space-y-4">
+                    <SectionCard title={deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}>
+                      <ul className="space-y-2">
                         {(deadlineApproaching.length > 0 ? other : filteredTasks).map((task) => (
-                          <PlannerTaskRow
-                            key={task._id}
-                            task={task}
-                            userId={userId}
-                            onToggle={handleToggle}
-                          />
+                          <li key={task._id}>
+                            <PlannerTaskRow task={task} userId={userId} onToggle={handleToggle} />
+                          </li>
                         ))}
-                      </div>
-                    </section>
+                      </ul>
+                    </SectionCard>
                   </>
                 )}
               </>
             )}
           </>
         ) : (
-          <section className="space-y-10">
+          <div className="space-y-6">
             {isLoadingConventions ? (
               <p className="text-sm text-kyar-textTertiary">Loading events…</p>
             ) : !conventions || conventions.length === 0 ? (
-              <>
+              <SectionCard title="Events">
                 <p className="text-sm text-kyar-textTertiary mb-2">No events yet.</p>
-                <Link href="/conventions" className="text-sm underline">
+                <Link
+                  href="/conventions"
+                  className="text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+                >
                   Create an event
                 </Link>
-              </>
+              </SectionCard>
             ) : (
               conventions.map((con) => (
-                <div key={con._id} className="border-b border-kyar-borderSubtle pb-6 group">
-                  <div className="flex justify-between items-end mb-2">
-                    <Link
-                      href={`/conventions/${con._id}`}
-                      className="font-serif text-2xl italic font-bold hover:underline"
-                    >
-                      {con.name}
-                    </Link>
-                    <span className="text-[10px] opacity-40">
+                <SectionCard key={con._id} title={con.name}>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="text-xs text-kyar-meta">
                       {new Date(con.startDate).toLocaleDateString("en-US", {
                         month: "short",
                         year: "numeric",
@@ -261,25 +268,25 @@ export default function Planner() {
                         year: "numeric",
                       })}
                     </span>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/conventions/${con._id}`}
+                        className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                      >
+                        Plan
+                      </Link>
+                      <Link
+                        href={`/conventions/${con._id}/packing`}
+                        className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                      >
+                        Packing List
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex gap-4">
-                    <Link
-                      href={`/conventions/${con._id}`}
-                      className="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1"
-                    >
-                      Plan
-                    </Link>
-                    <Link
-                      href={`/conventions/${con._id}/packing`}
-                      className="text-[9px] uppercase tracking-widest border border-black/10 px-3 py-1"
-                    >
-                      Packing List
-                    </Link>
-                  </div>
-                </div>
+                </SectionCard>
               ))
             )}
-          </section>
+          </div>
         )}
       </main>
     </WebAppShell>
@@ -307,31 +314,31 @@ function PlannerTaskRow({
     ? `/conventions/${task.conventionId}/packing`
     : `/build-detail?id=${task.buildId}`;
   return (
-    <div className="flex items-start gap-3 border border-kyar-borderSubtle p-3 bg-white">
+    <div className="flex items-start gap-3 border border-kyar-cardBorder rounded-sm p-3 bg-kyar-surfaceWarm min-h-[44px]">
       <input
         type="checkbox"
         checked={task.checked}
         onChange={() => onToggle(task._id, !task.checked)}
         disabled={!userId}
-        className="mt-1 rounded-sm border-kyar-border w-4 h-4 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+        className="mt-1 rounded-sm border-kyar-border w-5 h-5 min-w-[20px] min-h-[20px] focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bgWarm"
         aria-label={`Mark "${task.label}" as ${task.checked ? "incomplete" : "complete"}`}
       />
       <div className="flex-1 min-w-0">
         <p
-          className={`font-light tracking-tight ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}
+          className={`font-light tracking-tight ${task.checked ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
         >
           {task.label}
         </p>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <Link
             href={contextHref}
-            className="text-[11px] uppercase tracking-widest opacity-70 hover:underline"
+            className="text-[11px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
           >
             {task.buildName}
           </Link>
           {task.dueDate && (
             <span className="text-[11px] text-kyar-textTertiary">
-              • {formatDueDate(task.dueDate)}
+              · {formatDueDate(task.dueDate)}
             </span>
           )}
         </div>

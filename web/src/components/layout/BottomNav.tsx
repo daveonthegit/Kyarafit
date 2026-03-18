@@ -14,9 +14,10 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
 
   return (
     <footer
-      className={`fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-kyar-borderSubtle pb-8 pt-3 ${className}`.trim()}
+      className={`fixed bottom-0 left-0 right-0 z-50 bg-kyar-bgWarm/95 backdrop-blur-md border-t border-kyar-cardBorder pt-2 ${className}`.trim()}
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))" }}
     >
-      <div className="flex justify-around items-center px-4">
+      <div className="flex justify-around items-stretch px-2">
         {NAV_SECTIONS_BOTTOM.map((section) => {
           const isActive = currentActive === section.id;
           const icon = NAV_ICON_MAP[section.id] ?? "circle";
@@ -25,11 +26,17 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
             <Link
               key={section.id}
               href={section.path}
-              className={`flex flex-col items-center gap-1 transition-opacity ${isActive ? "opacity-100" : "opacity-30"} hover:opacity-100`}
+              className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] flex-1 py-2 rounded-sm transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+                isActive ? "opacity-100" : "opacity-30"
+              } hover:opacity-100`}
+              aria-current={isActive ? "page" : undefined}
+              aria-label={label}
             >
-              <span className="material-symbols-outlined text-2xl font-light">{icon}</span>
+              <span className="material-symbols-outlined text-2xl font-light" aria-hidden>
+                {icon}
+              </span>
               <span className="text-[9px] font-semibold uppercase tracking-widest">{label}</span>
-              {isActive && <div className="w-1 h-1 bg-black rounded-full mt-0.5" />}
+              {isActive && <div className="w-1 h-1 bg-black rounded-full mt-0.5" aria-hidden />}
             </Link>
           );
         })}

@@ -5,8 +5,10 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { CardAccordion, type CardAccordionItem } from "@/components/ui/card-accordion";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { FilterToolbar } from "@/components/layout/FilterToolbar";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 
@@ -27,14 +29,10 @@ const SORT_OPTIONS: { value: ConventionSortBy; label: string }[] = [
   { value: "location", label: "Location" },
 ];
 
-function toAccordionItem(c: Doc<"conventions">): CardAccordionItem {
-  return {
-    id: c._id,
-    title: c.name,
-    subtitle: [c.startDate, c.endDate].join(" – ") + (c.location ? ` · ${c.location}` : ""),
-    imageUrl: c.imageUrl ?? null,
-    imageStorageId: c.imageStorageId ?? null,
-  };
+function daysUntil(startDate: string): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const start = new Date(startDate).toISOString().slice(0, 10);
+  return Math.ceil((new Date(start).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function filterAndSortConventions(
@@ -93,7 +91,6 @@ export default function ConventionsPage() {
     () => filterAndSortConventions(conventions, search, filter, sortBy, order),
     [conventions, search, filter, sortBy, order]
   );
-  const accordionItems = useMemo(() => filteredAndSorted.map(toAccordionItem), [filteredAndSorted]);
 
   const toggleSelect = useCallback((id: Id<"conventions">) => {
     setSelectedIds((prev) => {
@@ -144,118 +141,136 @@ export default function ConventionsPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
-        <p className="meta-label mb-1">Circuit</p>
-        <h1 className="font-serif text-3xl font-bold tracking-tight italic">Conventions</h1>
-      </header>
+      <PageHeader
+        title="Conventions"
+        subtitle="Circuit"
+        primaryAction={{ label: "New Convention", href: "/conventions/new" }}
+      />
 
-      <nav className="sticky top-[88px] z-30 bg-white/95 backdrop-blur-sm pt-2 pb-4 space-y-4 border-b border-kyar-borderSubtle">
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-wrap">
-          <label htmlFor="convention-filter" className="sr-only">
-            Filter conventions
-          </label>
-          <select
-            id="convention-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as ConventionFilter)}
-            className="w-full sm:w-auto min-w-[140px] text-sm border border-kyar-border rounded-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 uppercase tracking-widest"
-            aria-label="Filter conventions"
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="convention-search" className="sr-only">
-            Search conventions by name or location
-          </label>
-          <input
-            id="convention-search"
-            type="search"
-            placeholder="Search by name or location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 text-sm border border-kyar-border rounded-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-            aria-label="Search conventions by name or location"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            <label
-              htmlFor="convention-sort"
-              className="text-[10px] uppercase tracking-widest text-kyar-meta"
-            >
-              Sort by
-            </label>
-            <select
-              id="convention-sort"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
-              aria-label="Sort conventions by"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              className="text-sm border border-kyar-border rounded-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 flex items-center gap-1"
-              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-              title={order === "asc" ? "Ascending" : "Descending"}
-            >
-              <span className="material-symbols-outlined text-base">
-                {order === "asc" ? "arrow_upward" : "arrow_downward"}
-              </span>
-              <span className="text-[10px] uppercase">{order}</span>
-            </button>
-          </div>
-        </div>
-      </nav>
+      <FilterToolbar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: "Search by name or location…",
+          "aria-label": "Search conventions by name or location",
+        }}
+        filtersLabel="Filters"
+      >
+        <label htmlFor="convention-filter" className="sr-only">
+          Filter conventions
+        </label>
+        <select
+          id="convention-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as ConventionFilter)}
+          className="min-h-[44px] min-w-[140px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm uppercase tracking-widest"
+          aria-label="Filter conventions"
+        >
+          {FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <label
+          htmlFor="convention-sort"
+          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center"
+        >
+          Sort by
+        </label>
+        <select
+          id="convention-sort"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
+          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label="Sort conventions by"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden>
+            {order === "asc" ? "arrow_upward" : "arrow_downward"}
+          </span>
+          <span className="text-[10px] uppercase">{order}</span>
+        </button>
+      </FilterToolbar>
 
       <main className="flex-1 py-6">
-        <Link
-          href="/conventions/new"
-          className="block w-full bg-black text-white text-center py-3.5 text-[11px] font-bold uppercase tracking-wider mb-8"
-        >
-          NEW CONVENTION
-        </Link>
-
-        {isLoading && <p className="meta-label">Loading...</p>}
+        {isLoading && <p className="meta-label text-kyar-meta">Loading...</p>}
         {!isLoading && conventions.length === 0 && (
           <p className="text-sm text-kyar-meta">
             No conventions yet. Create one to plan days and generate packing lists.
           </p>
         )}
-        {!isLoading && conventions.length > 0 && accordionItems.length === 0 && (
+        {!isLoading && conventions.length > 0 && filteredAndSorted.length === 0 && (
           <p className="text-sm text-kyar-textTertiary">
             No conventions match your search or filter.
           </p>
         )}
-        {!isLoading && accordionItems.length > 0 && (
+        {!isLoading && filteredAndSorted.length > 0 && (
           <>
             <div className="flex items-center gap-3 mb-4">
               <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
-                {accordionItems.length} convention{accordionItems.length !== 1 ? "s" : ""}
+                {filteredAndSorted.length} convention{filteredAndSorted.length !== 1 ? "s" : ""}
               </p>
               <button
                 type="button"
                 onClick={() => setShowSelectModal(true)}
-                className="text-[10px] uppercase tracking-widest font-medium underline"
+                className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest font-medium underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
               >
                 Select for actions
               </button>
             </div>
-            <CardAccordion
-              items={accordionItems}
-              getHref={(item) => `/conventions/${item.id}`}
-              defaultActiveIndex={Math.min(1, Math.floor(accordionItems.length / 2))}
-              panelHeight={380}
-              expandedWidth={320}
-              collapsedWidth={56}
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSorted.map((c) => {
+                const days =
+                  c.endDate >= new Date().toISOString().slice(0, 10)
+                    ? daysUntil(c.startDate)
+                    : null;
+                const hasImage = c.imageStorageId != null || c.imageUrl != null;
+                return (
+                  <Link
+                    key={c._id}
+                    href={`/conventions/${c._id}`}
+                    className="block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:border-kyar-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                  >
+                    {hasImage ? (
+                      <div className="aspect-[21/9] w-full bg-kyar-mutedWarm">
+                        <ResolvedImage
+                          imageStorageId={c.imageStorageId ?? undefined}
+                          imageUrl={c.imageUrl ?? undefined}
+                          alt={c.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="p-4">
+                      <h2 className="font-serif text-lg italic font-normal text-kyar-text">
+                        {c.name}
+                      </h2>
+                      <p className="text-xs text-kyar-meta mt-1">
+                        {c.startDate === c.endDate ? c.startDate : `${c.startDate} – ${c.endDate}`}
+                        {c.location ? ` · ${c.location}` : ""}
+                      </p>
+                      {days !== null && days >= 0 && (
+                        <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
+                          {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </>
         )}
       </main>
