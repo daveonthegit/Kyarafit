@@ -80,3 +80,62 @@ export async function processImageForUpload(file: File): Promise<Blob> {
     );
   });
 }
+
+/** Crop area in pixels (e.g. from react-easy-crop onCropComplete). */
+export type CropArea = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const AVATAR_MAX_SIZE = 512;
+const AVATAR_JPEG_QUALITY = 0.9;
+
+/**
+ * Load an image from a URL (object URL or string) and return as HTMLImageElement.
+ */
+function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = url;
+  });
+}
+
+/**
+ * Produce a square JPEG blob from a cropped region of an image.
+ * Optionally scales down to maxSize (e.g. 512 for avatars). Used after user crops in UI.
+ */
+export async function getCroppedImageBlob(
+  imageSrc: string,
+  crop: CropArea,
+  options?: { maxSize?: number; quality?: number }
+): Promise<Blob> {
+  const maxSize = options?.maxSize ?? AVATAR_MAX_SIZE;
+  const quality = options?.quality ?? AVATAR_JPEG_QUALITY;
+  const img = await loadImageFromUrl(imageSrc);
+  const { x, y, width, height } = crop;
+  const size = Math.min(width, height, maxSize);
+  const scale = size / Math.min(width, height);
+  const scaledW = Math.round(width * scale);
+  const scaledH = Math.round(height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = scaledW;
+  canvas.height = scaledH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not available");
+  ctx.drawImage(img, x, y, width, height, 0, 0, scaledW, scaledH);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create image"));
+      },
+      "image/jpeg",
+      quality
+    );
+  });
+}

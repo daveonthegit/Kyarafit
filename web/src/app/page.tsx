@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { LandingAuthCta } from "@/components/landing/LandingAuthCta";
 
 const SECTION_PADDING = "px-6 sm:px-8 lg:px-12";
 const SECTION_GAP = "gap-12 lg:gap-14";
@@ -20,12 +21,7 @@ export default function LandingPage() {
         >
           Kyarafit
         </Link>
-        <Link
-          href="/auth/signin"
-          className="font-sans-wide text-[10px] sm:text-xs text-kyar-text border-b border-black pb-0.5 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm"
-        >
-          Log in
-        </Link>
+        <LandingAuthCta variant="header" />
       </header>
 
       <main className="flex-1 flex flex-col" role="main">
@@ -51,20 +47,7 @@ export default function LandingPage() {
               Catalog pieces, track build progress, and plan convention outfits with a simple,
               editorial-style tool. Web and mobile.
             </p>
-            <div className="flex flex-wrap gap-3 sm:gap-4">
-              <Link
-                href="/auth/signup"
-                className="inline-flex items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider h-[52px] px-6 rounded-sm bg-black text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity"
-              >
-                Get started
-              </Link>
-              <Link
-                href="/auth/signin"
-                className="inline-flex items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider h-[52px] px-6 rounded-sm border border-black text-black hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity"
-              >
-                Log in
-              </Link>
-            </div>
+            <LandingAuthCta variant="hero" />
           </div>
           <div className="flex-shrink-0 w-full lg:w-[48%] lg:max-w-xl aspect-[4/3] lg:aspect-[3/2] relative overflow-hidden bg-kyar-muted rounded-sm border border-kyar-borderSubtle mt-8 lg:mt-0">
             <Image
@@ -295,12 +278,7 @@ export default function LandingPage() {
             <p className="text-sm text-kyar-textSecondary mb-8">
               Create an account on web to sync your closet and builds across devices.
             </p>
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider h-[52px] px-8 rounded-sm bg-black text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity"
-            >
-              Get started on web
-            </Link>
+            <LandingAuthCta variant="cta" />
           </div>
         </section>
       </main>
@@ -314,20 +292,7 @@ export default function LandingPage() {
           <p className="text-[9px] sm:text-[10px] text-kyar-meta uppercase tracking-widest">
             Kyarafit · Cosplay wardrobe & build tracker
           </p>
-          <nav className="flex items-center gap-6" aria-label="Footer navigation">
-            <Link
-              href="/auth/signin"
-              className="font-sans-wide text-[10px] uppercase tracking-wider text-kyar-textSecondary hover:text-kyar-text focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="font-sans-wide text-[10px] uppercase tracking-wider border border-black px-4 py-2 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2"
-            >
-              Get started
-            </Link>
-          </nav>
+          <LandingAuthCta variant="footer" />
         </div>
       </footer>
     </div>

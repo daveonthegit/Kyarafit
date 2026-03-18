@@ -35,7 +35,7 @@ describe("Settings Account page", () => {
 
   // Full-page tests that render AccountDetailsContent (which uses useState) are skipped
   // due to React hook resolution in this test env when mocking auth-client. Manual testing:
-  // - With user and no username: create-username form and onUpdateUsername flow.
-  // - With user and username: displayed username.
+  // - Display name: editable via Edit / Save / Cancel; onUpdateDisplayName flow.
+  // - Username: read-only display.
   // - Change password link to /auth/reset-password.
 });

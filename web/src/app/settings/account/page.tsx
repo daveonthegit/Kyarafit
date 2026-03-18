@@ -27,7 +27,10 @@ export default function SettingsAccountPage() {
         {!isPending && user && (
           <AccountDetailsContent
             user={user}
-            onUpdateUsername={async (username) => authClient.updateUser({ username })}
+            onUpdateDisplayName={async (name) => {
+              const result = await authClient.updateUser({ name });
+              return { error: result?.error ?? null };
+            }}
           />
         )}
       </main>

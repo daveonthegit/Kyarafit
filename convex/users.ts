@@ -45,10 +45,10 @@ export const upsert = mutation({
       .unique();
 
     if (existing) {
+      // Do not overwrite image on patch — profile pic may have been uploaded; only sync email/name from session.
       await ctx.db.patch(existing._id, {
         email,
         name,
-        image,
       });
       return existing._id;
     }
@@ -149,8 +149,33 @@ export const recalculateUsage = mutation({
       .collect();
     for (const p of processPics) await addSize(p);
 
+    await addSize(user);
+
     await ctx.db.patch(user._id, { currentUsageMb: totalMb });
     return totalMb;
+  },
+});
+
+/**
+ * Update the current user's profile image to a Convex storage ID (after upload).
+ * Auth required; only the user's own row can be updated. Counts toward storage quota.
+ */
+export const updateProfileImage = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) return null;
+    const externalId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .unique();
+    if (!user) return null;
+    await ctx.db.patch(user._id, {
+      imageStorageId: args.storageId,
+      // Keep image for OAuth fallback; storage takes precedence when present
+    });
+    return user._id;
   },
 });
 

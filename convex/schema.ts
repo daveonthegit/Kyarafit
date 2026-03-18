@@ -7,6 +7,7 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
     tier: v.string(),
     currentUsageMb: v.number(),
     stripeCustomerId: v.optional(v.string()),

@@ -10,6 +10,7 @@ import {
   NAV_SECTION_SETTINGS,
 } from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
+import { SidebarUserProfile } from "@/components/layout/SidebarUserProfile";
 
 const STORAGE_KEY = "kyar-sidebar-collapsed";
 
@@ -111,6 +112,8 @@ export function WebSidebar() {
             </Link>
           );
         })()}
+        <div className="my-2 border-t border-kyar-cardBorder" aria-hidden />
+        <SidebarUserProfile collapsed={collapsed} />
       </nav>
       <div className="p-2 border-t border-kyar-cardBorder">
         <button
