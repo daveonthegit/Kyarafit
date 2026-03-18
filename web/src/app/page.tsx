@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { LandingAuthCta } from "@/components/landing/LandingAuthCta";
+import { HeroScrollSection } from "@/components/landing/HeroScrollSection";
 
 const SECTION_PADDING = "px-6 sm:px-8 lg:px-12";
 const SECTION_GAP = "gap-12 lg:gap-14";
@@ -25,12 +25,12 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-1 flex flex-col" role="main">
-        {/* Hero */}
+        {/* Hero: sticky copy left, scroll-reveal card right */}
         <section
-          className={`flex flex-col lg:flex-row lg:items-center ${SECTION_GAP} ${SECTION_PADDING} pt-4 pb-12 sm:pb-16 lg:py-16 ${MAX_WIDTH}`}
+          className={`grid grid-cols-1 lg:grid-cols-2 ${SECTION_GAP} ${SECTION_PADDING} pt-4 pb-8 lg:pb-12 ${MAX_WIDTH} min-h-0`}
           aria-labelledby="hero-heading"
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex flex-col justify-center min-w-0 lg:sticky lg:top-24 lg:self-start lg:py-16">
             <p
               className="font-sans-wide text-[9px] sm:text-[10px] text-kyar-meta uppercase tracking-widest mb-3"
               aria-hidden
@@ -49,15 +49,8 @@ export default function LandingPage() {
             </p>
             <LandingAuthCta variant="hero" />
           </div>
-          <div className="flex-shrink-0 w-full lg:w-[48%] lg:max-w-xl aspect-[4/3] lg:aspect-[3/2] relative overflow-hidden bg-kyar-muted rounded-sm border border-kyar-borderSubtle mt-8 lg:mt-0">
-            <Image
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5j_rjik1qfSqmE54IvlQ-f93B0ic1cMxmr4b5UdTCH9jUwmMLGKWBb0I7q-2GTYocwgz4-cw76dbs2rVBlitZa9YCGAX42unGgJ4-1jMOxB1Jo5GIdpLCDYuIsOMiUNzgwVQk9HHCG2sH1_T97gvqe9a4z7nemuaxofVVC2yPD4NuamYwLJ89xyERKi8ayBVi-4-jlq2_ReZz-IvBQOKL8fEEYSuYKZtNSCV4qtxrDAEyEDwBPkVFNygFQEiVGt9BjSqc3ui-kxcK"
-              alt="Editorial cosplay style — organize your looks and builds"
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
+          <div className="w-full min-h-[38rem] md:min-h-[48rem] flex items-center">
+            <HeroScrollSection variant="hero" />
           </div>
         </section>
 
