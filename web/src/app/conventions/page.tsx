@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { FilterToolbar } from "@/components/layout/FilterToolbar";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -95,6 +96,7 @@ export default function ConventionsPage() {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { userId } = useCurrentUser();
+  const { open: openCreationModal } = useCreationModals();
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
   const archiveMany = useMutation(api.conventions.archiveMany);
   const removeMany = useMutation(api.conventions.removeMany);
@@ -207,7 +209,10 @@ export default function ConventionsPage() {
       <PageHeader
         title="Conventions"
         subtitle="Circuit"
-        primaryAction={{ label: "New Convention", href: "/conventions/new" }}
+        primaryAction={{
+          label: "New Convention",
+          onClick: () => openCreationModal("newConvention"),
+        }}
       />
 
       <FilterToolbar

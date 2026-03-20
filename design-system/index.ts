@@ -13,4 +13,5 @@ export {
   type NavSection,
   type NavSectionId,
   type AddMenuItem,
+  type AddMenuModal,
 } from "./navConfig";

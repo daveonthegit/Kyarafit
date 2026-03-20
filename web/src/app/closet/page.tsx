@@ -11,6 +11,7 @@ import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -37,6 +38,7 @@ const CATEGORY_OPTIONS = [
 
 export default function ClosetPage() {
   const { userId } = useCurrentUser();
+  const { open: openCreationModal } = useCreationModals();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("name");
@@ -185,7 +187,7 @@ export default function ClosetPage() {
       <PageHeader
         breadcrumb={[{ label: "Builds", href: "/builds" }, { label: "Closet" }]}
         title="The Closet"
-        primaryAction={{ label: "Add item", href: "/closet/new" }}
+        primaryAction={{ label: "Add item", onClick: () => openCreationModal("newCloset") }}
       />
 
       <FilterToolbar
@@ -257,12 +259,13 @@ export default function ClosetPage() {
             message="No items yet."
             secondary="Add pieces to your digital closet."
             action={
-              <Link
-                href="/closet/new"
+              <button
+                type="button"
+                onClick={() => openCreationModal("newCloset")}
                 className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 Add item
-              </Link>
+              </button>
             }
           />
         )}

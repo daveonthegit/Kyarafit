@@ -31,6 +31,8 @@ interface TaskChecklistProps {
   }>;
   onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
   enableDragDrop?: boolean;
+  /** Hide bottom “add task” row (use FAB / modal instead) */
+  hideInlineAdd?: boolean;
 }
 
 export function TaskChecklist({
@@ -38,6 +40,7 @@ export function TaskChecklist({
   tasks,
   linkedItems = [],
   enableDragDrop = false,
+  hideInlineAdd = false,
 }: TaskChecklistProps) {
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -158,7 +161,9 @@ export function TaskChecklist({
 
           {sortedTasks.length === 0 && (
             <p className="text-sm text-kyar-textTertiary text-center py-8">
-              No tasks yet. Add your first task below.
+              {hideInlineAdd
+                ? "No tasks yet. Use the + button to add tasks."
+                : "No tasks yet. Add your first task below."}
             </p>
           )}
         </div>
@@ -169,25 +174,28 @@ export function TaskChecklist({
         </div>
       </div>
 
-      <div className="flex gap-2 pt-4 border-t border-kyar-border">
-        <input
-          type="text"
-          value={newTaskLabel}
-          onChange={(e) => setNewTaskLabel(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
-          placeholder="Add a new task..."
-          className="flex-1 border-0 border-b border-black bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
-        />
-        <button
-          onClick={handleAddTask}
-          disabled={!newTaskLabel.trim() || isPendingCreate}
-          className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-        >
-          {isPendingCreate ? "Adding..." : "Add"}
-        </button>
-      </div>
+      {!hideInlineAdd && (
+        <div className="flex gap-2 pt-4 border-t border-kyar-border">
+          <input
+            id="build-add-task-input"
+            type="text"
+            value={newTaskLabel}
+            onChange={(e) => setNewTaskLabel(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
+            placeholder="Add a new task..."
+            className="flex-1 border-0 border-b border-black bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+          />
+          <button
+            onClick={handleAddTask}
+            disabled={!newTaskLabel.trim() || isPendingCreate}
+            className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+          >
+            {isPendingCreate ? "Adding..." : "Add"}
+          </button>
+        </div>
+      )}
 
-      <div className="flex gap-2 pt-2">
+      <div className={`flex gap-2 ${hideInlineAdd ? "pt-4 border-t border-kyar-border" : "pt-2"}`}>
         <button
           onClick={() => {
             sortedTasks.forEach((t) => !t.checked && handleToggleTask(t._id, true));

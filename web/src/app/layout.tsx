@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { AppProviders } from "@/components/providers/AppProviders";
 import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
@@ -30,7 +31,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       >
         <ConvexClientProvider initialToken={token}>
           <LocaleProvider>
-            <AuthGate>{children}</AuthGate>
+            <AppProviders>
+              <AuthGate>{children}</AuthGate>
+            </AppProviders>
           </LocaleProvider>
         </ConvexClientProvider>
       </body>

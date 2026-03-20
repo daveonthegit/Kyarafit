@@ -1,0 +1,298 @@
+            <div className="max-w-[1600px] mx-auto space-y-8">
+              <div className="flex justify-between items-center">
+                <Link
+                  href="/home"
+                  className="font-serif text-lg text-kyar-text hover:opacity-80 transition-opacity"
+                >
+                  Kyarafit
+                </Link>
+              </div>
+
+              {(build.imageStorageId || build.imageUrl) && (
+                <section className="relative rounded-md overflow-hidden border border-kyar-cardBorder bg-kyar-mutedWarm min-h-[min(52vw,380px)] sm:min-h-[400px] shadow-soft">
+                  <div className="absolute inset-0">
+                    <ResolvedImage
+                      imageStorageId={build.imageStorageId}
+                      imageUrl={build.imageUrl}
+                      alt={build.name}
+                      className="w-full h-full object-cover grayscale-[0.25] contrast-[1.02]"
+                      style={{
+                        objectPosition:
+                          build.imageFocalX != null && build.imageFocalY != null
+                            ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
+                            : undefined,
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10"
+                      aria-hidden
+                    />
+                  </div>
+                  <div className="relative z-10 flex flex-col justify-end min-h-[min(52vw,380px)] sm:min-h-[400px] p-6 sm:p-10">
+                    <p className="text-white/75 text-[10px] sm:text-[11px] uppercase tracking-[0.2em] mb-3">
+                      {build.status}
+                    </p>
+                    <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.05] tracking-tight">
+                      {build.name}
+                    </h1>
+                    {build.character && (
+                      <p className="text-white/85 mt-3 text-base sm:text-lg">{build.character}</p>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <div className="flex flex-col gap-10 xl:grid xl:grid-cols-12 xl:gap-x-8 xl:gap-y-10 xl:items-start">
+                <div className="xl:col-span-1 flex xl:justify-center xl:pt-2">
+                  <EditorialVerticalProgressRail progress={completionPercent} />
+                </div>
+
+                <div className="xl:col-span-3 space-y-6 min-w-0 xl:sticky xl:top-24">
+                  {!(build.imageStorageId || build.imageUrl) && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mb-2">
+                        {build.status}
+                      </p>
+                      <h1 className="font-serif text-3xl lg:text-4xl font-semibold tracking-tight mb-2">
+                        {build.name}
+                      </h1>
+                      {build.character && (
+                        <p className="text-sm text-kyar-textTertiary">Character: {build.character}</p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-col items-start gap-2">
+                    <EditorialProgressDonut showFlankLabels progress={completionPercent} />
+                    <p className="text-xs text-kyar-textTertiary leading-snug">
+                      {tasksChecked} of {tasksTotal} tasks complete
+                    </p>
+                  </div>
+                  {build.budgetCents != null && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                        Budget summary
+                      </span>
+                      <p className="text-sm text-kyar-text">
+                        {formatCents(totalCostCents)} / {formatCents(build.budgetCents)}
+                      </p>
+                      <div className="h-[2px] bg-kyar-borderSubtle w-full mt-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-kyar-text transition-all"
+                          style={{
+                            width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      {totalCostCents > (build.budgetCents || 0) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Over budget by {formatCents(totalCostCents - (build.budgetCents || 0))}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {build.targetDate && daysRemaining !== null && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                        Deadline
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-lg">event</span>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {new Date(build.targetDate).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </p>
+                          <p
+                            className={`text-xs ${
+                              daysRemaining < 0
+                                ? "text-red-600"
+                                : daysRemaining <= 7
+                                  ? "text-orange-600"
+                                  : "text-kyar-textTertiary"
+                            }`}
+                          >
+                            {daysRemaining < 0
+                              ? `${Math.abs(daysRemaining)} days overdue`
+                              : daysRemaining === 0
+                                ? "Due today!"
+                                : `${daysRemaining} days remaining`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-kyar-borderSubtle">
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                      Sharing
+                    </span>
+                    <p className="text-sm text-kyar-textSecondary mb-2">
+                      {build.visibility === "public"
+                        ? "Public — visible on your profile"
+                        : build.visibility === "unlisted"
+                          ? "Unlisted — only people with the link"
+                          : "Private — only you"}
+                    </p>
+                    {build.visibility === "unlisted" && build.shareToken && (
+                      <button
+                        type="button"
+                        onClick={handleCopyShareLink}
+                        className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+                      >
+                        {shareLinkCopied ? "Copied!" : "Copy share link"}
+                      </button>
+                    )}
+                  </div>
+                  {userId && build.userId === userId && (
+                    <div className="pt-2 border-t border-kyar-borderSubtle">
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                        Collaborators
+                      </span>
+                      {collaborators.length > 0 && (
+                        <ul className="space-y-2 mb-3">
+                          {collaborators.map((c) => (
+                            <li
+                              key={c.userId}
+                              className="flex items-center justify-between gap-2 text-sm flex-wrap"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-8 h-8 rounded-full bg-kyar-muted flex items-center justify-center text-[11px] font-semibold shrink-0">
+                                  {(c.name ?? c.email ?? "?").charAt(0).toUpperCase()}
+                                </span>
+                                <span className="truncate">{c.name ?? c.email ?? c.userId}</span>
+                              </div>
+                              <span className="text-[11px] text-kyar-textTertiary capitalize shrink-0">
+                                {c.role}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeCollaborator({
+                                    buildId: id,
+                                    ownerId: userId,
+                                    userId: c.userId,
+                                  })
+                                }
+                                className="text-[11px] text-red-600 hover:underline shrink-0"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <input
+                          type="email"
+                          value={collabEmail}
+                          onChange={(e) => {
+                            setCollabEmail(e.target.value);
+                            setCollabError(null);
+                          }}
+                          placeholder="Email to share with"
+                          className="flex-1 min-w-[140px] border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
+                          disabled={collabPending}
+                        />
+                        <select
+                          value={collabRole}
+                          onChange={(e) => setCollabRole(e.target.value as "viewer" | "editor")}
+                          className="border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
+                        >
+                          <option value="viewer">Viewer</option>
+                          <option value="editor">Editor</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!id || !userId || !collabEmail.trim() || collabPending) return;
+                            setCollabPending(true);
+                            setCollabError(null);
+                            try {
+                              await addCollaborator({
+                                buildId: id,
+                                ownerId: userId,
+                                email: collabEmail.trim(),
+                                role: collabRole,
+                              });
+                              setCollabEmail("");
+                            } catch (e) {
+                              setCollabError(e instanceof Error ? e.message : "Failed");
+                            } finally {
+                              setCollabPending(false);
+                            }
+                          }}
+                          disabled={collabPending || !collabEmail.trim()}
+                          className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {collabError && <p className="text-xs text-red-600 mt-1">{collabError}</p>}
+                    </div>
+                  )}
+                  <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowOutline((v) => !v)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-kyar-textTertiary hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
+                      aria-expanded={showOutline}
+                    >
+                      <span>Outline</span>
+                      <span
+                        className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
+                      >
+                        expand_more
+                      </span>
+                    </button>
+                    {showOutline && (
+                      <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
+                        <BuildOutlineTree
+                          buildName={build.name}
+                          tasks={tasks}
+                          linkedItems={linkedItems}
+                          onSelect={handleOutlineSelect}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="xl:col-span-5 min-w-0 space-y-6">
+                  <section ref={tasksSectionRef} id="build-tasks">
+                    <h2 className="font-serif text-2xl text-kyar-text border-b border-kyar-borderSubtle pb-2 mb-4">
+                      Tasks &amp; Timeline
+                    </h2>
+                    <p className="text-xs text-kyar-textTertiary mb-4">
+                      Drag tasks onto closet items in the Visual Board (Closet tab), or use the link
+                      button on a task to assign.
+                    </p>
+                    <TaskChecklist
+                      buildId={id}
+                      tasks={tasks}
+                      linkedItems={linkedItems}
+                      enableDragDrop
+                    />
+                  </section>
+                </div>
+
+                <div ref={itemsSectionRef} id="build-items" className="xl:col-span-3 min-w-0">
+                  {userId ? (
+                    <BuildVisualBoard
+                      buildId={id}
+                      userId={userId}
+                      linkedItems={linkedItems}
+                      linkItemsHref={`/build-detail/link-items?id=${id}`}
+                      renderClosetCard={(item) => (
+                        <DroppableClosetItem item={item} justDroppedRef={justDroppedRef}>
+                          <ClosetCarouselCardContent item={item} formatCents={formatCents} />
+                        </DroppableClosetItem>
+                      )}
+                    />
+                  ) : (
+                    <p className="text-sm text-kyar-textTertiary">Sign in to manage the visual board.</p>
+                  )}
+                </div>
+              </div>
+            </div>

@@ -1,27 +1,33 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { WebAppShell } from "@/components/layout/WebAppShell";
-import { BuildOutlineTree } from "@/components/builds/BuildOutlineTree";
 import { TaskChecklist } from "@/components/builds/TaskChecklist";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
-import { BuildReferenceImagesSection } from "@/components/builds/BuildReferenceImagesSection";
-import { BuildProcessPicturesSection } from "@/components/builds/BuildProcessPicturesSection";
 import { BuildSummaryModal } from "@/components/builds/BuildSummaryModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
-import {
-  ClosetItemsCarousel,
-  ClosetCarouselCardContent,
-} from "@/components/ui/closet-items-carousel";
+import { ClosetCarouselCardContent } from "@/components/ui/closet-items-carousel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
+
+// New Editorial Components
+import {
+  EditorialProgressDonut,
+  EditorialHorizontalProgressRail,
+} from "@/components/builds/EditorialBuildProgress";
+import { BuildVisualBoard } from "@/components/builds/BuildVisualBoard";
+import { BuildDetailFab, type BuildDetailFabModal } from "@/components/builds/BuildDetailFab";
+import { BuildPhotoBatchModal } from "@/components/builds/BuildPhotoBatchModal";
+import { BuildLinkClosetModal } from "@/components/builds/BuildLinkClosetModal";
+import { BuildAddTaskModal } from "@/components/builds/BuildAddTaskModal";
+import { BuildInviteCollaboratorModal } from "@/components/builds/BuildInviteCollaboratorModal";
 
 const STATUSES: BuildStatus[] = ["idea", "wip", "ready", "archived"];
 
@@ -44,11 +50,12 @@ export default function BuildDetailPage() {
 
   const updateTask = useMutation(api.buildTasks.update);
   const updateBuild = useMutation(api.builds.update);
-  const collaborators = useQuery(api.buildCollaborators.listByBuild, id ? { buildId: id } : "skip") ?? [];
-  const addCollaborator = useMutation(api.buildCollaborators.addByEmail);
+  const collaborators =
+    useQuery(api.buildCollaborators.listByBuild, id ? { buildId: id } : "skip") ?? [];
   const removeCollaborator = useMutation(api.buildCollaborators.remove);
+  const addReferenceImage = useMutation(api.buildReferenceImages.add);
+  const addProgressPhoto = useMutation(api.buildProcessPictures.add);
   const justDroppedRef = useRef(false);
-
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCharacter, setEditCharacter] = useState("");
@@ -63,23 +70,11 @@ export default function BuildDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [notesSavePending, setNotesSavePending] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
-  const [showOutline, setShowOutline] = useState(false);
-  const tasksSectionRef = useRef<HTMLElement>(null);
-  const itemsSectionRef = useRef<HTMLElement>(null);
-  const [editVisibility, setEditVisibility] = useState<"private" | "unlisted" | "public">("private");
+  const [editVisibility, setEditVisibility] = useState<"private" | "unlisted" | "public">(
+    "private"
+  );
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
-  const [collabEmail, setCollabEmail] = useState("");
-  const [collabRole, setCollabRole] = useState<"viewer" | "editor">("viewer");
-  const [collabPending, setCollabPending] = useState(false);
-  const [collabError, setCollabError] = useState<string | null>(null);
-
-  const handleOutlineSelect = (nodeId: string) => {
-    if (nodeId === "tasks" || nodeId.startsWith("task-")) {
-      tasksSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else if (nodeId === "items" || nodeId.startsWith("item-")) {
-      itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  const [fabModal, setFabModal] = useState<BuildDetailFabModal | null>(null);
 
   useEffect(() => {
     if (build && isEditing) {
@@ -103,6 +98,35 @@ export default function BuildDetailPage() {
 
   const linkedItems = closetItems.filter((c) => closetItemIds.includes(c._id));
   const totalCostCents = linkedItems.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
+
+  const closetRowsForLink = useMemo(
+    () =>
+      closetItems.map((c) => ({
+        _id: c._id,
+        name: c.name,
+        category: c.category ?? "",
+        tags: c.tags ?? [],
+        _creationTime: c._creationTime,
+      })),
+    [closetItems]
+  );
+
+  const photoKind = fabModal === "reference" || fabModal === "progress" ? fabModal : null;
+
+  const handlePhotoSelected = useCallback(
+    async (result: { imageStorageId?: Id<"_storage">; imageUrl?: string }) => {
+      if (!id || !userId || !photoKind) return;
+      const mutation = photoKind === "reference" ? addReferenceImage : addProgressPhoto;
+      await mutation({
+        buildId: id,
+        userId,
+        imageStorageId:
+          "imageStorageId" in result && result.imageStorageId ? result.imageStorageId : undefined,
+        imageUrl: "imageUrl" in result && result.imageUrl ? result.imageUrl : undefined,
+      });
+    },
+    [id, userId, photoKind, addReferenceImage, addProgressPhoto]
+  );
 
   const handleSaveEdit = async () => {
     if (!id || !userId || !build) return;
@@ -235,56 +259,69 @@ export default function BuildDetailPage() {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <WebAppShell>
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md pt-12 pb-4 flex items-center gap-4 lg:left-64">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md pt-12 pb-4 flex items-center gap-4 lg:left-64 px-4 sm:px-6">
           <Link href="/builds" aria-label="Back to builds">
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
-          <span className="flex-1 meta-label truncate">{build.name}</span>
+          <span className="flex-1 text-[11px] uppercase tracking-widest text-kyar-textTertiary truncate">
+            {build.name}
+          </span>
           {!isEditing ? (
-            <>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setSummaryModalOpen(true)}
-                className="hover:opacity-70 p-1"
+                className="hover:text-kyar-accent p-1 text-kyar-textTertiary transition-colors"
                 aria-label="Open build summary"
               >
-                <span className="material-symbols-outlined font-light text-xl">summarize</span>
+                <span className="material-symbols-outlined font-light text-[22px]">summarize</span>
               </button>
               <button
                 type="button"
                 onClick={() => setNotesModalOpen(true)}
-                className="hover:opacity-70 p-1"
+                className="hover:text-kyar-accent p-1 text-kyar-textTertiary transition-colors"
                 aria-label="Open build notes"
               >
-                <span className="material-symbols-outlined font-light text-xl">description</span>
+                <span className="material-symbols-outlined font-light text-[22px]">
+                  description
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="hover:opacity-70 p-1"
+                className="hover:text-kyar-accent p-1 text-kyar-textTertiary transition-colors"
                 aria-label="Edit build"
               >
-                <span className="material-symbols-outlined font-light text-xl">edit</span>
+                <span className="material-symbols-outlined font-light text-[22px]">edit</span>
               </button>
-            </>
+            </div>
           ) : (
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="text-[10px] font-semibold uppercase tracking-widest text-kyar-textTertiary hover:text-black"
+              className="text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary hover:text-black"
             >
               Cancel
             </button>
           )}
         </header>
 
-        <main className="mt-20 mb-12 px-4 sm:px-6">
+        <main className="mt-24 mb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
           {isEditing ? (
-            <div className="max-w-4xl grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_1fr] gap-8 lg:gap-12 mb-8">
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Image
+            <div className="max-w-3xl mx-auto space-y-12">
+              <div className="text-center pb-8 border-b border-kyar-borderSubtle">
+                <h1 className="font-serif text-4xl mb-2 text-kyar-text tracking-tight">
+                  Edit Project
+                </h1>
+                <p className="text-sm text-kyar-textTertiary uppercase tracking-widest">
+                  Settings &amp; Metadata
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-10 lg:gap-16">
+                <div className="space-y-4">
+                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+                    Cover Image
                   </label>
                   <ImageUpload
                     category="builds"
@@ -301,261 +338,201 @@ export default function BuildDetailPage() {
                     currentStorageId={editImageStorageId ?? undefined}
                   />
                 </div>
-              </div>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full border-0 border-b border-black bg-transparent py-2 text-lg font-serif italic font-bold focus:outline-none focus:border-kyar-accent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Character (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editCharacter}
-                    onChange={(e) => setEditCharacter(e.target.value)}
-                    placeholder="e.g. Arlecchino"
-                    className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Status
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {STATUSES.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setEditStatus(s)}
-                        className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                          editStatus === s
-                            ? "border-black bg-kyar-muted text-black"
-                            : "border-kyar-border text-kyar-textTertiary hover:border-black"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
+
+                <div className="space-y-8">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                      Project Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full border-0 border-b border-kyar-text/30 bg-transparent py-3 text-3xl font-serif tracking-tight focus:outline-none focus:border-kyar-text focus-visible:ring-0 placeholder:text-kyar-textTertiary"
+                    />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Budget $ (optional)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editBudgetCents}
-                    onChange={(e) => setEditBudgetCents(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Deadline (optional)
-                  </label>
-                  <input
-                    type="date"
-                    value={editTargetDate}
-                    onChange={(e) => setEditTargetDate(e.target.value)}
-                    className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-sm focus:outline-none focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-                    Visibility
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {(["private", "unlisted", "public"] as const).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setEditVisibility(v)}
-                        className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                          editVisibility === v
-                            ? "border-black bg-kyar-muted text-black"
-                            : "border-kyar-border text-kyar-textTertiary hover:border-black"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                      Character (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editCharacter}
+                      onChange={(e) => setEditCharacter(e.target.value)}
+                      placeholder="e.g. Arlecchino"
+                      className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-text focus-visible:ring-0"
+                    />
                   </div>
-                  <p className="text-[11px] text-kyar-textTertiary mt-1">
-                    Private: only you. Unlisted: anyone with link. Public: on your profile.
-                  </p>
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveEdit}
-                    disabled={savePending || !editName.trim()}
-                    className="flex-1 bg-black text-white py-3 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
-                  >
-                    {savePending ? "Saving…" : "Save changes"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    disabled={savePending}
-                    className="px-6 py-3 border border-kyar-border text-sm font-semibold uppercase tracking-wider hover:border-black disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-3">
+                      Status
+                    </label>
+                    <div className="flex gap-2 flex-wrap">
+                      {STATUSES.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setEditStatus(s)}
+                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-widest border transition-colors ${
+                            editStatus === s
+                              ? "border-kyar-text bg-kyar-text text-white"
+                              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                        Budget $ (optional)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editBudgetCents}
+                        onChange={(e) => setEditBudgetCents(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-text focus-visible:ring-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+                        Deadline (optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={editTargetDate}
+                        onChange={(e) => setEditTargetDate(e.target.value)}
+                        className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base focus:outline-none focus:border-kyar-text focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-3">
+                      Visibility
+                    </label>
+                    <div className="flex gap-2 flex-wrap">
+                      {(["private", "unlisted", "public"] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setEditVisibility(v)}
+                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-widest border transition-colors ${
+                            editVisibility === v
+                              ? "border-kyar-text bg-kyar-text text-white"
+                              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-kyar-textTertiary mt-3 leading-relaxed">
+                      Private: only you. Unlisted: anyone with link. Public: on your profile.
+                    </p>
+                  </div>
+                  <div className="flex gap-4 pt-6 border-t border-kyar-borderSubtle">
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      disabled={savePending || !editName.trim()}
+                      className="flex-1 bg-kyar-text text-white py-4 text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {savePending ? "Saving…" : "Save changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      disabled={savePending}
+                      className="px-8 py-4 border border-kyar-borderSubtle text-xs font-semibold uppercase tracking-widest hover:border-kyar-text transition-colors disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-8 lg:gap-12">
-              {/* Left: image + key meta (sticky on desktop) */}
-              <div className="lg:sticky lg:top-24 space-y-6">
-                {(build.imageStorageId || build.imageUrl) && (
-                  <div className="w-full aspect-[3/4] bg-gray-50 overflow-hidden rounded-sm">
-                    <ResolvedImage
-                      imageStorageId={build.imageStorageId}
-                      imageUrl={build.imageUrl}
-                      alt={build.name}
-                      className="w-full h-full object-cover"
-                    />
+            <div className="flex flex-col xl:flex-row gap-10 xl:gap-14">
+              {/* Left Column: Progress & Meta */}
+              <aside className="flex flex-row xl:flex-col gap-8 xl:gap-10 shrink-0 border-b border-kyar-borderSubtle xl:border-0 pb-8 xl:pb-0 overflow-x-auto xl:overflow-visible xl:w-[200px]">
+                <div className="flex items-center xl:items-start gap-6 xl:flex-col xl:gap-10 w-full">
+                  <div className="hidden xl:block w-full">
+                    <EditorialHorizontalProgressRail progress={completionPercent} />
                   </div>
-                )}
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mb-2">
-                    {build.status}
-                  </p>
-                  <h1 className="font-serif text-3xl lg:text-4xl font-bold italic tracking-tight mb-2">
-                    {build.name}
-                  </h1>
-                  {build.character && (
-                    <p className="text-sm text-kyar-textTertiary">Character: {build.character}</p>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-                        Completion
-                      </span>
-                      <span className="text-xl font-bold">{completionPercent}%</span>
-                    </div>
-                    <div className="h-[2px] bg-gray-200 w-full">
-                      <div
-                        className="h-full bg-black transition-all"
-                        style={{ width: `${completionPercent}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-kyar-textTertiary mt-1">
-                      {tasksChecked} of {tasksTotal} tasks complete
+                  <div className="flex flex-col items-center gap-3 w-full">
+                    <EditorialProgressDonut progress={completionPercent} showFlankLabels={true} />
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary text-center">
+                      Completion
                     </p>
                   </div>
-                  {build.targetDate && daysRemaining !== null && (
-                    <div>
-                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
-                        Deadline
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-lg">event</span>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {new Date(build.targetDate).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </p>
-                          <p
-                            className={`text-xs ${
-                              daysRemaining < 0
-                                ? "text-red-600"
-                                : daysRemaining <= 7
-                                  ? "text-orange-600"
-                                  : "text-kyar-textTertiary"
-                            }`}
-                          >
-                            {daysRemaining < 0
-                              ? `${Math.abs(daysRemaining)} days overdue`
-                              : daysRemaining === 0
-                                ? "Due today!"
-                                : `${daysRemaining} days remaining`}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+                {/* Budget Summary */}
                 {build.budgetCents != null && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
-                      Budget
+                  <div className="flex flex-col items-center xl:items-start min-w-[120px]">
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2 text-center xl:text-left w-full">
+                      Budget Summary
                     </span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-end text-sm">
-                        <span>Spent: {formatCents(totalCostCents)}</span>
-                        <span>Budget: {formatCents(build.budgetCents)}</span>
-                      </div>
-                      <div className="h-[2px] bg-gray-200 w-full">
-                        <div
-                          className="h-full bg-black transition-all"
-                          style={{
-                            width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      {totalCostCents > (build.budgetCents || 0) && (
-                        <p className="text-xs text-red-600">
-                          Over budget by {formatCents(totalCostCents - (build.budgetCents || 0))}
-                        </p>
-                      )}
+                    <p className="text-sm font-medium text-kyar-text">
+                      {formatCents(totalCostCents)} / {formatCents(build.budgetCents)}
+                    </p>
+                    <div className="h-[2px] bg-kyar-borderSubtle w-full mt-2 mb-1">
+                      <div
+                        className="h-full bg-kyar-text transition-all"
+                        style={{
+                          width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
+                        }}
+                      />
                     </div>
+                    {totalCostCents > (build.budgetCents || 0) && (
+                      <p className="text-[10px] text-red-600 mt-1 text-center xl:text-left w-full uppercase tracking-widest">
+                        Over budget
+                      </p>
+                    )}
                   </div>
                 )}
-                <div className="pt-2 border-t border-kyar-borderSubtle">
-                  <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
-                    Sharing
-                  </span>
-                  <p className="text-sm text-kyar-textSecondary mb-2">
-                    {build.visibility === "public"
-                      ? "Public — visible on your profile"
-                      : build.visibility === "unlisted"
-                        ? "Unlisted — only people with the link"
-                        : "Private — only you"}
-                  </p>
-                  {(build.visibility === "unlisted" && build.shareToken) && (
-                    <button
-                      type="button"
-                      onClick={handleCopyShareLink}
-                      className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
-                    >
-                      {shareLinkCopied ? "Copied!" : "Copy share link"}
-                    </button>
-                  )}
-                </div>
+
+                {/* Collaborators */}
                 {userId && build.userId === userId && (
-                  <div className="pt-2 border-t border-kyar-borderSubtle">
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+                  <div id="build-collaborators" className="min-w-[180px] scroll-mt-24">
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3 text-center xl:text-left w-full">
                       Collaborators
                     </span>
                     {collaborators.length > 0 && (
-                      <ul className="space-y-1 mb-3">
+                      <ul className="space-y-3 mb-4">
                         {collaborators.map((c) => (
-                          <li key={c.userId} className="flex items-center justify-between text-sm">
-                            <span>{c.name ?? c.email ?? c.userId}</span>
-                            <span className="text-[11px] text-kyar-textTertiary capitalize">{c.role}</span>
+                          <li
+                            key={c.userId}
+                            className="flex items-center justify-between gap-2 text-sm"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-kyar-muted border border-kyar-borderSubtle flex items-center justify-center text-[10px] font-serif shrink-0 text-kyar-text">
+                                {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs text-kyar-text leading-tight">
+                                  {c.name ?? c.email ?? c.userId}
+                                </p>
+                                <p className="text-[9px] text-kyar-textTertiary capitalize leading-tight">
+                                  {c.role}
+                                </p>
+                              </div>
+                            </div>
                             <button
                               type="button"
-                              onClick={() => removeCollaborator({ buildId: id, ownerId: userId, userId: c.userId })}
-                              className="text-[11px] text-red-600 hover:underline"
+                              onClick={() =>
+                                removeCollaborator({
+                                  buildId: id,
+                                  ownerId: userId,
+                                  userId: c.userId,
+                                })
+                              }
+                              className="text-[10px] text-red-600/70 hover:text-red-600 hover:underline shrink-0"
                             >
                               Remove
                             </button>
@@ -563,143 +540,159 @@ export default function BuildDetailPage() {
                         ))}
                       </ul>
                     )}
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <input
-                        type="email"
-                        value={collabEmail}
-                        onChange={(e) => { setCollabEmail(e.target.value); setCollabError(null); }}
-                        placeholder="Email to share with"
-                        className="flex-1 min-w-[140px] border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
-                        disabled={collabPending}
-                      />
-                      <select
-                        value={collabRole}
-                        onChange={(e) => setCollabRole(e.target.value as "viewer" | "editor")}
-                        className="border border-kyar-cardBorder rounded px-2 py-1.5 text-sm"
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="editor">Editor</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!id || !userId || !collabEmail.trim() || collabPending) return;
-                          setCollabPending(true); setCollabError(null);
-                          try {
-                            await addCollaborator({ buildId: id, ownerId: userId, email: collabEmail.trim(), role: collabRole });
-                            setCollabEmail("");
-                          } catch (e) {
-                            setCollabError(e instanceof Error ? e.message : "Failed");
-                          } finally {
-                            setCollabPending(false);
-                          }
-                        }}
-                        disabled={collabPending || !collabEmail.trim()}
-                        className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    {collabError && <p className="text-xs text-red-600 mt-1">{collabError}</p>}
+                    <button
+                      type="button"
+                      onClick={() => setFabModal("invite")}
+                      className="w-full text-center xl:text-left text-[10px] uppercase tracking-widest font-bold text-kyar-text border border-kyar-borderSubtle py-2 rounded-sm hover:border-kyar-text transition-colors"
+                    >
+                      Invite collaborator
+                    </button>
                   </div>
                 )}
-                <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setShowOutline((v) => !v)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-kyar-textTertiary hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
-                    aria-expanded={showOutline}
-                  >
-                    <span>Outline</span>
-                    <span
-                      className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
-                    >
-                      expand_more
-                    </span>
-                  </button>
-                  {showOutline && (
-                    <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
-                      <BuildOutlineTree
-                        buildName={build.name}
-                        tasks={tasks}
-                        linkedItems={linkedItems}
-                        onSelect={handleOutlineSelect}
-                      />
+
+                {/* Sharing */}
+                <div className="min-w-[120px]">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2 text-center xl:text-left w-full">
+                    Visibility
+                  </span>
+                  <p className="text-xs text-kyar-textSecondary mb-2 text-center xl:text-left w-full capitalize">
+                    {build.visibility}
+                  </p>
+                  {build.visibility === "unlisted" && build.shareToken && (
+                    <div className="text-center xl:text-left w-full">
+                      <button
+                        type="button"
+                        onClick={handleCopyShareLink}
+                        className="text-[10px] uppercase tracking-widest font-medium text-kyar-text hover:underline border border-kyar-borderSubtle px-3 py-1.5 rounded-sm"
+                      >
+                        {shareLinkCopied ? "Copied!" : "Copy link"}
+                      </button>
                     </div>
                   )}
                 </div>
-                {userId && <BuildReferenceImagesSection buildId={id} userId={userId} />}
-                {userId && <BuildProcessPicturesSection buildId={id} userId={userId} />}
-              </div>
+              </aside>
 
-              {/* Right: tasks, link items, progress */}
-              <div className="space-y-10 min-w-0">
-                <section ref={tasksSectionRef} id="build-tasks">
-                  <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
-                    Tasks
-                  </h2>
-                  <p className="text-xs text-kyar-textTertiary mb-4 italic">
-                    Drag tasks onto closet items or click the link button to assign them
-                  </p>
+              {/* Center Column: Hero & Tasks */}
+              <div className="flex-1 min-w-0 space-y-12">
+                <div>
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-kyar-textTertiary mb-4">
+                    <span>Kyarafit</span>
+                    {build.character && (
+                      <>
+                        <span className="opacity-40">/</span>
+                        <span>{build.character}</span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="relative mb-6 rounded-md overflow-hidden shadow-sm">
+                    {build.imageStorageId ? (
+                      <div className="w-full aspect-[16/9] sm:aspect-[21/9] bg-kyar-mutedWarm relative">
+                        <ResolvedImage
+                          imageStorageId={build.imageStorageId}
+                          alt={build.name}
+                          className="w-full h-full object-cover"
+                          style={{
+                            objectPosition:
+                              build.imageFocalX != null && build.imageFocalY != null
+                                ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
+                                : "center",
+                          }}
+                        />
+                      </div>
+                    ) : build.imageUrl ? (
+                      <div className="w-full aspect-[16/9] sm:aspect-[21/9] bg-kyar-mutedWarm relative">
+                        <img
+                          src={build.imageUrl}
+                          alt={build.name}
+                          className="w-full h-full object-cover"
+                          style={{
+                            objectPosition:
+                              build.imageFocalX != null && build.imageFocalY != null
+                                ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
+                                : "center",
+                          }}
+                        />
+                      </div>
+                    ) : null}
+
+                    <div
+                      className={`${build.imageStorageId || build.imageUrl ? "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/50 to-transparent pt-32 pb-6 px-6 sm:px-10 flex flex-col justify-end items-center sm:items-start" : ""}`}
+                    >
+                      <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-kyar-text leading-[0.9] text-center sm:text-left">
+                        {build.name}
+                      </h1>
+                    </div>
+                  </div>
+
+                  {build.targetDate && daysRemaining !== null && (
+                    <div className="flex items-center gap-3 mt-4 text-sm">
+                      <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary font-medium">
+                        Deadline
+                      </span>
+                      <span className="w-px h-3 bg-kyar-borderSubtle"></span>
+                      <span className="text-kyar-text font-medium">
+                        {new Date(build.targetDate).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span
+                        className={`text-xs ml-1 ${daysRemaining < 0 ? "text-red-600" : daysRemaining <= 7 ? "text-orange-600" : "text-kyar-textTertiary"}`}
+                      >
+                        (
+                        {daysRemaining < 0
+                          ? `${Math.abs(daysRemaining)} days overdue`
+                          : daysRemaining === 0
+                            ? "Due today!"
+                            : `${daysRemaining} days remaining`}
+                        )
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                {build.notes && (
+                  <section className="pl-5 border-l-2 border-kyar-text/20">
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-3">
+                      Notes
+                    </p>
+                    <p className="text-sm text-kyar-textSecondary whitespace-pre-wrap leading-relaxed">
+                      {build.notes}
+                    </p>
+                  </section>
+                )}
+
+                {/* Tasks */}
+                <section id="build-tasks" className="pt-4 border-t border-kyar-borderSubtle">
+                  <h2 className="font-serif text-2xl text-kyar-text mb-6">Tasks &amp; Timeline</h2>
                   <TaskChecklist
                     buildId={id}
                     tasks={tasks}
                     linkedItems={linkedItems}
                     enableDragDrop
+                    hideInlineAdd
                   />
                 </section>
+              </div>
 
-                <section ref={itemsSectionRef} id="build-items">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                    <h2 className="font-serif text-xl italic border-b border-black pb-2">
-                      Associated Closet Items ({linkedItems.length})
-                    </h2>
-                    <Link
-                      href={`/build-detail/link-items?id=${id}`}
-                      className="text-[10px] font-semibold uppercase tracking-widest border border-black px-3 py-2 hover:bg-kyar-muted"
-                    >
-                      Link items
-                    </Link>
-                  </div>
-                  {linkedItems.length === 0 && (
-                    <p className="text-sm text-kyar-meta">
-                      No closet items linked. Tap &quot;Link items&quot; to add pieces from your
-                      closet.
-                    </p>
+              {/* Right Column: Visual Board */}
+              <div className="xl:w-[400px] shrink-0 xl:border-l xl:border-kyar-borderSubtle xl:pl-10 mt-10 xl:mt-0">
+                <BuildVisualBoard
+                  buildId={id}
+                  userId={userId}
+                  linkedItems={linkedItems}
+                  onOpenLinkCloset={() => {
+                    if (userId) setFabModal("linkCloset");
+                  }}
+                  renderClosetCard={(item) => (
+                    <DroppableClosetItem item={item} justDroppedRef={justDroppedRef}>
+                      <ClosetCarouselCardContent item={item} formatCents={formatCents} />
+                    </DroppableClosetItem>
                   )}
-                  {linkedItems.length > 0 && (
-                    <>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
-                          <span>Closet items completion</span>
-                          <span>
-                            {linkedItems.filter((i) => i.status === "complete").length} of{" "}
-                            {linkedItems.length} complete
-                          </span>
-                        </div>
-                        <div className="h-px bg-gray-200 w-full">
-                          <div
-                            className="h-full bg-black transition-all duration-300"
-                            style={{
-                              width: `${linkedItems.length > 0 ? Math.round((linkedItems.filter((i) => i.status === "complete").length / linkedItems.length) * 100) : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div aria-label={`Associated closet items, ${linkedItems.length} items`}>
-                        <ClosetItemsCarousel
-                          items={linkedItems}
-                          keyExtractor={(item) => item._id}
-                          renderItem={(item) => (
-                            <DroppableClosetItem item={item} justDroppedRef={justDroppedRef}>
-                              <ClosetCarouselCardContent item={item} formatCents={formatCents} />
-                            </DroppableClosetItem>
-                          )}
-                        />
-                      </div>
-                    </>
-                  )}
-                </section>
+                />
               </div>
             </div>
           )}
@@ -721,6 +714,50 @@ export default function BuildDetailPage() {
           summary={summary ?? null}
           formatCents={formatCents}
         />
+
+        <BuildDetailFab
+          hidden={isEditing}
+          userId={userId}
+          showInviteCollaborator={!!userId && build.userId === userId}
+          onOpenModal={setFabModal}
+        />
+
+        <BuildPhotoBatchModal
+          open={photoKind != null}
+          kind={photoKind}
+          onClose={() => setFabModal(null)}
+          onImageSelected={handlePhotoSelected}
+        />
+
+        {userId && (
+          <BuildLinkClosetModal
+            open={fabModal === "linkCloset"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            userId={userId}
+            closetItems={closetRowsForLink}
+            linkedIds={closetItemIds}
+          />
+        )}
+
+        {userId && (
+          <BuildAddTaskModal
+            open={fabModal === "task"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            userId={userId}
+            taskCount={tasks.length}
+          />
+        )}
+
+        {userId && build.userId === userId && (
+          <BuildInviteCollaboratorModal
+            open={fabModal === "invite"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            ownerId={userId}
+          />
+        )}
       </WebAppShell>
     </DndContext>
   );

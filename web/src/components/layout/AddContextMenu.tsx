@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRef, useState, useEffect } from "react";
 import { ADD_MENU_ITEMS } from "@kyarafit/design-system";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 
 type AddContextMenuProps = {
   /** Trigger element (e.g. top bar button content or FAB). */
@@ -25,6 +26,7 @@ export function AddContextMenu({
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("Common");
+  const { open: openCreationModal } = useCreationModals();
 
   useEffect(() => {
     if (!open) return;
@@ -66,14 +68,28 @@ export function AddContextMenu({
         >
           {ADD_MENU_ITEMS.map((item) => (
             <li key={item.href} role="none">
-              <Link
-                href={item.href}
-                role="menuitem"
-                className="block px-3 py-2 text-sm text-kyar-text hover:bg-kyar-muted"
-                onClick={() => setOpen(false)}
-              >
-                {t(item.labelKey)}
-              </Link>
+              {item.modal ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm text-kyar-text hover:bg-kyar-muted"
+                  onClick={() => {
+                    setOpen(false);
+                    openCreationModal(item.modal!);
+                  }}
+                >
+                  {t(item.labelKey)}
+                </button>
+              ) : (
+                <Link
+                  href={item.href}
+                  role="menuitem"
+                  className="block px-3 py-2 text-sm text-kyar-text hover:bg-kyar-muted"
+                  onClick={() => setOpen(false)}
+                >
+                  {t(item.labelKey)}
+                </Link>
+              )}
             </li>
           ))}
         </ul>

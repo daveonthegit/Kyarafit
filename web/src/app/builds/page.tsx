@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -60,6 +61,7 @@ export default function BuildsPage() {
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { userId } = useCurrentUser();
+  const { open: openCreationModal } = useCreationModals();
   const removeMany = useMutation(api.builds.removeMany);
   const createBuild = useMutation(api.builds.create);
   const updateStatusMany = useMutation(api.builds.updateStatusMany);
@@ -180,7 +182,7 @@ export default function BuildsPage() {
       <PageHeader
         title="My Builds"
         subtitle="Portfolio"
-        primaryAction={{ label: "New build", href: "/builds/new" }}
+        primaryAction={{ label: "New build", onClick: () => openCreationModal("newBuild") }}
         trailing={
           <div className="flex items-center gap-2">
             {sharedBuilds.length > 0 && (
@@ -269,12 +271,13 @@ export default function BuildsPage() {
             message="No builds yet."
             secondary="Create one to link closet items and use them in convention packing."
             action={
-              <Link
-                href="/builds/new"
+              <button
+                type="button"
+                onClick={() => openCreationModal("newBuild")}
                 className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 New build
-              </Link>
+              </button>
             }
           />
         )}
@@ -403,7 +406,10 @@ export default function BuildsPage() {
         </ResponsiveGrid>
 
         {sharedBuilds.length > 0 && (
-          <section id="shared-with-me" className="mt-12 pt-8 border-t border-kyar-borderSubtle scroll-mt-24">
+          <section
+            id="shared-with-me"
+            className="mt-12 pt-8 border-t border-kyar-borderSubtle scroll-mt-24"
+          >
             <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-4">
               Shared with you ({sharedBuilds.length})
             </h2>

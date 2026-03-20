@@ -3,7 +3,16 @@
  * Primary: Home, Outfits (builds), Closet, Events, Planner. Secondary: Settings.
  */
 
-export type NavSectionId = "home" | "builds" | "closet" | "events" | "groups" | "planner" | "discover" | "feed" | "settings";
+export type NavSectionId =
+  | "home"
+  | "builds"
+  | "closet"
+  | "events"
+  | "groups"
+  | "planner"
+  | "discover"
+  | "feed"
+  | "settings";
 
 export interface NavSection {
   id: NavSectionId;
@@ -46,16 +55,20 @@ export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   NAV_SECTION_SETTINGS,
 ];
 
-/** Add context menu: labelKey for i18n, href for navigation. */
+/** Add context menu: labelKey for i18n, href for deep links / fallback, modal for in-app overlay. */
+export type AddMenuModal = "newBuild" | "newCloset" | "newConvention";
+
 export interface AddMenuItem {
   labelKey: string;
   href: string;
+  /** When set (web), open global creation modal instead of navigating. */
+  modal?: AddMenuModal;
 }
 
 export const ADD_MENU_ITEMS: AddMenuItem[] = [
-  { labelKey: "addOutfit", href: "/builds/new" },
-  { labelKey: "addItem", href: "/closet/new" },
-  { labelKey: "addEvent", href: "/conventions/new" },
+  { labelKey: "addOutfit", href: "/builds/new", modal: "newBuild" },
+  { labelKey: "addItem", href: "/closet/new", modal: "newCloset" },
+  { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
 ];
 
 /**

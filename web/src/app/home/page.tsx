@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AddMenuModal } from "@kyarafit/design-system";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildHeroCropModal } from "@/components/builds/BuildHeroCropModal";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
@@ -15,6 +16,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { SwipeCard } from "@/components/ui/SwipeCard";
 import { MagicCard } from "@/components/ui/magic-card";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 
 /** Build shape returned by getFocusedOrMostRecentForUser (hero display). */
@@ -30,14 +32,18 @@ type FocusedBuild = {
   tasksTotal: number;
 };
 
-const QUICK_ACTIONS: {
-  href: string;
-  labelKey: "addClosetItem" | "planNewCosplay" | "events";
-  icon: string;
-}[] = [
-  { href: "/closet/new", labelKey: "addClosetItem", icon: "upload" },
-  { href: "/builds/new", labelKey: "planNewCosplay", icon: "dashboard" },
-  { href: "/conventions", labelKey: "events", icon: "calendar_month" },
+const QUICK_ACTIONS: (
+  | {
+      key: string;
+      modal: AddMenuModal;
+      labelKey: "addClosetItem" | "planNewCosplay";
+      icon: string;
+    }
+  | { key: string; href: string; labelKey: "events"; icon: string }
+)[] = [
+  { key: "closet", modal: "newCloset", labelKey: "addClosetItem", icon: "upload" },
+  { key: "build", modal: "newBuild", labelKey: "planNewCosplay", icon: "dashboard" },
+  { key: "events", href: "/conventions", labelKey: "events", icon: "calendar_month" },
 ];
 
 function daysUntil(startDate: string): number {
@@ -50,6 +56,7 @@ function daysUntil(startDate: string): number {
 
 export default function HomePage() {
   const { userId } = useCurrentUser();
+  const { open: openCreationModal } = useCreationModals();
   const t = useTranslations("Home");
   const tCommon = useTranslations("Common");
   const focusedBuildId = useQuery(
@@ -533,8 +540,7 @@ export default function HomePage() {
                       items={recentProjectsList}
                       keyExtractor={(build) => build._id}
                       renderSlide={(build) => {
-                        const hasImage =
-                          build.imageStorageId != null || build.imageUrl != null;
+                        const hasImage = build.imageStorageId != null || build.imageUrl != null;
                         return (
                           <Link
                             href={`/build-detail?id=${build._id}`}
@@ -605,20 +611,36 @@ export default function HomePage() {
                 {t("quickActions")}
               </h2>
               <div className="grid grid-cols-3 gap-3">
-                {QUICK_ACTIONS.map(({ href, labelKey, icon }) => (
-                  <Link
-                    key={href + labelKey}
-                    href={href}
-                    className="flex flex-col items-center justify-center gap-2 p-4 rounded-sm bg-white/10 hover:bg-white/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black min-h-[80px]"
-                  >
-                    <span className="material-symbols-outlined text-2xl" aria-hidden>
-                      {icon}
-                    </span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-center leading-tight">
-                      {t(labelKey)}
-                    </span>
-                  </Link>
-                ))}
+                {QUICK_ACTIONS.map((action) =>
+                  "modal" in action ? (
+                    <button
+                      key={action.key}
+                      type="button"
+                      onClick={() => openCreationModal(action.modal)}
+                      className="flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-sm bg-white/10 p-4 transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    >
+                      <span className="material-symbols-outlined text-2xl" aria-hidden>
+                        {action.icon}
+                      </span>
+                      <span className="text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
+                        {t(action.labelKey)}
+                      </span>
+                    </button>
+                  ) : (
+                    <Link
+                      key={action.key}
+                      href={action.href}
+                      className="flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-sm bg-white/10 p-4 transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    >
+                      <span className="material-symbols-outlined text-2xl" aria-hidden>
+                        {action.icon}
+                      </span>
+                      <span className="text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
+                        {t(action.labelKey)}
+                      </span>
+                    </Link>
+                  )
+                )}
               </div>
             </section>
 

@@ -19,8 +19,12 @@ export function BuildSummaryModal({ open, onClose, summary, formatCents }: Build
       role="dialog"
       aria-modal="true"
       aria-labelledby="summary-modal-title"
+      onClick={onClose}
     >
-      <div className="bg-white max-w-lg w-full max-h-[85vh] flex flex-col rounded shadow-lg">
+      <div
+        className="bg-white max-w-lg w-full max-h-[85vh] flex flex-col rounded shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-kyar-border px-4 py-3 shrink-0">
           <h2 id="summary-modal-title" className="font-serif text-lg italic font-bold">
             Summary
