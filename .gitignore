@@ -147,6 +147,9 @@ venv/
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# Cursor IDE — local MCP config (may contain secrets)
+.cursor/mcp.json
+
 # yarn v3
 .pnp.*
 .yarn/*
