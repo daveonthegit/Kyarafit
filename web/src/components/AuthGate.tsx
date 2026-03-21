@@ -37,8 +37,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (id === lastSyncedId.current) return;
     lastSyncedId.current = id;
     const authUser = session.user as { username?: string; displayUsername?: string };
-    const username =
-      authUser.username ?? authUser.displayUsername ?? undefined;
+    const username = authUser.username ?? authUser.displayUsername ?? undefined;
     upsertUser({
       externalId: id,
       email: session.user.email ?? "",

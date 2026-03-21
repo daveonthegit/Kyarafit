@@ -3,9 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
-import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
-import { FilterToolbar } from "@/components/layout/FilterToolbar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
@@ -185,22 +183,17 @@ export default function ClosetPage() {
   return (
     <WebAppShell>
       <PageHeader
-        breadcrumb={[{ label: "Builds", href: "/builds" }, { label: "Closet" }]}
         title="The Closet"
-        primaryAction={{ label: "Add item", onClick: () => openCreationModal("newCloset") }}
-      />
-
-      <FilterToolbar
+        subtitle={items.length > 0 ? `${items.length} items curated in the atelier` : undefined}
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: "Search by name, notes, or tags…",
+          placeholder: "Search archive...",
           "aria-label": "Search closet by name, notes, or tags",
         }}
-        filtersLabel="Filters"
       >
         <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
-          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
             Category
           </span>
           {CATEGORY_OPTIONS.map((opt) => (
@@ -208,10 +201,10 @@ export default function ClosetPage() {
               key={opt.value || "all"}
               type="button"
               onClick={() => setCategory(opt.value)}
-              className={`shrink-0 min-h-[44px] px-3 py-2 text-[10px] font-medium uppercase tracking-wider rounded-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+              className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 category === opt.value
-                  ? "border-black bg-black text-white"
-                  : "border-kyar-border bg-kyar-surfaceWarm text-kyar-text hover:border-kyar-text"
+                  ? "border-black bg-black text-white shadow-md"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
               }`}
               aria-pressed={category === opt.value}
               aria-label={`Filter by ${opt.label}`}
@@ -220,36 +213,37 @@ export default function ClosetPage() {
             </button>
           ))}
         </div>
-        <label
-          htmlFor="closet-sort"
-          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center shrink-0"
-        >
-          Sort by
-        </label>
-        <select
-          id="closet-sort"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortBy)}
-          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label="Sort closet items by"
-        >
-          <option value="name">Name</option>
-          <option value="category">Category</option>
-          <option value="cost">Cost</option>
-          <option value="status">Completion status</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden>
-            {order === "asc" ? "arrow_upward" : "arrow_downward"}
-          </span>
-          <span className="text-[10px] uppercase">{order}</span>
-        </button>
-      </FilterToolbar>
+        <div className="flex items-center gap-3 ml-auto">
+          <label
+            htmlFor="closet-sort"
+            className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0"
+          >
+            Sort by
+          </label>
+          <select
+            id="closet-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+            aria-label="Sort closet items by"
+          >
+            <option value="name">Name</option>
+            <option value="category">Category</option>
+            <option value="cost">Cost</option>
+            <option value="status">Status</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+            className="inline-flex items-center text-kyar-meta hover:text-black transition-colors focus:outline-none"
+            aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden>
+              {order === "asc" ? "arrow_upward" : "arrow_downward"}
+            </span>
+          </button>
+        </div>
+      </PageHeader>
 
       <main className="flex-1 py-6">
         {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
@@ -262,7 +256,7 @@ export default function ClosetPage() {
               <button
                 type="button"
                 onClick={() => openCreationModal("newCloset")}
-                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-black px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 Add item
               </button>
@@ -290,52 +284,57 @@ export default function ClosetPage() {
               {items.map((item) => {
                 const isSelected = selectedIds.has(item._id);
                 return (
-                  <div key={item._id} className="relative">
+                  <div key={item._id} className="relative group">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(item._id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute top-1 right-1 z-10 w-4 h-4 rounded-sm border-2 border-black bg-white/90 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+                      className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full border border-white/50 bg-black/20 checked:bg-black checked:border-black focus:ring-2 focus:ring-white focus:ring-offset-0 transition-all active:scale-90 shadow-sm backdrop-blur-sm cursor-pointer opacity-0 group-hover:opacity-100 checked:opacity-100"
                       aria-label={`Select ${item.name}`}
                     />
                     <Link
                       href={`/closet/${item._id}`}
-                      className={`flex flex-col gap-2 block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:border-kyar-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
-                        isSelected ? "ring-2 ring-black ring-offset-2" : ""
+                      className={`block relative aspect-square w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all ${
+                        isSelected
+                          ? "ring-2 ring-black border-black"
+                          : "border-kyar-borderSubtle bg-kyar-muted"
                       }`}
                       aria-label={`View ${item.name}`}
                     >
-                      <div className="aspect-square bg-kyar-mutedWarm overflow-hidden relative">
-                        {item.imageStorageId || item.imageUrl ? (
-                          <ResolvedImage
-                            imageStorageId={item.imageStorageId}
-                            imageUrl={item.imageUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                            <span className="material-symbols-outlined text-4xl" aria-hidden>
-                              checkroom
-                            </span>
-                          </div>
-                        )}
-                        <span
-                          className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded-sm bg-kyar-bgWarm/90 border border-kyar-cardBorder"
-                          aria-hidden
-                        >
-                          {statusLabel(item.status)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1 p-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="text-[10px] uppercase tracking-wider font-semibold truncate min-w-0">
-                            {item.name}
-                          </h3>
-                          <span className="text-[9px] text-kyar-meta shrink-0">
-                            {item.category}
+                      {item.imageStorageId || item.imageUrl ? (
+                        <ResolvedImage
+                          imageStorageId={item.imageStorageId}
+                          imageUrl={item.imageUrl}
+                          alt={item.name}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+                          <span className="material-symbols-outlined text-4xl" aria-hidden>
+                            checkroom
                           </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
+
+                      <span
+                        className="absolute top-3 left-3 px-3 py-1 text-[9px] font-bold uppercase tracking-wider rounded-full bg-black/40 text-white backdrop-blur-md border border-white/10 shadow-sm"
+                        aria-hidden
+                      >
+                        {statusLabel(item.status)}
+                      </span>
+
+                      <div className="absolute inset-0 p-4 flex flex-col justify-end text-white">
+                        <div className="flex justify-between items-end gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
+                              {item.category}
+                            </span>
+                            <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none group-hover:text-kyar-accent transition-colors truncate drop-shadow-sm">
+                              {item.name}
+                            </h3>
+                          </div>
                         </div>
                       </div>
                     </Link>
@@ -349,16 +348,16 @@ export default function ClosetPage() {
 
       {selectedIds.size > 0 && (
         <div
-          className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-kyar-bgWarm border-t border-kyar-cardBorder shadow-soft flex items-center justify-between gap-4 flex-wrap"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-6 py-4 bg-kyar-surface border border-kyar-borderSubtle shadow-lg flex items-center justify-between gap-6 flex-wrap rounded-full w-[90%] max-w-3xl"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <span className="text-sm font-bold">{selectedIds.size} selected</span>
           <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setShowAssignToBuildPanel(true)}
               disabled={actionPending}
-              className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
             >
               Assign to build
             </button>
@@ -366,7 +365,7 @@ export default function ClosetPage() {
               type="button"
               onClick={() => setShowUnassignFromBuildPanel(true)}
               disabled={actionPending}
-              className="px-3 py-1.5 text-xs font-medium uppercase border border-kyar-border rounded hover:border-black disabled:opacity-50"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-borderSubtle rounded-full hover:border-black transition-colors disabled:opacity-50"
             >
               Unassign from build
             </button>
@@ -374,14 +373,14 @@ export default function ClosetPage() {
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={actionPending}
-              className="px-3 py-1.5 text-xs font-medium text-kyar-danger border border-kyar-danger rounded disabled:opacity-50"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-white transition-colors disabled:opacity-50"
             >
               Delete
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="px-3 py-1.5 text-xs font-medium uppercase opacity-70"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
             >
               Clear
             </button>
@@ -403,7 +402,7 @@ export default function ClosetPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-2 border border-black text-sm font-medium rounded-sm"
+              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -411,7 +410,7 @@ export default function ClosetPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium rounded-sm disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>
@@ -477,7 +476,7 @@ export default function ClosetPage() {
 
       {deletedForUndo && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-4 bg-kyar-text text-kyar-bg rounded-full border border-kyar-border shadow-2xl"
           role="status"
           aria-live="polite"
         >
@@ -488,14 +487,12 @@ export default function ClosetPage() {
             type="button"
             onClick={handleUndoDelete}
             disabled={actionPending}
-            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors"
           >
             {actionPending ? "Undoing…" : "Undo"}
           </button>
         </div>
       )}
-
-      <FloatingAdd />
     </WebAppShell>
   );
 }

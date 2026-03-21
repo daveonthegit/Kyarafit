@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -14,15 +15,17 @@ export interface PageHeaderProps {
   title: string;
   /** Optional subtitle or meta line. */
   subtitle?: string;
-  /** Optional primary action (e.g. "New build", "New convention"). */
-  primaryAction?: {
-    label: string;
-    href?: string;
-    onClick?: () => void;
-    "aria-label"?: string;
-  };
   /** Optional trailing slot (e.g. settings icon link). */
   trailing?: React.ReactNode;
+  /** Optional search input to show in the header */
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    "aria-label"?: string;
+  };
+  /** Optional children (like filters) to show below the header */
+  children?: React.ReactNode;
   /** Extra class for the header wrapper. */
   className?: string;
   /** If true, header is sticky with background. */
@@ -33,16 +36,15 @@ export function PageHeader({
   breadcrumb,
   title,
   subtitle,
-  primaryAction,
   trailing,
+  search,
+  children,
   className = "",
   sticky = true,
 }: PageHeaderProps) {
   const wrapperClass = [
-    "pt-14 pb-4 sm:pb-6",
-    sticky
-      ? "sticky top-0 z-30 bg-kyar-bgWarm/95 backdrop-blur-md border-b border-kyar-cardBorder"
-      : "",
+    "pt-12 sm:pt-16 pb-6",
+    sticky ? "sticky top-0 z-30 bg-kyar-bg/95 backdrop-blur-md" : "",
     className,
   ]
     .filter(Boolean)
@@ -50,64 +52,48 @@ export function PageHeader({
 
   return (
     <header className={wrapperClass}>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="min-w-0 flex-1">
-          {breadcrumb && breadcrumb.length > 0 && (
-            <nav aria-label="Breadcrumb" className="mb-2">
-              <ol className="flex flex-wrap items-center gap-1.5 text-sm text-kyar-textSecondary">
-                {breadcrumb.map((item, i) => {
-                  const isLast = i === breadcrumb.length - 1;
-                  return (
-                    <li key={i} className="flex items-center gap-1.5">
-                      {i > 0 && (
-                        <span className="text-kyar-textMuted" aria-hidden>
-                          /
-                        </span>
-                      )}
-                      {isLast || !item.href ? (
-                        <span className="font-medium text-kyar-text">{item.label}</span>
-                      ) : (
-                        <Link
-                          href={item.href}
-                          className="hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm rounded"
-                        >
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </nav>
-          )}
-          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-normal italic tracking-tight text-kyar-text">
+          <h1 className="font-serif-elegant text-[32px] sm:text-[40px] font-normal italic tracking-tight text-kyar-text">
             {title}
           </h1>
-          {subtitle && <p className="mt-1 text-sm text-kyar-textSecondary">{subtitle}</p>}
+          {subtitle && <p className="mt-1 text-[11px] text-kyar-textSecondary">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {primaryAction &&
-            (primaryAction.href ? (
-              <Link
-                href={primaryAction.href}
-                className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2.5 text-sm font-medium uppercase tracking-wide border border-kyar-border text-kyar-text rounded-sm hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-                aria-label={primaryAction["aria-label"] ?? primaryAction.label}
+
+        <div className="flex items-center gap-6 shrink-0 w-full sm:w-auto">
+          {search && (
+            <div className="relative flex-1 sm:w-64 max-w-md">
+              <Search className="absolute left-0 top-1/2 -translate-y-1/2 size-4 text-kyar-textTertiary" />
+              <input
+                type="search"
+                placeholder={search.placeholder ?? "Search archive..."}
+                value={search.value}
+                onChange={(e) => search.onChange(e.target.value)}
+                className="w-full min-h-[44px] pl-7 pr-3 py-2.5 text-sm border-b border-kyar-border bg-transparent text-kyar-text placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-text transition-colors"
+                aria-label={search["aria-label"] ?? "Search"}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            {/* Notification bell (placeholder for matching reference) */}
+            <button
+              type="button"
+              className="text-kyar-text hover:text-kyar-textSecondary focus:outline-none"
+              aria-label="Notifications"
+            >
+              <span
+                className="material-symbols-outlined text-[20px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
               >
-                {primaryAction.label}
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={primaryAction.onClick}
-                className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2.5 text-sm font-medium uppercase tracking-wide border border-kyar-border text-kyar-text rounded-sm hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-                aria-label={primaryAction["aria-label"] ?? primaryAction.label}
-              >
-                {primaryAction.label}
-              </button>
-            ))}
-          {trailing}
+                notifications
+              </span>
+            </button>
+            {trailing}
+          </div>
         </div>
       </div>
+      {children && <div className="mt-6 flex flex-wrap gap-4 items-center">{children}</div>}
     </header>
   );
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import type { BuildStatus } from "@kyarafit/design-system/types";
-import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { Sheet } from "@/components/ui/sheet";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -53,20 +53,19 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
   };
 
   return (
-    <BuildDetailModalShell
+    <Sheet
       open
       onClose={onDismiss}
       title="New build"
       titleId="global-new-build-modal-title"
       size="lg"
       closeDisabled={isPending}
-      zOverlayClass="z-[10100]"
       footer={
         <button
           type="submit"
           form="new-build-modal-form"
           disabled={isPending || !name.trim() || !hasImage}
-          className="w-full bg-kyar-text py-3 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
         >
           {isPending ? "Creating…" : "Create build"}
         </button>
@@ -83,7 +82,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Arlecchino"
-            className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -117,7 +116,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
             value={budgetCents}
             onChange={(e) => setBudgetCents(e.target.value)}
             placeholder="0.00"
-            className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -140,6 +139,6 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
           </div>
         </div>
       </form>
-    </BuildDetailModalShell>
+    </Sheet>
   );
 }

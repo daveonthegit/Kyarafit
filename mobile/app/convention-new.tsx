@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import { createConvention } from "../src/storage/conventionsRepo";
 
 export default function ConventionNewScreen() {
@@ -30,110 +29,68 @@ export default function ConventionNewScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row items-center gap-4 px-6 pt-14 pb-4 border-b border-black/5">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.black} />
+          <Ionicons name="close" size={24} color="#000" />
         </Pressable>
-        <Text style={styles.metaLabel}>New Convention</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+          New Convention
+        </Text>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.label}>NAME</Text>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 48 }}>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          NAME
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={name}
           onChangeText={setName}
           placeholder="e.g. Anime Expo"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
         />
-        <Text style={styles.label}>LOCATION (OPTIONAL)</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          LOCATION (OPTIONAL)
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={location}
           onChangeText={setLocation}
           placeholder="City or venue"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
         />
-        <Text style={styles.label}>START DATE (YYYY-MM-DD)</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          START DATE (YYYY-MM-DD)
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={startDate}
           onChangeText={setStartDate}
           placeholder="2025-07-04"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
           keyboardType="numbers-and-punctuation"
         />
-        <Text style={styles.label}>END DATE (YYYY-MM-DD)</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          END DATE (YYYY-MM-DD)
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={endDate}
           onChangeText={setEndDate}
           placeholder="2025-07-06"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
           keyboardType="numbers-and-punctuation"
         />
         <Pressable
-          style={[styles.primaryBtn, saving && styles.disabled]}
+          className={`bg-black py-3.5 mt-8 items-center rounded-full ${saving ? "opacity-50" : ""}`}
           onPress={save}
           disabled={saving}
         >
-          <Text style={styles.primaryBtnText}>CREATE CONVENTION</Text>
+          <Text className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+            CREATE CONVENTION
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
-  label: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-    marginBottom: 8,
-    marginTop: 24,
-  },
-  input: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderStrong,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  primaryBtn: {
-    backgroundColor: colors.black,
-    paddingVertical: 14,
-    marginTop: 32,
-    alignItems: "center",
-    borderRadius: 2,
-  },
-  primaryBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.white,
-  },
-  disabled: { opacity: 0.5 },
-});

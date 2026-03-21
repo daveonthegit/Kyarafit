@@ -47,8 +47,7 @@ export default function PublicProfilePage() {
   };
 
   if (username && profile === null) {
-    const isOwnProfile =
-      currentUser?.username?.toLowerCase() === username.toLowerCase().trim();
+    const isOwnProfile = currentUser?.username?.toLowerCase() === username.toLowerCase().trim();
     return (
       <WebAppShell>
         <div className="pt-16 flex flex-col items-center justify-center px-6 min-h-[50vh] text-center">
@@ -58,8 +57,8 @@ export default function PublicProfilePage() {
                 Your profile is private or the link doesn’t match your username.
               </p>
               <p className="text-sm text-kyar-textTertiary mt-2">
-                Set profile to <strong>Public</strong> and save in Settings → Account to share
-                it. Use the exact username shown there in the URL (e.g. /u/yourusername).
+                Set profile to <strong>Public</strong> and save in Settings → Account to share it.
+                Use the exact username shown there in the URL (e.g. /u/yourusername).
               </p>
               <Link
                 href="/settings/account"
@@ -110,7 +109,7 @@ export default function PublicProfilePage() {
 
       <main className="max-w-3xl mx-auto mt-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-10">
-          <div className="w-20 h-20 rounded-full overflow-hidden border border-kyar-cardBorder bg-kyar-mutedWarm flex-shrink-0">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border border-kyar-borderSubtle shadow-soft bg-kyar-muted flex-shrink-0">
             {profile.imageStorageId ? (
               <ResolvedImage
                 imageStorageId={profile.imageStorageId}
@@ -120,34 +119,38 @@ export default function PublicProfilePage() {
             ) : profile.image ? (
               <img src={profile.image} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="w-full h-full flex items-center justify-center text-3xl text-kyar-textTertiary material-symbols-outlined">
+              <span className="w-full h-full flex items-center justify-center text-4xl text-kyar-textTertiary material-symbols-outlined">
                 person
               </span>
             )}
           </div>
-          <div>
-            <h1 className="font-serif text-2xl font-semibold">{displayName}</h1>
+          <div className="flex-1">
+            <h1 className="font-serif text-4xl sm:text-5xl font-normal italic tracking-tight leading-none mb-2">
+              {displayName}
+            </h1>
             {profile.username && (
-              <p className="text-sm text-kyar-textSecondary">@{profile.username}</p>
+              <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
+                @{profile.username}
+              </p>
             )}
             {currentUserId && profile.userId !== currentUserId && (
               <button
                 type="button"
                 onClick={handleFollow}
                 disabled={followPending}
-                className="mt-3 px-4 py-2 text-sm font-medium border border-kyar-cardBorder rounded-md hover:bg-kyar-mutedWarm disabled:opacity-50"
+                className="mt-4 px-8 py-3 text-[9px] font-bold uppercase tracking-widest border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50 shadow-sm"
               >
                 {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
               </button>
             )}
             {profile.bio && (
-              <p className="mt-2 text-sm text-kyar-text leading-relaxed">{profile.bio}</p>
+              <p className="mt-4 text-sm text-kyar-text leading-relaxed max-w-xl">{profile.bio}</p>
             )}
           </div>
         </div>
 
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-4">
+          <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
             Public builds
           </h2>
           {builds === undefined ? (
@@ -160,32 +163,47 @@ export default function PublicProfilePage() {
                 <li key={b._id}>
                   <Link
                     href={`/b/${b._id}`}
-                    className="block border border-kyar-cardBorder rounded-lg overflow-hidden bg-kyar-card hover:border-kyar-accent/50 transition-colors"
+                    className="block relative aspect-[4/3] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group"
                   >
-                    <div className="aspect-[4/3] bg-kyar-mutedWarm relative">
-                      {b.imageStorageId ? (
-                        <ResolvedImage
-                          imageStorageId={b.imageStorageId}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : b.imageUrl ? (
-                        <img src={b.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary material-symbols-outlined text-4xl">
-                          palette
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="font-medium truncate">{b.name}</p>
-                      {b.character && (
-                        <p className="text-xs text-kyar-textSecondary truncate">{b.character}</p>
-                      )}
+                    {b.imageStorageId ? (
+                      <ResolvedImage
+                        imageStorageId={b.imageStorageId}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : b.imageUrl ? (
+                      <img
+                        src={b.imageUrl}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+                        <span className="material-symbols-outlined text-6xl">palette</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                      <div className="flex justify-between items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          {b.character && (
+                            <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
+                              {b.character}
+                            </span>
+                          )}
+                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover:opacity-90">
+                            {b.name}
+                          </h3>
+                        </div>
+                      </div>
+
                       {typeof b.tasksTotal === "number" && b.tasksTotal > 0 && (
-                        <p className="text-xs text-kyar-textTertiary mt-1">
-                          {b.tasksChecked}/{b.tasksTotal} tasks
-                        </p>
+                        <div className="flex items-center gap-3 pt-3">
+                          <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
+                            {b.tasksChecked}/{b.tasksTotal} tasks
+                          </span>
+                        </div>
                       )}
                     </div>
                   </Link>

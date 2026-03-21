@@ -57,7 +57,7 @@ export const remove = mutation({
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Not found");
     const build = doc.buildId ? await ctx.db.get(doc.buildId) : null;
-    const canEdit = build && await canUserEditBuild(ctx, doc.buildId, args.userId);
+    const canEdit = build && (await canUserEditBuild(ctx, doc.buildId, args.userId));
     if (!canEdit) throw new Error("Not authorized");
     await subtractUsageForStorageId(ctx, doc.userId, doc.imageStorageId);
     await ctx.db.delete(args.id);

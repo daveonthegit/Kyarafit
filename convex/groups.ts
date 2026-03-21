@@ -60,9 +60,7 @@ export const listForUser = query({
       .query("groupMembers")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
-    const groups = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.groupId))
-    );
+    const groups = await Promise.all(memberships.map((m) => ctx.db.get(m.groupId)));
     return groups.filter((g): g is NonNullable<typeof g> => g != null);
   },
 });
@@ -80,13 +78,9 @@ export const getWithMembers = query({
       .query("groupMembers")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    const isMember = args.userId
-      ? members.some((m) => m.userId === args.userId)
-      : false;
+    const isMember = args.userId ? members.some((m) => m.userId === args.userId) : false;
     if (!isMember && group.visibility !== "public") return null;
-    const myMembership = args.userId
-      ? members.find((m) => m.userId === args.userId)
-      : undefined;
+    const myMembership = args.userId ? members.find((m) => m.userId === args.userId) : undefined;
     const memberUserIds = members.map((m) => m.userId);
     const users = await Promise.all(
       memberUserIds.map((id) =>
@@ -128,9 +122,7 @@ export const update = mutation({
     if (!group) throw new Error("Group not found");
     const membership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.id).eq("userId", args.userId)
-      )
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", args.userId))
       .unique();
     if (!membership || membership.role !== "admin") {
       throw new Error("Not authorized to update this group");
@@ -144,18 +136,15 @@ export const update = mutation({
       await checkLimitAndAddUsage(ctx, args.userId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
-    if (args.name !== undefined)
-      patch.name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+    if (args.name !== undefined) patch.name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
     if (args.description !== undefined)
-      patch.description = sanitizeOptional(
-        args.description,
-        MAX_LENGTH.notes,
-        "Description"
-      );
+      patch.description = sanitizeOptional(args.description, MAX_LENGTH.notes, "Description");
     if (args.imageUrl !== undefined) patch.imageUrl = args.imageUrl;
-    if (args.imageStorageId !== undefined)
-      patch.imageStorageId = args.imageStorageId;
-    if (args.visibility !== undefined && VALID_VISIBILITIES.includes(args.visibility as (typeof VALID_VISIBILITIES)[number])) {
+    if (args.imageStorageId !== undefined) patch.imageStorageId = args.imageStorageId;
+    if (
+      args.visibility !== undefined &&
+      VALID_VISIBILITIES.includes(args.visibility as (typeof VALID_VISIBILITIES)[number])
+    ) {
       patch.visibility = args.visibility;
     }
     if (Object.keys(patch).length > 0) {

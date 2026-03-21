@@ -1,18 +1,8 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  TextInput,
-  StyleSheet,
-  Alert,
-  Image,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, Alert, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import { processImageForUpload } from "../src/lib/imageUtils";
 import { createBuild } from "../src/storage/buildsRepo";
 
@@ -68,53 +58,76 @@ export default function BuildNewScreen() {
   const hasImage = imageMode === "file" ? !!imageLocalUri : !!imageUrl.trim();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row items-center gap-4 px-6 pt-14 pb-4 border-b border-black/5">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.black} />
+          <Ionicons name="close" size={24} color="#000" />
         </Pressable>
-        <Text style={styles.metaLabel}>New Build</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+          New Build
+        </Text>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.label}>NAME</Text>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 48 }}>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          NAME
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={name}
           onChangeText={setName}
           placeholder="e.g. Arlecchino"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
         />
-        <Text style={styles.label}>IMAGE (REQUIRED)</Text>
-        <View style={styles.imageModeToggle}>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          IMAGE (REQUIRED)
+        </Text>
+        <View className="flex-row gap-2 mb-4">
           <Pressable
-            style={[styles.modeBtn, imageMode === "file" && styles.modeBtnActive]}
+            className={`flex-1 py-2 px-3 border items-center rounded-full ${
+              imageMode === "file" ? "border-black bg-[#F9F9F9]" : "border-black/10 bg-transparent"
+            }`}
             onPress={() => setImageMode("file")}
           >
-            <Text style={[styles.modeBtnText, imageMode === "file" && styles.modeBtnTextActive]}>
+            <Text
+              className={`text-[11px] uppercase tracking-[0.15em] ${
+                imageMode === "file" ? "font-semibold text-black" : "font-medium text-black/40"
+              }`}
+            >
               Upload File
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.modeBtn, imageMode === "url" && styles.modeBtnActive]}
+            className={`flex-1 py-2 px-3 border items-center rounded-full ${
+              imageMode === "url" ? "border-black bg-[#F9F9F9]" : "border-black/10 bg-transparent"
+            }`}
             onPress={() => setImageMode("url")}
           >
-            <Text style={[styles.modeBtnText, imageMode === "url" && styles.modeBtnTextActive]}>
+            <Text
+              className={`text-[11px] uppercase tracking-[0.15em] ${
+                imageMode === "url" ? "font-semibold text-black" : "font-medium text-black/40"
+              }`}
+            >
               Enter URL
             </Text>
           </Pressable>
         </View>
         {imageMode === "file" ? (
           <View>
-            <Pressable style={styles.imagePickerBtn} onPress={pickImage}>
-              <Ionicons name="cloud-upload-outline" size={32} color={colors.textTertiary} />
-              <Text style={styles.imagePickerText}>Tap to select image</Text>
-              <Text style={styles.imagePickerSubtext}>Stored locally</Text>
+            <Pressable
+              className="border-2 border-dashed border-black/10 py-8 items-center gap-2 rounded-sm"
+              onPress={pickImage}
+            >
+              <Ionicons name="cloud-upload-outline" size={32} color="rgba(0,0,0,0.4)" />
+              <Text className="text-xs uppercase tracking-[0.15em] text-black font-medium">
+                Tap to select image
+              </Text>
+              <Text className="text-[10px] text-black/40 mt-1">Stored locally</Text>
             </Pressable>
             {imageLocalUri && (
-              <View style={styles.imagePreview}>
+              <View className="mt-4 w-full aspect-square bg-[#F9F9F9] rounded-sm overflow-hidden">
                 <Image
                   source={{ uri: imageLocalUri }}
-                  style={styles.previewImage}
+                  className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
@@ -122,172 +135,52 @@ export default function BuildNewScreen() {
           </View>
         ) : (
           <TextInput
-            style={styles.input}
+            className="border-b border-black/10 py-3 text-base text-black"
             value={imageUrl}
             onChangeText={setImageUrl}
             placeholder="https://…"
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor="rgba(0,0,0,0.4)"
           />
         )}
-        <Text style={styles.label}>BUDGET $ (OPTIONAL)</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          BUDGET $ (OPTIONAL)
+        </Text>
         <TextInput
-          style={styles.input}
+          className="border-b border-black/10 py-3 text-base text-black"
           value={budgetCents}
           onChangeText={setBudgetCents}
           placeholder="0.00"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor="rgba(0,0,0,0.4)"
           keyboardType="decimal-pad"
         />
-        <Text style={styles.label}>STATUS</Text>
-        <View style={styles.statusRow}>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2 mt-6">
+          STATUS
+        </Text>
+        <View className="flex-row gap-3 mt-2">
           {(["idea", "wip", "ready"] as const).map((s) => (
             <Pressable
               key={s}
-              style={[styles.statusBtn, status === s && styles.statusBtnActive]}
+              className={`py-2.5 px-4 border ${status === s ? "border-black bg-[#F9F9F9]" : "border-black/10"}`}
               onPress={() => setStatus(s)}
             >
-              <Text style={[styles.statusText, status === s && styles.statusTextActive]}>{s}</Text>
+              <Text
+                className={`text-xs uppercase tracking-widest ${status === s ? "text-black font-semibold" : "text-black/40"}`}
+              >
+                {s}
+              </Text>
             </Pressable>
           ))}
         </View>
         <Pressable
-          style={[styles.primaryBtn, (saving || !name.trim() || !hasImage) && styles.disabled]}
+          className={`bg-black py-3.5 mt-8 items-center rounded-full ${saving || !name.trim() || !hasImage ? "opacity-50" : ""}`}
           onPress={save}
           disabled={saving || !name.trim() || !hasImage}
         >
-          <Text style={styles.primaryBtnText}>CREATE BUILD</Text>
+          <Text className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+            CREATE BUILD
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
-  label: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-    marginBottom: 8,
-    marginTop: 24,
-  },
-  input: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderStrong,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  imageModeToggle: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-  modeBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  modeBtnActive: {
-    borderColor: colors.black,
-    backgroundColor: colors.muted,
-  },
-  modeBtnText: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: colors.textTertiary,
-    fontWeight: "500",
-  },
-  modeBtnTextActive: {
-    color: colors.black,
-    fontWeight: "600",
-  },
-  imagePickerBtn: {
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: colors.border,
-    paddingVertical: 32,
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 2,
-  },
-  imagePickerText: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: colors.text,
-    fontWeight: "500",
-  },
-  imagePickerSubtext: {
-    fontSize: 10,
-    color: colors.textTertiary,
-    marginTop: 4,
-  },
-  imagePreview: {
-    marginTop: 16,
-    width: "100%",
-    aspectRatio: 1,
-    backgroundColor: colors.muted,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-  },
-  statusRow: { flexDirection: "row", gap: 12, marginTop: 24 },
-  statusBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statusBtnActive: { borderColor: colors.black, backgroundColor: colors.muted },
-  statusText: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.textTertiary,
-  },
-  statusTextActive: { color: colors.black, fontWeight: "600" },
-  primaryBtn: {
-    backgroundColor: colors.black,
-    paddingVertical: 14,
-    marginTop: 32,
-    alignItems: "center",
-    borderRadius: 2,
-  },
-  primaryBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.white,
-  },
-  disabled: { opacity: 0.5 },
-});

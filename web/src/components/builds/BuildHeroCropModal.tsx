@@ -74,14 +74,8 @@ export function BuildHeroCropModal({
     try {
       // Use relative crop area (0–100 in library) so focal point is correct at any zoom.
       const scale = 100;
-      const x = Math.max(
-        0,
-        Math.min(1, (croppedArea.x + croppedArea.width / 2) / scale)
-      );
-      const y = Math.max(
-        0,
-        Math.min(1, (croppedArea.y + croppedArea.height / 2) / scale)
-      );
+      const x = Math.max(0, Math.min(1, (croppedArea.x + croppedArea.width / 2) / scale));
+      const y = Math.max(0, Math.min(1, (croppedArea.y + croppedArea.height / 2) / scale));
       onConfirm({ x, y });
       onClose();
     } catch (err) {

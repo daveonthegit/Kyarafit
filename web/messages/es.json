@@ -9,14 +9,16 @@
     "discover": "Descubrir",
     "feed": "Feed",
     "settings": "Ajustes",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "menu": "Menú"
   },
   "Common": {
     "add": "Añadir",
     "settings": "Ajustes",
     "addItem": "Añadir elemento",
     "addOutfit": "Añadir outfit",
-    "addEvent": "Añadir evento"
+    "addEvent": "Añadir evento",
+    "addGroup": "Añadir grupo"
   },
   "Home": {
     "theLookbook": "El lookbook",

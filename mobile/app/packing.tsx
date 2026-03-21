@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import { listConventions } from "../src/storage/conventionsRepo";
 import { getPacking, toggleChecked } from "../src/storage/packingRepo";
 import { ChecklistRow } from "../src/components/ui/ChecklistRow";
 import { useCurrentUser } from "../src/hooks/useCurrentUser";
 
-/** Minimal convention shape for rendering */
 type ConventionRow = {
   id: string;
   name: string;
@@ -19,7 +17,6 @@ type ConventionRow = {
   location?: string;
 };
 
-/** Minimal packing item shape for rendering */
 type PackingRow = {
   id: string;
   conventionId: string;
@@ -40,7 +37,6 @@ export default function PackingScreen() {
     if (params.conventionId) setSelectedId(params.conventionId);
   }, [params.conventionId]);
 
-  // ─── Cloud path (Convex) ───────────────────────────────────────────────────
   const convexConventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
   const convexPacking = useQuery(
     api.conventions.getPacking,
@@ -48,7 +44,6 @@ export default function PackingScreen() {
   );
   const updatePackingItem = useMutation(api.conventions.updatePackingItem);
 
-  // ─── Local path (SQLite) ───────────────────────────────────────────────────
   const [localConventions, setLocalConventions] = useState<ConventionRow[]>([]);
   const [localItems, setLocalItems] = useState<PackingRow[]>([]);
   const [localLoading, setLocalLoading] = useState(!userId);
@@ -92,7 +87,6 @@ export default function PackingScreen() {
     }
   }, [userId, selectedId]);
 
-  // ─── Unified data ──────────────────────────────────────────────────────────
   const isCloud = !!userId;
 
   const conventions: ConventionRow[] = isCloud
@@ -121,7 +115,6 @@ export default function PackingScreen() {
     ? convexConventions === undefined || (!!selectedId && convexPacking === undefined)
     : localLoading;
 
-  // Auto-select first convention when list loads
   useEffect(() => {
     if (conventions.length > 0 && !selectedId) {
       setSelectedId(conventions[0].id);
@@ -148,7 +141,6 @@ export default function PackingScreen() {
     [isCloud, userId, updatePackingItem]
   );
 
-  // Group items: General (no date/build), then by date
   const general = items.filter((i) => !i.date && !i.buildId);
   const byDate = new Map<string, PackingRow[]>();
   for (const i of items.filter((i) => i.date || i.buildId)) {
@@ -159,33 +151,36 @@ export default function PackingScreen() {
   const dateKeys = Array.from(byDate.keys()).sort();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row justify-between items-end px-6 pt-12 pb-4">
         <View>
-          <Text style={styles.metaLabel}>Logistics</Text>
-          <Text style={styles.title}>Packing List</Text>
+          <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-1">
+            Logistics
+          </Text>
+          <Text className="font-serif text-[28px] font-bold italic text-black tracking-tight leading-none">
+            Packing List
+          </Text>
         </View>
-        {isCloud && <Text style={styles.syncLabel}>CLOUD SYNC ON</Text>}
+        {isCloud && (
+          <Text className="text-[9px] uppercase tracking-[0.15em] font-semibold text-black/50">
+            CLOUD SYNC ON
+          </Text>
+        )}
       </View>
 
-      <View style={styles.selectorRow}>
-        <Text style={styles.selectorLabel}>CONVENTION</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.selectorScroll}
-        >
+      <View className="px-6 mb-6">
+        <Text className="text-[8px] uppercase tracking-[0.2em] text-black/40 mb-2">CONVENTION</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
           {conventions.map((c) => (
             <Pressable
               key={c.id}
-              style={[styles.selectorBtn, selectedId === c.id && styles.selectorBtnActive]}
+              className={`py-2 px-3 border rounded-sm mr-3 ${selectedId === c.id ? "border-black bg-[#F9F9F9]" : "border-black/10"}`}
               onPress={() => setSelectedId(c.id)}
             >
               <Text
-                style={[
-                  styles.selectorBtnText,
-                  selectedId === c.id && styles.selectorBtnTextActive,
-                ]}
+                className={`text-[10px] uppercase tracking-widest ${
+                  selectedId === c.id ? "font-semibold text-black" : "text-black/40"
+                }`}
               >
                 {c.name}
               </Text>
@@ -194,24 +189,29 @@ export default function PackingScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 140 }}
+      >
         {!selectedId && conventions.length === 0 && (
-          <Text style={styles.meta}>
+          <Text className="text-xs text-black/50 py-6">
             Create a convention and generate a packing list from the Events tab.
           </Text>
         )}
         {selectedId && !loading && items.length === 0 && (
-          <Text style={styles.meta}>
+          <Text className="text-xs text-black/50 py-6">
             No packing list yet. Generate one from the convention detail (Events tab).
           </Text>
         )}
-        {loading && <Text style={styles.meta}>Loading…</Text>}
+        {loading && <Text className="text-xs text-black/50 py-6">Loading…</Text>}
         {selectedId && items.length > 0 && (
           <>
             {general.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>GENERAL ESSENTIALS</Text>
-                <View style={styles.checkList}>
+              <View className="mb-8">
+                <Text className="font-serif text-lg font-bold italic text-black mb-4 border-b border-black pb-1.5">
+                  GENERAL ESSENTIALS
+                </Text>
+                <View className="gap-1">
                   {general.map((item) => (
                     <ChecklistRow
                       key={item.id}
@@ -228,9 +228,11 @@ export default function PackingScreen() {
               const first = list[0];
               const heading = first?.date ?? key;
               return (
-                <View key={key} style={styles.section}>
-                  <Text style={styles.sectionTitle}>{heading}</Text>
-                  <View style={styles.checkList}>
+                <View key={key} className="mb-8">
+                  <Text className="font-serif text-lg font-bold italic text-black mb-4 border-b border-black pb-1.5">
+                    {heading}
+                  </Text>
+                  <View className="gap-1">
                     {list.map((item) => (
                       <ChecklistRow
                         key={item.id}
@@ -249,83 +251,3 @@ export default function PackingScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 48,
-    paddingBottom: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-    marginBottom: 4,
-  },
-  title: {
-    fontFamily: font.serif,
-    fontSize: 28,
-    fontWeight: "bold",
-    fontStyle: "italic",
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  syncLabel: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  selectorRow: { paddingHorizontal: layout.screenPaddingX, marginBottom: 24 },
-  selectorLabel: {
-    fontSize: 8,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: colors.textTertiary,
-    marginBottom: 8,
-  },
-  selectorScroll: { flexDirection: "row", gap: 12 },
-  selectorBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  selectorBtnActive: {
-    borderColor: colors.black,
-    backgroundColor: colors.muted,
-  },
-  selectorBtnText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.textTertiary,
-  },
-  selectorBtnTextActive: { color: colors.black, fontWeight: "600" },
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: layout.screenPaddingX,
-    paddingBottom: 140,
-  },
-  meta: { fontSize: 12, color: colors.meta, paddingVertical: 24 },
-  section: { marginBottom: 32 },
-  sectionTitle: {
-    fontFamily: font.serif,
-    fontSize: 18,
-    fontStyle: "italic",
-    fontWeight: "bold",
-    color: colors.black,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.black,
-    paddingBottom: 6,
-  },
-  checkList: { gap: 4 },
-});

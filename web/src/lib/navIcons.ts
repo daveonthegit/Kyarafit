@@ -14,4 +14,5 @@ export const NAV_ICON_MAP: Record<NavSectionId, string> = {
   discover: "explore",
   feed: "newspaper",
   settings: "settings",
+  menu: "menu",
 };

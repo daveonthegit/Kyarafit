@@ -8,7 +8,7 @@ import {
   createClosetItemSchema,
   type ClosetCategory,
 } from "@kyarafit/design-system/types";
-import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { Sheet } from "@/components/ui/sheet";
 import { UnderlineInput } from "@/components/ui/UnderlineInput";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -81,20 +81,19 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
   };
 
   return (
-    <BuildDetailModalShell
+    <Sheet
       open
       onClose={onDismiss}
       title="New item"
       titleId="global-new-closet-modal-title"
       size="lg"
       closeDisabled={isPending}
-      zOverlayClass="z-[10100]"
       footer={
         <button
           type="submit"
           form="new-closet-item-modal-form"
           disabled={isPending}
-          className="w-full bg-kyar-text py-3 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
         >
           {isPending ? "Saving…" : "Save item"}
         </button>
@@ -176,6 +175,6 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
         />
         {error && <p className="text-xs text-kyar-danger">{error}</p>}
       </form>
-    </BuildDetailModalShell>
+    </Sheet>
   );
 }

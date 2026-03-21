@@ -42,7 +42,7 @@ export default function Settings() {
         trailing={
           <Link
             href="/home"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
             aria-label={t("backToHome")}
           >
             <span className="material-symbols-outlined font-light text-2xl" aria-hidden>
@@ -100,10 +100,10 @@ export default function Settings() {
                   key={loc}
                   type="button"
                   onClick={() => setLocale(loc as SupportedLocale)}
-                  className={`min-h-[44px] px-4 py-2.5 rounded-sm text-sm font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+                  className={`min-h-[44px] px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
                     locale === loc
-                      ? "bg-black text-white border-black"
-                      : "bg-kyar-surfaceWarm text-kyar-text border-kyar-cardBorder hover:border-kyar-text"
+                      ? "bg-black text-white border-black shadow-md"
+                      : "bg-kyar-surface text-kyar-text border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted"
                   }`}
                   aria-pressed={locale === loc}
                 >
@@ -117,7 +117,7 @@ export default function Settings() {
               <li key={href}>
                 <Link
                   href={href}
-                  className="flex justify-between items-center min-h-[44px] py-3 -mx-1 px-1 rounded-sm hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                  className="flex justify-between items-center min-h-[44px] py-3 -mx-2 px-2 rounded-xl hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                 >
                   <span className="text-[11px] uppercase tracking-widest font-medium text-kyar-text">
                     {t(labelKey)}
@@ -136,7 +136,7 @@ export default function Settings() {
         <button
           type="button"
           onClick={handleSignOut}
-          className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-[0.3em] font-semibold text-kyar-danger rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+          className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest font-bold text-kyar-danger rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 hover:bg-red-50 px-6 py-2 transition-colors border border-transparent hover:border-red-100"
         >
           {t("signOut")}
         </button>

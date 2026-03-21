@@ -40,11 +40,7 @@ export function LocaleProvider({ children }: Props) {
 
   return (
     <LocaleContext.Provider value={contextValue}>
-      <NextIntlClientProvider
-        locale={locale}
-        messages={messages}
-        timeZone="UTC"
-      >
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
         {children}
       </NextIntlClientProvider>
     </LocaleContext.Provider>

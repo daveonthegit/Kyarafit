@@ -4,19 +4,15 @@ import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AddMenuModal } from "@kyarafit/design-system";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildHeroCropModal } from "@/components/builds/BuildHeroCropModal";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
-import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { SwipeCard } from "@/components/ui/SwipeCard";
 import { MagicCard } from "@/components/ui/magic-card";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 
 /** Build shape returned by getFocusedOrMostRecentForUser (hero display). */
@@ -32,20 +28,6 @@ type FocusedBuild = {
   tasksTotal: number;
 };
 
-const QUICK_ACTIONS: (
-  | {
-      key: string;
-      modal: AddMenuModal;
-      labelKey: "addClosetItem" | "planNewCosplay";
-      icon: string;
-    }
-  | { key: string; href: string; labelKey: "events"; icon: string }
-)[] = [
-  { key: "closet", modal: "newCloset", labelKey: "addClosetItem", icon: "upload" },
-  { key: "build", modal: "newBuild", labelKey: "planNewCosplay", icon: "dashboard" },
-  { key: "events", href: "/conventions", labelKey: "events", icon: "calendar_month" },
-];
-
 function daysUntil(startDate: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -56,7 +38,6 @@ function daysUntil(startDate: string): number {
 
 export default function HomePage() {
   const { userId } = useCurrentUser();
-  const { open: openCreationModal } = useCreationModals();
   const t = useTranslations("Home");
   const tCommon = useTranslations("Common");
   const focusedBuildId = useQuery(
@@ -75,11 +56,9 @@ export default function HomePage() {
   );
   const upcomingWithCounts = useQuery(
     api.conventions.listUpcomingWithPlanCounts,
-    userId ? { userId, limit: 5 } : "skip"
+    userId ? { userId, limit: 10 } : "skip"
   );
   const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
-  const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip") ?? [];
-  const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
   const updateBuild = useMutation(api.builds.update);
 
   const recentProjectsList = useMemo(() => {
@@ -90,19 +69,6 @@ export default function HomePage() {
     );
     return sorted.slice(0, 10);
   }, [builds, recentBuild]);
-
-  const missingTasks = useMemo(
-    () => plannerTasks.filter((task) => !task.checked).slice(0, 8),
-    [plannerTasks]
-  );
-
-  const closetStats = useMemo(() => {
-    const byCategory: Record<string, number> = {};
-    for (const item of closetItems) {
-      byCategory[item.category] = (byCategory[item.category] ?? 0) + 1;
-    }
-    return { total: closetItems.length, byCategory };
-  }, [closetItems]);
 
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
   const [focusSearch, setFocusSearch] = useState("");
@@ -191,37 +157,36 @@ export default function HomePage() {
 
   return (
     <WebAppShell>
-      <PageHeader
-        title={t("theLookbook")}
-        trailing={
-          <Link
-            href="/settings"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-            aria-label={tCommon("settings")}
-          >
-            <span className="material-symbols-outlined font-light text-2xl">menu</span>
-          </Link>
-        }
-      />
+      <div className="min-h-[100dvh] lg:h-[100dvh] flex flex-col lg:overflow-hidden pt-4 sm:pt-6">
+        <PageHeader
+          title={t("theLookbook")}
+          className="shrink-0 pb-4 pt-0 sm:pt-0 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto w-full"
+          trailing={
+            <Link
+              href="/settings"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+              aria-label={tCommon("settings")}
+            >
+              <span className="material-symbols-outlined font-light text-2xl">menu</span>
+            </Link>
+          }
+        />
 
-      <main className="flex-1 max-w-6xl mx-auto w-full pb-24 lg:pb-8">
-        {/* Two-column layout: wider left, narrower right */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 sm:gap-8 lg:gap-10">
-          {/* ——— Left column ——— */}
-          <div className="min-w-0 space-y-6 sm:space-y-8">
-            {/* Featured build hero — large card */}
-            <section>
-              <MagicCard className="overflow-hidden border border-kyar-cardBorder rounded-sm shadow-card">
+        <main className="flex-1 lg:min-h-0 max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 pb-4 flex flex-col">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 flex-1 lg:min-h-0 lg:h-full">
+            {/* 1. Featured build hero (2x2) */}
+            <section className="lg:col-span-2 lg:row-span-2 flex flex-col min-h-[400px] lg:h-full lg:min-h-0">
+              <MagicCard className="flex-1 overflow-hidden border border-kyar-borderSubtle rounded-2xl shadow-soft flex flex-col min-h-0">
                 <Link
                   href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
-                  className="block group"
+                  className="flex-1 block group flex flex-col min-h-0"
                   aria-label={
                     recentBuild
                       ? t("currentFocusAria", { name: recentBuild.name })
                       : t("viewBuildsAria")
                   }
                 >
-                  <div className="relative w-full aspect-[4/5] sm:aspect-[3/2] lg:aspect-[21/9] max-h-[70vh] overflow-hidden bg-kyar-mutedWarm rounded-t-sm">
+                  <div className="relative w-full flex-1 min-h-0 bg-kyar-muted rounded-t-2xl overflow-hidden">
                     {recentBuild?.imageStorageId || recentBuild?.imageUrl ? (
                       <ResolvedImage
                         imageStorageId={recentBuild.imageStorageId}
@@ -250,7 +215,7 @@ export default function HomePage() {
                       <span className="inline-block text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium bg-black text-white px-2.5 py-1 rounded-sm mb-2">
                         {t("currentFocus")}
                       </span>
-                      <p className="font-serif text-xl sm:text-2xl lg:text-3xl italic font-normal">
+                      <p className="font-serif text-xl sm:text-2xl lg:text-4xl italic font-normal">
                         {recentBuild ? recentBuild.name : t("addBuildsToFeature")}
                       </p>
                       {recentBuild && (
@@ -273,16 +238,16 @@ export default function HomePage() {
                   </div>
                 </Link>
                 {recentBuild && recentBuild.tasksTotal > 0 && (
-                  <div className="px-4 sm:px-6 pb-3 pt-0">
+                  <div className="px-4 sm:px-6 pb-3 pt-0 shrink-0 bg-kyar-surface">
                     <div
-                      className="h-1 w-full bg-kyar-borderSubtle rounded-sm overflow-hidden"
+                      className="h-1.5 w-full bg-kyar-borderSubtle rounded-full overflow-hidden"
                       role="progressbar"
                       aria-valuenow={recentBuild.tasksChecked}
                       aria-valuemin={0}
                       aria-valuemax={recentBuild.tasksTotal}
                     >
                       <div
-                        className="h-full bg-black rounded-sm transition-[width] duration-300"
+                        className="h-full bg-black rounded-full transition-[width] duration-300"
                         style={{
                           width: `${(100 * recentBuild.tasksChecked) / recentBuild.tasksTotal}%`,
                         }}
@@ -291,7 +256,7 @@ export default function HomePage() {
                   </div>
                 )}
               </MagicCard>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
                     {recentBuild ? t("yourMostRecentBuild") : t("createBuildToSee")}
@@ -312,7 +277,7 @@ export default function HomePage() {
                         aria-labelledby="focus-modal-title"
                       >
                         <div className="flex flex-col max-h-[90vh]">
-                          <div className="flex items-center justify-between gap-3 border-b border-kyar-cardBorder px-4 py-3 shrink-0">
+                          <div className="flex items-center justify-between gap-3 border-b border-kyar-borderSubtle px-4 py-3 shrink-0">
                             <h2
                               id="focus-modal-title"
                               className="font-serif text-lg italic font-normal text-kyar-text"
@@ -322,7 +287,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               onClick={closeFocusModal}
-                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                               aria-label="Close"
                             >
                               <span className="material-symbols-outlined font-light text-xl">
@@ -337,7 +302,7 @@ export default function HomePage() {
                               value={focusSearch}
                               onChange={(e) => setFocusSearch(e.target.value)}
                               placeholder={t("searchBuildsPlaceholder")}
-                              className="w-full rounded-sm border border-kyar-cardBorder bg-kyar-bgWarm px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-meta focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                              className="w-full rounded-sm border border-kyar-borderSubtle bg-kyar-bg px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-meta focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                               aria-label={t("selectFocus")}
                             />
                           </div>
@@ -346,9 +311,9 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => selectFocus(undefined)}
-                                className="w-full flex items-center gap-3 p-3 rounded-sm border border-kyar-cardBorder hover:border-kyar-text hover:bg-kyar-mutedWarm text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                                className="w-full flex items-center gap-3 p-3 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                               >
-                                <span className="w-12 h-12 shrink-0 rounded-sm bg-kyar-mutedWarm flex items-center justify-center text-kyar-textTertiary">
+                                <span className="w-12 h-12 shrink-0 rounded-sm bg-kyar-muted flex items-center justify-center text-kyar-textTertiary">
                                   <span className="material-symbols-outlined text-2xl">
                                     schedule
                                   </span>
@@ -362,13 +327,13 @@ export default function HomePage() {
                               const hasImage = b.imageStorageId != null || b.imageUrl != null;
                               return (
                                 <li key={b._id} role="option">
-                                  <div className="flex items-center gap-1 rounded-sm border border-kyar-cardBorder hover:border-kyar-text hover:bg-kyar-mutedWarm overflow-hidden">
+                                  <div className="flex items-center gap-1 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted overflow-hidden">
                                     <button
                                       type="button"
                                       onClick={() => selectFocus(b._id)}
                                       className="flex-1 flex items-center gap-3 p-3 min-w-0 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-inset"
                                     >
-                                      <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-kyar-mutedWarm">
+                                      <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-kyar-muted">
                                         {hasImage ? (
                                           <ResolvedImage
                                             imageStorageId={b.imageStorageId ?? undefined}
@@ -456,64 +421,71 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Sub-grid: Upcoming events (with images), Current projects (with build images) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-              {/* Upcoming events — moved from right sidebar, with event images */}
-              <SectionCard
-                title={t("upcomingEvents")}
-                action={
-                  upcomingWithCounts && upcomingWithCounts.length > 0
-                    ? { label: t("viewAllEvents"), href: "/conventions" }
-                    : undefined
-                }
-              >
-                {upcomingWithCounts && upcomingWithCounts.length > 0 ? (
-                  <ul className="space-y-3">
-                    {upcomingWithCounts.slice(0, 3).map(({ convention, outfitCount }) => {
-                      const days = daysUntil(convention.startDate);
-                      const dayLabel =
-                        days === 0
-                          ? t("today")
-                          : days === 1
-                            ? t("tomorrow")
-                            : t("daysLeft", { count: days });
-                      const hasImage =
-                        convention.imageStorageId != null || convention.imageUrl != null;
-                      return (
-                        <li key={convention._id}>
-                          <Link
-                            href={`/conventions/${convention._id}`}
-                            className="block rounded-sm overflow-hidden border border-kyar-cardBorder hover:border-kyar-text hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-                          >
-                            {hasImage && (
-                              <div className="aspect-[21/9] w-full bg-kyar-mutedWarm relative">
-                                <ResolvedImage
-                                  imageStorageId={convention.imageStorageId ?? undefined}
-                                  imageUrl={convention.imageUrl ?? undefined}
-                                  alt={convention.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
-                            <div className="p-3">
-                              <p className="text-[10px] uppercase tracking-wider text-kyar-meta">
-                                {convention.startDate === convention.endDate
-                                  ? convention.startDate
-                                  : `${convention.startDate} – ${convention.endDate}`}
-                              </p>
-                              <p className="font-serif text-base italic mt-0.5">
-                                {convention.name}
-                              </p>
-                              <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
-                                {dayLabel} · {t("buildsPlanned", { count: outfitCount })}
-                              </p>
-                            </div>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
+            {/* 2. Upcoming events (2x1 top right) */}
+            <SectionCard
+              title={t("upcomingEvents")}
+              action={
+                upcomingWithCounts && upcomingWithCounts.length > 0
+                  ? { label: t("viewAllEvents"), href: "/conventions" }
+                  : undefined
+              }
+              className="lg:col-span-2 lg:row-span-1 flex flex-col min-h-[240px] lg:min-h-0 bg-kyar-surface border-none shadow-none"
+            >
+              {upcomingWithCounts && upcomingWithCounts.length > 0 ? (
+                <div className="flex-1 min-h-0 overflow-x-auto flex gap-4 pb-2 snap-x px-1 items-stretch -mx-4 px-4 sm:-mx-5 sm:px-5">
+                  {upcomingWithCounts.map(({ convention, outfitCount }) => {
+                    const days = daysUntil(convention.startDate);
+                    const dayLabel =
+                      days === 0
+                        ? t("today")
+                        : days === 1
+                          ? t("tomorrow")
+                          : t("daysLeft", { count: days });
+                    const hasImage =
+                      convention.imageStorageId != null || convention.imageUrl != null;
+                    return (
+                      <Link
+                        key={convention._id}
+                        href={`/conventions/${convention._id}`}
+                        className="snap-start shrink-0 w-[240px] flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-white hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                      >
+                        {hasImage ? (
+                          <div className="h-[120px] w-full bg-kyar-muted relative shrink-0">
+                            <ResolvedImage
+                              imageStorageId={convention.imageStorageId ?? undefined}
+                              imageUrl={convention.imageUrl ?? undefined}
+                              alt={convention.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-[120px] w-full bg-kyar-muted relative shrink-0 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-kyar-textTertiary text-4xl">
+                              calendar_today
+                            </span>
+                          </div>
+                        )}
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
+                              {convention.startDate === convention.endDate
+                                ? convention.startDate
+                                : `${convention.startDate} – ${convention.endDate}`}
+                            </p>
+                            <p className="font-serif text-lg italic mt-1 text-kyar-text line-clamp-1">
+                              {convention.name}
+                            </p>
+                          </div>
+                          <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary mt-3">
+                            {dayLabel} · {t("buildsPlanned", { count: outfitCount })}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
                   <p className="text-sm text-kyar-textSecondary">
                     <Link
                       href="/conventions"
@@ -522,68 +494,64 @@ export default function HomePage() {
                       {t("viewAllEvents")}
                     </Link>
                   </p>
-                )}
-              </SectionCard>
+                </div>
+              )}
+            </SectionCard>
 
-              {/* Current projects — swipeable build cards */}
-              <SectionCard
-                title={t("currentProjects")}
-                action={
-                  recentProjectsList.length > 0
-                    ? { label: t("viewAllBuilds"), href: "/builds" }
-                    : undefined
-                }
-              >
-                {recentProjectsList.length > 0 ? (
-                  <div className="flex justify-center -mx-2 py-2">
-                    <SwipeCard
-                      items={recentProjectsList}
-                      keyExtractor={(build) => build._id}
-                      renderSlide={(build) => {
-                        const hasImage = build.imageStorageId != null || build.imageUrl != null;
-                        return (
-                          <Link
-                            href={`/build-detail?id=${build._id}`}
-                            className="block h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-cardBorder bg-kyar-surface hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
-                          >
-                            <div className="flex-1 min-h-0 relative aspect-[3/4] w-full bg-kyar-mutedWarm">
-                              {hasImage ? (
-                                <ResolvedImage
-                                  imageStorageId={build.imageStorageId ?? undefined}
-                                  imageUrl={build.imageUrl ?? undefined}
-                                  alt={build.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
-                                  <span className="material-symbols-outlined text-5xl">
-                                    photo_library
-                                  </span>
-                                </div>
-                              )}
-                              <div
-                                className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"
-                                aria-hidden
-                              />
-                              <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                                <p className="font-serif italic text-sm sm:text-base truncate">
-                                  {build.name}
-                                </p>
-                                <p className="text-[10px] uppercase tracking-wider opacity-90 mt-0.5">
-                                  {build.tasksChecked} / {build.tasksTotal} tasks
-                                </p>
-                              </div>
+            {/* 3. Current projects (2x1 bottom right) */}
+            <SectionCard
+              title={t("currentProjects")}
+              action={
+                recentProjectsList.length > 0
+                  ? { label: t("viewAllBuilds"), href: "/builds" }
+                  : undefined
+              }
+              className="lg:col-span-2 lg:row-span-1 flex flex-col min-h-[240px] lg:min-h-0 bg-kyar-surface border-none shadow-none"
+            >
+              {recentProjectsList.length > 0 ? (
+                <div className="flex-1 min-h-0 overflow-x-auto flex gap-4 pb-2 snap-x px-1 items-stretch -mx-4 px-4 sm:-mx-5 sm:px-5 h-full">
+                  {recentProjectsList.map((build) => {
+                    const hasImage = build.imageStorageId != null || build.imageUrl != null;
+                    return (
+                      <Link
+                        key={build._id}
+                        href={`/build-detail?id=${build._id}`}
+                        className="snap-start shrink-0 w-[180px] h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-white hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 relative"
+                      >
+                        <div className="flex-1 min-h-0 relative w-full bg-kyar-muted">
+                          {hasImage ? (
+                            <ResolvedImage
+                              imageStorageId={build.imageStorageId ?? undefined}
+                              imageUrl={build.imageUrl ?? undefined}
+                              alt={build.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
+                              <span className="material-symbols-outlined text-4xl">
+                                photo_library
+                              </span>
                             </div>
-                          </Link>
-                        );
-                      }}
-                      showNavigation={recentProjectsList.length > 1}
-                      loop={recentProjectsList.length > 1}
-                      height={320}
-                      animate={false}
-                    />
-                  </div>
-                ) : (
+                          )}
+                          <div
+                            className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
+                            aria-hidden
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                            <p className="font-serif italic text-lg leading-tight line-clamp-2">
+                              {build.name}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wider opacity-90 mt-1">
+                              {build.tasksChecked} / {build.tasksTotal} tasks
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
                   <p className="text-sm text-kyar-textSecondary">
                     <Link
                       href="/builds"
@@ -592,116 +560,12 @@ export default function HomePage() {
                       {t("viewAllBuilds")}
                     </Link>
                   </p>
-                )}
-              </SectionCard>
-            </div>
-          </div>
-
-          {/* ——— Right column: Quick Actions, Missing items, Closet ——— */}
-          <div className="flex flex-col gap-6 sm:gap-8">
-            {/* Quick Actions */}
-            <section
-              className="rounded-sm p-5 sm:p-6 bg-kyar-text text-white shadow-card flex-shrink-0"
-              aria-labelledby="quick-actions-heading"
-            >
-              <h2
-                id="quick-actions-heading"
-                className="text-sm font-semibold uppercase tracking-wider mb-4"
-              >
-                {t("quickActions")}
-              </h2>
-              <div className="grid grid-cols-3 gap-3">
-                {QUICK_ACTIONS.map((action) =>
-                  "modal" in action ? (
-                    <button
-                      key={action.key}
-                      type="button"
-                      onClick={() => openCreationModal(action.modal)}
-                      className="flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-sm bg-white/10 p-4 transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                    >
-                      <span className="material-symbols-outlined text-2xl" aria-hidden>
-                        {action.icon}
-                      </span>
-                      <span className="text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
-                        {t(action.labelKey)}
-                      </span>
-                    </button>
-                  ) : (
-                    <Link
-                      key={action.key}
-                      href={action.href}
-                      className="flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-sm bg-white/10 p-4 transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                    >
-                      <span className="material-symbols-outlined text-2xl" aria-hidden>
-                        {action.icon}
-                      </span>
-                      <span className="text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
-                        {t(action.labelKey)}
-                      </span>
-                    </Link>
-                  )
-                )}
-              </div>
-            </section>
-
-            {/* Missing items — moved to right sidebar */}
-            <SectionCard
-              title={t("missingItems")}
-              action={
-                missingTasks.length > 0 ? { label: t("seeAllTasks"), href: "/planner" } : undefined
-              }
-            >
-              {missingTasks.length > 0 ? (
-                <ul className="space-y-2">
-                  {missingTasks.slice(0, 5).map((task) => (
-                    <li key={task._id}>
-                      <Link
-                        href={task.buildId ? `/build-detail?id=${task.buildId}` : "/planner"}
-                        className="flex items-center justify-between gap-3 p-3 min-h-[44px] rounded-sm border border-kyar-cardBorder hover:border-kyar-text hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-                      >
-                        <span className="font-medium truncate">{task.label}</span>
-                        <span className="text-xs text-kyar-meta shrink-0">{task.buildName}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-kyar-textSecondary">{t("noMissingItems")}</p>
+                </div>
               )}
             </SectionCard>
-
-            {/* Closet */}
-            <Link
-              href="/closet"
-              className="block rounded-sm overflow-hidden border border-kyar-cardBorder bg-kyar-text text-white shadow-card hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              <div className="p-5 sm:p-6">
-                <p className="text-[10px] uppercase tracking-widest text-white/70 mb-2">
-                  {t("closetOverview")}
-                </p>
-                <h3 className="font-serif text-xl sm:text-2xl italic font-normal mb-1">
-                  {t("totalItems", { count: closetStats.total })}
-                </h3>
-                <p className="text-sm text-white/80">
-                  {Object.keys(closetStats.byCategory).length > 0
-                    ? Object.entries(closetStats.byCategory)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3)
-                        .map(([cat, n]) => `${cat} ${n}`)
-                        .join(" · ")
-                    : t("addNewItem")}
-                </p>
-                <span className="inline-flex items-center gap-1 mt-3 text-[10px] font-semibold uppercase tracking-widest text-white/90">
-                  {t("addNewItem")}
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </span>
-              </div>
-            </Link>
           </div>
-        </div>
-      </main>
-
-      <FloatingAdd />
+        </main>
+      </div>
     </WebAppShell>
   );
 }

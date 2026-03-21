@@ -202,11 +202,11 @@ export default function ClosetItemDetailPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-kyar-bgWarm/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle">
+      <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-sm pt-4 sm:pt-6 pb-4 border-b border-kyar-borderSubtle">
         <div className="flex items-center justify-between">
           <Link
             href="/closet"
-            className="flex items-center gap-2 text-kyar-text"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
             aria-label="Back to closet"
           >
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
@@ -219,7 +219,7 @@ export default function ClosetItemDetailPage() {
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="text-[10px] uppercase tracking-widest font-semibold"
+                className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 border border-kyar-borderSubtle rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                 aria-label="Edit item"
               >
                 Edit
@@ -230,7 +230,7 @@ export default function ClosetItemDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="text-[10px] uppercase tracking-widest opacity-70"
+                  className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 opacity-70 hover:opacity-100 transition-opacity"
                 >
                   Cancel
                 </button>
@@ -238,7 +238,7 @@ export default function ClosetItemDetailPage() {
                   type="button"
                   onClick={handleSave}
                   disabled={savePending}
-                  className="text-[10px] uppercase tracking-widest font-semibold disabled:opacity-50"
+                  className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 bg-black text-white rounded-full hover:bg-black/90 transition-colors disabled:opacity-50 shadow-md"
                 >
                   {savePending ? "Saving..." : "Save"}
                 </button>
@@ -349,9 +349,9 @@ export default function ClosetItemDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-8 lg:gap-12 max-w-4xl">
-            <div className="lg:sticky lg:top-24">
-              <div className="aspect-square w-full max-w-sm lg:max-w-none mx-auto bg-kyar-muted overflow-hidden rounded-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_1fr] xl:grid-cols-[minmax(0,500px)_1fr] gap-8 lg:gap-16 max-w-6xl mx-auto">
+            <div className="lg:sticky lg:top-24 h-[60vh] lg:h-[calc(100vh-8rem)]">
+              <div className="w-full h-full bg-kyar-muted overflow-hidden rounded-2xl shadow-soft relative">
                 {item.imageStorageId || item.imageUrl ? (
                   <ResolvedImage
                     imageStorageId={item.imageStorageId}
@@ -364,225 +364,269 @@ export default function ClosetItemDetailPage() {
                     <span className="material-symbols-outlined text-6xl">checkroom</span>
                   </div>
                 )}
+                <div className="absolute bottom-6 left-6 bg-black text-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+                  ITEM {(item._id as string).substring(0, 8)}
+                </div>
               </div>
             </div>
-            <div className="space-y-6 min-w-0">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">Name</p>
-                  <p className="font-serif text-xl font-bold italic">{item.name}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                    Category
-                  </p>
-                  <p className="text-sm capitalize">{item.category}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                    Status
-                  </p>
-                  <p className="text-sm capitalize">
-                    {(item.status as ClosetItemStatus) &&
-                    CLOSET_ITEM_STATUSES.includes(item.status as ClosetItemStatus)
-                      ? item.status === "in_progress"
-                        ? "In progress"
-                        : item.status
-                      : "Planned"}
-                  </p>
-                </div>
-                {(item.tags?.length ?? 0) > 0 && (
+
+            <div className="flex flex-col pt-4 lg:pt-8 min-w-0 pb-24">
+              <div className="flex justify-between items-start gap-4 mb-8">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-meta leading-relaxed max-w-[60%]">
+                  {item.category}
+                  {item.tags && item.tags.length > 0
+                    ? ` / ${item.tags.join(", ")}`
+                    : " / CUSTOM FABRICATION"}
+                </p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-text shrink-0 text-right leading-relaxed">
+                  {(item.status as ClosetItemStatus) === "in_progress"
+                    ? "IN\nPROGRESS"
+                    : item.status}
+                </p>
+              </div>
+
+              <h1 className="font-serif text-6xl lg:text-7xl font-normal italic tracking-tight mb-16 leading-none">
+                {item.name}
+              </h1>
+
+              <div className="flex flex-wrap gap-16 border-t border-b border-kyar-borderSubtle py-8 mb-16">
+                {item.costCents != null && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                      Tags
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-kyar-meta mb-2">
+                      EST. COST
                     </p>
-                    <p className="text-sm">{item.tags!.join(", ")}</p>
-                  </div>
-                )}
-                {item.costCents != null && item.costCents > 0 && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                      Cost
+                    <p className="font-serif text-3xl italic text-kyar-text">
+                      {formatCents(item.costCents)}
                     </p>
-                    <p className="text-sm font-medium">{formatCents(item.costCents)}</p>
                   </div>
                 )}
                 {(item as { itemLink?: string | null }).itemLink && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                      Link
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-kyar-meta mb-2">
+                      SOURCE
                     </p>
                     <a
                       href={(item as { itemLink: string }).itemLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium underline underline-offset-2 hover:opacity-70 break-all"
+                      className="font-serif text-3xl italic text-kyar-text hover:text-kyar-accent transition-colors truncate block max-w-[200px]"
                     >
-                      {(item as { itemLink: string }).itemLink}
+                      Link
                     </a>
                   </div>
                 )}
-                {item.notes && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-1">
-                      Notes
-                    </p>
-                    <p className="text-sm whitespace-pre-wrap">{item.notes}</p>
-                  </div>
-                )}
               </div>
 
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">Builds</p>
-                {buildsUsing.length > 0 && (
-                  <ul className="space-y-2 mb-2">
-                    {buildsUsing.map((b) => (
-                      <li key={b._id} className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/build-detail?id=${b._id}`}
-                          className="text-sm font-medium underline underline-offset-2 hover:opacity-70"
-                        >
-                          {b.name}
-                        </Link>
-                        {isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFromBuild(b._id)}
-                            disabled={addToBuildPending}
-                            className="text-xs text-kyar-textTertiary hover:text-red-600 underline disabled:opacity-50"
-                          >
-                            Remove from build
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddToBuildPanel(true)}
-                    className="text-sm font-medium underline underline-offset-2 hover:opacity-70"
-                  >
-                    Add to build
-                  </button>
-                )}
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-kyar-meta mb-2">Tasks</p>
-                <p className="text-xs text-kyar-textTertiary mb-3">
-                  Add tasks here or assign from builds. Mark one as this item’s completion task to
-                  sync status when it’s checked.
-                </p>
-                {isOwner && (
-                  <div className="flex gap-2 mb-4">
-                    <input
-                      type="text"
-                      value={newTaskLabel}
-                      onChange={(e) => setNewTaskLabel(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-                      placeholder="Add a task..."
-                      className="flex-1 border-0 border-b border-black bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTask}
-                      disabled={!newTaskLabel.trim() || taskActionPending}
-                      className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
-                    >
-                      {taskActionPending ? "Adding..." : "Add"}
-                    </button>
-                  </div>
-                )}
-                {tasksAssigned.length === 0 ? (
-                  <p className="text-sm text-kyar-textTertiary">No tasks yet.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {tasksAssigned.map((t) => (
-                      <li
-                        key={t._id}
-                        className="flex items-center gap-3 py-2 px-3 border border-kyar-border hover:border-black transition group"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={t.checked}
-                          onChange={(e) => handleToggleTask(t._id, e.target.checked)}
-                          className="w-4 h-4 accent-black"
-                          disabled={!isOwner}
-                        />
-                        <div className="flex-1 min-w-0">
-                          {t.buildId ? (
-                            <Link
-                              href={`/build-detail?id=${t.buildId}`}
-                              className="text-sm font-medium underline underline-offset-2 hover:opacity-70"
-                            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16 mb-16">
+                <div>
+                  <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                    Task List
+                  </h2>
+                  {tasksAssigned.length === 0 ? (
+                    <p className="text-xs text-kyar-textTertiary italic mb-6">No tasks yet.</p>
+                  ) : (
+                    <ul className="space-y-5 mb-8">
+                      {tasksAssigned.map((t) => (
+                        <li key={t._id} className="flex items-start gap-4 group">
+                          <input
+                            type="checkbox"
+                            checked={t.checked}
+                            onChange={(e) => handleToggleTask(t._id, e.target.checked)}
+                            className="mt-0.5 w-4 h-4 rounded-full border-2 border-kyar-borderSubtle text-black focus:ring-black focus:ring-offset-0 transition-colors cursor-pointer checked:border-black shrink-0"
+                            disabled={!isOwner}
+                          />
+                          <div className="flex-1 min-w-0">
+                            {t.buildId ? (
+                              <Link
+                                href={`/build-detail?id=${t.buildId}`}
+                                className="block hover:opacity-70 transition-opacity"
+                              >
+                                <span
+                                  className={`text-xs font-medium ${t.checked ? "line-through text-kyar-meta" : "text-kyar-text"}`}
+                                >
+                                  {t.label}
+                                </span>
+                              </Link>
+                            ) : (
                               <span
-                                className={t.checked ? "line-through text-kyar-textTertiary" : ""}
+                                className={`text-xs font-medium block ${t.checked ? "line-through text-kyar-meta" : "text-kyar-text"}`}
                               >
                                 {t.label}
                               </span>
-                              {t.buildName && (
-                                <span className="text-kyar-textTertiary font-normal">
-                                  {" "}
-                                  · {t.buildName}
-                                </span>
-                              )}
-                            </Link>
-                          ) : (
-                            <span
-                              className={`text-sm ${t.checked ? "line-through text-kyar-textTertiary" : ""}`}
-                            >
-                              {t.label}
-                            </span>
-                          )}
-                        </div>
-                        {isOwner && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                            {item.completionTaskId === t._id ? (
-                              <button
-                                type="button"
-                                onClick={() => updateItem({ id, userId, completionTaskId: null })}
-                                className="text-xs text-kyar-textTertiary hover:text-black"
-                                title="Clear completion task"
-                              >
-                                Clear completion
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => updateItem({ id, userId, completionTaskId: t._id })}
-                                className="text-xs text-kyar-textTertiary hover:text-black"
-                                title="Set as completion task"
-                              >
-                                Set completion
-                              </button>
                             )}
+                          </div>
+                          {isOwner && (
                             <button
                               type="button"
                               onClick={() => handleDeleteTask(t._id)}
-                              className="text-xs text-red-600 hover:text-red-800"
-                              title="Delete task"
+                              className="opacity-0 group-hover:opacity-100 text-kyar-meta hover:text-kyar-danger transition-all shrink-0"
+                              aria-label="Delete task"
                             >
-                              <span className="material-symbols-outlined text-base">delete</span>
+                              <span className="material-symbols-outlined text-[16px]">close</span>
                             </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {isOwner && (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        value={newTaskLabel}
+                        onChange={(e) => setNewTaskLabel(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
+                        placeholder="Add new task..."
+                        className="flex-1 bg-transparent border-b border-kyar-borderSubtle py-1.5 text-xs focus:outline-none focus:border-black placeholder:text-kyar-meta transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTask}
+                        disabled={!newTaskLabel.trim() || taskActionPending}
+                        className="text-[9px] font-bold uppercase tracking-widest text-kyar-text hover:text-kyar-accent transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        ADD ACTION
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                    Associated Lookbooks
+                  </h2>
+                  {buildsUsing.length === 0 ? (
+                    <p className="text-xs text-kyar-textTertiary italic mb-6">
+                      No associated builds.
+                    </p>
+                  ) : (
+                    <ul className="space-y-5 mb-8">
+                      {buildsUsing.map((b) => (
+                        <li key={b._id} className="flex gap-4 group">
+                          <Link href={`/build-detail?id=${b._id}`} className="flex-shrink-0">
+                            <div className="w-12 h-14 bg-kyar-muted rounded-xl overflow-hidden border border-kyar-borderSubtle shadow-sm">
+                              {b.imageStorageId || b.imageUrl ? (
+                                <ResolvedImage
+                                  imageStorageId={b.imageStorageId}
+                                  imageUrl={b.imageUrl}
+                                  alt={b.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                                  <span className="material-symbols-outlined text-lg">palette</span>
+                                </div>
+                              )}
+                            </div>
+                          </Link>
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <Link
+                              href={`/build-detail?id=${b._id}`}
+                              className="block group-hover:text-kyar-accent transition-colors"
+                            >
+                              <p className="font-serif italic font-bold text-base leading-tight truncate">
+                                {b.name}
+                              </p>
+                              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-kyar-meta mt-1 truncate">
+                                {b.character || "ARCHIVE 02"}
+                              </p>
+                            </Link>
                           </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFromBuild(b._id)}
+                              disabled={addToBuildPending}
+                              className="text-[9px] uppercase tracking-widest text-kyar-meta hover:text-kyar-danger transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 shrink-0 self-center"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddToBuildPanel(true)}
+                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-text hover:text-kyar-accent transition-colors block"
+                    >
+                      + ADD TO LOOKBOOK
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
+                <div>
+                  <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                    Swatches
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {item.tags && item.tags.length > 0 ? (
+                      item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-3 py-1.5 border border-kyar-borderSubtle rounded-sm text-[8px] font-bold uppercase tracking-widest text-kyar-meta bg-kyar-surface"
+                        >
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-xs text-kyar-textTertiary italic">No tags defined.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                    Editorial Notes
+                  </h2>
+                  {item.notes ? (
+                    <p className="text-xs text-kyar-text leading-relaxed whitespace-pre-wrap">
+                      {item.notes}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-kyar-textTertiary italic">No notes added.</p>
+                  )}
+                </div>
               </div>
 
               {isOwner && (
-                <div className="pt-4 border-t border-kyar-borderSubtle">
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="text-sm text-kyar-danger font-medium"
-                  >
-                    Delete item
-                  </button>
+                <div className="fixed bottom-0 right-0 left-0 lg:left-[auto] lg:w-[calc(100%-minmax(0,400px)-4rem)] xl:w-[calc(100%-minmax(0,500px)-4rem)] max-w-6xl mx-auto p-4 lg:p-8 flex justify-end gap-3 pointer-events-none z-30">
+                  <div className="pointer-events-auto flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="px-8 py-4 bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-black/90 transition-colors"
+                    >
+                      UPDATE PROGRESS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: item.name,
+                            url: window.location.href,
+                          });
+                        }
+                      }}
+                      className="w-12 h-12 bg-white text-black flex items-center justify-center border border-kyar-borderSubtle shadow-soft hover:bg-kyar-muted transition-colors"
+                      aria-label="Share"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">share</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-12 h-12 bg-white text-kyar-danger flex items-center justify-center border border-kyar-borderSubtle shadow-soft hover:bg-red-50 transition-colors"
+                      aria-label="Delete"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -606,7 +650,7 @@ export default function ClosetItemDetailPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-2 border border-black text-sm font-medium"
+              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -614,7 +658,7 @@ export default function ClosetItemDetailPage() {
               type="button"
               onClick={handleDelete}
               disabled={deletePending}
-              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {deletePending ? "Deleting..." : "Delete"}
             </button>

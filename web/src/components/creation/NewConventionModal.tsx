@@ -6,7 +6,7 @@ import { useMutation } from "convex/react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { Sheet } from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -61,21 +61,19 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
   };
 
   return (
-    <BuildDetailModalShell
+    <Sheet
       open
       onClose={onDismiss}
       title="New event"
       titleId="global-new-convention-modal-title"
       size="2xl"
       closeDisabled={isPending}
-      zOverlayClass="z-[10100]"
       footer={
         <Button
           type="submit"
           form="new-convention-modal-form"
-          variant="primary"
           disabled={isPending || !name.trim() || !startDate || !endDate}
-          className="w-full"
+          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
         >
           {isPending ? "Creating…" : "Create event"}
         </Button>
@@ -92,7 +90,7 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Anime Expo"
-            className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -102,7 +100,7 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="City or venue"
-            className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -149,6 +147,6 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
           />
         </div>
       </form>
-    </BuildDetailModalShell>
+    </Sheet>
   );
 }

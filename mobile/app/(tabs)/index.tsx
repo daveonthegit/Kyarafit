@@ -1,173 +1,142 @@
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import { useCurrentUser } from "../../src/hooks/useCurrentUser";
+import { ImageCard } from "../../src/components/ui/ImageCard";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { userId } = useCurrentUser();
+
+  const focusedOrRecent = useQuery(
+    api.builds.getFocusedOrMostRecentForUser,
+    userId ? { userId } : "skip"
+  );
+
+  const upcomingWithCounts = useQuery(
+    api.conventions.listUpcomingWithPlanCounts,
+    userId ? { userId, limit: 3 } : "skip"
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 140 }}>
+        <View className="flex-row justify-between items-end px-6 pt-14 pb-6">
           <View>
-            <Text style={styles.metaLabel}>Kyarafit</Text>
-            <Text style={styles.title}>The Lookbook</Text>
+            <Text className="text-[9px] tracking-[0.2em] uppercase font-semibold text-black/50 mb-1">
+              Kyarafit
+            </Text>
+            <Text className="font-serif text-4xl italic text-black tracking-tight">
+              The Lookbook
+            </Text>
           </View>
-          <View style={styles.headerIcons}>
-            <Pressable>
-              <Ionicons name="search-outline" size={24} color={colors.black} />
-            </Pressable>
+          <View className="flex-row gap-4 mb-1">
             <Pressable onPress={() => router.push("/settings")}>
-              <Ionicons name="menu-outline" size={24} color={colors.black} />
+              <Ionicons name="menu-outline" size={24} color="#000" />
             </Pressable>
           </View>
         </View>
 
-        <Pressable style={styles.featuredSection} onPress={() => router.push("/(tabs)/builds")}>
-          <View style={styles.featuredPlaceholder}>
-            <Ionicons name="layers-outline" size={48} color={colors.textTertiary} />
+        <View className="px-6 mb-12">
+          {focusedOrRecent ? (
+            <ImageCard
+              imageUrl={focusedOrRecent.imageUrl}
+              title={focusedOrRecent.name}
+              subtitle={
+                focusedOrRecent.character
+                  ? focusedOrRecent.character
+                  : `${focusedOrRecent.tasksChecked}/${focusedOrRecent.tasksTotal} tasks`
+              }
+              aspectRatio={4 / 5}
+              onPress={() =>
+                router.push({ pathname: "/build-detail", params: { id: focusedOrRecent._id } })
+              }
+            />
+          ) : (
+            <Pressable
+              className="w-full aspect-[4/5] bg-[#F9F9F9] border border-black/5 items-center justify-center rounded-xl"
+              onPress={() => router.push("/(tabs)/builds")}
+            >
+              <Ionicons name="layers-outline" size={48} color="rgba(0,0,0,0.4)" />
+              <Text className="mt-3 text-sm text-black/40 font-sans">Plan New Cosplay</Text>
+            </Pressable>
+          )}
+          <View className="mt-6 flex-row justify-between items-end">
+            <View className="max-w-[70%]">
+              <Text className="text-[10px] uppercase tracking-[0.2em] text-black/50 mb-1">
+                Current Focus
+              </Text>
+              <Text className="font-serif text-2xl italic text-black">
+                {focusedOrRecent ? focusedOrRecent.name : "Builds & Conventions"}
+              </Text>
+            </View>
+            <Pressable onPress={() => router.push("/(tabs)/builds")}>
+              <Text className="text-[10px] uppercase tracking-[0.2em] text-black border border-black px-3 py-1 rounded">
+                View Builds
+              </Text>
+            </Pressable>
           </View>
-          <View style={styles.featuredOverlay}>
-            <Text style={styles.featuredMeta}>Current Focus</Text>
-            <Text style={styles.featuredTitle}>Builds & Conventions</Text>
-            <Text style={styles.viewCaseText}>View Builds</Text>
-          </View>
-        </Pressable>
+        </View>
 
-        <View style={styles.linksSection}>
-          <Text style={styles.linksLabel}>Quick links</Text>
-          <Pressable style={styles.linkRow} onPress={() => router.push("/(tabs)/builds")}>
-            <Text style={styles.linkText}>My Builds</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+        {upcomingWithCounts && upcomingWithCounts.length > 0 && (
+          <View className="pt-6 border-t border-black/5 pb-12">
+            <Text className="text-[11px] uppercase tracking-[0.2em] font-semibold text-black mb-4 px-6">
+              Upcoming Events
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24 }}
+            >
+              {upcomingWithCounts.map(({ convention, outfitCount }) => (
+                <View key={convention._id} className="w-[280px] mr-4">
+                  <ImageCard
+                    imageUrl={convention.imageUrl}
+                    title={convention.name}
+                    subtitle={`${convention.startDate} · ${outfitCount} outfits planned`}
+                    aspectRatio={21 / 9}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/convention-detail",
+                        params: { id: convention._id },
+                      })
+                    }
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View className="px-6 pt-6 border-t border-black/5">
+          <Text className="text-[11px] uppercase tracking-[0.2em] font-semibold text-black mb-4">
+            Quick links
+          </Text>
+          <Pressable
+            className="flex-row justify-between items-center py-4 border-b border-black/5"
+            onPress={() => router.push("/(tabs)/builds")}
+          >
+            <Text className="font-serif text-2xl italic text-black">My Builds</Text>
+            <Ionicons name="chevron-forward" size={18} color="rgba(0,0,0,0.4)" />
           </Pressable>
-          <Pressable style={styles.linkRow} onPress={() => router.push("/(tabs)/plan")}>
-            <Text style={styles.linkText}>Conventions</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          <Pressable
+            className="flex-row justify-between items-center py-4 border-b border-black/5"
+            onPress={() => router.push("/plan")}
+          >
+            <Text className="font-serif text-2xl italic text-black">Conventions</Text>
+            <Ionicons name="chevron-forward" size={18} color="rgba(0,0,0,0.4)" />
           </Pressable>
-          <Pressable style={styles.linkRow} onPress={() => router.push("/closet")}>
-            <Text style={styles.linkText}>Closet</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          <Pressable
+            className="flex-row justify-between items-center py-4 border-b border-black/5"
+            onPress={() => router.push("/closet")}
+          >
+            <Text className="font-serif text-2xl italic text-black">Closet</Text>
+            <Ionicons name="chevron-forward" size={18} color="rgba(0,0,0,0.4)" />
           </Pressable>
         </View>
       </ScrollView>
-
-      <Pressable style={styles.fab} onPress={() => router.push("/add-item")}>
-        <Ionicons name="add" size={24} color={colors.white} />
-      </Pressable>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 140 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 24,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-    marginBottom: 4,
-  },
-  title: {
-    fontFamily: font.serif,
-    fontSize: 36,
-    fontStyle: "italic",
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  headerIcons: { flexDirection: "row", gap: 16, marginBottom: 4 },
-  featuredSection: { paddingHorizontal: 24, marginBottom: 48 },
-  featuredPlaceholder: {
-    width: "100%",
-    aspectRatio: 4 / 5,
-    backgroundColor: colors.muted,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featuredOverlay: {
-    marginTop: 24,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  featuredMeta: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.meta,
-    marginBottom: 4,
-  },
-  featuredTitle: {
-    fontFamily: font.serif,
-    fontSize: 24,
-    fontStyle: "italic",
-    color: colors.black,
-  },
-  viewCaseText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.black,
-    borderWidth: 1,
-    borderColor: colors.black,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  linksSection: {
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  linksLabel: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "600",
-    color: colors.black,
-    marginBottom: 16,
-  },
-  linkRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  linkText: {
-    fontFamily: font.serif,
-    fontSize: 20,
-    fontStyle: "italic",
-    color: colors.black,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 120,
-    right: 24,
-    width: 56,
-    height: 56,
-    backgroundColor: colors.black,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-});

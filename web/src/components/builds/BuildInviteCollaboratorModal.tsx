@@ -88,7 +88,10 @@ export function BuildInviteCollaboratorModal({
       )}
       <div className="space-y-3">
         <div>
-          <label htmlFor="invite-email" className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1">
+          <label
+            htmlFor="invite-email"
+            className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1"
+          >
             Email
           </label>
           <input
@@ -102,7 +105,10 @@ export function BuildInviteCollaboratorModal({
           />
         </div>
         <div>
-          <label htmlFor="invite-role" className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1">
+          <label
+            htmlFor="invite-role"
+            className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1"
+          >
             Role
           </label>
           <select

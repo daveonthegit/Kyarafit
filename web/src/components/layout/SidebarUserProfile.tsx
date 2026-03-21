@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { authClient } from "@/lib/auth/auth-client";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { api } from "convex/_generated/api";
+import { cn } from "@/lib/utils";
 
 type SidebarUserProfileProps = {
   collapsed: boolean;
@@ -31,9 +32,10 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-sm py-2.5 px-3 min-h-[44px] border border-transparent ${
-        collapsed ? "justify-center px-0" : ""
-      }`}
+      className={cn(
+        "flex items-center rounded-sm py-2.5 min-h-[44px] border border-transparent transition-[gap,padding] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+        collapsed ? "justify-center gap-0 px-0" : "gap-3 px-3"
+      )}
     >
       <Link
         href="/settings/account"
@@ -54,31 +56,37 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
           </span>
         )}
       </Link>
-      {!collapsed && (
-        <div className="flex-1 min-w-0 flex flex-col items-start justify-center">
-          <Link
-            href="/settings/account"
-            className="flex flex-col items-start justify-center min-w-0 w-full"
-          >
-            <span className="text-sm font-medium text-kyar-text truncate w-full text-left">
-              {displayName}
+      <div
+        className={cn(
+          "flex flex-col items-start justify-center overflow-hidden min-w-0 transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+          collapsed
+            ? "max-w-0 opacity-0 pointer-events-none flex-none"
+            : "max-w-[200px] flex-1 opacity-100 delay-75"
+        )}
+        aria-hidden={collapsed}
+      >
+        <Link
+          href="/settings/account"
+          className="flex flex-col items-start justify-center min-w-0 w-full"
+        >
+          <span className="text-sm font-medium text-kyar-text truncate w-full text-left">
+            {displayName}
+          </span>
+          {username != null && username !== "" && (
+            <span className="text-xs text-kyar-textTertiary truncate w-full text-left">
+              @{username}
             </span>
-            {username != null && username !== "" && (
-              <span className="text-xs text-kyar-textTertiary truncate w-full text-left">
-                @{username}
-              </span>
-            )}
-          </Link>
-          {profileIsPublic && username && (
-            <Link
-              href={`/u/${username}`}
-              className="text-[11px] uppercase tracking-widest text-kyar-accent hover:underline mt-0.5"
-            >
-              View profile
-            </Link>
           )}
-        </div>
-      )}
+        </Link>
+        {profileIsPublic && username && (
+          <Link
+            href={`/u/${username}`}
+            className="text-[11px] uppercase tracking-widest text-kyar-accent hover:underline mt-0.5"
+          >
+            View profile
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

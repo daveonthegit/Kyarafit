@@ -36,7 +36,9 @@ export default function ConventionDetailPage() {
   const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
   const packingItems =
     useQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
-  const groupsAtCon = useQuery(api.groupConventionDays.listGroupsForConvention, id ? { conventionId: id } : "skip") ?? [];
+  const groupsAtCon =
+    useQuery(api.groupConventionDays.listGroupsForConvention, id ? { conventionId: id } : "skip") ??
+    [];
 
   const replacePlanMut = useMutation(api.conventions.replacePlan);
   const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
@@ -138,139 +140,176 @@ export default function ConventionDetailPage() {
 
   return (
     <WebAppShell>
-      <header className="sticky top-0 z-40 bg-kyar-bgWarm/95 backdrop-blur-sm pt-12 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-sm pt-4 sm:pt-6 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/conventions" className="material-symbols-outlined font-light text-2xl">
-            arrow_back
+          <Link
+            href="/conventions"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+          >
+            <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
-          <p className="meta-label">Convention</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-kyar-meta font-mono">
+            Convention
+          </p>
         </div>
-        <Link
-          href={`/conventions/${id}/edit`}
-          className="text-sm font-medium underline hover:no-underline"
-        >
-          Edit
-        </Link>
       </header>
 
-      <main className="flex-1 py-8 pb-32 space-y-8">
-        {(convention.imageStorageId || convention.imageUrl) && (
-          <div className="rounded-lg overflow-hidden border border-kyar-borderSubtle aspect-[2/1] max-h-48 bg-kyar-muted/30">
-            <ResolvedImage
-              imageStorageId={convention.imageStorageId}
-              imageUrl={convention.imageUrl}
-              alt={convention.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-        <div>
-          <h1 className="font-serif text-3xl font-bold italic">{convention.name}</h1>
-          <p className="text-[10px] uppercase tracking-wide text-kyar-textTertiary mt-2">
-            {convention.startDate} – {convention.endDate}
-            {convention.location ? ` · ${convention.location}` : ""}
-          </p>
-        </div>
-
-        {daysUntilStart !== null && (
-          <div className="border border-kyar-borderSubtle p-4">
-            <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-1">
-              Countdown
-            </p>
-            <p className="font-serif text-2xl italic font-bold">
-              {daysUntilStart > 0
-                ? `Starts in ${daysUntilStart} day${daysUntilStart === 1 ? "" : "s"}`
-                : daysUntilStart === 0
-                  ? "Starts today!"
-                  : `Started ${Math.abs(daysUntilStart)} day${Math.abs(daysUntilStart) === 1 ? "" : "s"} ago`}
-            </p>
-          </div>
-        )}
-
-        {groupsAtCon.length > 0 && (
-          <section>
-            <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">
-              Group cosplays at this con
-            </h2>
-            <ul className="flex flex-wrap gap-2">
-              {groupsAtCon.map((g) => (
-                <li key={g._id}>
-                  <Link
-                    href={`/g/${g._id}`}
-                    className="inline-flex items-center gap-2 px-3 py-2 border border-kyar-cardBorder rounded-md text-sm hover:border-kyar-accent/50"
-                  >
-                    {g.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <div className="border border-kyar-borderSubtle rounded-sm overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowOutline((v) => !v)}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-kyar-textTertiary hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
-            aria-expanded={showOutline}
-          >
-            <span>Outline</span>
-            <span
-              className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
-            >
-              expand_more
-            </span>
-          </button>
-          {showOutline && (
-            <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
-              <ConventionOutlineTree
-                conventionName={convention.name}
-                days={outlineDays}
-                onSelect={handleOutlineSelect}
-              />
+      <main className="flex-1 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_1fr] xl:grid-cols-[minmax(0,500px)_1fr] gap-8 lg:gap-16 max-w-6xl mx-auto">
+          {/* Left Column (Sticky Image) */}
+          <div className="lg:sticky lg:top-24 h-[60vh] lg:h-[calc(100vh-8rem)]">
+            <div className="w-full h-full bg-kyar-muted overflow-hidden rounded-2xl shadow-soft relative">
+              {convention.imageStorageId || convention.imageUrl ? (
+                <ResolvedImage
+                  imageStorageId={convention.imageStorageId}
+                  imageUrl={convention.imageUrl}
+                  alt={convention.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                  <span className="material-symbols-outlined text-6xl">event</span>
+                </div>
+              )}
+              <div className="absolute bottom-6 left-6 bg-black text-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+                EVENT {convention.startDate.substring(0, 4)}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div>
-          <h2 className="font-serif text-2xl italic font-bold mb-6">Cosplay Timeline</h2>
-          <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mb-4">
-            Tap a day to assign a build
-          </p>
-          <div className="space-y-6">
-            {dates.map((date, idx) => {
-              const entry = planByDate.get(date);
-              const build = entry?.buildId ? builds.find((b) => b._id === entry.buildId) : null;
-              const dayLabel = `D${idx + 1}`;
+          {/* Right Column (Details) */}
+          <div className="flex flex-col pt-4 lg:pt-8 min-w-0 pb-32">
+            <div className="flex justify-between items-start gap-4 mb-8">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-meta leading-relaxed max-w-[60%]">
+                {daysUntilStart !== null && daysUntilStart > 0
+                  ? `STARTS IN ${daysUntilStart} DAY${daysUntilStart === 1 ? "" : "S"}`
+                  : daysUntilStart === 0
+                    ? "STARTS TODAY"
+                    : `STARTED ${Math.abs(daysUntilStart!)} DAY${Math.abs(daysUntilStart!) === 1 ? "" : "S"} AGO`}
+              </p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-text shrink-0 text-right leading-relaxed">
+                {new Date(convention.startDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}{" "}
+                -{" "}
+                {new Date(convention.endDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}
+                {convention.location && (
+                  <>
+                    <br />
+                    {convention.location}
+                  </>
+                )}
+              </p>
+            </div>
 
-              const buildPackingItems = entry?.buildId
-                ? packingItems.filter((item) => item.buildId === entry.buildId)
-                : [];
-              const totalItems = buildPackingItems.length;
-              let status = "Pending";
-              let statusColor = "text-kyar-textTertiary";
-              if (build) {
-                if (totalItems > 0) {
-                  const packedItems = buildPackingItems.filter((item) => item.checked).length;
-                  status = `Ready to pack (${packedItems}/${totalItems} packed)`;
-                  statusColor = "text-green-700";
-                } else {
-                  status = "Logistics pending";
-                }
-              }
+            <h1 className="font-serif text-5xl lg:text-6xl font-normal italic tracking-tight mb-16 leading-none">
+              {convention.name}
+            </h1>
 
-              return (
-                <div key={date} id={`day-${date}`} className="relative scroll-mt-4">
-                  {idx < dates.length - 1 && (
-                    <div className="absolute left-3 top-8 bottom-0 w-px bg-kyar-borderSubtle" />
-                  )}
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-kyar-borderSubtle bg-white flex items-center justify-center z-10">
-                      <span className="text-[8px] font-bold">{idx + 1}</span>
-                    </div>
-                    <div className="flex-1 pb-8">
-                      <div className="flex justify-between items-baseline mb-2">
-                        <div>
+            {groupsAtCon.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                  Group Cosplays
+                </h2>
+                <ul className="flex flex-wrap gap-2">
+                  {groupsAtCon.map((g) => (
+                    <li key={g._id}>
+                      <Link
+                        href={`/g/${g._id}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-kyar-borderSubtle rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                      >
+                        {g.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <div className="mb-16 border border-kyar-borderSubtle rounded-2xl overflow-hidden shadow-soft bg-kyar-surface">
+              <button
+                type="button"
+                onClick={() => setShowOutline((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
+                aria-expanded={showOutline}
+              >
+                <span>Outline / Quick Jump</span>
+                <span
+                  className={`material-symbols-outlined text-lg transition-transform ${showOutline ? "rotate-180" : ""}`}
+                >
+                  expand_more
+                </span>
+              </button>
+              {showOutline && (
+                <div className="border-t border-kyar-borderSubtle p-2 max-h-[280px] overflow-y-auto">
+                  <ConventionOutlineTree
+                    conventionName={convention.name}
+                    days={outlineDays}
+                    onSelect={handleOutlineSelect}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mb-16">
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                Cosplay Timeline
+              </h2>
+
+              <div className="relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-[2px] before:bg-kyar-borderSubtle space-y-12">
+                {dates.map((date, idx) => {
+                  const entry = planByDate.get(date);
+                  const build = entry?.buildId ? builds.find((b) => b._id === entry.buildId) : null;
+                  const dayLabel = `DAY ${idx + 1}`;
+
+                  const buildPackingItems = entry?.buildId
+                    ? packingItems.filter((item) => item.buildId === entry.buildId)
+                    : [];
+                  const totalItems = buildPackingItems.length;
+                  let status = "PENDING";
+                  let statusColor = "text-kyar-textTertiary";
+                  if (build) {
+                    if (totalItems > 0) {
+                      const packedItems = buildPackingItems.filter((item) => item.checked).length;
+                      status = `PACKING (${packedItems}/${totalItems})`;
+                      statusColor =
+                        packedItems === totalItems ? "text-green-600" : "text-kyar-text";
+                    } else {
+                      status = "LOGISTICS PENDING";
+                    }
+                  }
+
+                  const isEven = idx % 2 === 0;
+
+                  return (
+                    <div
+                      key={date}
+                      id={`day-${date}`}
+                      className={`relative flex items-center justify-between md:justify-normal ${isEven ? "md:flex-row-reverse" : ""} group scroll-mt-24`}
+                    >
+                      <div
+                        className={`hidden md:block w-[calc(50%-2rem)] ${isEven ? "text-left" : "text-right"}`}
+                      >
+                        <h3 className="font-serif text-2xl italic font-bold">{dayLabel}</h3>
+                        <p className="text-[9px] text-kyar-textTertiary uppercase tracking-wider mt-1">
+                          {new Date(date).toLocaleDateString("en-US", {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+
+                      <div className="absolute left-0 md:left-1/2 flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-kyar-bg bg-black text-white md:-translate-x-1/2 shadow-sm z-10">
+                        <span className="text-[8px] font-bold">{idx + 1}</span>
+                      </div>
+
+                      <div className="ml-10 md:ml-0 w-[calc(100%-3rem)] md:w-[calc(50%-2rem)]">
+                        <div className="md:hidden mb-3">
                           <h3 className="font-serif text-xl italic font-bold">{dayLabel}</h3>
                           <p className="text-[9px] text-kyar-textTertiary uppercase tracking-wider">
                             {new Date(date).toLocaleDateString("en-US", {
@@ -280,269 +319,302 @@ export default function ConventionDetailPage() {
                             })}
                           </p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setPickerDate(date)}
+                          className="w-full text-left rounded-2xl border border-kyar-borderSubtle hover:border-black hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent overflow-hidden bg-kyar-surface group/card"
+                        >
+                          {build ? (
+                            <div className="flex flex-col">
+                              <div className="aspect-[3/2] w-full bg-kyar-muted relative border-b border-kyar-borderSubtle">
+                                {build.imageStorageId || build.imageUrl ? (
+                                  <ResolvedImage
+                                    imageStorageId={build.imageStorageId}
+                                    imageUrl={build.imageUrl}
+                                    alt={build.name}
+                                    className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-700"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                                    <span className="material-symbols-outlined text-3xl">
+                                      image
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-5 flex-1 flex flex-col justify-between">
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-widest truncate text-kyar-meta mb-1">
+                                    {build.character || "ORIGINAL"}
+                                  </p>
+                                  <p className="font-serif italic text-xl font-bold truncate">
+                                    {build.name}
+                                  </p>
+                                </div>
+                                <div className="mt-4 flex items-center justify-between">
+                                  <p
+                                    className={`text-[8px] font-bold uppercase tracking-[0.2em] ${statusColor}`}
+                                  >
+                                    {status}
+                                  </p>
+                                  <span className="material-symbols-outlined text-[14px] text-kyar-textTertiary">
+                                    chevron_right
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="border border-dashed border-kyar-borderSubtle p-6 bg-kyar-muted/30 flex flex-col items-center justify-center aspect-[3/2] text-center hover:bg-kyar-muted/50 transition-colors">
+                              <span className="material-symbols-outlined text-2xl text-kyar-textTertiary mb-2">
+                                add_circle
+                              </span>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary">
+                                Rest Day
+                              </p>
+                              <p className="text-[9px] text-kyar-textTertiary mt-1 uppercase tracking-widest">
+                                Tap to assign
+                              </p>
+                            </div>
+                          )}
+                        </button>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
+            <div id="convention-logistics" className="mb-16 scroll-mt-24">
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                Logistics & Packing
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="border border-kyar-borderSubtle rounded-2xl bg-kyar-surface shadow-soft p-6 self-start">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-kyar-meta mb-4">
+                    Accommodation
+                  </p>
+                  {convention.location ? (
+                    <div className="space-y-1">
+                      <p className="font-serif text-xl italic">{convention.location}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary mt-2">
+                        Check-in: {convention.startDate}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-kyar-textTertiary italic">
+                      No accommodation details.
+                    </p>
+                  )}
+                </div>
+
+                <div className="border border-kyar-borderSubtle rounded-2xl bg-kyar-surface shadow-soft p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-kyar-meta">
+                      Packing List
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRegeneratePacking}
+                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-black transition-colors"
+                    >
+                      SYNC BUILDS
+                    </button>
+                  </div>
+
+                  {packingItems.length === 0 ? (
+                    <p className="text-xs text-kyar-textTertiary italic mb-4">
+                      No items yet. Add below or sync from builds.
+                    </p>
+                  ) : (
+                    <div className="space-y-6 mb-6 max-h-[300px] overflow-y-auto pr-2">
+                      {(() => {
+                        const general = packingItems.filter((i) => !i.date && !i.buildId);
+                        const byDate = new Map<string, typeof packingItems>();
+                        for (const i of packingItems.filter((i) => i.date || i.buildId)) {
+                          const key = i.date ?? "general";
+                          if (!byDate.has(key)) byDate.set(key, []);
+                          byDate.get(key)!.push(i);
+                        }
+                        const dateKeys = Array.from(byDate.keys()).sort();
+                        return (
+                          <>
+                            {general.length > 0 && (
+                              <div>
+                                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-kyar-meta mb-2 border-b border-kyar-borderSubtle pb-1">
+                                  GENERAL
+                                </p>
+                                <ul className="space-y-1">
+                                  {general.map((item) => (
+                                    <li key={item._id}>
+                                      <PackingItemRow
+                                        item={item}
+                                        isManual={item.closetItemId === undefined}
+                                        userId={userId}
+                                        onToggle={() => {
+                                          if (!userId) return;
+                                          updatePackingItemMut({
+                                            id: item._id,
+                                            userId,
+                                            checked: !item.checked,
+                                          });
+                                        }}
+                                        onUpdate={(patch) =>
+                                          userId &&
+                                          updatePackingItemMut({ id: item._id, userId, ...patch })
+                                        }
+                                        onDelete={
+                                          item.closetItemId === undefined
+                                            ? () =>
+                                                userId &&
+                                                deletePackingItemMut({ id: item._id, userId })
+                                            : undefined
+                                        }
+                                      />
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {dateKeys.map((key) => {
+                              const list = byDate.get(key)!;
+                              const heading = list[0]?.date ?? key;
+                              return (
+                                <div key={key}>
+                                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-kyar-meta mb-2 border-b border-kyar-borderSubtle pb-1">
+                                    {heading}
+                                  </p>
+                                  <ul className="space-y-1">
+                                    {list.map((item) => (
+                                      <li key={item._id}>
+                                        <PackingItemRow
+                                          item={item}
+                                          isManual={item.closetItemId === undefined}
+                                          userId={userId}
+                                          onToggle={() => {
+                                            if (!userId) return;
+                                            updatePackingItemMut({
+                                              id: item._id,
+                                              userId,
+                                              checked: !item.checked,
+                                            });
+                                          }}
+                                          onUpdate={(patch) =>
+                                            userId &&
+                                            updatePackingItemMut({ id: item._id, userId, ...patch })
+                                          }
+                                          onDelete={
+                                            item.closetItemId === undefined
+                                              ? () =>
+                                                  userId &&
+                                                  deletePackingItemMut({ id: item._id, userId })
+                                              : undefined
+                                          }
+                                        />
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newPackingLabel}
+                        onChange={(e) => setNewPackingLabel(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && (e.preventDefault(), handleAddPackingItem())
+                        }
+                        placeholder="Add manual item..."
+                        className="flex-1 min-w-0 bg-transparent border-b border-kyar-borderSubtle py-2 text-xs focus:outline-none focus:border-black placeholder:text-kyar-meta transition-colors"
+                      />
                       <button
                         type="button"
-                        onClick={() => setPickerDate(date)}
-                        className="w-full text-left rounded-none border border-kyar-borderSubtle hover:border-kyar-textTertiary transition-colors"
+                        onClick={handleAddPackingItem}
+                        disabled={!newPackingLabel.trim() || !userId}
+                        className="text-[9px] font-bold uppercase tracking-widest text-kyar-text hover:text-kyar-accent transition-colors disabled:opacity-50 shrink-0"
                       >
-                        {build ? (
-                          <div className="p-3 bg-white flex gap-3">
-                            <div className="w-16 h-20 bg-kyar-muted flex items-center justify-center border border-kyar-borderSubtle overflow-hidden flex-shrink-0">
-                              {build.imageStorageId || build.imageUrl ? (
-                                <ResolvedImage
-                                  imageStorageId={build.imageStorageId}
-                                  imageUrl={build.imageUrl}
-                                  alt={build.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="material-symbols-outlined text-2xl text-kyar-textTertiary">
-                                  image
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold uppercase tracking-wide truncate">
-                                {build.name}
-                              </p>
-                              <p className="text-[10px] text-kyar-textTertiary mt-0.5">{date}</p>
-                              <p className={`text-[10px] mt-2 ${statusColor}`}>{status}</p>
-                              <p className="text-[9px] text-kyar-textTertiary mt-2">
-                                Tap to change
-                              </p>
-                            </div>
-                            <span className="material-symbols-outlined text-kyar-textTertiary self-center">
-                              chevron_right
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="border border-dashed border-kyar-borderSubtle p-3 bg-kyar-muted/30">
-                            <p className="text-xs text-kyar-textTertiary italic">Rest day</p>
-                            <p className="text-[9px] text-kyar-textTertiary mt-1">
-                              Tap to assign build
-                            </p>
-                          </div>
-                        )}
+                        ADD
                       </button>
                     </div>
+                    <Link
+                      href={`/conventions/${id}/packing`}
+                      className="text-[9px] font-bold uppercase tracking-widest text-center py-3 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors block mt-2"
+                    >
+                      FULL PACKING VIEW
+                    </Link>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div
-          id="convention-logistics"
-          className="border-t border-kyar-borderSubtle pt-8 scroll-mt-4"
-        >
-          <h2 className="font-serif text-2xl italic font-bold mb-4">Logistics</h2>
-          <div className="border border-kyar-borderSubtle p-4 mb-4">
-            <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-2">
-              Accommodation
-            </p>
-            {convention.location ? (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{convention.location}</p>
-                <p className="text-xs text-kyar-textTertiary">Check-in: {convention.startDate}</p>
               </div>
-            ) : (
-              <p className="text-xs text-kyar-textTertiary italic">
-                No accommodation details added yet. Edit convention to add location.
-              </p>
-            )}
-          </div>
+            </div>
 
-          <div className="border border-kyar-borderSubtle p-4">
-            <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-2">
-              Packing list
-            </p>
-            <p className="text-xs text-kyar-textTertiary mb-3">
-              Generated from builds on the timeline. Add your own items below; they won’t be removed
-              when you regenerate.
-            </p>
-            <button
-              type="button"
-              onClick={handleRegeneratePacking}
-              className="w-full bg-black text-white py-2.5 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 mb-4"
-            >
-              Generate from builds
-            </button>
-
-            {packingItems.length === 0 ? (
-              <p className="text-xs text-kyar-textTertiary italic mb-4">
-                No items yet. Generate from builds or add your own.
-              </p>
-            ) : (
-              <div className="space-y-4 mb-4">
-                {(() => {
-                  const general = packingItems.filter((i) => !i.date && !i.buildId);
-                  const byDate = new Map<string, typeof packingItems>();
-                  for (const i of packingItems.filter((i) => i.date || i.buildId)) {
-                    const key = i.date ?? "general";
-                    if (!byDate.has(key)) byDate.set(key, []);
-                    byDate.get(key)!.push(i);
-                  }
-                  const dateKeys = Array.from(byDate.keys()).sort();
-                  return (
-                    <>
-                      {general.length > 0 && (
-                        <div>
-                          <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-1">
-                            General
-                          </p>
-                          <ul className="space-y-0">
-                            {general.map((item) => (
-                              <li key={item._id}>
-                                <PackingItemRow
-                                  item={{
-                                    _id: item._id,
-                                    label: item.label,
-                                    checked: item.checked,
-                                    date: item.date,
-                                    notes: item.notes,
-                                    closetItemId: item.closetItemId,
-                                  }}
-                                  isManual={item.closetItemId === undefined}
-                                  userId={userId}
-                                  onToggle={() => {
-                                    if (!userId) return;
-                                    updatePackingItemMut({
-                                      id: item._id,
-                                      userId,
-                                      checked: !item.checked,
-                                    });
-                                  }}
-                                  onUpdate={(patch) =>
-                                    userId &&
-                                    updatePackingItemMut({ id: item._id, userId, ...patch })
-                                  }
-                                  onDelete={
-                                    item.closetItemId === undefined
-                                      ? () =>
-                                          userId && deletePackingItemMut({ id: item._id, userId })
-                                      : undefined
-                                  }
-                                />
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {dateKeys.map((key) => {
-                        const list = byDate.get(key)!;
-                        const heading = list[0]?.date ?? key;
-                        return (
-                          <div key={key}>
-                            <p className="text-[9px] uppercase tracking-wider text-kyar-textTertiary mb-1">
-                              {heading}
-                            </p>
-                            <ul className="space-y-0">
-                              {list.map((item) => (
-                                <li key={item._id}>
-                                  <PackingItemRow
-                                    item={{
-                                      _id: item._id,
-                                      label: item.label,
-                                      checked: item.checked,
-                                      date: item.date,
-                                      notes: item.notes,
-                                      closetItemId: item.closetItemId,
-                                    }}
-                                    isManual={item.closetItemId === undefined}
-                                    userId={userId}
-                                    onToggle={() => {
-                                      if (!userId) return;
-                                      updatePackingItemMut({
-                                        id: item._id,
-                                        userId,
-                                        checked: !item.checked,
-                                      });
-                                    }}
-                                    onUpdate={(patch) =>
-                                      userId &&
-                                      updatePackingItemMut({ id: item._id, userId, ...patch })
-                                    }
-                                    onDelete={
-                                      item.closetItemId === undefined
-                                        ? () =>
-                                            userId && deletePackingItemMut({ id: item._id, userId })
-                                        : undefined
-                                    }
-                                  />
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
+            {/* Floating Action Bar */}
+            <div className="fixed bottom-0 right-0 left-0 lg:left-[auto] lg:w-[calc(100%-minmax(0,400px)-4rem)] xl:w-[calc(100%-minmax(0,500px)-4rem)] max-w-6xl mx-auto p-4 lg:p-8 flex justify-end gap-3 pointer-events-none z-30">
+              <div className="pointer-events-auto flex items-center gap-3">
+                <Link
+                  href={`/conventions/${id}/edit`}
+                  className="px-8 py-4 bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-black/90 transition-colors rounded-full"
+                >
+                  EDIT CONVENTION
+                </Link>
               </div>
-            )}
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newPackingLabel}
-                onChange={(e) => setNewPackingLabel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPackingItem())}
-                placeholder="Add your own item…"
-                className="flex-1 min-w-0 border border-kyar-borderSubtle px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleAddPackingItem}
-                disabled={!newPackingLabel.trim() || !userId}
-                className="flex-shrink-0 bg-black text-white px-4 py-2 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
-              >
-                Add
-              </button>
             </div>
           </div>
-
-          <Link
-            href={`/conventions/${id}/packing`}
-            className="block mt-4 text-sm underline text-kyar-textTertiary hover:text-black"
-          >
-            Open full packing list
-          </Link>
         </div>
       </main>
 
       {pickerDate !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-6"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6"
           onClick={() => setPickerDate(null)}
         >
-          <div className="bg-white w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-serif text-lg italic font-bold mb-4">
-              Assign build for {pickerDate}
-            </h2>
-            <button
-              type="button"
-              onClick={() => handleAssign(pickerDate, null)}
-              className="block w-full text-left py-3 border-b border-kyar-borderSubtle text-sm"
-            >
-              Rest day
-            </button>
-            {builds.map((b) => (
+          <div
+            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-serif text-2xl italic font-bold mb-6 text-center">Assign Build</h2>
+            <p className="text-[10px] uppercase tracking-widest text-center text-kyar-meta mb-6 border-b border-kyar-borderSubtle pb-4">
+              {new Date(pickerDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+
+            <div className="max-h-[50vh] overflow-y-auto space-y-2 mb-6">
               <button
-                key={b._id}
                 type="button"
-                onClick={() => handleAssign(pickerDate, b._id)}
-                className="block w-full text-left py-3 border-b border-kyar-borderSubtle text-sm"
+                onClick={() => handleAssign(pickerDate, null)}
+                className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-black hover:bg-kyar-muted transition-colors text-sm font-medium"
               >
-                {b.name}
+                Rest Day (Clear)
               </button>
-            ))}
+              {builds.map((b) => (
+                <button
+                  key={b._id}
+                  type="button"
+                  onClick={() => handleAssign(pickerDate, b._id)}
+                  className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-black hover:bg-kyar-muted transition-colors text-sm font-medium"
+                >
+                  {b.name}{" "}
+                  <span className="text-kyar-meta text-xs font-normal">
+                    ({b.character || "Original"})
+                  </span>
+                </button>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={() => setPickerDate(null)}
-              className="mt-4 w-full text-center meta-label"
+              className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted rounded-full transition-colors"
             >
               CANCEL
             </button>

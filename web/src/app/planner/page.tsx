@@ -59,8 +59,7 @@ function buildTaskTree(
         conventionMap.set(task.conventionId, group);
       }
       // Packing: manual packing-list tasks (no buildId) + auto-created "Pack: …" tasks from assigning build to convention
-      const isPackingTask =
-        !task.buildId || (task.buildId && task.label.startsWith("Pack:"));
+      const isPackingTask = !task.buildId || (task.buildId && task.label.startsWith("Pack:"));
       if (isPackingTask) {
         group.packingTasks.push(task);
       } else {
@@ -86,9 +85,7 @@ function buildTaskTree(
     ([conventionId, g]) => ({
       conventionId,
       conventionName: g.conventionName,
-      builds: Array.from(g.builds.values()).sort((a, b) =>
-        a.buildName.localeCompare(b.buildName)
-      ),
+      builds: Array.from(g.builds.values()).sort((a, b) => a.buildName.localeCompare(b.buildName)),
       packingTasks: g.packingTasks,
     })
   );
@@ -270,24 +267,18 @@ export default function Planner() {
   return (
     <WebAppShell>
       <PageHeader
-        title={
-          view === "daily"
-            ? dateLabel
-            : view === "calendar"
-              ? "Calendar"
-              : "Circuit"
-        }
+        title={view === "daily" ? dateLabel : view === "calendar" ? "Calendar" : "Circuit"}
         subtitle={view === "daily" ? weekdayLabel : undefined}
         sticky
       />
-      <div className="flex gap-4 border-b border-kyar-cardBorder pb-4 mb-6">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-6">
         <button
           type="button"
           onClick={() => setView("daily")}
-          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "daily"
-              ? "border-b-2 border-black text-kyar-text"
-              : "opacity-50 hover:opacity-100"
+              ? "bg-black text-white shadow-md"
+              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "daily"}
           aria-label="Daily view"
@@ -297,10 +288,10 @@ export default function Planner() {
         <button
           type="button"
           onClick={() => setView("events")}
-          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "events"
-              ? "border-b-2 border-black text-kyar-text"
-              : "opacity-50 hover:opacity-100"
+              ? "bg-black text-white shadow-md"
+              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "events"}
           aria-label="Events view"
@@ -310,10 +301,10 @@ export default function Planner() {
         <button
           type="button"
           onClick={() => setView("calendar")}
-          className={`min-h-[44px] min-w-[44px] flex items-center text-[10px] uppercase tracking-[0.2em] font-bold px-3 rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "calendar"
-              ? "border-b-2 border-black text-kyar-text"
-              : "opacity-50 hover:opacity-100"
+              ? "bg-black text-white shadow-md"
+              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "calendar"}
           aria-label="Calendar view"
@@ -328,11 +319,7 @@ export default function Planner() {
             {isLoading ? (
               <p className="text-sm text-kyar-textTertiary">Loading calendar...</p>
             ) : (
-              <FullScreenCalendar
-                data={calendarData}
-                addHref="/builds"
-                addLabel="Add task"
-              />
+              <FullScreenCalendar data={calendarData} addHref="/builds" addLabel="Add task" />
             )}
           </div>
         ) : view === "daily" ? (
@@ -348,10 +335,10 @@ export default function Planner() {
                         key={tf}
                         type="button"
                         onClick={() => setTimeframe(tf)}
-                        className={`min-h-[44px] px-4 py-2 text-[10px] uppercase tracking-wider rounded-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm ${
+                        className={`min-h-[44px] px-4 py-2 text-[10px] uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
                           timeframe === tf
-                            ? "border-black bg-black text-white"
-                            : "border-kyar-cardBorder bg-kyar-surfaceWarm text-kyar-text hover:border-kyar-text"
+                            ? "border-black bg-black text-white shadow-md"
+                            : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
                         }`}
                         aria-pressed={timeframe === tf}
                       >
@@ -361,7 +348,7 @@ export default function Planner() {
                   </div>
                   <Link
                     href="/builds"
-                    className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                    className="min-h-[44px] inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest border border-black px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                   >
                     Add task
                   </Link>
@@ -385,14 +372,14 @@ export default function Planner() {
                           {checkedCount} of {totalCount} tasks
                         </p>
                         <div
-                          className="flex-1 min-w-[120px] h-3 max-w-xs bg-kyar-mutedWarm rounded-sm overflow-hidden border border-kyar-cardBorder"
+                          className="flex-1 min-w-[120px] h-3 max-w-xs bg-kyar-muted rounded-full overflow-hidden border border-kyar-borderSubtle"
                           role="progressbar"
                           aria-valuenow={checkedCount}
                           aria-valuemin={0}
                           aria-valuemax={totalCount}
                         >
                           <div
-                            className="h-full bg-black rounded-sm transition-[width] duration-300"
+                            className="h-full bg-black rounded-full transition-[width] duration-300"
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>
@@ -451,16 +438,16 @@ export default function Planner() {
                         year: "numeric",
                       })}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Link
                         href={`/conventions/${con._id}`}
-                        className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                        className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-kyar-borderSubtle px-6 py-2.5 rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                       >
                         Plan
                       </Link>
                       <Link
                         href={`/conventions/${con._id}/packing`}
-                        className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest border border-kyar-border px-4 py-2.5 rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                        className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-kyar-borderSubtle px-6 py-2.5 rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                       >
                         Packing List
                       </Link>
@@ -495,7 +482,7 @@ function PlannerTaskTree({
       {conventionGroups.map((convention) => (
         <details
           key={convention.conventionId}
-          className="group border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-surfaceWarm"
+          className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm"
         >
           <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
             <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
@@ -514,7 +501,7 @@ function PlannerTaskTree({
             {convention.builds.map((build) => (
               <details
                 key={build.buildId}
-                className="group/build border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-bgWarm"
+                className="group/build border border-kyar-borderSubtle rounded-xl overflow-hidden bg-kyar-muted"
               >
                 <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
                   <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/build:rotate-90 transition-transform">
@@ -534,7 +521,7 @@ function PlannerTaskTree({
             {convention.packingTasks.length > 0 && (
               <details
                 key={`packing-${convention.conventionId}`}
-                className="group/pack border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-bgWarm"
+                className="group/pack border border-kyar-borderSubtle rounded-xl overflow-hidden bg-kyar-muted"
               >
                 <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
                   <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/pack:rotate-90 transition-transform">
@@ -557,7 +544,7 @@ function PlannerTaskTree({
       {standaloneBuilds.map((build) => (
         <details
           key={build.buildId}
-          className="group border border-kyar-cardBorder rounded-sm overflow-hidden bg-kyar-surfaceWarm"
+          className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm"
         >
           <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
             <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
@@ -598,13 +585,13 @@ function PlannerTaskRow({
     ? `/conventions/${task.conventionId}/packing`
     : `/build-detail?id=${task.buildId}`;
   return (
-    <div className="flex items-start gap-3 border border-kyar-cardBorder rounded-sm p-3 bg-kyar-surfaceWarm min-h-[44px]">
+    <div className="flex items-start gap-3 border border-kyar-borderSubtle rounded-xl p-4 bg-kyar-surface shadow-sm min-h-[44px] hover:border-kyar-text transition-colors">
       <input
         type="checkbox"
         checked={task.checked}
         onChange={() => onToggle(task._id, !task.checked)}
         disabled={!userId}
-        className="mt-1 rounded-sm border-kyar-border w-5 h-5 min-w-[20px] min-h-[20px] focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bgWarm"
+        className="mt-1 rounded-full border-2 border-black bg-white w-6 h-6 min-w-[24px] min-h-[24px] focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-transform active:scale-90 cursor-pointer checked:bg-black checked:border-black"
         aria-label={`Mark "${task.label}" as ${task.checked ? "incomplete" : "complete"}`}
       />
       <div className="flex-1 min-w-0">

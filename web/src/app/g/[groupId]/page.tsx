@@ -30,14 +30,10 @@ export default function GroupDetailPage() {
     api.groups.getWithMembers,
     groupId && userId ? { groupId, userId } : groupId ? { groupId } : "skip"
   );
-  const builds = useQuery(
-    api.builds.listByGroup,
-    groupId ? { groupId } : "skip"
-  ) ?? [];
-  const conventionDays = useQuery(
-    api.groupConventionDays.listForGroupWithConventions,
-    groupId ? { groupId } : "skip"
-  ) ?? [];
+  const builds = useQuery(api.builds.listByGroup, groupId ? { groupId } : "skip") ?? [];
+  const conventionDays =
+    useQuery(api.groupConventionDays.listForGroupWithConventions, groupId ? { groupId } : "skip") ??
+    [];
   const myConventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
   const myBuilds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
 
@@ -48,6 +44,8 @@ export default function GroupDetailPage() {
   const [selectedConventionId, setSelectedConventionId] = useState<Id<"conventions"> | null>(null);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [daysPending, setDaysPending] = useState(false);
+
+  const [buildPickerOpen, setBuildPickerOpen] = useState(false);
 
   const group = data?.group;
   const members = data?.members ?? [];
@@ -101,6 +99,7 @@ export default function GroupDetailPage() {
   const handleAddBuildToGroup = async (buildId: Id<"builds">) => {
     if (!groupId || !userId) return;
     await setBuildGroup({ buildId, userId, groupId });
+    setBuildPickerOpen(false);
   };
 
   const handleRemoveBuildFromGroup = async (buildId: Id<"builds">) => {
@@ -112,7 +111,9 @@ export default function GroupDetailPage() {
     return (
       <WebAppShell>
         <p className="meta-label pt-12">Missing group id.</p>
-        <Link href="/groups" className="mt-4 text-sm underline">Back to Groups</Link>
+        <Link href="/groups" className="mt-4 text-sm underline">
+          Back to Groups
+        </Link>
       </WebAppShell>
     );
   }
@@ -129,226 +130,426 @@ export default function GroupDetailPage() {
     return (
       <WebAppShell>
         <p className="meta-label pt-12">Group not found or not visible.</p>
-        <Link href="/groups" className="mt-4 text-sm underline">Back to Groups</Link>
+        <Link href="/groups" className="mt-4 text-sm underline">
+          Back to Groups
+        </Link>
       </WebAppShell>
     );
   }
 
   return (
     <WebAppShell>
-      <header className="pt-16 pb-6 flex justify-between items-end">
-        <div>
-          <Link href="/groups" className="text-[11px] uppercase tracking-widest text-kyar-textSecondary hover:text-kyar-accent mb-2 inline-block">
-            Groups
+      <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-sm pt-4 sm:pt-6 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/groups"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+          >
+            <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
-          <h1 className="font-serif text-4xl tracking-tight">{group.name}</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-kyar-meta font-mono">
+            Group
+          </p>
         </div>
       </header>
 
-      <main className="mt-10 space-y-10">
-        {(group.description || group.imageStorageId || group.imageUrl) && (
-          <section>
-            <div className="flex flex-col sm:flex-row gap-6">
-              {(group.imageStorageId || group.imageUrl) && (
-                <div className="w-full sm:w-48 aspect-[4/3] rounded-lg overflow-hidden bg-kyar-mutedWarm flex-shrink-0">
-                  {group.imageStorageId ? (
-                    <ResolvedImage
-                      imageStorageId={group.imageStorageId}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img src={group.imageUrl!} alt="" className="w-full h-full object-cover" />
-                  )}
+      <main className="flex-1 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_1fr] xl:grid-cols-[minmax(0,500px)_1fr] gap-8 lg:gap-16 max-w-6xl mx-auto">
+          {/* Left Column (Sticky Image) */}
+          <div className="lg:sticky lg:top-24 h-[60vh] lg:h-[calc(100vh-8rem)]">
+            <div className="w-full h-full bg-kyar-muted overflow-hidden rounded-2xl shadow-soft relative">
+              {group.imageStorageId || group.imageUrl ? (
+                <ResolvedImage
+                  imageStorageId={group.imageStorageId}
+                  imageUrl={group.imageUrl}
+                  alt={group.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                  <span className="material-symbols-outlined text-6xl">group</span>
                 </div>
               )}
-              {group.description && (
-                <p className="text-sm text-kyar-textSecondary whitespace-pre-wrap">{group.description}</p>
-              )}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">Members</h2>
-          <ul className="flex flex-wrap gap-3">
-            {members.map((m) => (
-              <li key={m.userId} className="flex items-center gap-2 px-3 py-2 rounded-md bg-kyar-mutedWarm">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-kyar-cardBorder">
-                  {m.imageStorageId ? (
-                    <ResolvedImage imageStorageId={m.imageStorageId} alt="" className="w-full h-full object-cover" />
-                  ) : m.image ? (
-                    <img src={m.image} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="w-full h-full flex items-center justify-center text-xs material-symbols-outlined">person</span>
-                  )}
-                </div>
-                <span className="text-sm font-medium">{m.name}</span>
-                <span className="text-[11px] text-kyar-textTertiary capitalize">{m.role}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">Convention days</h2>
-          <p className="text-sm text-kyar-textSecondary mb-3">
-            Select which days of a convention the group is wearing this cosplay.
-          </p>
-          {conventionDays.length > 0 && (
-            <ul className="space-y-2 mb-4">
-              {conventionDays.map((c) => (
-                <li key={c.conventionId} className="flex items-center justify-between py-2 border-b border-kyar-borderSubtle">
-                  <div>
-                    <p className="font-medium">{c.conventionName}</p>
-                    <p className="text-xs text-kyar-textTertiary">
-                      {c.dates.length} day{c.dates.length !== 1 ? "s" : ""} selected: {c.dates.join(", ")}
-                    </p>
-                  </div>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenConventionPicker(c.conventionId as Id<"conventions">)}
-                      className="text-[11px] uppercase tracking-widest text-kyar-accent hover:underline"
-                    >
-                      Edit
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {isAdmin && (
-            <div>
-              <p className="text-[11px] text-kyar-textTertiary mb-2">Add convention (your events):</p>
-              <div className="flex flex-wrap gap-2">
-                {myConventions
-                  .filter((c) => !conventionDays.some((cd) => cd.conventionId === c._id))
-                  .map((c) => (
-                    <button
-                      key={c._id}
-                      type="button"
-                      onClick={() => handleOpenConventionPicker(c._id)}
-                      className="px-3 py-2 text-sm border border-kyar-cardBorder rounded-md hover:border-kyar-accent/50"
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {conventionPickerOpen && selectedConvention && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-kyar-bg rounded-lg shadow-lg max-w-md w-full p-6">
-              <h3 className="font-serif text-xl mb-2">{selectedConvention.name}</h3>
-              <p className="text-sm text-kyar-textSecondary mb-4">
-                Select days the group is wearing this cosplay:
-              </p>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {datesInRange.map((date) => (
-                  <label key={date} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedDates.has(date)}
-                      onChange={() => toggleDate(date)}
-                      className="rounded border-kyar-cardBorder"
-                    />
-                    <span className="text-sm">
-                      {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveDays}
-                  disabled={daysPending}
-                  className="flex-1 bg-black text-white py-2 text-sm font-medium uppercase tracking-wider disabled:opacity-50"
-                >
-                  {daysPending ? "Saving…" : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConventionPickerOpen(false)}
-                  className="px-4 py-2 border border-kyar-border text-sm"
-                >
-                  Cancel
-                </button>
+              <div className="absolute bottom-6 left-6 bg-black text-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+                GROUP COSPLAY
               </div>
             </div>
           </div>
-        )}
 
-        <section>
-          <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">Builds in this group</h2>
-          {builds.length === 0 ? (
-            <p className="text-sm text-kyar-textSecondary">No builds added yet.</p>
-          ) : (
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {builds.map((b) => (
-                <li key={b._id}>
-                  <Link
-                    href={`/build-detail?id=${b._id}`}
-                    className="block border border-kyar-cardBorder rounded-lg overflow-hidden bg-kyar-card hover:border-kyar-accent/50"
+          {/* Right Column (Details) */}
+          <div className="flex flex-col pt-4 lg:pt-8 min-w-0 pb-32">
+            <div className="flex justify-between items-start gap-4 mb-8">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-meta leading-relaxed">
+                {group.visibility} GROUP
+              </p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-text shrink-0 text-right">
+                {members.length} MEMBER{members.length !== 1 && "S"}
+              </p>
+            </div>
+
+            <h1 className="font-serif text-5xl lg:text-6xl font-normal italic tracking-tight mb-8 leading-none">
+              {group.name}
+            </h1>
+
+            {group.description && (
+              <p className="text-sm text-kyar-text leading-relaxed mb-16 whitespace-pre-wrap">
+                {group.description}
+              </p>
+            )}
+
+            {/* Members Section */}
+            <section className="mb-16">
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                Members
+              </h2>
+              <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                {members.map((m) => (
+                  <li
+                    key={m.userId}
+                    className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-soft group/member bg-kyar-muted"
                   >
-                    <div className="aspect-[4/3] bg-kyar-mutedWarm">
-                      {b.imageStorageId ? (
-                        <ResolvedImage imageStorageId={b.imageStorageId} alt="" className="w-full h-full object-cover" />
-                      ) : b.imageUrl ? (
-                        <img src={b.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="w-full h-full flex items-center justify-center text-kyar-textTertiary material-symbols-outlined text-4xl">palette</span>
-                      )}
+                    {m.imageStorageId ? (
+                      <ResolvedImage
+                        imageStorageId={m.imageStorageId}
+                        alt={m.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/member:scale-105"
+                      />
+                    ) : m.image ? (
+                      <img
+                        src={m.image}
+                        alt={m.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/member:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary">
+                        <span className="material-symbols-outlined text-3xl">person</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-white text-[10px] font-bold uppercase tracking-widest truncate">
+                        {m.name}
+                      </p>
+                      <p className="text-white/70 text-[8px] uppercase tracking-[0.2em]">
+                        {m.role}
+                      </p>
                     </div>
-                    <div className="p-3">
-                      <p className="font-medium truncate">{b.name}</p>
-                      {b.character && <p className="text-xs text-kyar-textSecondary">{b.character}</p>}
-                    </div>
-                  </Link>
-                  {userId === b.userId && (
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {/* Conventions Section */}
+            <section className="mb-16">
+              <div className="flex justify-between items-baseline border-b border-kyar-borderSubtle pb-3 mb-6">
+                <h2 className="text-[9px] font-bold uppercase tracking-[0.2em]">
+                  Associated Conventions
+                </h2>
+                {isAdmin && (
+                  <div className="relative group/addcon">
                     <button
                       type="button"
-                      onClick={() => handleRemoveBuildFromGroup(b._id)}
-                      className="mt-1 text-xs text-kyar-textTertiary hover:text-red-600"
+                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-black transition-colors"
                     >
-                      Remove from group
+                      + ADD
                     </button>
-                  )}
-                </li>
+                    {/* Hover dropdown for conventions */}
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-kyar-surface border border-kyar-borderSubtle rounded-xl shadow-xl opacity-0 invisible group-hover/addcon:opacity-100 group-hover/addcon:visible transition-all z-20 overflow-hidden">
+                      {myConventions.filter(
+                        (c) => !conventionDays.some((cd) => cd.conventionId === c._id)
+                      ).length === 0 ? (
+                        <div className="p-4 text-xs text-kyar-textTertiary text-center italic">
+                          No new conventions available.
+                        </div>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto">
+                          {myConventions
+                            .filter((c) => !conventionDays.some((cd) => cd.conventionId === c._id))
+                            .map((c) => (
+                              <button
+                                key={c._id}
+                                type="button"
+                                onClick={() => handleOpenConventionPicker(c._id)}
+                                className="w-full text-left px-4 py-3 text-xs hover:bg-kyar-muted transition-colors border-b border-kyar-borderSubtle last:border-0"
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {conventionDays.length === 0 ? (
+                <p className="text-sm text-kyar-textTertiary italic">No conventions linked.</p>
+              ) : (
+                <ul className="grid gap-4 sm:grid-cols-2">
+                  {conventionDays.map((c) => (
+                    <li
+                      key={c.conventionId}
+                      className="relative p-5 rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft group/con overflow-hidden"
+                    >
+                      <div className="relative z-10 flex flex-col h-full justify-between min-h-[100px]">
+                        <div>
+                          <p className="font-serif italic font-bold text-xl leading-tight mb-2">
+                            {c.conventionName}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {c.dates.map((date) => (
+                              <span
+                                key={date}
+                                className="px-2 py-1 bg-kyar-muted text-[8px] font-bold uppercase tracking-widest rounded-sm"
+                              >
+                                {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {isAdmin && (
+                          <div className="mt-4 self-start">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenConventionPicker(c.conventionId as Id<"conventions">)
+                              }
+                              className="text-[9px] font-bold uppercase tracking-widest text-kyar-meta hover:text-kyar-accent transition-colors"
+                            >
+                              EDIT DAYS
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Builds Section */}
+            <section>
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.2em] mb-6 border-b border-kyar-borderSubtle pb-3">
+                Builds in this group
+              </h2>
+              {builds.length === 0 ? (
+                <p className="text-sm text-kyar-textTertiary italic">No builds added yet.</p>
+              ) : (
+                <ul className="grid gap-4 sm:grid-cols-2">
+                  {builds.map((b) => (
+                    <li key={b._id} className="relative">
+                      <Link
+                        href={`/build-detail?id=${b._id}`}
+                        className="block relative aspect-[4/3] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group/build"
+                      >
+                        {b.imageStorageId ? (
+                          <ResolvedImage
+                            imageStorageId={b.imageStorageId}
+                            alt={b.name}
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/build:scale-105"
+                          />
+                        ) : b.imageUrl ? (
+                          <img
+                            src={b.imageUrl}
+                            alt={b.name}
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/build:scale-105"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover/build:scale-105">
+                            <span className="material-symbols-outlined text-6xl">palette</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+
+                        <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                          <div className="flex justify-between items-end gap-2">
+                            <div className="flex-1 min-w-0">
+                              {b.character && (
+                                <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
+                                  {b.character}
+                                </span>
+                              )}
+                              <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover/build:opacity-90">
+                                {b.name}
+                              </h3>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                      {userId === b.userId && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBuildFromGroup(b._id)}
+                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-600 transition-colors backdrop-blur-sm z-10"
+                          aria-label="Remove from group"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Floating Action Bar */}
+            {userId && (
+              <div className="fixed bottom-0 right-0 left-0 lg:left-[auto] lg:w-[calc(100%-minmax(0,400px)-4rem)] xl:w-[calc(100%-minmax(0,500px)-4rem)] max-w-6xl mx-auto p-4 lg:p-8 flex justify-end gap-3 pointer-events-none z-30">
+                <div className="pointer-events-auto flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBuildPickerOpen(true)}
+                    className="px-8 py-4 bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-black/90 transition-colors rounded-full"
+                  >
+                    ADD MY BUILD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({
+                          title: group.name,
+                          url: window.location.href,
+                        });
+                      }
+                    }}
+                    className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center border border-kyar-borderSubtle shadow-soft hover:bg-kyar-muted transition-colors"
+                    aria-label="Share"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">share</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Modals */}
+      {conventionPickerOpen && selectedConvention && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-kyar-surface rounded-3xl shadow-2xl border border-kyar-borderSubtle max-w-md w-full p-6 sm:p-8">
+            <h3 className="font-serif text-3xl font-bold italic mb-2 text-center">
+              {selectedConvention.name}
+            </h3>
+            <p className="text-sm text-kyar-textSecondary mb-8 text-center">
+              Select days the group is wearing this cosplay:
+            </p>
+            <div className="flex flex-col gap-3 mb-8 max-h-[40vh] overflow-y-auto">
+              {datesInRange.map((date) => (
+                <label
+                  key={date}
+                  className="flex items-center gap-4 cursor-pointer group p-3 rounded-xl border border-kyar-borderSubtle hover:border-black transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedDates.has(date)}
+                    onChange={() => toggleDate(date)}
+                    className="w-5 h-5 rounded-full border-2 border-kyar-borderSubtle text-black focus:ring-black focus:ring-offset-0 transition-colors cursor-pointer checked:border-black"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium">
+                      {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
+                        weekday: "long",
+                      })}
+                    </span>
+                    <span className="block text-[10px] text-kyar-textTertiary uppercase tracking-widest">
+                      {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </label>
               ))}
-            </ul>
-          )}
-          {userId && (
-            <div className="mt-4">
-              <p className="text-[11px] text-kyar-textTertiary mb-2">Add your build to this group:</p>
-              <select
-                className="border border-kyar-cardBorder rounded-md px-3 py-2 text-sm"
-                value=""
-                onChange={(e) => {
-                  const id = e.target.value as Id<"builds">;
-                  if (id) handleAddBuildToGroup(id);
-                }}
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConventionPickerOpen(false)}
+                className="flex-1 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-kyar-muted rounded-full transition-colors"
               >
-                <option value="">Choose a build…</option>
-                {myBuilds
+                CANCEL
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDays}
+                disabled={daysPending}
+                className="flex-1 bg-black text-white rounded-full py-3 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+              >
+                {daysPending ? "SAVING…" : "SAVE DAYS"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {buildPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-kyar-surface rounded-3xl shadow-2xl border border-kyar-borderSubtle max-w-md w-full p-6 sm:p-8">
+            <h3 className="font-serif text-3xl font-bold italic mb-6 text-center">Select Build</h3>
+
+            <div className="max-h-[50vh] overflow-y-auto space-y-2 mb-8">
+              {myBuilds.filter((b) => !builds.some((gb) => gb._id === b._id)).length === 0 ? (
+                <p className="text-center text-sm text-kyar-textTertiary py-4">
+                  No available builds to add.
+                </p>
+              ) : (
+                myBuilds
                   .filter((b) => !builds.some((gb) => gb._id === b._id))
                   .map((b) => (
-                    <option key={b._id} value={b._id}>
-                      {b.name} {b.character ? `(${b.character})` : ""}
-                    </option>
-                  ))}
-              </select>
+                    <button
+                      key={b._id}
+                      type="button"
+                      onClick={() => handleAddBuildToGroup(b._id)}
+                      className="w-full text-left p-4 rounded-xl border border-kyar-borderSubtle hover:border-black hover:shadow-md transition-all flex items-center gap-4 group"
+                    >
+                      <div className="w-12 h-16 bg-kyar-muted rounded-lg overflow-hidden shrink-0">
+                        {b.imageStorageId ? (
+                          <ResolvedImage
+                            imageStorageId={b.imageStorageId}
+                            alt={b.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : b.imageUrl ? (
+                          <img
+                            src={b.imageUrl}
+                            alt={b.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                            <span className="material-symbols-outlined text-xl">palette</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-serif italic font-bold text-lg truncate group-hover:text-kyar-accent transition-colors">
+                          {b.name}
+                        </p>
+                        <p className="text-[9px] uppercase tracking-widest text-kyar-textTertiary truncate">
+                          {b.character || "Original"}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+              )}
             </div>
-          )}
-        </section>
-      </main>
+
+            <button
+              type="button"
+              onClick={() => setBuildPickerOpen(false)}
+              className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted rounded-full transition-colors"
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      )}
     </WebAppShell>
   );
 }

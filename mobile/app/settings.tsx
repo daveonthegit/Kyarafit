@@ -1,7 +1,6 @@
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, font } from "@kyarafit/design-system/rn";
 import { useSession, signOut } from "../src/lib/auth/client";
 
 const menuItems = ["Account Details", "Subscription Plan", "Notification Style"];
@@ -15,135 +14,68 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+    <View className="flex-1 bg-white">
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
-        <View style={styles.header}>
+        <View className="flex-row justify-between items-end px-8 pt-16 pb-6">
           <View>
-            <Text style={styles.metaLabel}>System Preferences</Text>
-            <Text style={styles.title}>Settings</Text>
+            <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/40 mb-2">
+              System Preferences
+            </Text>
+            <Text className="font-serif text-4xl text-black tracking-tight">Settings</Text>
           </View>
-          <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={colors.black} />
+          <Pressable onPress={() => router.back()} className="mb-2">
+            <Ionicons name="close" size={24} color="#000" />
           </Pressable>
         </View>
 
         {/* Tier / sync copy */}
         {!session && (
-          <View style={styles.tierNote}>
-            <Text style={styles.tierNoteText}>Local-only mode</Text>
-            <Text style={styles.tierNoteSub}>Sign in to sync across devices.</Text>
-            <Pressable style={styles.signInBtn} onPress={() => router.push("/auth")}>
-              <Text style={styles.signInBtnText}>Sign In or Create Account</Text>
+          <View className="px-8 mt-4 py-2">
+            <Text className="text-[11px] uppercase tracking-[0.15em] font-semibold text-black/50">
+              Local-only mode
+            </Text>
+            <Text className="text-[10px] text-black/60 mt-1">Sign in to sync across devices.</Text>
+            <Pressable
+              className="mt-4 border border-black py-3 items-center"
+              onPress={() => router.push("/auth")}
+            >
+              <Text className="text-[11px] uppercase tracking-[0.2em] font-semibold text-black">
+                Sign In or Create Account
+              </Text>
             </Pressable>
           </View>
         )}
         {session && (
-          <View style={styles.tierNote}>
-            <Text style={styles.tierNoteSub}>Upgrade for backup and export.</Text>
+          <View className="px-8 mt-4 py-2">
+            <Text className="text-[10px] text-black/60 mt-1">Upgrade for backup and export.</Text>
           </View>
         )}
 
         {/* Content */}
-        <View style={styles.content}>
-          <Text style={styles.sectionTitle}>Profile & Identity</Text>
+        <View className="px-8 mt-10">
+          <Text className="font-serif text-xl italic text-black mb-6">Profile & Identity</Text>
           {menuItems.map((item) => (
-            <Pressable key={item} style={styles.menuItem}>
-              <Text style={styles.menuItemText}>{item}</Text>
+            <Pressable
+              key={item}
+              className="flex-row justify-between items-center py-5 border-b border-black/5"
+            >
+              <Text className="text-[11px] uppercase tracking-[0.2em] font-medium text-black">
+                {item}
+              </Text>
               <Ionicons name="chevron-forward" size={14} color="rgba(0,0,0,0.3)" />
             </Pressable>
           ))}
         </View>
 
         {session && (
-          <Pressable style={styles.signOut} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <Pressable className="px-8 mt-12" onPress={handleSignOut}>
+            <Text className="text-[10px] uppercase tracking-[0.3em] font-semibold text-red-500/80">
+              Sign Out
+            </Text>
           </Pressable>
         )}
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 120 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    paddingHorizontal: 32,
-    paddingTop: 64,
-    paddingBottom: 24,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: "rgba(0,0,0,0.4)",
-    marginBottom: 8,
-  },
-  title: {
-    fontFamily: font.serif,
-    fontSize: 36,
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  closeBtn: { marginBottom: 8 },
-  content: { paddingHorizontal: 32, marginTop: 40 },
-  sectionTitle: {
-    fontFamily: font.serif,
-    fontSize: 20,
-    fontStyle: "italic",
-    color: colors.black,
-    marginBottom: 24,
-  },
-  menuItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f3f3",
-  },
-  menuItemText: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "500",
-    color: colors.black,
-  },
-  signOut: { paddingHorizontal: 32, marginTop: 48 },
-  signOutText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 3,
-    fontWeight: "600",
-    color: "rgba(239,68,68,0.8)",
-  },
-  tierNote: { paddingHorizontal: 32, marginTop: 16, paddingVertical: 8 },
-  tierNoteText: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  tierNoteSub: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
-  signInBtn: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: colors.black,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  signInBtnText: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "600",
-    color: colors.black,
-  },
-});

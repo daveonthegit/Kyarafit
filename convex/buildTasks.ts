@@ -221,7 +221,9 @@ export const update = mutation({
     const { id, userId, ...fields } = args;
     const task = await ctx.db.get(id);
     if (!task) throw new Error("Task not found");
-    const allowed = task.userId === userId || (task.buildId && await canUserEditBuild(ctx, task.buildId, userId));
+    const allowed =
+      task.userId === userId ||
+      (task.buildId && (await canUserEditBuild(ctx, task.buildId, userId)));
     if (!allowed) throw new Error("Not authorized");
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
@@ -268,7 +270,9 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (!task) throw new Error("Task not found");
-    const allowed = task.userId === args.userId || (task.buildId && await canUserEditBuild(ctx, task.buildId, args.userId));
+    const allowed =
+      task.userId === args.userId ||
+      (task.buildId && (await canUserEditBuild(ctx, task.buildId, args.userId)));
     if (!allowed) throw new Error("Not authorized");
     await ctx.db.delete(args.id);
     // Clear completionTaskId from any closet item that used this task

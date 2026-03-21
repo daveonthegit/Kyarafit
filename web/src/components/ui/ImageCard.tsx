@@ -12,7 +12,7 @@ interface ImageCardProps {
 export function ImageCard({ imageUrl, title, tag, className = "" }: ImageCardProps) {
   return (
     <article
-      className={`bg-kyar-surface border border-kyar-borderSubtle overflow-hidden ${className}`}
+      className={`rounded-2xl bg-kyar-surface border border-kyar-borderSubtle overflow-hidden shadow-soft transition-transform hover:-translate-y-1 hover:shadow-lg ${className}`}
     >
       <div className="relative aspect-[3/4] bg-kyar-muted">
         <Image

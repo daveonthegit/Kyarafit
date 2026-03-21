@@ -259,7 +259,7 @@ export default function BuildDetailPage() {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <WebAppShell>
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md pt-12 pb-4 flex items-center gap-4 lg:left-64 px-4 sm:px-6">
+        <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-md pt-12 pb-4 flex items-center gap-4 border-b border-kyar-borderSubtle">
           <Link href="/builds" aria-label="Back to builds">
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
@@ -306,7 +306,7 @@ export default function BuildDetailPage() {
           )}
         </header>
 
-        <main className="mt-24 mb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
+        <main className="mt-6 mb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
           {isEditing ? (
             <div className="max-w-3xl mx-auto space-y-12">
               <div className="text-center pb-8 border-b border-kyar-borderSubtle">

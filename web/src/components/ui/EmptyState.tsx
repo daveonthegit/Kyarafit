@@ -19,7 +19,7 @@ interface EmptyStateProps {
 export function EmptyState({ icon, message, secondary, action, className = "" }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center py-12 px-4 text-center ${className}`.trim()}
+      className={`flex flex-col items-center justify-center py-16 px-4 text-center bg-kyar-surface border border-kyar-borderSubtle rounded-2xl shadow-soft ${className}`.trim()}
       role="status"
       aria-live="polite"
     >
@@ -33,7 +33,7 @@ export function EmptyState({ icon, message, secondary, action, className = "" }:
       )}
       <p className="text-sm text-kyar-textSecondary mb-1">{message}</p>
       {secondary && <p className="text-xs text-kyar-textTertiary mb-4">{secondary}</p>}
-      {action && <div className="mt-2">{action}</div>}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   );
 }

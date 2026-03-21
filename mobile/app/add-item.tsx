@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +13,6 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { processImageForUpload } from "../src/lib/imageUtils";
-import { colors, font } from "@kyarafit/design-system/rn";
 import {
   CLOSET_CATEGORIES,
   createClosetItemSchema,
@@ -107,66 +105,75 @@ export default function AddItemScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="close" size={24} color={colors.black} />
+    <View className="flex-1 bg-white">
+      <View className="flex-row justify-between items-center px-6 pt-14 pb-4 bg-white/95 border-b border-black/5">
+        <Pressable onPress={() => router.back()} className="w-6">
+          <Ionicons name="close" size={24} color="#000" />
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerMeta}>Kyarafit</Text>
-          <Text style={styles.headerTitle}>New Item</Text>
+        <View className="items-center">
+          <Text className="text-[9px] uppercase tracking-[0.4em] font-medium text-black/40">
+            Kyarafit
+          </Text>
+          <Text className="font-serif text-xl font-bold italic text-black mt-0.5">New Item</Text>
         </View>
-        <View style={styles.headerBtn} />
+        <View className="w-6" />
       </View>
 
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.imageSection}>
-            <View style={styles.imageModeToggle}>
+          <View className="mt-4 mb-10">
+            <View className="flex-row gap-2 mb-4">
               <Pressable
-                style={[styles.modeBtn, imageMode === "device" && styles.modeBtnActive]}
+                className={`px-3 py-2 border rounded-full ${imageMode === "device" ? "bg-[#f9f9f9] border-black" : "bg-transparent border-black/10"}`}
                 onPress={() => setImageMode("device")}
               >
                 <Text
-                  style={[styles.modeBtnText, imageMode === "device" && styles.modeBtnTextActive]}
+                  className={`text-[10px] uppercase tracking-[0.2em] ${imageMode === "device" ? "font-semibold text-black" : "font-medium text-black/40"}`}
                 >
                   Device
                 </Text>
               </Pressable>
               <Pressable
-                style={[styles.modeBtn, imageMode === "url" && styles.modeBtnActive]}
+                className={`px-3 py-2 border rounded-full ${imageMode === "url" ? "bg-[#f9f9f9] border-black" : "bg-transparent border-black/10"}`}
                 onPress={() => setImageMode("url")}
               >
-                <Text style={[styles.modeBtnText, imageMode === "url" && styles.modeBtnTextActive]}>
+                <Text
+                  className={`text-[10px] uppercase tracking-[0.2em] ${imageMode === "url" ? "font-semibold text-black" : "font-medium text-black/40"}`}
+                >
                   URL
                 </Text>
               </Pressable>
             </View>
 
             {imageMode === "device" ? (
-              <Pressable style={styles.uploadArea} onPress={pickImage}>
+              <Pressable
+                className="aspect-[3/4] bg-[#f9f9f9] border border-dashed border-black/10 justify-center items-center overflow-hidden rounded-[24px]"
+                onPress={pickImage}
+              >
                 {imageLocalUri ? (
                   <Image
                     source={{ uri: imageLocalUri }}
-                    style={styles.previewImage}
+                    className="w-full h-full"
                     resizeMode="cover"
                   />
                 ) : (
                   <>
                     <Ionicons name="camera-outline" size={32} color="rgba(0,0,0,0.2)" />
-                    <Text style={styles.uploadText}>Add Photo</Text>
+                    <Text className="text-[10px] uppercase tracking-[0.2em] text-black/40 mt-4">
+                      Add Photo
+                    </Text>
                   </>
                 )}
               </Pressable>
             ) : (
-              <View style={styles.urlSection}>
+              <View className="gap-4">
                 <UnderlineInput
                   label="Image URL"
                   value={imageUrl}
@@ -174,10 +181,10 @@ export default function AddItemScreen() {
                   placeholder="https://example.com/image.jpg"
                 />
                 {imageUrl.trim() && (
-                  <View style={styles.urlPreview}>
+                  <View className="aspect-[3/4] bg-[#f9f9f9] overflow-hidden border border-black/10 rounded-[24px]">
                     <Image
                       source={{ uri: imageUrl }}
-                      style={styles.previewImage}
+                      className="w-full h-full"
                       resizeMode="cover"
                     />
                   </View>
@@ -186,7 +193,7 @@ export default function AddItemScreen() {
             )}
           </View>
 
-          <View style={styles.form}>
+          <View className="gap-6">
             <UnderlineInput
               label="Item name"
               value={name}
@@ -194,24 +201,23 @@ export default function AddItemScreen() {
               placeholder="e.g. Arlecchino Wig"
               error={nameError}
             />
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Category</Text>
+            <View className="mb-2">
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/50 mb-2">
+                Category
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.categoryRow}
+                className="flex-grow-0 mb-2"
               >
                 {CLOSET_CATEGORIES.map((c) => (
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    style={[styles.categoryChip, category === c && styles.categoryChipActive]}
+                    className={`px-3 py-2 mr-2 border rounded-full ${category === c ? "bg-black border-black" : "border-black/10"}`}
                   >
                     <Text
-                      style={[
-                        styles.categoryChipText,
-                        category === c && styles.categoryChipTextActive,
-                      ]}
+                      className={`text-xs uppercase tracking-widest ${category === c ? "text-white" : "text-black"}`}
                     >
                       {c}
                     </Text>
@@ -242,167 +248,17 @@ export default function AddItemScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <View style={styles.footer}>
+      <View className="absolute bottom-0 left-0 right-0 p-6 bg-white shadow-md z-10 border-t border-black/5">
         <Pressable
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          className={`bg-black py-5 items-center rounded-full ${saving ? "opacity-60" : ""}`}
           onPress={handleSave}
           disabled={saving}
         >
-          <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save Item"}</Text>
+          <Text className="text-[11px] uppercase tracking-[0.3em] font-bold text-white">
+            {saving ? "Saving…" : "Save Item"}
+          </Text>
         </Pressable>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 16,
-    backgroundColor: "rgba(255,255,255,0.95)",
-  },
-  headerBtn: { width: 24 },
-  headerCenter: { alignItems: "center" },
-  headerMeta: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: 4,
-    fontWeight: "500",
-    color: "rgba(0,0,0,0.4)",
-  },
-  headerTitle: {
-    fontFamily: font.family.serifDisplay,
-    fontSize: 20,
-    fontWeight: "bold",
-    fontStyle: "italic",
-    color: colors.black,
-    marginTop: 2,
-  },
-  keyboardView: { flex: 1 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 140 },
-  imageSection: {
-    marginTop: 16,
-    marginBottom: 40,
-  },
-  imageModeToggle: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-  modeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.12)",
-    backgroundColor: "transparent",
-  },
-  modeBtnActive: {
-    backgroundColor: "#f9f9f9",
-    borderColor: colors.black,
-  },
-  modeBtnText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "600",
-    color: "rgba(0,0,0,0.4)",
-  },
-  modeBtnTextActive: {
-    color: colors.black,
-  },
-  uploadArea: {
-    aspectRatio: 3 / 4,
-    backgroundColor: "#f9f9f9",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.12)",
-    borderStyle: "dashed",
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  urlSection: {
-    gap: 16,
-  },
-  urlPreview: {
-    aspectRatio: 3 / 4,
-    backgroundColor: "#f9f9f9",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.12)",
-  },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-  },
-  uploadText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: "rgba(0,0,0,0.4)",
-    marginTop: 16,
-  },
-  form: { gap: 24 },
-  field: { marginBottom: 8 },
-  fieldLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: "rgba(0,0,0,0.5)",
-    marginBottom: 8,
-  },
-  categoryRow: { flexGrow: 0, marginBottom: 8 },
-  categoryChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: 2,
-  },
-  categoryChipActive: {
-    backgroundColor: colors.black,
-  },
-  categoryChipText: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.black,
-  },
-  categoryChipTextActive: {
-    color: colors.white,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    backgroundColor: colors.white,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveBtn: {
-    backgroundColor: colors.black,
-    paddingVertical: 20,
-    alignItems: "center",
-    borderRadius: 2,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 3,
-    fontWeight: "bold",
-    color: colors.white,
-  },
-});

@@ -1,11 +1,10 @@
 import { useCallback, useState, useMemo } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Image } from "react-native";
+import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type {
   Convention,
   ConventionDayPlan,
@@ -52,7 +51,6 @@ export default function ItineraryScreen() {
 
   const { userId } = useCurrentUser();
 
-  // Convex (when signed in)
   const convexConventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
   const allConventionsFromCloud = useMemo(
     () =>
@@ -110,7 +108,6 @@ export default function ItineraryScreen() {
     userId && buildIdsForTasks.length > 0 ? { buildIds: buildIdsForTasks } : "skip"
   );
 
-  // Local (when anonymous)
   const [localConventions, setLocalConventions] = useState<Convention[]>([]);
   const [localConvention, setLocalConventionOne] = useState<Convention | null>(null);
   const [localPlan, setLocalPlan] = useState<ConventionDayPlan[]>([]);
@@ -178,7 +175,6 @@ export default function ItineraryScreen() {
   );
 
   const isCloud = !!userId;
-  const allConventions = isCloud ? allConventionsFromCloud : localConventions;
   const convention: Convention | null = isCloud
     ? convexConvention
       ? {
@@ -273,11 +269,6 @@ export default function ItineraryScreen() {
 
   const planByDate = useMemo(() => new Map(plan.map((e) => [e.date, e])), [plan]);
 
-  const conventionTasks = useMemo(
-    () => packingItems.filter((item) => !item.buildId),
-    [packingItems]
-  );
-
   const daysUntilStart = useMemo(() => {
     if (!convention) return null;
     const today = new Date();
@@ -291,9 +282,11 @@ export default function ItineraryScreen() {
 
   if (!loaded) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.metaLabel}>Loading…</Text>
+      <View className="flex-1 bg-white">
+        <View className="pt-14 pb-4 px-6 border-b border-black/5">
+          <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+            Loading…
+          </Text>
         </View>
       </View>
     );
@@ -301,42 +294,54 @@ export default function ItineraryScreen() {
 
   if (!conventionId || !convention) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.metaLabel}>No convention selected</Text>
+      <View className="flex-1 bg-white">
+        <View className="pt-14 pb-4 px-6 border-b border-black/5">
+          <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+            No convention selected
+          </Text>
         </View>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.meta}>Please select a convention to view its itinerary.</Text>
+        <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
+          <Text className="text-xs text-black/40">
+            Please select a convention to view its itinerary.
+          </Text>
         </ScrollView>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row items-center gap-4 px-6 pt-14 pb-4 border-b border-black/5 bg-white/95">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.black} />
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </Pressable>
-        <Text style={styles.metaLabel}>Itinerary</Text>
+        <Text className="flex-1 text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+          Itinerary
+        </Text>
         <Pressable
           onPress={() =>
             router.push({ pathname: "/convention-detail", params: { id: conventionId } })
           }
         >
-          <Ionicons name="calendar-outline" size={24} color={colors.black} />
+          <Ionicons name="calendar-outline" size={24} color="#000" />
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{convention.name}</Text>
-        <Text style={styles.syncStatus}>Last synced: recently · Available offline</Text>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 120 }}
+      >
+        <Text className="font-serif text-2xl font-bold italic text-black">{convention.name}</Text>
+        <Text className="text-[9px] uppercase tracking-[0.15em] text-black/40 mt-1.5">
+          Last synced: recently · Available offline
+        </Text>
 
-        {/* Countdown card */}
         {daysUntilStart !== null && (
-          <View style={styles.countdownCard}>
-            <Text style={styles.cardLabel}>COUNTDOWN</Text>
-            <Text style={styles.countdownText}>
+          <View className="border border-black/10 p-4 mt-6">
+            <Text className="text-[9px] uppercase tracking-[0.2em] text-black/40 mb-2">
+              COUNTDOWN
+            </Text>
+            <Text className="font-serif text-xl font-bold italic text-black">
               {daysUntilStart > 0
                 ? `Starts in ${daysUntilStart} day${daysUntilStart === 1 ? "" : "s"}`
                 : daysUntilStart === 0
@@ -346,15 +351,16 @@ export default function ItineraryScreen() {
           </View>
         )}
 
-        {/* Cosplay Timeline */}
-        <View style={styles.timelineHeader}>
-          <Text style={styles.sectionTitle}>Cosplay Timeline</Text>
+        <View className="flex-row justify-between items-baseline mt-8 mb-6">
+          <Text className="font-serif text-xl font-bold italic text-black">Cosplay Timeline</Text>
           <Pressable
             onPress={() =>
               router.push({ pathname: "/convention-detail", params: { id: conventionId } })
             }
           >
-            <Text style={styles.editLink}>EDIT PLAN</Text>
+            <Text className="text-[10px] uppercase tracking-[0.15em] underline text-black">
+              EDIT PLAN
+            </Text>
           </Pressable>
         </View>
 
@@ -365,7 +371,7 @@ export default function ItineraryScreen() {
           const buildPacking = packingItems.filter((item) => item.buildId === entry?.buildId);
 
           let status = "Pending";
-          let statusColor: string = colors.textTertiary;
+          let statusColor = "text-black/40";
 
           if (build && entry?.buildId) {
             const totalItems = buildPacking.length;
@@ -373,7 +379,7 @@ export default function ItineraryScreen() {
 
             if (tasks.length > 0 && tasks.every((t) => t.checked)) {
               status = `Ready to pack (${totalItems} item${totalItems === 1 ? "" : "s"})`;
-              statusColor = "#059669";
+              statusColor = "text-[#059669]";
             } else if (tasks.some((t) => !t.checked)) {
               const missingTasks = tasks.filter((t) => !t.checked);
               if (missingTasks.length <= 2) {
@@ -381,50 +387,62 @@ export default function ItineraryScreen() {
               } else {
                 status = `Missing: ${missingTasks.length} task${missingTasks.length === 1 ? "" : "s"}`;
               }
-              statusColor = "#ea580c";
+              statusColor = "text-[#ea580c]";
             } else if (totalItems > 0) {
               status = `Ready to pack (${packedItems}/${totalItems} packed)`;
-              statusColor = "#059669";
+              statusColor = "text-[#059669]";
             } else {
               status = "Logistics pending";
             }
           }
 
           return (
-            <View key={date} style={styles.dayEntry}>
-              {idx < dates.length - 1 && <View style={styles.timelineConnector} />}
-              <View style={styles.dayRow}>
-                <View style={styles.dayDot}>
-                  <Text style={styles.dayDotText}>{idx + 1}</Text>
+            <View key={date} className="relative mb-6">
+              {idx < dates.length - 1 && (
+                <View className="absolute left-3 top-8 bottom-0 w-px bg-black/10" />
+              )}
+              <View className="flex-row gap-4">
+                <View className="w-6 h-6 rounded-full border-2 border-black/10 bg-white items-center justify-center mt-0.5">
+                  <Text className="text-[10px] font-bold text-black">{idx + 1}</Text>
                 </View>
-                <View style={styles.dayContent}>
-                  <View style={styles.dayLabelRow}>
-                    <Text style={styles.dayLabel}>D{idx + 1}</Text>
+                <View className="flex-1">
+                  <View className="flex-row items-baseline">
+                    <Text className="font-serif text-lg font-bold italic text-black">
+                      D{idx + 1}
+                    </Text>
                   </View>
-                  <Text style={styles.dayDate}>{formatDate(date)}</Text>
+                  <Text className="text-[9px] uppercase tracking-[0.15em] text-black/40 mt-0.5 mb-3">
+                    {formatDate(date)}
+                  </Text>
 
                   {build ? (
-                    <View style={styles.buildCard}>
-                      <View style={styles.buildCardContent}>
+                    <View className="border border-black/10 p-3 bg-white">
+                      <View className="flex-row gap-3">
                         {build.imageUrl ? (
-                          <Image source={{ uri: build.imageUrl }} style={styles.buildImage} />
+                          <Image
+                            source={{ uri: build.imageUrl }}
+                            className="w-16 h-20 rounded-sm"
+                          />
                         ) : (
-                          <View style={[styles.buildImage, styles.placeholderImage]}>
-                            <Ionicons name="image-outline" size={24} color={colors.textTertiary} />
+                          <View className="w-16 h-20 bg-[#F9F9F9] items-center justify-center border border-black/10">
+                            <Ionicons name="image-outline" size={24} color="rgba(0,0,0,0.4)" />
                           </View>
                         )}
-                        <View style={styles.buildInfo}>
-                          <Text style={styles.buildName} numberOfLines={1}>
+                        <View className="flex-1">
+                          <Text
+                            className="text-xs font-bold uppercase tracking-widest text-black"
+                            numberOfLines={1}
+                          >
                             {build.name}
                           </Text>
-                          <Text style={styles.buildDate}>{date}</Text>
-                          <Text style={[styles.buildStatus, { color: statusColor }]}>{status}</Text>
+                          <Text className="text-[10px] text-black/40 mt-0.5">{date}</Text>
+                          <Text className={`text-[10px] mt-2 ${statusColor}`}>{status}</Text>
                         </View>
                       </View>
                     </View>
                   ) : (
-                    <View style={styles.restDayCard}>
-                      <Text style={styles.restDayText}>Rest day</Text>
+                    <View className="border border-black/10 border-dashed p-3 bg-[#F9F9F9]">
+                      <Text className="text-xs italic text-black/40">Rest day</Text>
                     </View>
                   )}
                 </View>
@@ -433,264 +451,42 @@ export default function ItineraryScreen() {
           );
         })}
 
-        {/* Logistics */}
-        <View style={styles.logisticsSection}>
-          <Text style={styles.sectionTitle}>Logistics</Text>
+        <View className="mt-8 pt-8 border-t border-black/10">
+          <Text className="font-serif text-xl font-bold italic text-black">Logistics</Text>
 
-          <View style={styles.logisticsCard}>
-            <Text style={styles.cardLabel}>ACCOMMODATION</Text>
+          <View className="border border-black/10 p-4 mt-3">
+            <Text className="text-[9px] uppercase tracking-[0.2em] text-black/40 mb-2">
+              ACCOMMODATION
+            </Text>
             {convention.location ? (
               <View>
-                <Text style={styles.logisticsText}>{convention.location}</Text>
-                <Text style={styles.logisticsSubtext}>Check-in: {convention.startDate}</Text>
+                <Text className="text-[13px] font-medium text-black mt-1">
+                  {convention.location}
+                </Text>
+                <Text className="text-[11px] text-black/40 mt-1">
+                  Check-in: {convention.startDate}
+                </Text>
               </View>
             ) : (
-              <Text style={styles.logisticsPlaceholder}>No accommodation details added yet</Text>
+              <Text className="text-[11px] italic text-black/40 mt-1">
+                No accommodation details added yet
+              </Text>
             )}
           </View>
 
-          <View style={styles.logisticsCard}>
-            <Text style={styles.cardLabel}>BADGE / TICKET</Text>
-            <Text style={styles.logisticsText}>Convention Badge</Text>
-            <Text style={styles.logisticsSubtext}>Available offline</Text>
+          <View className="border border-black/10 p-4 mt-3">
+            <Text className="text-[9px] uppercase tracking-[0.2em] text-black/40 mb-2">
+              BADGE / TICKET
+            </Text>
+            <Text className="text-[13px] font-medium text-black mt-1">Convention Badge</Text>
+            <Text className="text-[11px] text-black/40 mt-1">Available offline</Text>
           </View>
 
-          <Text style={styles.syncFooter}>Last synced: recently · Available offline</Text>
+          <Text className="text-[9px] uppercase tracking-[0.15em] text-black/40 text-center mt-6">
+            Last synced: recently · Available offline
+          </Text>
         </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-    backgroundColor: "rgba(255,255,255,0.95)",
-  },
-  metaLabel: {
-    flex: 1,
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 24,
-    paddingBottom: 120,
-  },
-  title: {
-    fontFamily: font.serif,
-    fontSize: 24,
-    fontWeight: "bold",
-    fontStyle: "italic",
-    color: colors.black,
-  },
-  syncStatus: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: colors.textTertiary,
-    marginTop: 6,
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 16,
-  },
-  countdownCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    padding: 16,
-    marginTop: 24,
-  },
-  cardLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: colors.textTertiary,
-    marginBottom: 8,
-  },
-  countdownText: {
-    fontFamily: font.serif,
-    fontSize: 20,
-    fontStyle: "italic",
-    fontWeight: "bold",
-    color: colors.black,
-  },
-  timelineHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    marginTop: 32,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontFamily: font.serif,
-    fontSize: 20,
-    fontStyle: "italic",
-    fontWeight: "bold",
-    color: colors.black,
-  },
-  editLink: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    textDecorationLine: "underline",
-    color: colors.text,
-  },
-  dayEntry: {
-    position: "relative",
-    marginBottom: 24,
-  },
-  timelineConnector: {
-    position: "absolute",
-    left: 12,
-    top: 32,
-    bottom: 0,
-    width: 1,
-    backgroundColor: colors.borderSubtle,
-  },
-  dayRow: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  dayDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  dayDotText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: colors.text,
-  },
-  dayContent: {
-    flex: 1,
-  },
-  dayLabelRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  dayLabel: {
-    fontFamily: font.serif,
-    fontSize: 18,
-    fontStyle: "italic",
-    fontWeight: "bold",
-    color: colors.black,
-  },
-  dayDate: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: colors.textTertiary,
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  buildCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    padding: 12,
-    backgroundColor: colors.white,
-  },
-  buildCardContent: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  buildImage: {
-    width: 64,
-    height: 80,
-    borderRadius: 2,
-  },
-  placeholderImage: {
-    backgroundColor: colors.muted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  buildInfo: {
-    flex: 1,
-  },
-  buildName: {
-    fontSize: 12,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.text,
-  },
-  buildDate: {
-    fontSize: 10,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  buildStatus: {
-    fontSize: 10,
-    marginTop: 8,
-  },
-  restDayCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderStyle: "dashed",
-    padding: 12,
-    backgroundColor: `${colors.muted}4D`,
-  },
-  restDayText: {
-    fontSize: 12,
-    fontStyle: "italic",
-    color: colors.textTertiary,
-  },
-  logisticsSection: {
-    marginTop: 32,
-    paddingTop: 32,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  logisticsCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    padding: 16,
-    marginTop: 12,
-  },
-  logisticsText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.text,
-    marginTop: 4,
-  },
-  logisticsSubtext: {
-    fontSize: 11,
-    color: colors.textTertiary,
-    marginTop: 4,
-  },
-  logisticsPlaceholder: {
-    fontSize: 11,
-    fontStyle: "italic",
-    color: colors.textTertiary,
-    marginTop: 4,
-  },
-  syncFooter: {
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    color: colors.textTertiary,
-    textAlign: "center",
-    marginTop: 24,
-  },
-});

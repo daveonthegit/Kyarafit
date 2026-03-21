@@ -42,7 +42,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("userId", ["userId"])
-    .index("accountId_providerId", ["accountId", "providerId"]),
+    .index("accountId_providerId", ["accountId", "providerId"])
+    .index("providerId_userId", ["providerId", "userId"]),
 
   verification: defineTable({
     identifier: v.string(),

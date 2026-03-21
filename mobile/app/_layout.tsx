@@ -1,7 +1,10 @@
+import "../global.css";
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
@@ -104,6 +107,18 @@ function RootLayoutNav() {
       <Stack.Screen name="auth" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="packing" />
+      <Stack.Screen
+        name="add-item"
+        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
+      />
+      <Stack.Screen
+        name="build-new"
+        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
+      />
+      <Stack.Screen
+        name="convention-new"
+        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
+      />
     </Stack>
   );
 }
@@ -117,10 +132,12 @@ export default function RootLayout() {
   );
 
   return (
-    <SafeAreaProvider>
-      <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-        {content}
-      </ConvexBetterAuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+          <BottomSheetModalProvider>{content}</BottomSheetModalProvider>
+        </ConvexBetterAuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

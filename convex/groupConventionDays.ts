@@ -44,7 +44,13 @@ export const listForGroupWithConventions = query({
       .collect();
     const byConvention = new Map<
       string,
-      { conventionId: string; conventionName: string; startDate: string; endDate: string; dates: string[] }
+      {
+        conventionId: string;
+        conventionName: string;
+        startDate: string;
+        endDate: string;
+        dates: string[];
+      }
     >();
     for (const d of days) {
       const key = d.conventionId;
@@ -104,9 +110,7 @@ export const setDays = mutation({
       .query("groupConventionDays")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    const toDelete = existing.filter(
-      (e) => e.conventionId === args.conventionId
-    );
+    const toDelete = existing.filter((e) => e.conventionId === args.conventionId);
     for (const row of toDelete) await ctx.db.delete(row._id);
 
     for (const date of uniqueDates) {
@@ -149,10 +153,7 @@ export const addDay = mutation({
     const existing = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_groupId_conventionId_date", (q) =>
-        q
-          .eq("groupId", args.groupId)
-          .eq("conventionId", args.conventionId)
-          .eq("date", date)
+        q.eq("groupId", args.groupId).eq("conventionId", args.conventionId).eq("date", date)
       )
       .unique();
     if (existing) return existing._id;
@@ -186,10 +187,7 @@ export const removeDay = mutation({
     const row = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_groupId_conventionId_date", (q) =>
-        q
-          .eq("groupId", args.groupId)
-          .eq("conventionId", args.conventionId)
-          .eq("date", date)
+        q.eq("groupId", args.groupId).eq("conventionId", args.conventionId).eq("date", date)
       )
       .unique();
     if (row) await ctx.db.delete(row._id);

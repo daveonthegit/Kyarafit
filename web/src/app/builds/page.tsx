@@ -3,9 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
-import { FloatingAdd } from "@/components/layout/FloatingAdd";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
-import { FilterToolbar } from "@/components/layout/FilterToolbar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -182,86 +180,84 @@ export default function BuildsPage() {
       <PageHeader
         title="My Builds"
         subtitle="Portfolio"
-        primaryAction={{ label: "New build", onClick: () => openCreationModal("newBuild") }}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: "Search builds...",
+          "aria-label": "Search builds by name or character",
+        }}
         trailing={
           <div className="flex items-center gap-2">
             {sharedBuilds.length > 0 && (
               <a
                 href="#shared-with-me"
-                className="min-h-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-mutedWarm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                className="flex items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               >
-                Shared with me ({sharedBuilds.length})
+                Shared ({sharedBuilds.length})
               </a>
             )}
             <Link
               href="/closet"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm border border-kyar-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-kyar-text hover:bg-kyar-accent hover:text-white hover:border-kyar-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+              className="flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-black hover:text-white hover:border-black transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               aria-label="Open closet"
             >
-              <span className="material-symbols-outlined text-lg font-light" aria-hidden>
-                inventory_2
-              </span>
+              Closet
             </Link>
           </div>
         }
-      />
-
-      <FilterToolbar
-        search={{
-          value: search,
-          onChange: setSearch,
-          placeholder: "Search by name or character…",
-          "aria-label": "Search builds by name or character",
-        }}
-        filtersLabel="Filters"
       >
-        <label htmlFor="build-status-filter" className="sr-only">
-          Filter builds by status
-        </label>
-        <select
-          id="build-status-filter"
-          value={activeTab}
-          onChange={(e) => setActiveTab(e.target.value as TabFilter)}
-          className="w-full sm:w-auto min-w-[140px] min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm uppercase tracking-widest"
-          aria-label="Filter builds by status"
-        >
-          {getTabFilterOptions().map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <label
-          htmlFor="build-sort"
-          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center"
-        >
-          Sort by
-        </label>
-        <select
-          id="build-sort"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortBy)}
-          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label="Sort builds by"
-        >
-          <option value="name">Name</option>
-          <option value="progress">Progress</option>
-          <option value="targetDate">Target date</option>
-          <option value="budget">Budget</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-          title={order === "asc" ? "Ascending" : "Descending"}
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden>
-            {order === "asc" ? "arrow_upward" : "arrow_downward"}
+        <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
+            Status
           </span>
-          <span className="text-[10px] uppercase">{order}</span>
-        </button>
-      </FilterToolbar>
+          {getTabFilterOptions().map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setActiveTab(opt.value as TabFilter)}
+              className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                activeTab === opt.value
+                  ? "border-black bg-black text-white shadow-md"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
+              }`}
+              aria-pressed={activeTab === opt.value}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 ml-auto">
+          <label
+            htmlFor="build-sort"
+            className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0"
+          >
+            Sort by
+          </label>
+          <select
+            id="build-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+            aria-label="Sort builds by"
+          >
+            <option value="name">Name</option>
+            <option value="progress">Progress</option>
+            <option value="targetDate">Target date</option>
+            <option value="budget">Budget</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+            className="inline-flex items-center text-kyar-meta hover:text-black transition-colors focus:outline-none"
+            aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+            title={order === "asc" ? "Ascending" : "Descending"}
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden>
+              {order === "asc" ? "arrow_upward" : "arrow_downward"}
+            </span>
+          </button>
+        </div>
+      </PageHeader>
 
       <main className="flex-1 mt-6">
         {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
@@ -274,7 +270,7 @@ export default function BuildsPage() {
               <button
                 type="button"
                 onClick={() => openCreationModal("newBuild")}
-                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 New build
               </button>
@@ -314,91 +310,84 @@ export default function BuildsPage() {
                     checked={isSelected}
                     onChange={() => toggleSelect(b._id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute top-2 right-2 z-10 w-5 h-5 rounded-sm border-2 border-black bg-white/90 focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+                    className="absolute top-4 right-4 z-20 w-6 h-6 rounded-full border border-white/50 bg-black/20 checked:bg-black checked:border-black focus:ring-2 focus:ring-white focus:ring-offset-0 transition-all active:scale-90 shadow-sm backdrop-blur-sm cursor-pointer"
                     aria-label={`Select ${b.name}`}
                   />
                   <Link
                     href={`/build-detail?id=${b._id}`}
-                    className="block cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm rounded-sm"
+                    className={`block relative aspect-[3/4] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group ${isSelected ? "ring-2 ring-black border-black" : "border-kyar-borderSubtle bg-kyar-muted"}`}
                     aria-label={`View details for ${b.name}`}
                   >
-                    <section
-                      className={`rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden ${isSelected ? "ring-2 ring-black ring-offset-2" : ""}`}
-                    >
-                      <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
-                        {b.imageStorageId || b.imageUrl ? (
-                          <ResolvedImage
-                            imageStorageId={b.imageStorageId}
-                            imageUrl={b.imageUrl}
-                            alt={b.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                            <span className="material-symbols-outlined text-6xl">image</span>
-                          </div>
-                        )}
+                    {b.imageStorageId || b.imageUrl ? (
+                      <ResolvedImage
+                        imageStorageId={b.imageStorageId}
+                        imageUrl={b.imageUrl}
+                        alt={b.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+                        <span className="material-symbols-outlined text-6xl">image</span>
                       </div>
-                      <div className="flex flex-col gap-4">
-                        <div className="flex justify-between items-baseline">
-                          <h2 className="font-serif text-2xl font-bold italic tracking-tight">
-                            {b.name}
-                          </h2>
-                          <span className="text-[10px] font-medium tracking-[0.2em] opacity-40 uppercase">
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                      <div className="flex justify-between items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
                             Project {projectNumber}
                           </span>
+                          <h2 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none group-hover:text-kyar-accent transition-colors truncate">
+                            {b.name}
+                          </h2>
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
-                            <span>Construction Progress</span>
-                            <span>{progress}%</span>
-                          </div>
-                          <div className="h-[1px] bg-kyar-border w-full">
-                            <div
-                              className="h-full bg-black transition-all"
-                              style={{ width: `${progress}%` }}
+
+                        {/* Circular Progress SVG */}
+                        <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+                          <svg
+                            className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-md"
+                            viewBox="0 0 36 36"
+                          >
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r="16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="text-white/20"
                             />
-                          </div>
-                        </div>
-                        {b.budgetCents != null && (
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-                              <span>Budget</span>
-                              <span>
-                                {formatCents(b.totalCostCents ?? 0)} / {formatCents(b.budgetCents)}
-                              </span>
-                            </div>
-                            <div className="h-[1px] bg-kyar-border w-full">
-                              <div
-                                className="h-full bg-black transition-all"
-                                style={{
-                                  width: `${Math.min(
-                                    100,
-                                    ((b.totalCostCents ?? 0) / (b.budgetCents || 1)) * 100
-                                  )}%`,
-                                }}
-                              />
-                            </div>
-                            {(b.totalCostCents ?? 0) > (b.budgetCents || 0) && (
-                              <p className="text-[9px] text-kyar-danger">
-                                Over by{" "}
-                                {formatCents((b.totalCostCents ?? 0) - (b.budgetCents || 0))}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex gap-4 pt-2">
-                          <span className="text-[10px] uppercase tracking-widest opacity-60">
-                            {b.status}
-                          </span>
-                          {b.character && (
-                            <span className="text-[10px] uppercase tracking-widest opacity-60">
-                              {b.character}
-                            </span>
-                          )}
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r="16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="text-white"
+                              strokeLinecap="round"
+                              strokeDasharray={`${(progress / 100) * 100} 100`}
+                            />
+                          </svg>
+                          <span className="text-[9px] font-bold drop-shadow-md">{progress}</span>
                         </div>
                       </div>
-                    </section>
+
+                      <div className="flex items-center gap-3 pt-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm">
+                          {b.status}
+                        </span>
+                        {b.character && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-white/50" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
+                              {b.character}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </Link>
                 </div>
               );
@@ -421,38 +410,38 @@ export default function BuildsPage() {
                   <Link
                     key={b._id}
                     href={`/build-detail?id=${b._id}`}
-                    className="block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                    className="block relative aspect-[3/4] w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 text-white group"
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-kyar-mutedWarm mb-4">
-                      {b.imageStorageId || b.imageUrl ? (
-                        <ResolvedImage
-                          imageStorageId={b.imageStorageId}
-                          imageUrl={b.imageUrl}
-                          alt={b.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
-                          <span className="material-symbols-outlined text-6xl">image</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-4 p-4">
-                      <h2 className="font-serif text-2xl font-bold italic tracking-tight">
+                    {b.imageStorageId || b.imageUrl ? (
+                      <ResolvedImage
+                        imageStorageId={b.imageStorageId}
+                        imageUrl={b.imageUrl}
+                        alt={b.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+                        <span className="material-symbols-outlined text-6xl">image</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                      <h2 className="font-serif text-2xl font-bold italic tracking-tight drop-shadow-sm truncate">
                         {b.name}
                       </h2>
-                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest opacity-60">
+                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm mt-1">
                         <span>{b.status}</span>
                         {b.myRole && <span className="text-kyar-accent">{b.myRole}</span>}
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
+                      <div className="space-y-2 mt-3">
+                        <div className="flex justify-between items-end text-[9px] font-bold uppercase tracking-[0.2em] opacity-90 drop-shadow-sm">
                           <span>Progress</span>
                           <span>{progress}%</span>
                         </div>
-                        <div className="h-[1px] bg-kyar-border w-full">
+                        <div className="h-[2px] bg-white/30 w-full rounded-full overflow-hidden drop-shadow-sm">
                           <div
-                            className="h-full bg-black transition-all"
+                            className="h-full bg-white transition-all rounded-full"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
@@ -468,10 +457,10 @@ export default function BuildsPage() {
 
       {selectedIds.size > 0 && (
         <div
-          className="fixed bottom-20 left-0 right-0 z-40 px-4 py-3 bg-kyar-bgWarm border-t border-kyar-cardBorder shadow-soft flex items-center justify-between gap-4 flex-wrap"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-6 py-4 bg-kyar-surface border border-kyar-borderSubtle shadow-lg flex items-center justify-between gap-6 flex-wrap rounded-full w-[90%] max-w-2xl"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <span className="text-sm font-bold">{selectedIds.size} selected</span>
           <div className="flex gap-2 flex-wrap">
             {STATUS_OPTIONS.map(({ value, label }) => (
               <button
@@ -479,7 +468,7 @@ export default function BuildsPage() {
                 type="button"
                 onClick={() => handleSetStatusSelected(value)}
                 disabled={actionPending}
-                className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
               >
                 {label}
               </button>
@@ -488,14 +477,14 @@ export default function BuildsPage() {
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={actionPending}
-              className="px-3 py-1.5 text-xs font-medium text-kyar-danger border border-kyar-danger rounded disabled:opacity-50"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-white transition-colors disabled:opacity-50"
             >
               Delete
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="px-3 py-1.5 text-xs font-medium uppercase opacity-70"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
             >
               Clear
             </button>
@@ -519,7 +508,7 @@ export default function BuildsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-2 border border-black text-sm font-medium rounded-sm"
+              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -527,7 +516,7 @@ export default function BuildsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium rounded-sm disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>
@@ -537,7 +526,7 @@ export default function BuildsPage() {
 
       {deletedForUndo && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-4 bg-kyar-text text-kyar-bg rounded-full border border-kyar-border shadow-2xl"
           role="status"
           aria-live="polite"
         >
@@ -548,14 +537,12 @@ export default function BuildsPage() {
             type="button"
             onClick={handleUndoDelete}
             disabled={actionPending}
-            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors"
           >
             {actionPending ? "Undoing…" : "Undo"}
           </button>
         </div>
       )}
-
-      <FloatingAdd />
     </WebAppShell>
   );
 }

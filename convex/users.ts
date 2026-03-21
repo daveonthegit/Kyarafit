@@ -296,9 +296,10 @@ export const updateProfile = mutation({
 
     const patch: Record<string, unknown> = {};
     if (args.displayName !== undefined) {
-      patch.displayName = args.displayName === ""
-        ? undefined
-        : sanitizeOptional(args.displayName, MAX_LENGTH.displayName, "Display name");
+      patch.displayName =
+        args.displayName === ""
+          ? undefined
+          : sanitizeOptional(args.displayName, MAX_LENGTH.displayName, "Display name");
     }
     if (args.bio !== undefined) {
       patch.bio = args.bio === "" ? undefined : sanitizeOptional(args.bio, MAX_LENGTH.bio, "Bio");

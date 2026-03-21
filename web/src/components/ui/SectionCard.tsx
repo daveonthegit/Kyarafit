@@ -19,10 +19,10 @@ export interface SectionCardProps {
 export function SectionCard({ title, action, children, className = "" }: SectionCardProps) {
   return (
     <section
-      className={`rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden ${className}`.trim()}
+      className={`rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft overflow-hidden ${className}`.trim()}
     >
       {(title || action) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-kyar-cardBorder">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-kyar-borderSubtle">
           {title && (
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-kyar-meta font-mono">
               {title}

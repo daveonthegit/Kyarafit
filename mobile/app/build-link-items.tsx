@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { ClosetItem } from "@kyarafit/design-system/types";
 import { listItems } from "../src/storage/closetRepo";
 import { getLinkedClosetItemIds, linkBuildItems } from "../src/storage/buildsRepo";
@@ -40,93 +39,43 @@ export default function BuildLinkItemsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row justify-between items-center px-6 pt-14 pb-4 border-b border-black/5">
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.backText}>CANCEL</Text>
+          <Text className="text-[10px] uppercase tracking-[0.2em] text-black/50">CANCEL</Text>
         </Pressable>
-        <Text style={styles.metaLabel}>Link Closet Items</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+          Link Closet Items
+        </Text>
         <Pressable onPress={save} disabled={saving}>
-          <Text style={styles.saveText}>SAVE</Text>
+          <Text className="text-[10px] uppercase tracking-[0.2em] font-semibold text-black">
+            SAVE
+          </Text>
         </Pressable>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.hint}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 48 }}>
+        <Text className="text-xs text-black/40 mb-6">
           Select items to include in this build. They will appear in packing lists when this build
           is assigned to a day.
         </Text>
         {items.map((item) => (
-          <Pressable key={item.id} style={styles.row} onPress={() => toggle(item.id)}>
-            <View style={[styles.checkbox, selectedIds.has(item.id) && styles.checkboxChecked]}>
-              {selectedIds.has(item.id) && <View style={styles.checkmark} />}
+          <Pressable
+            key={item.id}
+            className="flex-row items-center py-3.5 border-b border-black/5 gap-3"
+            onPress={() => toggle(item.id)}
+          >
+            <View
+              className={`w-4 h-4 border items-center justify-center ${selectedIds.has(item.id) ? "bg-black border-black" : "border-black/10"}`}
+            >
+              {selectedIds.has(item.id) && <View className="w-1.5 h-1.5 bg-white" />}
             </View>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemCategory}>{item.category}</Text>
+            <Text className="flex-1 text-sm text-black">{item.name}</Text>
+            <Text className="text-[10px] uppercase tracking-widest text-black/40">
+              {item.category}
+            </Text>
           </Pressable>
         ))}
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  backText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.meta,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  saveText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "600",
-    color: colors.black,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
-  hint: { fontSize: 12, color: colors.textTertiary, marginBottom: 24 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-    gap: 12,
-  },
-  checkbox: {
-    width: 16,
-    height: 16,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: { backgroundColor: colors.black },
-  checkmark: { width: 6, height: 6, backgroundColor: colors.white },
-  itemName: { flex: 1, fontSize: 14, color: colors.text },
-  itemCategory: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.textTertiary,
-  },
-});

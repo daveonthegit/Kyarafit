@@ -55,7 +55,10 @@ export default function NewGroupPage() {
       <main className="mt-10 max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+            <label
+              htmlFor="name"
+              className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2"
+            >
               Name
             </label>
             <input
@@ -70,7 +73,10 @@ export default function NewGroupPage() {
             />
           </div>
           <div>
-            <label htmlFor="description" className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
+            <label
+              htmlFor="description"
+              className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2"
+            >
               Description (optional)
             </label>
             <textarea
@@ -116,7 +122,9 @@ export default function NewGroupPage() {
             </p>
           </div>
           {error && (
-            <p className="text-sm text-red-600" role="alert">{error}</p>
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
           )}
           <div className="flex gap-3">
             <button

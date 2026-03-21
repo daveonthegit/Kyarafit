@@ -12,7 +12,8 @@ export type NavSectionId =
   | "planner"
   | "discover"
   | "feed"
-  | "settings";
+  | "settings"
+  | "menu";
 
 export interface NavSection {
   id: NavSectionId;
@@ -45,18 +46,17 @@ export const NAV_SECTION_SETTINGS: NavSection = {
 /** All sections in order: primary first, then settings. */
 export const NAV_SECTIONS: NavSection[] = [...NAV_SECTIONS_PRIMARY, NAV_SECTION_SETTINGS];
 
-/** Bottom nav (mobile viewport): Home, Outfits, Planner, Events, Groups, Profile. */
+/** Bottom nav (mobile viewport): Home, Outfits, Closet, Planner, Menu. */
 export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
+  { id: "closet", label: "Closet", path: "/closet", iconKey: "closet" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
-  { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
-  { id: "groups", label: "Groups", path: "/groups", iconKey: "groups" },
-  NAV_SECTION_SETTINGS,
+  { id: "menu", label: "Menu", path: "#", iconKey: "menu" },
 ];
 
 /** Add context menu: labelKey for i18n, href for deep links / fallback, modal for in-app overlay. */
-export type AddMenuModal = "newBuild" | "newCloset" | "newConvention";
+export type AddMenuModal = "newBuild" | "newCloset" | "newConvention" | "newGroup";
 
 export interface AddMenuItem {
   labelKey: string;
@@ -69,7 +69,17 @@ export const ADD_MENU_ITEMS: AddMenuItem[] = [
   { labelKey: "addOutfit", href: "/builds/new", modal: "newBuild" },
   { labelKey: "addItem", href: "/closet/new", modal: "newCloset" },
   { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
+  { labelKey: "addGroup", href: "/groups/new", modal: "newGroup" },
 ];
+
+/**
+ * Returns true when the page renders its own contextual FAB (e.g. build detail).
+ * When true, the global FAB should be hidden to avoid duplicate floating adds.
+ */
+export function shouldHideGlobalFAB(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return pathname.startsWith("/build-detail");
+}
 
 /**
  * Maps pathname to active nav section id. Used for sidebar/bottom nav highlight.

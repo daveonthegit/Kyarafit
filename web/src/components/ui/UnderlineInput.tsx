@@ -29,7 +29,7 @@ export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
             props.onBlur?.(e);
           }}
           className={`w-full bg-transparent border-0 border-b text-sm md:text-base text-kyar-text placeholder:text-kyar-textTertiary outline-none py-2 ${
-            focused ? "border-kyar-accent border-b-2" : "border-black border-b"
+            focused ? "border-kyar-text border-b" : "border-kyar-border border-b"
           } ${error ? "border-kyar-danger" : ""} ${className}`}
           {...props}
         />

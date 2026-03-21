@@ -4,11 +4,26 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "convex/_generated/api": ["../convex/_generated/api"],
-      "convex/_generated/dataModel": ["../convex/_generated/dataModel"],
-      "convex/_generated/server": ["../convex/_generated/server"]
+      "@/*": [
+        "./src/*"
+      ],
+      "convex/_generated/api": [
+        "../convex/_generated/api"
+      ],
+      "convex/_generated/dataModel": [
+        "../convex/_generated/dataModel"
+      ],
+      "convex/_generated/server": [
+        "../convex/_generated/server"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "global.d.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "global.d.ts",
+    "nativewind-env.d.ts"
+  ]
 }

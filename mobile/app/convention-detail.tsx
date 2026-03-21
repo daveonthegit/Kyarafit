@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, Modal, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, Modal } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { colors, font, layout } from "@kyarafit/design-system/rn";
 import type { Convention, ConventionDayPlan, Build } from "@kyarafit/design-system/types";
 import { useCurrentUser } from "../src/hooks/useCurrentUser";
 import { getConvention } from "../src/storage/conventionsRepo";
@@ -159,67 +158,83 @@ export default function ConventionDetailScreen() {
 
   if (!id) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.meta}>Missing convention id.</Text>
+      <View className="flex-1 bg-white justify-center items-center p-6">
+        <Text className="text-[10px] uppercase tracking-widest text-black/40">
+          Missing convention id.
+        </Text>
       </View>
     );
   }
   if (!loaded) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.meta}>Loading…</Text>
+      <View className="flex-1 bg-white justify-center items-center p-6">
+        <Text className="text-[10px] uppercase tracking-widest text-black/40">Loading…</Text>
       </View>
     );
   }
   if (!convention) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.meta}>Convention not found.</Text>
+      <View className="flex-1 bg-white justify-center items-center p-6">
+        <Text className="text-[10px] uppercase tracking-widest text-black/40">
+          Convention not found.
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-white">
+      <View className="flex-row items-center gap-4 px-6 pt-14 pb-4 border-b border-black/5">
         <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.black} />
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </Pressable>
-        <Text style={styles.metaLabel}>Convention</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+          Convention
+        </Text>
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{convention.name}</Text>
-        <Text style={styles.meta}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 48 }}>
+        <Text className="font-serif text-3xl font-bold italic text-black mt-6">
+          {convention.name}
+        </Text>
+        <Text className="text-[10px] uppercase tracking-widest text-black/40 mt-2">
           {convention.startDate} – {convention.endDate}
           {convention.location ? ` · ${convention.location}` : ""}
         </Text>
-        <Text style={styles.sectionLabel}>DAY-BY-DAY PLAN</Text>
+        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mt-8 mb-4">
+          DAY-BY-DAY PLAN
+        </Text>
         {dates.map((date) => {
           const entry = planByDate.get(date);
           const buildName = entry?.buildId
             ? (builds.find((b) => b.id === entry.buildId)?.name ?? "—")
             : "Rest day";
           return (
-            <Pressable key={date} style={styles.planRow} onPress={() => setPickerDate(date)}>
-              <Text style={styles.planDate}>{date}</Text>
-              <Text style={styles.planBuild} numberOfLines={1}>
+            <Pressable
+              key={date}
+              className="flex-row items-center py-3.5 border-b border-black/5 gap-3"
+              onPress={() => setPickerDate(date)}
+            >
+              <Text className="text-xs text-black w-24">{date}</Text>
+              <Text className="flex-1 text-sm font-serif italic text-black" numberOfLines={1}>
                 {buildName}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+              <Ionicons name="chevron-forward" size={16} color="rgba(0,0,0,0.4)" />
             </Pressable>
           );
         })}
 
         <Pressable
-          style={[styles.primaryBtn, regenerating && styles.disabled]}
+          className={`bg-black py-3.5 mt-8 items-center rounded-full ${regenerating ? "opacity-50" : ""}`}
           onPress={handleGeneratePacking}
           disabled={regenerating}
         >
-          <Text style={styles.primaryBtnText}>GENERATE PACKING LIST</Text>
+          <Text className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+            GENERATE PACKING LIST
+          </Text>
         </Pressable>
 
         <Pressable
-          style={styles.secondaryBtn}
+          className="border border-black py-3.5 mt-3 items-center rounded-full"
           onPress={() =>
             router.push({
               pathname: "/packing",
@@ -227,33 +242,38 @@ export default function ConventionDetailScreen() {
             })
           }
         >
-          <Text style={styles.secondaryBtnText}>VIEW PACKING LIST</Text>
+          <Text className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black">
+            VIEW PACKING LIST
+          </Text>
         </Pressable>
       </ScrollView>
 
       <Modal visible={pickerDate !== null} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setPickerDate(null)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Assign build for {pickerDate}</Text>
+        <Pressable
+          className="flex-1 bg-black/30 justify-center p-6"
+          onPress={() => setPickerDate(null)}
+        >
+          <Pressable className="bg-white p-6 rounded" onPress={(e) => e.stopPropagation()}>
+            <Text className="font-serif text-lg italic mb-4">Assign build for {pickerDate}</Text>
             <Pressable
-              style={styles.modalOption}
+              className="py-3 border-b border-black/5"
               onPress={() => pickerDate && handleReplacePlan([{ date: pickerDate, buildId: null }])}
             >
-              <Text style={styles.optionText}>Rest day</Text>
+              <Text className="text-sm text-black">Rest day</Text>
             </Pressable>
             {builds.map((b) => (
               <Pressable
                 key={b.id}
-                style={styles.modalOption}
+                className="py-3 border-b border-black/5"
                 onPress={() =>
                   pickerDate && handleReplacePlan([{ date: pickerDate, buildId: b.id }])
                 }
               >
-                <Text style={styles.optionText}>{b.name}</Text>
+                <Text className="text-sm text-black">{b.name}</Text>
               </Pressable>
             ))}
-            <Pressable style={styles.modalCancel} onPress={() => setPickerDate(null)}>
-              <Text style={styles.cancelText}>CANCEL</Text>
+            <Pressable className="mt-4 items-center" onPress={() => setPickerDate(null)}>
+              <Text className="text-[10px] uppercase tracking-[0.2em] text-black/50">CANCEL</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -261,122 +281,3 @@ export default function ConventionDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    paddingHorizontal: layout.screenPaddingX,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  metaLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { padding: layout.screenPaddingX, paddingBottom: 48 },
-  title: {
-    fontFamily: font.serif,
-    fontSize: 28,
-    fontWeight: "bold",
-    fontStyle: "italic",
-    color: colors.black,
-    marginTop: 24,
-  },
-  meta: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.textTertiary,
-    marginTop: 8,
-  },
-  sectionLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    color: colors.meta,
-    marginTop: 32,
-    marginBottom: 16,
-  },
-  planRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-    gap: 12,
-  },
-  planDate: { fontSize: 12, color: colors.text, width: 100 },
-  planBuild: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: font.serif,
-    fontStyle: "italic",
-    color: colors.text,
-  },
-  primaryBtn: {
-    backgroundColor: colors.black,
-    paddingVertical: 14,
-    marginTop: 32,
-    alignItems: "center",
-    borderRadius: 2,
-  },
-  primaryBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.white,
-  },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: colors.black,
-    paddingVertical: 14,
-    marginTop: 12,
-    alignItems: "center",
-    borderRadius: 2,
-  },
-  secondaryBtnText: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.black,
-  },
-  disabled: { opacity: 0.5 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  modalContent: { backgroundColor: colors.white, padding: 24, borderRadius: 2 },
-  modalTitle: {
-    fontFamily: font.serif,
-    fontSize: 18,
-    fontStyle: "italic",
-    marginBottom: 16,
-  },
-  modalOption: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  optionText: { fontSize: 14, color: colors.text },
-  modalCancel: { marginTop: 16, alignItems: "center" },
-  cancelText: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    color: colors.meta,
-  },
-});

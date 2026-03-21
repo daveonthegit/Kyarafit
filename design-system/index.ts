@@ -10,6 +10,7 @@ export {
   NAV_SECTIONS_BOTTOM,
   ADD_MENU_ITEMS,
   getActiveSection,
+  shouldHideGlobalFAB,
   type NavSection,
   type NavSectionId,
   type AddMenuItem,

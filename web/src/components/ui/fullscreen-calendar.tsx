@@ -339,14 +339,15 @@ function EventBlock({ event }: { event: CalendarEvent }) {
   const content = (
     <div className="flex flex-col items-start gap-0.5 rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm p-2 text-xs leading-tight">
       <p className="font-medium leading-none text-kyar-text">{event.name}</p>
-      {event.time && (
-        <p className="leading-none text-kyar-textTertiary">{event.time}</p>
-      )}
+      {event.time && <p className="leading-none text-kyar-textTertiary">{event.time}</p>}
     </div>
   );
   if (event.href) {
     return (
-      <Link href={event.href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-sm">
+      <Link
+        href={event.href}
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-sm"
+      >
         {content}
       </Link>
     );

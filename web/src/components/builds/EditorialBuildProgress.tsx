@@ -52,7 +52,9 @@ export function EditorialProgressDonut({
         {p}%
       </span>
       {donut}
-      <span className="text-[10px] tabular-nums text-kyar-textTertiary w-7 shrink-0">{remainder}%</span>
+      <span className="text-[10px] tabular-nums text-kyar-textTertiary w-7 shrink-0">
+        {remainder}%
+      </span>
     </div>
   );
 }
@@ -95,4 +97,3 @@ export function EditorialHorizontalProgressRail({ progress }: { progress: number
     </div>
   );
 }
-

@@ -6,6 +6,7 @@ import type { AddMenuModal } from "@kyarafit/design-system";
 import { NewBuildModal } from "@/components/creation/NewBuildModal";
 import { NewClosetItemModal } from "@/components/creation/NewClosetItemModal";
 import { NewConventionModal } from "@/components/creation/NewConventionModal";
+import { NewGroupModal } from "@/components/creation/NewGroupModal";
 
 type OpenOptions = { dismissTo?: string };
 
@@ -62,6 +63,9 @@ export function CreationModalsProvider({ children }: { children: ReactNode }) {
           onDismiss={dismiss}
           onSuccessComplete={dismissQuiet}
         />
+      )}
+      {active === "newGroup" && (
+        <NewGroupModal key="newGroup" onDismiss={dismiss} onSuccessComplete={dismissQuiet} />
       )}
     </CreationModalsContext.Provider>
   );

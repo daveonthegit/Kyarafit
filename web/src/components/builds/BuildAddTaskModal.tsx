@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { Sheet } from "@/components/ui/sheet";
 
 type BuildAddTaskModalProps = {
   open: boolean;
@@ -61,12 +61,11 @@ export function BuildAddTaskModal({
   };
 
   return (
-    <BuildDetailModalShell
+    <Sheet
       open={open}
       onClose={onClose}
       title="Add tasks"
       titleId="build-add-task-modal-title"
-      size="md"
       footer={
         <button
           type="button"
@@ -108,6 +107,6 @@ export function BuildAddTaskModal({
           {pending ? "Adding…" : "Add"}
         </button>
       </div>
-    </BuildDetailModalShell>
+    </Sheet>
   );
 }

@@ -7,7 +7,6 @@ import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
-import { FilterToolbar } from "@/components/layout/FilterToolbar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { api } from "convex/_generated/api";
@@ -209,68 +208,65 @@ export default function ConventionsPage() {
       <PageHeader
         title="Conventions"
         subtitle="Circuit"
-        primaryAction={{
-          label: "New Convention",
-          onClick: () => openCreationModal("newConvention"),
-        }}
-      />
-
-      <FilterToolbar
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: "Search by name or location…",
+          placeholder: "Search conventions...",
           "aria-label": "Search conventions by name or location",
         }}
-        filtersLabel="Filters"
       >
-        <label htmlFor="convention-filter" className="sr-only">
-          Filter conventions
-        </label>
-        <select
-          id="convention-filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as ConventionFilter)}
-          className="min-h-[44px] min-w-[140px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm uppercase tracking-widest"
-          aria-label="Filter conventions"
-        >
-          {FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <label
-          htmlFor="convention-sort"
-          className="text-[10px] uppercase tracking-widest text-kyar-meta sm:flex sm:items-center"
-        >
-          Sort by
-        </label>
-        <select
-          id="convention-sort"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
-          className="min-h-[44px] text-sm border border-kyar-border rounded-sm px-3 py-2.5 bg-kyar-surfaceWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label="Sort conventions by"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-          className="min-h-[44px] min-w-[44px] inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border border-kyar-border rounded-sm bg-kyar-surfaceWarm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-          aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden>
-            {order === "asc" ? "arrow_upward" : "arrow_downward"}
+        <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
+            Status
           </span>
-          <span className="text-[10px] uppercase">{order}</span>
-        </button>
-      </FilterToolbar>
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setFilter(opt.value as ConventionFilter)}
+              className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                filter === opt.value
+                  ? "border-black bg-black text-white shadow-md"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
+              }`}
+              aria-pressed={filter === opt.value}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 ml-auto">
+          <label
+            htmlFor="convention-sort"
+            className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0"
+          >
+            Sort by
+          </label>
+          <select
+            id="convention-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
+            className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+            aria-label="Sort conventions by"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+            className="inline-flex items-center text-kyar-meta hover:text-black transition-colors focus:outline-none"
+            aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden>
+              {order === "asc" ? "arrow_upward" : "arrow_downward"}
+            </span>
+          </button>
+        </div>
+      </PageHeader>
 
       <main className="flex-1 py-6">
         {isLoading && <p className="meta-label text-kyar-meta">Loading...</p>}
@@ -293,7 +289,7 @@ export default function ConventionsPage() {
               <button
                 type="button"
                 onClick={() => setShowSelectModal(true)}
-                className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest font-medium underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+                className="px-4 py-2 border border-kyar-borderSubtle rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
               >
                 Select for actions
               </button>
@@ -309,31 +305,49 @@ export default function ConventionsPage() {
                   <Link
                     key={c._id}
                     href={`/conventions/${c._id}`}
-                    className="block rounded-sm border border-kyar-cardBorder bg-kyar-surfaceWarm shadow-card overflow-hidden hover:border-kyar-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                    className="block relative aspect-video w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group"
                   >
                     {hasImage ? (
-                      <div className="aspect-[21/9] w-full bg-kyar-mutedWarm">
-                        <ResolvedImage
-                          imageStorageId={c.imageStorageId ?? undefined}
-                          imageUrl={c.imageUrl ?? undefined}
-                          alt={c.name}
-                          className="w-full h-full object-cover"
-                        />
+                      <ResolvedImage
+                        imageStorageId={c.imageStorageId ?? undefined}
+                        imageUrl={c.imageUrl ?? undefined}
+                        alt={c.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+                        <span className="material-symbols-outlined text-6xl">calendar_today</span>
                       </div>
-                    ) : null}
-                    <div className="p-4">
-                      <h2 className="font-serif text-lg italic font-normal text-kyar-text">
-                        {c.name}
-                      </h2>
-                      <p className="text-xs text-kyar-meta mt-1">
-                        {c.startDate === c.endDate ? c.startDate : `${c.startDate} – ${c.endDate}`}
-                        {c.location ? ` · ${c.location}` : ""}
-                      </p>
-                      {days !== null && days >= 0 && (
-                        <p className="text-[10px] uppercase tracking-wider text-kyar-textTertiary mt-1">
-                          {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
-                        </p>
-                      )}
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                      <div className="flex justify-between items-end gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
+                            {c.startDate === c.endDate
+                              ? c.startDate
+                              : `${c.startDate} – ${c.endDate}`}
+                          </span>
+                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover:opacity-90">
+                            {c.name}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 pt-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
+                          {c.location || "No location"}
+                        </span>
+                        {days !== null && days >= 0 && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-white/50" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white drop-shadow-sm">
+                              {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </Link>
                 );
@@ -359,14 +373,14 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={selectAll}
-              className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors"
             >
               {selectedIds.size === filteredAndSorted.length ? "Deselect all" : "Select all"}
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="px-3 py-1.5 text-xs font-medium uppercase opacity-70"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
             >
               Clear
             </button>
@@ -406,7 +420,7 @@ export default function ConventionsPage() {
                   type="button"
                   onClick={() => handleArchiveSelected(true)}
                   disabled={actionPending}
-                  className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
                 >
                   Archive
                 </button>
@@ -416,7 +430,7 @@ export default function ConventionsPage() {
                   type="button"
                   onClick={() => handleArchiveSelected(false)}
                   disabled={actionPending}
-                  className="px-3 py-1.5 text-xs font-medium uppercase border border-black rounded disabled:opacity-50"
+                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
                 >
                   Unarchive
                 </button>
@@ -425,14 +439,14 @@ export default function ConventionsPage() {
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={actionPending}
-                className="px-3 py-1.5 text-xs font-medium text-kyar-danger border border-kyar-danger rounded disabled:opacity-50"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-white transition-colors disabled:opacity-50"
               >
                 Delete
               </button>
               <button
                 type="button"
                 onClick={clearSelection}
-                className="px-3 py-1.5 text-xs font-medium uppercase opacity-70"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
               >
                 Clear selection
               </button>
@@ -441,7 +455,7 @@ export default function ConventionsPage() {
           <button
             type="button"
             onClick={() => setShowSelectModal(false)}
-            className="mt-4 w-full py-2.5 bg-black text-white text-sm font-medium uppercase tracking-wider"
+            className="mt-4 w-full py-3 bg-black text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity"
           >
             Done
           </button>
@@ -465,7 +479,7 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-2 border border-black text-sm font-medium"
+              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -473,7 +487,7 @@ export default function ConventionsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-2 bg-kyar-danger text-white text-sm font-medium disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>
@@ -483,7 +497,7 @@ export default function ConventionsPage() {
 
       {deletedForUndo && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-4 py-3 bg-kyar-text text-kyar-bg rounded-sm border border-kyar-border shadow-lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-4 bg-kyar-text text-kyar-bg rounded-full border border-kyar-border shadow-2xl"
           role="status"
           aria-live="polite"
         >
@@ -494,7 +508,7 @@ export default function ConventionsPage() {
             type="button"
             onClick={handleUndoDelete}
             disabled={actionPending}
-            className="px-3 py-1.5 text-sm font-semibold uppercase border border-current rounded hover:bg-white/10 disabled:opacity-50"
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors"
           >
             {actionPending ? "Undoing…" : "Undo"}
           </button>

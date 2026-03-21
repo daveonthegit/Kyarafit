@@ -159,7 +159,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
 
   return (
     <section className="space-y-6">
-      <div className="py-3 border-b border-gray-100">
+      <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-2">
           Profile picture
         </p>
@@ -212,13 +212,13 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
         onConfirm={handleCropConfirm}
         onError={handleCropError}
       />
-      <div className="py-3 border-b border-gray-100">
+      <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">Email</p>
         <p className="text-sm" data-testid="account-email">
           {user.email ?? "—"}
         </p>
       </div>
-      <div className="py-3 border-b border-gray-100">
+      <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
           Display name
         </p>
@@ -247,7 +247,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               }}
               placeholder="Display name"
               maxLength={500}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
               disabled={displayNameLoading}
               data-testid="account-name-input"
               autoComplete="name"
@@ -278,7 +278,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
           </div>
         )}
       </div>
-      <div className="py-3 border-b border-gray-100">
+      <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
           Username
         </p>
@@ -306,14 +306,18 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               }}
               placeholder="username"
               maxLength={80}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
               disabled={usernameLoading}
               data-testid="account-username-input"
               autoComplete="username"
             />
-            <p className="text-[11px] text-kyar-textTertiary">Letters, numbers, underscores only. Your profile: kyarafit.com/u/username</p>
+            <p className="text-[11px] text-kyar-textTertiary">
+              Letters, numbers, underscores only. Your profile: kyarafit.com/u/username
+            </p>
             {usernameError && (
-              <p className="text-xs text-red-500" role="alert">{usernameError}</p>
+              <p className="text-xs text-red-500" role="alert">
+                {usernameError}
+              </p>
             )}
             <div className="flex gap-2">
               <button
@@ -326,7 +330,10 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => { setUsernameEdit(null); setUsernameError(null); }}
+                onClick={() => {
+                  setUsernameEdit(null);
+                  setUsernameError(null);
+                }}
                 disabled={usernameLoading}
                 className="text-[11px] uppercase tracking-widest font-medium text-kyar-textSecondary hover:underline"
               >
@@ -336,10 +343,8 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
           </div>
         )}
       </div>
-      <div className="py-3 border-b border-gray-100">
-        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
-          Bio
-        </p>
+      <div className="py-4 border-b border-kyar-borderSubtle">
+        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">Bio</p>
         {bioEdit === null ? (
           <div className="flex items-start gap-2 flex-wrap">
             <p className="text-sm text-kyar-textSecondary whitespace-pre-wrap flex-1 min-w-0">
@@ -361,7 +366,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               placeholder="Short bio for your public profile"
               maxLength={500}
               rows={3}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
               disabled={bioLoading}
             />
             <div className="flex gap-2">
@@ -385,7 +390,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
           </div>
         )}
       </div>
-      <div className="py-3 border-b border-gray-100">
+      <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
           Public profile
         </p>
@@ -417,14 +422,14 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
             <button
               type="button"
               onClick={() => handleSaveProfileVisibility("public")}
-              className="text-sm px-3 py-1.5 border border-kyar-cardBorder rounded-md hover:bg-kyar-mutedWarm"
+              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Public
             </button>
             <button
               type="button"
               onClick={() => handleSaveProfileVisibility("private")}
-              className="text-sm px-3 py-1.5 border border-kyar-cardBorder rounded-md hover:bg-kyar-mutedWarm"
+              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors"
             >
               Private
             </button>

@@ -421,8 +421,7 @@ export const create = mutation({
     )
       ? args.visibility
       : "private";
-    const shareToken =
-      visibility === "unlisted" ? generateShareToken() : undefined;
+    const shareToken = visibility === "unlisted" ? generateShareToken() : undefined;
     const id = await ctx.db.insert("builds", {
       userId: args.userId,
       name,
@@ -524,7 +523,8 @@ export const setGroupId = mutation({
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
     if (!canEdit) throw new Error("Not authorized");
-    const newGroupId = args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
+    const newGroupId =
+      args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
     if (newGroupId) {
       const membership = await ctx.db
         .query("groupMembers")
@@ -830,8 +830,7 @@ export const linkItems = mutation({
         shouldSetCompletionTask = true;
       } else {
         const existingTask = await ctx.db.get(item.completionTaskId);
-        shouldSetCompletionTask =
-          !existingTask || existingTask.userId !== args.userId;
+        shouldSetCompletionTask = !existingTask || existingTask.userId !== args.userId;
       }
       if (shouldSetCompletionTask) {
         await ctx.db.patch(closetItemId, { completionTaskId: taskId });
@@ -904,8 +903,7 @@ export const addItemsToBuild = mutation({
         shouldSetCompletionTask = true;
       } else {
         const existingTask = await ctx.db.get(item.completionTaskId);
-        shouldSetCompletionTask =
-          !existingTask || existingTask.userId !== args.userId;
+        shouldSetCompletionTask = !existingTask || existingTask.userId !== args.userId;
       }
       if (shouldSetCompletionTask) {
         await ctx.db.patch(closetItemId, { completionTaskId: taskId });
@@ -1006,6 +1004,18 @@ export const getBuildsUsingClosetItem = query({
       .collect();
     const buildIds = Array.from(new Set(links.map((l) => l.buildId)));
     const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
-    return builds.flatMap((b) => (b && "name" in b ? [{ _id: b._id, name: b.name }] : []));
+    return builds.flatMap((b) =>
+      b && "name" in b
+        ? [
+            {
+              _id: b._id,
+              name: b.name,
+              imageStorageId: b.imageStorageId,
+              imageUrl: b.imageUrl,
+              character: b.character,
+            },
+          ]
+        : []
+    );
   },
 });

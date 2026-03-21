@@ -68,10 +68,7 @@ function SwipeCardInner<T>({
   const slidesFromItems = items
     ? isImageItems
       ? (items as SwipeCardImageItem[]).map((item, index) => (
-          <SwiperSlide
-            key={getKey(item as T, index)}
-            className={cn("rounded-2xl", slideClassName)}
-          >
+          <SwiperSlide key={getKey(item as T, index)} className={cn("rounded-2xl", slideClassName)}>
             {(renderSlide as (item: SwipeCardImageItem, index: number) => React.ReactNode)?.(
               item as SwipeCardImageItem,
               index
@@ -80,10 +77,7 @@ function SwipeCardInner<T>({
         ))
       : renderSlide
         ? items.map((item, index) => (
-            <SwiperSlide
-              key={getKey(item, index)}
-              className={cn("rounded-2xl", slideClassName)}
-            >
+            <SwiperSlide key={getKey(item, index)} className={cn("rounded-2xl", slideClassName)}>
               {renderSlide(item as T, index)}
             </SwiperSlide>
           ))
@@ -107,8 +101,8 @@ function SwipeCardInner<T>({
   .SwipeCard-swiper .swiper-slide {
     border-radius: 1rem;
     overflow: hidden;
-    background: var(--kyar-bg-warm, #FAF9F7);
-    border: 1px solid rgba(0,0,0,0.08);
+    background: var(--kyar-surface, #FFFFFF);
+    border: 1px solid rgba(0,0,0,0.05);
     box-shadow: 0 20px 40px rgba(0,0,0,0.05);
   }
   `;
