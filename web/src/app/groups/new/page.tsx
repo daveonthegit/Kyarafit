@@ -7,7 +7,6 @@ import { useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
-import type { Id } from "convex/_generated/dataModel";
 
 export default function NewGroupPage() {
   const router = useRouter();

@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -95,7 +94,6 @@ export default function ConventionsPage() {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { userId } = useCurrentUser();
-  const { open: openCreationModal } = useCreationModals();
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
   const archiveMany = useMutation(api.conventions.archiveMany);
   const removeMany = useMutation(api.conventions.removeMany);

@@ -124,7 +124,7 @@ export function TaskChecklist({
       <div className="relative">
         <div
           ref={taskListContainerRef}
-          className="space-y-2 max-h-[min(400px,60vh)] overflow-y-auto overflow-x-hidden overscroll-contain pr-1 -mr-1"
+          className="space-y-2 max-h-[min(400px,60vh)] overflow-y-auto overflow-x-hidden overscroll-contain pr-1 -mr-1 pb-11"
           role="list"
           aria-label={`Task list, ${totalCount} tasks`}
         >
@@ -168,9 +168,7 @@ export function TaskChecklist({
           )}
         </div>
         <div className="absolute right-2 bottom-3 pointer-events-none flex justify-end">
-          <div className="pointer-events-auto">
-            <ScrollButton containerRef={taskListContainerRef} threshold={80} />
-          </div>
+          <ScrollButton containerRef={taskListContainerRef} threshold={80} />
         </div>
       </div>
 

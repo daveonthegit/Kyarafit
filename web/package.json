@@ -39,7 +39,6 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "4.59.0",
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.20.0",
     "@next/eslint-plugin-next": "^16.1.6",

@@ -22,12 +22,6 @@ import {
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import type { Doc, Id } from "convex/_generated/dataModel";
 
-function formatCents(cents: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
-    cents / 100
-  );
-}
-
 const STATUS_OPTIONS: { value: BuildStatus; label: string }[] = [
   { value: "idea", label: "Idea" },
   { value: "wip", label: "WIP" },

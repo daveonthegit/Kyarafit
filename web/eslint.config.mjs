@@ -75,6 +75,10 @@ export default [
         },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
+      // User media and Convex URLs are dynamic; next/image remotePatterns cannot cover every host.
+      '@next/next/no-img-element': 'off',
+      // Material Symbols via Google Fonts stylesheet; next/font does not expose this family.
+      '@next/next/no-page-custom-font': 'off',
     },
   },
 

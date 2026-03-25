@@ -101,7 +101,7 @@ export default function ClosetPage() {
     if (!userId || selectedIds.size === 0) return;
     const toDelete = items.filter((i) => selectedIds.has(i._id));
     const payloads = toDelete.map((item) => {
-      const { _id, _creationTime, completionTaskId, ...rest } = item;
+      const { _id, _creationTime, completionTaskId: _completionTaskId, ...rest } = item;
       return rest;
     });
     setActionPending(true);

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Search } from "lucide-react";
 
 export interface BreadcrumbItem {
@@ -33,7 +32,7 @@ export interface PageHeaderProps {
 }
 
 export function PageHeader({
-  breadcrumb,
+  breadcrumb: _breadcrumb,
   title,
   subtitle,
   trailing,
