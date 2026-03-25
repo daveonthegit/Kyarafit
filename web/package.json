@@ -20,6 +20,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@kyarafit/design-system": "*",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
+    "@vercel/analytics": "^2.0.1",
     "better-auth": "1.4.9",
     "clsx": "^2.1.1",
     "convex": "^1.32.0",

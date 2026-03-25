@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
@@ -36,6 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </AppProviders>
           </LocaleProvider>
         </ConvexClientProvider>
+        <Analytics />
       </body>
     </html>
   );
