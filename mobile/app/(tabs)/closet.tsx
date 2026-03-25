@@ -1,11 +1,18 @@
-import { useCallback, useState } from "react";
-import { View, Text, Image, ScrollView, Pressable, FlatList } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View, Text, Image, FlatList, Pressable, TextInput } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { CLOSET_CATEGORIES, type ClosetCategory } from "@kyarafit/design-system/types";
 import { listItems } from "../../src/storage/closetRepo";
-import { useCurrentUser } from "../../src/hooks/useCurrentUser";
+import { useDataSource } from "../../src/hooks/useDataSource";
+import { FilterTabs, KyarIcon, ScreenHeader, EmptyState } from "../../src/components/shared";
+import { colors } from "@kyarafit/design-system/rn";
+import { useTranslation } from "react-i18next";
+
+type CategoryFilter = "all" | ClosetCategory;
+
+const CATEGORY_ORDER: CategoryFilter[] = ["all", ...CLOSET_CATEGORIES];
 
 type ClosetRow = {
   id: string;
@@ -15,20 +22,47 @@ type ClosetRow = {
   imageLocalUri?: string;
 };
 
-const CATEGORIES = ["All Items", "Wig", "Prop", "Armor", "Garment", "Shoe", "Material", "Other"];
+function categoryToConvex(cat: CategoryFilter): string | undefined {
+  if (cat === "all") return undefined;
+  return cat;
+}
 
 export default function ClosetScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
-  const { userId } = useCurrentUser();
+  const { userId, isCloud } = useDataSource();
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
 
-  const convexItems = useQuery(api.closetItems.list, userId ? { userId } : "skip");
+  const categoryTabs = useMemo(
+    () =>
+      CATEGORY_ORDER.map((id) => ({
+        id,
+        label: id === "all" ? t("Closet.categoryAll") : t(`Closet.category.${id}`),
+      })),
+    [t]
+  );
+
+  const convexListArgs = useMemo(() => {
+    if (!userId) return "skip" as const;
+    const q = search.trim();
+    return {
+      userId,
+      category: categoryToConvex(activeCategory),
+      search: q.length ? q : undefined,
+      sortBy: "name" as const,
+      order: "asc" as const,
+    };
+  }, [userId, activeCategory, search]);
+
+  const convexItems = useQuery(api.closetItems.list, convexListArgs);
+
   const [localItems, setLocalItems] = useState<ClosetRow[]>([]);
-  const [localLoading, setLocalLoading] = useState(!userId);
-  const [activeCategory, setActiveCategory] = useState("All Items");
+  const [localLoading, setLocalLoading] = useState(!isCloud);
 
   useFocusEffect(
     useCallback(() => {
-      if (!userId) {
+      if (!isCloud) {
         setLocalLoading(true);
         listItems().then((list) => {
           setLocalItems(
@@ -43,10 +77,9 @@ export default function ClosetScreen() {
           setLocalLoading(false);
         });
       }
-    }, [userId])
+    }, [isCloud])
   );
 
-  const isCloud = !!userId;
   const loading = isCloud ? convexItems === undefined : localLoading;
 
   const items: ClosetRow[] = isCloud
@@ -59,13 +92,29 @@ export default function ClosetScreen() {
       }))
     : localItems;
 
-  const filtered =
-    activeCategory === "All Items"
-      ? items
-      : items.filter((i) => i.category.toLowerCase() === activeCategory.toLowerCase());
+  const filtered = useMemo(() => {
+    if (isCloud) return items;
+    const q = search.trim().toLowerCase();
+    let rows =
+      activeCategory === "all"
+        ? items
+        : items.filter((i) => i.category.toLowerCase() === activeCategory);
+    if (q) {
+      rows = rows.filter((i) => i.name.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [isCloud, items, activeCategory, search]);
 
   const renderItem = ({ item }: { item: ClosetRow }) => (
-    <View className="flex-1 mb-6">
+    <Pressable
+      className="flex-1 mb-6"
+      onPress={() =>
+        router.push({
+          pathname: "/closet-detail",
+          params: { id: item.id },
+        } as unknown as Parameters<typeof router.push>[0])
+      }
+    >
       <View className="aspect-[3/4] bg-[#F9F9F9] mb-2 overflow-hidden rounded">
         {item.imageLocalUri || item.imageUrl ? (
           <Image
@@ -75,7 +124,7 @@ export default function ClosetScreen() {
           />
         ) : (
           <View className="flex-1 justify-center items-center">
-            <Ionicons name="shirt-outline" size={32} color="rgba(0,0,0,0.2)" />
+            <KyarIcon name="checkroom" size={32} color="rgba(0,0,0,0.2)" />
           </View>
         )}
       </View>
@@ -85,44 +134,34 @@ export default function ClosetScreen() {
         </Text>
         <Text className="text-[10px] uppercase tracking-widest text-black/40">{item.category}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 
   return (
     <View className="flex-1 bg-white">
-      <View className="bg-white pt-14 border-b border-black/5">
-        <View className="flex-row justify-between items-end px-6 pb-4">
-          <View>
-            <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-1">
-              Inventory
-            </Text>
-            <Text className="font-serif text-[28px] font-bold italic text-black tracking-tight">
-              The Closet
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-4">
-            <Pressable>
-              <Ionicons name="search-outline" size={24} color="#000" />
-            </Pressable>
-          </View>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6 py-3">
-          {CATEGORIES.map((cat) => (
-            <Pressable
-              key={cat}
-              onPress={() => setActiveCategory(cat)}
-              className={`px-4 py-2 mr-6 ${activeCategory === cat ? "border-b border-black" : ""}`}
-            >
-              <Text
-                className={`text-[11px] uppercase tracking-[0.15em] ${activeCategory === cat ? "font-semibold text-black" : "text-black/40"}`}
-              >
-                {cat}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+      <ScreenHeader
+        meta={t("Closet.metaInventory")}
+        title={t("Closet.titleTheCloset")}
+        bottomPadding={0}
+      />
+      <View className="px-6 pt-2 pb-2 flex-row items-center border-b border-black/5">
+        <KyarIcon name="search" size={22} color={colors.textTertiary} />
+        <TextInput
+          className="flex-1 ml-2 text-sm text-black py-2 border-b border-black/10"
+          placeholder={t("Closet.searchPlaceholder")}
+          placeholderTextColor="rgba(0,0,0,0.35)"
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
       </View>
+
+      <FilterTabs
+        tabs={categoryTabs}
+        active={activeCategory}
+        onChange={(id) => setActiveCategory(id as CategoryFilter)}
+      />
 
       <FlatList
         data={filtered}
@@ -133,9 +172,15 @@ export default function ClosetScreen() {
         columnWrapperStyle={{ gap: 16 }}
         ListEmptyComponent={
           loading ? (
-            <Text className="text-center mt-16 text-sm text-black/40">Loading…</Text>
+            <Text className="text-center mt-16 text-sm text-black/40">{t("Closet.loading")}</Text>
           ) : (
-            <Text className="text-center mt-16 text-sm text-black/40">No items yet.</Text>
+            <View className="mt-8 px-2">
+              <EmptyState
+                icon="checkroom"
+                message={t("Closet.emptyList")}
+                secondary={t("Closet.emptyListSecondary")}
+              />
+            </View>
           )
         }
       />

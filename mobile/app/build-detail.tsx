@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, Image, Alert } from "react-native";
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -24,6 +24,13 @@ import {
 } from "../src/storage/buildTasksRepo";
 import { listItems } from "../src/storage/closetRepo";
 import type { ClosetItem } from "@kyarafit/design-system/types";
+import * as ImagePicker from "expo-image-picker";
+import { StorageImage } from "../src/components/shared";
+import { BuildDetailCloudSections } from "../src/components/build/BuildDetailCloudSections";
+import { BuildSocialSection } from "../src/components/build/BuildSocialSection";
+import { BuildVisualBoardMobile } from "../src/components/build/BuildVisualBoardMobile";
+import { postToConvexUpload } from "../src/lib/convexUpload";
+import { useTranslation } from "react-i18next";
 
 const STATUSES = ["idea", "wip", "ready"] as const;
 
@@ -35,6 +42,7 @@ function formatCents(cents: number): string {
 }
 
 export default function BuildDetailScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ id?: string }>();
   const id =
     typeof params.id === "string" ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
@@ -50,6 +58,7 @@ export default function BuildDetailScreen() {
     userId && buildId ? { buildId } : "skip"
   );
   const updateBuildMut = useMutation(api.builds.update);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const createTaskMut = useMutation(api.buildTasks.create);
   const updateTaskMut = useMutation(api.buildTasks.update);
   const deleteTaskMut = useMutation(api.buildTasks.remove);
@@ -120,6 +129,20 @@ export default function BuildDetailScreen() {
         }))
     : closetItems.filter((c) => linkedIds.includes(c.id));
 
+  const visualLinked = useMemo(() => {
+    if (!isCloud || !convexClosetItems || !convexItemIds) return [];
+    return convexClosetItems
+      .filter((c) => convexItemIds.includes(c._id))
+      .map((c) => ({
+        _id: c._id,
+        name: c.name,
+        category: c.category,
+        imageUrl: c.imageUrl,
+        imageStorageId: c.imageStorageId,
+        costCents: c.costCents,
+      }));
+  }, [isCloud, convexClosetItems, convexItemIds]);
+
   const tasks: BuildTask[] = isCloud
     ? (convexTasks ?? []).map((t) => ({
         id: t._id,
@@ -154,6 +177,8 @@ export default function BuildDetailScreen() {
   const [editStatus, setEditStatus] = useState<string>("wip");
   const [editBudgetCents, setEditBudgetCents] = useState("");
   const [editTargetDate, setEditTargetDate] = useState("");
+  const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
+  const [heroUploading, setHeroUploading] = useState(false);
   const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
@@ -163,8 +188,13 @@ export default function BuildDetailScreen() {
       setEditStatus(build.status ?? "wip");
       setEditBudgetCents(build.budgetCents != null ? (build.budgetCents / 100).toFixed(2) : "");
       setEditTargetDate(build.targetDate ?? "");
+      if (convexBuild && isCloud) {
+        setEditImageStorageId(convexBuild.imageStorageId ?? null);
+      } else {
+        setEditImageStorageId(null);
+      }
     }
-  }, [build, isEditing]);
+  }, [build, isEditing, convexBuild, isCloud]);
 
   const loaded = isCloud ? convexBuild !== undefined : localLoaded;
 
@@ -187,7 +217,7 @@ export default function BuildDetailScreen() {
   if (!loaded) {
     return (
       <View className="flex-1 bg-white">
-        <Text className="text-xs text-black/40 mt-8 px-6">Loading…</Text>
+        <Text className="text-xs text-black/40 mt-8 px-6">{t("Common.loading")}</Text>
       </View>
     );
   }
@@ -200,10 +230,10 @@ export default function BuildDetailScreen() {
             <Ionicons name="arrow-back" size={24} color="#000" />
           </Pressable>
           <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
-            Build
+            {t("BuildDetail.meta")}
           </Text>
         </View>
-        <Text className="text-xs text-black/40 mt-2 px-6">Build not found.</Text>
+        <Text className="text-xs text-black/40 mt-2 px-6">{t("BuildDetail.notFound")}</Text>
       </View>
     );
   }
@@ -273,10 +303,10 @@ export default function BuildDetailScreen() {
 
   const onDeleteTask = async (taskId: string) => {
     if (!id) return;
-    Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("BuildDetail.deleteTaskConfirmTitle"), t("BuildDetail.deleteTaskConfirmBody"), [
+      { text: t("Common.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("Common.delete"),
         style: "destructive",
         onPress: async () => {
           if (isCloud && userId) {
@@ -325,6 +355,38 @@ export default function BuildDetailScreen() {
     }
   };
 
+  const pickHeroImage = async () => {
+    if (!userId) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t("Common.permissionTitle"), t("Common.permissionPhotos"));
+      return;
+    }
+    setHeroUploading(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const res = await fetch(asset.uri);
+      const buf = await res.arrayBuffer();
+      const uploadUrl = await generateUploadUrl();
+      const storageId = await postToConvexUpload(uploadUrl, buf, asset.mimeType ?? "image/jpeg");
+      setEditImageStorageId(storageId);
+    } catch (e) {
+      Alert.alert(
+        t("Common.uploadFailed"),
+        e instanceof Error ? e.message : t("Common.unknownError")
+      );
+    } finally {
+      setHeroUploading(false);
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!build || !editName.trim()) return;
     setSavePending(true);
@@ -340,6 +402,7 @@ export default function BuildDetailScreen() {
             ? Math.round(parseFloat(editBudgetCents) * 100)
             : undefined,
           targetDate: editTargetDate.trim() || undefined,
+          imageStorageId: editImageStorageId ?? undefined,
         });
       } else {
         await updateBuildLocal(build.id, {
@@ -403,8 +466,33 @@ export default function BuildDetailScreen() {
         {isEditing ? (
           <View className="px-6 mb-8 mt-6">
             <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-4">
-              EDIT BUILD
+              {t("BuildDetail.editBuild")}
             </Text>
+
+            {isCloud && userId && convexBuild ? (
+              <View className="mb-6">
+                <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2">
+                  Hero image
+                </Text>
+                <View className="aspect-[3/4] rounded-2xl overflow-hidden bg-[#F9F9F9] mb-3">
+                  <StorageImage
+                    imageStorageId={editImageStorageId ?? convexBuild.imageStorageId}
+                    imageUrl={convexBuild.imageUrl}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
+                </View>
+                <Pressable
+                  className="border border-black py-2.5 items-center rounded-full"
+                  onPress={pickHeroImage}
+                  disabled={heroUploading}
+                >
+                  <Text className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black">
+                    {heroUploading ? t("BuildDetail.uploading") : t("BuildDetail.changeHero")}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             <View className="mb-5">
               <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2">
@@ -414,27 +502,27 @@ export default function BuildDetailScreen() {
                 className="border-b border-black/10 py-2.5 text-sm text-black"
                 value={editName}
                 onChangeText={setEditName}
-                placeholder="Build name"
+                placeholder={t("BuildDetail.namePlaceholder")}
                 placeholderTextColor="rgba(0,0,0,0.4)"
               />
             </View>
 
             <View className="mb-5">
               <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2">
-                Character (optional)
+                {t("BuildDetail.character")}
               </Text>
               <TextInput
                 className="border-b border-black/10 py-2.5 text-sm text-black"
                 value={editCharacter}
                 onChangeText={setEditCharacter}
-                placeholder="e.g. Arlecchino"
+                placeholder={t("BuildDetail.characterPlaceholder")}
                 placeholderTextColor="rgba(0,0,0,0.4)"
               />
             </View>
 
             <View className="mb-5">
               <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2">
-                Status
+                {t("BuildDetail.status")}
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {STATUSES.map((s) => (
@@ -469,13 +557,13 @@ export default function BuildDetailScreen() {
 
             <View className="mb-5">
               <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-2">
-                Deadline (optional)
+                {t("BuildDetail.deadline")}
               </Text>
               <TextInput
                 className="border-b border-black/10 py-2.5 text-sm text-black"
                 value={editTargetDate}
                 onChangeText={setEditTargetDate}
-                placeholder="YYYY-MM-DD"
+                placeholder={t("BuildDetail.deadlinePlaceholder")}
                 placeholderTextColor="rgba(0,0,0,0.4)"
               />
             </View>
@@ -487,7 +575,7 @@ export default function BuildDetailScreen() {
                 disabled={savePending || !editName.trim()}
               >
                 <Text className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">
-                  {savePending ? "Saving…" : "Save changes"}
+                  {savePending ? t("Common.saving") : t("BuildDetail.saveChanges")}
                 </Text>
               </Pressable>
               <Pressable
@@ -496,14 +584,23 @@ export default function BuildDetailScreen() {
                 disabled={savePending}
               >
                 <Text className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black">
-                  Cancel
+                  {t("Common.cancel")}
                 </Text>
               </Pressable>
             </View>
           </View>
         ) : (
           <>
-            {build.imageUrl && (
+            {isCloud && convexBuild && (convexBuild.imageUrl || convexBuild.imageStorageId) ? (
+              <View className="mx-6 mt-6 aspect-[3/4] bg-[#F9F9F9] mb-6 rounded-3xl overflow-hidden">
+                <StorageImage
+                  imageStorageId={convexBuild.imageStorageId}
+                  imageUrl={convexBuild.imageUrl}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : build.imageUrl ? (
               <View className="mx-6 mt-6 aspect-[3/4] bg-[#F9F9F9] mb-6 rounded-3xl overflow-hidden">
                 <Image
                   source={{ uri: build.imageUrl }}
@@ -511,9 +608,11 @@ export default function BuildDetailScreen() {
                   resizeMode="cover"
                 />
               </View>
-            )}
+            ) : null}
 
-            <View className={`px-6 mb-6 ${!build.imageUrl ? "mt-6" : ""}`}>
+            <View
+              className={`px-6 mb-6 ${!build.imageUrl && !(isCloud && convexBuild && (convexBuild.imageUrl || convexBuild.imageStorageId)) ? "mt-6" : ""}`}
+            >
               <Text className="text-[10px] uppercase tracking-[0.15em] text-black/40 mb-2">
                 {build.status.toUpperCase()}
               </Text>
@@ -528,7 +627,7 @@ export default function BuildDetailScreen() {
             <View className="px-6 gap-6 mb-6">
               <View className="gap-2">
                 <Text className="text-[10px] uppercase tracking-[0.2em] font-medium text-black/40">
-                  COMPLETION
+                  {t("BuildDetail.completion")}
                 </Text>
                 <View className="items-center my-4">
                   <EditorialProgressDonut progress={completionPercent} size={100} strokeWidth={3} />
@@ -541,7 +640,7 @@ export default function BuildDetailScreen() {
               {build.targetDate && daysRemaining !== null && (
                 <View className="gap-2">
                   <Text className="text-[10px] uppercase tracking-[0.2em] font-medium text-black/40">
-                    DEADLINE
+                    {t("BuildDetail.deadlineLabel")}
                   </Text>
                   <View className="flex-row items-start gap-3 mt-2">
                     <Ionicons name="calendar-outline" size={18} color="#000" />
@@ -574,54 +673,95 @@ export default function BuildDetailScreen() {
               )}
             </View>
 
-            {build.budgetCents != null && (
+            {isCloud && buildId && convexBuild ? (
+              <BuildVisualBoardMobile
+                buildId={buildId}
+                userId={userId}
+                linkedItems={visualLinked}
+                onPressLinkCloset={() =>
+                  router.push({
+                    pathname: "/build-link-items",
+                    params: { buildId: id! },
+                  } as unknown as Parameters<typeof router.push>[0])
+                }
+              />
+            ) : null}
+
+            {(build.budgetCents != null || linkedItems.length > 0) && (
               <View className="px-6 mb-8 mt-2">
                 <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-4">
-                  BUDGET TRACKER
+                  {build.budgetCents != null
+                    ? t("BuildDetail.budgetTracker")
+                    : t("BuildDetail.linkedItemsCostTitle")}
                 </Text>
-                <View className="gap-2">
-                  <View className="flex-row justify-between">
-                    <Text className="text-sm font-medium text-black">
-                      Spent: {formatCents(totalCostCents)}
-                    </Text>
-                    <Text className="text-sm font-medium text-black">
-                      Budget: {formatCents(build.budgetCents)}
-                    </Text>
+                {build.budgetCents != null ? (
+                  <View className="gap-2">
+                    <View className="flex-row justify-between">
+                      <Text className="text-sm font-medium text-black">
+                        {t("BuildDetail.spent")} {formatCents(totalCostCents)}
+                      </Text>
+                      <Text className="text-sm font-medium text-black">
+                        {t("BuildDetail.budgetLabel")} {formatCents(build.budgetCents)}
+                      </Text>
+                    </View>
+                    <View className="h-0.5 bg-[#eeeeee] w-full">
+                      <View
+                        className="h-full bg-black"
+                        style={{
+                          width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
+                        }}
+                      />
+                    </View>
+                    {totalCostCents > (build.budgetCents || 0) && (
+                      <Text className="text-xs text-red-600 mt-1">
+                        {t("BuildDetail.overBudget", {
+                          amount: formatCents(totalCostCents - (build.budgetCents || 0)),
+                        })}
+                      </Text>
+                    )}
                   </View>
-                  <View className="h-0.5 bg-[#eeeeee] w-full">
-                    <View
-                      className="h-full bg-black"
-                      style={{
-                        width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
-                      }}
-                    />
-                  </View>
-                  {totalCostCents > (build.budgetCents || 0) && (
-                    <Text className="text-xs text-red-600 mt-1">
-                      Over budget by {formatCents(totalCostCents - (build.budgetCents || 0))}
-                    </Text>
-                  )}
-                </View>
+                ) : (
+                  <Text className="text-sm font-medium text-black">
+                    {t("BuildDetail.itemsTotal")} {formatCents(totalCostCents)}
+                  </Text>
+                )}
               </View>
             )}
 
+            {convexBuild && buildId && (convexBuild.visibility ?? "private") !== "private" ? (
+              <BuildSocialSection
+                buildId={buildId}
+                userId={userId}
+                visibility={convexBuild.visibility as string | undefined}
+              />
+            ) : null}
+
+            <BuildDetailCloudSections
+              buildId={buildId}
+              userId={userId}
+              convexBuild={convexBuild ?? undefined}
+              isOwner={!!userId && !!convexBuild && convexBuild.userId === userId}
+            />
+
             <View className="px-6 mb-8">
               <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-4">
-                TASKS
+                {t("BuildDetail.tasksSection")}
               </Text>
               <View className="flex-row gap-3 mb-4">
                 <TextInput
                   className="flex-1 border-b border-black/10 py-2.5 text-sm text-black"
                   value={newTaskLabel}
                   onChangeText={setNewTaskLabel}
-                  placeholder="Required item or step…"
+                  placeholder={t("BuildDetail.taskPlaceholder")}
                   placeholderTextColor="rgba(0,0,0,0.4)"
                 />
                 <Pressable
                   className="border border-black py-2.5 px-4 justify-center"
                   onPress={onAddTask}
                 >
-                  <Text className="text-[10px] font-semibold tracking-[0.2em] text-black">ADD</Text>
+                  <Text className="text-[10px] font-semibold tracking-[0.2em] text-black">
+                    {t("BuildDetail.add")}
+                  </Text>
                 </Pressable>
               </View>
               {tasks.map((t) => {
@@ -664,7 +804,7 @@ export default function BuildDetailScreen() {
             <View className="px-6 mb-8">
               <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
-                  ASSOCIATED CLOSET ITEMS ({linkedItems.length})
+                  {t("BuildDetail.associatedCloset", { count: linkedItems.length })}
                 </Text>
                 <Pressable
                   className="border border-black py-2.5 px-3 rounded-full"
@@ -681,9 +821,7 @@ export default function BuildDetailScreen() {
                 </Pressable>
               </View>
               {linkedItems.length === 0 && (
-                <Text className="text-xs text-black/40 mt-2">
-                  No items linked. Tap "Link items" to add pieces from your closet.
-                </Text>
+                <Text className="text-xs text-black/40 mt-2">{t("BuildDetail.noLinkedItems")}</Text>
               )}
               <View className="flex-row flex-wrap justify-between mt-4">
                 {linkedItems.map((item) => (
@@ -696,18 +834,6 @@ export default function BuildDetailScreen() {
                     />
                   </View>
                 ))}
-              </View>
-            </View>
-
-            <View className="px-6">
-              <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50 mb-4">
-                PROGRESS PHOTOS
-              </Text>
-              <View className="border border-dashed border-black/10 p-8 items-center gap-3 rounded-sm">
-                <Ionicons name="images-outline" size={48} color="rgba(0,0,0,0.4)" />
-                <Text className="text-sm text-black/40 text-center">
-                  Progress photos feature coming soon. Track your build with photos and dates.
-                </Text>
               </View>
             </View>
           </>
@@ -724,7 +850,9 @@ export default function BuildDetailScreen() {
       >
         <View className="bg-white rounded-t-2xl pb-10 max-h-[70%]">
           <View className="flex-row justify-between items-center p-5 border-b border-black/5">
-            <Text className="text-lg font-semibold text-black">Assign Task to Item</Text>
+            <Text className="text-lg font-semibold text-black">
+              {t("BuildDetail.assignTaskTitle")}
+            </Text>
             <Pressable onPress={() => assignSheetRef.current?.dismiss()}>
               <Ionicons name="close" size={24} color="#000" />
             </Pressable>
@@ -736,7 +864,7 @@ export default function BuildDetailScreen() {
                 onPress={() => onAssignTask(null)}
               >
                 <Ionicons name="close-circle-outline" size={20} color="rgba(0,0,0,0.6)" />
-                <Text className="text-base text-black flex-1">Unassign from any item</Text>
+                <Text className="text-base text-black flex-1">{t("BuildDetail.unassign")}</Text>
               </Pressable>
             )}
             {linkedItems.map((item) => (
@@ -761,7 +889,7 @@ export default function BuildDetailScreen() {
             ))}
             {linkedItems.length === 0 && (
               <Text className="text-sm text-black/40 text-center py-5">
-                No closet items linked to this build. Link items first to assign tasks.
+                {t("BuildDetail.assignTaskEmpty")}
               </Text>
             )}
           </BottomSheetScrollView>

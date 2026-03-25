@@ -472,26 +472,34 @@ export default function BuildDetailPage() {
                   </div>
                 </div>
 
-                {/* Budget Summary */}
-                {build.budgetCents != null && (
+                {/* Budget or linked-items cost */}
+                {(build.budgetCents != null || closetItemIds.length > 0) && (
                   <div className="flex flex-col items-center xl:items-start min-w-[120px]">
                     <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2 text-center xl:text-left w-full">
-                      Budget Summary
+                      {build.budgetCents != null ? "Budget Summary" : "Items total"}
                     </span>
-                    <p className="text-sm font-medium text-kyar-text">
-                      {formatCents(totalCostCents)} / {formatCents(build.budgetCents)}
-                    </p>
-                    <div className="h-[2px] bg-kyar-borderSubtle w-full mt-2 mb-1">
-                      <div
-                        className="h-full bg-kyar-text transition-all"
-                        style={{
-                          width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    {totalCostCents > (build.budgetCents || 0) && (
-                      <p className="text-[10px] text-red-600 mt-1 text-center xl:text-left w-full uppercase tracking-widest">
-                        Over budget
+                    {build.budgetCents != null ? (
+                      <>
+                        <p className="text-sm font-medium text-kyar-text">
+                          {formatCents(totalCostCents)} / {formatCents(build.budgetCents)}
+                        </p>
+                        <div className="h-[2px] bg-kyar-borderSubtle w-full mt-2 mb-1">
+                          <div
+                            className="h-full bg-kyar-text transition-all"
+                            style={{
+                              width: `${Math.min(100, (totalCostCents / (build.budgetCents || 1)) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        {totalCostCents > (build.budgetCents || 0) && (
+                          <p className="text-[10px] text-red-600 mt-1 text-center xl:text-left w-full uppercase tracking-widest">
+                            Over budget
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm font-medium text-kyar-text">
+                        {formatCents(totalCostCents)}
                       </p>
                     )}
                   </div>

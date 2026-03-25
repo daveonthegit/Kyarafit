@@ -116,7 +116,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           {summary.linkedItemsCompleteCount} of {summary.linkedItemCount} complete
         </p>
       </div>
-      {summary.budgetCents != null && (
+      {summary.budgetCents != null ? (
         <div>
           <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
             Budget
@@ -145,7 +145,17 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
             )}
           </div>
         </div>
-      )}
+      ) : summary.linkedItemCount > 0 ? (
+        <div>
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+            Linked items cost
+          </span>
+          <div className="flex justify-between text-sm">
+            <span>Total</span>
+            <span className="font-medium">{formatCents(summary.totalCostCents)}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

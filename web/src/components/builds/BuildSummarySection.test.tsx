@@ -66,9 +66,26 @@ describe("BuildSummarySection", () => {
     expect(screen.queryByText(/remaining/i)).not.toBeInTheDocument();
   });
 
-  it("omits budget section when budgetCents is null", () => {
+  it("shows linked items cost when no budget but items are linked", () => {
     const noBudget = { ...mockSummary, budgetCents: null, budgetDifferenceCents: null };
     render(<BuildSummarySection summary={noBudget} formatCents={formatCents} />);
+    expect(screen.getByText(/linked items cost/i)).toBeInTheDocument();
+    expect(screen.getByText(/^total$/i)).toBeInTheDocument();
+    expect(screen.getByText("$120.00")).toBeInTheDocument();
+    expect(screen.queryByText(/total spend/i)).not.toBeInTheDocument();
+  });
+
+  it("omits cost section when no budget and no linked items", () => {
+    const empty = {
+      ...mockSummary,
+      budgetCents: null,
+      budgetDifferenceCents: null,
+      linkedItemCount: 0,
+      linkedItemsCompleteCount: 0,
+      totalCostCents: 0,
+    };
+    render(<BuildSummarySection summary={empty} formatCents={formatCents} />);
+    expect(screen.queryByText(/linked items cost/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/total spend/i)).not.toBeInTheDocument();
   });
 });

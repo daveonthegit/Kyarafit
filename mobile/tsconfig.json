@@ -2,20 +2,13 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "convex/_generated/api": [
-        "../convex/_generated/api"
-      ],
-      "convex/_generated/dataModel": [
-        "../convex/_generated/dataModel"
-      ],
-      "convex/_generated/server": [
-        "../convex/_generated/server"
-      ]
+      "@/*": ["./src/*"],
+      "convex/_generated/api": ["../convex/_generated/api"],
+      "convex/_generated/dataModel": ["../convex/_generated/dataModel"],
+      "convex/_generated/server": ["../convex/_generated/server"]
     }
   },
   "include": [

@@ -55,10 +55,10 @@ describe("BuildNotesModal", () => {
     expect(onSave).toHaveBeenCalled();
   });
 
-  it("calls onClose when Close notes is clicked", () => {
+  it("calls onClose when Close is clicked", () => {
     const onClose = vi.fn();
     render(<BuildNotesModal {...defaultProps} onClose={onClose} />);
-    fireEvent.click(screen.getByRole("button", { name: /close notes/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^close$/i }));
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -184,13 +184,27 @@ export default function ConventionDetailScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      <View className="flex-row items-center gap-4 px-6 pt-14 pb-4 border-b border-black/5">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </Pressable>
-        <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
-          Convention
-        </Text>
+      <View className="flex-row items-center justify-between gap-4 px-6 pt-14 pb-4 border-b border-black/5">
+        <View className="flex-row items-center gap-4 flex-1">
+          <Pressable onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </Pressable>
+          <Text className="text-[9px] uppercase tracking-[0.2em] font-semibold text-black/50">
+            Convention
+          </Text>
+        </View>
+        {isCloud && userId && convexConvention && convexConvention.userId === userId ? (
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/convention-edit",
+                params: { id },
+              } as unknown as Parameters<typeof router.push>[0])
+            }
+          >
+            <Text className="text-[10px] uppercase tracking-widest font-bold text-black">Edit</Text>
+          </Pressable>
+        ) : null}
       </View>
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 48 }}>
         <Text className="font-serif text-3xl font-bold italic text-black mt-6">

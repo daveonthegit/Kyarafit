@@ -14,6 +14,7 @@ import { getOrCreateDeviceId } from "../src/lib/deviceId";
 import { initClosetDb } from "../src/storage/db";
 import { useCurrentUser } from "../src/hooks/useCurrentUser";
 import { useConvexSync } from "../src/hooks/useConvexSync";
+import { initI18n } from "../src/i18n";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function RootLayoutNav() {
     (async () => {
       await initClosetDb();
       await getOrCreateDeviceId();
+      await initI18n();
       if (mounted) {
         setIsInitialized(true);
       }

@@ -9,6 +9,7 @@ import {
 } from "@kyarafit/design-system/types";
 import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { UnderlineInput } from "@/components/ui/UnderlineInput";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -21,7 +22,7 @@ type LinkClosetQuickCreateModalProps = {
 };
 
 /**
- * Minimal “new closet item” flow for use inside link-to-build modal (stacked overlay).
+ * New closet item flow inside link-to-build modal — same fields as the global new-item sheet.
  */
 export function LinkClosetQuickCreateModal({
   open,
@@ -32,16 +33,24 @@ export function LinkClosetQuickCreateModal({
   const createItem = useMutation(api.closetItems.create);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ClosetCategory>("other");
+  const [tagsStr, setTagsStr] = useState("");
+  const [notes, setNotes] = useState("");
+  const [costDollars, setCostDollars] = useState("");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [itemLink, setItemLink] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
   const reset = () => {
     setName("");
     setCategory("other");
+    setTagsStr("");
+    setNotes("");
+    setCostDollars("");
     setImageStorageId(null);
     setImageUrl("");
+    setItemLink("");
     setError("");
   };
 
@@ -58,14 +67,18 @@ export function LinkClosetQuickCreateModal({
       setError("Sign in to create items.");
       return;
     }
+    const tags = tagsStr
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
     const parsed = createClosetItemSchema.safeParse({
       name: name.trim(),
       category,
-      tags: [],
-      notes: undefined,
+      tags,
+      notes: notes.trim() || undefined,
       imageUrl: imageUrl.trim() || undefined,
-      itemLink: undefined,
-      costCents: undefined,
+      itemLink: itemLink.trim() || undefined,
+      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Check the name and category.");
@@ -78,12 +91,12 @@ export function LinkClosetQuickCreateModal({
         userId,
         name: parsed.data.name,
         category: parsed.data.category,
-        tags: [],
-        notes: undefined,
+        tags: parsed.data.tags ?? [],
+        notes: parsed.data.notes,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: parsed.data.imageUrl,
-        itemLink: undefined,
-        costCents: undefined,
+        itemLink: parsed.data.itemLink,
+        costCents: parsed.data.costCents ?? undefined,
       });
       if (doc?._id) {
         onCreated(doc._id);
@@ -117,9 +130,9 @@ export function LinkClosetQuickCreateModal({
             Cancel
           </button>
           <button
-            type="button"
-            onClick={submit}
-            disabled={pending || !name.trim()}
+            type="submit"
+            form="link-closet-quick-create-form"
+            disabled={pending}
             className="flex-1 min-w-[100px] bg-kyar-text text-white py-2.5 text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
           >
             {pending ? "Creating…" : "Create & select"}
@@ -131,9 +144,16 @@ export function LinkClosetQuickCreateModal({
         Creates a new item and selects it for this build. Save links on the previous screen when
         you’re done.
       </p>
-      <div className="space-y-4">
+      <form
+        id="link-closet-quick-create-form"
+        className="space-y-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-2">
+          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
             Photo (optional)
           </label>
           <ImageUpload
@@ -151,36 +171,25 @@ export function LinkClosetQuickCreateModal({
             currentStorageId={imageStorageId ?? undefined}
           />
         </div>
+        <UnderlineInput
+          label="Item name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Arlecchino Wig"
+          required
+        />
         <div>
-          <label
-            htmlFor="quick-closet-name"
-            className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-2"
-          >
-            Name
-          </label>
-          <input
-            id="quick-closet-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Red boots"
-            className="w-full border border-kyar-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/30 focus:border-kyar-accent"
-          />
-        </div>
-        <div>
-          <span className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-2">
+          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
             Category
-          </span>
-          <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto">
+          </label>
+          <div className="flex max-h-[120px] flex-wrap gap-2 overflow-y-auto">
             {CLOSET_CATEGORIES.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setCategory(c)}
-                className={`px-2.5 py-1.5 text-[10px] uppercase tracking-wide rounded-md border ${
-                  category === c
-                    ? "border-kyar-text bg-kyar-text text-white"
-                    : "border-kyar-border text-kyar-textSecondary hover:border-kyar-text"
+                className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
+                  category === c ? "bg-black text-white" : "bg-transparent text-black"
                 }`}
               >
                 {c}
@@ -188,12 +197,40 @@ export function LinkClosetQuickCreateModal({
             ))}
           </div>
         </div>
+        <UnderlineInput
+          label="Tags (comma-separated)"
+          value={tagsStr}
+          onChange={(e) => setTagsStr(e.target.value)}
+          placeholder="wig, character, red"
+        />
+        <UnderlineInput
+          label="Cost $ (optional)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={costDollars}
+          onChange={(e) => setCostDollars(e.target.value)}
+          placeholder="0.00"
+        />
+        <UnderlineInput
+          label="Item link (optional)"
+          type="url"
+          value={itemLink}
+          onChange={(e) => setItemLink(e.target.value)}
+          placeholder="https://…"
+        />
+        <UnderlineInput
+          label="Notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Optional notes"
+        />
         {error && (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-xs text-kyar-danger" role="alert">
             {error}
           </p>
         )}
-      </div>
+      </form>
     </BuildDetailModalShell>
   );
 }
