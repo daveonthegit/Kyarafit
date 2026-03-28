@@ -9,13 +9,15 @@ import {
 } from "@/components/builds/LinkClosetItemsForm";
 import type { Id } from "convex/_generated/dataModel";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 type BuildLinkClosetModalProps = {
   open: boolean;
   onClose: () => void;
   buildId: Id<"builds">;
   userId: string;
   closetItems: LinkClosetRow[];
-  linkedIds: Id<"closetItems">[];
+  linkedIds: ClosetEntityId[];
 };
 
 export function BuildLinkClosetModal({
@@ -46,7 +48,7 @@ export function BuildLinkClosetModal({
     <BuildDetailModalShell
       open={open}
       onClose={onClose}
-      title="Link closet items"
+      title="Link cosplay elements"
       titleId="link-closet-modal-title"
       size="2xl"
       closeDisabled={saving}

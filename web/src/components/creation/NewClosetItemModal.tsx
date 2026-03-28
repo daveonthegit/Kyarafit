@@ -63,12 +63,12 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
       await createItem({
         userId,
         name: parsed.data.name,
-        category: parsed.data.category,
+        category: parsed.data.category ?? "other",
         tags: parsed.data.tags ?? [],
         notes: parsed.data.notes,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: parsed.data.imageUrl,
-        itemLink: parsed.data.itemLink,
+        itemLink: parsed.data.itemLink ?? undefined,
         costCents: parsed.data.costCents ?? undefined,
       });
       onSuccessComplete();
@@ -84,7 +84,7 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
     <Sheet
       open
       onClose={onDismiss}
-      title="New item"
+      title="New cosplay element"
       titleId="global-new-closet-modal-title"
       size="lg"
       closeDisabled={isPending}
@@ -95,7 +95,7 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
           disabled={isPending}
           className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
         >
-          {isPending ? "Saving…" : "Save item"}
+          {isPending ? "Saving…" : "Save element"}
         </button>
       }
     >
@@ -120,7 +120,7 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
           />
         </div>
         <UnderlineInput
-          label="Item name"
+          label="Element name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Arlecchino Wig"
@@ -161,7 +161,7 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
           placeholder="0.00"
         />
         <UnderlineInput
-          label="Item link (optional)"
+          label="Source link (optional)"
           type="url"
           value={itemLink}
           onChange={(e) => setItemLink(e.target.value)}

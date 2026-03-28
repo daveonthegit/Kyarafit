@@ -30,6 +30,18 @@ import { BuildAddTaskModal } from "@/components/builds/BuildAddTaskModal";
 import { BuildInviteCollaboratorModal } from "@/components/builds/BuildInviteCollaboratorModal";
 
 const STATUSES: BuildStatus[] = ["idea", "wip", "ready", "archived"];
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetViewItem = {
+  _id: ClosetEntityId;
+  name: string;
+  category?: string;
+  tags?: string[];
+  costCents?: number | null;
+  status?: string;
+  imageUrl?: string | null;
+  imageStorageId?: Id<"_storage"> | null;
+  _creationTime?: number;
+};
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
@@ -44,8 +56,10 @@ export default function BuildDetailPage() {
 
   const build = useQuery(api.builds.get, id ? { id } : "skip");
   const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
-  const closetItemIds = useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ?? [];
-  const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
+  const closetItemIds = (useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ??
+    []) as ClosetEntityId[];
+  const closetItems =
+    (useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? []) as ClosetViewItem[];
   const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
   const updateTask = useMutation(api.buildTasks.update);
@@ -201,7 +215,7 @@ export default function BuildDetailPage() {
     const { active, over } = event;
     if (over && active.id !== over.id && userId) {
       const taskId = active.id as Id<"buildTasks">;
-      const closetItemId = over.id as Id<"closetItems">;
+      const closetItemId = over.id as ClosetEntityId;
       updateTask({ id: taskId, userId, closetItemId });
       justDroppedRef.current = true;
       setTimeout(() => {
@@ -776,7 +790,7 @@ function DroppableClosetItem({
   justDroppedRef,
   children,
 }: {
-  item: { _id: Id<"closetItems">; name: string; status?: string };
+  item: { _id: ClosetEntityId; name: string; status?: string };
   justDroppedRef: React.MutableRefObject<boolean>;
   children: React.ReactNode;
 }) {

@@ -13,6 +13,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 export default function BuildLinkItemsPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") as Id<"builds"> | null;
@@ -22,8 +24,16 @@ export default function BuildLinkItemsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const closetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? [];
-  const linkedIds = useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ?? [];
+  const closetItems =
+    (useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? []) as Array<{
+      _id: ClosetEntityId;
+      name: string;
+      category?: string;
+      tags?: string[];
+      _creationTime?: number;
+    }>;
+  const linkedIds = (useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ??
+    []) as ClosetEntityId[];
 
   const closetRows = closetItems.map((c) => ({
     _id: c._id,
@@ -59,7 +69,7 @@ export default function BuildLinkItemsPage() {
   if (!userId) {
     return (
       <WebAppShell>
-        <p className="meta-label pt-12">Sign in to link closet items.</p>
+        <p className="meta-label pt-12">Sign in to link cosplay elements.</p>
         <Link href="/build-detail" className="mt-4 text-sm underline">
           Back
         </Link>
@@ -76,7 +86,7 @@ export default function BuildLinkItemsPage() {
         >
           Cancel
         </Link>
-        <p className="meta-label">Link Closet Items</p>
+        <p className="meta-label">Link Cosplay Elements</p>
         <button
           type="button"
           onClick={save}
@@ -89,8 +99,8 @@ export default function BuildLinkItemsPage() {
 
       <main className="flex-1 py-8 max-w-2xl mx-auto px-4">
         <p className="text-sm text-kyar-textTertiary mb-4">
-          Select items to include in this build. Drag into the zone or tap to toggle. They will
-          appear in packing lists when this build is assigned to a day.
+          Select cosplay elements to include in this build. Drag into the zone or tap to toggle.
+          They will appear in packing lists when this build is assigned to a day.
         </p>
         <LinkClosetItemsForm
           ref={formRef}

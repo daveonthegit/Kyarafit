@@ -1,5 +1,5 @@
 /**
- * Build (cosplay build), BuildTask checklist, and BuildItemLink types.
+ * Build, build-node root links, and build task types.
  */
 
 import { z } from "zod";
@@ -49,16 +49,17 @@ export const updateBuildSchema = z.object({
 export type UpdateBuildInput = z.infer<typeof updateBuildSchema>;
 
 export const linkBuildItemsSchema = z.object({
-  closetItemIds: z.array(z.string().uuid()),
+  cosplayNodeIds: z.array(z.string().uuid()),
 });
 
 export type LinkBuildItemsInput = z.infer<typeof linkBuildItemsSchema>;
 
-/** Build task: can belong to a build and/or be assigned to a closet item. */
+/** Build task: can belong to a build and/or be assigned to a cosplay element/material. */
 export const buildTaskSchema = z.object({
   id: z.string().uuid(),
   buildId: z.string().uuid().optional(),
   label: z.string().min(1),
+  cosplayNodeId: z.string().uuid().optional().nullable(),
   closetItemId: z.string().uuid().optional().nullable(),
   sortOrder: z.number().int(),
   checked: z.boolean(),
@@ -70,6 +71,7 @@ export type BuildTask = z.infer<typeof buildTaskSchema>;
 
 export const createBuildTaskSchema = z.object({
   label: z.string().min(1),
+  cosplayNodeId: z.string().uuid().optional().nullable(),
   closetItemId: z.string().uuid().optional().nullable(),
   sortOrder: z.number().int().optional(),
 });
@@ -78,6 +80,7 @@ export type CreateBuildTaskInput = z.infer<typeof createBuildTaskSchema>;
 
 export const updateBuildTaskSchema = z.object({
   label: z.string().min(1).optional(),
+  cosplayNodeId: z.string().uuid().optional().nullable(),
   closetItemId: z.string().uuid().optional().nullable(),
   sortOrder: z.number().int().optional(),
   checked: z.boolean().optional(),

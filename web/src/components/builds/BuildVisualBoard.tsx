@@ -9,9 +9,10 @@ import { createPortal } from "react-dom";
 import { X, Maximize2 } from "lucide-react";
 
 type VisualTab = "all" | "references" | "progress" | "closet";
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
 export type BuildVisualBoardClosetItem = {
-  _id: Id<"closetItems">;
+  _id: ClosetEntityId;
   name: string;
   imageUrl?: string | null;
   imageStorageId?: Id<"_storage"> | null;

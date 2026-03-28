@@ -24,6 +24,7 @@ type PackingRow = {
   checked: boolean;
   date?: string;
   buildId?: string;
+  cosplayNodeId?: string;
   closetItemId?: string;
 };
 
@@ -80,6 +81,7 @@ export default function PackingScreen() {
             checked: p.checked,
             date: p.date ?? undefined,
             buildId: p.buildId ?? undefined,
+            cosplayNodeId: p.cosplayNodeId ?? p.closetItemId ?? undefined,
             closetItemId: p.closetItemId ?? undefined,
           }))
         );
@@ -107,6 +109,7 @@ export default function PackingScreen() {
         checked: p.checked,
         date: p.date,
         buildId: p.buildId as string | undefined,
+        cosplayNodeId: (p.cosplayNodeId ?? p.closetItemId) as string | undefined,
         closetItemId: p.closetItemId as string | undefined,
       }))
     : localItems;

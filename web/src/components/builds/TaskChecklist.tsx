@@ -10,11 +10,13 @@ import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ScrollButton } from "@/components/ui/scroll-button";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 export interface BuildTask {
   _id: Id<"buildTasks">;
   buildId?: Id<"builds">;
   label: string;
-  closetItemId?: Id<"closetItems"> | null;
+  closetItemId?: ClosetEntityId | null;
   sortOrder: number;
   checked: boolean;
   dueDate?: string;
@@ -24,7 +26,7 @@ interface TaskChecklistProps {
   buildId: Id<"builds">;
   tasks: BuildTask[];
   linkedItems?: Array<{
-    _id: Id<"closetItems">;
+    _id: ClosetEntityId;
     name: string;
     imageUrl?: string | null;
     imageStorageId?: Id<"_storage"> | null;
@@ -86,7 +88,7 @@ export function TaskChecklist({
     setAssignModalOpen(true);
   };
 
-  const handleAssignTask = async (closetItemId: Id<"closetItems"> | null) => {
+  const handleAssignTask = async (closetItemId: ClosetEntityId | null) => {
     if (!selectedTaskId || !userId) return;
     await updateTask({
       id: selectedTaskId,
@@ -240,7 +242,7 @@ export function TaskChecklist({
           ))}
           {linkedItems.length === 0 && (
             <p className="text-sm text-kyar-textTertiary text-center py-4">
-              No closet items linked to this build. Link items first to assign tasks.
+              No cosplay elements linked to this build. Link elements first to assign tasks.
             </p>
           )}
         </div>

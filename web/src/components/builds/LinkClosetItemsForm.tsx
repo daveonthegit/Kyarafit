@@ -16,12 +16,14 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 export type LinkClosetItemsFormHandle = {
   save: () => Promise<void>;
 };
 
 export type LinkClosetRow = {
-  _id: Id<"closetItems">;
+  _id: ClosetEntityId;
   name: string;
   category: string;
   tags?: string[];
@@ -36,7 +38,7 @@ type LinkClosetItemsFormProps = {
   buildId: Id<"builds">;
   userId: string;
   closetItems: LinkClosetRow[];
-  linkedIds: Id<"closetItems">[];
+  linkedIds: ClosetEntityId[];
   /** When this toggles to true, selection resets from linkedIds (e.g. modal opened) */
   isActive: boolean;
   /** Drag + drop zone (use on standalone link-items page only) */
@@ -167,7 +169,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
         await linkItemsMut({
           userId,
           buildId,
-          closetItemIds: Array.from(selectedIds) as Id<"closetItems">[],
+          closetItemIds: Array.from(selectedIds) as ClosetEntityId[],
         });
         onAfterSave?.();
       } catch (e) {

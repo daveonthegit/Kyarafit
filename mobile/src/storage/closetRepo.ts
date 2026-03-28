@@ -65,7 +65,7 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
     [
       item.id,
       item.name,
-      item.category,
+      item.category ?? "other",
       tagsJson,
       item.notes ?? null,
       item.imageLocalUri ?? null,
@@ -78,7 +78,7 @@ export async function upsertItem(item: ClosetItem): Promise<void> {
   await enqueue("closetItem.upsert", {
     localId: item.id,
     name: item.name,
-    category: item.category,
+    category: item.category ?? "other",
     tags: item.tags ?? [],
     notes: item.notes ?? undefined,
     imageUrl: item.imageUrl ?? undefined,
@@ -148,7 +148,7 @@ export async function upsertFromConvex(item: ClosetItem & { convexId: string }):
     [
       item.id,
       item.name,
-      item.category,
+      item.category ?? "other",
       tagsJson,
       item.notes ?? null,
       item.imageLocalUri ?? null,

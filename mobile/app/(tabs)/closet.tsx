@@ -69,7 +69,7 @@ export default function ClosetScreen() {
             list.map((item) => ({
               id: item.id,
               name: item.name,
-              category: item.category,
+              category: item.category ?? "other",
               imageUrl: item.imageUrl,
               imageLocalUri: item.imageLocalUri,
             }))
@@ -86,7 +86,7 @@ export default function ClosetScreen() {
     ? (convexItems ?? []).map((item) => ({
         id: item._id as string,
         name: item.name,
-        category: item.category,
+        category: item.category ?? "other",
         imageUrl: item.imageUrl,
         imageLocalUri: undefined,
       }))

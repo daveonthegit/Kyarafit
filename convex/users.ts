@@ -182,11 +182,11 @@ export const recalculateUsage = mutation({
       totalMb += await getStorageSizeMb(ctx, doc.imageStorageId);
     };
 
-    const closetItems = await ctx.db
-      .query("closetItems")
+    const cosplayNodes = await ctx.db
+      .query("cosplayNodes")
       .withIndex("by_userId", (q) => q.eq("userId", externalId))
       .collect();
-    for (const item of closetItems) await addSize(item);
+    for (const node of cosplayNodes) await addSize(node);
 
     const builds = await ctx.db
       .query("builds")

@@ -14,11 +14,13 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 type LinkClosetQuickCreateModalProps = {
   open: boolean;
   onClose: () => void;
   /** Called with new item id; item is auto-linked on next save if you add to selection in parent. */
-  onCreated: (id: Id<"closetItems">) => void;
+  onCreated: (id: ClosetEntityId) => void;
 };
 
 /**
@@ -90,12 +92,12 @@ export function LinkClosetQuickCreateModal({
       const doc = await createItem({
         userId,
         name: parsed.data.name,
-        category: parsed.data.category,
+        category: parsed.data.category ?? "other",
         tags: parsed.data.tags ?? [],
         notes: parsed.data.notes,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: parsed.data.imageUrl,
-        itemLink: parsed.data.itemLink,
+        itemLink: parsed.data.itemLink ?? undefined,
         costCents: parsed.data.costCents ?? undefined,
       });
       if (doc?._id) {
@@ -114,7 +116,7 @@ export function LinkClosetQuickCreateModal({
     <BuildDetailModalShell
       open={open}
       onClose={handleClose}
-      title="New closet item"
+      title="New cosplay element"
       titleId="link-closet-quick-create-title"
       size="lg"
       closeDisabled={pending}
@@ -141,8 +143,8 @@ export function LinkClosetQuickCreateModal({
       }
     >
       <p className="text-sm text-kyar-textSecondary mb-4">
-        Creates a new item and selects it for this build. Save links on the previous screen when
-        you’re done.
+        Creates a new cosplay element and selects it for this build. Save links on the previous
+        screen when you’re done.
       </p>
       <form
         id="link-closet-quick-create-form"
@@ -172,7 +174,7 @@ export function LinkClosetQuickCreateModal({
           />
         </div>
         <UnderlineInput
-          label="Item name"
+          label="Element name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Arlecchino Wig"
@@ -213,7 +215,7 @@ export function LinkClosetQuickCreateModal({
           placeholder="0.00"
         />
         <UnderlineInput
-          label="Item link (optional)"
+          label="Source link (optional)"
           type="url"
           value={itemLink}
           onChange={(e) => setItemLink(e.target.value)}

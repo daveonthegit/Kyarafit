@@ -1,7 +1,47 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { MAX_LENGTH, sanitizeAndLimit, validateDateString } from "./lib/validation";
+
+const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
+
+async function resolveCosplayNodeId(
+  ctx: QueryCtx | MutationCtx,
+  id: Id<"cosplayNodes"> | Id<"closetItems"> | undefined | null
+) {
+  if (!id) return null;
+  const current = await ctx.db.get(id as Id<"cosplayNodes">);
+  if (current && "nodeType" in current) {
+    return current._id as Id<"cosplayNodes">;
+  }
+  const migrated = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", id as Id<"closetItems">))
+    .unique();
+  return migrated?._id ?? null;
+}
+
+async function listTasksForCosplayNode(
+  ctx: QueryCtx,
+  cosplayNodeId: Id<"cosplayNodes">
+) {
+  const tasks = await ctx.db
+    .query("buildTasks")
+    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
+    .collect();
+  const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+  return await Promise.all(
+    sorted.map(async (task) => {
+      const build = task.buildId ? await ctx.db.get(task.buildId) : null;
+      return {
+        ...task,
+        buildId: task.buildId ?? null,
+        buildName: build && "name" in build ? build.name : null,
+      };
+    })
+  );
+}
 
 export const listByBuild = query({
   args: { buildId: v.id("builds") },
@@ -13,29 +53,22 @@ export const listByBuild = query({
   },
 });
 
-/** Returns tasks for a closet item (standalone item tasks + build tasks assigned to this item). */
-export const listByClosetItem = query({
-  args: { closetItemId: v.id("closetItems") },
+export const listByCosplayNode = query({
+  args: { cosplayNodeId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
-      .collect();
-    const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
-    const result = await Promise.all(
-      sorted.map(async (task) => {
-        const build = task.buildId ? await ctx.db.get(task.buildId) : null;
-        return {
-          _id: task._id,
-          buildId: task.buildId ?? null,
-          label: task.label,
-          checked: task.checked,
-          sortOrder: task.sortOrder,
-          buildName: build && "name" in build ? build.name : null,
-        };
-      })
-    );
-    return result;
+    const cosplayNodeId = await resolveCosplayNodeId(ctx, args.cosplayNodeId);
+    if (!cosplayNodeId) return [];
+    return await listTasksForCosplayNode(ctx, cosplayNodeId);
+  },
+});
+
+/** Legacy alias while callers migrate away from closet naming. */
+export const listByClosetItem = query({
+  args: { closetItemId: legacyNodeIdValidator },
+  handler: async (ctx, args) => {
+    const cosplayNodeId = await resolveCosplayNodeId(ctx, args.closetItemId);
+    if (!cosplayNodeId) return [];
+    return await listTasksForCosplayNode(ctx, cosplayNodeId);
   },
 });
 
@@ -68,7 +101,7 @@ export const listForPlanner = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     const buildTasksOnly = tasks.filter(
-      (t): t is typeof t & { buildId: NonNullable<typeof t.buildId> } => t.buildId != null
+      (task): task is typeof task & { buildId: NonNullable<typeof task.buildId> } => task.buildId != null
     );
 
     const conventions = await ctx.db
@@ -76,71 +109,67 @@ export const listForPlanner = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
     const buildIdToDate = new Map<string, string>();
-    const buildIdToConventionId = new Map<
-      string,
-      import("./_generated/dataModel").Id<"conventions">
-    >();
-    for (const conv of conventions) {
+    const buildIdToConventionId = new Map<string, Id<"conventions">>();
+    for (const convention of conventions) {
       const plans = await ctx.db
         .query("conventionDayPlans")
-        .withIndex("by_conventionId", (q) => q.eq("conventionId", conv._id))
+        .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
         .collect();
-      for (const p of plans) {
-        if (p.buildId) {
-          const id = p.buildId;
-          const existing = buildIdToDate.get(id);
-          if (!existing || p.date < existing) {
-            buildIdToDate.set(id, p.date);
-            buildIdToConventionId.set(id, conv._id);
-          }
+      for (const plan of plans) {
+        if (!plan.buildId) continue;
+        const existing = buildIdToDate.get(plan.buildId);
+        if (!existing || plan.date < existing) {
+          buildIdToDate.set(plan.buildId, plan.date);
+          buildIdToConventionId.set(plan.buildId, convention._id);
         }
       }
     }
 
     const result: Array<{
-      _id: (typeof tasks)[0]["_id"];
+      _id: Doc<"buildTasks">["_id"];
       label: string;
       checked: boolean;
-      buildId?: (typeof buildTasksOnly)[0]["buildId"];
+      buildId?: Doc<"buildTasks">["buildId"];
       buildName: string;
-      conventionId?: import("./_generated/dataModel").Id<"conventions">;
+      conventionId?: Id<"conventions">;
       dueDate?: string;
       sortOrder: number;
     }> = [];
+
     for (const task of buildTasksOnly) {
       const build = await ctx.db.get(task.buildId);
       if (!build || build.userId !== args.userId) continue;
-      const dueDate = task.dueDate ?? buildIdToDate.get(task.buildId);
-      const conventionId = buildIdToConventionId.get(task.buildId);
       result.push({
         _id: task._id,
         label: task.label,
         checked: task.checked,
         buildId: task.buildId,
         buildName: build.name,
-        dueDate,
+        dueDate: task.dueDate ?? buildIdToDate.get(task.buildId),
         sortOrder: task.sortOrder,
-        ...(conventionId && { conventionId }),
+        ...(buildIdToConventionId.has(task.buildId)
+          ? { conventionId: buildIdToConventionId.get(task.buildId)! }
+          : {}),
       });
     }
-    // Include tasks linked to manual packing items (show on Todo, sync checked)
-    const packingOnlyTasks = tasks.filter((t) => t.packingListItemId != null);
+
+    const packingOnlyTasks = tasks.filter((task) => task.packingListItemId != null);
     for (const task of packingOnlyTasks) {
       const packingItem = await ctx.db.get(task.packingListItemId!);
       if (!packingItem || packingItem.userId !== args.userId) continue;
       const convention = await ctx.db.get(packingItem.conventionId);
       if (!convention) continue;
-      const dueDate = task.dueDate ?? packingItem.date;
       result.push({
         _id: task._id,
         label: task.label,
         checked: task.checked,
         buildName: convention.name,
         conventionId: packingItem.conventionId,
-        dueDate,
+        dueDate: task.dueDate ?? packingItem.date,
         sortOrder: task.sortOrder,
       });
     }
+
     result.sort((a, b) => {
       const dateA = a.dueDate ?? "9999-12-31";
       const dateB = b.dueDate ?? "9999-12-31";
@@ -156,13 +185,19 @@ export const create = mutation({
     userId: v.string(),
     buildId: v.optional(v.id("builds")),
     label: v.string(),
-    closetItemId: v.optional(v.id("closetItems")),
+    cosplayNodeId: v.optional(legacyNodeIdValidator),
+    closetItemId: v.optional(legacyNodeIdValidator),
     sortOrder: v.optional(v.number()),
     dueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const dueDate = args.dueDate ? validateDateString(args.dueDate, "Due date") : undefined;
+    const resolvedNodeId = await resolveCosplayNodeId(
+      ctx,
+      args.cosplayNodeId ?? args.closetItemId ?? null
+    );
+
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
       if (!build) throw new Error("Build not found");
@@ -176,29 +211,32 @@ export const create = mutation({
         userId: args.userId,
         buildId: args.buildId,
         label,
-        closetItemId: args.closetItemId,
+        cosplayNodeId: resolvedNodeId ?? undefined,
+        closetItemId: undefined,
         sortOrder: args.sortOrder ?? existing.length,
         checked: false,
         dueDate,
       });
       return await ctx.db.get(id);
     }
-    if (!args.closetItemId) {
-      throw new Error("Either buildId or closetItemId is required");
+
+    if (!resolvedNodeId) {
+      throw new Error("Either buildId or cosplayNodeId is required");
     }
-    const item = await ctx.db.get(args.closetItemId);
-    if (!item || item.userId !== args.userId) {
+    const node = await ctx.db.get(resolvedNodeId);
+    if (!node || node.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
     const existing = await ctx.db
       .query("buildTasks")
-      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
+      .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", resolvedNodeId))
       .collect();
     const id = await ctx.db.insert("buildTasks", {
       userId: args.userId,
       buildId: undefined,
       label,
-      closetItemId: args.closetItemId,
+      cosplayNodeId: resolvedNodeId,
+      closetItemId: undefined,
       sortOrder: args.sortOrder ?? existing.length,
       checked: false,
       dueDate,
@@ -212,7 +250,8 @@ export const update = mutation({
     id: v.id("buildTasks"),
     userId: v.string(),
     label: v.optional(v.string()),
-    closetItemId: v.optional(v.union(v.id("closetItems"), v.null())),
+    cosplayNodeId: v.optional(v.union(legacyNodeIdValidator, v.null())),
+    closetItemId: v.optional(v.union(legacyNodeIdValidator, v.null())),
     sortOrder: v.optional(v.number()),
     checked: v.optional(v.boolean()),
     dueDate: v.optional(v.union(v.string(), v.null())),
@@ -225,39 +264,33 @@ export const update = mutation({
       task.userId === userId ||
       (task.buildId && (await canUserEditBuild(ctx, task.buildId, userId)));
     if (!allowed) throw new Error("Not authorized");
+
     const patch: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(fields)) {
-      if (val === null) patch[k] = undefined;
-      else if (val !== undefined) {
-        if (k === "label") patch.label = sanitizeAndLimit(val as string, MAX_LENGTH.label, "Label");
-        else if (k === "dueDate")
-          patch.dueDate = val ? validateDateString(val as string, "Due date") : undefined;
-        else patch[k] = val;
-      }
+    if (fields.label !== undefined) {
+      patch.label = sanitizeAndLimit(fields.label, MAX_LENGTH.label, "Label");
     }
+    if (fields.sortOrder !== undefined) patch.sortOrder = fields.sortOrder;
+    if (fields.checked !== undefined) patch.checked = fields.checked;
+    if (fields.dueDate !== undefined) {
+      patch.dueDate =
+        fields.dueDate === null ? undefined : validateDateString(fields.dueDate, "Due date");
+    }
+    if (fields.cosplayNodeId !== undefined || fields.closetItemId !== undefined) {
+      const sourceId =
+        fields.cosplayNodeId === undefined ? fields.closetItemId : fields.cosplayNodeId;
+      patch.cosplayNodeId =
+        sourceId === null ? undefined : await resolveCosplayNodeId(ctx, sourceId ?? null);
+      patch.closetItemId = undefined;
+    }
+
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
 
-    // When completion task is toggled, sync linked closet item status
-    if (args.checked !== undefined) {
-      const items = await ctx.db
-        .query("closetItems")
-        .withIndex("by_completionTaskId", (q) => q.eq("completionTaskId", id))
-        .collect();
-      for (const item of items) {
-        if (item.userId === userId) {
-          await ctx.db.patch(item._id, {
-            status: args.checked ? "complete" : "in_progress",
-          });
-        }
-      }
-      // When Pack task for manual packing item is toggled, sync packing list item
-      if (task.packingListItemId) {
-        const packingItem = await ctx.db.get(task.packingListItemId);
-        if (packingItem && packingItem.userId === userId) {
-          await ctx.db.patch(task.packingListItemId, { checked: args.checked });
-        }
+    if (args.checked !== undefined && task.packingListItemId) {
+      const packingItem = await ctx.db.get(task.packingListItemId);
+      if (packingItem && packingItem.userId === userId) {
+        await ctx.db.patch(task.packingListItemId, { checked: args.checked });
       }
     }
 
@@ -275,15 +308,5 @@ export const remove = mutation({
       (task.buildId && (await canUserEditBuild(ctx, task.buildId, args.userId)));
     if (!allowed) throw new Error("Not authorized");
     await ctx.db.delete(args.id);
-    // Clear completionTaskId from any closet item that used this task
-    const items = await ctx.db
-      .query("closetItems")
-      .withIndex("by_completionTaskId", (q) => q.eq("completionTaskId", args.id))
-      .collect();
-    for (const item of items) {
-      if (item.userId === args.userId) {
-        await ctx.db.patch(item._id, { completionTaskId: undefined });
-      }
-    }
   },
 });

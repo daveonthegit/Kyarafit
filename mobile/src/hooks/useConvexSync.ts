@@ -58,7 +58,7 @@ export function useConvexSync(userId: string | null): SyncState {
   // Pull: write builds to SQLite
   useEffect(() => {
     if (!buildsWithDetails || !userId) return;
-    pullBuilds(buildsWithDetails as ConvexBuildWithDetails[]).catch((e) =>
+    pullBuilds(buildsWithDetails as unknown as ConvexBuildWithDetails[]).catch((e) =>
       console.warn("[convexSync] pull builds:", e)
     );
   }, [buildsWithDetails, userId]);

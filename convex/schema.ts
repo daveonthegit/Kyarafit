@@ -36,10 +36,84 @@ export default defineSchema({
     costCents: v.optional(v.number()),
     status: v.optional(v.string()),
     completionTaskId: v.optional(v.id("buildTasks")),
+    parentItemId: v.optional(v.id("closetItems")),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_category", ["userId", "category"])
-    .index("by_completionTaskId", ["completionTaskId"]),
+    .index("by_completionTaskId", ["completionTaskId"])
+    .index("by_parentItemId", ["parentItemId"]),
+
+  cosplayNodes: defineTable({
+    userId: v.string(),
+    legacyClosetItemId: v.optional(v.id("closetItems")),
+    nodeType: v.string(),
+    name: v.string(),
+    category: v.optional(v.string()),
+    tags: v.array(v.string()),
+    notes: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
+    sourceUrl: v.optional(v.string()),
+    pricingMode: v.optional(v.string()),
+    directCostCents: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    purchaseStatus: v.optional(v.string()),
+    buildStatus: v.optional(v.string()),
+    materialStatus: v.optional(v.string()),
+    manualOverallBucket: v.optional(v.string()),
+    buildInstructions: v.optional(v.string()),
+    finishedPhotoUrls: v.optional(v.array(v.string())),
+    consumable: v.optional(v.boolean()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_nodeType", ["userId", "nodeType"])
+    .index("by_userId_category", ["userId", "category"])
+    .index("by_legacyClosetItemId", ["legacyClosetItemId"]),
+
+  cosplayNodeLinks: defineTable({
+    userId: v.string(),
+    parentNodeId: v.id("cosplayNodes"),
+    childNodeId: v.id("cosplayNodes"),
+    sortOrder: v.number(),
+    linkMode: v.string(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_parentNodeId", ["parentNodeId"])
+    .index("by_childNodeId", ["childNodeId"])
+    .index("by_parentNodeId_sortOrder", ["parentNodeId", "sortOrder"]),
+
+  buildCosplayLinks: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeId: v.id("cosplayNodes"),
+    sortOrder: v.number(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
+    .index("by_buildId_sortOrder", ["buildId", "sortOrder"]),
+
+  buildNodeStates: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeId: v.id("cosplayNodes"),
+    purchaseStatus: v.optional(v.string()),
+    buildStatus: v.optional(v.string()),
+    materialStatus: v.optional(v.string()),
+    manualOverallBucket: v.optional(v.string()),
+    pricingMode: v.optional(v.string()),
+    directCostCents: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    purchasedAt: v.optional(v.string()),
+    startedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
+    .index("by_buildId_cosplayNodeId", ["buildId", "cosplayNodeId"]),
 
   builds: defineTable({
     userId: v.string(),
@@ -77,6 +151,7 @@ export default defineSchema({
     buildId: v.optional(v.id("builds")),
     label: v.string(),
     closetItemId: v.optional(v.id("closetItems")),
+    cosplayNodeId: v.optional(v.id("cosplayNodes")),
     packingListItemId: v.optional(v.id("packingListItems")),
     sortOrder: v.number(),
     checked: v.boolean(),
@@ -85,6 +160,7 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_closetItemId", ["closetItemId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_packingListItemId", ["packingListItemId"]),
 
   conventions: defineTable({
@@ -112,12 +188,14 @@ export default defineSchema({
     date: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
     closetItemId: v.optional(v.id("closetItems")),
+    cosplayNodeId: v.optional(v.id("cosplayNodes")),
     label: v.string(),
     notes: v.optional(v.string()),
     checked: v.boolean(),
   })
     .index("by_conventionId", ["conventionId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"]),
 
   buildReferenceImages: defineTable({
     userId: v.string(),

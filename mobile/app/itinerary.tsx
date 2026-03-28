@@ -223,6 +223,11 @@ export default function ItineraryScreen() {
         checked: p.checked,
         date: p.date ?? null,
         buildId: p.buildId ? (p.buildId as string) : null,
+        cosplayNodeId: p.cosplayNodeId
+          ? (p.cosplayNodeId as string)
+          : p.closetItemId
+            ? (p.closetItemId as string)
+            : null,
         closetItemId: p.closetItemId ? (p.closetItemId as string) : null,
         createdAt: "",
         updatedAt: "",

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import {
   MAX_LENGTH,
@@ -7,6 +8,27 @@ import {
   sanitizeOptional,
   validateDateString,
 } from "./lib/validation";
+
+function findPackTask(
+  tasks: Array<{
+    _id: Doc<"buildTasks">["_id"];
+    cosplayNodeId?: unknown;
+    closetItemId?: unknown;
+    label: string;
+    checked: boolean;
+  }>,
+  item: {
+    cosplayNodeId?: unknown;
+    closetItemId?: unknown;
+  }
+) {
+  return tasks.find(
+    (task) =>
+      task.label.startsWith("Pack:") &&
+      ((item.cosplayNodeId && task.cosplayNodeId === item.cosplayNodeId) ||
+        (item.closetItemId && task.closetItemId === item.closetItemId))
+  );
+}
 
 export const list = query({
   args: { userId: v.string() },
@@ -282,14 +304,12 @@ export const getPacking = query({
     // For build-linked items, checked state lives on the Pack build task
     const result = await Promise.all(
       items.map(async (item) => {
-        if (item.buildId && item.closetItemId) {
+        if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
           const task = await ctx.db
             .query("buildTasks")
             .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
             .collect();
-          const packTask = task.find(
-            (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
-          );
+          const packTask = findPackTask(task, item);
           return { ...item, checked: packTask ? packTask.checked : item.checked };
         }
         return item;
@@ -329,14 +349,12 @@ export const updatePackingItem = mutation({
     }
     // Sync checked to the Pack build task so Todo/task list and packing list stay in sync
     if (args.checked !== undefined) {
-      if (item.buildId && item.closetItemId) {
+      if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
         const tasks = await ctx.db
           .query("buildTasks")
           .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
           .collect();
-        const packTask = tasks.find(
-          (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
-        );
+        const packTask = findPackTask(tasks, item);
         if (packTask) await ctx.db.patch(packTask._id, { checked: args.checked });
       } else {
         // Manual packing item: sync to task linked by packingListItemId
@@ -350,14 +368,12 @@ export const updatePackingItem = mutation({
     const updated = await ctx.db.get(id);
     // Return with resolved checked from task for build-linked items (for consistent UI);
     // manual items store checked on the row and we synced to task above
-    if (updated && updated.buildId && updated.closetItemId) {
+    if (updated && updated.buildId && (updated.cosplayNodeId || updated.closetItemId)) {
       const tasks = await ctx.db
         .query("buildTasks")
         .withIndex("by_buildId", (q) => q.eq("buildId", updated.buildId!))
         .collect();
-      const packTask = tasks.find(
-        (t) => t.closetItemId === updated.closetItemId && t.label.startsWith("Pack:")
-      );
+      const packTask = findPackTask(tasks, updated);
       return { ...updated, checked: packTask ? packTask.checked : updated.checked };
     }
     return updated;
@@ -389,7 +405,7 @@ export const addManualPackingItem = mutation({
       notes,
       buildId: args.buildId,
       checked: false,
-      // No closetItemId = manual item; won't be removed when regenerating from builds
+      // No cosplayNodeId = manual item; won't be removed when regenerating from builds
     });
     // Create a Pack task so manual packing items show on Todo and stay in sync
     await ctx.db.insert("buildTasks", {
@@ -444,14 +460,12 @@ export const listWithDetails = query({
           .collect();
         const packing = await Promise.all(
           packingRaw.map(async (item) => {
-            if (item.buildId && item.closetItemId) {
+            if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
               const tasks = await ctx.db
                 .query("buildTasks")
                 .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
                 .collect();
-              const packTask = tasks.find(
-                (t) => t.closetItemId === item.closetItemId && t.label.startsWith("Pack:")
-              );
+              const packTask = findPackTask(tasks, item);
               return { ...item, checked: packTask ? packTask.checked : item.checked };
             }
             return item;
@@ -474,13 +488,15 @@ export const regeneratePacking = mutation({
       throw new Error("Not found or not authorized");
     }
 
-    // Delete only auto-generated items (from builds); keep manual items (no closetItemId)
+    // Delete only auto-generated items (from builds); keep manual items (no cosplayNodeId)
     const existing = await ctx.db
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     for (const item of existing) {
-      if (item.closetItemId !== undefined) await ctx.db.delete(item._id);
+      if (item.cosplayNodeId !== undefined || item.closetItemId !== undefined) {
+        await ctx.db.delete(item._id);
+      }
     }
 
     // Get day plans to generate packing items from linked builds
@@ -491,37 +507,37 @@ export const regeneratePacking = mutation({
 
     const newItems = [];
     const processedBuildIds = new Set<string>();
-    const addedBuildCloset = new Set<string>();
+    const addedBuildNodes = new Set<string>();
 
     for (const plan of plans) {
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
 
       const links = await ctx.db
-        .query("buildItemLinks")
+        .query("buildCosplayLinks")
         .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
         .collect();
 
       for (const link of links) {
-        const key = `${buildId}:${link.closetItemId}`;
-        if (addedBuildCloset.has(key)) continue;
-        addedBuildCloset.add(key);
+        const key = `${buildId}:${link.cosplayNodeId}`;
+        if (addedBuildNodes.has(key)) continue;
+        addedBuildNodes.add(key);
 
-        const closetItem = await ctx.db.get(link.closetItemId);
-        if (!closetItem) continue;
+        const node = await ctx.db.get(link.cosplayNodeId);
+        if (!node) continue;
         const id = await ctx.db.insert("packingListItems", {
           userId: args.userId,
           conventionId: args.conventionId,
           date: plan.date,
           buildId: plan.buildId,
-          closetItemId: link.closetItemId,
-          label: closetItem.name,
+          cosplayNodeId: link.cosplayNodeId,
+          label: node.name,
           checked: false,
         });
         newItems.push(await ctx.db.get(id));
       }
 
-      // Auto-create a "Pack: {item name}" build task for each closet item (once per build)
+      // Auto-create a "Pack: {item name}" build task for each linked node (once per build)
       if (!processedBuildIds.has(buildId)) {
         processedBuildIds.add(buildId);
         const build = await ctx.db.get(buildId);
@@ -531,18 +547,19 @@ export const regeneratePacking = mutation({
           .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
           .collect();
         for (const link of links) {
-          const closetItem = await ctx.db.get(link.closetItemId);
-          if (!closetItem) continue;
-          const packLabel = "Pack: " + closetItem.name;
+          const node = await ctx.db.get(link.cosplayNodeId);
+          if (!node) continue;
+          const packLabel = "Pack: " + node.name;
           const hasPackTask = existingTasks.some(
-            (t) => t.closetItemId === link.closetItemId && t.label.startsWith("Pack:")
+            (task) =>
+              task.cosplayNodeId === link.cosplayNodeId && task.label.startsWith("Pack:")
           );
           if (!hasPackTask) {
             const taskId = await ctx.db.insert("buildTasks", {
               userId: build.userId,
               buildId,
               label: packLabel,
-              closetItemId: link.closetItemId,
+              cosplayNodeId: link.cosplayNodeId,
               sortOrder: existingTasks.length,
               checked: false,
             });

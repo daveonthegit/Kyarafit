@@ -1,8 +1,9 @@
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { deriveNodeSummary } from "./cosplayNodes";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -26,6 +27,80 @@ const sortByValidator = v.optional(
   v.union(v.literal("name"), v.literal("progress"), v.literal("targetDate"), v.literal("budget"))
 );
 const orderValidator = v.optional(v.union(v.literal("asc"), v.literal("desc")));
+const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
+
+async function getBuildRootLinks(
+  ctx: MutationCtx | import("./_generated/server").QueryCtx,
+  buildId: Doc<"builds">["_id"]
+) {
+  const links = await ctx.db
+    .query("buildCosplayLinks")
+    .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", buildId))
+    .collect();
+  if (links.length > 0) return links;
+
+  const legacyLinks = await ctx.db
+    .query("buildItemLinks")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  const resolved = [];
+  for (let index = 0; index < legacyLinks.length; index += 1) {
+    const migrated = await ctx.db
+      .query("cosplayNodes")
+      .withIndex("by_legacyClosetItemId", (q) =>
+        q.eq("legacyClosetItemId", legacyLinks[index].closetItemId)
+      )
+      .unique();
+    if (!migrated) continue;
+    resolved.push({
+      _id: legacyLinks[index]._id,
+      _creationTime: legacyLinks[index]._creationTime,
+      userId: legacyLinks[index].userId,
+      buildId: legacyLinks[index].buildId,
+      cosplayNodeId: migrated._id,
+      sortOrder: index,
+    });
+  }
+  return resolved;
+}
+
+async function getBuildRootNodeIds(
+  ctx: MutationCtx | import("./_generated/server").QueryCtx,
+  buildId: Doc<"builds">["_id"]
+) {
+  const links = await getBuildRootLinks(ctx, buildId);
+  return links.map((link) => link.cosplayNodeId);
+}
+
+async function resolveLegacyNodeIds(
+  ctx: MutationCtx | import("./_generated/server").QueryCtx,
+  userId: string | undefined,
+  ids: Array<Id<"cosplayNodes"> | Id<"closetItems">>
+) {
+  const resolved: Id<"cosplayNodes">[] = [];
+  const seen = new Set<string>();
+  for (const rawId of ids) {
+    const direct = await ctx.db.get(rawId as Id<"cosplayNodes">);
+    if (direct && "nodeType" in direct && (!userId || direct.userId === userId)) {
+      if (!seen.has(direct._id)) {
+        resolved.push(direct._id);
+        seen.add(direct._id);
+      }
+      continue;
+    }
+    const migrated = await ctx.db
+      .query("cosplayNodes")
+      .withIndex("by_legacyClosetItemId", (q) =>
+        q.eq("legacyClosetItemId", rawId as Id<"closetItems">)
+      )
+      .unique();
+    if (migrated && (!userId || migrated.userId === userId) && !seen.has(migrated._id)) {
+      resolved.push(migrated._id);
+      seen.add(migrated._id);
+    }
+  }
+  return resolved;
+}
 
 export const list = query({
   args: {
@@ -65,14 +140,12 @@ export const list = query({
         const tasksChecked = tasks.filter((t) => t.checked).length;
         const tasksTotal = tasks.length;
         const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
-        const links = await ctx.db
-          .query("buildItemLinks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
+        const links = await getBuildRootLinks(ctx, b._id);
         let totalCostCents = 0;
+        const visited = new Set<string>();
         for (const link of links) {
-          const item = await ctx.db.get(link.closetItemId);
-          if (item?.costCents != null) totalCostCents += item.costCents;
+          const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, b._id, visited);
+          totalCostCents += summary.totalCostCents;
         }
         return {
           ...b,
@@ -561,18 +634,28 @@ export const remove = mutation({
     for (const p of processPics) {
       await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
     }
-    // Cascade: delete tasks and item links
+    // Cascade: delete tasks, root links, and build-node state overlays.
     const tasks = await ctx.db
       .query("buildTasks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
     for (const t of tasks) await ctx.db.delete(t._id);
 
-    const links = await ctx.db
+    const legacyLinks = await ctx.db
       .query("buildItemLinks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
+    for (const l of legacyLinks) await ctx.db.delete(l._id);
+    const links = await ctx.db
+      .query("buildCosplayLinks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
+      .collect();
     for (const l of links) await ctx.db.delete(l._id);
+    const buildNodeStates = await ctx.db
+      .query("buildNodeStates")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
+      .collect();
+    for (const state of buildNodeStates) await ctx.db.delete(state._id);
 
     for (const r of refImages) await ctx.db.delete(r._id);
     for (const p of processPics) await ctx.db.delete(p._id);
@@ -612,11 +695,21 @@ export const removeMany = mutation({
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
       for (const t of tasks) await ctx.db.delete(t._id);
-      const links = await ctx.db
+      const legacyLinks = await ctx.db
         .query("buildItemLinks")
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
+      for (const l of legacyLinks) await ctx.db.delete(l._id);
+      const links = await ctx.db
+        .query("buildCosplayLinks")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
       for (const l of links) await ctx.db.delete(l._id);
+      const buildNodeStates = await ctx.db
+        .query("buildNodeStates")
+        .withIndex("by_buildId", (q) => q.eq("buildId", id))
+        .collect();
+      for (const state of buildNodeStates) await ctx.db.delete(state._id);
       await ctx.db.delete(id);
     }
   },
@@ -641,15 +734,14 @@ export const updateStatusMany = mutation({
   },
 });
 
+export const getNodes = query({
+  args: { buildId: v.id("builds") },
+  handler: async (ctx, args) => await getBuildRootNodeIds(ctx, args.buildId),
+});
+
 export const getItems = query({
   args: { buildId: v.id("builds") },
-  handler: async (ctx, args) => {
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    return links.map((l) => l.closetItemId);
-  },
+  handler: async (ctx, args) => await getBuildRootNodeIds(ctx, args.buildId),
 });
 
 /** Returns aggregated summary for one build (status, progress, dates, linked items, budget). Used by Summary dashboard. */
@@ -670,19 +762,15 @@ export const getSummary = query({
     const tasksTotal = tasks.length;
     const progressPercent = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
 
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
+    const links = await getBuildRootLinks(ctx, build._id);
     let linkedItemCount = links.length;
     let linkedItemsCompleteCount = 0;
     let totalCostCents = 0;
+    const visited = new Set<string>();
     for (const link of links) {
-      const item = await ctx.db.get(link.closetItemId);
-      if (item) {
-        if (item.status === "complete") linkedItemsCompleteCount += 1;
-        totalCostCents += item.costCents ?? 0;
-      }
+      const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, build._id, visited);
+      if (summary.overallBucket === "complete") linkedItemsCompleteCount += 1;
+      totalCostCents += summary.totalCostCents;
     }
 
     const createdMs = (build as { _creationTime?: number })._creationTime ?? Date.now();
@@ -721,7 +809,7 @@ export const getSummary = query({
   },
 });
 
-/** Returns builds with their tasks and linked closet-item IDs — used by mobile sync. */
+/** Returns builds with their tasks and linked cosplay-node IDs — used by mobile sync. */
 export const listWithDetails = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -736,17 +824,132 @@ export const listWithDetails = query({
           .query("buildTasks")
           .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
           .collect();
-        const links = await ctx.db
-          .query("buildItemLinks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
+        const links = await getBuildRootLinks(ctx, b._id);
         return {
           ...b,
           tasks,
-          linkedItemIds: links.map((l) => l.closetItemId as string),
+          linkedNodeIds: links.map((l) => l.cosplayNodeId as string),
         };
       })
     );
+  },
+});
+async function replaceBuildRootLinks(
+  ctx: MutationCtx,
+  userId: string,
+  buildId: Id<"builds">,
+  cosplayNodeIds: Id<"cosplayNodes">[]
+) {
+  const existing = await ctx.db
+    .query("buildCosplayLinks")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  for (const link of existing) {
+    await ctx.db.delete(link._id);
+  }
+  for (let index = 0; index < cosplayNodeIds.length; index += 1) {
+    const cosplayNodeId = cosplayNodeIds[index];
+    await ctx.db.insert("buildCosplayLinks", {
+      userId,
+      buildId,
+      cosplayNodeId,
+      sortOrder: index,
+    });
+  }
+}
+
+async function addBuildRootLinks(
+  ctx: MutationCtx,
+  userId: string,
+  buildId: Id<"builds">,
+  cosplayNodeIds: Id<"cosplayNodes">[]
+) {
+  const existing = await ctx.db
+    .query("buildCosplayLinks")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  const existingIds = new Set(existing.map((link) => link.cosplayNodeId));
+  let nextSortOrder = existing.length;
+  for (const cosplayNodeId of Array.from(new Set(cosplayNodeIds))) {
+    if (existingIds.has(cosplayNodeId)) continue;
+    const node = await ctx.db.get(cosplayNodeId);
+    if (!node || node.userId !== userId) continue;
+    await ctx.db.insert("buildCosplayLinks", {
+      userId,
+      buildId,
+      cosplayNodeId,
+      sortOrder: nextSortOrder++,
+    });
+  }
+}
+
+async function removeBuildRootLink(
+  ctx: MutationCtx,
+  userId: string,
+  buildId: Id<"builds">,
+  cosplayNodeId: Id<"cosplayNodes">
+) {
+  const build = await ctx.db.get(buildId);
+  if (!build) throw new Error("Build not found");
+  const canEdit = await canUserEditBuild(ctx, buildId, userId);
+  if (!canEdit) throw new Error("Not authorized");
+  const node = await ctx.db.get(cosplayNodeId);
+  if (!node || node.userId !== userId) {
+    throw new Error("Not found or not authorized");
+  }
+
+  const links = await ctx.db
+    .query("buildCosplayLinks")
+    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
+    .collect();
+  for (const link of links) {
+    if (link.buildId === buildId) await ctx.db.delete(link._id);
+  }
+}
+
+async function listBuildsUsingNode(
+  ctx: import("./_generated/server").QueryCtx,
+  cosplayNodeId: Id<"cosplayNodes">
+) {
+  const links = await ctx.db
+    .query("buildCosplayLinks")
+    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
+    .collect();
+  const buildIds = Array.from(new Set(links.map((link) => link.buildId)));
+  const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
+  return builds.flatMap((build) =>
+    build && "name" in build
+      ? [
+          {
+            _id: build._id,
+            name: build.name,
+            imageStorageId: build.imageStorageId,
+            imageUrl: build.imageUrl,
+            character: build.character,
+          },
+        ]
+      : []
+  );
+}
+
+export const linkNodes = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeIds: v.array(v.id("cosplayNodes")),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
+
+    const validIds: Id<"cosplayNodes">[] = [];
+    for (const cosplayNodeId of Array.from(new Set(args.cosplayNodeIds))) {
+      const node = await ctx.db.get(cosplayNodeId);
+      if (node && node.userId === args.userId) validIds.push(cosplayNodeId);
+    }
+    await replaceBuildRootLinks(ctx, args.userId, args.buildId, validIds);
   },
 });
 
@@ -754,268 +957,110 @@ export const linkItems = mutation({
   args: {
     userId: v.string(),
     buildId: v.id("builds"),
-    closetItemIds: v.array(v.id("closetItems")),
+    closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
     if (!canEdit) throw new Error("Not authorized");
-    const uniqueRequestedIds = Array.from(new Set(args.closetItemIds));
-    const existing = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    const newIds = new Set(uniqueRequestedIds);
-    // For items being unlinked: delete their build tasks and clear completionTaskId
-    for (const l of existing) {
-      if (newIds.has(l.closetItemId)) continue;
-      const item = await ctx.db.get(l.closetItemId);
-      if (!item || item.userId !== args.userId) continue;
-      const tasksForItem = await ctx.db
-        .query("buildTasks")
-        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", l.closetItemId))
-        .collect();
-      const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
-      for (const task of tasksInBuild) await ctx.db.delete(task._id);
-      if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
-        await ctx.db.patch(l.closetItemId, { completionTaskId: undefined });
-      }
-    }
-    // Remove existing links
-    for (const l of existing) await ctx.db.delete(l._id);
-
-    // Only link items that exist and belong to the user (avoid orphan links and auth bypass)
-    const validIds: typeof args.closetItemIds = [];
-    for (const closetItemId of uniqueRequestedIds) {
-      const item = await ctx.db.get(closetItemId);
-      if (item && item.userId === args.userId) validIds.push(closetItemId);
-    }
-
-    // Create new links (one per valid item, no duplicates)
-    for (const closetItemId of validIds) {
-      await ctx.db.insert("buildItemLinks", {
-        userId: args.userId,
-        buildId: args.buildId,
-        closetItemId,
-      });
-    }
-
-    // Auto-create a completion task in this build for each linked item that doesn't already have one in this build
-    const existingTasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    const itemIdsWithTaskInBuild = new Set(
-      existingTasks
-        .map((t) => t.closetItemId)
-        .filter((id): id is NonNullable<typeof id> => id != null)
-    );
-    let nextSortOrder = existingTasks.length;
-    for (const closetItemId of validIds) {
-      if (itemIdsWithTaskInBuild.has(closetItemId)) continue;
-      const item = await ctx.db.get(closetItemId);
-      if (!item || item.userId !== args.userId) continue;
-      const taskId = await ctx.db.insert("buildTasks", {
-        userId: args.userId,
-        buildId: args.buildId,
-        label: `Complete ${item.name}`,
-        closetItemId,
-        sortOrder: nextSortOrder++,
-        checked: false,
-      });
-      itemIdsWithTaskInBuild.add(closetItemId);
-      let shouldSetCompletionTask: boolean;
-      if (!item.completionTaskId) {
-        shouldSetCompletionTask = true;
-      } else {
-        const existingTask = await ctx.db.get(item.completionTaskId);
-        shouldSetCompletionTask = !existingTask || existingTask.userId !== args.userId;
-      }
-      if (shouldSetCompletionTask) {
-        await ctx.db.patch(closetItemId, { completionTaskId: taskId });
-      }
-    }
+    const validIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
+    await replaceBuildRootLinks(ctx, args.userId, args.buildId, validIds);
   },
 });
 
-/** Add closet items to a build (merge with existing links). Does not remove current links. */
+export const addNodesToBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeIds: v.array(v.id("cosplayNodes")),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
+
+    await addBuildRootLinks(ctx, args.userId, args.buildId, args.cosplayNodeIds);
+  },
+});
+
 export const addItemsToBuild = mutation({
   args: {
     userId: v.string(),
     buildId: v.id("builds"),
-    closetItemIds: v.array(v.id("closetItems")),
+    closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
     if (!canEdit) throw new Error("Not authorized");
-    const existing = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    const existingIds = new Set(existing.map((l) => l.closetItemId));
-    const uniqueToAdd = Array.from(
-      new Set(args.closetItemIds.filter((id) => !existingIds.has(id)))
-    );
-    // Only add items that exist and belong to the user
-    const toAdd: typeof args.closetItemIds = [];
-    for (const closetItemId of uniqueToAdd) {
-      const item = await ctx.db.get(closetItemId);
-      if (item && item.userId === args.userId) toAdd.push(closetItemId);
-    }
-    if (toAdd.length === 0) return;
-
-    for (const closetItemId of toAdd) {
-      await ctx.db.insert("buildItemLinks", {
-        userId: args.userId,
-        buildId: args.buildId,
-        closetItemId,
-      });
-    }
-
-    const existingTasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    const itemIdsWithTaskInBuild = new Set(
-      existingTasks
-        .map((t) => t.closetItemId)
-        .filter((id): id is NonNullable<typeof id> => id != null)
-    );
-    let nextSortOrder = existingTasks.length;
-    for (const closetItemId of toAdd) {
-      if (itemIdsWithTaskInBuild.has(closetItemId)) continue;
-      const item = await ctx.db.get(closetItemId);
-      if (!item || item.userId !== args.userId) continue;
-      const taskId = await ctx.db.insert("buildTasks", {
-        userId: args.userId,
-        buildId: args.buildId,
-        label: `Complete ${item.name}`,
-        closetItemId,
-        sortOrder: nextSortOrder++,
-        checked: false,
-      });
-      itemIdsWithTaskInBuild.add(closetItemId);
-      let shouldSetCompletionTask: boolean;
-      if (!item.completionTaskId) {
-        shouldSetCompletionTask = true;
-      } else {
-        const existingTask = await ctx.db.get(item.completionTaskId);
-        shouldSetCompletionTask = !existingTask || existingTask.userId !== args.userId;
-      }
-      if (shouldSetCompletionTask) {
-        await ctx.db.patch(closetItemId, { completionTaskId: taskId });
-      }
-    }
+    const resolvedIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
+    await addBuildRootLinks(ctx, args.userId, args.buildId, resolvedIds);
   },
 });
 
-/** Remove a closet item from a build (delete the buildItemLink). Clears item's completionTaskId if that task belongs to this build. */
+export const removeNodeFromBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeId: v.id("cosplayNodes"),
+  },
+  handler: async (ctx, args) =>
+    await removeBuildRootLink(ctx, args.userId, args.buildId, args.cosplayNodeId),
+});
+
 export const removeItemFromBuild = mutation({
   args: {
     userId: v.string(),
     buildId: v.id("builds"),
-    closetItemId: v.id("closetItems"),
+    closetItemId: legacyNodeIdValidator,
   },
   handler: async (ctx, args) => {
-    const build = await ctx.db.get(args.buildId);
-    if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
-    if (!canEdit) throw new Error("Not authorized");
-    const item = await ctx.db.get(args.closetItemId);
-    if (!item || item.userId !== args.userId) {
-      throw new Error("Not found or not authorized");
-    }
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
-      .collect();
-    for (const link of links) {
-      if (link.buildId === args.buildId) {
-        await ctx.db.delete(link._id);
-        break;
-      }
-    }
-    // Delete all tasks in this build that reference this closet item; clear completionTaskId if it was one of them
-    const tasksForItem = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
-      .collect();
-    const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
-    for (const task of tasksInBuild) {
-      await ctx.db.delete(task._id);
-    }
-    if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
-      await ctx.db.patch(args.closetItemId, { completionTaskId: undefined });
+    const [resolvedId] = await resolveLegacyNodeIds(ctx, args.userId, [args.closetItemId]);
+    if (!resolvedId) return;
+    await removeBuildRootLink(ctx, args.userId, args.buildId, resolvedId);
+  },
+});
+
+export const removeNodesFromBuild = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeIds: v.array(v.id("cosplayNodes")),
+  },
+  handler: async (ctx, args) => {
+    for (const cosplayNodeId of args.cosplayNodeIds) {
+      await removeBuildRootLink(ctx, args.userId, args.buildId, cosplayNodeId);
     }
   },
 });
 
-/** Remove multiple closet items from a build. Deletes all build tasks for each item in this build and clears completionTaskId when relevant. */
 export const removeItemsFromBuild = mutation({
   args: {
     userId: v.string(),
     buildId: v.id("builds"),
-    closetItemIds: v.array(v.id("closetItems")),
+    closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
-    const build = await ctx.db.get(args.buildId);
-    if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
-    if (!canEdit) throw new Error("Not authorized");
-    for (const closetItemId of args.closetItemIds) {
-      const item = await ctx.db.get(closetItemId);
-      if (!item || item.userId !== args.userId) continue;
-      const links = await ctx.db
-        .query("buildItemLinks")
-        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", closetItemId))
-        .collect();
-      for (const link of links) {
-        if (link.buildId === args.buildId) {
-          await ctx.db.delete(link._id);
-          break;
-        }
-      }
-      // Delete all tasks in this build that reference this closet item; clear completionTaskId if it was one of them
-      const tasksForItem = await ctx.db
-        .query("buildTasks")
-        .withIndex("by_closetItemId", (q) => q.eq("closetItemId", closetItemId))
-        .collect();
-      const tasksInBuild = tasksForItem.filter((t) => t.buildId === args.buildId);
-      for (const task of tasksInBuild) {
-        await ctx.db.delete(task._id);
-      }
-      if (item.completionTaskId && tasksInBuild.some((t) => t._id === item.completionTaskId)) {
-        await ctx.db.patch(closetItemId, { completionTaskId: undefined });
-      }
+    const resolvedIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
+    for (const cosplayNodeId of resolvedIds) {
+      await removeBuildRootLink(ctx, args.userId, args.buildId, cosplayNodeId);
     }
   },
 });
 
-/** Returns build ids and names that link to this closet item (for closet item detail). Deduplicated by build id. */
+export const getBuildsUsingNode = query({
+  args: { cosplayNodeId: v.id("cosplayNodes") },
+  handler: async (ctx, args) => await listBuildsUsingNode(ctx, args.cosplayNodeId),
+});
+
 export const getBuildsUsingClosetItem = query({
-  args: { closetItemId: v.id("closetItems") },
+  args: { closetItemId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_closetItemId", (q) => q.eq("closetItemId", args.closetItemId))
-      .collect();
-    const buildIds = Array.from(new Set(links.map((l) => l.buildId)));
-    const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
-    return builds.flatMap((b) =>
-      b && "name" in b
-        ? [
-            {
-              _id: b._id,
-              name: b.name,
-              imageStorageId: b.imageStorageId,
-              imageUrl: b.imageUrl,
-              character: b.character,
-            },
-          ]
-        : []
-    );
+    const [resolvedId] = await resolveLegacyNodeIds(ctx, undefined, [args.closetItemId]);
+    if (!resolvedId) return [];
+    return await listBuildsUsingNode(ctx, resolvedId);
   },
 });

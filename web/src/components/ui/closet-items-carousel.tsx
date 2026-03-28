@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
 
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+
 export interface ClosetCarouselItem {
-  _id: Id<"closetItems">;
+  _id: ClosetEntityId;
   name: string;
   imageUrl?: string | null;
   imageStorageId?: Id<"_storage"> | null;

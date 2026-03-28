@@ -15,10 +15,26 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { CLOSET_CATEGORIES } from "@kyarafit/design-system/types";
 import type { Id } from "convex/_generated/dataModel";
-import type { Doc } from "convex/_generated/dataModel";
 
 type SortBy = "name" | "category" | "cost" | "status";
 type SortOrder = "asc" | "desc";
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetViewItem = {
+  _id: ClosetEntityId;
+  _creationTime?: number;
+  name: string;
+  userId?: string;
+  category?: string;
+  tags: string[];
+  notes?: string;
+  imageUrl?: string;
+  imageStorageId?: Id<"_storage">;
+  itemLink?: string;
+  costCents?: number;
+  status?: string;
+  completionTaskId?: Id<"buildTasks"> | null;
+};
+type ClosetUndoPayload = Omit<ClosetViewItem, "_id" | "_creationTime">;
 
 function statusLabel(s: string | undefined): string {
   if (s === "in_progress") return "In progress";
@@ -41,14 +57,14 @@ export default function ClosetPage() {
   const [category, setCategory] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [order, setOrder] = useState<SortOrder>("asc");
-  const [selectedIds, setSelectedIds] = useState<Set<Id<"closetItems">>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<ClosetEntityId>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAssignToBuildPanel, setShowAssignToBuildPanel] = useState(false);
   const [showUnassignFromBuildPanel, setShowUnassignFromBuildPanel] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const [deletedForUndo, setDeletedForUndo] = useState<{
     count: number;
-    payloads: Array<Omit<Doc<"closetItems">, "_id" | "_creationTime">>;
+    payloads: ClosetUndoPayload[];
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const removeMany = useMutation(api.closetItems.removeMany);
@@ -66,11 +82,11 @@ export default function ClosetPage() {
         order,
       }
     : "skip";
-  const items = useQuery(api.closetItems.list, listArgs) ?? [];
+  const items = (useQuery(api.closetItems.list, listArgs) ?? []) as ClosetViewItem[];
   const isLoading = items === undefined;
   const hasSearch = search.trim().length > 0;
 
-  const toggleSelect = useCallback((id: Id<"closetItems">) => {
+  const toggleSelect = useCallback((id: ClosetEntityId) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -132,12 +148,12 @@ export default function ClosetPage() {
         await createItem({
           userId,
           name: p.name,
-          category: p.category,
+          category: p.category ?? "other",
           tags: p.tags,
           notes: p.notes,
           imageUrl: p.imageUrl,
           imageStorageId: p.imageStorageId,
-          itemLink: p.itemLink,
+          itemLink: p.itemLink ?? undefined,
           costCents: p.costCents,
           status: p.status,
         });
@@ -183,13 +199,13 @@ export default function ClosetPage() {
   return (
     <WebAppShell>
       <PageHeader
-        title="The Closet"
-        subtitle={items.length > 0 ? `${items.length} items curated in the atelier` : undefined}
+        title="Cosplay Elements"
+        subtitle={items.length > 0 ? `${items.length} elements curated in the atelier` : undefined}
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: "Search archive...",
-          "aria-label": "Search closet by name, notes, or tags",
+          placeholder: "Search elements...",
+          "aria-label": "Search cosplay elements by name, notes, or tags",
         }}
       >
         <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
@@ -225,7 +241,7 @@ export default function ClosetPage() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
             className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
-            aria-label="Sort closet items by"
+            aria-label="Sort cosplay elements by"
           >
             <option value="name">Name</option>
             <option value="category">Category</option>
@@ -251,14 +267,14 @@ export default function ClosetPage() {
           <EmptyState
             icon="checkroom"
             message="No items yet."
-            secondary="Add pieces to your digital closet."
+            secondary="Add pieces to your cosplay library."
             action={
               <button
                 type="button"
                 onClick={() => openCreationModal("newCloset")}
                 className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-black px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
-                Add item
+                Add element
               </button>
             }
           />

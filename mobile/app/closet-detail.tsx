@@ -121,7 +121,7 @@ export default function ClosetDetailScreen() {
     }
     if (item && editing && !isCloud && localItem) {
       setName(localItem.name);
-      setCategory(localItem.category);
+      setCategory(localItem.category ?? "other");
       setNotes(localItem.notes ?? "");
     }
   }, [item, editing, isCloud, cloudItem, localItem]);

@@ -33,6 +33,7 @@ import { postToConvexUpload } from "../src/lib/convexUpload";
 import { useTranslation } from "react-i18next";
 
 const STATUSES = ["idea", "wip", "ready"] as const;
+type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -51,8 +52,17 @@ export default function BuildDetailScreen() {
 
   const buildId = id as Id<"builds"> | undefined;
   const convexBuild = useQuery(api.builds.get, userId && buildId ? { id: buildId } : "skip");
-  const convexItemIds = useQuery(api.builds.getItems, userId && buildId ? { buildId } : "skip");
-  const convexClosetItems = useQuery(api.closetItems.list, userId ? { userId } : "skip");
+  const convexItemIds = (useQuery(api.builds.getItems, userId && buildId ? { buildId } : "skip") ??
+    []) as ClosetEntityId[];
+  const convexClosetItems =
+    (useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? []) as Array<{
+      _id: ClosetEntityId;
+      name: string;
+      category?: ClosetItem["category"];
+      imageUrl?: string;
+      imageStorageId?: Id<"_storage">;
+      costCents?: number;
+    }>;
   const convexTasks = useQuery(
     api.buildTasks.listByBuild,
     userId && buildId ? { buildId } : "skip"
@@ -115,12 +125,12 @@ export default function BuildDetailScreen() {
     : localBuild;
 
   const linkedItems: ClosetItem[] = isCloud
-    ? (convexClosetItems ?? [])
-        .filter((c) => (convexItemIds ?? []).includes(c._id))
+    ? convexClosetItems
+        .filter((c) => convexItemIds.some((itemId) => itemId === c._id))
         .map((c) => ({
           id: c._id as string,
           name: c.name,
-          category: c.category as ClosetItem["category"],
+          category: c.category ?? "other",
           tags: [],
           imageUrl: c.imageUrl,
           costCents: c.costCents,
@@ -130,9 +140,9 @@ export default function BuildDetailScreen() {
     : closetItems.filter((c) => linkedIds.includes(c.id));
 
   const visualLinked = useMemo(() => {
-    if (!isCloud || !convexClosetItems || !convexItemIds) return [];
+    if (!isCloud) return [];
     return convexClosetItems
-      .filter((c) => convexItemIds.includes(c._id))
+      .filter((c) => convexItemIds.some((itemId) => itemId === c._id))
       .map((c) => ({
         _id: c._id,
         name: c.name,
@@ -148,7 +158,8 @@ export default function BuildDetailScreen() {
         id: t._id,
         buildId: t.buildId,
         label: t.label,
-        closetItemId: t.closetItemId ?? undefined,
+        cosplayNodeId: (t.cosplayNodeId ?? t.closetItemId) as string | undefined,
+        closetItemId: (t.cosplayNodeId ?? t.closetItemId) as string | undefined,
         sortOrder: t.sortOrder,
         checked: t.checked,
         createdAt: "",

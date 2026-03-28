@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 
 /**
- * Dev-only: creates starter seed data (one build, one convention, one closet
- * item linked to the build, one task). For local testing, demos, or Convex
+ * Dev-only: creates starter seed data (one build, one convention, one cosplay
+ * element linked to the build, one task). For local testing, demos, or Convex
  * dashboard — not for regular end users. Runs once per user (skips if user
  * already has any builds). Requires authentication.
  *
@@ -48,24 +48,27 @@ export const createStarter = mutation({
       endDate,
     });
 
-    const closetItemId = await ctx.db.insert("closetItems", {
+    const cosplayNodeId = await ctx.db.insert("cosplayNodes", {
       userId,
+      nodeType: "element",
       name: "Sample piece",
       category: "other",
       tags: [],
-      status: "planned",
+      buildStatus: "not_started",
     });
 
-    await ctx.db.insert("buildItemLinks", {
+    await ctx.db.insert("buildCosplayLinks", {
       userId,
       buildId,
-      closetItemId,
+      cosplayNodeId,
+      sortOrder: 0,
     });
 
     await ctx.db.insert("buildTasks", {
       userId,
       buildId,
       label: "Finish sample task",
+      cosplayNodeId,
       sortOrder: 0,
       checked: false,
     });
@@ -74,7 +77,7 @@ export const createStarter = mutation({
       skipped: false as const,
       buildId,
       conventionId,
-      closetItemId,
+      cosplayNodeId,
     };
   },
 });

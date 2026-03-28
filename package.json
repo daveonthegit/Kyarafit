@@ -33,6 +33,7 @@
     "tailwindcss": "^3.4.19"
   },
   "dependencies": {
+    "@convex-dev/migrations": "^0.3.3",
     "convex": "^1.32.0",
     "resend": "6.9.3"
   }

@@ -44,6 +44,7 @@ export interface ConvexBuildTask {
   label: string;
   sortOrder: number;
   checked: boolean;
+  cosplayNodeId?: string;
   closetItemId?: string;
 }
 
@@ -58,7 +59,8 @@ export interface ConvexBuildWithDetails {
   targetDate?: string;
   userId: string;
   tasks: ConvexBuildTask[];
-  linkedItemIds: string[];
+  linkedItemIds?: string[];
+  linkedNodeIds?: string[];
 }
 
 export interface ConvexPackingItem {
@@ -68,6 +70,7 @@ export interface ConvexPackingItem {
   checked: boolean;
   date?: string;
   buildId?: string;
+  cosplayNodeId?: string;
   closetItemId?: string;
 }
 
@@ -477,7 +480,7 @@ export async function pullBuilds(builds: ConvexBuildWithDetails[]): Promise<void
               task._id,
               build._id,
               task.label,
-              task.closetItemId ?? null,
+              task.cosplayNodeId ?? task.closetItemId ?? null,
               task.sortOrder,
               task.checked ? 1 : 0,
               now,
@@ -495,7 +498,8 @@ export async function pullBuilds(builds: ConvexBuildWithDetails[]): Promise<void
 
       // Sync item links: replace the whole set for this build
       await db.runAsync(`DELETE FROM build_item_links WHERE build_id = ?`, [build._id]);
-      for (const closetItemConvexId of build.linkedItemIds) {
+      const linkedIds = build.linkedNodeIds ?? build.linkedItemIds ?? [];
+      for (const closetItemConvexId of linkedIds) {
         // Resolve to local closet item id (which equals closetItemConvexId for Convex-origin items)
         await db.runAsync(
           `INSERT OR IGNORE INTO build_item_links (build_id, closet_item_id) VALUES (?, ?)`,
@@ -559,7 +563,7 @@ export async function pullConventions(conventions: ConvexConventionWithDetails[]
             convention._id,
             item.date ?? null,
             item.buildId ?? null,
-            item.closetItemId ?? null,
+            item.cosplayNodeId ?? item.closetItemId ?? null,
             item.label,
             item.checked ? 1 : 0,
             now,
