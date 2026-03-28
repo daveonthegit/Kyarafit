@@ -13,7 +13,7 @@ import { ScrollButton } from "@/components/ui/scroll-button";
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
 export interface BuildTask {
-  _id: Id<"buildTasks">;
+  _id: Id<"workflowItems">;
   buildId?: Id<"builds">;
   label: string;
   cosplayNodeId?: ClosetEntityId | null;
@@ -48,8 +48,8 @@ export function TaskChecklist({
 }: TaskChecklistProps) {
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"buildTasks"> | null>(null);
-  const [dueDateEditTaskId, setDueDateEditTaskId] = useState<Id<"buildTasks"> | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"workflowItems"> | null>(null);
+  const [dueDateEditTaskId, setDueDateEditTaskId] = useState<Id<"workflowItems"> | null>(null);
   const { userId } = useCurrentUser();
 
   const createTask = useMutation(api.buildTasks.create);
@@ -64,7 +64,7 @@ export function TaskChecklist({
   const [isPendingCreate, setIsPendingCreate] = useState(false);
   const taskListContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleToggleTask = (taskId: Id<"buildTasks">, checked: boolean) => {
+  const handleToggleTask = (taskId: Id<"workflowItems">, checked: boolean) => {
     if (!userId) return;
     updateTask({ id: taskId, userId, checked });
   };
@@ -80,12 +80,12 @@ export function TaskChecklist({
     }
   };
 
-  const handleDeleteTask = (taskId: Id<"buildTasks">) => {
+  const handleDeleteTask = (taskId: Id<"workflowItems">) => {
     if (!userId) return;
     deleteTask({ id: taskId, userId });
   };
 
-  const handleOpenAssignModal = (taskId: Id<"buildTasks">) => {
+  const handleOpenAssignModal = (taskId: Id<"workflowItems">) => {
     setSelectedTaskId(taskId);
     setAssignModalOpen(true);
   };
@@ -101,7 +101,7 @@ export function TaskChecklist({
     setSelectedTaskId(null);
   };
 
-  const handleDueDateChange = (taskId: Id<"buildTasks">, dueDate: string | null) => {
+  const handleDueDateChange = (taskId: Id<"workflowItems">, dueDate: string | null) => {
     if (!userId) return;
     setDueDateEditTaskId(null);
     updateTask({ id: taskId, userId, dueDate });

@@ -128,6 +128,7 @@ export default defineSchema({
     imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
+    manualProgressPercent: v.optional(v.number()),
     visibility: v.optional(v.string()),
     shareToken: v.optional(v.string()),
     groupId: v.optional(v.id("groups")),
@@ -163,6 +164,106 @@ export default defineSchema({
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_packingListItemId", ["packingListItemId"]),
 
+  workflowItems: defineTable({
+    userId: v.string(),
+    title: v.string(),
+    notes: v.optional(v.string()),
+    kind: v.string(),
+    category: v.string(),
+    status: v.string(),
+    parentId: v.optional(v.id("workflowItems")),
+    ancestorIds: v.array(v.id("workflowItems")),
+    sortOrder: v.number(),
+    scopeKind: v.string(),
+    sourceKind: v.string(),
+    priority: v.optional(v.number()),
+    startDate: v.optional(v.string()),
+    targetDate: v.optional(v.string()),
+    dueDate: v.optional(v.string()),
+    reminders: v.optional(
+      v.array(
+        v.object({
+          kind: v.string(),
+          date: v.string(),
+        })
+      )
+    ),
+    weight: v.optional(v.number()),
+    manualProgressPercent: v.optional(v.number()),
+    estimatedMinutes: v.optional(v.number()),
+    actualMinutes: v.optional(v.number()),
+    estimatedCostCents: v.optional(v.number()),
+    actualCostCents: v.optional(v.number()),
+    creatorUserId: v.optional(v.string()),
+    ownerUserId: v.optional(v.string()),
+    assigneeUserId: v.optional(v.string()),
+    templateId: v.optional(v.id("workflowTemplates")),
+    recurrenceRule: v.optional(v.string()),
+    legacyBuildTaskId: v.optional(v.id("buildTasks")),
+    dedupeKey: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_parentId", ["parentId"])
+    .index("by_parentId_sortOrder", ["parentId", "sortOrder"])
+    .index("by_legacyBuildTaskId", ["legacyBuildTaskId"])
+    .index("by_templateId", ["templateId"])
+    .index("by_dedupeKey", ["dedupeKey"]),
+
+  workflowAttachments: defineTable({
+    userId: v.string(),
+    workflowItemId: v.id("workflowItems"),
+    entityType: v.string(),
+    entityId: v.string(),
+    entityKey: v.string(),
+    role: v.string(),
+    buildContextId: v.optional(v.id("builds")),
+    progressWeight: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_workflowItemId", ["workflowItemId"])
+    .index("by_entityKey", ["entityKey"])
+    .index("by_entityKey_buildContextId", ["entityKey", "buildContextId"]),
+
+  workflowDependencies: defineTable({
+    userId: v.string(),
+    predecessorWorkflowItemId: v.id("workflowItems"),
+    successorWorkflowItemId: v.id("workflowItems"),
+    relationKind: v.string(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_predecessorWorkflowItemId", ["predecessorWorkflowItemId"])
+    .index("by_successorWorkflowItemId", ["successorWorkflowItemId"]),
+
+  workflowTemplates: defineTable({
+    userId: v.optional(v.string()),
+    slug: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+    isBuiltIn: v.boolean(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_slug", ["slug"])
+    .index("by_isBuiltIn", ["isBuiltIn"]),
+
+  workflowTemplateItems: defineTable({
+    templateId: v.id("workflowTemplates"),
+    templateItemKey: v.string(),
+    parentTemplateItemKey: v.optional(v.string()),
+    sortOrder: v.number(),
+    title: v.string(),
+    notes: v.optional(v.string()),
+    kind: v.string(),
+    category: v.string(),
+    status: v.string(),
+    scopeKind: v.optional(v.string()),
+    sourceKind: v.optional(v.string()),
+    weight: v.optional(v.number()),
+    attachmentRole: v.optional(v.string()),
+  })
+    .index("by_templateId", ["templateId"])
+    .index("by_templateId_templateItemKey", ["templateId", "templateItemKey"]),
+
   conventions: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -189,13 +290,18 @@ export default defineSchema({
     buildId: v.optional(v.id("builds")),
     closetItemId: v.optional(v.id("closetItems")),
     cosplayNodeId: v.optional(v.id("cosplayNodes")),
+    workflowItemId: v.optional(v.id("workflowItems")),
+    entryKind: v.optional(v.string()),
+    sourceKind: v.optional(v.string()),
     label: v.string(),
     notes: v.optional(v.string()),
     checked: v.boolean(),
+    sortOrder: v.optional(v.number()),
   })
     .index("by_conventionId", ["conventionId"])
     .index("by_userId", ["userId"])
-    .index("by_cosplayNodeId", ["cosplayNodeId"]),
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
+    .index("by_workflowItemId", ["workflowItemId"]),
 
   buildReferenceImages: defineTable({
     userId: v.string(),

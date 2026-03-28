@@ -25,6 +25,19 @@ import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
 
 type CosplayNodeId = Id<"cosplayNodes">;
 type NodeKind = "element" | "material";
+type WorkflowNode = {
+  _id: Id<"workflowItems">;
+  title: string;
+  status: string;
+  kind: string;
+  dueDate?: string;
+  progressPercent: number;
+  children: WorkflowNode[];
+};
+
+function flattenWorkflow(nodes: WorkflowNode[], depth = 0): Array<WorkflowNode & { depth: number }> {
+  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenWorkflow(node.children, depth + 1)]);
+}
 
 function formatCents(cents: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100);
@@ -44,7 +57,20 @@ export default function ElementDetailPage() {
   const node = useQuery(api.cosplayNodes.get, id ? { id } : "skip");
   const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId } : "skip") ?? []) as Array<{ _id: CosplayNodeId; name: string; nodeType: "element" | "material" }>;
   const buildsUsing = useQuery(api.builds.getBuildsUsingNode, id ? { cosplayNodeId: id } : "skip") ?? [];
-  const tasks = useQuery(api.buildTasks.listByCosplayNode, id ? { cosplayNodeId: id } : "skip") ?? [];
+  const [workflowView, setWorkflowView] = useState<"shared" | "build_specific">("shared");
+  const [selectedWorkflowBuildId, setSelectedWorkflowBuildId] = useState<Id<"builds"> | "">("");
+  const workflow =
+    useQuery(
+      api.workflow.listNodeWorkflow,
+      id
+        ? {
+            cosplayNodeId: id,
+            buildId: selectedWorkflowBuildId
+              ? (selectedWorkflowBuildId as Id<"builds">)
+              : undefined,
+          }
+        : "skip"
+    ) ?? null;
   const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
   const updateNode = useMutation(api.cosplayNodes.update);
   const removeNode = useMutation(api.cosplayNodes.remove);
@@ -54,9 +80,9 @@ export default function ElementDetailPage() {
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
   const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
   const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
-  const createTask = useMutation(api.buildTasks.create);
-  const updateTask = useMutation(api.buildTasks.update);
-  const deleteTask = useMutation(api.buildTasks.remove);
+  const createTask = useMutation(api.workflow.create);
+  const updateTask = useMutation(api.workflow.update);
+  const deleteTask = useMutation(api.workflow.remove);
 
   const [isEditing, setIsEditing] = useState(false);
   const [showBuildPanel, setShowBuildPanel] = useState(false);
@@ -138,19 +164,15 @@ export default function ElementDetailPage() {
     [buildsUsing, buildNeedle]
   );
   const taskNeedle = taskQuery.trim().toLowerCase();
-  const filteredTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        const matchesQuery =
-          !taskNeedle ||
-          `${task.label} ${task.buildName ?? ""}`.toLowerCase().includes(taskNeedle);
-        const matchesFilter =
-          taskFilter === "all" ||
-          (taskFilter === "open" ? !task.checked : task.checked);
-        return matchesQuery && matchesFilter;
-      }),
-    [tasks, taskNeedle, taskFilter]
-  );
+  const visibleWorkflowRows = useMemo(() => {
+    const source = workflowView === "shared" ? workflow?.shared ?? [] : workflow?.buildSpecific ?? [];
+    return flattenWorkflow(source).filter((task) => {
+      const matchesQuery = !taskNeedle || task.title.toLowerCase().includes(taskNeedle);
+      const isDone = task.status === "done";
+      const matchesFilter = taskFilter === "all" || (taskFilter === "open" ? !isDone : isDone);
+      return matchesQuery && matchesFilter;
+    });
+  }, [taskFilter, taskNeedle, workflow?.buildSpecific, workflow?.shared, workflowView]);
 
   if (node === undefined) return <WebAppShell><p className="meta-label pt-12">Loading…</p></WebAppShell>;
   if (!node) return <WebAppShell><p className="meta-label pt-12">Node not found.</p></WebAppShell>;
@@ -205,7 +227,30 @@ export default function ElementDetailPage() {
 
   const handleAddTask = async () => {
     if (!userId || !newTaskLabel.trim()) return;
-    await createTask({ userId, cosplayNodeId: id, label: newTaskLabel.trim() });
+    const isBuildSpecific = workflowView === "build_specific" && selectedWorkflowBuildId;
+    await createTask({
+      userId,
+      title: newTaskLabel.trim(),
+      kind: "task",
+      category: "craft",
+      scopeKind: isBuildSpecific ? "build_specific" : "shared",
+      attachments: isBuildSpecific
+        ? [
+            {
+              entityType: "build",
+              entityId: selectedWorkflowBuildId as Id<"builds">,
+              role: "primary",
+              buildContextId: selectedWorkflowBuildId as Id<"builds">,
+            },
+            {
+              entityType: "cosplayNode",
+              entityId: id,
+              role: "progress_source",
+              buildContextId: selectedWorkflowBuildId as Id<"builds">,
+            },
+          ]
+        : [{ entityType: "cosplayNode", entityId: id, role: "primary" }],
+    });
     setNewTaskLabel("");
   };
 
@@ -465,10 +510,41 @@ export default function ElementDetailPage() {
             <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Task graph</p>
-                <h3 className="font-serif text-2xl italic">Node tasks</h3>
+                <h3 className="font-serif text-2xl italic">Workflow</h3>
                 <p className="mt-2 text-sm text-kyar-textSecondary">
-                  Searchable task list with open/done buckets for heavier task graphs.
+                  Shared workflow lives with the item itself. Build-specific workflow stays scoped
+                  to the selected build when you need one-off prep, pack, or modification work.
                 </p>
+              </div>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWorkflowView("shared")}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "shared" ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                >
+                  Shared
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowView("build_specific")}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "build_specific" ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                >
+                  Build specific
+                </button>
+                {workflowView === "build_specific" && (
+                  <select
+                    value={selectedWorkflowBuildId}
+                    onChange={(e) => setSelectedWorkflowBuildId(e.target.value as Id<"builds"> | "")}
+                    className="rounded-xl border border-kyar-borderSubtle bg-white px-4 py-3 text-sm text-kyar-text"
+                  >
+                    <option value="">Choose a build</option>
+                    {buildsUsing.map((build) => (
+                      <option key={build._id} value={build._id}>
+                        {build.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <input
@@ -489,22 +565,41 @@ export default function ElementDetailPage() {
                 </select>
               </div>
               <div className="mb-3 text-xs uppercase tracking-widest text-kyar-textTertiary">
-                {filteredTasks.length} task{filteredTasks.length === 1 ? "" : "s"} · {tasks.filter((task) => task.checked).length} complete
+                {visibleWorkflowRows.length} item{visibleWorkflowRows.length === 1 ? "" : "s"} ·{" "}
+                {visibleWorkflowRows.filter((task) => task.status === "done").length} complete
               </div>
               <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-kyar-borderSubtle">
-                {filteredTasks.length === 0 ? (
+                {visibleWorkflowRows.length === 0 ? (
                   <p className="px-4 py-6 text-sm text-kyar-textTertiary">
-                    {tasks.length === 0
-                      ? "No tasks linked to this node yet."
-                      : "No tasks match your search/filter."}
+                    {workflowView === "build_specific" && !selectedWorkflowBuildId
+                      ? "Choose a build to view build-specific workflow."
+                      : "No workflow items match your current view."}
                   </p>
                 ) : (
-                  filteredTasks.map((task) => (
-                    <div key={task._id} className="flex items-center gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0">
-                      <input type="checkbox" checked={task.checked} onChange={(e) => userId && updateTask({ id: task._id, userId, checked: e.target.checked })} className="h-4 w-4" />
+                  visibleWorkflowRows.map((task) => (
+                    <div
+                      key={task._id}
+                      className="flex items-center gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0"
+                      style={{ paddingLeft: `${16 + task.depth * 20}px` }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.status === "done"}
+                        onChange={(e) =>
+                          userId &&
+                          updateTask({
+                            id: task._id,
+                            userId,
+                            status: e.target.checked ? "done" : "not_started",
+                          })
+                        }
+                        className="h-4 w-4"
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className={`truncate text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>{task.label}</p>
-                        {task.buildName && <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">{task.buildName}</p>}
+                        <p className={`truncate text-sm ${task.status === "done" ? "line-through text-kyar-textTertiary" : ""}`}>{task.title}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                          {task.kind} · {task.status.split("_").join(" ")} · {task.progressPercent}%
+                        </p>
                       </div>
                       {userId && <button type="button" onClick={() => deleteTask({ id: task._id, userId })} className="text-kyar-danger"><span className="material-symbols-outlined text-base">delete</span></button>}
                     </div>
@@ -512,7 +607,7 @@ export default function ElementDetailPage() {
                 )}
               </div>
               <div className="mt-4 flex gap-2">
-                <input value={newTaskLabel} onChange={(e) => setNewTaskLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && userId && createTask({ userId, cosplayNodeId: id, label: newTaskLabel.trim() }).then(() => setNewTaskLabel(""))} placeholder="Add a task…" className="flex-1 border-0 border-b border-kyar-borderSubtle bg-transparent py-2 text-sm focus:outline-none focus:border-black" />
+                <input value={newTaskLabel} onChange={(e) => setNewTaskLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void handleAddTask()} placeholder={workflowView === "shared" ? "Add a shared workflow item…" : "Add a build-specific workflow item…"} className="flex-1 border-0 border-b border-kyar-borderSubtle bg-transparent py-2 text-sm focus:outline-none focus:border-black" />
                 <button type="button" onClick={() => handleAddTask()} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Add</button>
               </div>
             </div>

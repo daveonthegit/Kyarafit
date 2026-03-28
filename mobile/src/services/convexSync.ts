@@ -46,6 +46,7 @@ export interface ConvexBuildTask {
   checked: boolean;
   cosplayNodeId?: string;
   closetItemId?: string;
+  dueDate?: string;
 }
 
 export interface ConvexBuildWithDetails {
@@ -59,6 +60,13 @@ export interface ConvexBuildWithDetails {
   targetDate?: string;
   userId: string;
   tasks: ConvexBuildTask[];
+  workflowItems?: Array<{
+    _id: string;
+    title: string;
+    status: string;
+    sortOrder: number;
+    dueDate?: string;
+  }>;
   linkedItemIds?: string[];
   linkedNodeIds?: string[];
 }
@@ -72,6 +80,10 @@ export interface ConvexPackingItem {
   buildId?: string;
   cosplayNodeId?: string;
   closetItemId?: string;
+  workflowItemId?: string;
+  entryKind?: string;
+  sourceKind?: string;
+  sortOrder?: number;
 }
 
 export interface ConvexDayPlan {
@@ -245,8 +257,9 @@ export async function pushToConvex(client: ConvexReactClient, userId: string): P
         }
 
         // ── Build tasks ───────────────────────────────────────────────────
-        case "buildTask.upsert": {
-          const { localId, buildLocalId, label, sortOrder, checked, closetItemLocalId } = payload;
+        case "workflowItem.upsert": {
+          const { localId, buildLocalId, title, sortOrder, status, closetItemLocalId, dueDate } =
+            payload;
           const buildConvexId = await getConvexIdFromTable("builds", buildLocalId);
           if (!buildConvexId) {
             skipped++;
@@ -257,35 +270,37 @@ export async function pushToConvex(client: ConvexReactClient, userId: string): P
             const cid = await getConvexIdFromTable("closet_items", closetItemLocalId);
             if (cid) closetItemId = cid as Id<"closetItems">;
           }
-          const existingId = await getConvexIdFromTable("build_tasks", localId);
+          const existingId = await getConvexIdFromTable("workflow_items", localId);
           if (existingId) {
             await client.mutation(api.buildTasks.update, {
-              id: existingId as Id<"buildTasks">,
+              id: existingId as Id<"workflowItems">,
               userId,
-              label,
+              label: title,
               sortOrder,
-              checked,
+              checked: status === "done",
               closetItemId,
+              dueDate,
             });
           } else {
             const result = await client.mutation(api.buildTasks.create, {
               userId,
               buildId: buildConvexId as Id<"builds">,
-              label,
+              label: title,
               sortOrder,
               closetItemId,
+              dueDate,
             });
-            if (result) await setConvexIdInTable("build_tasks", localId, result._id);
+            if (result) await setConvexIdInTable("workflow_items", localId, result._id);
           }
           break;
         }
 
-        case "buildTask.delete": {
+        case "workflowItem.delete": {
           const { localId } = payload;
-          const convexId = await getConvexIdFromTable("build_tasks", localId);
+          const convexId = await getConvexIdFromTable("workflow_items", localId);
           if (convexId) {
             await client.mutation(api.buildTasks.remove, {
-              id: convexId as Id<"buildTasks">,
+              id: convexId as Id<"workflowItems">,
               userId,
             });
           }
@@ -464,36 +479,22 @@ export async function pullBuilds(builds: ConvexBuildWithDetails[]): Promise<void
       convexId: build._id,
     });
 
-    // Sync build tasks
+    // Sync build workflow items through the local workflow tables.
     if (db) {
       for (const task of build.tasks) {
-        const existing = await db.getFirstAsync<{ id: string }>(
-          `SELECT id FROM build_tasks WHERE convex_id = ?`,
-          [task._id]
-        );
-        if (!existing) {
-          const now = new Date().toISOString();
-          await db.runAsync(
-            `INSERT OR IGNORE INTO build_tasks (id, build_id, label, closet_item_id, sort_order, checked, created_at, updated_at, convex_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              task._id,
-              build._id,
-              task.label,
-              task.cosplayNodeId ?? task.closetItemId ?? null,
-              task.sortOrder,
-              task.checked ? 1 : 0,
-              now,
-              now,
-              task._id,
-            ]
-          );
-        } else {
-          await db.runAsync(
-            `UPDATE build_tasks SET label=?, sort_order=?, checked=?, convex_id=? WHERE id=?`,
-            [task.label, task.sortOrder, task.checked ? 1 : 0, task._id, existing.id]
-          );
-        }
+        await buildTasksRepo.upsertFromSync({
+          id: task._id,
+          buildId: build._id,
+          label: task.label,
+          closetItemId: task.cosplayNodeId ?? task.closetItemId ?? undefined,
+          cosplayNodeId: task.cosplayNodeId ?? task.closetItemId ?? undefined,
+          sortOrder: task.sortOrder,
+          checked: task.checked,
+          dueDate: task.dueDate,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        await buildTasksRepo.setConvexId(task._id, task._id);
       }
 
       // Sync item links: replace the whole set for this build
@@ -571,6 +572,10 @@ export async function pullConventions(conventions: ConvexConventionWithDetails[]
             item._id,
           ]
         );
+        await db.runAsync(`UPDATE packing_list_items SET workflow_item_id = ? WHERE id = ?`, [
+          item.workflowItemId ?? null,
+          item._id,
+        ]);
       }
     }
   }

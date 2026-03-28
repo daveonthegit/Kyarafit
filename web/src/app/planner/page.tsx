@@ -16,14 +16,21 @@ import type { CalendarDayData, CalendarEvent } from "@/components/ui/fullscreen-
 type TodoView = "daily" | "events" | "calendar";
 
 type PlannerTask = {
-  _id: Id<"buildTasks">;
-  label: string;
-  checked: boolean;
+  _id: Id<"workflowItems">;
+  title: string;
+  status: string;
+  category: string;
+  progressPercent: number;
   buildId?: Id<"builds">;
-  buildName: string;
+  buildName: string | null;
   conventionId?: Id<"conventions">;
+  conventionName?: string | null;
+  cosplayNodeId?: Id<"cosplayNodes">;
+  packingListItemId?: string;
   dueDate?: string;
-  sortOrder?: number;
+  priority?: number;
+  blockedByCount?: number;
+  overdue?: boolean;
 };
 
 type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
@@ -58,14 +65,14 @@ function buildTaskTree(
         };
         conventionMap.set(task.conventionId, group);
       }
-      // Packing: manual packing-list tasks (no buildId) + auto-created "Pack: …" tasks from assigning build to convention
-      const isPackingTask = !task.buildId || (task.buildId && task.label.startsWith("Pack:"));
+      const isPackingTask =
+        task.category === "pack" || Boolean(task.packingListItemId) || !task.buildId;
       if (isPackingTask) {
         group.packingTasks.push(task);
       } else {
         let buildGroup = group.builds.get(task.buildId!);
         if (!buildGroup) {
-          buildGroup = { buildId: task.buildId!, buildName: task.buildName, tasks: [] };
+          buildGroup = { buildId: task.buildId!, buildName: task.buildName ?? "Build", tasks: [] };
           group.builds.set(task.buildId!, buildGroup);
         }
         buildGroup.tasks.push(task);
@@ -73,7 +80,7 @@ function buildTaskTree(
     } else if (task.buildId) {
       let buildGroup = standaloneMap.get(task.buildId);
       if (!buildGroup) {
-        buildGroup = { buildId: task.buildId, buildName: task.buildName, tasks: [] };
+        buildGroup = { buildId: task.buildId, buildName: task.buildName ?? "Build", tasks: [] };
         standaloneMap.set(task.buildId, buildGroup);
       }
       buildGroup.tasks.push(task);
@@ -150,7 +157,7 @@ export default function Planner() {
     else if (tab === "calendar") setView("calendar");
   }, [searchParams]);
 
-  const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip");
+  const plannerTasks = useQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
 
   const filteredTasks = useMemo(() => {
@@ -161,7 +168,9 @@ export default function Planner() {
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
       // 1. Incomplete first (what's left to do at the top)
-      if (a.checked !== b.checked) return a.checked ? 1 : -1;
+      const aDone = a.status === "done";
+      const bDone = b.status === "done";
+      if (aDone !== bDone) return aDone ? 1 : -1;
       // 2. Due date ascending (soonest first; no date last)
       const dateA = a.dueDate ?? "9999-12-31";
       const dateB = b.dueDate ?? "9999-12-31";
@@ -169,8 +178,11 @@ export default function Planner() {
       // 3. By build name for stable grouping
       const nameCmp = (a.buildName ?? "").localeCompare(b.buildName ?? "");
       if (nameCmp !== 0) return nameCmp;
-      // 4. By sortOrder
-      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      // 4. Higher priority first, then title.
+      if ((a.priority ?? 0) !== (b.priority ?? 0)) {
+        return (b.priority ?? 0) - (a.priority ?? 0);
+      }
+      return a.title.localeCompare(b.title);
     });
   }, [filteredTasks]);
 
@@ -210,7 +222,7 @@ export default function Planner() {
       const day = new Date(task.dueDate + "T12:00:00");
       add(day, {
         id: task._id,
-        name: task.label,
+        name: task.title,
         time: "Due",
         datetime: task.dueDate + "T00:00:00",
         href: task.conventionId
@@ -235,18 +247,18 @@ export default function Planner() {
   }, [plannerTasks, conventions]);
 
   const checkedCount = useMemo(
-    () => filteredTasks.filter((t) => t.checked).length,
+    () => filteredTasks.filter((t) => t.status === "done").length,
     [filteredTasks]
   );
   const totalCount = filteredTasks.length;
   const progressPct = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
-  const updateTask = useMutation(api.buildTasks.update);
+  const updateTask = useMutation(api.workflow.update);
 
-  const handleToggle = async (taskId: Id<"buildTasks">, checked: boolean) => {
+  const handleToggle = async (taskId: Id<"workflowItems">, checked: boolean) => {
     if (!userId) return;
     try {
-      await updateTask({ id: taskId, userId, checked });
+      await updateTask({ id: taskId, userId, status: checked ? "done" : "not_started" });
     } catch {
       // Error surfaces via Convex; could add inline error state
     }
@@ -470,7 +482,7 @@ function PlannerTaskTree({
 }: {
   tree: { conventionGroups: ConventionGroup[]; standaloneBuilds: BuildGroup[] };
   userId: string | null;
-  onToggle: (id: Id<"buildTasks">, checked: boolean) => void;
+  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
 }) {
   const { conventionGroups, standaloneBuilds } = tree;
   const hasConventions = conventionGroups.length > 0;
@@ -579,39 +591,50 @@ function PlannerTaskRow({
 }: {
   task: PlannerTask;
   userId: string | null;
-  onToggle: (id: Id<"buildTasks">, checked: boolean) => void;
+  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
 }) {
   const contextHref = task.conventionId
     ? `/conventions/${task.conventionId}/packing`
-    : `/build-detail?id=${task.buildId}`;
+    : task.buildId
+      ? `/build-detail?id=${task.buildId}`
+      : task.cosplayNodeId
+        ? `/elements/${task.cosplayNodeId}`
+        : "/planner";
   return (
     <div className="flex items-start gap-3 border border-kyar-borderSubtle rounded-xl p-4 bg-kyar-surface shadow-sm min-h-[44px] hover:border-kyar-text transition-colors">
       <input
         type="checkbox"
-        checked={task.checked}
-        onChange={() => onToggle(task._id, !task.checked)}
+        checked={task.status === "done"}
+        onChange={() => onToggle(task._id, task.status !== "done")}
         disabled={!userId}
         className="mt-1 rounded-full border-2 border-black bg-white w-6 h-6 min-w-[24px] min-h-[24px] focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-transform active:scale-90 cursor-pointer checked:bg-black checked:border-black"
-        aria-label={`Mark "${task.label}" as ${task.checked ? "incomplete" : "complete"}`}
+        aria-label={`Mark "${task.title}" as ${task.status === "done" ? "incomplete" : "complete"}`}
       />
       <div className="flex-1 min-w-0">
         <p
-          className={`font-light tracking-tight ${task.checked ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
+          className={`font-light tracking-tight ${task.status === "done" ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
         >
-          {task.label}
+          {task.title}
         </p>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <Link
             href={contextHref}
             className="text-[11px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
           >
-            {task.buildName}
+            {task.buildName ?? task.conventionName ?? "Workflow"}
           </Link>
+          <span className="text-[11px] uppercase tracking-widest text-kyar-textTertiary">
+            {task.status.split("_").join(" ")}
+          </span>
           {task.dueDate && (
             <span className="text-[11px] text-kyar-textTertiary">
               · {formatDueDate(task.dueDate)}
             </span>
           )}
+          <span className="text-[11px] text-kyar-textTertiary">· {task.progressPercent}%</span>
+          {task.blockedByCount ? (
+            <span className="text-[11px] text-kyar-danger">· blocked by {task.blockedByCount}</span>
+          ) : null}
         </div>
       </div>
     </div>

@@ -2,7 +2,13 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
-import { MAX_LENGTH, sanitizeAndLimit, validateDateString } from "./lib/validation";
+import {
+  entityKey,
+  getWorkflowAttachmentsForUser,
+  getWorkflowItemsByAttachmentKey,
+  getWorkflowItemsForUser,
+} from "./lib/workflowDomain";
+import { sanitizeAndLimit, validateDateString, MAX_LENGTH } from "./lib/validation";
 
 const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
 
@@ -22,34 +28,45 @@ async function resolveCosplayNodeId(
   return migrated?._id ?? null;
 }
 
-async function listTasksForCosplayNode(
+async function mapLegacyTaskShape(
   ctx: QueryCtx,
-  cosplayNodeId: Id<"cosplayNodes">
+  item: Doc<"workflowItems">,
+  userId: string
 ) {
-  const tasks = await ctx.db
-    .query("buildTasks")
-    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-    .collect();
-  const sorted = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
-  return await Promise.all(
-    sorted.map(async (task) => {
-      const build = task.buildId ? await ctx.db.get(task.buildId) : null;
-      return {
-        ...task,
-        buildId: task.buildId ?? null,
-        buildName: build && "name" in build ? build.name : null,
-      };
-    })
+  const attachments = (await getWorkflowAttachmentsForUser(ctx, userId)).filter(
+    (attachment) => attachment.workflowItemId === item._id
   );
+  const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
+  const nodeAttachment = attachments.find((attachment) => attachment.entityType === "cosplayNode");
+  const packingAttachment = attachments.find((attachment) => attachment.entityType === "packingItem");
+  const build = buildAttachment ? await ctx.db.get(buildAttachment.entityId as Id<"builds">) : null;
+  return {
+    _id: item._id,
+    buildId: buildAttachment?.entityId as Id<"builds"> | undefined,
+    label: item.title,
+    cosplayNodeId: nodeAttachment?.entityId as Id<"cosplayNodes"> | undefined,
+    closetItemId: undefined,
+    packingListItemId: packingAttachment?.entityId as Id<"packingListItems"> | undefined,
+    sortOrder: item.sortOrder,
+    checked: item.status === "done",
+    dueDate: item.dueDate,
+    buildName: build?.name ?? null,
+  };
 }
 
 export const listByBuild = query({
   args: { buildId: v.id("builds") },
   handler: async (ctx, args) => {
-    return await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+    const scoped = await getWorkflowItemsByAttachmentKey(
+      ctx,
+      build.userId,
+      [entityKey("build", args.buildId)],
+      args.buildId
+    );
+    const tasks = scoped.items.filter((item) => item.kind === "task");
+    return await Promise.all(tasks.map((item) => mapLegacyTaskShape(ctx, item, build.userId)));
   },
 });
 
@@ -58,37 +75,70 @@ export const listByCosplayNode = query({
   handler: async (ctx, args) => {
     const cosplayNodeId = await resolveCosplayNodeId(ctx, args.cosplayNodeId);
     if (!cosplayNodeId) return [];
-    return await listTasksForCosplayNode(ctx, cosplayNodeId);
+    const node = await ctx.db.get(cosplayNodeId);
+    if (!node) return [];
+    const scoped = await getWorkflowItemsByAttachmentKey(
+      ctx,
+      node.userId,
+      [entityKey("cosplayNode", cosplayNodeId)]
+    );
+    return await Promise.all(
+      scoped.items
+        .filter((item) => item.kind === "task")
+        .map((item) => mapLegacyTaskShape(ctx, item, node.userId))
+    );
   },
 });
 
-/** Legacy alias while callers migrate away from closet naming. */
 export const listByClosetItem = query({
   args: { closetItemId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
     const cosplayNodeId = await resolveCosplayNodeId(ctx, args.closetItemId);
     if (!cosplayNodeId) return [];
-    return await listTasksForCosplayNode(ctx, cosplayNodeId);
+    const node = await ctx.db.get(cosplayNodeId);
+    if (!node) return [];
+    const scoped = await getWorkflowItemsByAttachmentKey(
+      ctx,
+      node.userId,
+      [entityKey("cosplayNode", cosplayNodeId)]
+    );
+    return await Promise.all(
+      scoped.items
+        .filter((item) => item.kind === "task")
+        .map((item) => mapLegacyTaskShape(ctx, item, node.userId))
+    );
   },
 });
 
-/** Returns tasks for multiple builds (e.g. for itinerary view). */
 export const listByBuilds = query({
   args: { buildIds: v.array(v.id("builds")) },
   handler: async (ctx, args) => {
     const results = [];
     for (const buildId of args.buildIds) {
-      const tasks = await ctx.db
-        .query("buildTasks")
-        .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-        .collect();
-      results.push({ buildId, tasks });
+      const build = await ctx.db.get(buildId);
+      if (!build) {
+        results.push({ buildId, tasks: [] });
+        continue;
+      }
+      const scoped = await getWorkflowItemsByAttachmentKey(
+        ctx,
+        build.userId,
+        [entityKey("build", buildId)],
+        buildId
+      );
+      results.push({
+        buildId,
+        tasks: await Promise.all(
+          scoped.items
+            .filter((item) => item.kind === "task")
+            .map((item) => mapLegacyTaskShape(ctx, item, build.userId))
+        ),
+      });
     }
     return results;
   },
 });
 
-/** Returns all build tasks for the planner with build name and optional due date from convention day plan. */
 export const listForPlanner = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -96,87 +146,33 @@ export const listForPlanner = query({
     if (!identity || identity.subject !== args.userId) {
       throw new Error("Unauthorized");
     }
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    const buildTasksOnly = tasks.filter(
-      (task): task is typeof task & { buildId: NonNullable<typeof task.buildId> } => task.buildId != null
+
+    const items = await getWorkflowItemsForUser(ctx, args.userId);
+    const tasks = items.filter((item) => item.kind === "task");
+    return await Promise.all(
+      tasks.map(async (item) => {
+        const legacy = await mapLegacyTaskShape(ctx, item, args.userId);
+        const conventionAttachment = (
+          await getWorkflowAttachmentsForUser(ctx, args.userId)
+        ).find(
+          (attachment) =>
+            attachment.workflowItemId === item._id && attachment.entityType === "convention"
+        );
+        return {
+          _id: legacy._id,
+          label: legacy.label,
+          checked: legacy.checked,
+          buildId: legacy.buildId,
+          buildName: legacy.buildName ?? "Workflow",
+          conventionId: conventionAttachment?.entityId as Id<"conventions"> | undefined,
+          dueDate: legacy.dueDate,
+          sortOrder: legacy.sortOrder,
+          status: item.status,
+          title: item.title,
+          priority: item.priority ?? 0,
+        };
+      })
     );
-
-    const conventions = await ctx.db
-      .query("conventions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    const buildIdToDate = new Map<string, string>();
-    const buildIdToConventionId = new Map<string, Id<"conventions">>();
-    for (const convention of conventions) {
-      const plans = await ctx.db
-        .query("conventionDayPlans")
-        .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
-        .collect();
-      for (const plan of plans) {
-        if (!plan.buildId) continue;
-        const existing = buildIdToDate.get(plan.buildId);
-        if (!existing || plan.date < existing) {
-          buildIdToDate.set(plan.buildId, plan.date);
-          buildIdToConventionId.set(plan.buildId, convention._id);
-        }
-      }
-    }
-
-    const result: Array<{
-      _id: Doc<"buildTasks">["_id"];
-      label: string;
-      checked: boolean;
-      buildId?: Doc<"buildTasks">["buildId"];
-      buildName: string;
-      conventionId?: Id<"conventions">;
-      dueDate?: string;
-      sortOrder: number;
-    }> = [];
-
-    for (const task of buildTasksOnly) {
-      const build = await ctx.db.get(task.buildId);
-      if (!build || build.userId !== args.userId) continue;
-      result.push({
-        _id: task._id,
-        label: task.label,
-        checked: task.checked,
-        buildId: task.buildId,
-        buildName: build.name,
-        dueDate: task.dueDate ?? buildIdToDate.get(task.buildId),
-        sortOrder: task.sortOrder,
-        ...(buildIdToConventionId.has(task.buildId)
-          ? { conventionId: buildIdToConventionId.get(task.buildId)! }
-          : {}),
-      });
-    }
-
-    const packingOnlyTasks = tasks.filter((task) => task.packingListItemId != null);
-    for (const task of packingOnlyTasks) {
-      const packingItem = await ctx.db.get(task.packingListItemId!);
-      if (!packingItem || packingItem.userId !== args.userId) continue;
-      const convention = await ctx.db.get(packingItem.conventionId);
-      if (!convention) continue;
-      result.push({
-        _id: task._id,
-        label: task.label,
-        checked: task.checked,
-        buildName: convention.name,
-        conventionId: packingItem.conventionId,
-        dueDate: task.dueDate ?? packingItem.date,
-        sortOrder: task.sortOrder,
-      });
-    }
-
-    result.sort((a, b) => {
-      const dateA = a.dueDate ?? "9999-12-31";
-      const dateB = b.dueDate ?? "9999-12-31";
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      return a.sortOrder - b.sortOrder;
-    });
-    return result;
   },
 });
 
@@ -203,21 +199,40 @@ export const create = mutation({
       if (!build) throw new Error("Build not found");
       const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
       if (!canEdit) throw new Error("Not authorized");
-      const existing = await ctx.db
-        .query("buildTasks")
-        .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-        .collect();
-      const id = await ctx.db.insert("buildTasks", {
+      const id = await ctx.db.insert("workflowItems", {
         userId: args.userId,
-        buildId: args.buildId,
-        label,
-        cosplayNodeId: resolvedNodeId ?? undefined,
-        closetItemId: undefined,
-        sortOrder: args.sortOrder ?? existing.length,
-        checked: false,
+        title: label,
+        kind: "task",
+        category: "craft",
+        status: "not_started",
+        ancestorIds: [],
+        sortOrder: args.sortOrder ?? 0,
+        scopeKind: "build_specific",
+        sourceKind: "manual",
         dueDate,
+        legacyBuildTaskId: undefined,
       });
-      return await ctx.db.get(id);
+      await ctx.db.insert("workflowAttachments", {
+        userId: args.userId,
+        workflowItemId: id,
+        entityType: "build",
+        entityId: args.buildId,
+        entityKey: entityKey("build", args.buildId),
+        role: "primary",
+      });
+      if (resolvedNodeId) {
+        await ctx.db.insert("workflowAttachments", {
+          userId: args.userId,
+          workflowItemId: id,
+          entityType: "cosplayNode",
+          entityId: resolvedNodeId,
+          entityKey: entityKey("cosplayNode", resolvedNodeId),
+          role: "progress_source",
+          buildContextId: args.buildId,
+        });
+      }
+      const created = await ctx.db.get(id);
+      return created ? await mapLegacyTaskShape(ctx, created, args.userId) : null;
     }
 
     if (!resolvedNodeId) {
@@ -227,27 +242,35 @@ export const create = mutation({
     if (!node || node.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
-    const existing = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", resolvedNodeId))
-      .collect();
-    const id = await ctx.db.insert("buildTasks", {
+    const id = await ctx.db.insert("workflowItems", {
       userId: args.userId,
-      buildId: undefined,
-      label,
-      cosplayNodeId: resolvedNodeId,
-      closetItemId: undefined,
-      sortOrder: args.sortOrder ?? existing.length,
-      checked: false,
+      title: label,
+      kind: "task",
+      category: "craft",
+      status: "not_started",
+      ancestorIds: [],
+      sortOrder: args.sortOrder ?? 0,
+      scopeKind: "shared",
+      sourceKind: "manual",
       dueDate,
+      legacyBuildTaskId: undefined,
     });
-    return await ctx.db.get(id);
+    await ctx.db.insert("workflowAttachments", {
+      userId: args.userId,
+      workflowItemId: id,
+      entityType: "cosplayNode",
+      entityId: resolvedNodeId,
+      entityKey: entityKey("cosplayNode", resolvedNodeId),
+      role: "primary",
+    });
+    const created = await ctx.db.get(id);
+    return created ? await mapLegacyTaskShape(ctx, created, args.userId) : null;
   },
 });
 
 export const update = mutation({
   args: {
-    id: v.id("buildTasks"),
+    id: v.id("workflowItems"),
     userId: v.string(),
     label: v.optional(v.string()),
     cosplayNodeId: v.optional(v.union(legacyNodeIdValidator, v.null())),
@@ -257,56 +280,82 @@ export const update = mutation({
     dueDate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
-    const task = await ctx.db.get(id);
-    if (!task) throw new Error("Task not found");
-    const allowed =
-      task.userId === userId ||
-      (task.buildId && (await canUserEditBuild(ctx, task.buildId, userId)));
-    if (!allowed) throw new Error("Not authorized");
+    const item = await ctx.db.get(args.id);
+    if (!item) throw new Error("Task not found");
+    const attachments = await ctx.db
+      .query("workflowAttachments")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", args.id))
+      .collect();
+    const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
+    if (item.userId !== args.userId) {
+      if (!buildAttachment) throw new Error("Not authorized");
+      const allowed = await canUserEditBuild(
+        ctx,
+        buildAttachment.entityId as Id<"builds">,
+        args.userId
+      );
+      if (!allowed) throw new Error("Not authorized");
+    }
 
     const patch: Record<string, unknown> = {};
-    if (fields.label !== undefined) {
-      patch.label = sanitizeAndLimit(fields.label, MAX_LENGTH.label, "Label");
+    if (args.label !== undefined) patch.title = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
+    if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
+    if (args.checked !== undefined) patch.status = args.checked ? "done" : "not_started";
+    if (args.dueDate !== undefined) {
+      patch.dueDate = args.dueDate === null ? undefined : validateDateString(args.dueDate, "Due date");
     }
-    if (fields.sortOrder !== undefined) patch.sortOrder = fields.sortOrder;
-    if (fields.checked !== undefined) patch.checked = fields.checked;
-    if (fields.dueDate !== undefined) {
-      patch.dueDate =
-        fields.dueDate === null ? undefined : validateDateString(fields.dueDate, "Due date");
-    }
-    if (fields.cosplayNodeId !== undefined || fields.closetItemId !== undefined) {
-      const sourceId =
-        fields.cosplayNodeId === undefined ? fields.closetItemId : fields.cosplayNodeId;
-      patch.cosplayNodeId =
-        sourceId === null ? undefined : await resolveCosplayNodeId(ctx, sourceId ?? null);
-      patch.closetItemId = undefined;
-    }
+    if (Object.keys(patch).length > 0) await ctx.db.patch(args.id, patch);
 
-    if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
-    }
-
-    if (args.checked !== undefined && task.packingListItemId) {
-      const packingItem = await ctx.db.get(task.packingListItemId);
-      if (packingItem && packingItem.userId === userId) {
-        await ctx.db.patch(task.packingListItemId, { checked: args.checked });
+    if (args.cosplayNodeId !== undefined || args.closetItemId !== undefined) {
+      const resolvedNodeId =
+        args.cosplayNodeId === null || args.closetItemId === null
+          ? null
+          : await resolveCosplayNodeId(
+              ctx,
+              args.cosplayNodeId === undefined ? args.closetItemId ?? null : args.cosplayNodeId
+            );
+      const existingNodeAttachments = attachments.filter(
+        (attachment) => attachment.entityType === "cosplayNode"
+      );
+      for (const attachment of existingNodeAttachments) await ctx.db.delete(attachment._id);
+      if (resolvedNodeId) {
+        await ctx.db.insert("workflowAttachments", {
+          userId: args.userId,
+          workflowItemId: args.id,
+          entityType: "cosplayNode",
+          entityId: resolvedNodeId,
+          entityKey: entityKey("cosplayNode", resolvedNodeId),
+          role: "progress_source",
+          buildContextId: buildAttachment?.entityId as Id<"builds"> | undefined,
+        });
       }
     }
 
-    return await ctx.db.get(id);
+    const updated = await ctx.db.get(args.id);
+    return updated ? await mapLegacyTaskShape(ctx, updated, item.userId) : null;
   },
 });
 
 export const remove = mutation({
-  args: { id: v.id("buildTasks"), userId: v.string() },
+  args: { id: v.id("workflowItems"), userId: v.string() },
   handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.id);
-    if (!task) throw new Error("Task not found");
-    const allowed =
-      task.userId === args.userId ||
-      (task.buildId && (await canUserEditBuild(ctx, task.buildId, args.userId)));
-    if (!allowed) throw new Error("Not authorized");
+    const item = await ctx.db.get(args.id);
+    if (!item) throw new Error("Task not found");
+    const attachments = await ctx.db
+      .query("workflowAttachments")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", args.id))
+      .collect();
+    const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
+    if (item.userId !== args.userId) {
+      if (!buildAttachment) throw new Error("Not authorized");
+      const allowed = await canUserEditBuild(
+        ctx,
+        buildAttachment.entityId as Id<"builds">,
+        args.userId
+      );
+      if (!allowed) throw new Error("Not authorized");
+    }
+    for (const attachment of attachments) await ctx.db.delete(attachment._id);
     await ctx.db.delete(args.id);
   },
 });

@@ -11,6 +11,11 @@ export const COSPLAY_ELEMENTS_MIGRATION_SEQUENCE = [
   "backfillPackingListCosplayRefs",
 ] as const;
 
+export const WORKFLOW_MIGRATION_SEQUENCE = [
+  "backfillWorkflowItemsFromBuildTasks",
+  "backfillWorkflowCompletionAnchors",
+] as const;
+
 function mapLegacyStatusToNodeFields(
   status: string | undefined,
   nodeType: "element" | "material"
@@ -72,6 +77,11 @@ export const runCosplayElementsMigration = migrations.runner([
   internal.migrations.backfillBuildCosplayLinksFromBuildItemLinks,
   internal.migrations.backfillBuildTaskCosplayRefs,
   internal.migrations.backfillPackingListCosplayRefs,
+]);
+
+export const runWorkflowMigration = migrations.runner([
+  internal.migrations.backfillWorkflowItemsFromBuildTasks,
+  internal.migrations.backfillWorkflowCompletionAnchors,
 ]);
 
 export const backfillCosplayNodesFromClosetItems = migrations.define({
@@ -248,5 +258,113 @@ export const backfillPackingListCosplayRefs = migrations.define({
       cosplayNodeId,
       closetItemId: undefined,
     });
+  },
+});
+
+export const backfillWorkflowItemsFromBuildTasks = migrations.define({
+  table: "buildTasks",
+  migrateOne: async (ctx, task) => {
+    const existing = await ctx.db
+      .query("workflowItems")
+      .withIndex("by_legacyBuildTaskId", (q) => q.eq("legacyBuildTaskId", task._id))
+      .unique();
+    let workflowItemId = existing?._id;
+    if (!workflowItemId) {
+      workflowItemId = await ctx.db.insert("workflowItems", {
+        userId: task.userId,
+        title: task.label,
+        kind: "task",
+        category: task.packingListItemId ? "pack" : "craft",
+        status: task.checked ? "done" : "not_started",
+        ancestorIds: [],
+        sortOrder: task.sortOrder,
+        scopeKind: task.buildId ? "build_specific" : "shared",
+        sourceKind: task.packingListItemId ? "packing" : "manual",
+        dueDate: task.dueDate,
+        legacyBuildTaskId: task._id,
+      });
+    }
+
+    const attachments = await ctx.db
+      .query("workflowAttachments")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItemId))
+      .collect();
+    const attachmentKeys = new Set(attachments.map((attachment) => attachment.entityKey));
+
+    if (task.buildId && !attachmentKeys.has(`build:${task.buildId}`)) {
+      await ctx.db.insert("workflowAttachments", {
+        userId: task.userId,
+        workflowItemId,
+        entityType: "build",
+        entityId: task.buildId,
+        entityKey: `build:${task.buildId}`,
+        role: "primary",
+      });
+    }
+    if (task.cosplayNodeId && !attachmentKeys.has(`cosplayNode:${task.cosplayNodeId}`)) {
+      await ctx.db.insert("workflowAttachments", {
+        userId: task.userId,
+        workflowItemId,
+        entityType: "cosplayNode",
+        entityId: task.cosplayNodeId,
+        entityKey: `cosplayNode:${task.cosplayNodeId}`,
+        role: "progress_source",
+        buildContextId: task.buildId,
+      });
+    }
+    if (task.packingListItemId && !attachmentKeys.has(`packingItem:${task.packingListItemId}`)) {
+      await ctx.db.insert("workflowAttachments", {
+        userId: task.userId,
+        workflowItemId,
+        entityType: "packingItem",
+        entityId: task.packingListItemId,
+        entityKey: `packingItem:${task.packingListItemId}`,
+        role: "packing_entry",
+      });
+      await ctx.db.patch(task.packingListItemId, {
+        workflowItemId,
+        entryKind: "generated",
+        sourceKind: "workflow",
+      });
+    }
+  },
+});
+
+export const backfillWorkflowCompletionAnchors = migrations.define({
+  table: "closetItems",
+  migrateOne: async (ctx, item) => {
+    if (!item.completionTaskId) return;
+    const workflowItem = await ctx.db
+      .query("workflowItems")
+      .withIndex("by_legacyBuildTaskId", (q) => q.eq("legacyBuildTaskId", item.completionTaskId))
+      .unique();
+    if (!workflowItem) return;
+
+    const cosplayNode = await ctx.db
+      .query("cosplayNodes")
+      .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", item._id))
+      .unique();
+    if (!cosplayNode) return;
+
+    const existing = await ctx.db
+      .query("workflowAttachments")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItem._id))
+      .collect();
+    const hasCompletionAnchor = existing.some(
+      (attachment) =>
+        attachment.entityType === "cosplayNode" &&
+        attachment.entityId === cosplayNode._id &&
+        attachment.role === "completion_anchor"
+    );
+    if (!hasCompletionAnchor) {
+      await ctx.db.insert("workflowAttachments", {
+        userId: item.userId,
+        workflowItemId: workflowItem._id,
+        entityType: "cosplayNode",
+        entityId: cosplayNode._id,
+        entityKey: `cosplayNode:${cosplayNode._id}`,
+        role: "completion_anchor",
+      });
+    }
   },
 });

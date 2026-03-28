@@ -294,7 +294,7 @@ export default function BuildDetailScreen() {
     const newChecked = task ? !task.checked : false;
     if (isCloud && userId) {
       await toggleTaskMut({
-        id: taskId as Id<"buildTasks">,
+        id: taskId as Id<"workflowItems">,
         userId,
         checked: newChecked,
       });
@@ -321,7 +321,7 @@ export default function BuildDetailScreen() {
         style: "destructive",
         onPress: async () => {
           if (isCloud && userId) {
-            await deleteTaskMut({ id: taskId as Id<"buildTasks">, userId });
+            await deleteTaskMut({ id: taskId as Id<"workflowItems">, userId });
           } else {
             setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
             try {
@@ -347,7 +347,7 @@ export default function BuildDetailScreen() {
     setSelectedTaskId(null);
     if (isCloud && userId) {
       await updateTaskMut({
-        id: selectedTaskId as Id<"buildTasks">,
+        id: selectedTaskId as Id<"workflowItems">,
         userId,
         closetItemId: closetItemId ? (closetItemId as Id<"closetItems">) : undefined,
       });

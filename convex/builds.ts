@@ -4,6 +4,8 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { deriveNodeSummary } from "./cosplayNodes";
+import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
+import { getBuildScopedWorkflow } from "./workflow";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -102,6 +104,73 @@ async function resolveLegacyNodeIds(
   return resolved;
 }
 
+async function getBuildWorkflowMetrics(
+  ctx: MutationCtx | import("./_generated/server").QueryCtx,
+  build: Doc<"builds">
+) {
+  const scoped = await getBuildScopedWorkflow(ctx as import("./_generated/server").QueryCtx, build._id);
+  const workflowItems = scoped?.items ?? [];
+  const taskItems = workflowItems.filter((item) => item.kind === "task");
+  const tasksChecked = taskItems.filter((item) => item.status === "done").length;
+  const tasksTotal = taskItems.length;
+  const workflowProgressPercent =
+    tasksTotal > 0
+      ? Math.round((tasksChecked / tasksTotal) * 100)
+      : workflowItems.length > 0
+        ? Math.round(
+            workflowItems.reduce(
+              (sum, item) =>
+                sum +
+                deriveStatusProgress({
+                  status: item.status as never,
+                  manualProgressPercent: item.manualProgressPercent,
+                }),
+              0
+            ) / workflowItems.length
+          )
+        : 0;
+
+  const links = await getBuildRootLinks(ctx, build._id);
+  let totalCostCents = 0;
+  const nodeProgressUnits: number[] = [];
+  const visited = new Set<string>();
+  for (const link of links) {
+    const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, build._id, visited);
+    totalCostCents += summary.totalCostCents;
+    nodeProgressUnits.push(summary.progressPercent);
+  }
+  const nodeProgressPercent =
+    nodeProgressUnits.length > 0
+      ? Math.round(nodeProgressUnits.reduce((sum, value) => sum + value, 0) / nodeProgressUnits.length)
+      : undefined;
+  const packingItems = (
+    await ctx.db
+      .query("packingListItems")
+      .withIndex("by_userId", (q) => q.eq("userId", build.userId))
+      .collect()
+  ).filter((item) => item.buildId === build._id);
+  const packingProgressPercent =
+    packingItems.length > 0
+      ? Math.round((packingItems.filter((item) => item.checked).length / packingItems.length) * 100)
+      : undefined;
+  const progress = deriveBuildBlendedProgress({
+    manualProgressPercent: build.manualProgressPercent,
+    workflowProgressPercent,
+    nodeProgressPercent,
+    packingProgressPercent,
+  });
+
+  return {
+    tasksTotal,
+    tasksChecked,
+    workflowProgressPercent,
+    packingProgressPercent,
+    nodeProgressPercent,
+    progress,
+    totalCostCents,
+  };
+}
+
 export const list = query({
   args: {
     userId: v.string(),
@@ -132,29 +201,10 @@ export const list = query({
           .collect());
 
     const withCounts = await Promise.all(
-      builds.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
-        const tasksChecked = tasks.filter((t) => t.checked).length;
-        const tasksTotal = tasks.length;
-        const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
-        const links = await getBuildRootLinks(ctx, b._id);
-        let totalCostCents = 0;
-        const visited = new Set<string>();
-        for (const link of links) {
-          const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, b._id, visited);
-          totalCostCents += summary.totalCostCents;
-        }
-        return {
-          ...b,
-          tasksTotal,
-          tasksChecked,
-          progress,
-          totalCostCents,
-        };
-      })
+      builds.map(async (b) => ({
+        ...b,
+        ...(await getBuildWorkflowMetrics(ctx, b)),
+      }))
     );
 
     let filtered = withCounts;
@@ -211,13 +261,7 @@ export const getMostRecentForUser = query({
     if (builds.length === 0) return null;
     const sorted = [...builds].sort((a, b) => b._creationTime - a._creationTime);
     const build = sorted[0];
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
-    const tasksChecked = tasks.filter((t) => t.checked).length;
-    const tasksTotal = tasks.length;
-    const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+    const { tasksChecked, tasksTotal, progress } = await getBuildWorkflowMetrics(ctx, build);
     return {
       ...build,
       tasksTotal,
@@ -255,13 +299,7 @@ export const getFocusedOrMostRecentForUser = query({
       build = sorted[0];
     }
 
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
-    const tasksChecked = tasks.filter((t) => t.checked).length;
-    const tasksTotal = tasks.length;
-    const progress = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+    const { tasksChecked, tasksTotal, progress } = await getBuildWorkflowMetrics(ctx, build);
     return {
       ...build,
       tasksTotal,
@@ -276,14 +314,14 @@ export const get = query({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.id);
     if (!build) return null;
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
+    const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
+      await getBuildWorkflowMetrics(ctx, build);
     return {
       ...build,
-      tasksTotal: tasks.length,
-      tasksChecked: tasks.filter((t) => t.checked).length,
+      tasksTotal,
+      tasksChecked,
+      progress,
+      workflowProgressPercent,
     };
   },
 });
@@ -297,14 +335,14 @@ export const getByShareToken = query({
       .withIndex("by_shareToken", (q) => q.eq("shareToken", args.shareToken))
       .unique();
     if (!build) return null;
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
+    const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
+      await getBuildWorkflowMetrics(ctx, build);
     return {
       ...build,
-      tasksTotal: tasks.length,
-      tasksChecked: tasks.filter((t) => t.checked).length,
+      tasksTotal,
+      tasksChecked,
+      progress,
+      workflowProgressPercent,
     };
   },
 });
@@ -320,14 +358,9 @@ export const listPublicByUser = query({
     const publicOnly = builds.filter((b) => b.visibility === "public");
     return await Promise.all(
       publicOnly.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
         return {
           ...b,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          ...(await getBuildWorkflowMetrics(ctx, b)),
         };
       })
     );
@@ -344,14 +377,9 @@ export const listByGroup = query({
       .collect();
     return await Promise.all(
       builds.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
         return {
           ...b,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          ...(await getBuildWorkflowMetrics(ctx, b)),
         };
       })
     );
@@ -370,18 +398,13 @@ export const listDiscover = query({
     const limited = args.limit ? sorted.slice(0, args.limit) : sorted;
     const withDetails = await Promise.all(
       limited.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
         const user = await ctx.db
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
           .unique();
         return {
           ...b,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          ...(await getBuildWorkflowMetrics(ctx, b)),
           ownerUsername: user?.username ?? null,
           ownerName: user?.displayName ?? user?.name ?? null,
         };
@@ -413,18 +436,13 @@ export const listFeedFromFollowing = query({
     const limited = args.limit ? sorted.slice(0, args.limit) : sorted;
     return await Promise.all(
       limited.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
         const user = await ctx.db
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
           .unique();
         return {
           ...b,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          ...(await getBuildWorkflowMetrics(ctx, b)),
           ownerUsername: user?.username ?? null,
           ownerName: user?.displayName ?? user?.name ?? null,
         };
@@ -446,15 +464,10 @@ export const listSharedWithUser = query({
       buildIds.map(async (buildId) => {
         const build = await ctx.db.get(buildId);
         if (!build) return null;
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-          .collect();
         const row = rows.find((r) => r.buildId === buildId);
         return {
           ...build,
-          tasksTotal: tasks.length,
-          tasksChecked: tasks.filter((t) => t.checked).length,
+          ...(await getBuildWorkflowMetrics(ctx, build)),
           myRole: row?.role ?? null,
         };
       })
@@ -634,12 +647,28 @@ export const remove = mutation({
     for (const p of processPics) {
       await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
     }
-    // Cascade: delete tasks, root links, and build-node state overlays.
+    // Cascade: delete legacy tasks, workflow attachments/items, root links, and build-node states.
     const tasks = await ctx.db
       .query("buildTasks")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
     for (const t of tasks) await ctx.db.delete(t._id);
+    const workflowAttachments = (
+      await ctx.db
+        .query("workflowAttachments")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .collect()
+    ).filter(
+      (attachment) =>
+        attachment.entityType === "build" && attachment.entityId === args.id
+    );
+    for (const attachment of workflowAttachments) {
+      const workflowItem = await ctx.db.get(attachment.workflowItemId);
+      await ctx.db.delete(attachment._id);
+      if (workflowItem?.scopeKind === "build_specific") {
+        await ctx.db.delete(workflowItem._id);
+      }
+    }
 
     const legacyLinks = await ctx.db
       .query("buildItemLinks")
@@ -695,6 +724,19 @@ export const removeMany = mutation({
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
       for (const t of tasks) await ctx.db.delete(t._id);
+      const workflowAttachments = (
+        await ctx.db
+          .query("workflowAttachments")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .collect()
+      ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === id);
+      for (const attachment of workflowAttachments) {
+        const workflowItem = await ctx.db.get(attachment.workflowItemId);
+        await ctx.db.delete(attachment._id);
+        if (workflowItem?.scopeKind === "build_specific") {
+          await ctx.db.delete(workflowItem._id);
+        }
+      }
       const legacyLinks = await ctx.db
         .query("buildItemLinks")
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
@@ -754,23 +796,20 @@ export const getSummary = query({
     const build = await ctx.db.get(args.buildId);
     if (!build || build.userId !== args.userId) return null;
 
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
-      .collect();
-    const tasksChecked = tasks.filter((t) => t.checked).length;
-    const tasksTotal = tasks.length;
-    const progressPercent = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+    const {
+      tasksChecked,
+      tasksTotal,
+      progress: progressPercent,
+      totalCostCents,
+    } = await getBuildWorkflowMetrics(ctx, build);
 
     const links = await getBuildRootLinks(ctx, build._id);
     let linkedItemCount = links.length;
     let linkedItemsCompleteCount = 0;
-    let totalCostCents = 0;
     const visited = new Set<string>();
     for (const link of links) {
       const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, build._id, visited);
       if (summary.overallBucket === "complete") linkedItemsCompleteCount += 1;
-      totalCostCents += summary.totalCostCents;
     }
 
     const createdMs = (build as { _creationTime?: number })._creationTime ?? Date.now();
@@ -820,14 +859,21 @@ export const listWithDetails = query({
 
     return await Promise.all(
       builds.map(async (b) => {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", b._id))
-          .collect();
         const links = await getBuildRootLinks(ctx, b._id);
+        const scoped = await getBuildScopedWorkflow(ctx, b._id);
         return {
           ...b,
-          tasks,
+          tasks: (scoped?.items ?? [])
+            .filter((item) => item.kind === "task")
+            .map((item) => ({
+              _id: item._id,
+              buildId: b._id,
+              label: item.title,
+              sortOrder: item.sortOrder,
+              checked: item.status === "done",
+              dueDate: item.dueDate,
+            })),
+          workflowItems: scoped?.items ?? [],
           linkedNodeIds: links.map((l) => l.cosplayNodeId as string),
         };
       })

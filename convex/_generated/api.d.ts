@@ -30,10 +30,13 @@ import type * as http from "../http.js";
 import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_cosplayGraph from "../lib/cosplayGraph.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as lib_workflowDomain from "../lib/workflowDomain.js";
+import type * as lib_workflowProgress from "../lib/workflowProgress.js";
 import type * as migrations from "../migrations.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
 import type * as users from "../users.js";
+import type * as workflow from "../workflow.js";
 
 import type {
   ApiFromModules,
@@ -64,10 +67,13 @@ declare const fullApi: ApiFromModules<{
   "lib/buildAccess": typeof lib_buildAccess;
   "lib/cosplayGraph": typeof lib_cosplayGraph;
   "lib/validation": typeof lib_validation;
+  "lib/workflowDomain": typeof lib_workflowDomain;
+  "lib/workflowProgress": typeof lib_workflowProgress;
   migrations: typeof migrations;
   seed: typeof seed;
   storageUsage: typeof storageUsage;
   users: typeof users;
+  workflow: typeof workflow;
 }>;
 
 /**

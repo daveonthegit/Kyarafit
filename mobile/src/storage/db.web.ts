@@ -36,6 +36,40 @@ const builds: Array<{
   updated_at: string;
   convex_id: string | null;
 }> = [];
+const workflowItems: Array<{
+  id: string;
+  title: string;
+  notes: string | null;
+  kind: string;
+  category: string;
+  status: string;
+  parent_id: string | null;
+  sort_order: number;
+  scope_kind: string;
+  source_kind: string;
+  due_date: string | null;
+  manual_progress_percent: number | null;
+  created_at: string;
+  updated_at: string;
+  convex_id: string | null;
+}> = [];
+const workflowAttachments: Array<{
+  id: string;
+  workflow_item_id: string;
+  entity_type: string;
+  entity_id: string;
+  role: string;
+  build_context_id: string | null;
+  progress_weight: number | null;
+  created_at: string;
+}> = [];
+const workflowDependencies: Array<{
+  id: string;
+  predecessor_workflow_item_id: string;
+  successor_workflow_item_id: string;
+  relation_kind: string;
+  created_at: string;
+}> = [];
 const buildTasks: Array<{
   id: string;
   build_id: string;
@@ -78,8 +112,12 @@ const packingListItems: Array<{
   date: string | null;
   build_id: string | null;
   closet_item_id: string | null;
+  workflow_item_id: string | null;
   label: string;
   checked: number;
+  entry_kind: string;
+  source_kind: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
   convex_id: string | null;
@@ -239,6 +277,124 @@ function getWebDb(): DbLike {
         const [convexId, localId] = params as [string, string];
         const idx = builds.findIndex((r) => r.id === localId);
         if (idx >= 0) builds[idx] = { ...builds[idx], convex_id: convexId };
+        return;
+      }
+      // workflow_items
+      if (sql.includes("INSERT INTO workflow_items (")) {
+        const [id, title, status, sort_order, due_date, created_at, updated_at] = params as [
+          string,
+          string,
+          string,
+          number,
+          string | null,
+          string,
+          string,
+        ];
+        const row = {
+          id,
+          title,
+          notes: null,
+          kind: "task",
+          category: "craft",
+          status,
+          parent_id: null,
+          sort_order,
+          scope_kind: "build_specific",
+          source_kind: "manual",
+          due_date: due_date ?? null,
+          manual_progress_percent: null,
+          created_at,
+          updated_at,
+          convex_id: null,
+        };
+        const idx = workflowItems.findIndex((r) => r.id === id);
+        if (idx >= 0) workflowItems[idx] = row;
+        else workflowItems.push(row);
+        return;
+      }
+      if (sql.includes("UPDATE workflow_items SET title =")) {
+        const [title, sort_order, status, due_date, updated_at, id] = params as [
+          string,
+          number,
+          string,
+          string | null,
+          string,
+          string,
+        ];
+        const idx = workflowItems.findIndex((r) => r.id === id);
+        if (idx >= 0) {
+          workflowItems[idx] = {
+            ...workflowItems[idx],
+            title,
+            sort_order,
+            status,
+            due_date: due_date ?? null,
+            updated_at,
+          };
+        }
+        return;
+      }
+      if (sql.includes("DELETE FROM workflow_items WHERE id")) {
+        const id = params[0] as string;
+        for (let i = workflowItems.length - 1; i >= 0; i--) {
+          if (workflowItems[i].id === id) workflowItems.splice(i, 1);
+        }
+        return;
+      }
+      if (sql.includes("UPDATE workflow_items SET convex_id")) {
+        const [convexId, localId] = params as [string, string];
+        const idx = workflowItems.findIndex((r) => r.id === localId);
+        if (idx >= 0) workflowItems[idx] = { ...workflowItems[idx], convex_id: convexId };
+        return;
+      }
+      // workflow_attachments
+      if (sql.includes("INSERT INTO workflow_attachments (")) {
+        const [id, workflow_item_id, entity_type, entity_id, role, build_context_id, created_at] =
+          params as [string, string, string, string, string, string | null, string];
+        workflowAttachments.push({
+          id,
+          workflow_item_id,
+          entity_type,
+          entity_id,
+          role,
+          build_context_id: build_context_id ?? null,
+          progress_weight: null,
+          created_at,
+        });
+        return;
+      }
+      if (sql.includes("UPDATE workflow_attachments SET entity_id =")) {
+        const [entity_id, build_context_id, created_at, id] = params as [
+          string,
+          string | null,
+          string,
+          string,
+        ];
+        const idx = workflowAttachments.findIndex((r) => r.id === id);
+        if (idx >= 0) {
+          workflowAttachments[idx] = {
+            ...workflowAttachments[idx],
+            entity_id,
+            build_context_id: build_context_id ?? null,
+            created_at,
+          };
+        }
+        return;
+      }
+      if (sql.includes("DELETE FROM workflow_attachments WHERE workflow_item_id")) {
+        const workflowItemId = params[0] as string;
+        for (let i = workflowAttachments.length - 1; i >= 0; i--) {
+          if (workflowAttachments[i].workflow_item_id === workflowItemId) {
+            workflowAttachments.splice(i, 1);
+          }
+        }
+        return;
+      }
+      if (sql.includes("DELETE FROM workflow_attachments WHERE id")) {
+        const id = params[0] as string;
+        for (let i = workflowAttachments.length - 1; i >= 0; i--) {
+          if (workflowAttachments[i].id === id) workflowAttachments.splice(i, 1);
+        }
         return;
       }
       // build_tasks (params: id, build_id, label, closet_item_id, sort_order, created_at, updated_at; checked=0 in SQL)
@@ -440,6 +596,17 @@ function getWebDb(): DbLike {
         if (idx >= 0) packingListItems[idx] = { ...packingListItems[idx], convex_id: convexId };
         return;
       }
+      if (sql.includes("UPDATE packing_list_items SET workflow_item_id")) {
+        const [workflowItemId, localId] = params as [string | null, string];
+        const idx = packingListItems.findIndex((r) => r.id === localId);
+        if (idx >= 0) {
+          packingListItems[idx] = {
+            ...packingListItems[idx],
+            workflow_item_id: workflowItemId ?? null,
+          };
+        }
+        return;
+      }
       if (sql.includes("INSERT INTO packing_list_items (")) {
         const p = params as unknown[];
         if (p.length >= 10) {
@@ -451,7 +618,7 @@ function getWebDb(): DbLike {
             build_id,
             closet_item_id,
             label,
-            ,
+            checked,
             created_at,
             updated_at,
             convex_id,
@@ -473,8 +640,12 @@ function getWebDb(): DbLike {
             date,
             build_id,
             closet_item_id,
+            workflow_item_id: null,
             label,
-            checked: 0,
+            checked,
+            entry_kind: "manual",
+            source_kind: "manual",
+            sort_order: 0,
             created_at,
             updated_at,
             convex_id: convex_id ?? null,
@@ -488,8 +659,12 @@ function getWebDb(): DbLike {
             date,
             build_id,
             closet_item_id,
+            workflow_item_id: null,
             label,
             checked: 0,
+            entry_kind: "manual",
+            source_kind: "manual",
+            sort_order: 0,
             created_at,
             updated_at,
             convex_id: null,
@@ -510,8 +685,12 @@ function getWebDb(): DbLike {
             date,
             build_id,
             closet_item_id: null,
+            workflow_item_id: null,
             label,
             checked: 0,
+            entry_kind: "manual",
+            source_kind: "manual",
+            sort_order: 0,
             created_at,
             updated_at,
             convex_id: null,
@@ -530,8 +709,12 @@ function getWebDb(): DbLike {
             date: null,
             build_id: null,
             closet_item_id: null,
+            workflow_item_id: null,
             label,
             checked: 0,
+            entry_kind: "manual",
+            source_kind: "manual",
+            sort_order: 0,
             created_at,
             updated_at,
             convex_id: null,
@@ -609,6 +792,40 @@ function getWebDb(): DbLike {
         return [...builds].sort(
           (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
         ) as T[];
+      }
+      // workflow_items
+      if (sql.includes("FROM workflow_items WHERE id =")) {
+        const id = params[0] as string;
+        const row = workflowItems.find((r) => r.id === id);
+        return (row ? [row] : []) as T[];
+      }
+      if (sql.includes("FROM workflow_items WHERE convex_id IS NULL")) {
+        return workflowItems.filter((r) => r.convex_id == null) as T[];
+      }
+      if (sql.includes("FROM workflow_items ORDER BY")) {
+        return [...workflowItems].sort((a, b) => {
+          const dueA = a.due_date ?? "";
+          const dueB = b.due_date ?? "";
+          if (dueA !== dueB) return dueA.localeCompare(dueB);
+          return a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at);
+        }) as T[];
+      }
+      // workflow_attachments
+      if (sql.includes("FROM workflow_attachments WHERE workflow_item_id =")) {
+        const workflowItemId = params[0] as string;
+        return workflowAttachments
+          .filter((r) => r.workflow_item_id === workflowItemId)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at)) as T[];
+      }
+      if (
+        sql.includes("FROM workflow_attachments WHERE entity_type =") &&
+        sql.includes("entity_id =")
+      ) {
+        const entityType = params[0] as string;
+        const entityId = params[1] as string;
+        return workflowAttachments
+          .filter((r) => r.entity_type === entityType && r.entity_id === entityId)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at)) as T[];
       }
       // build_item_links
       if (sql.includes("FROM build_item_links WHERE build_id")) {

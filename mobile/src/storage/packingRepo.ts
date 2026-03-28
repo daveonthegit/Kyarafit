@@ -41,8 +41,8 @@ export async function getPacking(conventionId: string): Promise<PackingListItem[
 
 export async function toggleChecked(packingItemId: string): Promise<PackingListItem | null> {
   const database = await initClosetDb();
-  const row = await database.getFirstAsync<{ checked: number }>(
-    `SELECT checked FROM packing_list_items WHERE id = ?`,
+  const row = await database.getFirstAsync<{ checked: number; workflow_item_id: string | null }>(
+    `SELECT checked, workflow_item_id FROM packing_list_items WHERE id = ?`,
     [packingItemId]
   );
   if (!row) return null;
@@ -52,6 +52,12 @@ export async function toggleChecked(packingItemId: string): Promise<PackingListI
     `UPDATE packing_list_items SET checked = ?, updated_at = ? WHERE id = ?`,
     [checked, updated_at, packingItemId]
   );
+  if (row.workflow_item_id) {
+    await database.runAsync(
+      `UPDATE workflow_items SET title = title, sort_order = sort_order, status = ?, due_date = due_date, updated_at = ? WHERE id = ?`,
+      [checked === 1 ? "done" : "not_started", updated_at, row.workflow_item_id]
+    );
+  }
   await enqueue("packing.toggle", { localId: packingItemId, checked: checked === 1 });
   const all = await database.getFirstAsync<{
     id: string;

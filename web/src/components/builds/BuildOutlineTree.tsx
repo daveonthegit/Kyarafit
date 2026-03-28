@@ -14,7 +14,7 @@ import type { Id } from "convex/_generated/dataModel";
 
 export interface BuildOutlineTreeProps {
   buildName: string;
-  tasks: Array<{ _id: Id<"buildTasks">; label: string; checked: boolean }>;
+  tasks: Array<{ _id: Id<"workflowItems">; label: string; checked: boolean }>;
   linkedItems: Array<{ _id: Id<"closetItems">; name: string }>;
   onSelect: (id: string) => void;
   defaultExpandedIds?: string[];

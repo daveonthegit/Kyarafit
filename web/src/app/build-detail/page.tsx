@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { TaskChecklist, type BuildTask } from "@/components/builds/TaskChecklist";
+import { WorkflowTree } from "@/components/builds/WorkflowTree";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -254,7 +255,7 @@ export default function BuildDetailPage() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id && userId) {
-      const taskId = active.id as Id<"buildTasks">;
+      const taskId = active.id as Id<"workflowItems">;
       const cosplayNodeId = over.id as CosplayNodeId;
       updateTask({ id: taskId, userId, cosplayNodeId });
       justDroppedRef.current = true;
@@ -682,13 +683,7 @@ export default function BuildDetailPage() {
               {activeTab === "tasks" && (
                 <section id="build-tasks" className="border-t border-kyar-borderSubtle pt-4">
                   <h2 className="mb-6 font-serif text-2xl text-kyar-text">Tasks &amp; Timeline</h2>
-                  <TaskChecklist
-                    buildId={id}
-                    tasks={tasks}
-                    linkedItems={linkedNodes}
-                    enableDragDrop
-                    hideInlineAdd
-                  />
+                  <WorkflowTree buildId={id} userId={userId} />
                 </section>
               )}
 

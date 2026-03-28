@@ -11,6 +11,8 @@ import {
   OVERALL_BUCKETS,
   wouldCreateCycle,
 } from "./lib/cosplayGraph";
+import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
+import { syncGeneratedWorkflowForNode } from "./workflow";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -111,17 +113,14 @@ export async function deriveNodeSummary(
     childLinks.map((link) => deriveNodeSummary(ctx, link.childNodeId, buildId, visited))
   );
 
-  const taskQuery = buildId
-    ? await ctx.db
-        .query("buildTasks")
-        .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-        .collect()
-    : await ctx.db
-        .query("buildTasks")
-        .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-        .collect();
-  const tasks = taskQuery.filter((task) => task.cosplayNodeId === cosplayNodeId);
-  const completedTaskCount = tasks.filter((task) => task.checked).length;
+  const scopedWorkflow = await getWorkflowItemsByAttachmentKey(
+    ctx,
+    node.userId,
+    [`cosplayNode:${cosplayNodeId}`],
+    buildId
+  );
+  const workflowTasks = scopedWorkflow.items.filter((item) => item.kind === "task");
+  const completedTaskCount = workflowTasks.filter((task) => task.status === "done").length;
   const childBuckets = childSummaries.map((summary) => summary.overallBucket);
 
   const effectivePricingMode = state?.pricingMode ?? node.pricingMode;
@@ -144,7 +143,7 @@ export async function deriveNodeSummary(
             MATERIAL_STATUSES
           ),
           childBuckets,
-          taskCount: tasks.length,
+          taskCount: workflowTasks.length,
           completedTaskCount,
         })
       : deriveElementOverallBucket({
@@ -161,14 +160,14 @@ export async function deriveNodeSummary(
             ELEMENT_BUILD_STATUSES
           ),
           childBuckets,
-          taskCount: tasks.length,
+          taskCount: workflowTasks.length,
           completedTaskCount,
         });
 
   const progressPercent = deriveProgressPercent({
     ownBucket: overallBucket,
     childBuckets,
-    taskCount: tasks.length,
+    taskCount: workflowTasks.length,
     completedTaskCount,
   });
 
@@ -483,7 +482,19 @@ export const create = mutation({
       finishedPhotoUrls: sanitized.finishedPhotoUrls,
       consumable: sanitized.consumable,
     });
-    return await ctx.db.get(id);
+    const created = await ctx.db.get(id);
+    if (created) {
+      await syncGeneratedWorkflowForNode(ctx, {
+        userId: args.userId,
+        cosplayNodeId: id,
+        nodeName: created.name,
+        category: created.category,
+        purchaseStatus: created.purchaseStatus,
+        buildStatus: created.buildStatus,
+        materialStatus: created.materialStatus,
+      });
+    }
+    return created;
   },
 });
 
@@ -562,7 +573,19 @@ export const update = mutation({
     }
 
     await ctx.db.patch(id, patch);
-    return await ctx.db.get(id);
+    const updated = await ctx.db.get(id);
+    if (updated) {
+      await syncGeneratedWorkflowForNode(ctx, {
+        userId,
+        cosplayNodeId: id,
+        nodeName: updated.name,
+        category: updated.category,
+        purchaseStatus: updated.purchaseStatus,
+        buildStatus: updated.buildStatus,
+        materialStatus: updated.materialStatus,
+      });
+    }
+    return updated;
   },
 });
 
@@ -886,16 +909,29 @@ export const upsertBuildNodeState = mutation({
             : validateDateString(args.completedAt, "Completed date"),
     };
 
+    let updatedState;
     if (existing) {
       await ctx.db.patch(existing._id, patch);
-      return await ctx.db.get(existing._id);
+      updatedState = await ctx.db.get(existing._id);
+    } else {
+      const id = await ctx.db.insert("buildNodeStates", {
+        userId: args.userId,
+        buildId: args.buildId,
+        cosplayNodeId: args.cosplayNodeId,
+        ...patch,
+      });
+      updatedState = await ctx.db.get(id);
     }
-    const id = await ctx.db.insert("buildNodeStates", {
+    await syncGeneratedWorkflowForNode(ctx, {
       userId: args.userId,
-      buildId: args.buildId,
       cosplayNodeId: args.cosplayNodeId,
-      ...patch,
+      buildId: args.buildId,
+      nodeName: node.name,
+      category: node.category,
+      purchaseStatus: updatedState?.purchaseStatus ?? node.purchaseStatus,
+      buildStatus: updatedState?.buildStatus ?? node.buildStatus,
+      materialStatus: updatedState?.materialStatus ?? node.materialStatus,
     });
-    return await ctx.db.get(id);
+    return updatedState;
   },
 });

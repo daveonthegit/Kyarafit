@@ -20,7 +20,7 @@ export type EditorialComment = {
 };
 
 export type EditorialTaskRow = {
-  _id: Id<"buildTasks">;
+  _id: Id<"workflowItems">;
   label: string;
   checked: boolean;
   dueDate?: string;

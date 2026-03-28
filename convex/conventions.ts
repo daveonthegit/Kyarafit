@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { ensurePackingWorkflowItem } from "./workflow";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -9,25 +10,11 @@ import {
   validateDateString,
 } from "./lib/validation";
 
-function findPackTask(
-  tasks: Array<{
-    _id: Doc<"buildTasks">["_id"];
-    cosplayNodeId?: unknown;
-    closetItemId?: unknown;
-    label: string;
-    checked: boolean;
-  }>,
-  item: {
-    cosplayNodeId?: unknown;
-    closetItemId?: unknown;
-  }
-) {
-  return tasks.find(
-    (task) =>
-      task.label.startsWith("Pack:") &&
-      ((item.cosplayNodeId && task.cosplayNodeId === item.cosplayNodeId) ||
-        (item.closetItemId && task.closetItemId === item.closetItemId))
-  );
+async function getPackingWorkflowStatus(ctx: QueryCtx | MutationCtx, item: Doc<"packingListItems">) {
+  if (!item.workflowItemId) return item.checked;
+  const workflowItem = await ctx.db.get(item.workflowItemId);
+  if (!workflowItem) return item.checked;
+  return workflowItem.status === "done";
 }
 
 export const list = query({
@@ -301,21 +288,12 @@ export const getPacking = query({
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
-    // For build-linked items, checked state lives on the Pack build task
-    const result = await Promise.all(
-      items.map(async (item) => {
-        if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
-          const task = await ctx.db
-            .query("buildTasks")
-            .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
-            .collect();
-          const packTask = findPackTask(task, item);
-          return { ...item, checked: packTask ? packTask.checked : item.checked };
-        }
-        return item;
-      })
+    return await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        checked: await getPackingWorkflowStatus(ctx, item),
+      }))
     );
-    return result;
   },
 });
 
@@ -347,34 +325,28 @@ export const updatePackingItem = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
-    // Sync checked to the Pack build task so Todo/task list and packing list stay in sync
-    if (args.checked !== undefined) {
-      if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
-        const tasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
-          .collect();
-        const packTask = findPackTask(tasks, item);
-        if (packTask) await ctx.db.patch(packTask._id, { checked: args.checked });
-      } else {
-        // Manual packing item: sync to task linked by packingListItemId
-        const task = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_packingListItemId", (q) => q.eq("packingListItemId", id))
-          .first();
-        if (task) await ctx.db.patch(task._id, { checked: args.checked });
-      }
-    }
     const updated = await ctx.db.get(id);
-    // Return with resolved checked from task for build-linked items (for consistent UI);
-    // manual items store checked on the row and we synced to task above
-    if (updated && updated.buildId && (updated.cosplayNodeId || updated.closetItemId)) {
-      const tasks = await ctx.db
-        .query("buildTasks")
-        .withIndex("by_buildId", (q) => q.eq("buildId", updated.buildId!))
-        .collect();
-      const packTask = findPackTask(tasks, updated);
-      return { ...updated, checked: packTask ? packTask.checked : updated.checked };
+    if (updated) {
+      await ensurePackingWorkflowItem(ctx, {
+        userId,
+        packingListItemId: updated._id,
+        conventionId: updated.conventionId,
+        buildId: updated.buildId,
+        cosplayNodeId: updated.cosplayNodeId,
+        label: updated.label,
+        dueDate: updated.date,
+        checked: args.checked ?? updated.checked,
+        manual: updated.entryKind === "manual" || (!updated.cosplayNodeId && !updated.buildId),
+      });
+      if (args.checked !== undefined && updated.workflowItemId) {
+        await ctx.db.patch(updated.workflowItemId, {
+          status: args.checked ? "done" : "not_started",
+        });
+      }
+      return {
+        ...updated,
+        checked: args.checked ?? (await getPackingWorkflowStatus(ctx, updated)),
+      };
     }
     return updated;
   },
@@ -405,16 +377,19 @@ export const addManualPackingItem = mutation({
       notes,
       buildId: args.buildId,
       checked: false,
-      // No cosplayNodeId = manual item; won't be removed when regenerating from builds
-    });
-    // Create a Pack task so manual packing items show on Todo and stay in sync
-    await ctx.db.insert("buildTasks", {
-      userId: args.userId,
-      label: "Pack: " + label,
-      packingListItemId: id,
+      entryKind: "manual",
+      sourceKind: "manual",
       sortOrder: 0,
-      checked: false,
+    });
+    await ensurePackingWorkflowItem(ctx, {
+      userId: args.userId,
+      packingListItemId: id,
+      conventionId: args.conventionId,
+      buildId: args.buildId,
+      label,
       dueDate: date,
+      checked: false,
+      manual: true,
     });
     return await ctx.db.get(id);
   },
@@ -430,11 +405,9 @@ export const deletePackingItem = mutation({
     if (!item || item.userId !== args.userId) {
       throw new Error("Not found or not authorized");
     }
-    const linkedTask = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_packingListItemId", (q) => q.eq("packingListItemId", args.id))
-      .first();
-    if (linkedTask) await ctx.db.delete(linkedTask._id);
+    if (item.workflowItemId) {
+      await ctx.db.delete(item.workflowItemId);
+    }
     await ctx.db.delete(args.id);
   },
 });
@@ -459,17 +432,10 @@ export const listWithDetails = query({
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
         const packing = await Promise.all(
-          packingRaw.map(async (item) => {
-            if (item.buildId && (item.cosplayNodeId || item.closetItemId)) {
-              const tasks = await ctx.db
-                .query("buildTasks")
-                .withIndex("by_buildId", (q) => q.eq("buildId", item.buildId!))
-                .collect();
-              const packTask = findPackTask(tasks, item);
-              return { ...item, checked: packTask ? packTask.checked : item.checked };
-            }
-            return item;
-          })
+          packingRaw.map(async (item) => ({
+            ...item,
+            checked: await getPackingWorkflowStatus(ctx, item),
+          }))
         );
         return { ...c, plans, packing };
       })
@@ -488,13 +454,16 @@ export const regeneratePacking = mutation({
       throw new Error("Not found or not authorized");
     }
 
-    // Delete only auto-generated items (from builds); keep manual items (no cosplayNodeId)
+    // Delete only auto-generated items (from builds); keep manual items.
     const existing = await ctx.db
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     for (const item of existing) {
-      if (item.cosplayNodeId !== undefined || item.closetItemId !== undefined) {
+      if (item.entryKind !== "manual") {
+        if (item.workflowItemId) {
+          await ctx.db.delete(item.workflowItemId);
+        }
         await ctx.db.delete(item._id);
       }
     }
@@ -506,7 +475,6 @@ export const regeneratePacking = mutation({
       .collect();
 
     const newItems = [];
-    const processedBuildIds = new Set<string>();
     const addedBuildNodes = new Set<string>();
 
     for (const plan of plans) {
@@ -525,7 +493,7 @@ export const regeneratePacking = mutation({
 
         const node = await ctx.db.get(link.cosplayNodeId);
         if (!node) continue;
-        const id = await ctx.db.insert("packingListItems", {
+        const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert("packingListItems", {
           userId: args.userId,
           conventionId: args.conventionId,
           date: plan.date,
@@ -533,40 +501,22 @@ export const regeneratePacking = mutation({
           cosplayNodeId: link.cosplayNodeId,
           label: node.name,
           checked: false,
+          entryKind: "generated",
+          sourceKind: "workflow",
+          sortOrder: newItems.length,
         });
-        newItems.push(await ctx.db.get(id));
-      }
-
-      // Auto-create a "Pack: {item name}" build task for each linked node (once per build)
-      if (!processedBuildIds.has(buildId)) {
-        processedBuildIds.add(buildId);
-        const build = await ctx.db.get(buildId);
-        if (!build || build.userId !== args.userId) continue;
-        const existingTasks = await ctx.db
-          .query("buildTasks")
-          .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-          .collect();
-        for (const link of links) {
-          const node = await ctx.db.get(link.cosplayNodeId);
-          if (!node) continue;
-          const packLabel = "Pack: " + node.name;
-          const hasPackTask = existingTasks.some(
-            (task) =>
-              task.cosplayNodeId === link.cosplayNodeId && task.label.startsWith("Pack:")
-          );
-          if (!hasPackTask) {
-            const taskId = await ctx.db.insert("buildTasks", {
-              userId: build.userId,
-              buildId,
-              label: packLabel,
-              cosplayNodeId: link.cosplayNodeId,
-              sortOrder: existingTasks.length,
-              checked: false,
-            });
-            const newTask = await ctx.db.get(taskId);
-            if (newTask) existingTasks.push(newTask);
-          }
-        }
+        await ensurePackingWorkflowItem(ctx, {
+          userId: args.userId,
+          packingListItemId: packingItemId,
+          conventionId: args.conventionId,
+          buildId: plan.buildId,
+          cosplayNodeId: link.cosplayNodeId,
+          label: `Pack ${node.name}`,
+          dueDate: plan.date,
+          checked: false,
+          manual: false,
+        });
+        newItems.push(await ctx.db.get(packingItemId));
       }
     }
     return newItems;

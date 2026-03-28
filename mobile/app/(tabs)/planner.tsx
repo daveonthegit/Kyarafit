@@ -8,6 +8,8 @@ import { ChecklistRow } from "../../src/components/ui/ChecklistRow";
 import { useCurrentUser } from "../../src/hooks/useCurrentUser";
 import { ProgressBar } from "../../src/components/shared";
 import { useTranslation } from "react-i18next";
+import { useFocusEffect } from "expo-router";
+import { listPlannerTasks, toggleTaskChecked } from "../../src/storage/buildTasksRepo";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -41,21 +43,70 @@ export default function PlannerTabScreen() {
   const [view, setView] = useState<TabView>("daily");
   const [monthCursor, setMonthCursor] = useState(() => new Date());
 
-  const plannerTasks = useQuery(api.buildTasks.listForPlanner, userId ? { userId } : "skip");
+  const plannerTasks = useQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
   const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
-  const updateTask = useMutation(api.buildTasks.update);
+  const updateTask = useMutation(api.workflow.update);
+  const [localTasks, setLocalTasks] = useState<
+    Array<{
+      _id: string;
+      title: string;
+      status: string;
+      dueDate?: string;
+      buildId?: string;
+      buildName?: string | null;
+      progressPercent: number;
+    }>
+  >([]);
 
-  const handleToggle = useCallback(
-    async (taskId: Id<"buildTasks">, checked: boolean) => {
-      if (!userId) return;
-      try {
-        await updateTask({ id: taskId, userId, checked });
-      } catch {}
-    },
-    [userId, updateTask]
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) return;
+      listPlannerTasks()
+        .then((tasks) =>
+          setLocalTasks(
+            tasks.map((task) => ({
+              _id: task.id,
+              title: task.label,
+              status: task.checked ? "done" : "not_started",
+              dueDate: task.dueDate,
+              buildId: task.buildId,
+              buildName: task.buildId,
+              progressPercent: task.checked ? 100 : 0,
+            }))
+          )
+        )
+        .catch(() => setLocalTasks([]));
+    }, [userId])
   );
 
-  const tasks = plannerTasks ?? [];
+  const handleToggle = useCallback(
+    async (taskId: Id<"workflowItems">, checked: boolean) => {
+      if (!userId) {
+        const localTask = localTasks.find((task) => task._id === taskId);
+        if (!localTask?.buildId) return;
+        await toggleTaskChecked(taskId, localTask.buildId);
+        const refreshed = await listPlannerTasks();
+        setLocalTasks(
+          refreshed.map((task) => ({
+            _id: task.id,
+            title: task.label,
+            status: task.checked ? "done" : "not_started",
+            dueDate: task.dueDate,
+            buildId: task.buildId,
+            buildName: task.buildId,
+            progressPercent: task.checked ? 100 : 0,
+          }))
+        );
+        return;
+      }
+      try {
+        await updateTask({ id: taskId, userId, status: checked ? "done" : "not_started" });
+      } catch {}
+    },
+    [localTasks, updateTask, userId]
+  );
+
+  const tasks = userId ? plannerTasks ?? [] : localTasks;
   const tasksByDueDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const task of tasks) {
@@ -72,7 +123,7 @@ export default function PlannerTabScreen() {
   const dim = daysInMonth(y, m);
   const monthLabel = monthCursor.toLocaleDateString(locale, { month: "long", year: "numeric" });
 
-  const checkedCount = tasks.filter((task) => task.checked).length;
+  const checkedCount = tasks.filter((task) => task.status === "done").length;
   const totalCount = tasks.length;
   const progressPct = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
@@ -168,9 +219,11 @@ export default function PlannerTabScreen() {
               {tasks.map((task) => (
                 <View key={task._id} className="border-b border-black/5 py-3">
                   <ChecklistRow
-                    label={task.label}
-                    checked={task.checked}
-                    onToggle={() => handleToggle(task._id, !task.checked)}
+                    label={task.title}
+                    checked={task.status === "done"}
+                    onToggle={() =>
+                      handleToggle(task._id as Id<"workflowItems">, task.status !== "done")
+                    }
                   />
                   <View className="flex-row items-center gap-3 pl-8 mt-1">
                     {task.dueDate ? (
@@ -186,10 +239,13 @@ export default function PlannerTabScreen() {
                         hitSlop={8}
                       >
                         <Text className="text-[11px] text-black/60 underline">
-                          {task.buildName}
+                          {task.buildName ?? "Build"}
                         </Text>
                       </Pressable>
                     ) : null}
+                    <Text className="text-[10px] uppercase tracking-widest text-black/30">
+                      {task.status.split("_").join(" ")}
+                    </Text>
                   </View>
                 </View>
               ))}

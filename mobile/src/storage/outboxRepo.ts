@@ -17,8 +17,8 @@ export type OutboxEventType =
   | "build.upsert"
   | "build.delete"
   | "build.linkItems"
-  | "buildTask.upsert"
-  | "buildTask.delete"
+  | "workflowItem.upsert"
+  | "workflowItem.delete"
   | "convention.upsert"
   | "convention.delete"
   | "convention.plan.replace"
@@ -49,15 +49,16 @@ export type OutboxPayloadMap = {
   };
   "build.delete": { localId: string };
   "build.linkItems": { buildLocalId: string; closetItemLocalIds: string[] };
-  "buildTask.upsert": {
+  "workflowItem.upsert": {
     localId: string;
-    buildLocalId: string;
-    label: string;
+    buildLocalId?: string;
+    title: string;
     sortOrder: number;
-    checked: boolean;
+    status: string;
     closetItemLocalId?: string;
+    dueDate?: string;
   };
-  "buildTask.delete": { localId: string; buildLocalId: string };
+  "workflowItem.delete": { localId: string; buildLocalId?: string };
   "convention.upsert": {
     localId: string;
     name: string;
