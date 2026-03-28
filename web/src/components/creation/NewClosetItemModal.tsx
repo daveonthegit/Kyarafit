@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import {
-  CLOSET_CATEGORIES,
-  createClosetItemSchema,
-  type ClosetCategory,
+  COSPLAY_CATEGORIES,
+  COSPLAY_NODE_TYPES,
+  type CosplayCategory,
+  type CosplayNodeType,
 } from "@kyarafit/design-system/types";
 import { Sheet } from "@/components/ui/sheet";
 import { UnderlineInput } from "@/components/ui/UnderlineInput";
@@ -14,65 +15,76 @@ import { ImageUpload } from "@/components/ui/ImageUpload";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import type { NewNodeModalOptions } from "@/contexts/CreationModalsContext";
 
 type NewClosetItemModalProps = {
   onDismiss: () => void;
   onSuccessComplete: () => void;
+  options?: NewNodeModalOptions;
 };
 
-export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetItemModalProps) {
+export function NewClosetItemModal({
+  onDismiss,
+  onSuccessComplete,
+  options,
+}: NewClosetItemModalProps) {
   const router = useRouter();
   const { userId } = useCurrentUser();
-  const createItem = useMutation(api.closetItems.create);
+  const createNode = useMutation(api.cosplayNodes.create);
+  const [nodeType, setNodeType] = useState<CosplayNodeType>(options?.initialNodeType ?? "element");
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<ClosetCategory>("other");
+  const [category, setCategory] = useState<CosplayCategory>(
+    (options?.initialCategory as CosplayCategory | undefined) ??
+      (options?.initialNodeType === "material" ? "material" : "other")
+  );
   const [tagsStr, setTagsStr] = useState("");
   const [notes, setNotes] = useState("");
-  const [costDollars, setCostDollars] = useState("");
+  const [directCostDollars, setDirectCostDollars] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
-  const [itemLink, setItemLink] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!userId) return;
-
-    const tags = tagsStr
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    const parsed = createClosetItemSchema.safeParse({
-      name: name.trim(),
-      category,
-      tags,
-      notes: notes.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined,
-      itemLink: itemLink.trim() || undefined,
-      costCents: costDollars.trim() ? Math.round(parseFloat(costDollars) * 100) : undefined,
-    });
-    if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message ?? "Invalid fields");
-      return;
-    }
+    if (!userId || !name.trim()) return;
 
     setIsPending(true);
     try {
-      await createItem({
+      const created = await createNode({
         userId,
-        name: parsed.data.name,
-        category: parsed.data.category ?? "other",
-        tags: parsed.data.tags ?? [],
-        notes: parsed.data.notes,
+        nodeType,
+        name: name.trim(),
+        category,
+        tags: tagsStr.split(",").map((tag) => tag.trim()).filter(Boolean),
+        notes: notes.trim() || undefined,
         imageStorageId: imageStorageId ?? undefined,
-        imageUrl: parsed.data.imageUrl,
-        itemLink: parsed.data.itemLink ?? undefined,
-        costCents: parsed.data.costCents ?? undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        sourceUrl: sourceUrl.trim() || undefined,
+        directCostCents: directCostDollars.trim()
+          ? Math.round(parseFloat(directCostDollars) * 100)
+          : undefined,
+        quantity: nodeType === "material" && quantity.trim() ? Number(quantity) : undefined,
+        unit: nodeType === "material" ? unit.trim() || undefined : undefined,
+        purchaseStatus: nodeType === "element" ? "to_buy" : undefined,
+        buildStatus: nodeType === "element" ? "not_started" : undefined,
+        materialStatus: nodeType === "material" ? "to_buy" : undefined,
       });
+      if (created?._id && options?.onCreated) {
+        await options.onCreated({
+          _id: created._id,
+          nodeType,
+          name: name.trim(),
+        });
+      }
       onSuccessComplete();
-      router.push("/closet");
+      if (options?.successRedirectTo !== null) {
+        router.push(options?.successRedirectTo ?? "/elements");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create");
     } finally {
@@ -84,7 +96,7 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
     <Sheet
       open
       onClose={onDismiss}
-      title="New cosplay element"
+      title={`New ${nodeType === "material" ? "material" : "cosplay element"}`}
       titleId="global-new-closet-modal-title"
       size="lg"
       closeDisabled={isPending}
@@ -93,13 +105,37 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
           type="submit"
           form="new-closet-item-modal-form"
           disabled={isPending}
-          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+          className="w-full rounded-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white disabled:opacity-50"
         >
-          {isPending ? "Saving…" : "Save element"}
+          {isPending ? "Saving…" : `Save ${nodeType}`}
         </button>
       }
     >
       <form id="new-closet-item-modal-form" onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <div>
+          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
+            Node type
+          </label>
+          <div className="flex gap-2">
+            {COSPLAY_NODE_TYPES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setNodeType(value);
+                  if (!options?.initialCategory) {
+                    setCategory(value === "material" ? "material" : "other");
+                  }
+                }}
+                className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
+                  nodeType === value ? "bg-black text-white" : "bg-transparent text-black"
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
             Photo (optional)
@@ -119,60 +155,36 @@ export function NewClosetItemModal({ onDismiss, onSuccessComplete }: NewClosetIt
             currentStorageId={imageStorageId ?? undefined}
           />
         </div>
-        <UnderlineInput
-          label="Element name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Arlecchino Wig"
-          required
-        />
+        <UnderlineInput label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
         <div>
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
             Category
           </label>
           <div className="flex max-h-[120px] flex-wrap gap-2 overflow-y-auto">
-            {CLOSET_CATEGORIES.map((c) => (
+            {COSPLAY_CATEGORIES.map((value) => (
               <button
-                key={c}
+                key={value}
                 type="button"
-                onClick={() => setCategory(c)}
+                onClick={() => setCategory(value)}
                 className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
-                  category === c ? "bg-black text-white" : "bg-transparent text-black"
+                  category === value ? "bg-black text-white" : "bg-transparent text-black"
                 }`}
               >
-                {c}
+                {value}
               </button>
             ))}
           </div>
         </div>
-        <UnderlineInput
-          label="Tags (comma-separated)"
-          value={tagsStr}
-          onChange={(e) => setTagsStr(e.target.value)}
-          placeholder="wig, character, red"
-        />
-        <UnderlineInput
-          label="Cost $ (optional)"
-          type="number"
-          min="0"
-          step="0.01"
-          value={costDollars}
-          onChange={(e) => setCostDollars(e.target.value)}
-          placeholder="0.00"
-        />
-        <UnderlineInput
-          label="Source link (optional)"
-          type="url"
-          value={itemLink}
-          onChange={(e) => setItemLink(e.target.value)}
-          placeholder="https://…"
-        />
-        <UnderlineInput
-          label="Notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Optional notes"
-        />
+        <UnderlineInput label="Tags (comma-separated)" value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} />
+        <UnderlineInput label="Direct cost $ (optional)" type="number" min="0" step="0.01" value={directCostDollars} onChange={(e) => setDirectCostDollars(e.target.value)} />
+        {nodeType === "material" && (
+          <div className="grid grid-cols-2 gap-4">
+            <UnderlineInput label="Quantity" type="number" min="0" step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <UnderlineInput label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </div>
+        )}
+        <UnderlineInput label="Source link (optional)" type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+        <UnderlineInput label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         {error && <p className="text-xs text-kyar-danger">{error}</p>}
       </form>
     </Sheet>

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
+import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
@@ -16,6 +17,14 @@ export interface ClosetCarouselItem {
   category?: string;
   status?: string;
   costCents?: number | null;
+  nodeType?: "element" | "material";
+  overallBucket?: "incomplete" | "in_progress" | "complete";
+  progressPercent?: number;
+  childCount?: number;
+  hasIncompleteDescendants?: boolean;
+  purchaseStatus?: string | null;
+  buildStatus?: string | null;
+  materialStatus?: string | null;
 }
 
 interface ClosetItemsCarouselProps<T> {
@@ -112,7 +121,7 @@ export const ClosetItemsCarousel = React.memo(
   ClosetItemsCarouselInner
 ) as typeof ClosetItemsCarouselInner;
 
-/** Card content for one closet item (use inside DroppableClosetItem on build detail). */
+/** Card content for one linked node (use inside droppable build cards on build detail). */
 export function ClosetCarouselCardContent({
   item,
   formatCents,
@@ -138,8 +147,16 @@ export function ClosetCarouselCardContent({
       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none flex flex-col gap-0.5">
         <p className="text-white text-xs font-medium truncate">{item.name}</p>
         <div className="flex items-center justify-between text-white/80 text-[10px]">
-          <span>{item.category || "Item"}</span>
+          <span>{item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}</span>
           {item.costCents != null && <span>{formatCents(item.costCents)}</span>}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-white/70">
+          {item.nodeType && <span>{formatNodeStatus(item)}</span>}
+          {typeof item.progressPercent === "number" && <span>{item.progressPercent}% progress</span>}
+          {typeof item.childCount === "number" && item.childCount > 0 && (
+            <span>{item.childCount} child{item.childCount === 1 ? "" : "ren"}</span>
+          )}
+          {item.hasIncompleteDescendants && <span>nested work remains</span>}
         </div>
       </div>
     </div>

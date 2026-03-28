@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 export default function AddItemRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/closet/new");
+    router.replace("/elements/new");
   }, [router]);
   return (
     <div className="min-h-screen flex items-center justify-center">

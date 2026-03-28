@@ -48,7 +48,7 @@ export function BuildLinkClosetModal({
     <BuildDetailModalShell
       open={open}
       onClose={onClose}
-      title="Link cosplay elements"
+      title="Link elements and materials"
       titleId="link-closet-modal-title"
       size="2xl"
       closeDisabled={saving}

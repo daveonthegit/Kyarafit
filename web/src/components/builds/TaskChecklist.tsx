@@ -16,6 +16,7 @@ export interface BuildTask {
   _id: Id<"buildTasks">;
   buildId?: Id<"builds">;
   label: string;
+  cosplayNodeId?: ClosetEntityId | null;
   closetItemId?: ClosetEntityId | null;
   sortOrder: number;
   checked: boolean;
@@ -28,10 +29,11 @@ interface TaskChecklistProps {
   linkedItems?: Array<{
     _id: ClosetEntityId;
     name: string;
+    nodeType?: "element" | "material";
     imageUrl?: string | null;
     imageStorageId?: Id<"_storage"> | null;
   }>;
-  onTaskAssign?: (taskId: string, closetItemId: string | null) => void;
+  onTaskAssign?: (taskId: string, cosplayNodeId: string | null) => void;
   enableDragDrop?: boolean;
   /** Hide bottom “add task” row (use FAB / modal instead) */
   hideInlineAdd?: boolean;
@@ -88,12 +90,12 @@ export function TaskChecklist({
     setAssignModalOpen(true);
   };
 
-  const handleAssignTask = async (closetItemId: ClosetEntityId | null) => {
+  const handleAssignTask = async (cosplayNodeId: ClosetEntityId | null) => {
     if (!selectedTaskId || !userId) return;
     await updateTask({
       id: selectedTaskId,
       userId,
-      closetItemId,
+      cosplayNodeId,
     });
     setAssignModalOpen(false);
     setSelectedTaskId(null);
@@ -131,7 +133,9 @@ export function TaskChecklist({
           aria-label={`Task list, ${totalCount} tasks`}
         >
           {sortedTasks.map((task) => {
-            const linkedItem = linkedItems.find((item) => item._id === task.closetItemId);
+            const linkedItem = linkedItems.find(
+              (item) => item._id === (task.cosplayNodeId ?? task.closetItemId)
+            );
             return enableDragDrop ? (
               <DraggableTaskRow
                 key={task._id}
@@ -209,7 +213,7 @@ export function TaskChecklist({
       <ResponsivePanel
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        title="Assign Task to Item"
+        title="Assign Task to Node"
       >
         <div className="space-y-2">
           <button
@@ -217,7 +221,7 @@ export function TaskChecklist({
             className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
           >
             <span className="material-symbols-outlined text-gray-400">close</span>
-            <span className="text-sm">Unassign from any item</span>
+            <span className="text-sm">Unassign from any node</span>
           </button>
           {linkedItems.map((item) => (
             <button
@@ -237,12 +241,19 @@ export function TaskChecklist({
                   <span className="material-symbols-outlined text-gray-400">image</span>
                 </div>
               )}
-              <span className="text-sm flex-1 text-left">{item.name}</span>
+              <span className="text-sm flex-1 text-left">
+                {item.name}
+                {item.nodeType ? (
+                  <span className="mt-0.5 block text-[10px] uppercase tracking-wider text-kyar-textTertiary">
+                    {item.nodeType}
+                  </span>
+                ) : null}
+              </span>
             </button>
           ))}
           {linkedItems.length === 0 && (
             <p className="text-sm text-kyar-textTertiary text-center py-4">
-              No cosplay elements linked to this build. Link elements first to assign tasks.
+              No elements or materials linked to this build. Link nodes first to assign tasks.
             </p>
           )}
         </div>
@@ -337,7 +348,7 @@ function TaskRow({
           type="button"
           onClick={onAssign}
           className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
-          title="Assign to item"
+          title="Assign to node"
         >
           <span className="material-symbols-outlined text-base">link</span>
         </button>
@@ -468,7 +479,7 @@ function DraggableTaskRow({
             onAssign();
           }}
           className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
-          title="Assign to item"
+          title="Assign to node"
         >
           <span className="material-symbols-outlined text-base">link</span>
         </button>

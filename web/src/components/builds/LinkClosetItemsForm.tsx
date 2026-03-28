@@ -15,6 +15,7 @@ import { Plus, Search } from "lucide-react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
+import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
@@ -28,6 +29,15 @@ export type LinkClosetRow = {
   category: string;
   tags?: string[];
   _creationTime?: number;
+  nodeType?: "element" | "material";
+  overallBucket?: "incomplete" | "in_progress" | "complete";
+  progressPercent?: number;
+  childCount?: number;
+  hasIncompleteDescendants?: boolean;
+  purchaseStatus?: string | null;
+  buildStatus?: string | null;
+  materialStatus?: string | null;
+  totalCostCents?: number | null;
 };
 
 type SortMode = "name" | "recent" | "selectedFirst";
@@ -64,7 +74,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     },
     ref
   ) {
-    const linkItemsMut = useMutation(api.builds.linkItems);
+    const linkNodesMut = useMutation(api.builds.linkNodes);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const prevActive = useRef(false);
     const [search, setSearch] = useState("");
@@ -166,10 +176,10 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
 
     const save = useCallback(async () => {
       try {
-        await linkItemsMut({
+        await linkNodesMut({
           userId,
           buildId,
-          closetItemIds: Array.from(selectedIds) as ClosetEntityId[],
+          cosplayNodeIds: Array.from(selectedIds) as Id<"cosplayNodes">[],
         });
         onAfterSave?.();
       } catch (e) {
@@ -177,7 +187,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
         onError?.(msg);
         throw e;
       }
-    }, [linkItemsMut, userId, buildId, selectedIds, onAfterSave, onError]);
+    }, [linkNodesMut, userId, buildId, selectedIds, onAfterSave, onError]);
 
     useImperativeHandle(ref, () => ({ save }), [save]);
 
@@ -191,7 +201,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, category, or tag…"
             className="w-full rounded-lg border border-kyar-border bg-kyar-muted/20 py-2.5 pl-10 pr-3 text-sm placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none focus:ring-2 focus:ring-kyar-accent/20"
-            aria-label="Search closet items"
+            aria-label="Search cosplay nodes"
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -255,9 +265,9 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             <li className="p-6 text-center text-sm text-kyar-textTertiary">
               {closetItems.length === 0
                 ? allowCreate
-                  ? "No closet items yet. Create one with “New closet item” above."
-                  : "No closet items yet."
-                : "No items match your filters. Try another search or category."}
+                  ? "No elements or materials yet. Create one above."
+                  : "No elements or materials yet."
+                : "No nodes match your filters. Try another search or category."}
             </li>
           )}
           {visibleRows.map((item) => (
@@ -285,8 +295,8 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     const inner = (
       <div>
         <p className="text-sm text-kyar-textSecondary leading-relaxed">
-          Select items for this build. Use search and filters when you have many pieces. Changes
-          apply when you save.
+          Select elements and materials for this build. Use search and filters when you have many
+          pieces. Changes apply when you save.
         </p>
         {allowCreate && (
           <button
@@ -295,7 +305,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             className="mt-3 inline-flex items-center gap-2 rounded-lg border border-kyar-border bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-text shadow-sm hover:border-kyar-text"
           >
             <Plus className="size-4" aria-hidden />
-            New closet item
+            New element or material
           </button>
         )}
         {enableDragDrop && (
@@ -305,7 +315,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
                 move_down
               </span>
               <div>
-                <p className="font-medium text-sm text-kyar-text">Drop items here to add</p>
+                <p className="font-medium text-sm text-kyar-text">Drop nodes here to add</p>
                 <p className="text-xs text-kyar-textTertiary">{selectedIds.size} selected</p>
               </div>
             </div>
@@ -313,7 +323,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
         )}
         {!enableDragDrop && (
           <p className="mt-3 text-xs text-kyar-textTertiary">
-            {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
+            {selectedIds.size} node{selectedIds.size !== 1 ? "s" : ""} selected
           </p>
         )}
         <div className="mt-3">{list}</div>
@@ -368,9 +378,9 @@ function DraggableClosetRow({
         >
           drag_indicator
         </span>
-      ) : (
-        <span className="w-6 shrink-0" aria-hidden />
-      )}
+          ) : (
+            <span className="w-6 shrink-0" aria-hidden />
+          )}
       <button
         type="button"
         onClick={onToggle}
@@ -385,11 +395,17 @@ function DraggableClosetRow({
             <span className="material-symbols-outlined text-sm text-white">check</span>
           )}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-kyar-text">
-          {item.name}
-        </span>
-        <span className="shrink-0 text-[10px] uppercase tracking-wide text-kyar-textTertiary">
-          {item.category}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-kyar-text">{item.name}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+            <span>{item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}</span>
+            {item.nodeType && <span>{formatNodeStatus(item)}</span>}
+            {typeof item.progressPercent === "number" && <span>{item.progressPercent}% progress</span>}
+            {typeof item.childCount === "number" && item.childCount > 0 && (
+              <span>{item.childCount} child{item.childCount === 1 ? "" : "ren"}</span>
+            )}
+            {item.hasIncompleteDescendants && <span>has incomplete descendants</span>}
+          </span>
         </span>
       </button>
     </li>

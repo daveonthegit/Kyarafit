@@ -19,8 +19,9 @@ export function isAllowedLink(
 ): boolean {
   return (
     (parentType === "element" && childType === "element") ||
+    (parentType === "element" && childType === "material") ||
     (parentType === "material" && childType === "material") ||
-    (parentType === "material" && childType === "element")
+    false
   );
 }
 

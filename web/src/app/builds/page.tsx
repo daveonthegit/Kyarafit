@@ -191,11 +191,11 @@ export default function BuildsPage() {
               </a>
             )}
             <Link
-              href="/closet"
+              href="/elements"
               className="flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-black hover:text-white hover:border-black transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              aria-label="Open closet"
+              aria-label="Open elements"
             >
-              Closet
+              Elements
             </Link>
           </div>
         }
@@ -259,7 +259,7 @@ export default function BuildsPage() {
           <EmptyState
             icon="construction"
             message="No builds yet."
-            secondary="Create one to link closet items and use them in convention packing."
+            secondary="Create one to link elements and materials and use them in convention packing."
             action={
               <button
                 type="button"

@@ -8,39 +8,41 @@ import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { createPortal } from "react-dom";
 import { X, Maximize2 } from "lucide-react";
 
-type VisualTab = "all" | "references" | "progress" | "closet";
+type VisualTab = "all" | "references" | "progress" | "nodes";
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
-export type BuildVisualBoardClosetItem = {
+export type BuildVisualBoardNode = {
   _id: ClosetEntityId;
   name: string;
   imageUrl?: string | null;
   imageStorageId?: Id<"_storage"> | null;
+  nodeType?: "element" | "material";
+  progressPercent?: number;
+  childCount?: number;
+  hasIncompleteDescendants?: boolean;
 };
 
 type BuildVisualBoardProps = {
   buildId: Id<"builds">;
   userId: string | null;
-  linkedItems: BuildVisualBoardClosetItem[];
-  /** Opens link-closet modal (FAB) */
-  onOpenLinkCloset: () => void;
-  /** Wrap each closet item (e.g. droppable + card) for DnD targets */
-  renderClosetCard: (item: BuildVisualBoardClosetItem) => React.ReactNode;
+  linkedNodes: BuildVisualBoardNode[];
+  onOpenLinkNodes: () => void;
+  renderNodeCard: (item: BuildVisualBoardNode) => React.ReactNode;
 };
 
 const TABS: { id: VisualTab; label: string }[] = [
   { id: "all", label: "All" },
   { id: "references", label: "References" },
   { id: "progress", label: "Progress" },
-  { id: "closet", label: "Closet" },
+  { id: "nodes", label: "Elements & Materials" },
 ];
 
 export function BuildVisualBoard({
   buildId,
   userId: _userId,
-  linkedItems,
-  onOpenLinkCloset,
-  renderClosetCard,
+  linkedNodes,
+  onOpenLinkNodes,
+  renderNodeCard,
 }: BuildVisualBoardProps) {
   const [tab, setTab] = useState<VisualTab>("all");
   const refs = useQuery(api.buildReferenceImages.listByBuild, { buildId });
@@ -57,7 +59,7 @@ export function BuildVisualBoard({
   }, [isFullscreen]);
 
   const allEmpty =
-    (refs?.length ?? 0) === 0 && (progressPhotos?.length ?? 0) === 0 && linkedItems.length === 0;
+    (refs?.length ?? 0) === 0 && (progressPhotos?.length ?? 0) === 0 && linkedNodes.length === 0;
 
   const itemsAll = useMemo(() => {
     const items: Array<{ type: string; id: string; sortKey: number; element: React.ReactNode }> =
@@ -128,20 +130,20 @@ export function BuildVisualBoard({
         })
       );
     }
-    linkedItems.forEach((c, i) =>
+    linkedNodes.forEach((c, i) =>
       items.push({
-        type: "closet",
+        type: "nodes",
         id: c._id,
         sortKey: Date.now() - i,
-        element: <div className="break-inside-avoid mb-4 w-full">{renderClosetCard(c)}</div>,
+        element: <div className="break-inside-avoid mb-4 w-full">{renderNodeCard(c)}</div>,
       })
     );
     return items.sort((a, b) => b.sortKey - a.sortKey);
-  }, [refs, progressPhotos, linkedItems, renderClosetCard]);
+  }, [refs, progressPhotos, linkedNodes, renderNodeCard]);
 
   const itemsReferences = useMemo(() => itemsAll.filter((i) => i.type === "reference"), [itemsAll]);
   const itemsProgress = useMemo(() => itemsAll.filter((i) => i.type === "progress"), [itemsAll]);
-  const itemsCloset = useMemo(() => itemsAll.filter((i) => i.type === "closet"), [itemsAll]);
+  const itemsNodes = useMemo(() => itemsAll.filter((i) => i.type === "nodes"), [itemsAll]);
 
   const filterSelectId = `visual-board-view-${buildId}`;
 
@@ -195,14 +197,16 @@ export function BuildVisualBoard({
                     type="button"
                     onClick={() => {
                       setIsFullscreen(false);
-                      onOpenLinkCloset();
+                      onOpenLinkNodes();
                     }}
                     className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
                   >
-                    Link closet items
+                    Link elements or materials
                   </button>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">Sign in to link closet items.</p>
+                  <p className="text-xs text-kyar-textTertiary">
+                    Sign in to link elements or materials.
+                  </p>
                 )}
               </div>
             )}
@@ -252,31 +256,35 @@ export function BuildVisualBoard({
           </div>
         )}
 
-        {tab === "closet" && (
+        {tab === "nodes" && (
           <div className="w-full pb-12">
-            {itemsCloset.length === 0 ? (
+            {itemsNodes.length === 0 ? (
               <div className="text-center py-8 border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
-                <p className="text-sm text-kyar-textTertiary mb-3">No closet items linked.</p>
+                <p className="text-sm text-kyar-textTertiary mb-3">
+                  No elements or materials linked yet.
+                </p>
                 {_userId ? (
                   <button
                     type="button"
                     onClick={() => {
                       setIsFullscreen(false);
-                      onOpenLinkCloset();
+                      onOpenLinkNodes();
                     }}
                     className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
                   >
-                    Link closet items
+                    Link elements or materials
                   </button>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">Sign in to link closet items.</p>
+                  <p className="text-xs text-kyar-textTertiary">
+                    Sign in to link elements or materials.
+                  </p>
                 )}
               </div>
             ) : (
               <div
                 className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3"} gap-3 sm:gap-4`}
               >
-                {itemsCloset.map((item) => (
+                {itemsNodes.map((item) => (
                   <div key={`${item.type}-${item.id}`}>{item.element}</div>
                 ))}
               </div>

@@ -11,9 +11,9 @@ import {
 describe("cosplayGraph", () => {
   it("enforces allowed parent-child relationships", () => {
     expect(isAllowedLink("element", "element")).toBe(true);
+    expect(isAllowedLink("element", "material")).toBe(true);
     expect(isAllowedLink("material", "material")).toBe(true);
-    expect(isAllowedLink("material", "element")).toBe(true);
-    expect(isAllowedLink("element", "material")).toBe(false);
+    expect(isAllowedLink("material", "element")).toBe(false);
   });
 
   it("derives per-unit pricing correctly", () => {

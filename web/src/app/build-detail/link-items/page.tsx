@@ -25,15 +25,23 @@ export default function BuildLinkItemsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const closetItems =
-    (useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? []) as Array<{
-      _id: ClosetEntityId;
+    (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ?? []) as Array<{
+      _id: Id<"cosplayNodes">;
       name: string;
       category?: string;
       tags?: string[];
       _creationTime?: number;
+      nodeType?: "element" | "material";
+      overallBucket?: "incomplete" | "in_progress" | "complete";
+      progressPercent?: number;
+      childCount?: number;
+      hasIncompleteDescendants?: boolean;
+      purchaseStatus?: string | null;
+      buildStatus?: string | null;
+      materialStatus?: string | null;
+      totalCostCents?: number | null;
     }>;
-  const linkedIds = (useQuery(api.builds.getItems, id ? { buildId: id } : "skip") ??
-    []) as ClosetEntityId[];
+  const linkedIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ?? []) as Id<"cosplayNodes">[];
 
   const closetRows = closetItems.map((c) => ({
     _id: c._id,
@@ -41,6 +49,15 @@ export default function BuildLinkItemsPage() {
     category: c.category ?? "",
     tags: c.tags ?? [],
     _creationTime: c._creationTime,
+    nodeType: c.nodeType,
+    overallBucket: c.overallBucket,
+    progressPercent: c.progressPercent,
+    childCount: c.childCount,
+    hasIncompleteDescendants: c.hasIncompleteDescendants,
+    purchaseStatus: c.purchaseStatus,
+    buildStatus: c.buildStatus,
+    materialStatus: c.materialStatus,
+    totalCostCents: c.totalCostCents,
   }));
 
   const save = async () => {
@@ -86,7 +103,7 @@ export default function BuildLinkItemsPage() {
         >
           Cancel
         </Link>
-        <p className="meta-label">Link Cosplay Elements</p>
+        <p className="meta-label">Link Elements &amp; Materials</p>
         <button
           type="button"
           onClick={save}
@@ -99,8 +116,8 @@ export default function BuildLinkItemsPage() {
 
       <main className="flex-1 py-8 max-w-2xl mx-auto px-4">
         <p className="text-sm text-kyar-textTertiary mb-4">
-          Select cosplay elements to include in this build. Drag into the zone or tap to toggle.
-          They will appear in packing lists when this build is assigned to a day.
+          Select elements and materials to include in this build. Drag into the zone or tap to
+          toggle. They will appear in packing lists when this build is assigned to a day.
         </p>
         <LinkClosetItemsForm
           ref={formRef}

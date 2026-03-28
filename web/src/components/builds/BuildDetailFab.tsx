@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Plus, ImageIcon, Camera, Link2, UserPlus, ListTodo } from "lucide-react";
 
-export type BuildDetailFabModal = "reference" | "progress" | "linkCloset" | "task" | "invite";
+export type BuildDetailFabModal = "reference" | "progress" | "linkNodes" | "task" | "invite";
 
 type BuildDetailFabProps = {
   hidden?: boolean;
@@ -81,10 +81,10 @@ export function BuildDetailFab({
         {userId && (
           <button
             type="button"
-            onClick={() => openModal("linkCloset")}
+            onClick={() => openModal("linkNodes")}
             className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
           >
-            <span>Link closet items</span>
+            <span>Link elements or materials</span>
             <Link2 className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
           </button>
         )}

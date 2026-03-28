@@ -1,5 +1,7 @@
 "use client";
 
+import { EditorialProgressDonut } from "./EditorialBuildProgress";
+
 export interface BuildSummaryData {
   status: string;
   progressPercent: number;
@@ -32,93 +34,110 @@ function formatDate(isoDate: string): string {
 export function BuildSummarySection({ summary, formatCents }: BuildSummarySectionProps) {
   if (!summary) return null;
 
+  const budgetUsedPercent =
+    summary.budgetCents && summary.budgetCents > 0
+      ? Math.min(100, Math.round((summary.totalCostCents / summary.budgetCents) * 100))
+      : null;
+
   return (
-    <div className="space-y-4" data-testid="build-summary-content">
-      <div className="flex justify-between items-center text-sm">
-        <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-          Status
-        </span>
-        <span className="font-medium capitalize">{summary.status}</span>
-      </div>
-      <div>
-        <div className="flex justify-between items-end mb-2">
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-            Progress
-          </span>
-          <span className="text-xl font-bold">{summary.progressPercent}%</span>
-        </div>
-        <div className="h-[2px] bg-gray-200 w-full">
-          <div
-            className="h-full bg-black transition-all"
-            style={{ width: `${summary.progressPercent}%` }}
-            role="progressbar"
-            aria-valuenow={summary.progressPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Task completion progress"
-          />
-        </div>
-        <p className="text-xs text-kyar-textTertiary mt-1">
-          {summary.tasksChecked} of {summary.tasksTotal} tasks complete
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-1">
-            Initial date
-          </span>
-          <p className="font-medium">{formatDate(summary.createdDate)}</p>
-        </div>
-        {summary.targetDate && (
-          <div>
-            <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-1">
-              Due date
-            </span>
-            <p className="font-medium">{formatDate(summary.targetDate)}</p>
+    <div className="space-y-8" data-testid="build-summary-content">
+      <div className="grid gap-6 border-b border-kyar-borderSubtle pb-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+              Status
+            </p>
+            <p className="mt-3 font-serif text-3xl capitalize text-kyar-text">{summary.status}</p>
           </div>
-        )}
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-1">
-            Elapsed
-          </span>
-          <p className="font-medium">
-            {summary.elapsedDays} {summary.elapsedDays === 1 ? "day" : "days"}
-          </p>
-        </div>
-        {summary.remainingDays !== null && (
-          <div>
-            <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-1">
-              Remaining
-            </span>
-            <p
-              className={`font-medium ${
-                summary.remainingDays < 0
-                  ? "text-red-600"
-                  : summary.remainingDays <= 7
-                    ? "text-orange-600"
-                    : ""
-              }`}
-            >
-              {summary.remainingDays < 0
-                ? `${Math.abs(summary.remainingDays)} days overdue`
-                : summary.remainingDays === 0
-                  ? "Due today"
-                  : `${summary.remainingDays} days`}
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+              Progress
+            </p>
+            <p className="mt-3 text-2xl font-semibold text-kyar-text">{summary.progressPercent}%</p>
+            <p className="mt-2 text-sm text-kyar-textSecondary">
+              {summary.tasksChecked} of {summary.tasksTotal} tasks complete
             </p>
           </div>
-        )}
-      </div>
-      <div>
-        <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
-          Linked items
-        </span>
-        <p className="text-sm font-medium">
-          {summary.linkedItemsCompleteCount} of {summary.linkedItemCount} complete
-        </p>
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+              Timeline
+            </p>
+            <div className="mt-3 grid gap-3 text-sm text-kyar-text">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-kyar-textTertiary">Started</span>
+                <span className="font-medium">{formatDate(summary.createdDate)}</span>
+              </div>
+              {summary.targetDate ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-kyar-textTertiary">Due</span>
+                  <span className="font-medium">{formatDate(summary.targetDate)}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-kyar-textTertiary">Elapsed</span>
+                <span className="font-medium">
+                  {summary.elapsedDays} {summary.elapsedDays === 1 ? "day" : "days"}
+                </span>
+              </div>
+              {summary.remainingDays !== null ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-kyar-textTertiary">Remaining</span>
+                  <span
+                    className={`font-medium ${
+                      summary.remainingDays < 0
+                        ? "text-red-600"
+                        : summary.remainingDays <= 7
+                          ? "text-orange-600"
+                          : ""
+                    }`}
+                  >
+                    {summary.remainingDays < 0
+                      ? `${Math.abs(summary.remainingDays)} days overdue`
+                      : summary.remainingDays === 0
+                        ? "Due today"
+                        : `${summary.remainingDays} days`}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+              Linked items
+            </p>
+            <p className="mt-3 text-2xl font-semibold text-kyar-text">
+              {summary.linkedItemsCompleteCount} / {summary.linkedItemCount}
+            </p>
+            <p className="mt-2 text-sm text-kyar-textSecondary">Complete in this build</p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-4 py-5">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
+              Build progress
+            </p>
+            <div className="mt-4 flex justify-center">
+              <EditorialProgressDonut progress={summary.progressPercent} />
+            </div>
+          </div>
+          {summary.budgetCents != null && budgetUsedPercent != null ? (
+            <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-4 py-5">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
+                Budget used
+              </p>
+              <div className="mt-4 flex justify-center">
+                <EditorialProgressDonut progress={budgetUsedPercent} />
+              </div>
+              <p className="mt-3 text-center text-xs text-kyar-textTertiary">
+                {formatCents(summary.totalCostCents)} of {formatCents(summary.budgetCents)}
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
       {summary.budgetCents != null ? (
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+        <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-5">
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
             Budget
           </span>
           <div className="space-y-2 text-sm">
@@ -146,8 +165,8 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           </div>
         </div>
       ) : summary.linkedItemCount > 0 ? (
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-2">
+        <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-5">
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
             Linked items cost
           </span>
           <div className="flex justify-between text-sm">
