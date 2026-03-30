@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
+import { Bodoni_Moda, Inter, Montserrat, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
@@ -12,6 +13,35 @@ export const metadata: Metadata = {
   description: "Organize your cosplay wardrobe, track builds, and plan character coords.",
 };
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  display: "swap",
+  variable: "--font-montserrat",
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-playfair-display",
+});
+
+const bodoniModa = Bodoni_Moda({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-bodoni-moda",
+});
+
 // Force dynamic rendering - most pages require authentication
 export const dynamic = "force-dynamic";
 
@@ -21,19 +51,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* display=swap so Material Symbols swap in when ready; optional often leaves ligature text visible */}
-        <link
-          rel="preload"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,100..700,0..1&display=swap"
-          as="style"
-        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,100..700,0..1&display=swap"
           rel="stylesheet"
         />
       </head>
       <body
-        className="min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased"
+        className={`${inter.variable} ${montserrat.variable} ${playfairDisplay.variable} ${bodoniModa.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
         suppressHydrationWarning
       >
         <ConvexClientProvider initialToken={token}>

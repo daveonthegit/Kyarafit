@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import {
   AbsoluteFill,
-  Easing,
   interpolate,
   spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
   Sequence,
@@ -13,12 +13,32 @@ import {
 import { LandingMiniAppFrame, type NavKey } from "@/components/landing/LandingMiniAppFrame";
 import { LandingMiniBuildsPreviewContent } from "@/components/landing/LandingMiniBuildsPreview";
 import { LandingMiniElementsPreviewContent } from "@/components/landing/LandingMiniElementsPreview";
-import { ConventionLandingPreview } from "@/components/conventions/ConventionLandingPreview";
 import { LANDING_BUILDS, LANDING_NODES, MOCK_ACCOUNT } from "@/data/landingMock";
+import { ConventionLandingPreviewRemotion } from "./ConventionLandingPreviewRemotion";
 
 /** Fixed heights for 1920×1080 canvas — avoid vh (maps to browser viewport in Player, not frame). */
 const FRAME_MAIN =
   "min-h-[240px] max-h-[560px] overflow-hidden overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function toRemotionStaticFile(src: string) {
+  const relativePath = src.startsWith("/") ? src.slice(1) : src;
+  return staticFile(decodeURIComponent(relativePath));
+}
+
+const REMOTION_BUILDS = LANDING_BUILDS.map((build) => ({
+  ...build,
+  imageSrc: toRemotionStaticFile(build.imageSrc),
+}));
+
+const REMOTION_NODES = LANDING_NODES.map((node) => ({
+  ...node,
+  imageSrc: staticFile(node.remotionPublicPath),
+}));
+
+const REMOTION_CONVENTION = {
+  ...MOCK_ACCOUNT.convention,
+  heroImageSrc: toRemotionStaticFile(MOCK_ACCOUNT.convention.heroImageSrc),
+};
 
 /**
  * Cinematic Background with subtle motion to provide spatial context.
@@ -223,7 +243,7 @@ const SceneBuilds = () => (
     zIndex={3}
   >
     <AnimatedMiniAppPreview activeNav="builds" baseScale={1.12}>
-      <LandingMiniBuildsPreviewContent builds={LANDING_BUILDS} />
+      <LandingMiniBuildsPreviewContent builds={REMOTION_BUILDS} />
     </AnimatedMiniAppPreview>
   </ProductScene>
 );
@@ -238,7 +258,7 @@ const SceneElements = () => (
     zIndex={2}
   >
     <AnimatedMiniAppPreview activeNav="elements" baseScale={1.08}>
-      <LandingMiniElementsPreviewContent nodes={LANDING_NODES} />
+      <LandingMiniElementsPreviewContent nodes={REMOTION_NODES} />
     </AnimatedMiniAppPreview>
   </ProductScene>
 );
@@ -253,7 +273,7 @@ const SceneConvention = () => (
     zIndex={1}
   >
     <AnimatedMiniAppPreview activeNav="conventions" baseScale={1.04}>
-      <ConventionLandingPreview convention={MOCK_ACCOUNT.convention} />
+      <ConventionLandingPreviewRemotion convention={REMOTION_CONVENTION} builds={REMOTION_BUILDS} />
     </AnimatedMiniAppPreview>
   </ProductScene>
 );

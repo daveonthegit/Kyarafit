@@ -1,31 +1,23 @@
 "use client";
 
-import { Player } from "@remotion/player";
-import { HeroComposition } from "./HeroComposition";
+const HERO_VIDEO_SRC = "/landing/hero-loop.mp4";
+const HERO_POSTER_SRC = "/landing/hero-loop-poster.png";
 
-// A cinematic wrapper that ensures the Remotion player is styled seamlessly
 export function HeroVideoPlayer() {
   return (
     <div className="w-full h-full bg-[#0A0A0A] overflow-hidden rounded-lg sm:rounded-2xl relative">
-      {/* We use aspect ratio matching the composition to ensure it fills nicely without letterboxing artifacts in our layout */}
-      <Player
-        component={HeroComposition}
-        durationInFrames={300} // 10 seconds at 30fps
-        compositionWidth={1920}
-        compositionHeight={1080}
-        fps={30}
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
         autoPlay
         loop
-        style={{
-          width: "100%",
-          height: "100%",
-          position: "absolute",
-          top: 0,
-          left: 0,
-        }}
-        controls={false}
-        showVolumeControls={false}
-      />
+        muted
+        playsInline
+        poster={HERO_POSTER_SRC}
+        preload="metadata"
+        aria-hidden
+      >
+        <source src={HERO_VIDEO_SRC} type="video/mp4" />
+      </video>
     </div>
   );
 }

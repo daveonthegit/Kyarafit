@@ -141,16 +141,30 @@ export function LandingProductScrollySection() {
     const el = containerRef.current;
     if (!el) return;
 
+    let frameId: number | null = null;
+
     const tick = () => {
-      setStep(updateStepFromScroll(el));
+      frameId = null;
+      setStep((currentStep) => {
+        const nextStep = updateStepFromScroll(el);
+        return currentStep === nextStep ? currentStep : nextStep;
+      });
     };
 
-    tick();
-    window.addEventListener("scroll", tick, { passive: true });
-    window.addEventListener("resize", tick);
+    const scheduleTick = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    scheduleTick();
+    window.addEventListener("scroll", scheduleTick, { passive: true });
+    window.addEventListener("resize", scheduleTick);
     return () => {
-      window.removeEventListener("scroll", tick);
-      window.removeEventListener("resize", tick);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener("scroll", scheduleTick);
+      window.removeEventListener("resize", scheduleTick);
     };
   }, []);
 

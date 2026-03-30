@@ -18,7 +18,12 @@ const PUBLIC_PATHS = [
   "/feed",
 ];
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+function isPublicPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function ProtectedAuthGate({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const pathname = usePathname();
   const router = useRouter();
@@ -26,8 +31,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const recalculateUsage = useMutation(api.users.recalculateUsage);
   const lastSyncedId = useRef<string | null>(null);
 
-  // Ensure Convex app user row exists when signed in (needed for storage tracking and getMe).
-  // After upsert, recalc storage so uploads from before the user row existed are counted.
   useEffect(() => {
     if (!session?.user) {
       lastSyncedId.current = null;
@@ -53,11 +56,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isPending) return;
-    const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (!isPublic && !session) {
+    if (!session) {
       router.replace("/auth/signin");
     }
   }, [session, isPending, pathname, router]);
 
   return <>{children}</>;
+}
+
+export function AuthGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  if (isPublicPath(pathname)) {
+    return <>{children}</>;
+  }
+
+  return <ProtectedAuthGate>{children}</ProtectedAuthGate>;
 }

@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "render:landing-hero": "remotion render src/remotion/index.ts LandingHero public/landing/hero-loop.mp4 --codec=h264 && remotion still src/remotion/index.ts LandingHero public/landing/hero-loop-poster.png --frame=45"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.13",
@@ -46,6 +47,8 @@
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.20.0",
     "@next/eslint-plugin-next": "^16.1.6",
+    "@remotion/cli": "^4.0.441",
+    "@remotion/tailwind": "^4.0.441",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -63,6 +66,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
     "typescript": "^5",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod": "^4.3.6"
   }
 }
