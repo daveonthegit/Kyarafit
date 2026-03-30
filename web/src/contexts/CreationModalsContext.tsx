@@ -14,7 +14,11 @@ export type NewNodeModalOptions = {
   successRedirectTo?: string | null;
   initialNodeType?: "element" | "material";
   initialCategory?: string;
-  onCreated?: (node: { _id: Id<"cosplayNodes">; nodeType: "element" | "material"; name: string }) => void | Promise<void>;
+  onCreated?: (node: {
+    _id: Id<"cosplayNodes">;
+    nodeType: "element" | "material";
+    name: string;
+  }) => void | Promise<void>;
 };
 
 type OpenOptions = NewNodeModalOptions;

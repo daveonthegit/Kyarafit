@@ -62,10 +62,37 @@ const builtinTemplates = [
     description: "A reusable styling sequence for wigs.",
     category: "style",
     items: [
-      { key: "root", title: "Wig Styling", kind: "group", category: "style", status: "not_started" },
-      { key: "detangle", parentKey: "root", title: "Detangle fibers", kind: "task", category: "style", status: "not_started" },
-      { key: "trim", parentKey: "root", title: "Trim and shape bangs", kind: "task", category: "style", status: "not_started" },
-      { key: "heat", parentKey: "root", title: "Heat style and set", kind: "task", category: "style", status: "not_started" },
+      {
+        key: "root",
+        title: "Wig Styling",
+        kind: "group",
+        category: "style",
+        status: "not_started",
+      },
+      {
+        key: "detangle",
+        parentKey: "root",
+        title: "Detangle fibers",
+        kind: "task",
+        category: "style",
+        status: "not_started",
+      },
+      {
+        key: "trim",
+        parentKey: "root",
+        title: "Trim and shape bangs",
+        kind: "task",
+        category: "style",
+        status: "not_started",
+      },
+      {
+        key: "heat",
+        parentKey: "root",
+        title: "Heat style and set",
+        kind: "task",
+        category: "style",
+        status: "not_started",
+      },
     ],
   },
   {
@@ -75,9 +102,30 @@ const builtinTemplates = [
     category: "craft",
     items: [
       { key: "root", title: "Prop Build", kind: "group", category: "craft", status: "not_started" },
-      { key: "cut", parentKey: "root", title: "Cut base materials", kind: "task", category: "craft", status: "not_started" },
-      { key: "assemble", parentKey: "root", title: "Assemble structure", kind: "task", category: "craft", status: "not_started" },
-      { key: "finish", parentKey: "root", title: "Prime, paint, and seal", kind: "task", category: "craft", status: "not_started" },
+      {
+        key: "cut",
+        parentKey: "root",
+        title: "Cut base materials",
+        kind: "task",
+        category: "craft",
+        status: "not_started",
+      },
+      {
+        key: "assemble",
+        parentKey: "root",
+        title: "Assemble structure",
+        kind: "task",
+        category: "craft",
+        status: "not_started",
+      },
+      {
+        key: "finish",
+        parentKey: "root",
+        title: "Prime, paint, and seal",
+        kind: "task",
+        category: "craft",
+        status: "not_started",
+      },
     ],
   },
   {
@@ -86,10 +134,37 @@ const builtinTemplates = [
     description: "Track sourcing and commissioning footwear.",
     category: "buy",
     items: [
-      { key: "root", title: "Commission Boots", kind: "group", category: "buy", status: "not_started" },
-      { key: "measurements", parentKey: "root", title: "Collect measurements and references", kind: "task", category: "reference", status: "not_started" },
-      { key: "order", parentKey: "root", title: "Place commission order", kind: "task", category: "buy", status: "not_started" },
-      { key: "fit", parentKey: "root", title: "Check fit and plan modifications", kind: "task", category: "modify", status: "not_started" },
+      {
+        key: "root",
+        title: "Commission Boots",
+        kind: "group",
+        category: "buy",
+        status: "not_started",
+      },
+      {
+        key: "measurements",
+        parentKey: "root",
+        title: "Collect measurements and references",
+        kind: "task",
+        category: "reference",
+        status: "not_started",
+      },
+      {
+        key: "order",
+        parentKey: "root",
+        title: "Place commission order",
+        kind: "task",
+        category: "buy",
+        status: "not_started",
+      },
+      {
+        key: "fit",
+        parentKey: "root",
+        title: "Check fit and plan modifications",
+        kind: "task",
+        category: "modify",
+        status: "not_started",
+      },
     ],
   },
   {
@@ -98,10 +173,37 @@ const builtinTemplates = [
     description: "Core prep and packing tasks for an event weekend.",
     category: "pack",
     items: [
-      { key: "root", title: "Convention Essentials", kind: "group", category: "pack", status: "not_started" },
-      { key: "tickets", parentKey: "root", title: "Confirm badge, tickets, and ID", kind: "task", category: "admin", status: "not_started" },
-      { key: "repair", parentKey: "root", title: "Pack emergency repair kit", kind: "task", category: "pack", status: "not_started" },
-      { key: "comfort", parentKey: "root", title: "Pack water, snacks, and comfort items", kind: "task", category: "pack", status: "not_started" },
+      {
+        key: "root",
+        title: "Convention Essentials",
+        kind: "group",
+        category: "pack",
+        status: "not_started",
+      },
+      {
+        key: "tickets",
+        parentKey: "root",
+        title: "Confirm badge, tickets, and ID",
+        kind: "task",
+        category: "admin",
+        status: "not_started",
+      },
+      {
+        key: "repair",
+        parentKey: "root",
+        title: "Pack emergency repair kit",
+        kind: "task",
+        category: "pack",
+        status: "not_started",
+      },
+      {
+        key: "comfort",
+        parentKey: "root",
+        title: "Pack water, snacks, and comfort items",
+        kind: "task",
+        category: "pack",
+        status: "not_started",
+      },
     ],
   },
   {
@@ -111,9 +213,30 @@ const builtinTemplates = [
     category: "prep",
     items: [
       { key: "root", title: "Makeup Test", kind: "group", category: "prep", status: "not_started" },
-      { key: "references", parentKey: "root", title: "Collect reference looks", kind: "task", category: "reference", status: "not_started" },
-      { key: "trial", parentKey: "root", title: "Do a timed full-face trial", kind: "task", category: "prep", status: "not_started" },
-      { key: "adjust", parentKey: "root", title: "Note adjustments and restock items", kind: "task", category: "admin", status: "not_started" },
+      {
+        key: "references",
+        parentKey: "root",
+        title: "Collect reference looks",
+        kind: "task",
+        category: "reference",
+        status: "not_started",
+      },
+      {
+        key: "trial",
+        parentKey: "root",
+        title: "Do a timed full-face trial",
+        kind: "task",
+        category: "prep",
+        status: "not_started",
+      },
+      {
+        key: "adjust",
+        parentKey: "root",
+        title: "Note adjustments and restock items",
+        kind: "task",
+        category: "admin",
+        status: "not_started",
+      },
     ],
   },
 ] as const;
@@ -152,9 +275,7 @@ function validateAttachment(input: {
   const normalizedId = sanitizeString(input.entityId);
   const role =
     input.role &&
-    WORKFLOW_ATTACHMENT_ROLES.includes(
-      input.role as (typeof WORKFLOW_ATTACHMENT_ROLES)[number]
-    )
+    WORKFLOW_ATTACHMENT_ROLES.includes(input.role as (typeof WORKFLOW_ATTACHMENT_ROLES)[number])
       ? input.role
       : "primary";
   return {
@@ -206,7 +327,9 @@ function sanitizeWorkflowInput(input: {
       startDate: input.startDate ? validateDateString(input.startDate, "Start date") : undefined,
     }),
     ...(input.targetDate !== undefined && {
-      targetDate: input.targetDate ? validateDateString(input.targetDate, "Target date") : undefined,
+      targetDate: input.targetDate
+        ? validateDateString(input.targetDate, "Target date")
+        : undefined,
     }),
     ...(input.dueDate !== undefined && {
       dueDate: input.dueDate ? validateDateString(input.dueDate, "Due date") : undefined,
@@ -340,11 +463,7 @@ async function assertWorkflowEditable(
   throw new Error("Not authorized");
 }
 
-async function buildExternalProgress(
-  ctx: QueryCtx,
-  userId: string,
-  items: WorkflowItemDoc[]
-) {
+async function buildExternalProgress(ctx: QueryCtx, userId: string, items: WorkflowItemDoc[]) {
   const attachments = await getWorkflowAttachmentsForUser(ctx, userId);
   const itemIdSet = new Set(items.map((item) => item._id));
   const map = new Map<
@@ -519,8 +638,9 @@ export async function syncGeneratedWorkflowForNode(
   }
 
   if (input.buildStatus === "wip" || input.materialStatus === "in_use") {
-    const title =
-      input.category?.toLowerCase().includes("wig") ? `Style ${input.nodeName}` : `Work on ${input.nodeName}`;
+    const title = input.category?.toLowerCase().includes("wig")
+      ? `Style ${input.nodeName}`
+      : `Work on ${input.nodeName}`;
     const category = input.category?.toLowerCase().includes("wig") ? "style" : "craft";
     await ensureWorkflowItem(ctx, {
       userId: input.userId,
@@ -551,7 +671,11 @@ export async function ensurePackingWorkflowItem(
 ) {
   const dedupeKey = `packing:${input.packingListItemId}`;
   const attachments: WorkflowAttachmentInput[] = [
-    { entityType: "packingItem", entityId: input.packingListItemId, role: "packing_entry" as const },
+    {
+      entityType: "packingItem",
+      entityId: input.packingListItemId,
+      role: "packing_entry" as const,
+    },
     { entityType: "convention", entityId: input.conventionId, role: "context" as const },
     ...(input.buildId
       ? [
@@ -778,11 +902,9 @@ export const listNodeWorkflow = query({
     const node = await ctx.db.get(args.cosplayNodeId);
     if (!node) return null;
 
-    const sharedScoped = await getWorkflowItemsByAttachmentKey(
-      ctx,
-      node.userId,
-      [entityKey("cosplayNode", args.cosplayNodeId)]
-    );
+    const sharedScoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
+      entityKey("cosplayNode", args.cosplayNodeId),
+    ]);
     const sharedTree = await buildResolvedWorkflowTree(
       ctx,
       node.userId,
@@ -852,7 +974,9 @@ export const listPlanner = query({
         const itemAttachments = attachments.filter(
           (attachment) => attachment.workflowItemId === item._id
         );
-        const buildAttachment = itemAttachments.find((attachment) => attachment.entityType === "build");
+        const buildAttachment = itemAttachments.find(
+          (attachment) => attachment.entityType === "build"
+        );
         const conventionAttachment = itemAttachments.find(
           (attachment) => attachment.entityType === "convention"
         );
@@ -879,10 +1003,12 @@ export const listPlanner = query({
           overdue: isOverdueStatus({ dueDate: item.dueDate, status: item.status as any, today }),
           blockedByCount: blockedByMap.get(item._id) ?? 0,
           buildId: buildAttachment?.entityId as Id<"builds"> | undefined,
-          buildName: buildAttachment ? buildById.get(buildAttachment.entityId)?.name ?? null : null,
+          buildName: buildAttachment
+            ? (buildById.get(buildAttachment.entityId)?.name ?? null)
+            : null,
           conventionId: conventionAttachment?.entityId as Id<"conventions"> | undefined,
           conventionName: conventionAttachment
-            ? conventionById.get(conventionAttachment.entityId)?.name ?? null
+            ? (conventionById.get(conventionAttachment.entityId)?.name ?? null)
             : null,
           cosplayNodeId: nodeAttachment?.entityId as Id<"cosplayNodes"> | undefined,
           packingListItemId: packingAttachment?.entityId as Id<"packingListItems"> | undefined,
@@ -1036,7 +1162,8 @@ export const update = mutation({
     const patch: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(sanitized)) patch[key] = value;
     if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
-    if (args.priority !== undefined) patch.priority = args.priority === null ? undefined : args.priority;
+    if (args.priority !== undefined)
+      patch.priority = args.priority === null ? undefined : args.priority;
     if (args.weight !== undefined) patch.weight = args.weight === null ? undefined : args.weight;
     if (args.manualProgressPercent !== undefined) {
       patch.manualProgressPercent =
@@ -1084,7 +1211,8 @@ export const move = mutation({
     await assertWorkflowEditable(ctx, item, args.userId);
 
     const parentId = args.parentId ?? undefined;
-    if (parentId && parentId === args.id) throw new Error("Workflow items cannot parent themselves");
+    if (parentId && parentId === args.id)
+      throw new Error("Workflow items cannot parent themselves");
     if (parentId && item.ancestorIds.includes(parentId)) {
       throw new Error("Workflow items cannot move under a descendant");
     }

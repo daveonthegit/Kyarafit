@@ -34,7 +34,9 @@ type WorkflowAttachmentRow = {
 
 export type StoredBuildTask = BuildTask & { dueDate?: string };
 
-async function getAttachmentsForWorkflowItem(workflowItemId: string): Promise<WorkflowAttachmentRow[]> {
+async function getAttachmentsForWorkflowItem(
+  workflowItemId: string
+): Promise<WorkflowAttachmentRow[]> {
   const database = await initClosetDb();
   return database.getAllAsync<WorkflowAttachmentRow>(
     `SELECT id, workflow_item_id, entity_type, entity_id, role, build_context_id, created_at
@@ -101,7 +103,15 @@ async function upsertClosetAttachment(
   await database.runAsync(
     `INSERT INTO workflow_attachments (id, workflow_item_id, entity_type, entity_id, role, build_context_id, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [crypto.randomUUID(), workflowItemId, "closetItem", closetItemId, "progress_source", buildId ?? null, updatedAt]
+    [
+      crypto.randomUUID(),
+      workflowItemId,
+      "closetItem",
+      closetItemId,
+      "progress_source",
+      buildId ?? null,
+      updatedAt,
+    ]
   );
 }
 
@@ -286,7 +296,15 @@ export async function upsertFromSync(task: StoredBuildTask): Promise<void> {
     await database.runAsync(
       `INSERT INTO workflow_items (id, title, kind, category, status, sort_order, scope_kind, source_kind, due_date, created_at, updated_at)
        VALUES (?, ?, 'task', 'craft', ?, ?, 'build_specific', 'manual', ?, ?, ?)`,
-      [task.id, task.label, status, task.sortOrder, task.dueDate ?? null, task.createdAt, task.updatedAt]
+      [
+        task.id,
+        task.label,
+        status,
+        task.sortOrder,
+        task.dueDate ?? null,
+        task.createdAt,
+        task.updatedAt,
+      ]
     );
   }
 

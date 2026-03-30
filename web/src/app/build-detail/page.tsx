@@ -92,11 +92,10 @@ export default function BuildDetailPage() {
   const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
   const linkedNodeIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
     []) as CosplayNodeId[];
-  const nodeCatalog =
-    (useQuery(
-      api.cosplayNodes.list,
-      userId && id ? { userId, buildId: id, sortBy: "name" } : "skip"
-    ) ?? []) as LinkedNode[];
+  const nodeCatalog = (useQuery(
+    api.cosplayNodes.list,
+    userId && id ? { userId, buildId: id, sortBy: "name" } : "skip"
+  ) ?? []) as LinkedNode[];
   const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
   const updateTask = useMutation(api.buildTasks.update);
@@ -597,12 +596,14 @@ export default function BuildDetailPage() {
               </div>
 
               <nav className="flex flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4">
-                {([
-                  ["explorer", "Explorer"],
-                  ["tasks", "Tasks"],
-                  ["board", "Visual board"],
-                  ["summary", "Summary"],
-                ] as const).map(([value, label]) => (
+                {(
+                  [
+                    ["explorer", "Explorer"],
+                    ["tasks", "Tasks"],
+                    ["board", "Visual board"],
+                    ["summary", "Summary"],
+                  ] as const
+                ).map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
@@ -703,7 +704,8 @@ export default function BuildDetailPage() {
                           <ClosetCarouselCardContent
                             item={{
                               ...nodeItem,
-                              costCents: nodeItem.totalCostCents ?? nodeItem.directCostCents ?? null,
+                              costCents:
+                                nodeItem.totalCostCents ?? nodeItem.directCostCents ?? null,
                             }}
                             formatCents={formatCents}
                           />
@@ -904,8 +906,8 @@ function BuildNodeExplorerSection({
           </p>
           <h2 className="font-serif text-3xl text-kyar-text">Linked nodes</h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-kyar-textSecondary">
-            Expand the hierarchy to manage structure, drag tasks onto a node row to assign them,
-            and use this section to create roots or children without leaving the build workspace.
+            Expand the hierarchy to manage structure, drag tasks onto a node row to assign them, and
+            use this section to create roots or children without leaving the build workspace.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1044,7 +1046,7 @@ function BuildNodeTreeRow({
                 {formatNodeStatus(detail ?? node)}
               </span>
               <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                {(detail?.progressPercent ?? node.progressPercent ?? 0)}% progress
+                {detail?.progressPercent ?? node.progressPercent ?? 0}% progress
               </span>
               {hasChildren && (
                 <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -1055,9 +1057,7 @@ function BuildNodeTreeRow({
           </TreeLabel>
           <div className="hidden shrink-0 items-center gap-2 text-right md:flex">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                Rollup
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Rollup</p>
               <p className="text-sm font-medium text-kyar-text">
                 {detail?.totalCostCents != null
                   ? formatCents(detail.totalCostCents)
@@ -1136,7 +1136,11 @@ function BuildNodeTreeRow({
                       const [moved] = ordered.splice(index, 1);
                       if (!moved) return;
                       ordered.splice(index - 1, 0, moved);
-                      await reorderChildren({ parentNodeId: nodeId, userId, orderedLinkIds: ordered });
+                      await reorderChildren({
+                        parentNodeId: nodeId,
+                        userId,
+                        orderedLinkIds: ordered,
+                      });
                     }
                   : undefined
               }
@@ -1147,7 +1151,11 @@ function BuildNodeTreeRow({
                       const [moved] = ordered.splice(index, 1);
                       if (!moved) return;
                       ordered.splice(index + 1, 0, moved);
-                      await reorderChildren({ parentNodeId: nodeId, userId, orderedLinkIds: ordered });
+                      await reorderChildren({
+                        parentNodeId: nodeId,
+                        userId,
+                        orderedLinkIds: ordered,
+                      });
                     }
                   : undefined
               }

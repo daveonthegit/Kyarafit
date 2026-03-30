@@ -26,13 +26,16 @@ const statusOptions = [
 ] as const;
 
 function flatten(nodes: WorkflowNode[], depth = 0): Array<WorkflowNode & { depth: number }> {
-  return nodes.flatMap((node) => [
-    { ...node, depth },
-    ...flatten(node.children, depth + 1),
-  ]);
+  return nodes.flatMap((node) => [{ ...node, depth }, ...flatten(node.children, depth + 1)]);
 }
 
-export function WorkflowTree({ buildId, userId }: { buildId: Id<"builds">; userId: string | null }) {
+export function WorkflowTree({
+  buildId,
+  userId,
+}: {
+  buildId: Id<"builds">;
+  userId: string | null;
+}) {
   const tree = useQuery(api.workflow.listBuildTree, { buildId });
   const createWorkflow = useMutation(api.workflow.create);
   const updateWorkflow = useMutation(api.workflow.update);
@@ -82,7 +85,10 @@ export function WorkflowTree({ buildId, userId }: { buildId: Id<"builds">; userI
           <span className="text-kyar-textTertiary">{progressPercent}%</span>
         </div>
         <div className="h-2 w-full border border-kyar-borderSubtle bg-white">
-          <div className="h-full bg-black transition-[width] duration-200" style={{ width: `${progressPercent}%` }} />
+          <div
+            className="h-full bg-black transition-[width] duration-200"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
         <p className="text-xs text-kyar-textTertiary">
           {stats?.tasksDone ?? 0} of {stats?.tasksTotal ?? 0} task items done
@@ -118,7 +124,9 @@ export function WorkflowTree({ buildId, userId }: { buildId: Id<"builds">; userI
                   aria-label={node.status === "done" ? "Mark not started" : "Mark done"}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm ${node.status === "done" ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}>
+                  <p
+                    className={`text-sm ${node.status === "done" ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
+                  >
                     {node.title}
                   </p>
                   <p className="text-[11px] text-kyar-textTertiary">

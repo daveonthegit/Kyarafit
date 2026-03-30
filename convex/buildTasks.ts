@@ -28,17 +28,15 @@ async function resolveCosplayNodeId(
   return migrated?._id ?? null;
 }
 
-async function mapLegacyTaskShape(
-  ctx: QueryCtx,
-  item: Doc<"workflowItems">,
-  userId: string
-) {
+async function mapLegacyTaskShape(ctx: QueryCtx, item: Doc<"workflowItems">, userId: string) {
   const attachments = (await getWorkflowAttachmentsForUser(ctx, userId)).filter(
     (attachment) => attachment.workflowItemId === item._id
   );
   const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
   const nodeAttachment = attachments.find((attachment) => attachment.entityType === "cosplayNode");
-  const packingAttachment = attachments.find((attachment) => attachment.entityType === "packingItem");
+  const packingAttachment = attachments.find(
+    (attachment) => attachment.entityType === "packingItem"
+  );
   const build = buildAttachment ? await ctx.db.get(buildAttachment.entityId as Id<"builds">) : null;
   return {
     _id: item._id,
@@ -77,11 +75,9 @@ export const listByCosplayNode = query({
     if (!cosplayNodeId) return [];
     const node = await ctx.db.get(cosplayNodeId);
     if (!node) return [];
-    const scoped = await getWorkflowItemsByAttachmentKey(
-      ctx,
-      node.userId,
-      [entityKey("cosplayNode", cosplayNodeId)]
-    );
+    const scoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
+      entityKey("cosplayNode", cosplayNodeId),
+    ]);
     return await Promise.all(
       scoped.items
         .filter((item) => item.kind === "task")
@@ -97,11 +93,9 @@ export const listByClosetItem = query({
     if (!cosplayNodeId) return [];
     const node = await ctx.db.get(cosplayNodeId);
     if (!node) return [];
-    const scoped = await getWorkflowItemsByAttachmentKey(
-      ctx,
-      node.userId,
-      [entityKey("cosplayNode", cosplayNodeId)]
-    );
+    const scoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
+      entityKey("cosplayNode", cosplayNodeId),
+    ]);
     return await Promise.all(
       scoped.items
         .filter((item) => item.kind === "task")
@@ -152,9 +146,7 @@ export const listForPlanner = query({
     return await Promise.all(
       tasks.map(async (item) => {
         const legacy = await mapLegacyTaskShape(ctx, item, args.userId);
-        const conventionAttachment = (
-          await getWorkflowAttachmentsForUser(ctx, args.userId)
-        ).find(
+        const conventionAttachment = (await getWorkflowAttachmentsForUser(ctx, args.userId)).find(
           (attachment) =>
             attachment.workflowItemId === item._id && attachment.entityType === "convention"
         );
@@ -298,11 +290,13 @@ export const update = mutation({
     }
 
     const patch: Record<string, unknown> = {};
-    if (args.label !== undefined) patch.title = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
+    if (args.label !== undefined)
+      patch.title = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
     if (args.checked !== undefined) patch.status = args.checked ? "done" : "not_started";
     if (args.dueDate !== undefined) {
-      patch.dueDate = args.dueDate === null ? undefined : validateDateString(args.dueDate, "Due date");
+      patch.dueDate =
+        args.dueDate === null ? undefined : validateDateString(args.dueDate, "Due date");
     }
     if (Object.keys(patch).length > 0) await ctx.db.patch(args.id, patch);
 
@@ -312,7 +306,7 @@ export const update = mutation({
           ? null
           : await resolveCosplayNodeId(
               ctx,
-              args.cosplayNodeId === undefined ? args.closetItemId ?? null : args.cosplayNodeId
+              args.cosplayNodeId === undefined ? (args.closetItemId ?? null) : args.cosplayNodeId
             );
       const existingNodeAttachments = attachments.filter(
         (attachment) => attachment.entityType === "cosplayNode"

@@ -98,10 +98,7 @@ async function resolveNode(
   );
 }
 
-async function resolveLegacyClosetItem(
-  ctx: QueryCtx | MutationCtx,
-  id: Id<"closetItems">
-) {
+async function resolveLegacyClosetItem(ctx: QueryCtx | MutationCtx, id: Id<"closetItems">) {
   const legacy = await ctx.db.get(id);
   if (legacy && !("nodeType" in legacy)) {
     return legacy;
@@ -109,10 +106,7 @@ async function resolveLegacyClosetItem(
   return null;
 }
 
-async function mapNodeToLegacy(
-  ctx: QueryCtx | MutationCtx,
-  node: CosplayNodeDoc
-) {
+async function mapNodeToLegacy(ctx: QueryCtx | MutationCtx, node: CosplayNodeDoc) {
   const summary = await deriveNodeSummary(ctx, node._id);
   return {
     ...node,
@@ -125,11 +119,7 @@ async function mapNodeToLegacy(
   };
 }
 
-async function unlinkAndDeleteNode(
-  ctx: MutationCtx,
-  userId: string,
-  node: CosplayNodeDoc
-) {
+async function unlinkAndDeleteNode(ctx: MutationCtx, userId: string, node: CosplayNodeDoc) {
   const buildLinks = await ctx.db
     .query("buildCosplayLinks")
     .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", node._id))
@@ -407,7 +397,10 @@ export const update = mutation({
     if (fields.status !== undefined) {
       Object.assign(
         patch,
-        legacyStatusPatch(fields.status, (patch.nodeType as "element" | "material") ?? node.nodeType)
+        legacyStatusPatch(
+          fields.status,
+          (patch.nodeType as "element" | "material") ?? node.nodeType
+        )
       );
     }
 

@@ -16,10 +16,7 @@ export const WORKFLOW_MIGRATION_SEQUENCE = [
   "backfillWorkflowCompletionAnchors",
 ] as const;
 
-function mapLegacyStatusToNodeFields(
-  status: string | undefined,
-  nodeType: "element" | "material"
-) {
+function mapLegacyStatusToNodeFields(status: string | undefined, nodeType: "element" | "material") {
   if (status === "complete") {
     return {
       purchaseStatus: nodeType === "element" ? ("bought" as const) : undefined,
@@ -51,9 +48,7 @@ function getLegacyNodeType(category: string | undefined): "element" | "material"
 }
 
 async function getCosplayNodeIdByLegacyId(
-  ctx: Parameters<
-    Parameters<typeof migrations.define<"closetItems">>[0]["migrateOne"]
-  >[0],
+  ctx: Parameters<Parameters<typeof migrations.define<"closetItems">>[0]["migrateOne"]>[0],
   legacyClosetItemId: Id<"closetItems">
 ) {
   const node = await ctx.db
@@ -215,10 +210,7 @@ export const backfillBuildCosplayLinksFromBuildItemLinks = migrations.define({
       cosplayNodeId,
       pricingMode: "total",
       directCostCents: legacyItem.costCents,
-      ...mapLegacyStatusToNodeFields(
-        legacyItem.status,
-        getLegacyNodeType(legacyItem.category)
-      ),
+      ...mapLegacyStatusToNodeFields(legacyItem.status, getLegacyNodeType(legacyItem.category)),
     });
   },
 });

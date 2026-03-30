@@ -74,7 +74,11 @@ export async function getWorkflowItemsByAttachmentKey(
 
   for (const attachment of attachments) {
     if (!keySet.has(attachment.entityKey)) continue;
-    if (buildContextId && attachment.buildContextId && attachment.buildContextId !== buildContextId) {
+    if (
+      buildContextId &&
+      attachment.buildContextId &&
+      attachment.buildContextId !== buildContextId
+    ) {
       continue;
     }
     if (!buildContextId && attachment.buildContextId) {
@@ -101,10 +105,14 @@ export async function getWorkflowItemsByAttachmentKey(
   }
 
   const scopedItems = items.filter(
-    (item) => includedIds.has(item._id) || item.ancestorIds.some((ancestorId) => includedIds.has(ancestorId))
+    (item) =>
+      includedIds.has(item._id) ||
+      item.ancestorIds.some((ancestorId) => includedIds.has(ancestorId))
   );
   const itemIds = new Set(scopedItems.map((item) => item._id));
-  const scopedAttachments = attachments.filter((attachment) => itemIds.has(attachment.workflowItemId));
+  const scopedAttachments = attachments.filter((attachment) =>
+    itemIds.has(attachment.workflowItemId)
+  );
 
   return { items: scopedItems, attachments: scopedAttachments };
 }
@@ -131,7 +139,10 @@ export function buildWorkflowTree(input: {
   items: WorkflowItemDoc[];
   attachments: WorkflowAttachmentDoc[];
   dependencies: WorkflowDependencyDoc[];
-  externalProgress?: Map<string, Array<{ progressPercent?: number | null; weight?: number | null; excluded?: boolean }>>;
+  externalProgress?: Map<
+    string,
+    Array<{ progressPercent?: number | null; weight?: number | null; excluded?: boolean }>
+  >;
 }) {
   const sortedItems = sortWorkflowItems(input.items);
   const attachmentsByItem = new Map<string, WorkflowAttachmentDoc[]>();

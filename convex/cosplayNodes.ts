@@ -59,10 +59,7 @@ async function getBuildNodeState(
   );
 }
 
-async function getChildLinks(
-  ctx: QueryCtx | MutationCtx,
-  cosplayNodeId: Id<"cosplayNodes">
-) {
+async function getChildLinks(ctx: QueryCtx | MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
   const links = await ctx.db
     .query("cosplayNodeLinks")
     .withIndex("by_parentNodeId_sortOrder", (q) => q.eq("parentNodeId", cosplayNodeId))
@@ -186,10 +183,7 @@ export async function deriveNodeSummary(
   };
 }
 
-async function getAllowedChildren(
-  ctx: QueryCtx | MutationCtx,
-  nodeId: Id<"cosplayNodes">
-) {
+async function getAllowedChildren(ctx: QueryCtx | MutationCtx, nodeId: Id<"cosplayNodes">) {
   const links = await ctx.db
     .query("cosplayNodeLinks")
     .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", nodeId))
@@ -235,7 +229,10 @@ function sanitizeNodeFields(fields: {
     ...(fields.unitCostCents !== undefined && { unitCostCents: fields.unitCostCents }),
     ...(fields.quantity !== undefined && { quantity: fields.quantity }),
     ...(fields.unit !== undefined && {
-      unit: fields.unit === null ? undefined : sanitizeOptional(fields.unit, MAX_LENGTH.category, "Unit"),
+      unit:
+        fields.unit === null
+          ? undefined
+          : sanitizeOptional(fields.unit, MAX_LENGTH.category, "Unit"),
     }),
     ...(fields.purchaseStatus !== undefined && {
       purchaseStatus:
@@ -385,13 +382,21 @@ export const get = query({
         const child = await ctx.db.get(link.childNodeId);
         if (!child) return null;
         const childSummary = await deriveNodeSummary(ctx, child._id, args.buildId);
-        return { ...child, ...childSummary, linkId: link._id, linkMode: link.linkMode, sortOrder: link.sortOrder };
+        return {
+          ...child,
+          ...childSummary,
+          linkId: link._id,
+          linkMode: link.linkMode,
+          sortOrder: link.sortOrder,
+        };
       })
     );
     const parents = await Promise.all(
       parentLinks.map(async (link) => {
         const parent = await ctx.db.get(link.parentNodeId);
-        return parent ? { _id: parent._id, name: parent.name, nodeType: parent.nodeType, linkId: link._id } : null;
+        return parent
+          ? { _id: parent._id, name: parent.name, nodeType: parent.nodeType, linkId: link._id }
+          : null;
       })
     );
 
@@ -589,10 +594,7 @@ export const update = mutation({
   },
 });
 
-async function removeRootLinkReferences(
-  ctx: MutationCtx,
-  cosplayNodeId: Id<"cosplayNodes">
-) {
+async function removeRootLinkReferences(ctx: MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
   const buildLinks = await ctx.db
     .query("buildCosplayLinks")
     .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
@@ -888,7 +890,11 @@ export const upsertBuildNodeState = mutation({
       unitCostCents: args.unitCostCents === null ? undefined : args.unitCostCents,
       quantity: args.quantity === null ? undefined : args.quantity,
       unit:
-        args.unit === undefined ? existing?.unit : args.unit === null ? undefined : sanitizeString(args.unit),
+        args.unit === undefined
+          ? existing?.unit
+          : args.unit === null
+            ? undefined
+            : sanitizeString(args.unit),
       purchasedAt:
         args.purchasedAt === undefined
           ? existing?.purchasedAt

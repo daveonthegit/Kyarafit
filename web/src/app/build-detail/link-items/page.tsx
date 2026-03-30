@@ -24,24 +24,27 @@ export default function BuildLinkItemsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const closetItems =
-    (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ?? []) as Array<{
-      _id: Id<"cosplayNodes">;
-      name: string;
-      category?: string;
-      tags?: string[];
-      _creationTime?: number;
-      nodeType?: "element" | "material";
-      overallBucket?: "incomplete" | "in_progress" | "complete";
-      progressPercent?: number;
-      childCount?: number;
-      hasIncompleteDescendants?: boolean;
-      purchaseStatus?: string | null;
-      buildStatus?: string | null;
-      materialStatus?: string | null;
-      totalCostCents?: number | null;
-    }>;
-  const linkedIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ?? []) as Id<"cosplayNodes">[];
+  const closetItems = (useQuery(
+    api.cosplayNodes.list,
+    userId ? { userId, sortBy: "name" } : "skip"
+  ) ?? []) as Array<{
+    _id: Id<"cosplayNodes">;
+    name: string;
+    category?: string;
+    tags?: string[];
+    _creationTime?: number;
+    nodeType?: "element" | "material";
+    overallBucket?: "incomplete" | "in_progress" | "complete";
+    progressPercent?: number;
+    childCount?: number;
+    hasIncompleteDescendants?: boolean;
+    purchaseStatus?: string | null;
+    buildStatus?: string | null;
+    materialStatus?: string | null;
+    totalCostCents?: number | null;
+  }>;
+  const linkedIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
+    []) as Id<"cosplayNodes">[];
 
   const closetRows = closetItems.map((c) => ({
     _id: c._id,

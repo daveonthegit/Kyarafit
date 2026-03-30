@@ -106,7 +106,7 @@ export default function PlannerTabScreen() {
     [localTasks, updateTask, userId]
   );
 
-  const tasks = userId ? plannerTasks ?? [] : localTasks;
+  const tasks = userId ? (plannerTasks ?? []) : localTasks;
   const tasksByDueDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const task of tasks) {

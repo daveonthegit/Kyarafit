@@ -32,20 +32,26 @@ describe("cosplayUi", () => {
 
   test("matches substates across element and material state dimensions", () => {
     expect(
-      nodeMatchesSubstate({
-        _id: "1",
-        nodeType: "element",
-        name: "Wig",
-        buildStatus: "wip",
-      }, "wip")
+      nodeMatchesSubstate(
+        {
+          _id: "1",
+          nodeType: "element",
+          name: "Wig",
+          buildStatus: "wip",
+        },
+        "wip"
+      )
     ).toBe(true);
     expect(
-      nodeMatchesSubstate({
-        _id: "2",
-        nodeType: "material",
-        name: "Foam",
-        materialStatus: "bought",
-      }, "bought")
+      nodeMatchesSubstate(
+        {
+          _id: "2",
+          nodeType: "material",
+          name: "Foam",
+          materialStatus: "bought",
+        },
+        "bought"
+      )
     ).toBe(true);
   });
 
@@ -68,8 +74,6 @@ describe("cosplayUi", () => {
     expect(formatCostSummary({ directCostCents: 1200, totalCostCents: 5400 })).toBe(
       "Own 1200 / Rollup 5400"
     );
-    expect(formatCostSummary({ directCostCents: 1200, totalCostCents: 1200 })).toBe(
-      "Total 1200"
-    );
+    expect(formatCostSummary({ directCostCents: 1200, totalCostCents: 1200 })).toBe("Total 1200");
   });
 });

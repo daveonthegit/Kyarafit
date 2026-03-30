@@ -60,7 +60,10 @@ export function NewClosetItemModal({
         nodeType,
         name: name.trim(),
         category,
-        tags: tagsStr.split(",").map((tag) => tag.trim()).filter(Boolean),
+        tags: tagsStr
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         notes: notes.trim() || undefined,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: imageUrl.trim() || undefined,
@@ -155,7 +158,12 @@ export function NewClosetItemModal({
             currentStorageId={imageStorageId ?? undefined}
           />
         </div>
-        <UnderlineInput label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <UnderlineInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
         <div>
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
             Category
@@ -175,15 +183,38 @@ export function NewClosetItemModal({
             ))}
           </div>
         </div>
-        <UnderlineInput label="Tags (comma-separated)" value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} />
-        <UnderlineInput label="Direct cost $ (optional)" type="number" min="0" step="0.01" value={directCostDollars} onChange={(e) => setDirectCostDollars(e.target.value)} />
+        <UnderlineInput
+          label="Tags (comma-separated)"
+          value={tagsStr}
+          onChange={(e) => setTagsStr(e.target.value)}
+        />
+        <UnderlineInput
+          label="Direct cost $ (optional)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={directCostDollars}
+          onChange={(e) => setDirectCostDollars(e.target.value)}
+        />
         {nodeType === "material" && (
           <div className="grid grid-cols-2 gap-4">
-            <UnderlineInput label="Quantity" type="number" min="0" step="0.01" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <UnderlineInput
+              label="Quantity"
+              type="number"
+              min="0"
+              step="0.01"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
             <UnderlineInput label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
           </div>
         )}
-        <UnderlineInput label="Source link (optional)" type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+        <UnderlineInput
+          label="Source link (optional)"
+          type="url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+        />
         <UnderlineInput label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         {error && <p className="text-xs text-kyar-danger">{error}</p>}
       </form>

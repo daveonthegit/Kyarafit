@@ -52,7 +52,9 @@ export default function ElementsPage() {
   const [category, setCategory] = useState("");
   const [bucket, setBucket] = useState("");
   const [substate, setSubstate] = useState("");
-  const [hierarchyMode, setHierarchyMode] = useState<"all" | "hasChildren" | "hasIncomplete">("all");
+  const [hierarchyMode, setHierarchyMode] = useState<"all" | "hasChildren" | "hasIncomplete">(
+    "all"
+  );
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [order, setOrder] = useState<SortOrder>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<CosplayNodeId>>(new Set());
@@ -126,7 +128,9 @@ export default function ElementsPage() {
     <WebAppShell>
       <PageHeader
         title="Elements"
-        subtitle={filtered.length > 0 ? `${filtered.length} nodes in your cosplay graph` : undefined}
+        subtitle={
+          filtered.length > 0 ? `${filtered.length} nodes in your cosplay graph` : undefined
+        }
         search={{
           value: search,
           onChange: setSearch,
@@ -296,10 +300,14 @@ export default function ElementsPage() {
                         <p className="mb-1 text-[9px] uppercase tracking-[0.2em] opacity-80">
                           {item.category || "uncategorized"}
                         </p>
-                        <h3 className="truncate font-serif text-3xl italic leading-none">{item.name}</h3>
+                        <h3 className="truncate font-serif text-3xl italic leading-none">
+                          {item.name}
+                        </h3>
                         <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-white/80">
                           <span>{item.progressPercent ?? 0}% progress</span>
-                          <span>{item.childCount ?? 0} child{(item.childCount ?? 0) === 1 ? "" : "ren"}</span>
+                          <span>
+                            {item.childCount ?? 0} child{(item.childCount ?? 0) === 1 ? "" : "ren"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -340,7 +348,11 @@ export default function ElementsPage() {
         </div>
       )}
 
-      <ResponsivePanel open={showAssignPanel} onClose={() => setShowAssignPanel(false)} title="Link to build">
+      <ResponsivePanel
+        open={showAssignPanel}
+        onClose={() => setShowAssignPanel(false)}
+        title="Link to build"
+      >
         <div className="space-y-2">
           {builds.map((build) => (
             <button
@@ -356,7 +368,11 @@ export default function ElementsPage() {
         </div>
       </ResponsivePanel>
 
-      <ResponsivePanel open={showUnassignPanel} onClose={() => setShowUnassignPanel(false)} title="Unlink from build">
+      <ResponsivePanel
+        open={showUnassignPanel}
+        onClose={() => setShowUnassignPanel(false)}
+        title="Unlink from build"
+      >
         <div className="space-y-2">
           {builds.map((build) => (
             <button
