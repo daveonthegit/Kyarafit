@@ -172,17 +172,23 @@ export async function initClosetDb(): Promise<SQLite.SQLiteDatabase> {
     /* column may already exist */
   }
   try {
-    await db.execAsync("ALTER TABLE packing_list_items ADD COLUMN entry_kind TEXT NOT NULL DEFAULT 'manual'");
+    await db.execAsync(
+      "ALTER TABLE packing_list_items ADD COLUMN entry_kind TEXT NOT NULL DEFAULT 'manual'"
+    );
   } catch {
     /* column may already exist */
   }
   try {
-    await db.execAsync("ALTER TABLE packing_list_items ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'manual'");
+    await db.execAsync(
+      "ALTER TABLE packing_list_items ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'manual'"
+    );
   } catch {
     /* column may already exist */
   }
   try {
-    await db.execAsync("ALTER TABLE packing_list_items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+    await db.execAsync(
+      "ALTER TABLE packing_list_items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+    );
   } catch {
     /* column may already exist */
   }

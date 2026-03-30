@@ -35,12 +35,20 @@ type WorkflowNode = {
   children: WorkflowNode[];
 };
 
-function flattenWorkflow(nodes: WorkflowNode[], depth = 0): Array<WorkflowNode & { depth: number }> {
-  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenWorkflow(node.children, depth + 1)]);
+function flattenWorkflow(
+  nodes: WorkflowNode[],
+  depth = 0
+): Array<WorkflowNode & { depth: number }> {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...flattenWorkflow(node.children, depth + 1),
+  ]);
 }
 
 function formatCents(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100);
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
+    cents / 100
+  );
 }
 
 function isAllowedChildLink(parentType: NodeKind, childType: NodeKind) {
@@ -55,8 +63,13 @@ export default function ElementDetailPage() {
   const { open: openCreationModal } = useCreationModals();
   const id = params.id as CosplayNodeId;
   const node = useQuery(api.cosplayNodes.get, id ? { id } : "skip");
-  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId } : "skip") ?? []) as Array<{ _id: CosplayNodeId; name: string; nodeType: "element" | "material" }>;
-  const buildsUsing = useQuery(api.builds.getBuildsUsingNode, id ? { cosplayNodeId: id } : "skip") ?? [];
+  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId } : "skip") ?? []) as Array<{
+    _id: CosplayNodeId;
+    name: string;
+    nodeType: "element" | "material";
+  }>;
+  const buildsUsing =
+    useQuery(api.builds.getBuildsUsingNode, id ? { cosplayNodeId: id } : "skip") ?? [];
   const [workflowView, setWorkflowView] = useState<"shared" | "build_specific">("shared");
   const [selectedWorkflowBuildId, setSelectedWorkflowBuildId] = useState<Id<"builds"> | "">("");
   const workflow =
@@ -91,7 +104,9 @@ export default function ElementDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [hierarchyQuery, setHierarchyQuery] = useState("");
-  const [childBucketFilter, setChildBucketFilter] = useState<"all" | "incomplete" | "in_progress" | "complete">("all");
+  const [childBucketFilter, setChildBucketFilter] = useState<
+    "all" | "incomplete" | "in_progress" | "complete"
+  >("all");
   const [buildQuery, setBuildQuery] = useState("");
   const [taskQuery, setTaskQuery] = useState("");
   const [taskFilter, setTaskFilter] = useState<"all" | "open" | "done">("all");
@@ -114,7 +129,8 @@ export default function ElementDetailPage() {
     setForm({
       name: node.name,
       notes: node.notes ?? "",
-      directCostDollars: node.directCostCents != null ? (node.directCostCents / 100).toFixed(2) : "",
+      directCostDollars:
+        node.directCostCents != null ? (node.directCostCents / 100).toFixed(2) : "",
       purchaseStatus: node.purchaseStatus ?? "to_buy",
       buildStatus: node.buildStatus ?? "not_started",
       materialStatus: node.materialStatus ?? "to_buy",
@@ -165,7 +181,8 @@ export default function ElementDetailPage() {
   );
   const taskNeedle = taskQuery.trim().toLowerCase();
   const visibleWorkflowRows = useMemo(() => {
-    const source = workflowView === "shared" ? workflow?.shared ?? [] : workflow?.buildSpecific ?? [];
+    const source =
+      workflowView === "shared" ? (workflow?.shared ?? []) : (workflow?.buildSpecific ?? []);
     return flattenWorkflow(source).filter((task) => {
       const matchesQuery = !taskNeedle || task.title.toLowerCase().includes(taskNeedle);
       const isDone = task.status === "done";
@@ -174,8 +191,18 @@ export default function ElementDetailPage() {
     });
   }, [taskFilter, taskNeedle, workflow?.buildSpecific, workflow?.shared, workflowView]);
 
-  if (node === undefined) return <WebAppShell><p className="meta-label pt-12">Loading…</p></WebAppShell>;
-  if (!node) return <WebAppShell><p className="meta-label pt-12">Node not found.</p></WebAppShell>;
+  if (node === undefined)
+    return (
+      <WebAppShell>
+        <p className="meta-label pt-12">Loading…</p>
+      </WebAppShell>
+    );
+  if (!node)
+    return (
+      <WebAppShell>
+        <p className="meta-label pt-12">Node not found.</p>
+      </WebAppShell>
+    );
 
   const childCandidates = allNodes.filter(
     (candidate) =>
@@ -192,7 +219,9 @@ export default function ElementDetailPage() {
       userId,
       name: form.name,
       notes: form.notes || null,
-      directCostCents: form.directCostDollars ? Math.round(parseFloat(form.directCostDollars) * 100) : null,
+      directCostCents: form.directCostDollars
+        ? Math.round(parseFloat(form.directCostDollars) * 100)
+        : null,
       imageUrl: form.imageStorageId ? null : form.imageUrl || null,
       imageStorageId: form.imageStorageId ?? undefined,
       purchaseStatus: node.nodeType === "element" ? form.purchaseStatus : null,
@@ -266,24 +295,68 @@ export default function ElementDetailPage() {
   return (
     <WebAppShell>
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-kyar-borderSubtle bg-kyar-bg/95 pb-4 pt-4 backdrop-blur-sm">
-        <Link href="/elements" className="min-h-[44px] min-w-[44px] flex items-center justify-center"><span className="material-symbols-outlined text-2xl">arrow_back</span></Link>
-        <h1 className="font-serif text-xl italic">{formatNodeTypeLabel(node.nodeType as NodeKind)}</h1>
+        <Link
+          href="/elements"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center"
+        >
+          <span className="material-symbols-outlined text-2xl">arrow_back</span>
+        </Link>
+        <h1 className="font-serif text-xl italic">
+          {formatNodeTypeLabel(node.nodeType as NodeKind)}
+        </h1>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => convertType({ id, userId: userId!, nodeType: node.nodeType === "element" ? "material" : "element" })} className="px-3 py-2 text-[10px] uppercase tracking-widest">Convert</button>
-          <button type="button" onClick={() => setIsEditing((value) => !value)} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">{isEditing ? "Done" : "Edit"}</button>
+          <button
+            type="button"
+            onClick={() =>
+              convertType({
+                id,
+                userId: userId!,
+                nodeType: node.nodeType === "element" ? "material" : "element",
+              })
+            }
+            className="px-3 py-2 text-[10px] uppercase tracking-widest"
+          >
+            Convert
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditing((value) => !value)}
+            className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+          >
+            {isEditing ? "Done" : "Edit"}
+          </button>
         </div>
       </header>
 
       <main className="grid max-w-6xl grid-cols-1 gap-8 py-8 lg:grid-cols-[minmax(0,420px)_1fr]">
         <section className="space-y-6">
           <div className="overflow-hidden rounded-3xl bg-kyar-mutedWarm shadow-soft">
-            {node.imageStorageId || node.imageUrl ? <ResolvedImage imageStorageId={node.imageStorageId} imageUrl={node.imageUrl} alt={node.name} className="h-[420px] w-full object-cover" /> : <div className="flex h-[420px] items-center justify-center text-kyar-textTertiary"><span className="material-symbols-outlined text-6xl">{node.nodeType === "material" ? "science" : "checkroom"}</span></div>}
+            {node.imageStorageId || node.imageUrl ? (
+              <ResolvedImage
+                imageStorageId={node.imageStorageId}
+                imageUrl={node.imageUrl}
+                alt={node.name}
+                className="h-[420px] w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-[420px] items-center justify-center text-kyar-textTertiary">
+                <span className="material-symbols-outlined text-6xl">
+                  {node.nodeType === "material" ? "science" : "checkroom"}
+                </span>
+              </div>
+            )}
           </div>
           <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-5 shadow-soft">
             <div className="mb-3 flex flex-wrap gap-2">
-              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">{formatNodeTypeLabel(node.nodeType as NodeKind)}</span>
-              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">{formatNodeStatus(node as Parameters<typeof formatNodeStatus>[0])}</span>
-              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">{node.progressPercent}% progress</span>
+              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">
+                {formatNodeTypeLabel(node.nodeType as NodeKind)}
+              </span>
+              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">
+                {formatNodeStatus(node as Parameters<typeof formatNodeStatus>[0])}
+              </span>
+              <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">
+                {node.progressPercent}% progress
+              </span>
             </div>
             {isEditing ? (
               <div className="space-y-4">
@@ -312,27 +385,103 @@ export default function ElementDetailPage() {
                     currentStorageId={form.imageStorageId ?? undefined}
                   />
                 </div>
-                <UnderlineInput label="Name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-                <UnderlineInput label="Notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
-                <UnderlineInput label="Direct cost $" type="number" step="0.01" value={form.directCostDollars} onChange={(e) => setForm((prev) => ({ ...prev, directCostDollars: e.target.value }))} />
+                <UnderlineInput
+                  label="Name"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                />
+                <UnderlineInput
+                  label="Notes"
+                  value={form.notes}
+                  onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                />
+                <UnderlineInput
+                  label="Direct cost $"
+                  type="number"
+                  step="0.01"
+                  value={form.directCostDollars}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, directCostDollars: e.target.value }))
+                  }
+                />
                 {node.nodeType === "element" ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <select value={form.purchaseStatus} onChange={(e) => setForm((prev) => ({ ...prev, purchaseStatus: e.target.value }))} className="rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm">{ELEMENT_PURCHASE_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-                    <select value={form.buildStatus} onChange={(e) => setForm((prev) => ({ ...prev, buildStatus: e.target.value }))} className="rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm">{ELEMENT_BUILD_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}</select>
+                    <select
+                      value={form.purchaseStatus}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, purchaseStatus: e.target.value }))
+                      }
+                      className="rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm"
+                    >
+                      {ELEMENT_PURCHASE_STATUSES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={form.buildStatus}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, buildStatus: e.target.value }))
+                      }
+                      className="rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm"
+                    >
+                      {ELEMENT_BUILD_STATUSES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ) : (
-                  <select value={form.materialStatus} onChange={(e) => setForm((prev) => ({ ...prev, materialStatus: e.target.value }))} className="w-full rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm">{MATERIAL_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}</select>
+                  <select
+                    value={form.materialStatus}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, materialStatus: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm"
+                  >
+                    {MATERIAL_STATUSES.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
                 )}
-                <button type="button" onClick={save} className="rounded-full bg-black px-4 py-2 text-[10px] uppercase tracking-widest text-white">Save node</button>
+                <button
+                  type="button"
+                  onClick={save}
+                  className="rounded-full bg-black px-4 py-2 text-[10px] uppercase tracking-widest text-white"
+                >
+                  Save node
+                </button>
               </div>
             ) : (
               <>
                 <h2 className="font-serif text-5xl italic leading-none">{node.name}</h2>
                 <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-                  <div><p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Own cost</p><p className="font-serif text-2xl italic">{node.directCostCents ? formatCents(node.directCostCents) : "—"}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Rollup cost</p><p className="font-serif text-2xl italic">{node.totalCostCents ? formatCents(node.totalCostCents) : "—"}</p></div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Own cost
+                    </p>
+                    <p className="font-serif text-2xl italic">
+                      {node.directCostCents ? formatCents(node.directCostCents) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Rollup cost
+                    </p>
+                    <p className="font-serif text-2xl italic">
+                      {node.totalCostCents ? formatCents(node.totalCostCents) : "—"}
+                    </p>
+                  </div>
                 </div>
-                {node.notes && <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-kyar-textSecondary">{node.notes}</p>}
+                {node.notes && (
+                  <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-kyar-textSecondary">
+                    {node.notes}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -342,14 +491,22 @@ export default function ElementDetailPage() {
           <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Hierarchy</p>
+                <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                  Hierarchy
+                </p>
                 <h3 className="font-serif text-2xl italic">Parents & children</h3>
                 <p className="mt-2 text-sm text-kyar-textSecondary">
                   Explorer-style view for attached structure. Search, filter, reorder, and unlink
                   without losing context.
                 </p>
               </div>
-              <button type="button" onClick={() => setShowChildPanel(true)} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Add child</button>
+              <button
+                type="button"
+                onClick={() => setShowChildPanel(true)}
+                className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+              >
+                Add child
+              </button>
             </div>
             <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
               <input
@@ -400,7 +557,9 @@ export default function ElementDetailPage() {
                             {formatNodeTypeLabel(parent.nodeType as NodeKind)}
                           </p>
                         </div>
-                        <span className="material-symbols-outlined text-base text-kyar-textTertiary">arrow_outward</span>
+                        <span className="material-symbols-outlined text-base text-kyar-textTertiary">
+                          arrow_outward
+                        </span>
                       </Link>
                     ))
                   )}
@@ -426,7 +585,10 @@ export default function ElementDetailPage() {
                     filteredChildren.map((child) => {
                       const index = node.children.findIndex((entry) => entry._id === child._id);
                       return (
-                        <div key={child._id} className="border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0">
+                        <div
+                          key={child._id}
+                          className="border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0"
+                        >
                           <div className="flex items-start justify-between gap-3">
                             <Link href={`/elements/${child._id}`} className="min-w-0 flex-1">
                               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -435,7 +597,9 @@ export default function ElementDetailPage() {
                                   {formatNodeTypeLabel(child.nodeType as NodeKind)}
                                 </span>
                                 <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                                  {formatNodeStatus(child as Parameters<typeof formatNodeStatus>[0])}
+                                  {formatNodeStatus(
+                                    child as Parameters<typeof formatNodeStatus>[0]
+                                  )}
                                 </span>
                                 <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                                   {child.linkMode}
@@ -448,9 +612,33 @@ export default function ElementDetailPage() {
                               </div>
                             </Link>
                             <div className="flex shrink-0 items-center gap-2">
-                              {userId && index > 0 && <button type="button" onClick={() => moveChild(index, index - 1)} className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest">Up</button>}
-                              {userId && index < node.children.length - 1 && <button type="button" onClick={() => moveChild(index, index + 1)} className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest">Down</button>}
-                              {userId && <button type="button" onClick={() => removeChildLink({ id: child.linkId, userId })} className="rounded-full border border-kyar-danger px-3 py-2 text-[10px] uppercase tracking-widest text-kyar-danger">Unlink</button>}
+                              {userId && index > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveChild(index, index - 1)}
+                                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest"
+                                >
+                                  Up
+                                </button>
+                              )}
+                              {userId && index < node.children.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveChild(index, index + 1)}
+                                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest"
+                                >
+                                  Down
+                                </button>
+                              )}
+                              {userId && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeChildLink({ id: child.linkId, userId })}
+                                  className="rounded-full border border-kyar-danger px-3 py-2 text-[10px] uppercase tracking-widest text-kyar-danger"
+                                >
+                                  Unlink
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -466,13 +654,21 @@ export default function ElementDetailPage() {
             <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Linked builds</p>
+                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                    Linked builds
+                  </p>
                   <h3 className="font-serif text-2xl italic">Build usage</h3>
                   <p className="mt-2 text-sm text-kyar-textSecondary">
                     Reuse overview for this node across projects.
                   </p>
                 </div>
-                <button type="button" onClick={() => setShowBuildPanel(true)} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Link build</button>
+                <button
+                  type="button"
+                  onClick={() => setShowBuildPanel(true)}
+                  className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+                >
+                  Link build
+                </button>
               </div>
               <div className="mb-4">
                 <input
@@ -495,12 +691,27 @@ export default function ElementDetailPage() {
                   </p>
                 ) : (
                   filteredBuildsUsing.map((build) => (
-                    <div key={build._id} className="flex items-center justify-between gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0">
+                    <div
+                      key={build._id}
+                      className="flex items-center justify-between gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0"
+                    >
                       <Link href={`/build-detail?id=${build._id}`} className="min-w-0 flex-1">
                         <p className="truncate font-medium text-kyar-text">{build.name}</p>
-                        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">{build.character || "build"}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                          {build.character || "build"}
+                        </p>
                       </Link>
-                      {userId && <button type="button" onClick={() => removeNodeFromBuild({ userId, buildId: build._id, cosplayNodeId: id })} className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] uppercase tracking-widest">Unlink</button>}
+                      {userId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeNodeFromBuild({ userId, buildId: build._id, cosplayNodeId: id })
+                          }
+                          className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] uppercase tracking-widest"
+                        >
+                          Unlink
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -509,7 +720,9 @@ export default function ElementDetailPage() {
 
             <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
               <div className="mb-4">
-                <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Task graph</p>
+                <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                  Task graph
+                </p>
                 <h3 className="font-serif text-2xl italic">Workflow</h3>
                 <p className="mt-2 text-sm text-kyar-textSecondary">
                   Shared workflow lives with the item itself. Build-specific workflow stays scoped
@@ -534,7 +747,9 @@ export default function ElementDetailPage() {
                 {workflowView === "build_specific" && (
                   <select
                     value={selectedWorkflowBuildId}
-                    onChange={(e) => setSelectedWorkflowBuildId(e.target.value as Id<"builds"> | "")}
+                    onChange={(e) =>
+                      setSelectedWorkflowBuildId(e.target.value as Id<"builds"> | "")
+                    }
                     className="rounded-xl border border-kyar-borderSubtle bg-white px-4 py-3 text-sm text-kyar-text"
                   >
                     <option value="">Choose a build</option>
@@ -596,78 +811,213 @@ export default function ElementDetailPage() {
                         className="h-4 w-4"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className={`truncate text-sm ${task.status === "done" ? "line-through text-kyar-textTertiary" : ""}`}>{task.title}</p>
+                        <p
+                          className={`truncate text-sm ${task.status === "done" ? "line-through text-kyar-textTertiary" : ""}`}
+                        >
+                          {task.title}
+                        </p>
                         <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                           {task.kind} · {task.status.split("_").join(" ")} · {task.progressPercent}%
                         </p>
                       </div>
-                      {userId && <button type="button" onClick={() => deleteTask({ id: task._id, userId })} className="text-kyar-danger"><span className="material-symbols-outlined text-base">delete</span></button>}
+                      {userId && (
+                        <button
+                          type="button"
+                          onClick={() => deleteTask({ id: task._id, userId })}
+                          className="text-kyar-danger"
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
               </div>
               <div className="mt-4 flex gap-2">
-                <input value={newTaskLabel} onChange={(e) => setNewTaskLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void handleAddTask()} placeholder={workflowView === "shared" ? "Add a shared workflow item…" : "Add a build-specific workflow item…"} className="flex-1 border-0 border-b border-kyar-borderSubtle bg-transparent py-2 text-sm focus:outline-none focus:border-black" />
-                <button type="button" onClick={() => handleAddTask()} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Add</button>
+                <input
+                  value={newTaskLabel}
+                  onChange={(e) => setNewTaskLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void handleAddTask()}
+                  placeholder={
+                    workflowView === "shared"
+                      ? "Add a shared workflow item…"
+                      : "Add a build-specific workflow item…"
+                  }
+                  className="flex-1 border-0 border-b border-kyar-borderSubtle bg-transparent py-2 text-sm focus:outline-none focus:border-black"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddTask()}
+                  className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+                >
+                  Add
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end"><button type="button" onClick={() => setShowDelete(true)} className="rounded-full border border-kyar-danger px-5 py-3 text-[10px] uppercase tracking-widest text-kyar-danger">Delete node</button></div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowDelete(true)}
+              className="rounded-full border border-kyar-danger px-5 py-3 text-[10px] uppercase tracking-widest text-kyar-danger"
+            >
+              Delete node
+            </button>
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </section>
       </main>
 
-      <ResponsivePanel open={showBuildPanel} onClose={() => setShowBuildPanel(false)} title="Link to build">
+      <ResponsivePanel
+        open={showBuildPanel}
+        onClose={() => setShowBuildPanel(false)}
+        title="Link to build"
+      >
         <div className="space-y-2">
-          {builds.map((build) => <button key={build._id} type="button" onClick={() => userId && addNodesToBuild({ userId, buildId: build._id, cosplayNodeIds: [id] })} className="flex w-full items-center justify-between gap-3 border border-kyar-border p-3 text-left"><span className="truncate text-sm font-medium">{build.name}</span><span className="text-[10px] uppercase tracking-widest">Add</span></button>)}
+          {builds.map((build) => (
+            <button
+              key={build._id}
+              type="button"
+              onClick={() =>
+                userId && addNodesToBuild({ userId, buildId: build._id, cosplayNodeIds: [id] })
+              }
+              className="flex w-full items-center justify-between gap-3 border border-kyar-border p-3 text-left"
+            >
+              <span className="truncate text-sm font-medium">{build.name}</span>
+              <span className="text-[10px] uppercase tracking-widest">Add</span>
+            </button>
+          ))}
         </div>
       </ResponsivePanel>
 
-      <ResponsivePanel open={showChildPanel} onClose={() => setShowChildPanel(false)} title="Add child node">
+      <ResponsivePanel
+        open={showChildPanel}
+        onClose={() => setShowChildPanel(false)}
+        title="Add child node"
+      >
         <div className="space-y-5">
           <div className="space-y-2 border-b border-kyar-borderSubtle pb-5">
-            <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Create child</p>
-            <div className="flex gap-2">{availableChildTypes.map((value) => <button key={value} type="button" onClick={() => setNewChildType(value)} className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${newChildType === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}>{formatNodeTypeLabel(value)}</button>)}</div>
+            <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+              Create child
+            </p>
+            <div className="flex gap-2">
+              {availableChildTypes.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setNewChildType(value)}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${newChildType === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                >
+                  {formatNodeTypeLabel(value)}
+                </button>
+              ))}
+            </div>
             <p className="text-xs text-kyar-textTertiary">
               {node.nodeType === "element"
                 ? "Elements can contain both elements and materials."
                 : "Materials can contain other materials. Elements can’t be children of materials."}
             </p>
-            <button type="button" onClick={openFullCreateChildFlow} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Open full create flow</button>
+            <button
+              type="button"
+              onClick={openFullCreateChildFlow}
+              className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+            >
+              Open full create flow
+            </button>
           </div>
           <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Link existing node</p>
-            <select value={existingChildId} onChange={(e) => setExistingChildId(e.target.value)} className="w-full rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm">
+            <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+              Link existing node
+            </p>
+            <select
+              value={existingChildId}
+              onChange={(e) => setExistingChildId(e.target.value)}
+              className="w-full rounded-lg border border-kyar-borderSubtle px-3 py-2 text-sm"
+            >
               <option value="">Choose a node</option>
-              {childCandidates.map((candidate) => <option key={candidate._id} value={candidate._id}>{candidate.name} · {formatNodeTypeLabel(candidate.nodeType as NodeKind)}</option>)}
+              {childCandidates.map((candidate) => (
+                <option key={candidate._id} value={candidate._id}>
+                  {candidate.name} · {formatNodeTypeLabel(candidate.nodeType as NodeKind)}
+                </option>
+              ))}
             </select>
-            <div className="flex gap-2">{COSPLAY_LINK_MODES.map((value) => <button key={value} type="button" onClick={() => setLinkMode(value)} className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${linkMode === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}>{value}</button>)}</div>
-            <button type="button" onClick={() => {
-              const selectedCandidate = childCandidates.find((candidate) => candidate._id === existingChildId);
-              if (!userId || !existingChildId || !selectedCandidate) return;
-              if (!isAllowedChildLink(node.nodeType as NodeKind, selectedCandidate.nodeType)) {
-                setError("That relationship is not allowed.");
-                return;
-              }
-              addChildLink({ userId, parentNodeId: id, childNodeId: existingChildId as CosplayNodeId, linkMode })
-                .then(() => {
-                  setError(null);
-                  setShowChildPanel(false);
+            <div className="flex gap-2">
+              {COSPLAY_LINK_MODES.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setLinkMode(value)}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${linkMode === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const selectedCandidate = childCandidates.find(
+                  (candidate) => candidate._id === existingChildId
+                );
+                if (!userId || !existingChildId || !selectedCandidate) return;
+                if (!isAllowedChildLink(node.nodeType as NodeKind, selectedCandidate.nodeType)) {
+                  setError("That relationship is not allowed.");
+                  return;
+                }
+                addChildLink({
+                  userId,
+                  parentNodeId: id,
+                  childNodeId: existingChildId as CosplayNodeId,
+                  linkMode,
                 })
-                .catch((e) => setError(e instanceof Error ? e.message : "Could not link child"));
-            }} className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest">Link child</button>
+                  .then(() => {
+                    setError(null);
+                    setShowChildPanel(false);
+                  })
+                  .catch((e) => setError(e instanceof Error ? e.message : "Could not link child"));
+              }}
+              className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+            >
+              Link child
+            </button>
           </div>
         </div>
       </ResponsivePanel>
 
-      <AdaptiveModal open={showDelete} onClose={() => setShowDelete(false)} aria-labelledby="delete-node-dialog-title">
+      <AdaptiveModal
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        aria-labelledby="delete-node-dialog-title"
+      >
         <div className="p-6">
-          <h2 id="delete-node-dialog-title" className="mb-2 font-serif text-lg font-bold">Delete this node?</h2>
-          <p className="mb-6 text-sm text-kyar-meta">This removes the node itself. To keep reusable structure intact, unlink it from builds or parents instead when possible.</p>
+          <h2 id="delete-node-dialog-title" className="mb-2 font-serif text-lg font-bold">
+            Delete this node?
+          </h2>
+          <p className="mb-6 text-sm text-kyar-meta">
+            This removes the node itself. To keep reusable structure intact, unlink it from builds
+            or parents instead when possible.
+          </p>
           <div className="flex gap-3">
-            <button type="button" onClick={() => setShowDelete(false)} className="flex-1 rounded-full border border-black py-3 text-sm font-bold uppercase tracking-wider">Cancel</button>
-            <button type="button" onClick={async () => { if (userId) { await removeNode({ id, userId }); router.push("/elements"); } }} className="flex-1 rounded-full bg-kyar-danger py-3 text-sm font-bold uppercase tracking-wider text-white">Delete</button>
+            <button
+              type="button"
+              onClick={() => setShowDelete(false)}
+              className="flex-1 rounded-full border border-black py-3 text-sm font-bold uppercase tracking-wider"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (userId) {
+                  await removeNode({ id, userId });
+                  router.push("/elements");
+                }
+              }}
+              className="flex-1 rounded-full bg-kyar-danger py-3 text-sm font-bold uppercase tracking-wider text-white"
+            >
+              Delete
+            </button>
           </div>
         </div>
       </AdaptiveModal>

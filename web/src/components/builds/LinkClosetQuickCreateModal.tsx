@@ -50,7 +50,10 @@ export function LinkClosetQuickCreateModal({
         nodeType,
         name: name.trim(),
         category,
-        tags: tagsStr.split(",").map((tag) => tag.trim()).filter(Boolean),
+        tags: tagsStr
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         notes: notes.trim() || undefined,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: imageUrl.trim() || undefined,
@@ -127,7 +130,9 @@ export function LinkClosetQuickCreateModal({
           ))}
         </div>
         <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">Photo (optional)</label>
+          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
+            Photo (optional)
+          </label>
           <ImageUpload
             category="closet"
             onImageSelected={(result) => {
@@ -143,7 +148,12 @@ export function LinkClosetQuickCreateModal({
             currentStorageId={imageStorageId ?? undefined}
           />
         </div>
-        <UnderlineInput label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <UnderlineInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
         <div className="flex max-h-[120px] flex-wrap gap-2 overflow-y-auto">
           {COSPLAY_CATEGORIES.map((value) => (
             <button
@@ -159,8 +169,20 @@ export function LinkClosetQuickCreateModal({
           ))}
         </div>
         <UnderlineInput label="Tags" value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} />
-        <UnderlineInput label="Cost $" type="number" min="0" step="0.01" value={costDollars} onChange={(e) => setCostDollars(e.target.value)} />
-        <UnderlineInput label="Source link" type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+        <UnderlineInput
+          label="Cost $"
+          type="number"
+          min="0"
+          step="0.01"
+          value={costDollars}
+          onChange={(e) => setCostDollars(e.target.value)}
+        />
+        <UnderlineInput
+          label="Source link"
+          type="url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+        />
         <UnderlineInput label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         {error && <p className="text-xs text-kyar-danger">{error}</p>}
       </form>

@@ -10,7 +10,10 @@ import {
   validateDateString,
 } from "./lib/validation";
 
-async function getPackingWorkflowStatus(ctx: QueryCtx | MutationCtx, item: Doc<"packingListItems">) {
+async function getPackingWorkflowStatus(
+  ctx: QueryCtx | MutationCtx,
+  item: Doc<"packingListItems">
+) {
   if (!item.workflowItemId) return item.checked;
   const workflowItem = await ctx.db.get(item.workflowItemId);
   if (!workflowItem) return item.checked;
@@ -493,18 +496,21 @@ export const regeneratePacking = mutation({
 
         const node = await ctx.db.get(link.cosplayNodeId);
         if (!node) continue;
-        const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert("packingListItems", {
-          userId: args.userId,
-          conventionId: args.conventionId,
-          date: plan.date,
-          buildId: plan.buildId,
-          cosplayNodeId: link.cosplayNodeId,
-          label: node.name,
-          checked: false,
-          entryKind: "generated",
-          sourceKind: "workflow",
-          sortOrder: newItems.length,
-        });
+        const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert(
+          "packingListItems",
+          {
+            userId: args.userId,
+            conventionId: args.conventionId,
+            date: plan.date,
+            buildId: plan.buildId,
+            cosplayNodeId: link.cosplayNodeId,
+            label: node.name,
+            checked: false,
+            entryKind: "generated",
+            sourceKind: "workflow",
+            sortOrder: newItems.length,
+          }
+        );
         await ensurePackingWorkflowItem(ctx, {
           userId: args.userId,
           packingListItemId: packingItemId,

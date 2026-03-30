@@ -54,15 +54,15 @@ export default function BuildDetailScreen() {
   const convexBuild = useQuery(api.builds.get, userId && buildId ? { id: buildId } : "skip");
   const convexItemIds = (useQuery(api.builds.getItems, userId && buildId ? { buildId } : "skip") ??
     []) as ClosetEntityId[];
-  const convexClosetItems =
-    (useQuery(api.closetItems.list, userId ? { userId } : "skip") ?? []) as Array<{
-      _id: ClosetEntityId;
-      name: string;
-      category?: ClosetItem["category"];
-      imageUrl?: string;
-      imageStorageId?: Id<"_storage">;
-      costCents?: number;
-    }>;
+  const convexClosetItems = (useQuery(api.closetItems.list, userId ? { userId } : "skip") ??
+    []) as Array<{
+    _id: ClosetEntityId;
+    name: string;
+    category?: ClosetItem["category"];
+    imageUrl?: string;
+    imageStorageId?: Id<"_storage">;
+    costCents?: number;
+  }>;
   const convexTasks = useQuery(
     api.buildTasks.listByBuild,
     userId && buildId ? { buildId } : "skip"

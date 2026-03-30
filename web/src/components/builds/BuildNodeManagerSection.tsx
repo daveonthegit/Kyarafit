@@ -111,8 +111,8 @@ export function BuildNodeManagerSection({
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
   const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
   const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
-  const allNodes =
-    (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ?? []) as BuildNodeManagerLinkedNode[];
+  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ??
+    []) as BuildNodeManagerLinkedNode[];
 
   const [viewMode, setViewMode] = useState<"bucketed" | "tree">("bucketed");
   const [search, setSearch] = useState("");
@@ -174,9 +174,7 @@ export function BuildNodeManagerSection({
         return current;
       }
       const first = roots[0];
-      return first
-        ? { nodeId: first.node._id, isRoot: true, rootIndex: first.rootIndex }
-        : null;
+      return first ? { nodeId: first.node._id, isRoot: true, rootIndex: first.rootIndex } : null;
     });
   }, [roots]);
 
@@ -236,7 +234,9 @@ export function BuildNodeManagerSection({
       mode === "open" ? !task.checked : !(task.cosplayNodeId ?? task.closetItemId)
     );
     await Promise.all(
-      assignable.map((task) => updateTask({ id: task._id, userId, cosplayNodeId: selectedDetail._id }))
+      assignable.map((task) =>
+        updateTask({ id: task._id, userId, cosplayNodeId: selectedDetail._id })
+      )
     );
   };
 
@@ -435,7 +435,7 @@ export function BuildNodeManagerSection({
                         onMoveNode={moveNodeIntoTarget}
                         draggingNodeId={draggingNodeId}
                         dragOverNodeId={dragOverNodeId}
-                    onDragStateChange={setDragState}
+                        onDragStateChange={setDragState}
                       />
                     ))}
                   </BucketPanel>
@@ -516,7 +516,9 @@ export function BuildNodeManagerSection({
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <label className="col-span-2 space-y-2">
-                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Name</span>
+                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Name
+                    </span>
                     <input
                       value={inspectorForm.name}
                       onChange={(event) =>
@@ -526,7 +528,9 @@ export function BuildNodeManagerSection({
                     />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Direct cost</span>
+                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Direct cost
+                    </span>
                     <input
                       value={inspectorForm.directCostDollars}
                       onChange={(event) =>
@@ -540,15 +544,21 @@ export function BuildNodeManagerSection({
                     />
                   </label>
                   <div className="rounded-2xl border border-kyar-borderSubtle px-4 py-3">
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Rollup cost</p>
+                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Rollup cost
+                    </p>
                     <p className="mt-2 text-lg font-medium text-kyar-text">
-                      {selectedDetail.totalCostCents != null ? formatCents(selectedDetail.totalCostCents) : "—"}
+                      {selectedDetail.totalCostCents != null
+                        ? formatCents(selectedDetail.totalCostCents)
+                        : "—"}
                     </p>
                   </div>
                   {selectedDetail.nodeType === "element" ? (
                     <>
                       <label className="space-y-2">
-                        <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Purchase</span>
+                        <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                          Purchase
+                        </span>
                         <select
                           value={inspectorForm.purchaseStatus}
                           onChange={(event) =>
@@ -564,7 +574,9 @@ export function BuildNodeManagerSection({
                         </select>
                       </label>
                       <label className="space-y-2">
-                        <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Build</span>
+                        <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                          Build
+                        </span>
                         <select
                           value={inspectorForm.buildStatus}
                           onChange={(event) =>
@@ -583,7 +595,9 @@ export function BuildNodeManagerSection({
                     </>
                   ) : (
                     <label className="col-span-2 space-y-2">
-                      <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Material status</span>
+                      <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                        Material status
+                      </span>
                       <select
                         value={inspectorForm.materialStatus}
                         onChange={(event) =>
@@ -602,7 +616,9 @@ export function BuildNodeManagerSection({
                     </label>
                   )}
                   <label className="col-span-2 space-y-2">
-                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Notes</span>
+                    <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                      Notes
+                    </span>
                     <textarea
                       value={inspectorForm.notes}
                       onChange={(event) =>
@@ -652,7 +668,8 @@ export function BuildNodeManagerSection({
                     disabled={
                       selected?.isRoot
                         ? (selected.rootIndex ?? -1) >= linkedNodeIds.length - 1
-                        : (selected?.siblingIndex ?? -1) >= ((selected?.siblingLinkIds?.length ?? 1) - 1)
+                        : (selected?.siblingIndex ?? -1) >=
+                          (selected?.siblingLinkIds?.length ?? 1) - 1
                     }
                     className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest disabled:opacity-40"
                   >
@@ -661,7 +678,9 @@ export function BuildNodeManagerSection({
                 </div>
 
                 <div className="rounded-2xl border border-kyar-borderSubtle bg-kyar-bg px-4 py-4">
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Bulk task assign</p>
+                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                    Bulk task assign
+                  </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
@@ -681,7 +700,9 @@ export function BuildNodeManagerSection({
                 </div>
 
                 <div className="rounded-2xl border border-kyar-borderSubtle bg-kyar-bg px-4 py-4">
-                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Link reusable child</p>
+                  <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                    Link reusable child
+                  </p>
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                     <select
                       value={linkChildId}
@@ -790,7 +811,10 @@ function BuildNodeManagerRow({
   dragOverNodeId: CosplayNodeId | "__root__" | null;
   onDragStateChange: (state: DragState) => void;
 }) {
-  const detail = useQuery(api.cosplayNodes.get, { id: node._id, buildId }) as DetailedLinkedNode | null | undefined;
+  const detail = useQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
+    | DetailedLinkedNode
+    | null
+    | undefined;
   const { setNodeRef, isOver } = useDroppable({ id: node._id, data: { type: "cosplayNode" } });
   const [expanded, setExpanded] = useState(selectionMeta.isRoot);
   const children = detail?.children ?? [];
@@ -839,7 +863,11 @@ function BuildNodeManagerRow({
             className="mt-1 min-h-[32px] min-w-[32px] rounded-full text-kyar-textTertiary"
           >
             <span className="material-symbols-outlined text-lg">
-              {children.length ? (expanded ? "expand_more" : "chevron_right") : "fiber_manual_record"}
+              {children.length
+                ? expanded
+                  ? "expand_more"
+                  : "chevron_right"
+                : "fiber_manual_record"}
             </span>
           </button>
           <button
@@ -849,8 +877,12 @@ function BuildNodeManagerRow({
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-kyar-textTertiary">{nodeIcon(detail?.nodeType ?? node.nodeType)}</span>
-                <span className="truncate text-sm font-medium text-kyar-text">{detail?.name ?? node.name}</span>
+                <span className="text-kyar-textTertiary">
+                  {nodeIcon(detail?.nodeType ?? node.nodeType)}
+                </span>
+                <span className="truncate text-sm font-medium text-kyar-text">
+                  {detail?.name ?? node.name}
+                </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-7 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                 <span>{formatNodeTypeLabel(detail?.nodeType ?? node.nodeType)}</span>

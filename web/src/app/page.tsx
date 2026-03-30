@@ -1,304 +1,386 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useScroll, useTransform, useSpring, useMotionValueEvent } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import { LandingAuthCta } from "@/components/landing/LandingAuthCta";
 import { HeroVideoPlayer } from "@/components/landing/remotion/HeroVideoPlayer";
-import { useRef, useState } from "react";
+import { LandingProductScrollySection } from "@/components/landing/LandingProductScrollySection";
+import { LandingMediaDisclaimer } from "@/components/landing/LandingMediaDisclaimer";
+import { LandingFooterStrip } from "@/components/landing/LandingFooterStrip";
+import { LANDING_BUILDS, MOCK_ACCOUNT } from "@/data/landingMock";
+import { useRef } from "react";
 
 const SECTION_PADDING = "px-6 sm:px-8 lg:px-12";
 const MAX_WIDTH = "max-w-7xl mx-auto w-full";
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8 } },
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15, delayChildren: 0.1 },
+  },
+};
+
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: heroScroll } = useScroll({
+  const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
-  
-  // Hero Parallax & Fade
-  const yHeroVideo = useTransform(heroScroll, [0, 1], ["0%", "15%"]);
-  const scaleHeroVideo = useTransform(heroScroll, [0, 1], [1, 0.95]);
-  const opacityHeroVideo = useTransform(heroScroll, [0, 0.8], [1, 0]);
 
-  // Features Sticky Scroll Logic
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: featuresScroll } = useScroll({
-    target: featuresRef,
-    offset: ["start start", "end end"],
-  });
-
-  const [activeFeature, setActiveFeature] = useState(0);
-
-  useMotionValueEvent(featuresScroll, "change", (latest) => {
-    if (latest < 0.33) setActiveFeature(0);
-    else if (latest < 0.66) setActiveFeature(1);
-    else setActiveFeature(2);
-  });
+  const yHeroMockup = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
+  const opacityHeroMockup = useTransform(scrollYProgress, [0.4, 0.9], [1, 0]);
+  const smoothY = useSpring(yHeroMockup, { damping: 20, stiffness: 100 });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#050505] text-[#FAFAFA] font-sans overflow-x-hidden selection:bg-kyar-accent selection:text-white">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col bg-kyar-bgWarm text-kyar-text overflow-x-clip selection:bg-kyar-accent selection:text-white">
       <header
         className={`fixed top-0 left-0 right-0 flex justify-between items-center py-6 z-50 mix-blend-difference text-white ${SECTION_PADDING} ${MAX_WIDTH}`}
+        aria-label="Site header"
       >
         <Link
           href="/"
           className="font-serif-elegant text-xl sm:text-2xl font-bold italic tracking-tighter"
+          aria-label="Kyarafit home"
         >
           Kyarafit
         </Link>
         <LandingAuthCta variant="header" />
       </header>
 
-      <main className="flex-1 flex flex-col relative z-10" role="main">
-        {/* HERO SECTION */}
+      <main className="flex flex-col" role="main">
         <section
           ref={heroRef}
-          className="relative pt-40 lg:pt-52 pb-20 lg:pb-32 min-h-[100vh] flex flex-col items-center overflow-hidden"
+          className="relative flex min-h-[85svh] flex-col items-center justify-center overflow-x-clip overflow-y-visible pb-16 pt-[max(7.5rem,env(safe-area-inset-top,0px)+5.5rem)] sm:min-h-[90vh] sm:pb-24 sm:pt-40 lg:pb-32"
+          aria-labelledby="hero-heading"
         >
-          {/* Subtle glowing background effect */}
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-kyar-accent/20 blur-[120px] rounded-full pointer-events-none opacity-50 mix-blend-screen" />
-
-          <motion.div 
-            className={`text-center z-10 relative ${SECTION_PADDING} ${MAX_WIDTH} flex flex-col items-center`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+          <motion.div
+            className={`relative z-10 w-full min-w-0 text-center ${SECTION_PADDING} ${MAX_WIDTH}`}
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-medium tracking-wide uppercase text-white/80 mb-8 backdrop-blur-md">
-              <span className="w-1.5 h-1.5 rounded-full bg-kyar-accent animate-pulse" />
-              The Cosplay System
-            </div>
-            
-            <h1 className="font-sans text-5xl sm:text-7xl lg:text-[6.5rem] tracking-tighter leading-[1.05] font-medium mb-8 max-w-5xl mx-auto">
-              Master the craft.<br className="hidden sm:block" /> Organize the chaos.
-            </h1>
-            
-            <p className="text-lg lg:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed font-light">
-              Purpose-built for planning, building, and packing for conventions. Designed for meticulous creators who want to drop the spreadsheets.
-            </p>
-
-            <LandingAuthCta variant="hero" />
+            <motion.p
+              variants={fadeUp}
+              className="font-sans-wide mb-5 text-[10px] font-semibold uppercase tracking-widest text-kyar-meta sm:mb-6 sm:text-[11px]"
+              aria-hidden
+            >
+              The Cosplayer&apos;s Digital Toolkit
+            </motion.p>
+            <motion.h1
+              variants={fadeUp}
+              id="hero-heading"
+              className="font-serif-elegant mx-auto mb-6 max-w-4xl text-balance text-4xl font-normal leading-[1.08] sm:mb-8 sm:text-6xl lg:text-[5.5rem]"
+            >
+              Master the craft.
+              <br className="hidden sm:block" /> Organize the chaos.
+            </motion.h1>
+            <motion.p
+              variants={fadeUp}
+              className="mx-auto mb-10 max-w-2xl px-1 text-base leading-relaxed text-kyar-textSecondary sm:mb-12 sm:text-lg"
+            >
+              Purpose-built for planning, building, and packing for conventions. Designed for
+              meticulous creators who want to drop the spreadsheets.
+            </motion.p>
+            <motion.div variants={fadeUp} className="mb-10 flex justify-center sm:mb-16">
+              <LandingAuthCta variant="hero" />
+            </motion.div>
           </motion.div>
 
-          {/* Hero Video */}
-          <motion.div 
-            style={{ y: yHeroVideo, scale: scaleHeroVideo, opacity: opacityHeroVideo }}
-            className="w-full max-w-[1200px] mx-auto px-6 relative z-0 mt-20"
+          <motion.div
+            style={{ y: smoothY, opacity: opacityHeroMockup }}
+            className="relative z-0 mt-2 w-full min-w-0 max-w-[min(100%,80rem)] shrink-0 px-3 sm:mt-4 sm:px-6"
           >
-            <div className="relative aspect-video bg-[#0A0A0A] rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-[0_0_100px_rgba(17,82,212,0.15)] overflow-hidden flex items-center justify-center">
-               <HeroVideoPlayer />
+            <div className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[110%] w-[110%] max-w-[100vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-kyar-accent/10 blur-[80px]" />
+            <div className="relative mx-auto flex aspect-video w-full max-w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-kyar-border bg-[#0A0A0A] shadow-[0_40px_80px_rgba(17,82,212,0.15)] sm:rounded-[2rem]">
+              <HeroVideoPlayer />
             </div>
           </motion.div>
         </section>
 
-        {/* STICKY SCROLL FEATURES */}
-        <section ref={featuresRef} className="relative h-[300vh] bg-[#000000]">
-          {/* Sticky container that stays in view */}
-          <div className="sticky top-0 h-screen flex items-center overflow-hidden">
-             
-             {/* Background glow that follows active feature */}
-             <div 
-               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-5xl blur-[150px] opacity-20 pointer-events-none transition-colors duration-1000"
-               style={{ backgroundColor: activeFeature === 0 ? '#1152D4' : activeFeature === 1 ? '#4F46E5' : '#7C3AED' }}
-             />
+        {/* Scroll-synced product tour: Builds → Elements → Conventions → Tasks */}
+        <LandingProductScrollySection />
 
-             <div className={`${SECTION_PADDING} ${MAX_WIDTH} flex flex-col lg:flex-row items-center gap-16 relative z-10`}>
-                
-                {/* Left Text Column */}
-                <div className="lg:w-5/12 flex flex-col gap-16 lg:gap-32">
-                  
-                  {/* Feature 1 */}
-                  <div className={`transition-all duration-700 ${activeFeature === 0 ? 'opacity-100 transform-none' : 'opacity-20 translate-y-8 blur-[2px]'}`}>
-                    <h3 className="text-sm font-semibold tracking-widest uppercase text-kyar-accent mb-4">01 — Digital Closet</h3>
-                    <h2 className="text-4xl lg:text-5xl font-medium tracking-tight mb-4 text-white">Your entire wardrobe, visually cataloged.</h2>
-                    <p className="text-lg text-white/50 leading-relaxed">
-                      Keep track of every wig, prop, and armor piece in a highly visual database. Know exactly what you own and what it costs.
-                    </p>
+        {/* Workflow */}
+        <section
+          className={`border-t border-kyar-borderSubtle bg-kyar-bgWarm py-24 sm:py-32 ${SECTION_PADDING}`}
+          aria-labelledby="how-heading"
+        >
+          <div className={MAX_WIDTH}>
+            <div className="mb-16 max-w-3xl">
+              <h2
+                id="how-heading"
+                className="font-sans-wide mb-4 text-xs font-semibold uppercase tracking-widest text-kyar-accent"
+              >
+                What you can do
+              </h2>
+              <p className="font-serif-elegant text-3xl sm:text-4xl">The web app, end to end.</p>
+              <p className="mt-4 text-base leading-relaxed text-kyar-textSecondary">
+                Elements and closet, builds and tasks, conventions and packing—plus planner, feed,
+                and discover when you want to look beyond your own archive.
+              </p>
+            </div>
+            <motion.div
+              className="grid gap-y-12 gap-x-8 sm:grid-cols-2 lg:grid-cols-3"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ margin: "-50px", amount: 0.25 }}
+            >
+              {[
+                {
+                  step: "01",
+                  title: "Elements & closet",
+                  desc: "Catalog wigs, props, contacts, and materials. Reuse them across builds and keep photos, notes, and links in one place.",
+                  icon: "checkroom",
+                },
+                {
+                  step: "02",
+                  title: "Builds",
+                  desc: "Create cosplay projects with visuals, linked closet items, workflow trees, and task checklists for construction progress.",
+                  icon: "architecture",
+                },
+                {
+                  step: "03",
+                  title: "Conventions",
+                  desc: "Add events, assign which build you wear each day, and open packing views tied to that weekend.",
+                  icon: "festival",
+                },
+                {
+                  step: "04",
+                  title: "Packing & logistics",
+                  desc: "Checklists per convention so cases, tools, and last-minute fixes don’t get left behind.",
+                  icon: "luggage",
+                },
+                {
+                  step: "05",
+                  title: "Planner & tasks",
+                  desc: "See tasks across builds on the planner. On each build, track deadlines, assignees, and checklist state.",
+                  icon: "task_alt",
+                },
+                {
+                  step: "06",
+                  title: "Feed & discover",
+                  desc: "Follow activity from people you care about and browse public builds for inspiration.",
+                  icon: "travel_explore",
+                },
+              ].map((item) => (
+                <motion.div variants={fadeUp} key={item.step} className="group relative">
+                  <div className="mb-6 font-serif-elegant text-5xl text-kyar-border transition-colors duration-500 group-hover:text-kyar-accent">
+                    {item.step}
                   </div>
-
-                  {/* Feature 2 */}
-                  <div className={`transition-all duration-700 ${activeFeature === 1 ? 'opacity-100 transform-none' : activeFeature < 1 ? 'opacity-20 translate-y-8 blur-[2px]' : 'opacity-20 -translate-y-8 blur-[2px]'}`}>
-                    <h3 className="text-sm font-semibold tracking-widest uppercase text-indigo-500 mb-4">02 — Build Tracking</h3>
-                    <h2 className="text-4xl lg:text-5xl font-medium tracking-tight mb-4 text-white">From raw materials to finished armor.</h2>
-                    <p className="text-lg text-white/50 leading-relaxed">
-                      Break down massive cosplays into actionable tasks. Track progress dynamically as you prime, paint, and assemble.
-                    </p>
-                  </div>
-
-                  {/* Feature 3 */}
-                  <div className={`transition-all duration-700 ${activeFeature === 2 ? 'opacity-100 transform-none' : 'opacity-20 -translate-y-8 blur-[2px]'}`}>
-                    <h3 className="text-sm font-semibold tracking-widest uppercase text-purple-500 mb-4">03 — Conventions</h3>
-                    <h2 className="text-4xl lg:text-5xl font-medium tracking-tight mb-4 text-white">Lineups and packing lists, automated.</h2>
-                    <p className="text-lg text-white/50 leading-relaxed">
-                      Assign characters to specific days and let Kyarafit generate a foolproof packing list so you never forget a left boot again.
-                    </p>
-                  </div>
-
-                </div>
-
-                {/* Right Visuals Column */}
-                <div className="lg:w-7/12 relative h-[500px] w-full flex items-center justify-center perspective-[1000px]">
-                  
-                  {/* Visual 1: Closet Grid */}
-                  <div 
-                    className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ease-out origin-bottom ${activeFeature === 0 ? 'opacity-100 scale-100 rotate-x-0' : activeFeature > 0 ? 'opacity-0 scale-95 rotate-x-[15deg] translate-y-[-10%]' : 'opacity-0 scale-105 translate-y-[10%]'}`}
+                  <span
+                    className="material-symbols-outlined mb-5 block text-3xl text-kyar-textSecondary transition-colors group-hover:text-kyar-text"
+                    aria-hidden
                   >
-                    <div className="w-[120%] lg:w-full grid grid-cols-3 gap-4 p-8 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-2xl shadow-2xl">
-                      {[
-                        { img: "/mock/Leather_Jacket.png", name: "Jacket" },
-                        { img: "/mock/blonde_wig.jpg", name: "Blonde Wig" },
-                        { img: "/mock/red_scarf.png", name: "Silk Scarf" },
-                        { img: "/mock/Utility-belt.jpg", name: "Utility Belt" },
-                        { img: "/mock/urahara-sword.jpg", name: "Prop Sword" },
-                        { img: "/mock/wig2.jpg", name: "Styled Wig" },
-                      ].map((item, i) => (
-                        <div key={i} className="flex flex-col bg-[#0A0A0A] rounded-xl border border-white/10 overflow-hidden shadow-lg">
-                           <div className="aspect-square bg-white/5 relative overflow-hidden">
-                              <img src={item.img} alt={item.name} className="w-full h-full object-cover opacity-90" />
-                           </div>
-                           <div className="p-3 text-[11px] font-medium text-white/80">{item.name}</div>
+                    {item.icon}
+                  </span>
+                  <h3 className="font-sans-wide mb-3 text-sm font-bold uppercase tracking-widest">
+                    {item.title}
+                  </h3>
+                  <p className="text-base leading-relaxed text-kyar-textSecondary">{item.desc}</p>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Device mockup */}
+        <section
+          className={`overflow-hidden border-t border-kyar-borderSubtle bg-white py-24 sm:py-32`}
+        >
+          <div
+            className={`${SECTION_PADDING} ${MAX_WIDTH} flex flex-col items-center gap-16 lg:flex-row`}
+          >
+            <motion.div
+              initial={{ opacity: 0, x: -40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ margin: "-80px", amount: 0.2 }}
+              transition={{ duration: 0.8 }}
+              className="lg:w-1/2"
+            >
+              <h2 className="font-serif-elegant mb-8 text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
+                Your craft,
+                <br />
+                wherever you go.
+              </h2>
+              <p className="mb-12 max-w-md text-lg leading-relaxed text-kyar-textSecondary">
+                Plan on the web app with full editing power. Bring the mobile app to the workshop or
+                convention floor.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <a
+                  href="https://apps.apple.com/app/kyarafit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-lg bg-kyar-text px-6 py-4 text-white transition-all hover:-translate-y-0.5 hover:bg-kyar-accent hover:shadow-lg"
+                >
+                  <span className="material-symbols-outlined text-2xl" aria-hidden>
+                    apple
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider">App Store</span>
+                </a>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.kyarafit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-lg border-2 border-kyar-borderSubtle bg-white px-6 py-4 text-kyar-text transition-colors hover:border-kyar-text"
+                >
+                  <span className="material-symbols-outlined text-2xl" aria-hidden>
+                    android
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Google Play</span>
+                </a>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ margin: "-80px", amount: 0.2 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="relative flex h-[500px] w-full items-center justify-center lg:w-1/2"
+            >
+              <div className="absolute right-0 top-0 flex aspect-video w-full max-w-[600px] flex-col overflow-hidden rounded-xl border border-kyar-border bg-white shadow-[0_30px_60px_rgba(0,0,0,0.08)] lg:-right-12">
+                <div className="flex h-6 items-center gap-1.5 border-b border-kyar-borderSubtle bg-kyar-bgWarm px-4">
+                  <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FF5F56]" />
+                  <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FFBD2E]" />
+                  <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#27C93F]" />
+                </div>
+                <div className="flex min-h-[200px] flex-1 bg-kyar-bgWarm">
+                  <div className="flex w-44 flex-col gap-4 border-r border-kyar-borderSubtle bg-white py-5 px-3">
+                    <div className="px-2 font-serif-elegant text-base font-bold italic">
+                      Kyarafit
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary">
+                        Menu
+                      </div>
+                      <div className="rounded-md px-3 py-2 text-xs font-semibold text-kyar-textSecondary">
+                        Elements
+                      </div>
+                      <div className="rounded-md bg-kyar-muted px-3 py-2 text-xs font-semibold text-kyar-accent">
+                        Builds
+                      </div>
+                      <div className="rounded-md px-3 py-2 text-xs font-medium text-kyar-textSecondary">
+                        Conventions
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
+                    <div className="font-serif-elegant text-lg">My Builds</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {LANDING_BUILDS.slice(0, 3).map((b) => (
+                        <div
+                          key={b.id}
+                          className="overflow-hidden rounded-lg border border-kyar-borderSubtle bg-white"
+                        >
+                          <div className="relative aspect-[3/4] bg-kyar-muted">
+                            <img src={b.imageSrc} alt="" className="h-full w-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                            <div className="absolute bottom-1 left-1 right-1">
+                              <p className="truncate font-serif text-[10px] italic text-white">
+                                {b.name}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Visual 2: Build Progress */}
-                  <div 
-                    className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ease-out origin-bottom ${activeFeature === 1 ? 'opacity-100 scale-100 rotate-x-0' : activeFeature > 1 ? 'opacity-0 scale-95 rotate-x-[15deg] translate-y-[-10%]' : 'opacity-0 scale-105 rotate-x-[-15deg] translate-y-[10%]'}`}
-                  >
-                    <div className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-3xl shadow-2xl p-8 backdrop-blur-xl">
-                      <div className="flex gap-6 items-center mb-8">
-                        <div className="relative w-24 h-24 shrink-0">
-                          <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                            <circle cx="18" cy="18" r="15.9155" fill="none" className="stroke-white/5" strokeWidth="2.5" />
-                            <circle cx="18" cy="18" r="15.9155" fill="none" className="stroke-indigo-500" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="75 100" />
-                          </svg>
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="font-sans tracking-tight text-xl font-medium text-white">75%</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col">
-                           <div className="text-xs uppercase tracking-widest font-semibold text-white/40 mb-1">Status</div>
-                           <div className="font-sans tracking-tight text-3xl font-medium text-white">In Progress</div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        {["Prime and sand pieces", "Paint base coat", "Add weathering"].map((task, i) => (
-                          <div key={i} className="flex items-center gap-4">
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${i < 2 ? 'bg-indigo-500 border-indigo-500' : 'border-white/20'}`}>
-                               {i < 2 && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                            </div>
-                            <span className={`text-sm font-medium ${i < 2 ? 'text-white/40 line-through' : 'text-white/90'}`}>{task}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Visual 3: Events & Packing */}
-                  <div 
-                    className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ease-out origin-bottom ${activeFeature === 2 ? 'opacity-100 scale-100 rotate-x-0' : 'opacity-0 scale-105 rotate-x-[-15deg] translate-y-[10%]'}`}
-                  >
-                    <div className="w-[320px] h-[550px] bg-[#0A0A0A] border-[8px] border-[#1A1A1A] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-[#1A1A1A] rounded-b-2xl z-20" />
-                      
-                      <div className="h-40 bg-purple-600 p-6 flex flex-col justify-end text-white relative">
-                        <img src="/mock/katsucon.png" alt="Convention Background" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" />
-                        <div className="relative z-10">
-                          <div className="font-bold tracking-widest uppercase text-[10px] mb-1 opacity-80">Katsu 2026</div>
-                          <div className="text-2xl font-serif-elegant">Packing List</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1 p-6 space-y-4 bg-[#0A0A0A]">
-                        {["Armor Chestplate", "Undergarments", "Boots", "Repair Kit"].map((task, i) => (
-                           <div key={i} className="flex items-center gap-4 pb-3 border-b border-white/5">
-                             <div className={`w-4 h-4 rounded border flex items-center justify-center ${i < 2 ? 'bg-purple-500 border-purple-500' : 'border-white/20'}`}>
-                               {i < 2 && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                             </div>
-                             <span className={`text-xs uppercase tracking-wider font-semibold ${i < 2 ? 'text-white/40 line-through' : 'text-white/90'}`}>{task}</span>
-                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
-
-             </div>
-          </div>
-        </section>
-
-        {/* WORKFLOW BENTO GRID */}
-        <section className={`py-32 bg-[#050505] relative z-10`}>
-          <div className={`${SECTION_PADDING} ${MAX_WIDTH}`}>
-            <div className="text-center mb-20">
-              <h2 className="text-sm uppercase tracking-widest text-kyar-accent font-semibold mb-4">The Workflow</h2>
-              <p className="text-4xl sm:text-5xl font-medium tracking-tight">Four steps to absolute clarity.</p>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                { step: "01", title: "Catalog", desc: "Log every wig, prop, and piece into a searchable database." },
-                { step: "02", title: "Build", desc: "Link components to characters and track crafting tasks." },
-                { step: "03", title: "Plan", desc: "Map outfits to convention days and schedule photoshoots." },
-                { step: "04", title: "Pack", desc: "Generate intelligent packing lists so nothing is forgotten." },
-              ].map((item, idx) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ delay: idx * 0.1, duration: 0.6 }}
-                  key={item.step} 
-                  className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-colors duration-300 relative overflow-hidden group"
-                >
-                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                  <div className="text-3xl font-serif-elegant text-white/20 mb-6 font-bold italic">{item.step}</div>
-                  <h3 className="text-sm uppercase tracking-widest font-semibold mb-3 text-white">{item.title}</h3>
-                  <p className="text-sm text-white/50 leading-relaxed">{item.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* FINAL CTA */}
-        <section className={`py-40 bg-black text-center relative overflow-hidden`}>
-          {/* Subtle bottom glow */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-kyar-accent/20 blur-[100px] rounded-full pointer-events-none opacity-50 mix-blend-screen" />
-          
-          <div className={`relative z-10 ${SECTION_PADDING}`}>
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-              className="max-w-3xl mx-auto border border-white/10 bg-white/5 backdrop-blur-md rounded-3xl p-12 sm:p-20 shadow-2xl"
-            >
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight mb-8">
-                Elevate your cosplay management.
-              </h2>
-              <p className="text-lg text-white/50 mb-10 max-w-xl mx-auto leading-relaxed">
-                Join the platform designed exclusively for the meticulous nature of costume creation and convention planning.
-              </p>
-              <LandingAuthCta variant="cta" />
+              </div>
+              <motion.div
+                className="absolute bottom-[-20px] left-4 z-10 h-[450px] w-[220px] rounded-[2rem] border-[6px] border-[#E5E5E5] bg-white p-1 shadow-2xl lg:left-0"
+                initial={{ y: 50 }}
+                whileInView={{ y: 0 }}
+                viewport={{ margin: "-60px", amount: 0.15 }}
+                transition={{ duration: 1, delay: 0.4 }}
+              >
+                <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-white">
+                  <div className="absolute left-1/2 top-0 z-20 h-4 w-20 -translate-x-1/2 rounded-b-xl bg-[#E5E5E5]" />
+                  <div className="relative flex h-32 flex-col justify-end overflow-hidden bg-kyar-accent p-5 text-white">
+                    <img
+                      src={MOCK_ACCOUNT.convention.heroImageSrc}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-overlay"
+                    />
+                    <div className="relative z-10">
+                      <div className="font-serif-elegant mb-1 text-2xl leading-none">
+                        {MOCK_ACCOUNT.convention.subtitle}
+                      </div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider opacity-80">
+                        Packing list
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 bg-white p-4">
+                    {MOCK_ACCOUNT.convention.packingPreviewRows.map((row, i) => (
+                      <div
+                        key={row.label}
+                        className="flex items-center gap-3 border-b border-kyar-borderSubtle/50 pb-2"
+                      >
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                            row.done
+                              ? "border-kyar-accent bg-kyar-accent"
+                              : "border-kyar-border bg-white"
+                          }`}
+                        >
+                          {row.done && (
+                            <svg
+                              className="h-2.5 w-2.5 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                        <span
+                          className={`text-[11px] font-semibold tracking-wide ${
+                            row.done ? "text-kyar-textTertiary line-through" : "text-kyar-text"
+                          }`}
+                        >
+                          {row.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex h-14 items-center justify-around border-t border-kyar-borderSubtle bg-white px-2 text-kyar-textTertiary">
+                    <span className="material-symbols-outlined text-[22px]">checkroom</span>
+                    <span className="material-symbols-outlined text-[22px]">architecture</span>
+                    <div className="flex flex-col items-center text-kyar-accent">
+                      <span className="material-symbols-outlined text-[22px]">calendar_month</span>
+                      <span className="mt-0.5 h-1 w-1 rounded-full bg-kyar-accent" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className={`${SECTION_PADDING} py-12 bg-[#050505] border-t border-white/5 ${MAX_WIDTH} relative z-10`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <Link href="/" className="font-serif-elegant text-xl font-bold italic tracking-tighter text-white">
-            Kyarafit
-          </Link>
-          <p className="text-[10px] text-white/40 uppercase tracking-widest font-sans font-semibold">
-            Cosplay wardrobe & build tracker
-          </p>
-          <LandingAuthCta variant="footer" />
+      <footer className="border-t border-kyar-borderSubtle bg-kyar-bgWarm" role="contentinfo">
+        <div className={`${SECTION_PADDING} ${MAX_WIDTH} py-10`}>
+          <LandingMediaDisclaimer embedded />
+          <div className="mt-8 flex flex-col gap-4 border-t border-kyar-borderSubtle pt-8 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-kyar-textTertiary">
+              © {new Date().getFullYear()} Kyarafit. All rights reserved.
+            </p>
+            <LandingFooterStrip />
+          </div>
         </div>
       </footer>
     </div>

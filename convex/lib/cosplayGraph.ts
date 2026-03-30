@@ -13,10 +13,7 @@ export type MaterialStatus = (typeof MATERIAL_STATUSES)[number];
 export const OVERALL_BUCKETS = ["incomplete", "in_progress", "complete"] as const;
 export type OverallBucket = (typeof OVERALL_BUCKETS)[number];
 
-export function isAllowedLink(
-  parentType: CosplayNodeType,
-  childType: CosplayNodeType
-): boolean {
+export function isAllowedLink(parentType: CosplayNodeType, childType: CosplayNodeType): boolean {
   return (
     (parentType === "element" && childType === "element") ||
     (parentType === "element" && childType === "material") ||

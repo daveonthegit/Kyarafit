@@ -85,7 +85,9 @@ export function isWorkflowScopeKind(value: string | undefined | null): value is 
   return WORKFLOW_SCOPE_KINDS.includes(value as WorkflowScopeKind);
 }
 
-export function isWorkflowSourceKind(value: string | undefined | null): value is WorkflowSourceKind {
+export function isWorkflowSourceKind(
+  value: string | undefined | null
+): value is WorkflowSourceKind {
   return WORKFLOW_SOURCE_KINDS.includes(value as WorkflowSourceKind);
 }
 
@@ -111,7 +113,8 @@ export function deriveWeightedProgress(units: WeightedProgressUnit[]): number {
   for (const unit of units) {
     if (unit.excluded) continue;
     const progress = normalizePercent(unit.progressPercent) ?? 0;
-    const weight = unit.weight != null && Number.isFinite(unit.weight) && unit.weight > 0 ? unit.weight : 1;
+    const weight =
+      unit.weight != null && Number.isFinite(unit.weight) && unit.weight > 0 ? unit.weight : 1;
     numerator += progress * weight;
     denominator += weight;
   }
@@ -123,8 +126,16 @@ export function deriveWorkflowAggregateProgress(input: {
   kind?: WorkflowItemKind | null;
   status?: WorkflowStatus | null;
   manualProgressPercent?: number | null;
-  childProgress: Array<{ weight?: number | null; progressPercent?: number | null; excluded?: boolean }>;
-  attachedProgress?: Array<{ weight?: number | null; progressPercent?: number | null; excluded?: boolean }>;
+  childProgress: Array<{
+    weight?: number | null;
+    progressPercent?: number | null;
+    excluded?: boolean;
+  }>;
+  attachedProgress?: Array<{
+    weight?: number | null;
+    progressPercent?: number | null;
+    excluded?: boolean;
+  }>;
 }): number {
   const childUnits = [...input.childProgress, ...(input.attachedProgress ?? [])];
   if ((input.kind === "group" || input.kind === "milestone") && childUnits.length > 0) {
@@ -146,9 +157,21 @@ export function deriveBuildBlendedProgress(input: {
   if (manual != null) return manual;
 
   const units = [
-    { progressPercent: input.workflowProgressPercent, weight: 50, excluded: input.workflowProgressPercent == null },
-    { progressPercent: input.nodeProgressPercent, weight: 35, excluded: input.nodeProgressPercent == null },
-    { progressPercent: input.packingProgressPercent, weight: 15, excluded: input.packingProgressPercent == null },
+    {
+      progressPercent: input.workflowProgressPercent,
+      weight: 50,
+      excluded: input.workflowProgressPercent == null,
+    },
+    {
+      progressPercent: input.nodeProgressPercent,
+      weight: 35,
+      excluded: input.nodeProgressPercent == null,
+    },
+    {
+      progressPercent: input.packingProgressPercent,
+      weight: 15,
+      excluded: input.packingProgressPercent == null,
+    },
   ];
   return deriveWeightedProgress(units);
 }

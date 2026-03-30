@@ -378,9 +378,9 @@ function DraggableClosetRow({
         >
           drag_indicator
         </span>
-          ) : (
-            <span className="w-6 shrink-0" aria-hidden />
-          )}
+      ) : (
+        <span className="w-6 shrink-0" aria-hidden />
+      )}
       <button
         type="button"
         onClick={onToggle}
@@ -398,11 +398,17 @@ function DraggableClosetRow({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-kyar-text">{item.name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-kyar-textTertiary">
-            <span>{item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}</span>
+            <span>
+              {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}
+            </span>
             {item.nodeType && <span>{formatNodeStatus(item)}</span>}
-            {typeof item.progressPercent === "number" && <span>{item.progressPercent}% progress</span>}
+            {typeof item.progressPercent === "number" && (
+              <span>{item.progressPercent}% progress</span>
+            )}
             {typeof item.childCount === "number" && item.childCount > 0 && (
-              <span>{item.childCount} child{item.childCount === 1 ? "" : "ren"}</span>
+              <span>
+                {item.childCount} child{item.childCount === 1 ? "" : "ren"}
+              </span>
             )}
             {item.hasIncompleteDescendants && <span>has incomplete descendants</span>}
           </span>

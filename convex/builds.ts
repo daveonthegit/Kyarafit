@@ -108,7 +108,10 @@ async function getBuildWorkflowMetrics(
   ctx: MutationCtx | import("./_generated/server").QueryCtx,
   build: Doc<"builds">
 ) {
-  const scoped = await getBuildScopedWorkflow(ctx as import("./_generated/server").QueryCtx, build._id);
+  const scoped = await getBuildScopedWorkflow(
+    ctx as import("./_generated/server").QueryCtx,
+    build._id
+  );
   const workflowItems = scoped?.items ?? [];
   const taskItems = workflowItems.filter((item) => item.kind === "task");
   const tasksChecked = taskItems.filter((item) => item.status === "done").length;
@@ -141,7 +144,9 @@ async function getBuildWorkflowMetrics(
   }
   const nodeProgressPercent =
     nodeProgressUnits.length > 0
-      ? Math.round(nodeProgressUnits.reduce((sum, value) => sum + value, 0) / nodeProgressUnits.length)
+      ? Math.round(
+          nodeProgressUnits.reduce((sum, value) => sum + value, 0) / nodeProgressUnits.length
+        )
       : undefined;
   const packingItems = (
     await ctx.db
@@ -658,10 +663,7 @@ export const remove = mutation({
         .query("workflowAttachments")
         .withIndex("by_userId", (q) => q.eq("userId", args.userId))
         .collect()
-    ).filter(
-      (attachment) =>
-        attachment.entityType === "build" && attachment.entityId === args.id
-    );
+    ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === args.id);
     for (const attachment of workflowAttachments) {
       const workflowItem = await ctx.db.get(attachment.workflowItemId);
       await ctx.db.delete(attachment._id);
