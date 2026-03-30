@@ -36,7 +36,7 @@ export function LandingHeroSection() {
   return (
     <section
       ref={heroRef}
-      className="relative flex min-h-[85svh] flex-col items-center justify-center overflow-x-clip overflow-y-visible pb-16 pt-[max(7.5rem,env(safe-area-inset-top,0px)+5.5rem)] sm:min-h-[90vh] sm:pb-24 sm:pt-40 lg:pb-32"
+      className="relative flex min-h-[85svh] flex-col items-center justify-center overflow-x-clip overflow-y-visible pb-14 pt-[max(6.5rem,env(safe-area-inset-top,0px)+4.75rem)] sm:min-h-[90vh] sm:pb-20 sm:pt-36 lg:pb-28 lg:pt-40"
       aria-labelledby="hero-heading"
     >
       <motion.div
@@ -55,19 +55,22 @@ export function LandingHeroSection() {
         <motion.h1
           variants={fadeUp}
           id="hero-heading"
-          className="font-serif-elegant mx-auto mb-6 max-w-4xl text-balance text-4xl font-normal leading-[1.08] sm:mb-8 sm:text-6xl lg:text-[5.5rem]"
+          className="font-serif-elegant mx-auto mb-5 max-w-5xl text-balance text-[clamp(2.7rem,8vw,5.5rem)] font-normal leading-[1.04] sm:mb-7"
         >
           Master the craft.
           <br className="hidden sm:block" /> Organize the chaos.
         </motion.h1>
         <motion.p
           variants={fadeUp}
-          className="mx-auto mb-10 max-w-2xl px-1 text-base leading-relaxed text-kyar-textSecondary sm:mb-12 sm:text-lg"
+          className="mx-auto mb-8 max-w-[42rem] px-1 text-[clamp(1rem,2.5vw,1.125rem)] leading-relaxed text-kyar-textSecondary sm:mb-10"
         >
           Purpose-built for planning, building, and packing for conventions. Designed for
           meticulous creators who want to drop the spreadsheets.
         </motion.p>
-        <motion.div variants={fadeUp} className="mb-10 flex justify-center sm:mb-16">
+        <motion.div
+          variants={fadeUp}
+          className="mb-8 flex w-full justify-center sm:mb-14 sm:w-auto"
+        >
           <LandingAuthCta variant="hero" />
         </motion.div>
       </motion.div>
@@ -81,10 +84,10 @@ export function LandingHeroSection() {
                 opacity: opacityHeroMockup,
               }
         }
-        className="relative z-0 mt-2 w-full min-w-0 max-w-[min(100%,80rem)] shrink-0 px-3 sm:mt-4 sm:px-6"
+        className="relative z-0 mt-2 w-full min-w-0 max-w-[min(100%,82rem)] shrink-0 px-4 sm:mt-4 sm:px-6 lg:px-8"
       >
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[110%] w-[110%] max-w-[100vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-kyar-accent/10 blur-[80px]" />
-        <div className="relative mx-auto flex aspect-video w-full max-w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-kyar-border bg-[#0A0A0A] shadow-[0_40px_80px_rgba(17,82,212,0.15)] sm:rounded-[2rem]">
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[108%] w-[108%] max-w-[100vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-kyar-accent/10 blur-[72px] sm:blur-[80px]" />
+        <div className="relative mx-auto flex aspect-video w-full max-w-full min-w-0 items-center justify-center overflow-hidden rounded-[1.35rem] border border-kyar-border bg-[#0A0A0A] shadow-[0_28px_60px_rgba(17,82,212,0.14)] sm:rounded-[2rem] sm:shadow-[0_40px_80px_rgba(17,82,212,0.15)]">
           <HeroVideoPlayer />
         </div>
       </motion.div>

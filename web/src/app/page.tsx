@@ -14,17 +14,21 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-kyar-bgWarm text-kyar-text overflow-x-clip selection:bg-kyar-accent selection:text-white">
       <header
-        className={`fixed top-0 left-0 right-0 flex justify-between items-center py-6 z-50 mix-blend-difference text-white ${SECTION_PADDING} ${MAX_WIDTH}`}
+        className="fixed inset-x-0 top-0 z-50 mix-blend-difference text-white"
         aria-label="Site header"
       >
-        <Link
-          href="/"
-          className="font-serif-elegant text-xl sm:text-2xl font-bold italic tracking-tighter"
-          aria-label="Kyarafit home"
+        <div
+          className={`mx-auto flex w-full items-center justify-between gap-4 py-4 sm:py-5 lg:py-6 ${SECTION_PADDING} ${MAX_WIDTH}`}
         >
-          Kyarafit
-        </Link>
-        <LandingAuthCta variant="header" />
+          <Link
+            href="/"
+            className="font-serif-elegant text-lg font-bold italic tracking-tighter sm:text-xl lg:text-2xl"
+            aria-label="Kyarafit home"
+          >
+            Kyarafit
+          </Link>
+          <LandingAuthCta variant="header" />
+        </div>
       </header>
 
       <main className="flex flex-col" role="main">
@@ -35,9 +39,9 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t border-kyar-borderSubtle bg-kyar-bgWarm" role="contentinfo">
-        <div className={`${SECTION_PADDING} ${MAX_WIDTH} py-10`}>
+        <div className={`${SECTION_PADDING} ${MAX_WIDTH} py-8 sm:py-10`}>
           <LandingMediaDisclaimer embedded />
-          <div className="mt-8 flex flex-col gap-4 border-t border-kyar-borderSubtle pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-4 border-t border-kyar-borderSubtle pt-6 sm:mt-8 sm:pt-8 md:flex-row md:items-center md:justify-between">
             <p className="text-xs text-kyar-textTertiary">
               © {new Date().getFullYear()} Kyarafit. All rights reserved.
             </p>

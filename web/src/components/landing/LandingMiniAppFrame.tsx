@@ -38,7 +38,7 @@ export function LandingMiniAppFrame({
     : "flex min-h-[280px] flex-col sm:min-h-[320px] sm:flex-row";
   const aside = remotion
     ? "flex w-[9.25rem] shrink-0 flex-col gap-0.5 border-r border-kyar-borderSubtle bg-white p-2"
-    : "flex shrink-0 flex-col gap-0.5 border-kyar-borderSubtle bg-white p-2 sm:w-[10.25rem] sm:border-r";
+    : "flex shrink-0 gap-1 overflow-x-auto border-b border-kyar-borderSubtle bg-white p-2 no-scrollbar sm:flex-col sm:gap-0.5 sm:overflow-visible sm:border-b-0 sm:border-r sm:p-2 sm:w-[10.25rem]";
   const brand = remotion
     ? "mb-1.5 block px-2 font-serif-elegant text-sm font-bold italic"
     : "mb-1.5 hidden px-2 font-serif-elegant text-sm font-bold italic sm:block";
@@ -61,7 +61,7 @@ export function LandingMiniAppFrame({
             <a
               key={n.key}
               href={n.href}
-              className={`rounded-md px-2 py-1.5 font-semibold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1 ${navText} ${
+              className={`min-h-[2.25rem] whitespace-nowrap rounded-md px-3 py-1.5 font-semibold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1 sm:min-h-0 sm:px-2 ${navText} ${
                 activeNav === n.key
                   ? "bg-kyar-muted text-kyar-accent"
                   : "text-kyar-textSecondary hover:bg-kyar-bgWarm"

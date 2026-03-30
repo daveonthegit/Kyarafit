@@ -7,6 +7,7 @@ import { LandingMiniBuildsPreviewContent } from "@/components/landing/LandingMin
 import { LandingMiniBuildTrackingPreviewContent } from "@/components/landing/LandingMiniBuildTrackingPreview";
 import { LandingMiniElementsPreviewContent } from "@/components/landing/LandingMiniElementsPreview";
 import { ConventionLandingPreview } from "@/components/conventions/ConventionLandingPreview";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   LANDING_BUILDS,
   LANDING_BUILD_TASKS,
@@ -52,28 +53,28 @@ function StepDescription({ step }: { step: number }) {
   switch (step) {
     case 0:
       return (
-        <p className="max-w-xl text-lg leading-relaxed text-kyar-textSecondary">
+        <p className="max-w-xl text-base leading-relaxed text-kyar-textSecondary sm:text-lg">
           Browse and filter your cosplay builds the way you will in the app: cards, cover art, and
           status at a glance—no sign-in required on this preview.
         </p>
       );
     case 1:
       return (
-        <p className="max-w-xl text-lg leading-relaxed text-kyar-textSecondary">
+        <p className="max-w-xl text-base leading-relaxed text-kyar-textSecondary sm:text-lg">
           Elements are the pieces you own—wigs, props, contacts, materials—with photos and filters
           so you can attach them to builds without digging through folders.
         </p>
       );
     case 2:
       return (
-        <p className="max-w-xl text-lg leading-relaxed text-kyar-textSecondary">
+        <p className="max-w-xl text-base leading-relaxed text-kyar-textSecondary sm:text-lg">
           For each convention, see your lineup by day, which build you wear when, and a packing list
           so nothing stays in the hotel room by mistake.
         </p>
       );
     case 3:
       return (
-        <p className="max-w-xl text-lg leading-relaxed text-kyar-textSecondary">
+        <p className="max-w-xl text-base leading-relaxed text-kyar-textSecondary sm:text-lg">
           Inside a build, tasks and checklists track construction: what’s done, what’s next, and how
           far along the project is—same idea as the real build detail screen.
         </p>
@@ -128,18 +129,22 @@ export function LandingProductScrollySection() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const prefersReducedMotion = useReducedMotion();
+  const isDesktopScrolly = useMediaQuery("(min-width: 1024px)");
 
   const handleMiniAppNav = useCallback((key: NavKey) => {
     const el = containerRef.current;
     if (!el) return;
     const stepIndex = NAV_BY_STEP.indexOf(key);
     if (stepIndex < 0) return;
-    scrollWindowToProductStep(el, stepIndex);
-  }, []);
+    setStep(stepIndex);
+    if (isDesktopScrolly) {
+      scrollWindowToProductStep(el, stepIndex);
+    }
+  }, [isDesktopScrolly]);
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !isDesktopScrolly) return;
 
     let frameId: number | null = null;
 
@@ -166,7 +171,7 @@ export function LandingProductScrollySection() {
       window.removeEventListener("scroll", scheduleTick);
       window.removeEventListener("resize", scheduleTick);
     };
-  }, []);
+  }, [isDesktopScrolly]);
 
   const slidePct = step * (100 / STEP_COUNT);
   const copyTransition = prefersReducedMotion
@@ -180,18 +185,34 @@ export function LandingProductScrollySection() {
     <section
       ref={containerRef}
       id="product-demo"
-      className="relative scroll-mt-24 border-t border-kyar-borderSubtle bg-white"
-      style={{ minHeight: `${STEP_COUNT * 72}vh` }}
+      className="relative scroll-mt-20 border-t border-kyar-borderSubtle bg-white lg:min-h-[288vh] lg:scroll-mt-24"
       aria-label="Product preview"
     >
-      <div className="sticky top-24 z-10 flex w-full min-h-0 flex-col justify-start py-8 lg:py-10">
+      <div className="flex w-full min-h-0 flex-col justify-start py-8 sm:py-10 lg:sticky lg:top-20 lg:z-10 lg:py-10">
         <div
-          className={`${SECTION_PADDING} ${MAX_WIDTH} grid grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16`}
+          className={`${SECTION_PADDING} ${MAX_WIDTH} grid grid-cols-1 items-start gap-8 md:gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-12 xl:gap-16`}
         >
-          <div className="flex min-h-0 w-full flex-col justify-center lg:min-h-0">
+          <div className="flex min-h-0 w-full flex-col justify-center lg:py-6">
+            <div className="mb-5 flex flex-wrap gap-2 lg:hidden" aria-label="Preview steps">
+              {STEPS.map((s, i) => (
+                <button
+                  key={s.headingId}
+                  type="button"
+                  onClick={() => handleMiniAppNav(NAV_BY_STEP[i])}
+                  className={`min-h-[2.5rem] rounded-full border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 ${
+                    i === step
+                      ? "border-kyar-text bg-kyar-text text-white"
+                      : "border-kyar-borderSubtle bg-white text-kyar-textSecondary hover:border-kyar-text/30 hover:text-kyar-text"
+                  }`}
+                  aria-pressed={i === step}
+                >
+                  {s.eyebrow}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-3 sm:gap-5">
               <div
-                className="flex shrink-0 flex-col justify-between gap-2 py-1"
+                className="hidden shrink-0 flex-col justify-between gap-2 py-1 lg:flex"
                 style={{ minHeight: "12rem" }}
                 aria-hidden
               >
@@ -204,7 +225,7 @@ export function LandingProductScrollySection() {
                   />
                 ))}
               </div>
-              <div className="min-h-[min(20rem,42vh)] min-w-0 flex-1 overflow-hidden sm:min-h-[min(22rem,44vh)]">
+              <div className="min-h-[12.5rem] min-w-0 flex-1 overflow-hidden sm:min-h-[14rem] lg:min-h-[min(22rem,44vh)]">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={STEPS[step].headingId}
@@ -219,7 +240,7 @@ export function LandingProductScrollySection() {
                     </p>
                     <h2
                       id={STEPS[step].headingId}
-                      className="font-serif-elegant mb-4 max-w-2xl text-4xl font-normal sm:text-5xl"
+                      className="font-serif-elegant mb-4 max-w-2xl text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.05]"
                     >
                       {STEPS[step].title}
                     </h2>
@@ -234,7 +255,7 @@ export function LandingProductScrollySection() {
             <div className="relative mx-auto w-full">
               <LandingMiniAppFrame
                 activeNav={NAV_BY_STEP[step]}
-                mainClassName="min-h-[min(560px,72vh)] overflow-hidden sm:min-h-[min(520px,70vh)]"
+                mainClassName="min-h-[clamp(24rem,72vw,34rem)] overflow-hidden lg:min-h-[min(560px,72vh)]"
                 onNavSelect={handleMiniAppNav}
               >
                 <div className="overflow-hidden">

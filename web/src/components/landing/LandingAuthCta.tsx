@@ -7,11 +7,11 @@ import { authClient } from "@/lib/auth/auth-client";
 type Variant = "header" | "hero" | "footer" | "cta";
 
 const linkBase =
-  "font-sans-wide text-[10px] sm:text-xs text-kyar-text border-b border-black pb-0.5 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm";
+  "font-sans-wide inline-flex min-h-[40px] items-center text-[10px] sm:text-xs text-kyar-text border-b border-black pb-0.5 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm";
 const buttonPrimary =
-  "inline-flex items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider h-[52px] px-6 rounded-sm bg-black text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity";
+  "inline-flex min-h-[52px] items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider rounded-sm bg-black px-6 py-3 text-center text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity";
 const buttonSecondary =
-  "inline-flex items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider h-[52px] px-6 rounded-sm border border-black text-black hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity";
+  "inline-flex min-h-[52px] items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider rounded-sm border border-black px-6 py-3 text-center text-black hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-opacity";
 const footerLink =
   "font-sans-wide text-[10px] uppercase tracking-wider text-kyar-textSecondary hover:text-kyar-text focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm";
 const footerButton =
@@ -26,7 +26,7 @@ export function LandingAuthCta({ variant }: { variant: Variant }) {
     return (
       <>
         {!isPending && user ? (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/home" className={linkBase}>
               Go to app
             </Link>
@@ -61,22 +61,22 @@ export function LandingAuthCta({ variant }: { variant: Variant }) {
 
   if (variant === "hero") {
     return (
-      <div className="flex flex-wrap gap-3 sm:gap-4">
+      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-center sm:gap-4">
         {!isPending && isLoggedIn ? (
           <>
-            <Link href="/home" className={buttonPrimary}>
+            <Link href="/home" className={`${buttonPrimary} w-full sm:w-auto`}>
               Go to app
             </Link>
-            <Link href="/settings" className={buttonSecondary}>
+            <Link href="/settings" className={`${buttonSecondary} w-full sm:w-auto`}>
               Account
             </Link>
           </>
         ) : (
           <>
-            <Link href="/auth/signup" className={buttonPrimary}>
+            <Link href="/auth/signup" className={`${buttonPrimary} w-full sm:w-auto`}>
               Get started
             </Link>
-            <Link href="/auth/signin" className={buttonSecondary}>
+            <Link href="/auth/signin" className={`${buttonSecondary} w-full sm:w-auto`}>
               Log in
             </Link>
           </>

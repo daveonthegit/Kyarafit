@@ -9,30 +9,32 @@ const MAX_WIDTH = "max-w-7xl mx-auto w-full";
 
 export function LandingDeviceShowcaseSection() {
   return (
-    <section className="overflow-hidden border-t border-kyar-borderSubtle bg-white py-24 sm:py-32">
-      <div className={`${SECTION_PADDING} ${MAX_WIDTH} flex flex-col items-center gap-16 lg:flex-row`}>
+    <section className="overflow-hidden border-t border-kyar-borderSubtle bg-white py-20 sm:py-24 lg:py-32">
+      <div
+        className={`${SECTION_PADDING} ${MAX_WIDTH} flex flex-col items-center gap-12 sm:gap-14 lg:flex-row lg:items-center lg:gap-16`}
+      >
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ margin: "-80px", amount: 0.2 }}
           transition={{ duration: 0.8 }}
-          className="lg:w-1/2"
+          className="w-full lg:w-[min(32rem,46%)]"
         >
-          <h2 className="font-serif-elegant mb-8 text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
+          <h2 className="font-serif-elegant mb-6 text-[clamp(2.2rem,6vw,3.75rem)] font-normal leading-[1.05] sm:mb-8">
             Your craft,
             <br />
             wherever you go.
           </h2>
-          <p className="mb-12 max-w-md text-lg leading-relaxed text-kyar-textSecondary">
+          <p className="mb-8 max-w-xl text-base leading-relaxed text-kyar-textSecondary sm:mb-10 sm:text-lg">
             Plan on the web app with full editing power. Bring the mobile app to the workshop or
             convention floor.
           </p>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
             <a
               href="https://apps.apple.com/app/kyarafit"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-lg bg-kyar-text px-6 py-4 text-white transition-all hover:-translate-y-0.5 hover:bg-kyar-accent hover:shadow-lg"
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg bg-kyar-text px-6 py-4 text-white transition-all hover:-translate-y-0.5 hover:bg-kyar-accent hover:shadow-lg sm:w-auto sm:justify-start"
             >
               <span className="material-symbols-outlined text-2xl" aria-hidden>
                 apple
@@ -43,7 +45,7 @@ export function LandingDeviceShowcaseSection() {
               href="https://play.google.com/store/apps/details?id=com.kyarafit"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-lg border-2 border-kyar-borderSubtle bg-white px-6 py-4 text-kyar-text transition-colors hover:border-kyar-text"
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg border-2 border-kyar-borderSubtle bg-white px-6 py-4 text-kyar-text transition-colors hover:border-kyar-text sm:w-auto sm:justify-start"
             >
               <span className="material-symbols-outlined text-2xl" aria-hidden>
                 android
@@ -57,16 +59,16 @@ export function LandingDeviceShowcaseSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ margin: "-80px", amount: 0.2 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative flex h-[500px] w-full items-center justify-center lg:w-1/2"
+          className="relative flex min-h-[24rem] w-full items-center justify-center sm:min-h-[30rem] lg:min-h-[32rem] lg:flex-1"
         >
-          <div className="absolute right-0 top-0 flex aspect-video w-full max-w-[600px] flex-col overflow-hidden rounded-xl border border-kyar-border bg-white shadow-[0_30px_60px_rgba(0,0,0,0.08)] lg:-right-12">
+          <div className="absolute right-0 top-0 flex aspect-video w-[min(100%,42rem)] max-w-full flex-col overflow-hidden rounded-xl border border-kyar-border bg-white shadow-[0_24px_48px_rgba(0,0,0,0.08)] sm:w-[min(100%,40rem)] lg:right-0 lg:w-[min(100%,38rem)] xl:-right-8 xl:w-[min(100%,42rem)]">
             <div className="flex h-6 items-center gap-1.5 border-b border-kyar-borderSubtle bg-kyar-bgWarm px-4">
               <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FF5F56]" />
               <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FFBD2E]" />
               <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#27C93F]" />
             </div>
             <div className="flex min-h-[200px] flex-1 bg-kyar-bgWarm">
-              <div className="flex w-44 flex-col gap-4 border-r border-kyar-borderSubtle bg-white py-5 px-3">
+              <div className="hidden w-44 flex-col gap-4 border-r border-kyar-borderSubtle bg-white px-3 py-5 sm:flex">
                 <div className="px-2 font-serif-elegant text-base font-bold italic">Kyarafit</div>
                 <div className="flex flex-col gap-1">
                   <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary">
@@ -83,8 +85,8 @@ export function LandingDeviceShowcaseSection() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
-                <div className="font-serif-elegant text-lg">My Builds</div>
+              <div className="flex flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4">
+                <div className="font-serif-elegant text-base sm:text-lg">My Builds</div>
                 <div className="grid grid-cols-3 gap-2">
                   {LANDING_BUILDS.slice(0, 3).map((build) => (
                     <div
@@ -113,7 +115,7 @@ export function LandingDeviceShowcaseSection() {
             </div>
           </div>
           <motion.div
-            className="absolute bottom-[-20px] left-4 z-10 h-[450px] w-[220px] rounded-[2rem] border-[6px] border-[#E5E5E5] bg-white p-1 shadow-2xl lg:left-0"
+            className="absolute bottom-0 left-2 z-10 h-[min(70vw,28rem)] w-[min(42vw,14rem)] rounded-[2rem] border-[6px] border-[#E5E5E5] bg-white p-1 shadow-2xl sm:left-4 sm:h-[24rem] sm:w-[12rem] lg:left-0 lg:h-[26rem] lg:w-[13rem]"
             initial={{ y: 50 }}
             whileInView={{ y: 0 }}
             viewport={{ margin: "-60px", amount: 0.15 }}

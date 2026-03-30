@@ -60,33 +60,35 @@ const FEATURE_ITEMS = [
 export function LandingWorkflowSection() {
   return (
     <section
-      className={`border-t border-kyar-borderSubtle bg-kyar-bgWarm py-24 sm:py-32 ${SECTION_PADDING}`}
+      className={`border-t border-kyar-borderSubtle bg-kyar-bgWarm py-20 sm:py-24 lg:py-32 ${SECTION_PADDING}`}
       aria-labelledby="how-heading"
     >
       <div className={MAX_WIDTH}>
-        <div className="mb-16 max-w-3xl">
+        <div className="mb-12 max-w-3xl sm:mb-14 lg:mb-16">
           <h2
             id="how-heading"
             className="font-sans-wide mb-4 text-xs font-semibold uppercase tracking-widest text-kyar-accent"
           >
             What you can do
           </h2>
-          <p className="font-serif-elegant text-3xl sm:text-4xl">The web app, end to end.</p>
+          <p className="font-serif-elegant text-[clamp(2rem,4.5vw,2.5rem)] leading-tight">
+            The web app, end to end.
+          </p>
           <p className="mt-4 text-base leading-relaxed text-kyar-textSecondary">
             Elements and closet, builds and tasks, conventions and packing—plus planner, feed, and
             discover when you want to look beyond your own archive.
           </p>
         </div>
         <motion.div
-          className="grid gap-y-12 gap-x-8 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-x-6 gap-y-10 sm:grid-cols-2 sm:gap-y-12 lg:grid-cols-3 lg:gap-x-8"
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
           viewport={{ margin: "-50px", amount: 0.25 }}
         >
           {FEATURE_ITEMS.map((item) => (
-            <motion.div variants={fadeUp} key={item.step} className="group relative">
-              <div className="mb-6 font-serif-elegant text-5xl text-kyar-border transition-colors duration-500 group-hover:text-kyar-accent">
+            <motion.div variants={fadeUp} key={item.step} className="group relative max-w-xl">
+              <div className="mb-5 font-serif-elegant text-4xl text-kyar-border transition-colors duration-500 group-hover:text-kyar-accent sm:text-5xl">
                 {item.step}
               </div>
               <span
