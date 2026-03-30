@@ -25,9 +25,9 @@ const Scene1Closet = () => {
   ];
 
   return (
-    <AbsoluteFill className="bg-[#FAF9F7] flex flex-col items-center justify-center font-sans" style={{ opacity: sceneOpacity }}>
+    <AbsoluteFill className="bg-transparent flex flex-col items-center justify-center font-sans" style={{ opacity: sceneOpacity }}>
       <h2 
-        className="text-[#000000] font-serif text-[5rem] absolute top-32"
+        className="text-white font-sans tracking-tight font-medium text-[5rem] absolute top-32"
         style={{ 
           opacity: interpolate(frame, [10, 25], [0, 1], { extrapolateRight: "clamp" }),
           transform: `translateY(${interpolate(frame, [10, 25], [20, 0], { extrapolateRight: "clamp" })}px)`
@@ -66,20 +66,21 @@ const Scene1Closet = () => {
           return (
             <div
               key={i}
-              className="absolute bg-white border border-black/5 rounded-2xl flex flex-col overflow-hidden shadow-xl"
+              className="absolute bg-[#0A0A0A] border border-white/10 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
               style={{
                 width: itemWidth,
                 height: itemHeight,
                 transform: `translate(${x}px, ${y}px) rotate(${rot}deg)`,
                 opacity,
+                boxShadow: "0 0 40px rgba(0,0,0,0.5)"
               }}
             >
-              <div className="flex-1 bg-black/5 overflow-hidden">
+              <div className="flex-1 bg-white/5 overflow-hidden">
                 <Img src={staticFile(`mock/${item.img}`)} className="w-full h-full object-cover" />
               </div>
-              <div className="p-4 bg-white border-t border-black/5 flex flex-col gap-1.5 h-[80px]">
-                <p className="text-black text-lg font-medium truncate">{item.name}</p>
-                <div className="flex items-center justify-between text-black/50 text-sm">
+              <div className="p-4 bg-[#0A0A0A] border-t border-white/10 flex flex-col gap-1.5 h-[80px]">
+                <p className="text-white text-lg font-medium truncate">{item.name}</p>
+                <div className="flex items-center justify-between text-white/50 text-sm">
                   <span>{item.type}</span>
                   <span>{item.cost}</span>
                 </div>
@@ -109,7 +110,7 @@ const Scene2Build = () => {
   });
 
   return (
-    <AbsoluteFill className="bg-[#FAF9F7] flex flex-col items-center justify-center font-sans" style={{ opacity: sceneOpacity }}>
+    <AbsoluteFill className="bg-transparent flex flex-col items-center justify-center font-sans" style={{ opacity: sceneOpacity }}>
       <h2 
         className="text-[#1152D4] uppercase tracking-[0.25em] font-semibold text-3xl absolute top-32"
         style={{ 
@@ -121,15 +122,16 @@ const Scene2Build = () => {
       </h2>
 
       <div 
-        className="w-[800px] bg-white border border-black/5 p-12 rounded-3xl shadow-[0_40px_80px_rgba(0,0,0,0.1)]"
+        className="w-[800px] bg-[#0A0A0A] border border-white/10 p-12 rounded-3xl"
         style={{
+          boxShadow: "0 0 80px rgba(17, 82, 212, 0.15)",
           transform: `scale(${interpolate(frame, [10, 30], [0.95, 1], { extrapolateRight: "clamp" })})`
         }}
       >
         <div className="flex flex-col sm:flex-row gap-10 mb-12 items-center sm:items-start">
           <div className="relative w-40 h-40 shrink-0">
             <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-              <circle cx="18" cy="18" r="15.9155" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="2.5" />
+              <circle cx="18" cy="18" r="15.9155" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5" />
               <circle 
                 cx="18" cy="18" r="15.9155" fill="none" stroke="#1152D4" 
                 strokeWidth="2.5" strokeLinecap="round" 
@@ -137,21 +139,21 @@ const Scene2Build = () => {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="font-serif text-4xl font-semibold text-black leading-none tabular-nums">
+              <span className="font-sans tracking-tight text-4xl font-semibold text-white leading-none tabular-nums">
                 {Math.round(progressWidth * 100)}%
               </span>
             </div>
           </div>
           <div className="flex-1 flex flex-col gap-3 pt-4">
-             <div className="font-sans-wide text-xs uppercase tracking-[0.2em] font-semibold text-black/40">Status</div>
-             <div className="font-serif text-4xl text-black">In Progress</div>
-             <div className="text-xl text-black/60 mt-2">
+             <div className="font-sans-wide text-xs uppercase tracking-[0.2em] font-semibold text-white/40">Status</div>
+             <div className="font-sans tracking-tight font-medium text-4xl text-white">In Progress</div>
+             <div className="text-xl text-white/60 mt-2">
                {Math.floor(progressWidth * 18)} of 18 tasks complete
              </div>
           </div>
         </div>
         
-        <div className="space-y-6 border-t border-black/5 pt-8">
+        <div className="space-y-6 border-t border-white/10 pt-8">
           {[
             "Prime and sand shoulder pieces",
             "Paint base coat",
@@ -166,7 +168,7 @@ const Scene2Build = () => {
                 <div 
                   className="w-8 h-8 rounded-md border-2 flex items-center justify-center transition-colors duration-200"
                   style={{ 
-                    borderColor: isChecked ? '#1152D4' : 'rgba(0,0,0,0.1)',
+                    borderColor: isChecked ? '#1152D4' : 'rgba(255,255,255,0.1)',
                     backgroundColor: isChecked ? '#1152D4' : 'transparent'
                   }}
                 >
@@ -181,7 +183,7 @@ const Scene2Build = () => {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <div className={`text-xl font-sans-wide font-semibold uppercase tracking-wide transition-all ${isChecked ? "opacity-40 line-through text-black/60" : "text-black"}`}>
+                  <div className={`text-xl font-sans font-medium transition-all ${isChecked ? "opacity-40 line-through text-white/60" : "text-white"}`}>
                     {itemLabel}
                   </div>
                 </div>
@@ -212,9 +214,9 @@ const Scene3Events = () => {
   const yOffset = interpolate(slideUp, [0, 1], [600, 0]);
 
   return (
-    <AbsoluteFill className="bg-[#FAF9F7] flex flex-col items-center justify-center font-sans overflow-hidden" style={{ opacity: sceneOpacity }}>
+    <AbsoluteFill className="bg-transparent flex flex-col items-center justify-center font-sans overflow-hidden" style={{ opacity: sceneOpacity }}>
       <h2 
-        className="text-black font-serif text-6xl absolute top-24"
+        className="text-white font-sans tracking-tight font-medium text-[5rem] absolute top-24"
         style={{ opacity: interpolate(frame, [15, 30], [0, 1], { extrapolateRight: "clamp" }) }}
       >
         Conventions Sorted
@@ -222,11 +224,14 @@ const Scene3Events = () => {
       
       {/* Mobile Mockup */}
       <div 
-        className="w-[440px] h-[880px] bg-white border-[16px] border-[#E5E5E5] rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.15)] overflow-hidden absolute top-[220px] flex flex-col"
-        style={{ transform: `translateY(${yOffset}px)` }}
+        className="w-[440px] h-[880px] bg-[#050505] border-[16px] border-[#111] rounded-[3.5rem] overflow-hidden absolute top-[220px] flex flex-col"
+        style={{ 
+          boxShadow: "0 0 100px rgba(0,0,0,1)",
+          transform: `translateY(${yOffset}px)` 
+        }}
       >
         {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-8 bg-[#E5E5E5] rounded-b-3xl z-20" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-8 bg-[#111] rounded-b-3xl z-20" />
         
         <div className="h-48 bg-[#1152D4] p-10 text-white flex flex-col justify-end relative overflow-hidden">
           <Img src={staticFile("mock/Anime-NYC.png")} className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay" />
@@ -236,7 +241,7 @@ const Scene3Events = () => {
           </div>
         </div>
         
-        <div className="p-8 flex-1 space-y-5 bg-[#FAF9F7]">
+        <div className="p-8 flex-1 space-y-5 bg-[#050505] border-x border-white/5">
           {[
             "Armor Chestplate",
             "Undergarments (Black)",
@@ -246,11 +251,11 @@ const Scene3Events = () => {
           ].map((itemLabel, i) => {
              const checkOp = spring({ frame: frame - 40 - i * 10, fps, config: { damping: 12, stiffness: 100 } });
              return (
-               <div key={i} className="flex gap-5 items-center bg-white p-5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.03)] border border-black/5">
+               <div key={i} className="flex gap-5 items-center bg-[#0A0A0A] p-5 rounded-2xl border border-white/10">
                  <div 
                     className="w-8 h-8 rounded-md border-2 flex items-center justify-center transition-colors" 
                     style={{ 
-                      borderColor: checkOp > 0.5 ? '#1152D4' : 'rgba(0,0,0,0.1)',
+                      borderColor: checkOp > 0.5 ? '#1152D4' : 'rgba(255,255,255,0.1)',
                       backgroundColor: checkOp > 0.5 ? '#1152D4' : 'transparent' 
                     }}
                   >
@@ -265,7 +270,7 @@ const Scene3Events = () => {
                     </svg>
                  </div>
                  <div className="flex-1">
-                   <div className={`text-lg font-sans-wide font-semibold uppercase tracking-wide transition-all ${checkOp > 0.5 ? "opacity-40 line-through text-black/60" : "text-black"}`}>
+                   <div className={`text-lg font-sans font-medium transition-all ${checkOp > 0.5 ? "opacity-40 line-through text-white/60" : "text-white"}`}>
                      {itemLabel}
                    </div>
                  </div>
@@ -280,7 +285,7 @@ const Scene3Events = () => {
 
 export const HeroComposition = () => {
   return (
-    <AbsoluteFill className="bg-[#FAF9F7]">
+                <AbsoluteFill className="bg-[#050505]">
       <Sequence from={0} durationInFrames={100}>
         <Scene1Closet />
       </Sequence>
