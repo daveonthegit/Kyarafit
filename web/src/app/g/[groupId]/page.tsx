@@ -343,7 +343,7 @@ export default function GroupDetailPage() {
                   {builds.map((b) => (
                     <li key={b._id} className="relative">
                       <Link
-                        href={`/build-detail?id=${b._id}`}
+                        href={`/build-detail/${b._id}`}
                         className="block relative aspect-[4/3] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group/build"
                       >
                         {b.imageStorageId ? (

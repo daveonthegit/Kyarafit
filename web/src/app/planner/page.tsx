@@ -227,7 +227,7 @@ export default function Planner() {
         datetime: task.dueDate + "T00:00:00",
         href: task.conventionId
           ? `/conventions/${task.conventionId}/packing`
-          : `/build-detail?id=${task.buildId}`,
+          : `/build-detail/${task.buildId}`,
       });
     });
     (conventions ?? []).forEach((con) => {
@@ -564,7 +564,7 @@ function PlannerTaskTree({
             </span>
             <span className="flex-1">{build.buildName}</span>
             <Link
-              href={`/build-detail?id=${build.buildId}`}
+              href={`/build-detail/${build.buildId}`}
               className="text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
               onClick={(e) => e.stopPropagation()}
             >
@@ -596,7 +596,7 @@ function PlannerTaskRow({
   const contextHref = task.conventionId
     ? `/conventions/${task.conventionId}/packing`
     : task.buildId
-      ? `/build-detail?id=${task.buildId}`
+      ? `/build-detail/${task.buildId}`
       : task.cosplayNodeId
         ? `/elements/${task.cosplayNodeId}`
         : "/planner";

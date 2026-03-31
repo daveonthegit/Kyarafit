@@ -131,16 +131,19 @@ export function LandingProductScrollySection() {
   const prefersReducedMotion = useReducedMotion();
   const isDesktopScrolly = useMediaQuery("(min-width: 1024px)");
 
-  const handleMiniAppNav = useCallback((key: NavKey) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const stepIndex = NAV_BY_STEP.indexOf(key);
-    if (stepIndex < 0) return;
-    setStep(stepIndex);
-    if (isDesktopScrolly) {
-      scrollWindowToProductStep(el, stepIndex);
-    }
-  }, [isDesktopScrolly]);
+  const handleMiniAppNav = useCallback(
+    (key: NavKey) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const stepIndex = NAV_BY_STEP.indexOf(key);
+      if (stepIndex < 0) return;
+      setStep(stepIndex);
+      if (isDesktopScrolly) {
+        scrollWindowToProductStep(el, stepIndex);
+      }
+    },
+    [isDesktopScrolly]
+  );
 
   useEffect(() => {
     const el = containerRef.current;

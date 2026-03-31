@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { Bodoni_Moda, Inter, Montserrat, Playfair_Display } from "next/font/google";
+import { Bodoni_Moda, Inter, JetBrains_Mono, Montserrat, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
@@ -42,6 +42,13 @@ const bodoniModa = Bodoni_Moda({
   variable: "--font-bodoni-moda",
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+  variable: "--font-explorer-mono",
+});
+
 // Force dynamic rendering - most pages require authentication
 export const dynamic = "force-dynamic";
 
@@ -59,7 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body
-        className={`${inter.variable} ${montserrat.variable} ${playfairDisplay.variable} ${bodoniModa.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
+        className={`${inter.variable} ${montserrat.variable} ${playfairDisplay.variable} ${bodoniModa.variable} ${jetbrainsMono.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
         suppressHydrationWarning
       >
         <ConvexClientProvider initialToken={token}>

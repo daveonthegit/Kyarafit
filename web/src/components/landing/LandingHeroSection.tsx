@@ -64,8 +64,8 @@ export function LandingHeroSection() {
           variants={fadeUp}
           className="mx-auto mb-8 max-w-[42rem] px-1 text-[clamp(1rem,2.5vw,1.125rem)] leading-relaxed text-kyar-textSecondary sm:mb-10"
         >
-          Purpose-built for planning, building, and packing for conventions. Designed for
-          meticulous creators who want to drop the spreadsheets.
+          Purpose-built for planning, building, and packing for conventions. Designed for meticulous
+          creators who want to drop the spreadsheets.
         </motion.p>
         <motion.div
           variants={fadeUp}

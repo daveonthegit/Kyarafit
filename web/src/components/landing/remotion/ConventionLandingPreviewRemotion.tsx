@@ -81,7 +81,11 @@ export function ConventionLandingPreviewRemotion({
                     {build ? (
                       <>
                         <div className="relative mb-1.5 h-16 w-full overflow-hidden rounded-lg border border-kyar-borderSubtle/80 bg-kyar-muted">
-                          <img src={build.imageSrc} alt={build.name} className="h-full w-full object-cover" />
+                          <img
+                            src={build.imageSrc}
+                            alt={build.name}
+                            className="h-full w-full object-cover"
+                          />
                         </div>
                         <p className="text-[8px] font-bold uppercase tracking-widest text-kyar-meta">
                           {build.character}
@@ -118,7 +122,9 @@ export function ConventionLandingPreviewRemotion({
                   >
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
-                        row.done ? "border-kyar-accent bg-kyar-accent" : "border-kyar-border bg-white"
+                        row.done
+                          ? "border-kyar-accent bg-kyar-accent"
+                          : "border-kyar-border bg-white"
                       }`}
                     >
                       {row.done ? (

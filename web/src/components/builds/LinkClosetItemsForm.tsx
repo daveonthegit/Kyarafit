@@ -9,13 +9,14 @@ import {
   useState,
   forwardRef,
 } from "react";
-import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
+import type { CSSProperties, DragEvent } from "react";
 import { useMutation } from "convex/react";
 import { Plus, Search } from "lucide-react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
 import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
+import { setNativeDragLabelPreview } from "@/lib/nativeDragPreview";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 
@@ -43,6 +44,9 @@ export type LinkClosetRow = {
 type SortMode = "name" | "recent" | "selectedFirst";
 
 const PAGE_SIZE = 100;
+
+/** Native HTML5 DnD payload (avoid relying on @dnd-kit sensors in scrollable lists). */
+const LINK_CLOSET_DRAG_TYPE = "application/x-kyarafit-link-closet";
 
 type LinkClosetItemsFormProps = {
   buildId: Id<"builds">;
@@ -82,6 +86,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     const [sortMode, setSortMode] = useState<SortMode>("name");
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+    const [dropZoneActive, setDropZoneActive] = useState(false);
 
     useEffect(() => {
       if (isActive && !prevActive.current) {
@@ -161,18 +166,6 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
         return next;
       });
     }, [filtered]);
-
-    const handleDragEnd = (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (over && over.id === "build-drop-zone") {
-        const itemId = active.id as string;
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          next.add(itemId);
-          return next;
-        });
-      }
-    };
 
     const save = useCallback(async () => {
       try {
@@ -277,6 +270,8 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
               isSelected={selectedIds.has(item._id)}
               onToggle={() => toggle(item._id)}
               dragHandle={enableDragDrop}
+              dragMimeType={LINK_CLOSET_DRAG_TYPE}
+              onDragEndRow={enableDragDrop ? () => setDropZoneActive(false) : undefined}
             />
           ))}
         </ul>
@@ -309,7 +304,36 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
           </button>
         )}
         {enableDragDrop && (
-          <DroppableBuildZone className="mt-4">
+          <DroppableBuildZone
+            className="mt-4"
+            active={dropZoneActive}
+            onDragEnterZone={() => setDropZoneActive(true)}
+            onDragLeaveZone={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDropZoneActive(false);
+              }
+            }}
+            onDragOverZone={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+            }}
+            onDropOnZone={(e) => {
+              e.preventDefault();
+              setDropZoneActive(false);
+              // #region agent log
+              console.log('[DBG-c17634] Drop received on zone', { types: Array.from(e.dataTransfer.types), textData: e.dataTransfer.getData('text/plain') });
+              // #endregion
+              const id =
+                e.dataTransfer.getData("text/plain") ||
+                e.dataTransfer.getData(LINK_CLOSET_DRAG_TYPE);
+              if (!id) return;
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+              });
+            }}
+          >
             <div className="flex items-center justify-center gap-2 text-center">
               <span className="material-symbols-outlined text-2xl text-kyar-textSecondary">
                 move_down
@@ -340,7 +364,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
       </div>
     );
 
-    return enableDragDrop ? <DndContext onDragEnd={handleDragEnd}>{inner}</DndContext> : inner;
+    return inner;
   }
 );
 
@@ -351,33 +375,50 @@ function DraggableClosetRow({
   isSelected,
   onToggle,
   dragHandle,
+  dragMimeType,
+  onDragEndRow,
 }: {
   item: LinkClosetRow;
   isSelected: boolean;
   onToggle: () => void;
   dragHandle: boolean;
+  dragMimeType: string;
+  onDragEndRow?: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: item._id,
-    disabled: !dragHandle,
-    data: { type: "closetItem", item },
-  });
+  const [isDragging, setIsDragging] = useState(false);
 
   return (
-    <li
-      ref={setNodeRef}
-      className={`flex items-center gap-3 py-3 px-2 ${isDragging ? "opacity-50" : ""}`}
-      style={{ contentVisibility: "auto" }}
-    >
+    <li className={`flex items-center gap-3 py-3 px-2 ${isDragging ? "opacity-50" : ""}`}>
       {dragHandle ? (
-        <span
-          className="material-symbols-outlined shrink-0 cursor-grab touch-none text-kyar-textTertiary"
-          {...listeners}
-          {...attributes}
-          aria-hidden
+        <div
+          draggable
+          onDragStart={(e) => {
+            // #region agent log
+            console.log('[DBG-c17634] LinkCloset onDragStart', { itemId: item._id, itemName: item.name });
+            // #endregion
+            const id = item._id as string;
+            e.dataTransfer.setData("text/plain", id);
+            e.dataTransfer.setData(dragMimeType, id);
+            e.dataTransfer.effectAllowed = "copy";
+            setNativeDragLabelPreview(e, item.name);
+            setIsDragging(true);
+          }}
+          onDragEnd={() => {
+            // #region agent log
+            console.log('[DBG-c17634] LinkCloset onDragEnd', { itemId: item._id });
+            // #endregion
+            setIsDragging(false);
+            onDragEndRow?.();
+          }}
+          className="flex h-9 min-w-[28px] shrink-0 cursor-grab touch-none select-none items-center justify-center text-kyar-textTertiary active:cursor-grabbing"
+          style={{ WebkitUserDrag: "element" } as CSSProperties}
+          aria-label={`Drag to add ${item.name} to build`}
+          title="Drag into drop zone above"
         >
-          drag_indicator
-        </span>
+          <span className="material-symbols-outlined pointer-events-none text-lg" aria-hidden>
+            drag_indicator
+          </span>
+        </div>
       ) : (
         <span className="w-6 shrink-0" aria-hidden />
       )}
@@ -421,20 +462,31 @@ function DraggableClosetRow({
 function DroppableBuildZone({
   children,
   className = "",
+  active,
+  onDragEnterZone,
+  onDragLeaveZone,
+  onDragOverZone,
+  onDropOnZone,
 }: {
   children: React.ReactNode;
   className?: string;
+  active: boolean;
+  onDragEnterZone: () => void;
+  onDragLeaveZone: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOverZone: (e: DragEvent<HTMLDivElement>) => void;
+  onDropOnZone: (e: DragEvent<HTMLDivElement>) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: "build-drop-zone",
-    data: { type: "buildZone" },
-  });
-
   return (
     <div
-      ref={setNodeRef}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        onDragEnterZone();
+      }}
+      onDragLeave={onDragLeaveZone}
+      onDragOver={onDragOverZone}
+      onDrop={onDropOnZone}
       className={`rounded-lg border-2 border-dashed p-5 transition-all ${className} ${
-        isOver ? "border-kyar-accent bg-kyar-accent/10" : "border-kyar-border bg-kyar-muted/50"
+        active ? "border-kyar-accent bg-kyar-accent/10" : "border-kyar-border bg-kyar-muted/50"
       }`}
     >
       {children}

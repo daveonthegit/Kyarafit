@@ -308,7 +308,7 @@ export default function BuildsPage() {
                     aria-label={`Select ${b.name}`}
                   />
                   <Link
-                    href={`/build-detail?id=${b._id}`}
+                    href={`/build-detail/${b._id}`}
                     className={`block relative aspect-[3/4] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group ${isSelected ? "ring-2 ring-black border-black" : "border-kyar-borderSubtle bg-kyar-muted"}`}
                     aria-label={`View details for ${b.name}`}
                   >
@@ -403,7 +403,7 @@ export default function BuildsPage() {
                 return (
                   <Link
                     key={b._id}
-                    href={`/build-detail?id=${b._id}`}
+                    href={`/build-detail/${b._id}`}
                     className="block relative aspect-[3/4] w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 text-white group"
                   >
                     {b.imageStorageId || b.imageUrl ? (

@@ -431,6 +431,80 @@ export const listChildren = query({
   },
 });
 
+export const listBuildVisualNodes = query({
+  args: { buildId: v.id("builds") },
+  handler: async (ctx, args) => {
+    const rootLinks = await ctx.db
+      .query("buildCosplayLinks")
+      .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", args.buildId))
+      .collect();
+
+    const visualNodes = new Map<
+      string,
+      {
+        _id: Id<"cosplayNodes">;
+        name: string;
+        imageUrl?: string | null;
+        imageStorageId?: Id<"_storage"> | null;
+        nodeType: NodeType;
+        progressPercent: number;
+        childCount: number;
+        hasIncompleteDescendants: boolean;
+        isRoot: boolean;
+        depth: number;
+        sortOrder: number;
+      }
+    >();
+
+    const visit = async (
+      cosplayNodeId: Id<"cosplayNodes">,
+      depth: number,
+      isRoot: boolean,
+      sortOrder: number,
+      seen = new Set<string>()
+    ) => {
+      if (seen.has(cosplayNodeId)) return;
+      seen.add(cosplayNodeId);
+
+      const node = await ctx.db.get(cosplayNodeId);
+      if (!node) return;
+
+      const summary = await deriveNodeSummary(ctx, cosplayNodeId, args.buildId);
+      const existing = visualNodes.get(cosplayNodeId);
+      visualNodes.set(cosplayNodeId, {
+        _id: node._id,
+        name: node.name,
+        imageUrl: node.imageUrl,
+        imageStorageId: node.imageStorageId,
+        nodeType: node.nodeType as NodeType,
+        progressPercent: summary.progressPercent,
+        childCount: summary.childCount,
+        hasIncompleteDescendants: summary.hasIncompleteDescendants,
+        isRoot: existing?.isRoot ?? isRoot,
+        depth: existing ? Math.min(existing.depth, depth) : depth,
+        sortOrder: existing ? Math.min(existing.sortOrder, sortOrder) : sortOrder,
+      });
+
+      const childLinks = await getChildLinks(ctx, cosplayNodeId);
+      for (let index = 0; index < childLinks.length; index += 1) {
+        const childLink = childLinks[index];
+        await visit(childLink.childNodeId, depth + 1, false, sortOrder * 100 + index + 1, seen);
+      }
+    };
+
+    for (let index = 0; index < rootLinks.length; index += 1) {
+      await visit(rootLinks[index].cosplayNodeId, 0, true, index);
+    }
+
+    return Array.from(visualNodes.values()).sort((a, b) => {
+      if (a.isRoot !== b.isRoot) return a.isRoot ? -1 : 1;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      if (a.depth !== b.depth) return a.depth - b.depth;
+      return a.name.localeCompare(b.name);
+    });
+  },
+});
+
 export const create = mutation({
   args: {
     userId: v.string(),

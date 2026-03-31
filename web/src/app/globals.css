@@ -4,7 +4,7 @@
 
 :root {
   --primary: #1152d4;
-  --kyar-bg-warm: #FAF9F7;
+  --kyar-bg-warm: #faf9f7;
   --kyar-card-border: rgba(0, 0, 0, 0.08);
 }
 
@@ -74,6 +74,11 @@ body {
   text-transform: uppercase;
 }
 
+/* Explorer chrome (build node manager path + status) */
+.font-explorer-mono {
+  font-family: var(--font-explorer-mono), ui-monospace, monospace;
+}
+
 .meta-label {
   font-size: 9px;
   letter-spacing: 0.2em;
@@ -84,7 +89,11 @@ body {
 
 /* Material Symbols */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 24;
 }
 
 /* Scrollbar hide */

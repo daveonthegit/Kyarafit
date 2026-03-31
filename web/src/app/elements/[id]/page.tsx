@@ -695,7 +695,7 @@ export default function ElementDetailPage() {
                       key={build._id}
                       className="flex items-center justify-between gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0"
                     >
-                      <Link href={`/build-detail?id=${build._id}`} className="min-w-0 flex-1">
+                      <Link href={`/build-detail/${build._id}`} className="min-w-0 flex-1">
                         <p className="truncate font-medium text-kyar-text">{build.name}</p>
                         <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                           {build.character || "build"}

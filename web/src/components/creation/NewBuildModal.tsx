@@ -45,7 +45,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
       });
       if (build) {
         onSuccessComplete();
-        router.push(`/build-detail?id=${build._id}`);
+        router.push(`/build-detail/${build._id}`);
       }
     } finally {
       setIsPending(false);

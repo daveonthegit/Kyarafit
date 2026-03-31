@@ -20,6 +20,8 @@ export type BuildVisualBoardNode = {
   progressPercent?: number;
   childCount?: number;
   hasIncompleteDescendants?: boolean;
+  isRoot?: boolean;
+  depth?: number;
 };
 
 type BuildVisualBoardProps = {
@@ -34,7 +36,7 @@ const TABS: { id: VisualTab; label: string }[] = [
   { id: "all", label: "All" },
   { id: "references", label: "References" },
   { id: "progress", label: "Progress" },
-  { id: "nodes", label: "Elements & Materials" },
+  { id: "nodes", label: "Elements" },
 ];
 
 export function BuildVisualBoard({
@@ -59,7 +61,19 @@ export function BuildVisualBoard({
   }, [isFullscreen]);
 
   const allEmpty =
-    (refs?.length ?? 0) === 0 && (progressPhotos?.length ?? 0) === 0 && linkedNodes.length === 0;
+    (refs?.length ?? 0) === 0 &&
+    (progressPhotos?.length ?? 0) === 0 &&
+    linkedNodes.filter((node) => node.nodeType === "element" && node.isRoot).length === 0;
+
+  const rootElements = useMemo(
+    () => linkedNodes.filter((node) => node.nodeType === "element" && node.isRoot),
+    [linkedNodes]
+  );
+
+  const boardElements = useMemo(
+    () => linkedNodes.filter((node) => node.nodeType === "element"),
+    [linkedNodes]
+  );
 
   const itemsAll = useMemo(() => {
     const items: Array<{ type: string; id: string; sortKey: number; element: React.ReactNode }> =
@@ -130,7 +144,7 @@ export function BuildVisualBoard({
         })
       );
     }
-    linkedNodes.forEach((c, i) =>
+    rootElements.forEach((c, i) =>
       items.push({
         type: "nodes",
         id: c._id,
@@ -139,11 +153,27 @@ export function BuildVisualBoard({
       })
     );
     return items.sort((a, b) => b.sortKey - a.sortKey);
-  }, [refs, progressPhotos, linkedNodes, renderNodeCard]);
+  }, [refs, progressPhotos, renderNodeCard, rootElements]);
 
   const itemsReferences = useMemo(() => itemsAll.filter((i) => i.type === "reference"), [itemsAll]);
   const itemsProgress = useMemo(() => itemsAll.filter((i) => i.type === "progress"), [itemsAll]);
-  const itemsNodes = useMemo(() => itemsAll.filter((i) => i.type === "nodes"), [itemsAll]);
+  const itemsNodes = useMemo(
+    () =>
+      boardElements.map((node, index) => ({
+        type: "nodes",
+        id: node._id,
+        sortKey: boardElements.length - index,
+        element: (
+          <div
+            className="break-inside-avoid mb-4 w-full"
+            style={node.depth ? { marginLeft: Math.min(node.depth, 3) * 12 } : undefined}
+          >
+            {renderNodeCard(node)}
+          </div>
+        ),
+      })),
+    [boardElements, renderNodeCard]
+  );
 
   const filterSelectId = `visual-board-view-${buildId}`;
 
@@ -201,12 +231,10 @@ export function BuildVisualBoard({
                     }}
                     className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
                   >
-                    Link elements or materials
+                    Link nodes
                   </button>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">
-                    Sign in to link elements or materials.
-                  </p>
+                  <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
                 )}
               </div>
             )}
@@ -261,7 +289,7 @@ export function BuildVisualBoard({
             {itemsNodes.length === 0 ? (
               <div className="text-center py-8 border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
                 <p className="text-sm text-kyar-textTertiary mb-3">
-                  No elements or materials linked yet.
+                  No elements linked yet.
                 </p>
                 {_userId ? (
                   <button
@@ -272,12 +300,10 @@ export function BuildVisualBoard({
                     }}
                     className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
                   >
-                    Link elements or materials
+                    Link nodes
                   </button>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">
-                    Sign in to link elements or materials.
-                  </p>
+                  <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
                 )}
               </div>
             ) : (

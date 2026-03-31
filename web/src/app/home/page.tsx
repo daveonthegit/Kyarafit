@@ -178,7 +178,7 @@ export default function HomePage() {
             <section className="lg:col-span-2 lg:row-span-2 flex flex-col min-h-[400px] lg:h-full lg:min-h-0">
               <MagicCard className="flex-1 overflow-hidden border border-kyar-borderSubtle rounded-2xl shadow-soft flex flex-col min-h-0">
                 <Link
-                  href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
+                  href={recentBuild ? `/build-detail/${recentBuild._id}` : "/builds"}
                   className="flex-1 block group flex flex-col min-h-0"
                   aria-label={
                     recentBuild
@@ -413,7 +413,7 @@ export default function HomePage() {
                   )}
                 </div>
                 <Link
-                  href={recentBuild ? `/build-detail?id=${recentBuild._id}` : "/builds"}
+                  href={recentBuild ? `/build-detail/${recentBuild._id}` : "/builds"}
                   className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 min-h-[44px] inline-flex items-center rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
                 >
                   {recentBuild ? t("continueEditing") : t("viewBuilds")}
@@ -515,7 +515,7 @@ export default function HomePage() {
                     return (
                       <Link
                         key={build._id}
-                        href={`/build-detail?id=${build._id}`}
+                        href={`/build-detail/${build._id}`}
                         className="snap-start shrink-0 w-[180px] h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-white hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 relative"
                       >
                         <div className="flex-1 min-h-0 relative w-full bg-kyar-muted">
