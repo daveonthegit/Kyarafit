@@ -492,9 +492,9 @@ export default function BuildDetailPage() {
                 )}
               </div>
 
-              <div className="relative mb-6 overflow-hidden rounded-md shadow-sm">
+              <div className="relative mb-4 overflow-hidden rounded-md shadow-sm">
                 {build.imageStorageId ? (
-                  <div className="relative aspect-[16/9] w-full bg-kyar-mutedWarm sm:aspect-[21/9]">
+                  <div className="relative aspect-[21/9] w-full bg-kyar-mutedWarm sm:aspect-[3/1]">
                     <ResolvedImage
                       imageStorageId={build.imageStorageId}
                       alt={build.name}
@@ -508,7 +508,7 @@ export default function BuildDetailPage() {
                     />
                   </div>
                 ) : build.imageUrl ? (
-                  <div className="relative aspect-[16/9] w-full bg-kyar-mutedWarm sm:aspect-[21/9]">
+                  <div className="relative aspect-[21/9] w-full bg-kyar-mutedWarm sm:aspect-[3/1]">
                     <img
                       src={build.imageUrl}
                       alt={build.name}
@@ -526,7 +526,7 @@ export default function BuildDetailPage() {
                 <div
                   className={`${
                     build.imageStorageId || build.imageUrl
-                      ? "absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end bg-gradient-to-t from-white via-white/50 to-transparent px-6 pb-6 pt-32 sm:items-start sm:px-10"
+                      ? "absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end bg-gradient-to-t from-white via-white/50 to-transparent px-6 pb-4 pt-20 sm:items-start sm:px-10 sm:pt-24"
                       : ""
                   }`}
                 >
@@ -613,7 +613,6 @@ export default function BuildDetailPage() {
                     userId={userId}
                     linkedNodes={linkedNodes}
                     linkedNodeIds={linkedNodeIds}
-                    tasks={tasks}
                     onOpenLinkNodes={() => setFabModal("linkNodes")}
                     onCreateRoot={() =>
                       openCreationModal("newCloset", {
@@ -644,14 +643,6 @@ export default function BuildDetailPage() {
                         },
                       })
                     }
-                    onMoveRoot={async (fromIndex, toIndex) => {
-                      if (!userId || toIndex < 0 || toIndex >= linkedNodeIds.length) return;
-                      const ordered = [...linkedNodeIds];
-                      const [moved] = ordered.splice(fromIndex, 1);
-                      if (!moved) return;
-                      ordered.splice(toIndex, 0, moved);
-                      await linkNodes({ userId, buildId: id, cosplayNodeIds: ordered });
-                    }}
                   />
                 </section>
               </div>

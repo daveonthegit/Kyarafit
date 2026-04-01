@@ -15,13 +15,21 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import {
-  COSPLAY_LINK_MODES,
   COSPLAY_NODE_TYPES,
   ELEMENT_BUILD_STATUSES,
   ELEMENT_PURCHASE_STATUSES,
   MATERIAL_STATUSES,
 } from "@kyarafit/design-system/types";
 import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
+import {
+  WORKFLOW_STATUS_OPTIONS,
+  plannerWorkflowRowClassName,
+  PlannerWorkflowCheckbox,
+  PlannerWorkflowMetaLine,
+  PlannerWorkflowMetaMuted,
+  PlannerWorkflowMetaText,
+  PlannerWorkflowTaskTitle,
+} from "@/components/planner/PlannerWorkflowTaskUi";
 
 type CosplayNodeId = Id<"cosplayNodes">;
 type NodeKind = "element" | "material";
@@ -111,7 +119,6 @@ export default function ElementDetailPage() {
   const [taskQuery, setTaskQuery] = useState("");
   const [taskFilter, setTaskFilter] = useState<"all" | "open" | "done">("all");
   const [existingChildId, setExistingChildId] = useState("");
-  const [linkMode, setLinkMode] = useState<"owned" | "reference">("reference");
   const [newChildType, setNewChildType] = useState<"element" | "material">("element");
   const [form, setForm] = useState({
     name: "",
@@ -601,9 +608,6 @@ export default function ElementDetailPage() {
                                     child as Parameters<typeof formatNodeStatus>[0]
                                   )}
                                 </span>
-                                <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                                  {child.linkMode}
-                                </span>
                               </div>
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-kyar-textTertiary">
                                 <span>{child.progressPercent}% progress</span>
@@ -783,57 +787,82 @@ export default function ElementDetailPage() {
                 {visibleWorkflowRows.length} item{visibleWorkflowRows.length === 1 ? "" : "s"} ·{" "}
                 {visibleWorkflowRows.filter((task) => task.status === "done").length} complete
               </div>
-              <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-kyar-borderSubtle">
+              <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-kyar-borderSubtle bg-kyar-muted/10 p-2">
                 {visibleWorkflowRows.length === 0 ? (
-                  <p className="px-4 py-6 text-sm text-kyar-textTertiary">
+                  <p className="rounded-xl px-4 py-6 text-sm text-kyar-textTertiary">
                     {workflowView === "build_specific" && !selectedWorkflowBuildId
                       ? "Choose a build to view build-specific workflow."
                       : "No workflow items match your current view."}
                   </p>
                 ) : (
-                  visibleWorkflowRows.map((task) => (
-                    <div
-                      key={task._id}
-                      className="flex items-center gap-3 border-b border-kyar-borderSubtle px-4 py-3 last:border-b-0"
-                      style={{ paddingLeft: `${16 + task.depth * 20}px` }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={task.status === "done"}
-                        onChange={(e) =>
-                          userId &&
-                          updateTask({
-                            id: task._id,
-                            userId,
-                            status: e.target.checked ? "done" : "not_started",
-                          })
-                        }
-                        className="h-4 w-4"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`truncate text-sm ${task.status === "done" ? "line-through text-kyar-textTertiary" : ""}`}
-                        >
-                          {task.title}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                          {task.kind} · {task.status.split("_").join(" ")} · {task.progressPercent}%
-                        </p>
+                  <div className="space-y-2">
+                    {visibleWorkflowRows.map((task) => (
+                      <div
+                        key={task._id}
+                        className={`${plannerWorkflowRowClassName} w-full max-w-full`}
+                        style={{ marginLeft: `${task.depth * 20}px` }}
+                      >
+                        <PlannerWorkflowCheckbox
+                          checked={task.status === "done"}
+                          disabled={!userId}
+                          onCheckedChange={(next) => {
+                            if (!userId) return;
+                            void updateTask({
+                              id: task._id,
+                              userId,
+                              status: next ? "done" : "not_started",
+                            });
+                          }}
+                          ariaLabel={`Mark "${task.title}" as ${task.status === "done" ? "incomplete" : "complete"}`}
+                        />
+                        <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+                          <PlannerWorkflowTaskTitle done={task.status === "done"}>
+                            {task.title}
+                          </PlannerWorkflowTaskTitle>
+                          <PlannerWorkflowMetaLine>
+                            <PlannerWorkflowMetaText>{task.kind}</PlannerWorkflowMetaText>
+                            <PlannerWorkflowMetaText>
+                              {task.status.split("_").join(" ")}
+                            </PlannerWorkflowMetaText>
+                            <PlannerWorkflowMetaMuted>
+                              · {task.progressPercent}%
+                            </PlannerWorkflowMetaMuted>
+                          </PlannerWorkflowMetaLine>
+                        </div>
+                        {userId ? (
+                          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end">
+                            <select
+                              value={task.status}
+                              onChange={(e) =>
+                                void updateTask({
+                                  id: task._id,
+                                  userId,
+                                  status: e.target.value,
+                                })
+                              }
+                              className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-white px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
+                            >
+                              {WORKFLOW_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => void deleteTask({ id: task._id, userId })}
+                              className="min-h-[40px] rounded-lg border border-kyar-borderSubtle px-3 py-2 text-[11px] text-kyar-textTertiary hover:text-kyar-danger"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      {userId && (
-                        <button
-                          type="button"
-                          onClick={() => deleteTask({ id: task._id, userId })}
-                          className="text-kyar-danger"
-                        >
-                          <span className="material-symbols-outlined text-base">delete</span>
-                        </button>
-                      )}
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4">
                 <input
                   value={newTaskLabel}
                   onChange={(e) => setNewTaskLabel(e.target.value)}
@@ -843,12 +872,13 @@ export default function ElementDetailPage() {
                       ? "Add a shared workflow item…"
                       : "Add a build-specific workflow item…"
                   }
-                  className="flex-1 border-0 border-b border-kyar-borderSubtle bg-transparent py-2 text-sm focus:outline-none focus:border-black"
+                  className="min-w-[12rem] flex-1 rounded-lg border border-kyar-borderSubtle bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2"
                 />
                 <button
                   type="button"
-                  onClick={() => handleAddTask()}
-                  className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+                  onClick={() => void handleAddTask()}
+                  disabled={!userId || !newTaskLabel.trim()}
+                  className="rounded-lg bg-black px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -942,18 +972,6 @@ export default function ElementDetailPage() {
                 </option>
               ))}
             </select>
-            <div className="flex gap-2">
-              {COSPLAY_LINK_MODES.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setLinkMode(value)}
-                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${linkMode === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
             <button
               type="button"
               onClick={() => {
@@ -969,7 +987,7 @@ export default function ElementDetailPage() {
                   userId,
                   parentNodeId: id,
                   childNodeId: existingChildId as CosplayNodeId,
-                  linkMode,
+                  linkMode: "owned",
                 })
                   .then(() => {
                     setError(null);

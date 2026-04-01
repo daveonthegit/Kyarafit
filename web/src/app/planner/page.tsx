@@ -12,6 +12,7 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
 import type { CalendarDayData, CalendarEvent } from "@/components/ui/fullscreen-calendar";
+import { PlannerTaskRow } from "@/components/planner/PlannerWorkflowTaskUi";
 
 type TodoView = "daily" | "events" | "calendar";
 
@@ -131,18 +132,6 @@ function filterByTimeframe<T extends { dueDate?: string }>(tasks: T[], timeframe
   if (timeframe === "today") return tasks.filter((t) => isDueToday(t.dueDate));
   const weekEnd = addDays(TODAY, 7);
   return tasks.filter((t) => t.dueDate && t.dueDate >= TODAY && t.dueDate <= weekEnd) as T[];
-}
-
-function formatDueDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (dateStr === TODAY) return "Today";
-  const tomorrow = addDays(TODAY, 1);
-  if (dateStr === tomorrow) return "Tomorrow";
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export default function Planner() {
@@ -524,7 +513,26 @@ function PlannerTaskTree({
                 <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
                   {build.tasks.map((task) => (
                     <li key={task._id}>
-                      <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+                      <PlannerTaskRow
+                        title={task.title}
+                        done={task.status === "done"}
+                        userId={userId}
+                        onToggle={() => onToggle(task._id, task.status !== "done")}
+                        contextHref={
+                          task.conventionId
+                            ? `/conventions/${task.conventionId}/packing`
+                            : task.buildId
+                              ? `/build-detail/${task.buildId}`
+                              : task.cosplayNodeId
+                                ? `/elements/${task.cosplayNodeId}`
+                                : "/planner"
+                        }
+                        contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
+                        status={task.status}
+                        progressPercent={task.progressPercent}
+                        dueDate={task.dueDate}
+                        blockedByCount={task.blockedByCount}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -544,7 +552,26 @@ function PlannerTaskTree({
                 <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
                   {convention.packingTasks.map((task) => (
                     <li key={task._id}>
-                      <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+                      <PlannerTaskRow
+                        title={task.title}
+                        done={task.status === "done"}
+                        userId={userId}
+                        onToggle={() => onToggle(task._id, task.status !== "done")}
+                        contextHref={
+                          task.conventionId
+                            ? `/conventions/${task.conventionId}/packing`
+                            : task.buildId
+                              ? `/build-detail/${task.buildId}`
+                              : task.cosplayNodeId
+                                ? `/elements/${task.cosplayNodeId}`
+                                : "/planner"
+                        }
+                        contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
+                        status={task.status}
+                        progressPercent={task.progressPercent}
+                        dueDate={task.dueDate}
+                        blockedByCount={task.blockedByCount}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -574,69 +601,31 @@ function PlannerTaskTree({
           <ul className="pl-4 pr-2 pb-2 pt-2 space-y-2 border-t border-kyar-cardBorder">
             {build.tasks.map((task) => (
               <li key={task._id}>
-                <PlannerTaskRow task={task} userId={userId} onToggle={onToggle} />
+                <PlannerTaskRow
+                  title={task.title}
+                  done={task.status === "done"}
+                  userId={userId}
+                  onToggle={() => onToggle(task._id, task.status !== "done")}
+                  contextHref={
+                    task.conventionId
+                      ? `/conventions/${task.conventionId}/packing`
+                      : task.buildId
+                        ? `/build-detail/${task.buildId}`
+                        : task.cosplayNodeId
+                          ? `/elements/${task.cosplayNodeId}`
+                          : "/planner"
+                  }
+                  contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
+                  status={task.status}
+                  progressPercent={task.progressPercent}
+                  dueDate={task.dueDate}
+                  blockedByCount={task.blockedByCount}
+                />
               </li>
             ))}
           </ul>
         </details>
       ))}
-    </div>
-  );
-}
-
-function PlannerTaskRow({
-  task,
-  userId,
-  onToggle,
-}: {
-  task: PlannerTask;
-  userId: string | null;
-  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
-}) {
-  const contextHref = task.conventionId
-    ? `/conventions/${task.conventionId}/packing`
-    : task.buildId
-      ? `/build-detail/${task.buildId}`
-      : task.cosplayNodeId
-        ? `/elements/${task.cosplayNodeId}`
-        : "/planner";
-  return (
-    <div className="flex items-start gap-3 border border-kyar-borderSubtle rounded-xl p-4 bg-kyar-surface shadow-sm min-h-[44px] hover:border-kyar-text transition-colors">
-      <input
-        type="checkbox"
-        checked={task.status === "done"}
-        onChange={() => onToggle(task._id, task.status !== "done")}
-        disabled={!userId}
-        className="mt-1 rounded-full border-2 border-black bg-white w-6 h-6 min-w-[24px] min-h-[24px] focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-transform active:scale-90 cursor-pointer checked:bg-black checked:border-black"
-        aria-label={`Mark "${task.title}" as ${task.status === "done" ? "incomplete" : "complete"}`}
-      />
-      <div className="flex-1 min-w-0">
-        <p
-          className={`font-light tracking-tight ${task.status === "done" ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
-        >
-          {task.title}
-        </p>
-        <div className="flex flex-wrap items-center gap-2 mt-1">
-          <Link
-            href={contextHref}
-            className="text-[11px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
-          >
-            {task.buildName ?? task.conventionName ?? "Workflow"}
-          </Link>
-          <span className="text-[11px] uppercase tracking-widest text-kyar-textTertiary">
-            {task.status.split("_").join(" ")}
-          </span>
-          {task.dueDate && (
-            <span className="text-[11px] text-kyar-textTertiary">
-              · {formatDueDate(task.dueDate)}
-            </span>
-          )}
-          <span className="text-[11px] text-kyar-textTertiary">· {task.progressPercent}%</span>
-          {task.blockedByCount ? (
-            <span className="text-[11px] text-kyar-danger">· blocked by {task.blockedByCount}</span>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,13 +1,12 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import type { BuildTask } from "@/components/builds/TaskChecklist";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
 
@@ -72,6 +71,42 @@ function formatCents(cents: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
     cents / 100
   );
+}
+
+/** Single UI control for elements; still maps to purchaseStatus + buildStatus in Convex. */
+type ElementCombinedStatus = "to_buy" | "materials_ready" | "wip" | "built";
+
+const ELEMENT_COMBINED_OPTIONS: { value: ElementCombinedStatus; label: string }[] = [
+  { value: "to_buy", label: "To buy" },
+  { value: "materials_ready", label: "Bought" },
+  { value: "wip", label: "In progress" },
+  { value: "built", label: "Built" },
+];
+
+function elementCombinedFromDb(
+  purchaseStatus?: string | null,
+  buildStatus?: string | null
+): ElementCombinedStatus {
+  const build = buildStatus ?? "not_started";
+  if (build === "built") return "built";
+  if (build === "wip") return "wip";
+  return (purchaseStatus ?? "to_buy") === "bought" ? "materials_ready" : "to_buy";
+}
+
+function dbFromElementCombined(combined: ElementCombinedStatus): {
+  purchaseStatus: string;
+  buildStatus: string;
+} {
+  switch (combined) {
+    case "to_buy":
+      return { purchaseStatus: "to_buy", buildStatus: "not_started" };
+    case "materials_ready":
+      return { purchaseStatus: "bought", buildStatus: "not_started" };
+    case "wip":
+      return { purchaseStatus: "bought", buildStatus: "wip" };
+    case "built":
+      return { purchaseStatus: "bought", buildStatus: "built" };
+  }
 }
 
 function isAllowedChildLink(
@@ -151,7 +186,9 @@ function computeDropZone(
 }
 
 function pointInsideRect(clientX: number, clientY: number, rect: DOMRect) {
-  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  return (
+    clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+  );
 }
 
 function NodeThumb({
@@ -165,7 +202,7 @@ function NodeThumb({
   const url = detail?.imageUrl ?? node.imageUrl;
   const hasImage = Boolean(storageId || url);
   return (
-    <div className="flex h-9 w-9 shrink-0 overflow-hidden rounded-md border border-kyar-borderSubtle bg-kyar-muted">
+    <div className="flex h-11 w-11 shrink-0 overflow-hidden rounded-md border border-kyar-borderSubtle bg-kyar-muted">
       {hasImage ? (
         <ResolvedImage
           imageStorageId={storageId ?? null}
@@ -201,12 +238,10 @@ function DragPreviewRow({
           ? "border border-black/15 bg-white/95 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-[2px]"
           : "border border-dashed border-black/40 bg-black/[0.04]"
       }`}
-      style={
-        depth > 0 && !isFloating ? ({ marginLeft: depth * 16 } as CSSProperties) : undefined
-      }
+      style={depth > 0 && !isFloating ? ({ marginLeft: depth * 16 } as CSSProperties) : undefined}
     >
       <div className="flex items-center gap-3">
-        <span className="flex h-9 min-w-[28px] shrink-0 items-center justify-center text-kyar-textTertiary">
+        <span className="flex h-11 min-w-[32px] shrink-0 items-center justify-center text-kyar-textTertiary">
           <span className="material-symbols-outlined text-lg" aria-hidden>
             drag_indicator
           </span>
@@ -227,11 +262,9 @@ type BuildNodeManagerSectionProps = {
   userId: string | null;
   linkedNodes: BuildNodeManagerLinkedNode[];
   linkedNodeIds: CosplayNodeId[];
-  tasks: BuildTask[];
   onOpenLinkNodes: () => void;
   onCreateRoot: () => void;
   onCreateChild: (parentId: CosplayNodeId, initialNodeType: "element" | "material") => void;
-  onMoveRoot: (fromIndex: number, toIndex: number) => Promise<void>;
 };
 
 export function BuildNodeManagerSection({
@@ -240,14 +273,11 @@ export function BuildNodeManagerSection({
   userId,
   linkedNodes,
   linkedNodeIds,
-  tasks,
   onOpenLinkNodes,
   onCreateRoot,
   onCreateChild,
-  onMoveRoot,
 }: BuildNodeManagerSectionProps) {
   const updateNode = useMutation(api.cosplayNodes.update);
-  const updateTask = useMutation(api.buildTasks.update);
   const linkNodes = useMutation(api.builds.linkNodes);
   const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
@@ -267,15 +297,15 @@ export function BuildNodeManagerSection({
     pointerX: null,
     pointerY: null,
   });
-  const [linkChildId, setLinkChildId] = useState("");
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [isSavingInspector, setIsSavingInspector] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
+  const [persistStatus, setPersistStatus] = useState<"saved" | "dirty" | "saving" | "error">(
+    "saved"
+  );
   const [inspectorForm, setInspectorForm] = useState({
     name: "",
     notes: "",
     directCostDollars: "",
-    purchaseStatus: "to_buy",
-    buildStatus: "not_started",
+    elementCombinedStatus: "to_buy" as ElementCombinedStatus,
     materialStatus: "to_buy",
   });
 
@@ -305,10 +335,11 @@ export function BuildNodeManagerSection({
     });
   };
 
-  const applySelection = (meta: NodeSelectionMeta, path: PathSegment[]) => {
-    setSelected(meta);
-    setSelectedPath(path);
-  };
+  const inspectorFormRef = useRef(inspectorForm);
+  inspectorFormRef.current = inspectorForm;
+  const selectedDetailRef = useRef<DetailedLinkedNode | null | undefined>(undefined);
+  const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydrateKeyRef = useRef<CosplayNodeId | null>(null);
 
   const searchNeedle = search.trim().toLowerCase();
   const roots = useMemo(
@@ -356,8 +387,17 @@ export function BuildNodeManagerSection({
     selected ? { id: selected.nodeId, buildId } : "skip"
   ) as DetailedLinkedNode | null | undefined;
 
+  selectedDetailRef.current = selectedDetail;
+
   useEffect(() => {
-    if (!selectedDetail) return;
+    hydrateKeyRef.current = null;
+  }, [selected?.nodeId]);
+
+  useEffect(() => {
+    const nid = selected?.nodeId;
+    if (!nid || !selectedDetail || selectedDetail._id !== nid) return;
+    if (hydrateKeyRef.current === nid) return;
+    hydrateKeyRef.current = nid;
     setInspectorForm({
       name: selectedDetail.name,
       notes: selectedDetail.notes ?? "",
@@ -365,55 +405,120 @@ export function BuildNodeManagerSection({
         selectedDetail.directCostCents != null
           ? (selectedDetail.directCostCents / 100).toFixed(2)
           : "",
-      purchaseStatus: selectedDetail.purchaseStatus ?? "to_buy",
-      buildStatus: selectedDetail.buildStatus ?? "not_started",
+      elementCombinedStatus: elementCombinedFromDb(
+        selectedDetail.purchaseStatus,
+        selectedDetail.buildStatus
+      ),
       materialStatus: selectedDetail.materialStatus ?? "to_buy",
     });
-  }, [selectedDetail]);
+    setPersistStatus("saved");
+  }, [selected?.nodeId, selectedDetail]);
 
-  const childCandidates = useMemo(() => {
-    if (!selectedDetail) return [];
-    return allNodes.filter((candidate) => {
-      if (candidate._id === selectedDetail._id) return false;
-      return isAllowedChildLink(selectedDetail.nodeType, candidate.nodeType);
-    });
-  }, [allNodes, selectedDetail]);
+  const formMatchesDetail = useCallback(
+    (form: typeof inspectorForm, detail: DetailedLinkedNode) => {
+      const directParsed = form.directCostDollars.trim()
+        ? Math.round(Number(form.directCostDollars) * 100)
+        : null;
+      const directOk =
+        form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
+      const directCents = directOk ? directParsed : detail.directCostCents;
+      return (
+        form.name.trim() === detail.name &&
+        (form.notes.trim() || null) === (detail.notes ?? null) &&
+        directCents === (detail.directCostCents ?? null) &&
+        (detail.nodeType === "element"
+          ? form.elementCombinedStatus ===
+            elementCombinedFromDb(detail.purchaseStatus, detail.buildStatus)
+          : form.materialStatus === (detail.materialStatus ?? "to_buy"))
+      );
+    },
+    []
+  );
 
-  const saveInspector = async () => {
-    if (!userId || !selectedDetail) return;
-    setIsSavingInspector(true);
-    try {
-      await updateNode({
-        id: selectedDetail._id,
-        userId,
-        name: inspectorForm.name.trim(),
-        notes: inspectorForm.notes.trim() || null,
-        directCostCents: inspectorForm.directCostDollars
-          ? Math.round(Number(inspectorForm.directCostDollars) * 100)
-          : null,
-        purchaseStatus: selectedDetail.nodeType === "element" ? inspectorForm.purchaseStatus : null,
-        buildStatus: selectedDetail.nodeType === "element" ? inspectorForm.buildStatus : null,
-        materialStatus:
-          selectedDetail.nodeType === "material" ? inspectorForm.materialStatus : null,
-      });
-    } finally {
-      setIsSavingInspector(false);
+  const flushInspectorSave = useCallback(async (): Promise<void> => {
+    const detail = selectedDetailRef.current;
+    if (!userId || !detail) return;
+    const form = inspectorFormRef.current;
+    const name = form.name.trim();
+    if (!name) return;
+    if (formMatchesDetail(form, detail)) {
+      setPersistStatus("saved");
+      return;
     }
-  };
+    const directParsed = form.directCostDollars.trim()
+      ? Math.round(Number(form.directCostDollars) * 100)
+      : null;
+    if (form.directCostDollars.trim() !== "" && Number.isNaN(directParsed as number)) return;
 
-  const assignTasks = async (mode: "open" | "unassigned") => {
+    setPersistStatus("saving");
+    try {
+      const elementFields =
+        detail.nodeType === "element" ? dbFromElementCombined(form.elementCombinedStatus) : null;
+      await updateNode({
+        id: detail._id,
+        userId,
+        name,
+        notes: form.notes.trim() || null,
+        directCostCents: form.directCostDollars.trim() === "" ? null : directParsed,
+        purchaseStatus: elementFields?.purchaseStatus ?? null,
+        buildStatus: elementFields?.buildStatus ?? null,
+        materialStatus: detail.nodeType === "material" ? form.materialStatus : null,
+      });
+      setPersistStatus("saved");
+    } catch {
+      setPersistStatus("error");
+    }
+  }, [userId, updateNode, formMatchesDetail]);
+
+  const flushInspectorSaveRef = useRef(flushInspectorSave);
+  flushInspectorSaveRef.current = flushInspectorSave;
+
+  const commitSelection = useCallback(async (meta: NodeSelectionMeta, path: PathSegment[]) => {
+    if (persistDebounceRef.current) {
+      clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = null;
+    }
+    await flushInspectorSaveRef.current();
+    setSelected(meta);
+    setSelectedPath(path);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!userId || !selectedDetail) return;
-    const assignable = tasks.filter((task) =>
-      mode === "open" ? !task.checked : !(task.cosplayNodeId ?? task.closetItemId)
-    );
-    await Promise.all(
-      assignable.map((task) =>
-        updateTask({ id: task._id, userId, cosplayNodeId: selectedDetail._id })
-      )
-    );
-  };
+    if (formMatchesDetail(inspectorForm, selectedDetail)) {
+      setPersistStatus((s) => (s === "dirty" ? "saved" : s));
+      return;
+    }
+    if (!inspectorForm.name.trim()) {
+      setPersistStatus("dirty");
+      return;
+    }
+    setPersistStatus("dirty");
+    if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    persistDebounceRef.current = setTimeout(() => {
+      persistDebounceRef.current = null;
+      void flushInspectorSaveRef.current();
+    }, 500);
+    return () => {
+      if (persistDebounceRef.current) {
+        clearTimeout(persistDebounceRef.current);
+        persistDebounceRef.current = null;
+      }
+    };
+  }, [inspectorForm, selectedDetail, userId, formMatchesDetail]);
 
   const unlinkSelected = async () => {
+    if (persistDebounceRef.current) {
+      clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = null;
+    }
+    await flushInspectorSaveRef.current();
     if (!userId || !selected) return;
     if (selected.isRoot) {
       await removeNodeFromBuild({ userId, buildId, cosplayNodeId: selected.nodeId });
@@ -424,36 +529,13 @@ export function BuildNodeManagerSection({
     await removeChildLink({ userId, id: linkId });
   };
 
-  const moveSelected = async (direction: -1 | 1) => {
-    if (!userId || !selected) return;
-    if (selected.isRoot) {
-      const currentIndex = selected.rootIndex ?? -1;
-      const nextIndex = currentIndex + direction;
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= linkedNodeIds.length) return;
-      await onMoveRoot(currentIndex, nextIndex);
-      setSelected((current) => (current ? { ...current, rootIndex: nextIndex } : current));
-      return;
-    }
-    if (!selected.parentNodeId || !selected.siblingLinkIds || selected.siblingIndex == null) return;
-    const nextIndex = selected.siblingIndex + direction;
-    if (nextIndex < 0 || nextIndex >= selected.siblingLinkIds.length) return;
-    const orderedLinkIds = [...selected.siblingLinkIds];
-    const [moved] = orderedLinkIds.splice(selected.siblingIndex, 1);
-    if (!moved) return;
-    orderedLinkIds.splice(nextIndex, 0, moved);
-    await reorderChildren({ parentNodeId: selected.parentNodeId, userId, orderedLinkIds });
-    setSelected((current) =>
-      current ? { ...current, siblingIndex: nextIndex, siblingLinkIds: orderedLinkIds } : current
-    );
-  };
-
   const moveNodeIntoTarget = async (dragged: NodeSelectionMeta, targetNodeId: CosplayNodeId) => {
     if (!userId || dragged.nodeId === targetNodeId) return;
     const draggedNode = allNodes.find((node) => node._id === dragged.nodeId);
     const targetNode = allNodes.find((node) => node._id === targetNodeId);
     if (!draggedNode || !targetNode) return;
     if (!isAllowedChildLink(targetNode.nodeType, draggedNode.nodeType)) {
-      setLinkError("That relationship is not allowed.");
+      setGraphError("That relationship is not allowed.");
       return;
     }
     if (dragged.isRoot) {
@@ -469,7 +551,7 @@ export function BuildNodeManagerSection({
       childNodeId: dragged.nodeId,
       linkMode: "owned",
     });
-    setLinkError(null);
+    setGraphError(null);
   };
 
   const handleDropOnNode = async (
@@ -519,33 +601,15 @@ export function BuildNodeManagerSection({
     });
     const newMeta = { nodeId: dragged.nodeId, isRoot: true, rootIndex: linkedNodeIds.length };
     const node = allNodes.find((n) => n._id === dragged.nodeId);
-    applySelection(newMeta, [{ meta: newMeta, label: node?.name ?? "Node" }]);
-    setLinkError(null);
-  };
-
-  const linkExistingChild = async () => {
-    if (!userId || !selectedDetail || !linkChildId) return;
-    const candidate = childCandidates.find((node) => node._id === linkChildId);
-    if (!candidate) return;
-    if (!isAllowedChildLink(selectedDetail.nodeType, candidate.nodeType)) {
-      setLinkError("That relationship is not allowed.");
-      return;
-    }
-    setLinkError(null);
-    await addChildLink({
-      userId,
-      parentNodeId: selectedDetail._id,
-      childNodeId: linkChildId as CosplayNodeId,
-      linkMode: "reference",
-    });
-    setLinkChildId("");
+    void commitSelection(newMeta, [{ meta: newMeta, label: node?.name ?? "Node" }]);
+    setGraphError(null);
   };
 
   const selectBuildRoot = () => {
     const first = roots[0];
     if (!first) return;
     const meta = { nodeId: first.node._id, isRoot: true, rootIndex: first.rootIndex };
-    applySelection(meta, [{ meta, label: first.node.name }]);
+    void commitSelection(meta, [{ meta, label: first.node.name }]);
   };
 
   useEffect(() => {
@@ -561,9 +625,7 @@ export function BuildNodeManagerSection({
         };
       }
 
-      const rows = Array.from(
-        document.querySelectorAll("[data-node-drop-id]")
-      ) as HTMLElement[];
+      const rows = Array.from(document.querySelectorAll("[data-node-drop-id]")) as HTMLElement[];
 
       let row: HTMLElement | null = null;
       let fallbackRow: HTMLElement | null = null;
@@ -578,7 +640,11 @@ export function BuildNodeManagerSection({
         const withinHorizontalReach = clientX >= rect.left - 40 && clientX <= rect.right + 40;
         if (!withinHorizontalReach) continue;
         const verticalDistance =
-          clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+          clientY < rect.top
+            ? rect.top - clientY
+            : clientY > rect.bottom
+              ? clientY - rect.bottom
+              : 0;
         if (verticalDistance < fallbackDistance) {
           fallbackDistance = verticalDistance;
           fallbackRow = candidate;
@@ -671,13 +737,6 @@ export function BuildNodeManagerSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Explorer</p>
-          <h2 className="font-serif text-3xl text-kyar-text">Linked structure</h2>
-        </div>
-      </div>
-
       {roots.length === 0 ? (
         <div className="border border-dashed border-kyar-borderSubtle bg-white px-5 py-10 text-sm text-kyar-textTertiary">
           No linked nodes yet. Create a root node or link an existing element or material to start
@@ -735,7 +794,10 @@ export function BuildNodeManagerSection({
                 <button
                   type="button"
                   onClick={() =>
-                    applySelection(seg.meta, selectedPath.slice(0, index + 1) as PathSegment[])
+                    void commitSelection(
+                      seg.meta,
+                      selectedPath.slice(0, index + 1) as PathSegment[]
+                    )
                   }
                   className="max-w-[min(100%,12rem)] truncate rounded px-1.5 py-0.5 text-left hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
                 >
@@ -760,7 +822,7 @@ export function BuildNodeManagerSection({
                 />
               </div>
 
-              <div className="hidden border-b border-kyar-borderSubtle px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-kyar-textTertiary sm:grid sm:grid-cols-[52px_40px_minmax(0,1fr)_72px_72px_64px_52px] sm:gap-2">
+              <div className="hidden border-b border-kyar-borderSubtle px-3 py-2 text-[9px] font-semibold uppercase tracking-wider text-kyar-textTertiary sm:grid sm:grid-cols-[56px_48px_minmax(0,1fr)_72px_72px_64px_52px] sm:gap-2">
                 <span className="sr-only">Drag and expand</span>
                 <span className="sr-only">Image</span>
                 <span className="pl-1">Name</span>
@@ -770,7 +832,7 @@ export function BuildNodeManagerSection({
                 <span className="text-right"> </span>
               </div>
 
-              <div className="max-h-[min(560px,70vh)] overflow-y-auto px-1 py-2">
+              <div className="max-h-[min(640px,78vh)] overflow-y-auto px-1 py-2">
                 {draggingNodeId ? (
                   <button
                     type="button"
@@ -798,7 +860,7 @@ export function BuildNodeManagerSection({
                       selectedNodeId={selected?.nodeId ?? null}
                       pathPrefix={[]}
                       selectionMeta={{ nodeId: node._id, isRoot: true, rootIndex }}
-                      onSelect={applySelection}
+                      onSelect={(meta, path) => void commitSelection(meta, path)}
                       onCreateChild={onCreateChild}
                       onDropOnNode={handleDropOnNode}
                       draggingNodeId={draggingNodeId}
@@ -844,12 +906,30 @@ export function BuildNodeManagerSection({
                       Properties
                     </p>
                     <div className="mt-2 flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
                         <NodeThumb node={selectedDetail} detail={selectedDetail} />
-                        <div className="min-w-0">
-                          <h3 className="font-serif text-2xl text-kyar-text">
-                            {selectedDetail.name}
-                          </h3>
+                        <div className="min-w-0 flex-1">
+                          <label className="sr-only" htmlFor="explorer-node-title">
+                            Name
+                          </label>
+                          <input
+                            id="explorer-node-title"
+                            value={inspectorForm.name}
+                            onChange={(event) =>
+                              setInspectorForm((current) => ({
+                                ...current,
+                                name: event.target.value,
+                              }))
+                            }
+                            onBlur={() => void flushInspectorSaveRef.current()}
+                            aria-invalid={!inspectorForm.name.trim()}
+                            className={`font-serif w-full border-b border-transparent bg-transparent text-2xl text-kyar-text focus:border-black focus:outline-none ${
+                              !inspectorForm.name.trim() ? "border-red-500 text-red-700" : ""
+                            }`}
+                          />
+                          {!inspectorForm.name.trim() ? (
+                            <p className="mt-1 text-xs text-red-600">Name is required</p>
+                          ) : null}
                           <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                             <span>{formatNodeTypeLabel(selectedDetail.nodeType)}</span>
                             <span>
@@ -861,28 +941,27 @@ export function BuildNodeManagerSection({
                           </div>
                         </div>
                       </div>
-                      <Link
-                        href={`/elements/${selectedDetail._id}`}
-                        className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest"
-                      >
-                        Open
-                      </Link>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <span
+                          className="text-[10px] uppercase tracking-widest text-kyar-textTertiary"
+                          aria-live="polite"
+                        >
+                          {persistStatus === "saving" ? "Saving…" : null}
+                          {persistStatus === "dirty" ? "Unsaved" : null}
+                          {persistStatus === "saved" ? "Saved" : null}
+                          {persistStatus === "error" ? "Save failed" : null}
+                        </span>
+                        <Link
+                          href={`/elements/${selectedDetail._id}`}
+                          className="rounded-full border border-kyar-borderSubtle px-3 py-2 text-[10px] uppercase tracking-widest"
+                        >
+                          Open
+                        </Link>
+                      </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <label className="col-span-2 space-y-2">
-                      <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                        Name
-                      </span>
-                      <input
-                        value={inspectorForm.name}
-                        onChange={(event) =>
-                          setInspectorForm((current) => ({ ...current, name: event.target.value }))
-                        }
-                        className="w-full rounded-2xl border border-kyar-borderSubtle bg-transparent px-4 py-3 focus:outline-none"
-                      />
-                    </label>
                     <label className="space-y-2">
                       <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                         Direct cost
@@ -910,45 +989,27 @@ export function BuildNodeManagerSection({
                       </p>
                     </div>
                     {selectedDetail.nodeType === "element" ? (
-                      <>
-                        <label className="space-y-2">
-                          <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                            Purchase
-                          </span>
-                          <select
-                            value={inspectorForm.purchaseStatus}
-                            onChange={(event) =>
-                              setInspectorForm((current) => ({
-                                ...current,
-                                purchaseStatus: event.target.value,
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-kyar-borderSubtle bg-transparent px-4 py-3 focus:outline-none"
-                          >
-                            <option value="to_buy">To buy</option>
-                            <option value="bought">Bought</option>
-                          </select>
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                            Build
-                          </span>
-                          <select
-                            value={inspectorForm.buildStatus}
-                            onChange={(event) =>
-                              setInspectorForm((current) => ({
-                                ...current,
-                                buildStatus: event.target.value,
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-kyar-borderSubtle bg-transparent px-4 py-3 focus:outline-none"
-                          >
-                            <option value="not_started">Not started</option>
-                            <option value="wip">WIP</option>
-                            <option value="built">Built</option>
-                          </select>
-                        </label>
-                      </>
+                      <label className="col-span-2 space-y-2">
+                        <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+                          Status
+                        </span>
+                        <select
+                          value={inspectorForm.elementCombinedStatus}
+                          onChange={(event) =>
+                            setInspectorForm((current) => ({
+                              ...current,
+                              elementCombinedStatus: event.target.value as ElementCombinedStatus,
+                            }))
+                          }
+                          className="w-full rounded-2xl border border-kyar-borderSubtle bg-transparent px-4 py-3 focus:outline-none"
+                        >
+                          {ELEMENT_COMBINED_OPTIONS.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     ) : (
                       <label className="col-span-2 space-y-2">
                         <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -1001,101 +1062,22 @@ export function BuildNodeManagerSection({
                     </button>
                     <button
                       type="button"
-                      onClick={unlinkSelected}
+                      onClick={() => void unlinkSelected()}
                       className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest"
                     >
                       {selected?.isRoot ? "Unlink root" : "Unlink child"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void moveSelected(-1)}
-                      disabled={
-                        selected?.isRoot
-                          ? (selected.rootIndex ?? 0) <= 0
-                          : (selected?.siblingIndex ?? 0) <= 0
-                      }
-                      className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest disabled:opacity-40"
-                    >
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void moveSelected(1)}
-                      disabled={
-                        selected?.isRoot
-                          ? (selected.rootIndex ?? -1) >= linkedNodeIds.length - 1
-                          : (selected?.siblingIndex ?? -1) >=
-                            (selected?.siblingLinkIds?.length ?? 1) - 1
-                      }
-                      className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest disabled:opacity-40"
-                    >
-                      Move down
-                    </button>
                   </div>
 
-                  <div className="rounded-2xl border border-kyar-borderSubtle bg-kyar-bg px-4 py-4">
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                      Bulk task assign
+                  {graphError ? (
+                    <p className="text-xs text-red-600" role="alert">
+                      {graphError}
                     </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => void assignTasks("open")}
-                        className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest"
-                      >
-                        Assign all open
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void assignTasks("unassigned")}
-                        className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest"
-                      >
-                        Assign unassigned
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-kyar-borderSubtle bg-kyar-bg px-4 py-4">
-                    <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                      Link reusable child
-                    </p>
-                    <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                      <select
-                        value={linkChildId}
-                        onChange={(event) => setLinkChildId(event.target.value)}
-                        className="min-w-0 flex-1 rounded-2xl border border-kyar-borderSubtle bg-transparent px-4 py-3 text-sm focus:outline-none"
-                      >
-                        <option value="">Select an existing node</option>
-                        {childCandidates.map((candidate) => (
-                          <option key={candidate._id} value={candidate._id}>
-                            {candidate.name} · {formatNodeTypeLabel(candidate.nodeType)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={linkExistingChild}
-                        disabled={!linkChildId}
-                        className="rounded-full border border-kyar-borderSubtle px-4 py-3 text-[10px] uppercase tracking-widest disabled:opacity-40"
-                      >
-                        Link child
-                      </button>
-                    </div>
-                    {linkError ? <p className="mt-2 text-xs text-red-600">{linkError}</p> : null}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={saveInspector}
-                    disabled={isSavingInspector || !inspectorForm.name.trim()}
-                    className="w-full rounded-full bg-black px-4 py-3 text-[10px] uppercase tracking-widest text-white disabled:opacity-40"
-                  >
-                    {isSavingInspector ? "Saving..." : "Save node changes"}
-                  </button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex min-h-[320px] items-center justify-center text-center text-sm text-kyar-textTertiary">
-                  Select a node in the tree to edit properties, ordering, and tasks.
+                  Select a node in the tree to edit properties.
                 </div>
               )}
             </div>
@@ -1160,7 +1142,7 @@ function BuildNodeManagerRow({
   selectedNodeId: CosplayNodeId | null;
   pathPrefix: PathSegment[];
   selectionMeta: NodeSelectionMeta;
-  onSelect: (meta: NodeSelectionMeta, path: PathSegment[]) => void;
+  onSelect: (meta: NodeSelectionMeta, path: PathSegment[]) => void | Promise<void>;
   onCreateChild: (parentId: CosplayNodeId, initialNodeType: "element" | "material") => void;
   onDropOnNode: (
     dragged: NodeSelectionMeta,
@@ -1207,7 +1189,7 @@ function BuildNodeManagerRow({
                 : ""
         } ${isDragging ? "opacity-45" : ""}`}
       >
-        <div className="grid grid-cols-1 items-start gap-x-2 px-1 py-2 sm:grid-cols-[52px_40px_minmax(0,1fr)_72px_72px_64px_52px] sm:items-center">
+        <div className="grid grid-cols-1 items-start gap-x-2 px-1 py-2.5 sm:grid-cols-[56px_48px_minmax(0,1fr)_72px_72px_64px_52px] sm:items-center">
           <div className="row-start-1 flex items-center gap-0.5 sm:mt-0">
             {userId ? (
               <div
@@ -1224,7 +1206,7 @@ function BuildNodeManagerRow({
                     pointerY: event.clientY,
                   });
                 }}
-                className="flex h-9 min-w-[28px] shrink-0 cursor-grab touch-none select-none items-center justify-center rounded text-kyar-textTertiary active:cursor-grabbing"
+                className="flex h-11 min-w-[32px] shrink-0 cursor-grab touch-none select-none items-center justify-center rounded text-kyar-textTertiary active:cursor-grabbing"
                 aria-label={`Drag to reorder or reparent ${displayName}`}
                 title="Drag to reorder or reparent"
               >
@@ -1233,12 +1215,12 @@ function BuildNodeManagerRow({
                 </span>
               </div>
             ) : (
-              <span className="h-8 w-7 shrink-0" aria-hidden />
+              <span className="h-11 w-7 shrink-0" aria-hidden />
             )}
             <button
               type="button"
               onClick={() => setExpanded((value) => !value)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-kyar-textTertiary"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-kyar-textTertiary"
               aria-expanded={children.length ? expanded : undefined}
               aria-label={children.length ? (expanded ? "Collapse" : "Expand") : "Leaf"}
             >

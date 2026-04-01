@@ -852,7 +852,7 @@ export const addChildLink = mutation({
       .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", args.parentNodeId))
       .collect();
     const sortOrder = args.sortOrder ?? existingLink.length;
-    const linkMode = asOptionalValidatedString(args.linkMode, LINK_MODES) ?? "reference";
+    const linkMode = asOptionalValidatedString(args.linkMode, LINK_MODES) ?? "owned";
     const id = await ctx.db.insert("cosplayNodeLinks", {
       userId: args.userId,
       parentNodeId: args.parentNodeId,

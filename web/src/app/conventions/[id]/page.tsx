@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -11,6 +14,9 @@ import { ConventionOutlineTree } from "@/components/conventions/ConventionOutlin
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { PackingItemRow } from "@/components/conventions/PackingItemRow";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/Button";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 
 function dateRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -25,11 +31,21 @@ function dateRange(start: string, end: string): string[] {
 
 export default function ConventionDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params.id as Id<"conventions">;
   const { userId } = useCurrentUser();
   const [pickerDate, setPickerDate] = useState<string | null>(null);
   const [newPackingLabel, setNewPackingLabel] = useState("");
   const [showOutline, setShowOutline] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editDateRange, setEditDateRange] = useState<DateRange | undefined>(undefined);
+  const [editImageStorageId, setEditImageStorageId] = useState<Id<"_storage"> | null>(null);
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [savePending, setSavePending] = useState(false);
+  const processedEditQuery = useRef(false);
 
   const convention = useQuery(api.conventions.get, id ? { id } : "skip");
   const plan = useQuery(api.conventions.getPlan, id ? { conventionId: id } : "skip") ?? [];
@@ -41,6 +57,7 @@ export default function ConventionDetailPage() {
     [];
 
   const replacePlanMut = useMutation(api.conventions.replacePlan);
+  const updateConventionMut = useMutation(api.conventions.update);
   const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
   const updatePackingItemMut = useMutation(api.conventions.updatePackingItem);
   const addManualPackingItemMut = useMutation(api.conventions.addManualPackingItem);
@@ -51,6 +68,73 @@ export default function ConventionDetailPage() {
     [convention]
   );
   const planByDate = useMemo(() => new Map(plan.map((e) => [e.date, e])), [plan]);
+
+  const canEdit = useMemo(
+    () => Boolean(userId && convention && convention.userId === userId),
+    [userId, convention]
+  );
+
+  const hydrateEditForm = useCallback(() => {
+    if (!convention) return;
+    setEditName(convention.name);
+    setEditLocation(convention.location ?? "");
+    setEditDateRange({
+      from: new Date(convention.startDate),
+      to: new Date(convention.endDate),
+    });
+    setEditImageStorageId(convention.imageStorageId ?? null);
+    setEditImageUrl(convention.imageUrl ?? "");
+  }, [convention]);
+
+  const openEdit = useCallback(() => {
+    hydrateEditForm();
+    setEditing(true);
+  }, [hydrateEditForm]);
+
+  const cancelEdit = useCallback(() => {
+    setEditing(false);
+  }, []);
+
+  useEffect(() => {
+    if (processedEditQuery.current) return;
+    if (searchParams.get("edit") !== "1") return;
+    if (convention === undefined) return;
+    processedEditQuery.current = true;
+    router.replace(`/conventions/${id}`, { scroll: false });
+    if (convention && userId && convention.userId === userId) {
+      hydrateEditForm();
+      setEditing(true);
+    }
+  }, [searchParams, convention, userId, router, id, hydrateEditForm]);
+
+  const editStartDate = editDateRange?.from ? format(editDateRange.from, "yyyy-MM-dd") : "";
+  const editEndDate = editDateRange?.to
+    ? format(editDateRange.to, "yyyy-MM-dd")
+    : editDateRange?.from
+      ? format(editDateRange.from, "yyyy-MM-dd")
+      : "";
+
+  const handleSaveConvention = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim() || !editStartDate || !editEndDate || !userId || !convention) return;
+    if (convention.userId !== userId) return;
+    setSavePending(true);
+    try {
+      await updateConventionMut({
+        id,
+        userId,
+        name: editName.trim(),
+        location: editLocation.trim() || undefined,
+        startDate: editStartDate,
+        endDate: editEndDate,
+        imageUrl: editImageUrl.trim() || undefined,
+        imageStorageId: editImageStorageId ?? undefined,
+      });
+      setEditing(false);
+    } finally {
+      setSavePending(false);
+    }
+  };
 
   const outlineDays = useMemo(
     () =>
@@ -141,20 +225,118 @@ export default function ConventionDetailPage() {
   return (
     <WebAppShell>
       <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-sm pt-4 sm:pt-6 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <Link
             href="/conventions"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 shrink-0"
           >
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-kyar-meta font-mono">
-            Convention
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-kyar-meta font-mono truncate">
+            {editing ? "Edit convention" : "Convention"}
           </p>
         </div>
+        {canEdit && (
+          <div className="flex items-center gap-2 shrink-0">
+            {editing ? (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest border border-kyar-borderSubtle rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openEdit}
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-black text-white rounded-full hover:bg-black/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 py-8">
+        {editing && canEdit ? (
+          <div className="max-w-2xl mx-auto px-4 sm:px-6">
+            <form onSubmit={handleSaveConvention} className="space-y-6">
+              <div>
+                <label className="block meta-label mb-2">NAME</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Anime Expo"
+                  className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+                />
+              </div>
+              <div>
+                <label className="block meta-label mb-2">LOCATION (OPTIONAL)</label>
+                <input
+                  type="text"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="City or venue"
+                  className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+                />
+              </div>
+              <div>
+                <label className="block meta-label mb-2">DATES</label>
+                <div className="rounded-lg border border-kyar-borderSubtle bg-kyar-muted/30 p-3">
+                  <Calendar
+                    mode="range"
+                    selected={editDateRange}
+                    onSelect={setEditDateRange}
+                    numberOfMonths={2}
+                    pagedNavigation
+                    showOutsideDays={false}
+                    className="mx-auto"
+                    classNames={{
+                      months: "gap-6 sm:gap-8",
+                      month:
+                        "relative first-of-type:before:hidden before:absolute max-sm:before:inset-x-2 max-sm:before:h-px max-sm:before:-top-2 sm:before:inset-y-2 sm:before:w-px before:bg-kyar-borderSubtle sm:before:-left-4",
+                    }}
+                  />
+                  {(editStartDate || editEndDate) && (
+                    <p className="mt-3 pt-3 border-t border-kyar-borderSubtle text-xs text-kyar-meta flex items-center gap-1.5">
+                      <CalendarIcon className="size-3.5" />
+                      {editStartDate}
+                      {editEndDate && editStartDate !== editEndDate ? ` – ${editEndDate}` : ""}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block meta-label mb-2">IMAGE (OPTIONAL)</label>
+                <ImageUpload
+                  category="conventions"
+                  onImageSelected={(result) => {
+                    if ("imageStorageId" in result && result.imageStorageId) {
+                      setEditImageStorageId(result.imageStorageId);
+                      setEditImageUrl("");
+                    } else {
+                      setEditImageUrl(result.imageUrl ?? "");
+                      setEditImageStorageId(null);
+                    }
+                  }}
+                  currentImage={editImageUrl || undefined}
+                  currentStorageId={editImageStorageId ?? undefined}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={savePending || !editName.trim() || !editStartDate || !editEndDate}
+                className="w-full"
+              >
+                SAVE CHANGES
+              </Button>
+            </form>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_1fr] xl:grid-cols-[minmax(0,500px)_1fr] gap-8 lg:gap-16 max-w-6xl mx-auto">
           {/* Left Column (Sticky Image) */}
           <div className="lg:sticky lg:top-24 h-[60vh] lg:h-[calc(100vh-8rem)]">
@@ -555,19 +737,9 @@ export default function ConventionDetailPage() {
               </div>
             </div>
 
-            {/* Floating Action Bar */}
-            <div className="fixed bottom-0 right-0 left-0 lg:left-[auto] lg:w-[calc(100%-minmax(0,400px)-4rem)] xl:w-[calc(100%-minmax(0,500px)-4rem)] max-w-6xl mx-auto p-4 lg:p-8 flex justify-end gap-3 pointer-events-none z-30">
-              <div className="pointer-events-auto flex items-center gap-3">
-                <Link
-                  href={`/conventions/${id}/edit`}
-                  className="px-8 py-4 bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-black/90 transition-colors rounded-full"
-                >
-                  EDIT CONVENTION
-                </Link>
-              </div>
-            </div>
           </div>
         </div>
+        )}
       </main>
 
       {pickerDate !== null && (

@@ -303,23 +303,27 @@ export default function ConventionsPage() {
                   <Link
                     key={c._id}
                     href={`/conventions/${c._id}`}
-                    className="block relative aspect-video w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group"
+                    className="block relative aspect-video w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                    aria-label={`Open ${c.name}`}
                   >
                     {hasImage ? (
                       <ResolvedImage
                         imageStorageId={c.imageStorageId ?? undefined}
                         imageUrl={c.imageUrl ?? undefined}
-                        alt={c.name}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+                        aria-hidden
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
-                        <span className="material-symbols-outlined text-6xl">calendar_today</span>
+                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105 pointer-events-none">
+                        <span className="material-symbols-outlined text-6xl" aria-hidden>
+                          calendar_today
+                        </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300 pointer-events-none" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white pointer-events-none">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
