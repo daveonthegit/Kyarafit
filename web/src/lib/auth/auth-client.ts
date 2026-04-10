@@ -14,3 +14,17 @@ export const authClient = createAuthClient({
   // usernameClient adds signIn.username() for username-based login.
   plugins: [convexClient(), crossDomainClient(), usernameClient(), bearerStoragePlugin()],
 });
+
+type DeleteUserArgs = {
+  callbackURL?: string;
+  password?: string;
+  token?: string;
+};
+
+export async function deleteAccount(args: DeleteUserArgs = {}) {
+  return (
+    authClient as typeof authClient & {
+      deleteUser: (input: DeleteUserArgs) => Promise<{ error?: { message?: string } | null }>;
+    }
+  ).deleteUser(args);
+}

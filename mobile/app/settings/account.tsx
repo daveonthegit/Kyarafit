@@ -15,11 +15,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
-import { authClient } from "../../src/lib/auth/client";
+import { authClient, deleteAccount } from "../../src/lib/auth/client";
 import { useCurrentUser } from "../../src/hooks/useCurrentUser";
 import { StorageImage } from "../../src/components/shared";
 import { postToConvexUpload } from "../../src/lib/convexUpload";
 import { getWebAppOrigin } from "../../src/lib/webOrigin";
+import { clearSignedInAccountData } from "../../src/storage/accountData";
 
 export default function SettingsAccountScreen() {
   const router = useRouter();
@@ -130,6 +131,69 @@ export default function SettingsAccountScreen() {
       return;
     }
     Linking.openURL(`${origin.replace(/\/$/, "")}/auth/reset-password`);
+  };
+
+  const openPrivacyPolicy = () => {
+    const origin = getWebAppOrigin();
+    if (!origin) {
+      Alert.alert(
+        "Privacy policy unavailable",
+        "Set EXPO_PUBLIC_WEB_ORIGIN so the app can open the hosted privacy policy."
+      );
+      return;
+    }
+    Linking.openURL(`${origin.replace(/\/$/, "")}/privacy`);
+  };
+
+  const openSupportEmail = () => {
+    Linking.openURL("mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request");
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently removes your Kyarafit account, cloud-synced builds, convention plans, and uploaded images.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final confirmation",
+              "Deleting your account also clears this device's cached signed-in data. Local-only guest data created while signed out is not part of your cloud account.",
+              [
+                { text: "Keep account", style: "cancel" },
+                {
+                  text: "Delete permanently",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      const result = await deleteAccount();
+                      if (result?.error) {
+                        throw new Error(
+                          result.error.message ??
+                            "We couldn't delete your account right now. Please try again."
+                        );
+                      }
+                      await clearSignedInAccountData();
+                      router.replace("/auth");
+                    } catch (error) {
+                      Alert.alert(
+                        "Delete failed",
+                        error instanceof Error
+                          ? error.message
+                          : "We couldn't delete your account right now. Please try again."
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   if (sessionLoading) {
@@ -407,6 +471,39 @@ export default function SettingsAccountScreen() {
           <Text className="text-[11px] text-black/45 -mt-4 mb-4">
             Opens the web app to send a reset link to your email.
           </Text>
+
+          <View className="border-t border-black/5 pt-4 mb-10">
+            <Text className="text-[11px] uppercase tracking-widest text-black/45 mb-2">
+              Data & privacy
+            </Text>
+            <Text className="text-[11px] text-black/60 leading-5">
+              When you sign in, Kyarafit stores your profile, cosplay builds, uploaded images, and
+              convention plans in the cloud. This device also keeps signed-in cache data locally so
+              you can keep working smoothly.
+            </Text>
+            <View className="mt-4 gap-3">
+              <Pressable onPress={openPrivacyPolicy}>
+                <Text className="text-[11px] uppercase tracking-widest text-black underline">
+                  Privacy policy
+                </Text>
+              </Pressable>
+              <Pressable onPress={openSupportEmail}>
+                <Text className="text-[11px] uppercase tracking-widest text-black underline">
+                  Security & support
+                </Text>
+              </Pressable>
+              <Pressable onPress={confirmDeleteAccount}>
+                <Text className="text-[11px] uppercase tracking-widest text-red-600 underline">
+                  Delete account
+                </Text>
+              </Pressable>
+            </View>
+            <Text className="text-[11px] text-black/45 mt-3 leading-5">
+              Deleting your account permanently removes cloud-synced content and clears this
+              device&apos;s signed-in cache. Local-only guest data created while signed out is
+              managed separately from your cloud account.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>

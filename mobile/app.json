@@ -14,7 +14,11 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kyarafit.mobile"
+      "bundleIdentifier": "com.kyarafit.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Kyarafit needs access to your photo library only when you choose images for cosplay items, builds, or profile pictures.",
+        "NSPhotoLibraryAddUsageDescription": "Kyarafit may save edited cosplay images back to your library only when you choose to export or save them."
+      }
     },
     "android": {
       "adaptiveIcon": {

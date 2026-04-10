@@ -35,6 +35,12 @@ export const authClient = createAuthClient({
   ],
 });
 
+type DeleteUserArgs = {
+  callbackURL?: string;
+  password?: string;
+  token?: string;
+};
+
 export { setStoredBearerToken } from "./bearer-storage-plugin";
 
 interface SessionData {
@@ -77,6 +83,14 @@ export const signIn = {
     return authClient.signIn.social({ provider, callbackURL });
   },
 };
+
+export async function deleteAccount(args: DeleteUserArgs = {}) {
+  return (
+    authClient as typeof authClient & {
+      deleteUser: (input: DeleteUserArgs) => Promise<{ error?: { message?: string } | null }>;
+    }
+  ).deleteUser(args);
+}
 
 export async function signOut() {
   await authClient.signOut();

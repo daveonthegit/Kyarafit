@@ -27,6 +27,7 @@ import type * as follows from "../follows.js";
 import type * as groupConventionDays from "../groupConventionDays.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as lib_accountDeletion from "../lib/accountDeletion.js";
 import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_cosplayGraph from "../lib/cosplayGraph.js";
 import type * as lib_validation from "../lib/validation.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   groupConventionDays: typeof groupConventionDays;
   groups: typeof groups;
   http: typeof http;
+  "lib/accountDeletion": typeof lib_accountDeletion;
   "lib/buildAccess": typeof lib_buildAccess;
   "lib/cosplayGraph": typeof lib_cosplayGraph;
   "lib/validation": typeof lib_validation;

@@ -210,7 +210,10 @@ export default function SignUpPage() {
 
         <div className="mt-6 text-center">
           <p className="text-xs text-kyar-textTertiary">
-            By continuing, you agree to our terms of service
+            By continuing, you agree to our terms of service and{" "}
+            <Link href="/privacy" className="underline hover:text-kyar-text">
+              privacy policy
+            </Link>
           </p>
         </div>
 
