@@ -35,7 +35,7 @@ Enforcement decisions are at the discretion of the project owner.
 If you witness or experience unacceptable behavior, please contact:
 
 **David Xiao**  
-dxiao3043@gmail.com
+kyarafit@kyarafit.com
 
 Reports will be handled confidentially whenever possible.
 

@@ -9,6 +9,7 @@ import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import schema from "./schema";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../emailHelpers";
+import { deleteUserOwnedData } from "../lib/accountDeletion";
 
 export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
   local: { schema },
@@ -92,6 +93,15 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
             },
           }
         : {}),
+    },
+
+    user: {
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user) => {
+          await deleteUserOwnedData(ctx as never, user.id);
+        },
+      },
     },
 
     plugins: [

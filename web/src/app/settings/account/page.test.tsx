@@ -3,15 +3,32 @@ import { render, screen } from "@testing-library/react";
 import { authClient } from "@/lib/auth/auth-client";
 import SettingsAccountPage from "./page";
 
+const mockAccountDetailsContent = vi.fn();
+const mockReplace = vi.fn();
+
 vi.mock("@/lib/auth/auth-client", () => ({
   authClient: {
     useSession: vi.fn(),
     updateUser: vi.fn(),
   },
+  deleteAccount: vi.fn(),
 }));
 
 vi.mock("@/components/layout/WebAppShell", () => ({
   WebAppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+}));
+
+vi.mock("./AccountDetailsContent", () => ({
+  AccountDetailsContent: (props: unknown) => {
+    mockAccountDetailsContent(props);
+    return <div>Account content</div>;
+  },
 }));
 
 describe("Settings Account page", () => {
@@ -33,9 +50,25 @@ describe("Settings Account page", () => {
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
 
-  // Full-page tests that render AccountDetailsContent (which uses useState) are skipped
-  // due to React hook resolution in this test env when mocking auth-client. Manual testing:
-  // - Display name: editable via Edit / Save / Cancel; onUpdateDisplayName flow.
-  // - Username: read-only display.
-  // - Change password link to /auth/reset-password.
+  it("passes delete-account handler to account details content", () => {
+    vi.mocked(authClient.useSession).mockReturnValue({
+      data: {
+        user: {
+          id: "user_123",
+          email: "test@example.com",
+          name: "Test User",
+        },
+      },
+      isPending: false,
+    } as ReturnType<typeof authClient.useSession>);
+
+    render(<SettingsAccountPage />);
+
+    expect(screen.getByText("Account content")).toBeInTheDocument();
+    expect(mockAccountDetailsContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onDeleteAccount: expect.any(Function),
+      })
+    );
+  });
 });

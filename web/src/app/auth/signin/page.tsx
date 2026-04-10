@@ -366,6 +366,13 @@ export default function SignInPage() {
                 Create one
               </Link>
             </p>
+            <p className="mt-3 text-center text-xs text-kyar-textTertiary">
+              Read our{" "}
+              <Link href="/privacy" className="underline hover:text-kyar-text">
+                privacy policy
+              </Link>
+              .
+            </p>
           </>
         )}
 

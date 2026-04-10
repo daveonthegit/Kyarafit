@@ -12,7 +12,7 @@ If you discover a security vulnerability, please do not open a public issue.
 Instead, report it privately by contacting:
 
 **David Xiao**  
-dxiao3043@gmail.com
+kyarafit@kyarafit.com
 
 When reporting, please include:
 
