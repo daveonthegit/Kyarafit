@@ -6,7 +6,7 @@
  */
 export function LandingMediaDisclaimer({ embedded = false }: { embedded?: boolean }) {
   return (
-    <div className={embedded ? "" : "border-t border-kyar-borderSubtle bg-kyar-bgWarm"}>
+    <div className={embedded ? "" : "border-t border-kyar-borderSubtle bg-kyar-bg"}>
       <details className="group">
         <summary
           className={`flex cursor-pointer list-none items-center justify-between gap-4 text-left [&::-webkit-details-marker]:hidden ${
@@ -21,7 +21,7 @@ export function LandingMediaDisclaimer({ embedded = false }: { embedded?: boolea
           </span>
         </summary>
         <div
-          className={`border-t border-kyar-borderSubtle bg-white pb-6 pt-2 text-sm leading-relaxed text-kyar-textSecondary ${
+          className={`border-t border-kyar-borderSubtle bg-kyar-bg pb-6 pt-2 text-sm leading-relaxed text-kyar-textSecondary ${
             embedded ? "px-0" : "px-6 sm:px-8 lg:px-12"
           }`}
         >

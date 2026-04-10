@@ -43,7 +43,7 @@ export default function VerifyEmailInboxPage() {
           <h1 className="font-serif text-3xl italic tracking-tight mb-3">Check your inbox</h1>
           <p className="text-sm text-kyar-textSecondary leading-relaxed">
             We sent a verification link to{" "}
-            {email ? <strong className="text-black">{email}</strong> : "your email address"}. Click
+            {email ? <strong className="text-kyar-text">{email}</strong> : "your email address"}. Click
             the link to activate your account.
           </p>
         </div>
@@ -65,14 +65,14 @@ export default function VerifyEmailInboxPage() {
             <button
               onClick={handleResend}
               disabled={resending}
-              className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-black transition-colors disabled:opacity-50"
+              className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors disabled:opacity-50"
             >
               {resending ? "Resending…" : "Resend verification email"}
             </button>
           )}
           <Link
             href="/auth/signin"
-            className="block w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-black transition-colors text-center"
+            className="block w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors text-center"
           >
             Back to sign in
           </Link>
@@ -80,7 +80,7 @@ export default function VerifyEmailInboxPage() {
 
         <p className="mt-8 text-xs text-kyar-textTertiary">
           Didn&apos;t receive anything? Check your spam folder or{" "}
-          <Link href="/auth/signup" className="underline hover:text-black">
+          <Link href="/auth/signup" className="underline hover:text-kyar-text">
             try a different email
           </Link>
           .

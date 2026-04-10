@@ -1,12 +1,12 @@
 /**
  * Shared navigation config: single source of truth for app sections.
- * Primary: Home, Outfits (builds), Closet, Events, Planner. Secondary: Settings.
+ * Primary: Home, Outfits (builds), Elements, Events, Planner. Secondary: Settings.
  */
 
 export type NavSectionId =
   | "home"
   | "builds"
-  | "closet"
+  | "elements"
   | "events"
   | "groups"
   | "planner"
@@ -23,11 +23,11 @@ export interface NavSection {
   iconKey: string;
 }
 
-/** Primary nav sections (sidebar/tabs): Home, Outfits, Closet, Events, Groups, Planner, Discover, Feed. */
+/** Primary nav sections (sidebar/tabs): Home, Outfits, Elements, Events, Groups, Planner, Discover, Feed. */
 export const NAV_SECTIONS_PRIMARY: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
-  { id: "closet", label: "Closet", path: "/closet", iconKey: "closet" },
+  { id: "elements", label: "Elements", path: "/elements", iconKey: "elements" },
   { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
   { id: "groups", label: "Groups", path: "/groups", iconKey: "groups" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
@@ -46,11 +46,11 @@ export const NAV_SECTION_SETTINGS: NavSection = {
 /** All sections in order: primary first, then settings. */
 export const NAV_SECTIONS: NavSection[] = [...NAV_SECTIONS_PRIMARY, NAV_SECTION_SETTINGS];
 
-/** Bottom nav (mobile viewport): Home, Outfits, Closet, Planner, Menu. */
+/** Bottom nav (mobile viewport): Home, Outfits, Elements, Planner, Menu. */
 export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
   { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
-  { id: "closet", label: "Closet", path: "/closet", iconKey: "closet" },
+  { id: "elements", label: "Elements", path: "/elements", iconKey: "elements" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
   { id: "menu", label: "Menu", path: "#", iconKey: "menu" },
 ];
@@ -67,7 +67,7 @@ export interface AddMenuItem {
 
 export const ADD_MENU_ITEMS: AddMenuItem[] = [
   { labelKey: "addOutfit", href: "/builds/new", modal: "newBuild" },
-  { labelKey: "addItem", href: "/closet/new", modal: "newCloset" },
+  { labelKey: "addItem", href: "/elements/new", modal: "newCloset" },
   { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
   { labelKey: "addGroup", href: "/groups/new", modal: "newGroup" },
 ];
@@ -88,7 +88,7 @@ export function getActiveSection(pathname: string | null): NavSectionId {
   if (!pathname) return "home";
   if (pathname.startsWith("/home")) return "home";
   if (pathname.startsWith("/builds") || pathname.startsWith("/build-detail")) return "builds";
-  if (pathname.startsWith("/closet")) return "closet";
+  if (pathname.startsWith("/elements") || pathname.startsWith("/closet")) return "elements";
   if (pathname.startsWith("/conventions") || pathname.startsWith("/itinerary")) return "events";
   if (pathname.startsWith("/groups") || pathname.startsWith("/g/")) return "groups";
   if (pathname.startsWith("/planner") || pathname.startsWith("/packing")) return "planner";

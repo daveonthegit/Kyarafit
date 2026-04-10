@@ -58,7 +58,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
           type="submit"
           form="new-group-modal-form"
           disabled={pending || !name.trim()}
-          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:bg-kyar-text/90 transition-colors shadow-md"
         >
           {pending ? "Creating…" : "Create group"}
         </button>
@@ -74,7 +74,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
             required
             maxLength={500}
             placeholder="e.g. Sailor Moon squad"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -85,7 +85,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
             maxLength={10000}
             rows={3}
             placeholder="What’s this group cosplay about?"
-            className="w-full border border-kyar-borderSubtle bg-transparent rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-black transition-colors"
+            className="w-full border border-kyar-borderSubtle bg-transparent rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-kyar-text transition-colors"
           />
         </div>
         <div>
@@ -96,8 +96,8 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
               onClick={() => setVisibility("private")}
               className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
                 visibility === "private"
-                  ? "border-black bg-kyar-muted text-black"
-                  : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                  ? "border-kyar-text bg-kyar-muted text-kyar-text"
+                  : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
               }`}
             >
               Private
@@ -107,8 +107,8 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
               onClick={() => setVisibility("public")}
               className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
                 visibility === "public"
-                  ? "border-black bg-kyar-muted text-black"
-                  : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                  ? "border-kyar-text bg-kyar-muted text-kyar-text"
+                  : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
               }`}
             >
               Public

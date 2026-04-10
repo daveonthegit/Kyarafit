@@ -37,16 +37,16 @@ export function LandingMiniAppFrame({
     ? "flex min-h-[260px] flex-row"
     : "flex min-h-[280px] flex-col sm:min-h-[320px] sm:flex-row";
   const aside = remotion
-    ? "flex w-[9.25rem] shrink-0 flex-col gap-0.5 border-r border-kyar-borderSubtle bg-white p-2"
-    : "flex shrink-0 gap-1 overflow-x-auto border-b border-kyar-borderSubtle bg-white p-2 no-scrollbar sm:flex-col sm:gap-0.5 sm:overflow-visible sm:border-b-0 sm:border-r sm:p-2 sm:w-[10.25rem]";
+    ? "flex w-[9.25rem] shrink-0 flex-col gap-0.5 border-r border-kyar-borderSubtle bg-kyar-surface p-2"
+    : "flex shrink-0 gap-1 overflow-x-auto border-b border-kyar-borderSubtle bg-kyar-surface p-2 no-scrollbar sm:flex-col sm:gap-0.5 sm:overflow-visible sm:border-b-0 sm:border-r sm:p-2 sm:w-[10.25rem]";
   const brand = remotion
     ? "mb-1.5 block px-2 font-serif-elegant text-sm font-bold italic"
     : "mb-1.5 hidden px-2 font-serif-elegant text-sm font-bold italic sm:block";
   const navText = remotion ? "text-[10px]" : "text-[9px] sm:text-[10px]";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-bgWarm shadow-[0_24px_60px_rgba(0,0,0,0.06)]">
-      <div className="flex h-7 items-center gap-1.5 border-b border-kyar-borderSubtle bg-white px-3">
+    <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-card">
+      <div className="flex h-7 items-center gap-1.5 border-b border-kyar-borderSubtle bg-kyar-surface px-3">
         <span className="h-2 w-2 rounded-full bg-[#FF5F56]" />
         <span className="h-2 w-2 rounded-full bg-[#FFBD2E]" />
         <span className="h-2 w-2 rounded-full bg-[#27C93F]" />

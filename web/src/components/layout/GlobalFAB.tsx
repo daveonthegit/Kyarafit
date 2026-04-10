@@ -32,7 +32,7 @@ export function GlobalFAB({ className = "" }: { className?: string }) {
   // Context-aware primary action by section
   const primaryActionBySection: Record<string, AddMenuModal | undefined> = {
     builds: "newBuild",
-    closet: "newCloset",
+    elements: "newCloset",
     events: "newConvention",
     groups: "newGroup",
     planner: "newBuild", // Planning outfits → add outfit
@@ -60,11 +60,11 @@ export function GlobalFAB({ className = "" }: { className?: string }) {
       ref={wrapperRef}
       className={`fixed right-4 sm:right-6 lg:right-8 z-40 max-lg:bottom-[calc(max(1.5rem,env(safe-area-inset-bottom,1rem))+4.5rem)] lg:bottom-[calc(max(1.5rem,env(safe-area-inset-bottom,1rem)))] ${className}`.trim()}
     >
-      <div className="flex items-center shadow-fab rounded-full bg-kyar-text text-white overflow-hidden transition-transform hover:scale-105 active:scale-95 focus-within:ring-2 focus-within:ring-kyar-accent focus-within:ring-offset-2 focus-within:ring-offset-kyar-bg">
+      <div className="flex items-center shadow-fab rounded-full bg-kyar-text text-kyar-bg overflow-hidden transition-transform hover:scale-105 active:scale-95 focus-within:ring-2 focus-within:ring-kyar-accent focus-within:ring-offset-2 focus-within:ring-offset-kyar-bg">
         <button
           type="button"
           onClick={handlePrimaryClick}
-          className="flex items-center gap-2 px-5 py-3.5 hover:bg-kyar-textSecondary transition-colors focus:outline-none"
+          className="flex items-center gap-2 px-5 py-3.5 hover:bg-kyar-bg/15 transition-colors focus:outline-none"
           aria-label={`Primary Add: ${primaryAction ? t(primaryAction.labelKey) : "Add"}`}
         >
           <Plus className="size-5" />
@@ -72,11 +72,11 @@ export function GlobalFAB({ className = "" }: { className?: string }) {
             {primaryAction ? t(primaryAction.labelKey) : t("add")}
           </span>
         </button>
-        <div className="w-px h-6 bg-white/30" />
+        <div className="w-px h-6 shrink-0 bg-kyar-bg/35" aria-hidden />
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="px-3 py-3.5 hover:bg-kyar-textSecondary transition-colors focus:outline-none"
+          className="px-3 py-3.5 hover:bg-kyar-bg/15 transition-colors focus:outline-none"
           aria-label="More options"
           aria-expanded={menuOpen}
         >

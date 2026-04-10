@@ -115,7 +115,7 @@ export default function BuildLinkItemsPage() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="text-[10px] font-semibold uppercase tracking-widest text-black disabled:opacity-50"
+          className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text disabled:opacity-50"
         >
           Save
         </button>

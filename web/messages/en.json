@@ -2,7 +2,7 @@
   "Nav": {
     "home": "Home",
     "builds": "Builds",
-    "closet": "Closet",
+    "elements": "Elements",
     "events": "Events",
     "groups": "Groups",
     "planner": "Planner",
@@ -82,6 +82,14 @@
     "language": "Language",
     "signOut": "Sign Out",
     "backToHome": "Back to home"
+  },
+  "Theme": {
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "appearance": "Appearance",
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark"
   },
   "Language": {
     "label": "Language",

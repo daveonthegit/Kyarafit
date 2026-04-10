@@ -67,7 +67,7 @@ export default function ConventionPackingPage() {
         <button
           type="button"
           onClick={handleRegenerate}
-          className="w-full bg-black text-white py-3 text-[11px] font-bold uppercase tracking-wider mb-6 disabled:opacity-50"
+          className="w-full bg-kyar-text text-kyar-bg py-3 text-[11px] font-bold uppercase tracking-wider mb-6 disabled:opacity-50"
         >
           Regenerate from builds
         </button>
@@ -79,13 +79,13 @@ export default function ConventionPackingPage() {
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
             placeholder="Add your own item…"
-            className="flex-1 min-w-0 border border-kyar-borderSubtle px-3 py-2 text-sm"
+            className="flex-1 min-w-0 border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-sm"
           />
           <button
             type="button"
             onClick={handleAdd}
             disabled={!newLabel.trim() || !userId}
-            className="flex-shrink-0 bg-black text-white px-4 py-2 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+            className="flex-shrink-0 bg-kyar-text text-kyar-bg px-4 py-2 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
             Add
           </button>
@@ -99,7 +99,7 @@ export default function ConventionPackingPage() {
 
         {general.length > 0 && (
           <section className="mb-10">
-            <h2 className="font-serif text-xl font-bold italic border-b border-black pb-2 mb-6">
+            <h2 className="font-serif text-xl font-bold italic border-b border-kyar-border pb-2 mb-6">
               General
             </h2>
             <div className="space-y-0">
@@ -137,7 +137,7 @@ export default function ConventionPackingPage() {
           const heading = list[0]?.date ?? key;
           return (
             <section key={key} className="mb-10">
-              <h2 className="font-serif text-xl font-bold italic border-b border-black pb-2 mb-6">
+              <h2 className="font-serif text-xl font-bold italic border-b border-kyar-border pb-2 mb-6">
                 {heading}
               </h2>
               <div className="space-y-0">

@@ -32,8 +32,8 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
             onClick={() => setCategory(null)}
             className={`rounded border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1 ${
               category === null
-                ? "border-kyar-text bg-kyar-text text-white"
-                : "border-kyar-borderSubtle bg-white text-kyar-textTertiary hover:border-kyar-text/40"
+                ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text/40"
             }`}
           >
             All
@@ -45,8 +45,8 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
               onClick={() => setCategory(c)}
               className={`rounded border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider capitalize transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1 ${
                 category === c
-                  ? "border-kyar-text bg-kyar-text text-white"
-                  : "border-kyar-borderSubtle bg-white text-kyar-textTertiary hover:border-kyar-text/40"
+                  ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text/40"
               }`}
             >
               {c}
@@ -61,7 +61,7 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search elements…"
-          className="h-8 w-full rounded-md border border-kyar-borderSubtle bg-white px-2 text-[10px] text-kyar-text placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none focus:ring-1 focus:ring-kyar-accent"
+          className="h-8 w-full rounded-md border border-kyar-borderSubtle bg-kyar-surface px-2 text-[10px] text-kyar-text placeholder:text-kyar-textMuted focus:border-kyar-accent focus:outline-none focus:ring-1 focus:ring-kyar-accent"
           autoComplete="off"
         />
       </label>
@@ -71,22 +71,22 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
           return (
             <div
               key={node.id}
-              className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-white shadow-sm"
+              className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-sm"
             >
               <div className="relative aspect-[4/5] overflow-hidden bg-kyar-mutedWarm">
                 {node.imageSrc ? (
                   <img src={node.imageSrc} alt="" className="h-full w-full object-cover" />
                 ) : null}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/10 to-transparent" />
                 <div className="absolute left-1.5 top-1.5 flex flex-wrap gap-1">
-                  <span className="rounded-full border border-white/15 bg-black/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-white">
+                  <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-bg">
                     {typeLabel}
                   </span>
-                  <span className="rounded-full border border-white/15 bg-black/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-white">
+                  <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-bg">
                     {node.statusLabel}
                   </span>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
+                <div className="absolute bottom-0 left-0 right-0 p-2 text-kyar-bg">
                   <p className="mb-0.5 text-[7px] uppercase tracking-wider opacity-80">
                     {node.category}
                   </p>

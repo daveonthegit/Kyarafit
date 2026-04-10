@@ -55,7 +55,7 @@ export default function DevSeedPage() {
             type="button"
             onClick={handleSeed}
             disabled={pending || !isDev}
-            className="px-4 py-2 text-sm font-medium border border-black rounded hover:bg-gray-50 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium border border-kyar-text rounded hover:bg-kyar-muted disabled:opacity-50"
           >
             {pending ? "Loading..." : "Load sample data"}
           </button>

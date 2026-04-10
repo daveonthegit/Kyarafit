@@ -35,7 +35,7 @@ export function LandingBuildTrackingMock({
   );
 
   return (
-    <div className="space-y-6 rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft sm:p-8">
+    <div className="space-y-6 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-6 shadow-soft sm:p-8">
       <div className="flex flex-col gap-8 sm:flex-row sm:items-start">
         <EditorialProgressDonut progress={barPercent} />
         <div className="flex min-w-0 flex-1 flex-col gap-2 pt-1">
@@ -48,13 +48,13 @@ export function LandingBuildTrackingMock({
       </div>
 
       <div className="space-y-2 border-t border-kyar-borderSubtle pt-6">
-        <div className="flex items-end justify-between text-[9px] font-medium uppercase tracking-[0.2em]">
+        <div className="flex items-end justify-between text-[9px] font-medium uppercase tracking-[0.2em] text-kyar-text">
           <span>Construction progress</span>
           <span>{barPercent}%</span>
         </div>
-        <div className="h-px w-full bg-gray-200">
+        <div className="h-px w-full bg-kyar-borderSubtle">
           <div
-            className="h-full bg-black transition-all duration-300"
+            className="h-full bg-kyar-text transition-all duration-300"
             style={{ width: `${barPercent}%` }}
           />
         </div>
@@ -67,7 +67,7 @@ export function LandingBuildTrackingMock({
         {displayTasks.map((task, i) => (
           <li
             key={`${task.label}-${i}`}
-            className="flex flex-col gap-2 border border-kyar-border px-3 py-2 transition hover:border-black"
+            className="flex flex-col gap-2 border border-kyar-border px-3 py-2 transition hover:border-kyar-text/50"
           >
             <div className="flex items-center gap-3">
               <input
@@ -76,7 +76,7 @@ export function LandingBuildTrackingMock({
                 readOnly={!interactive}
                 tabIndex={interactive ? 0 : -1}
                 onChange={() => toggleAt(i)}
-                className="h-4 w-4 accent-black"
+                className="h-4 w-4 accent-kyar-accent"
                 aria-label={task.label}
               />
               <div className="min-w-0 flex-1">

@@ -328,7 +328,7 @@ export default function ElementDetailPage() {
           <button
             type="button"
             onClick={() => setIsEditing((value) => !value)}
-            className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+            className="rounded-full border border-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest"
           >
             {isEditing ? "Done" : "Edit"}
           </button>
@@ -353,7 +353,7 @@ export default function ElementDetailPage() {
               </div>
             )}
           </div>
-          <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-5 shadow-soft">
+          <div className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-5 shadow-soft">
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-full border border-kyar-borderSubtle px-3 py-1 text-[10px] uppercase tracking-widest">
                 {formatNodeTypeLabel(node.nodeType as NodeKind)}
@@ -458,7 +458,7 @@ export default function ElementDetailPage() {
                 <button
                   type="button"
                   onClick={save}
-                  className="rounded-full bg-black px-4 py-2 text-[10px] uppercase tracking-widest text-white"
+                  className="rounded-full bg-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest text-kyar-bg"
                 >
                   Save node
                 </button>
@@ -495,7 +495,7 @@ export default function ElementDetailPage() {
         </section>
 
         <section className="space-y-8">
-          <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
+          <div className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-6 shadow-soft">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -510,7 +510,7 @@ export default function ElementDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowChildPanel(true)}
-                className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+                className="rounded-full border border-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest"
               >
                 Add child
               </button>
@@ -526,7 +526,7 @@ export default function ElementDetailPage() {
               <select
                 value={childBucketFilter}
                 onChange={(e) => setChildBucketFilter(e.target.value as typeof childBucketFilter)}
-                className="rounded-xl border border-kyar-borderSubtle bg-white px-4 py-3 text-sm text-kyar-text"
+                className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-3 text-sm text-kyar-text"
               >
                 <option value="all">All child buckets</option>
                 <option value="incomplete">Incomplete</option>
@@ -655,7 +655,7 @@ export default function ElementDetailPage() {
           </div>
 
           <div className="grid gap-8 lg:grid-cols-2">
-            <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
+            <div className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-6 shadow-soft">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -669,7 +669,7 @@ export default function ElementDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowBuildPanel(true)}
-                  className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+                  className="rounded-full border border-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest"
                 >
                   Link build
                 </button>
@@ -722,7 +722,7 @@ export default function ElementDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-kyar-borderSubtle bg-white p-6 shadow-soft">
+            <div className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-6 shadow-soft">
               <div className="mb-4">
                 <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                   Task graph
@@ -737,14 +737,14 @@ export default function ElementDetailPage() {
                 <button
                   type="button"
                   onClick={() => setWorkflowView("shared")}
-                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "shared" ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "shared" ? "border-kyar-text bg-kyar-text text-kyar-bg" : "border-kyar-borderSubtle"}`}
                 >
                   Shared
                 </button>
                 <button
                   type="button"
                   onClick={() => setWorkflowView("build_specific")}
-                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "build_specific" ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${workflowView === "build_specific" ? "border-kyar-text bg-kyar-text text-kyar-bg" : "border-kyar-borderSubtle"}`}
                 >
                   Build specific
                 </button>
@@ -754,7 +754,7 @@ export default function ElementDetailPage() {
                     onChange={(e) =>
                       setSelectedWorkflowBuildId(e.target.value as Id<"builds"> | "")
                     }
-                    className="rounded-xl border border-kyar-borderSubtle bg-white px-4 py-3 text-sm text-kyar-text"
+                    className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-3 text-sm text-kyar-text"
                   >
                     <option value="">Choose a build</option>
                     {buildsUsing.map((build) => (
@@ -776,7 +776,7 @@ export default function ElementDetailPage() {
                 <select
                   value={taskFilter}
                   onChange={(e) => setTaskFilter(e.target.value as typeof taskFilter)}
-                  className="rounded-xl border border-kyar-borderSubtle bg-white px-4 py-3 text-sm text-kyar-text"
+                  className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-3 text-sm text-kyar-text"
                 >
                   <option value="all">All tasks</option>
                   <option value="open">Open only</option>
@@ -840,7 +840,7 @@ export default function ElementDetailPage() {
                                   status: e.target.value,
                                 })
                               }
-                              className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-white px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
+                              className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
                             >
                               {WORKFLOW_STATUS_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -872,13 +872,13 @@ export default function ElementDetailPage() {
                       ? "Add a shared workflow item…"
                       : "Add a build-specific workflow item…"
                   }
-                  className="min-w-[12rem] flex-1 rounded-lg border border-kyar-borderSubtle bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2"
+                  className="min-w-[12rem] flex-1 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2"
                 />
                 <button
                   type="button"
                   onClick={() => void handleAddTask()}
                   disabled={!userId || !newTaskLabel.trim()}
-                  className="rounded-lg bg-black px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -937,7 +937,7 @@ export default function ElementDetailPage() {
                   key={value}
                   type="button"
                   onClick={() => setNewChildType(value)}
-                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${newChildType === value ? "border-black bg-black text-white" : "border-kyar-borderSubtle"}`}
+                  className={`rounded-full border px-3 py-2 text-[10px] uppercase tracking-widest ${newChildType === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "border-kyar-borderSubtle"}`}
                 >
                   {formatNodeTypeLabel(value)}
                 </button>
@@ -951,7 +951,7 @@ export default function ElementDetailPage() {
             <button
               type="button"
               onClick={openFullCreateChildFlow}
-              className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+              className="rounded-full border border-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest"
             >
               Open full create flow
             </button>
@@ -995,7 +995,7 @@ export default function ElementDetailPage() {
                   })
                   .catch((e) => setError(e instanceof Error ? e.message : "Could not link child"));
               }}
-              className="rounded-full border border-black px-4 py-2 text-[10px] uppercase tracking-widest"
+              className="rounded-full border border-kyar-text px-4 py-2 text-[10px] uppercase tracking-widest"
             >
               Link child
             </button>
@@ -1020,7 +1020,7 @@ export default function ElementDetailPage() {
             <button
               type="button"
               onClick={() => setShowDelete(false)}
-              className="flex-1 rounded-full border border-black py-3 text-sm font-bold uppercase tracking-wider"
+              className="flex-1 rounded-full border border-kyar-text py-3 text-sm font-bold uppercase tracking-wider"
             >
               Cancel
             </button>
@@ -1032,7 +1032,7 @@ export default function ElementDetailPage() {
                   router.push("/elements");
                 }
               }}
-              className="flex-1 rounded-full bg-kyar-danger py-3 text-sm font-bold uppercase tracking-wider text-white"
+              className="flex-1 rounded-full bg-kyar-danger py-3 text-sm font-bold uppercase tracking-wider text-kyar-bg"
             >
               Delete
             </button>

@@ -84,8 +84,8 @@ function ClosetItemsCarouselInner<T>({
           disabled={!canScrollLeft}
           aria-label="Scroll left"
           className={cn(
-            "p-2 rounded-full border border-kyar-border bg-white text-kyar-text transition-opacity duration-300",
-            "hover:bg-kyar-muted hover:border-black disabled:opacity-30 disabled:cursor-not-allowed"
+            "p-2 rounded-full border border-kyar-border bg-kyar-surface text-kyar-text transition-opacity duration-300",
+            "hover:bg-kyar-muted hover:border-kyar-text disabled:opacity-30 disabled:cursor-not-allowed"
           )}
         >
           <ChevronLeft className="h-5 w-5" />
@@ -96,8 +96,8 @@ function ClosetItemsCarouselInner<T>({
           disabled={!canScrollRight}
           aria-label="Scroll right"
           className={cn(
-            "p-2 rounded-full border border-kyar-border bg-white text-kyar-text transition-opacity duration-300",
-            "hover:bg-kyar-muted hover:border-black disabled:opacity-30 disabled:cursor-not-allowed"
+            "p-2 rounded-full border border-kyar-border bg-kyar-surface text-kyar-text transition-opacity duration-300",
+            "hover:bg-kyar-muted hover:border-kyar-text disabled:opacity-30 disabled:cursor-not-allowed"
           )}
         >
           <ChevronRight className="h-5 w-5" />
@@ -143,16 +143,16 @@ export function ClosetCarouselCardContent({
           <span className="material-symbols-outlined text-4xl">checkroom</span>
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/0 to-transparent pointer-events-none" />
       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none flex flex-col gap-0.5">
-        <p className="text-white text-xs font-medium truncate">{item.name}</p>
-        <div className="flex items-center justify-between text-white/80 text-[10px]">
+        <p className="text-kyar-bg text-xs font-medium truncate">{item.name}</p>
+        <div className="flex items-center justify-between text-kyar-bg/80 text-[10px]">
           <span>
             {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}
           </span>
           {item.costCents != null && <span>{formatCents(item.costCents)}</span>}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-white/70">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-kyar-bg/70">
           {item.nodeType && <span>{formatNodeStatus(item)}</span>}
           {typeof item.progressPercent === "number" && (
             <span>{item.progressPercent}% progress</span>

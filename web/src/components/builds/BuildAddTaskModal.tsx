@@ -70,7 +70,7 @@ export function BuildAddTaskModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full px-6 py-2.5 bg-kyar-text text-white text-xs font-bold uppercase tracking-wider rounded-md"
+          className="w-full px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
         >
           Done
         </button>
@@ -102,7 +102,7 @@ export function BuildAddTaskModal({
           type="button"
           onClick={add}
           disabled={pending || !label.trim()}
-          className="shrink-0 px-5 py-2.5 bg-kyar-text text-white text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
+          className="shrink-0 px-5 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add"}
         </button>

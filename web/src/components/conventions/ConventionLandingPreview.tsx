@@ -77,7 +77,7 @@ export function ConventionLandingPreview({ convention }: { convention: MockConve
             alt={convention.title}
             className="h-full w-full object-cover"
           />
-          <div className="absolute bottom-3 left-3 rounded-sm bg-black px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-white">
+          <div className="absolute bottom-3 left-3 rounded-sm bg-kyar-text px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-kyar-bg">
             EVENT {eventYear}
           </div>
         </div>
@@ -113,7 +113,7 @@ export function ConventionLandingPreview({ convention }: { convention: MockConve
             <button
               type="button"
               onClick={() => setShowOutline((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary transition-colors hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
               aria-expanded={showOutline}
             >
               <span>Outline / Quick Jump</span>
@@ -150,7 +150,7 @@ export function ConventionLandingPreview({ convention }: { convention: MockConve
                     className="scroll-mt-4 rounded-xl border border-kyar-borderSubtle bg-kyar-surface p-2 shadow-soft"
                   >
                     <div className="mb-1.5 flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black text-[8px] font-bold text-white">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-kyar-text text-[8px] font-bold text-kyar-bg">
                         {idx + 1}
                       </span>
                       <p className="min-w-0 text-[8px] font-bold uppercase leading-tight tracking-wide text-kyar-textTertiary">

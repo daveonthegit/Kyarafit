@@ -28,7 +28,7 @@ export function ConventionLandingPreviewRemotion({
             alt={convention.title}
             className="h-full w-full object-cover"
           />
-          <div className="absolute bottom-3 left-3 rounded-sm bg-black px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-white">
+          <div className="absolute bottom-3 left-3 rounded-sm bg-kyar-text px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-kyar-bg">
             EVENT {eventYear}
           </div>
         </div>
@@ -71,7 +71,7 @@ export function ConventionLandingPreviewRemotion({
                     className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface p-2 shadow-soft"
                   >
                     <div className="mb-1.5 flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black text-[8px] font-bold text-white">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-kyar-text text-[8px] font-bold text-kyar-bg">
                         {idx + 1}
                       </span>
                       <p className="min-w-0 text-[8px] font-bold uppercase leading-tight tracking-wide text-kyar-textTertiary">
@@ -124,12 +124,12 @@ export function ConventionLandingPreviewRemotion({
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
                         row.done
                           ? "border-kyar-accent bg-kyar-accent"
-                          : "border-kyar-border bg-white"
+                          : "border-kyar-border bg-kyar-surface"
                       }`}
                     >
                       {row.done ? (
                         <svg
-                          className="h-2.5 w-2.5 text-white"
+                          className="h-2.5 w-2.5 text-kyar-bg"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="3"

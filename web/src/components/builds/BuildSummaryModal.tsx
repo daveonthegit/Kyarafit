@@ -15,14 +15,14 @@ export function BuildSummaryModal({ open, onClose, summary, formatCents }: Build
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-kyar-text/45 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="summary-modal-title"
       onClick={onClose}
     >
       <div
-        className="bg-white max-w-lg w-full max-h-[85vh] flex flex-col rounded shadow-lg"
+        className="bg-kyar-surface max-w-lg w-full max-h-[85vh] flex flex-col rounded border border-kyar-borderSubtle shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-kyar-border px-4 py-3 shrink-0">

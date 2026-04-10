@@ -19,7 +19,7 @@ export function LandingBuildCard({
   return (
     <div className="relative">
       <div
-        className="pointer-events-none absolute right-4 top-4 z-20 h-6 w-6 rounded-full border border-white/50 bg-black/20 shadow-sm backdrop-blur-sm"
+        className="pointer-events-none absolute right-4 top-4 z-20 h-6 w-6 rounded-full border border-kyar-bg/50 bg-kyar-text/20 shadow-sm backdrop-blur-sm"
         aria-hidden
       />
       <Link
@@ -32,9 +32,9 @@ export function LandingBuildCard({
           alt=""
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
 
-        <div className="absolute inset-0 flex flex-col justify-end p-5 text-white">
+        <div className="absolute inset-0 flex flex-col justify-end p-5 text-kyar-bg">
           <div className="flex items-end justify-between gap-2">
             <div className="min-w-0 flex-1">
               <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.2em] opacity-80">
@@ -57,7 +57,7 @@ export function LandingBuildCard({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="text-white/20"
+                  className="text-kyar-bg/20"
                 />
                 <circle
                   cx="18"
@@ -66,7 +66,7 @@ export function LandingBuildCard({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="text-white"
+                  className="text-kyar-bg"
                   strokeLinecap="round"
                   strokeDasharray={`${(progress / 100) * 100} 100`}
                 />
@@ -81,7 +81,7 @@ export function LandingBuildCard({
             </span>
             {build.character && (
               <>
-                <span className="h-1 w-1 rounded-full bg-white/50" />
+                <span className="h-1 w-1 rounded-full bg-kyar-bg/50" />
                 <span className="truncate text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm">
                   {build.character}
                 </span>

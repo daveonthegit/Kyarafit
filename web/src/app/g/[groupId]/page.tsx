@@ -143,7 +143,7 @@ export default function GroupDetailPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/groups"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text focus-visible:ring-offset-2"
           >
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
@@ -170,7 +170,7 @@ export default function GroupDetailPage() {
                   <span className="material-symbols-outlined text-6xl">group</span>
                 </div>
               )}
-              <div className="absolute bottom-6 left-6 bg-black text-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+              <div className="absolute bottom-6 left-6 bg-kyar-text text-kyar-bg px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
                 GROUP COSPLAY
               </div>
             </div>
@@ -225,12 +225,12 @@ export default function GroupDetailPage() {
                         <span className="material-symbols-outlined text-3xl">person</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-white text-[10px] font-bold uppercase tracking-widest truncate">
+                      <p className="text-kyar-bg text-[10px] font-bold uppercase tracking-widest truncate">
                         {m.name}
                       </p>
-                      <p className="text-white/70 text-[8px] uppercase tracking-[0.2em]">
+                      <p className="text-kyar-bg/70 text-[8px] uppercase tracking-[0.2em]">
                         {m.role}
                       </p>
                     </div>
@@ -249,7 +249,7 @@ export default function GroupDetailPage() {
                   <div className="relative group/addcon">
                     <button
                       type="button"
-                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-black transition-colors"
+                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-kyar-text transition-colors"
                     >
                       + ADD
                     </button>
@@ -363,9 +363,9 @@ export default function GroupDetailPage() {
                             <span className="material-symbols-outlined text-6xl">palette</span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
 
-                        <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                        <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
                           <div className="flex justify-between items-end gap-2">
                             <div className="flex-1 min-w-0">
                               {b.character && (
@@ -384,7 +384,7 @@ export default function GroupDetailPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveBuildFromGroup(b._id)}
-                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-600 transition-colors backdrop-blur-sm z-10"
+                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-kyar-text/50 text-kyar-bg flex items-center justify-center hover:bg-red-600 transition-colors backdrop-blur-sm z-10"
                           aria-label="Remove from group"
                         >
                           <span className="material-symbols-outlined text-[16px]">close</span>
@@ -403,7 +403,7 @@ export default function GroupDetailPage() {
                   <button
                     type="button"
                     onClick={() => setBuildPickerOpen(true)}
-                    className="px-8 py-4 bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-black/90 transition-colors rounded-full"
+                    className="px-8 py-4 bg-kyar-text text-kyar-bg text-[9px] font-bold uppercase tracking-[0.2em] shadow-xl hover:bg-kyar-text/90 transition-colors rounded-full"
                   >
                     ADD MY BUILD
                   </button>
@@ -417,7 +417,7 @@ export default function GroupDetailPage() {
                         });
                       }
                     }}
-                    className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center border border-kyar-borderSubtle shadow-soft hover:bg-kyar-muted transition-colors"
+                    className="w-12 h-12 rounded-full bg-kyar-surface text-kyar-text flex items-center justify-center border border-kyar-borderSubtle shadow-soft hover:bg-kyar-muted transition-colors"
                     aria-label="Share"
                   >
                     <span className="material-symbols-outlined text-[18px]">share</span>
@@ -431,7 +431,7 @@ export default function GroupDetailPage() {
 
       {/* Modals */}
       {conventionPickerOpen && selectedConvention && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-kyar-text/40 backdrop-blur-sm">
           <div className="bg-kyar-surface rounded-3xl shadow-2xl border border-kyar-borderSubtle max-w-md w-full p-6 sm:p-8">
             <h3 className="font-serif text-3xl font-bold italic mb-2 text-center">
               {selectedConvention.name}
@@ -443,13 +443,13 @@ export default function GroupDetailPage() {
               {datesInRange.map((date) => (
                 <label
                   key={date}
-                  className="flex items-center gap-4 cursor-pointer group p-3 rounded-xl border border-kyar-borderSubtle hover:border-black transition-colors"
+                  className="flex items-center gap-4 cursor-pointer group p-3 rounded-xl border border-kyar-borderSubtle hover:border-kyar-text transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={selectedDates.has(date)}
                     onChange={() => toggleDate(date)}
-                    className="w-5 h-5 rounded-full border-2 border-kyar-borderSubtle text-black focus:ring-black focus:ring-offset-0 transition-colors cursor-pointer checked:border-black"
+                    className="w-5 h-5 rounded-full border-2 border-kyar-borderSubtle text-kyar-text focus:ring-kyar-text focus:ring-offset-0 transition-colors cursor-pointer checked:border-kyar-text"
                   />
                   <div>
                     <span className="block text-sm font-medium">
@@ -479,7 +479,7 @@ export default function GroupDetailPage() {
                 type="button"
                 onClick={handleSaveDays}
                 disabled={daysPending}
-                className="flex-1 bg-black text-white rounded-full py-3 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+                className="flex-1 bg-kyar-text text-kyar-bg rounded-full py-3 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 hover:bg-kyar-text/90 transition-colors shadow-md"
               >
                 {daysPending ? "SAVING…" : "SAVE DAYS"}
               </button>
@@ -489,7 +489,7 @@ export default function GroupDetailPage() {
       )}
 
       {buildPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-kyar-text/40 backdrop-blur-sm">
           <div className="bg-kyar-surface rounded-3xl shadow-2xl border border-kyar-borderSubtle max-w-md w-full p-6 sm:p-8">
             <h3 className="font-serif text-3xl font-bold italic mb-6 text-center">Select Build</h3>
 
@@ -506,7 +506,7 @@ export default function GroupDetailPage() {
                       key={b._id}
                       type="button"
                       onClick={() => handleAddBuildToGroup(b._id)}
-                      className="w-full text-left p-4 rounded-xl border border-kyar-borderSubtle hover:border-black hover:shadow-md transition-all flex items-center gap-4 group"
+                      className="w-full text-left p-4 rounded-xl border border-kyar-borderSubtle hover:border-kyar-text hover:shadow-md transition-all flex items-center gap-4 group"
                     >
                       <div className="w-12 h-16 bg-kyar-muted rounded-lg overflow-hidden shrink-0">
                         {b.imageStorageId ? (

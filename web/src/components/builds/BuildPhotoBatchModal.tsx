@@ -73,7 +73,7 @@ export function BuildPhotoBatchModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full sm:w-auto sm:ml-auto px-6 py-2.5 bg-kyar-text text-white text-xs font-bold uppercase tracking-wider rounded-md"
+          className="w-full sm:w-auto sm:ml-auto px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
         >
           Done
         </button>

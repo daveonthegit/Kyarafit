@@ -2,7 +2,7 @@
   "Nav": {
     "home": "Inicio",
     "builds": "Proyectos",
-    "closet": "Armario",
+    "elements": "Elementos",
     "events": "Eventos",
     "groups": "Grupos",
     "planner": "Planificador",
@@ -82,6 +82,14 @@
     "language": "Idioma",
     "signOut": "Cerrar sesión",
     "backToHome": "Volver al inicio"
+  },
+  "Theme": {
+    "switchToDark": "Cambiar a modo oscuro",
+    "switchToLight": "Cambiar a modo claro",
+    "appearance": "Apariencia",
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro"
   },
   "Language": {
     "label": "Idioma",

@@ -278,7 +278,7 @@ export default function Planner() {
           onClick={() => setView("daily")}
           className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "daily"
-              ? "bg-black text-white shadow-md"
+              ? "bg-kyar-text text-kyar-bg shadow-md"
               : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "daily"}
@@ -291,7 +291,7 @@ export default function Planner() {
           onClick={() => setView("events")}
           className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "events"
-              ? "bg-black text-white shadow-md"
+              ? "bg-kyar-text text-kyar-bg shadow-md"
               : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "events"}
@@ -304,7 +304,7 @@ export default function Planner() {
           onClick={() => setView("calendar")}
           className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
             view === "calendar"
-              ? "bg-black text-white shadow-md"
+              ? "bg-kyar-text text-kyar-bg shadow-md"
               : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
           }`}
           aria-pressed={view === "calendar"}
@@ -338,7 +338,7 @@ export default function Planner() {
                         onClick={() => setTimeframe(tf)}
                         className={`min-h-[44px] px-4 py-2 text-[10px] uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
                           timeframe === tf
-                            ? "border-black bg-black text-white shadow-md"
+                            ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
                             : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
                         }`}
                         aria-pressed={timeframe === tf}
@@ -349,7 +349,7 @@ export default function Planner() {
                   </div>
                   <Link
                     href="/builds"
-                    className="min-h-[44px] inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest border border-black px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                    className="min-h-[44px] inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest border border-kyar-text px-6 py-2.5 rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                   >
                     Add task
                   </Link>
@@ -380,7 +380,7 @@ export default function Planner() {
                           aria-valuemax={totalCount}
                         >
                           <div
-                            className="h-full bg-black rounded-full transition-[width] duration-300"
+                            className="h-full bg-kyar-text rounded-full transition-[width] duration-300"
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>

@@ -189,7 +189,7 @@ export default function UnlistedBuildPage() {
               <button
                 type="submit"
                 disabled={commentPending || !commentBody.trim()}
-                className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md disabled:opacity-50"
+                className="px-4 py-2 bg-kyar-text text-kyar-bg text-sm font-medium rounded-md disabled:opacity-50"
               >
                 Post
               </button>

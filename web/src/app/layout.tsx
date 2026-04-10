@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { Bodoni_Moda, Inter, JetBrains_Mono, Montserrat, Playfair_Display } from "next/font/google";
+import { Albert_Sans, Bodoni_Moda, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
@@ -9,37 +9,23 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
-  title: "Kyarafit – Editorial Cosplay Lookbook",
-  description: "Organize your cosplay wardrobe, track builds, and plan character coords.",
+  title: "Kyarafit - Cosplay Studio Planner",
+  description: "Organize wardrobe pieces, track builds, and plan conventions with studio-grade clarity.",
 };
 
-const inter = Inter({
+const body = Albert_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-body",
 });
 
-const montserrat = Montserrat({
+const display = Bodoni_Moda({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  display: "swap",
-  variable: "--font-montserrat",
-});
-
-const playfairDisplay = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["400", "500", "700"],
   style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-playfair-display",
-});
-
-const bodoniModa = Bodoni_Moda({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
-  display: "swap",
-  variable: "--font-bodoni-moda",
+  variable: "--font-display",
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -56,8 +42,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const token = await getToken();
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k='kyar-theme';var t=localStorage.getItem(k);if(t!=='dark'&&t!=='light'){t='light';}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.remove('dark');}})();`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -66,7 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body
-        className={`${inter.variable} ${montserrat.variable} ${playfairDisplay.variable} ${bodoniModa.variable} ${jetbrainsMono.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
+        className={`${body.variable} ${display.variable} ${jetbrainsMono.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
         suppressHydrationWarning
       >
         <ConvexClientProvider initialToken={token}>

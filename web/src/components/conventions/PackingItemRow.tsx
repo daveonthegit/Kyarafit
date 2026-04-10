@@ -50,7 +50,7 @@ export function PackingItemRow({ item, isManual, userId, onToggle, onUpdate, onD
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="flex-shrink-0 p-1 text-kyar-textTertiary hover:text-black"
+                className="flex-shrink-0 p-1 text-kyar-textTertiary hover:text-kyar-text"
                 aria-label="Edit date and notes"
               >
                 <span className="material-symbols-outlined text-lg">edit</span>
@@ -60,7 +60,7 @@ export function PackingItemRow({ item, isManual, userId, onToggle, onUpdate, onD
               <button
                 type="button"
                 onClick={onDelete}
-                className="flex-shrink-0 p-1 text-kyar-textTertiary hover:text-black"
+                className="flex-shrink-0 p-1 text-kyar-textTertiary hover:text-kyar-text"
                 aria-label={`Remove ${item.label}`}
               >
                 <span className="material-symbols-outlined text-lg">close</span>
@@ -85,7 +85,7 @@ export function PackingItemRow({ item, isManual, userId, onToggle, onUpdate, onD
               type="date"
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
-              className="mt-0.5 block w-full border border-kyar-borderSubtle bg-white px-2 py-1.5 text-sm"
+              className="mt-0.5 block w-full border border-kyar-borderSubtle bg-kyar-surface px-2 py-1.5 text-sm"
             />
           </div>
           <div>
@@ -97,21 +97,21 @@ export function PackingItemRow({ item, isManual, userId, onToggle, onUpdate, onD
               onChange={(e) => setEditNotes(e.target.value)}
               rows={2}
               placeholder="Optional notes…"
-              className="mt-0.5 block w-full resize-y border border-kyar-borderSubtle bg-white px-2 py-1.5 text-sm"
+              className="mt-0.5 block w-full resize-y border border-kyar-borderSubtle bg-kyar-surface px-2 py-1.5 text-sm"
             />
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleSave}
-              className="bg-black px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white"
+              className="bg-kyar-text px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-kyar-bg"
             >
               Save
             </button>
             <button
               type="button"
               onClick={handleCancel}
-              className="border border-black px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+              className="border border-kyar-text px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-kyar-text"
             >
               Cancel
             </button>

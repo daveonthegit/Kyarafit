@@ -15,11 +15,12 @@ interface EmptyStateProps {
 /**
  * Reusable empty state block. Uses design-system typography and spacing.
  * Aligns with editorial utility: uppercase meta, clear hierarchy.
+ * No card chrome — background comes from the parent surface.
  */
 export function EmptyState({ icon, message, secondary, action, className = "" }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center py-16 px-4 text-center bg-kyar-surface border border-kyar-borderSubtle rounded-2xl shadow-soft ${className}`.trim()}
+      className={`flex flex-col items-center justify-center py-16 px-4 text-center ${className}`.trim()}
       role="status"
       aria-live="polite"
     >

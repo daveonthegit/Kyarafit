@@ -192,7 +192,7 @@ export default function BuildsPage() {
             )}
             <Link
               href="/elements"
-              className="flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-black hover:text-white hover:border-black transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+              className="flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               aria-label="Open elements"
             >
               Elements
@@ -211,8 +211,8 @@ export default function BuildsPage() {
               onClick={() => setActiveTab(opt.value as TabFilter)}
               className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 activeTab === opt.value
-                  ? "border-black bg-black text-white shadow-md"
-                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
+                  ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text hover:bg-kyar-muted"
               }`}
               aria-pressed={activeTab === opt.value}
             >
@@ -242,7 +242,7 @@ export default function BuildsPage() {
           <button
             type="button"
             onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-            className="inline-flex items-center text-kyar-meta hover:text-black transition-colors focus:outline-none"
+            className="inline-flex items-center text-kyar-meta hover:text-kyar-text transition-colors focus:outline-none"
             aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
             title={order === "asc" ? "Ascending" : "Descending"}
           >
@@ -264,7 +264,7 @@ export default function BuildsPage() {
               <button
                 type="button"
                 onClick={() => openCreationModal("newBuild")}
-                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 rounded hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-kyar-text px-4 py-2.5 rounded hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               >
                 New build
               </button>
@@ -304,12 +304,12 @@ export default function BuildsPage() {
                     checked={isSelected}
                     onChange={() => toggleSelect(b._id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute top-4 right-4 z-20 w-6 h-6 rounded-full border border-white/50 bg-black/20 checked:bg-black checked:border-black focus:ring-2 focus:ring-white focus:ring-offset-0 transition-all active:scale-90 shadow-sm backdrop-blur-sm cursor-pointer"
+                    className="absolute top-4 right-4 z-20 w-6 h-6 rounded-full border border-kyar-borderSubtle bg-kyar-text/25 checked:bg-kyar-text checked:border-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 transition-all active:scale-90 shadow-sm backdrop-blur-sm cursor-pointer"
                     aria-label={`Select ${b.name}`}
                   />
                   <Link
                     href={`/build-detail/${b._id}`}
-                    className={`block relative aspect-[3/4] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group ${isSelected ? "ring-2 ring-black border-black" : "border-kyar-borderSubtle bg-kyar-muted"}`}
+                    className={`block relative aspect-[3/4] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group ${isSelected ? "ring-2 ring-kyar-text border-kyar-text" : "border-kyar-borderSubtle bg-kyar-muted"}`}
                     aria-label={`View details for ${b.name}`}
                   >
                     {b.imageStorageId || b.imageUrl ? (
@@ -324,9 +324,9 @@ export default function BuildsPage() {
                         <span className="material-symbols-outlined text-6xl">image</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
@@ -350,7 +350,7 @@ export default function BuildsPage() {
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
-                              className="text-white/20"
+                              className="text-kyar-bg/20"
                             />
                             <circle
                               cx="18"
@@ -359,7 +359,7 @@ export default function BuildsPage() {
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
-                              className="text-white"
+                              className="text-kyar-bg"
                               strokeLinecap="round"
                               strokeDasharray={`${(progress / 100) * 100} 100`}
                             />
@@ -374,7 +374,7 @@ export default function BuildsPage() {
                         </span>
                         {b.character && (
                           <>
-                            <span className="w-1 h-1 rounded-full bg-white/50" />
+                            <span className="w-1 h-1 rounded-full bg-kyar-bg/50" />
                             <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
                               {b.character}
                             </span>
@@ -404,7 +404,7 @@ export default function BuildsPage() {
                   <Link
                     key={b._id}
                     href={`/build-detail/${b._id}`}
-                    className="block relative aspect-[3/4] w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 text-white group"
+                    className="block relative aspect-[3/4] w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 text-kyar-bg group"
                   >
                     {b.imageStorageId || b.imageUrl ? (
                       <ResolvedImage
@@ -418,9 +418,9 @@ export default function BuildsPage() {
                         <span className="material-symbols-outlined text-6xl">image</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
                       <h2 className="font-serif text-2xl font-bold italic tracking-tight drop-shadow-sm truncate">
                         {b.name}
                       </h2>
@@ -433,9 +433,9 @@ export default function BuildsPage() {
                           <span>Progress</span>
                           <span>{progress}%</span>
                         </div>
-                        <div className="h-[2px] bg-white/30 w-full rounded-full overflow-hidden drop-shadow-sm">
+                        <div className="h-[2px] bg-kyar-bg/30 w-full rounded-full overflow-hidden drop-shadow-sm">
                           <div
-                            className="h-full bg-white transition-all rounded-full"
+                            className="h-full bg-kyar-bg transition-all rounded-full"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
@@ -462,7 +462,7 @@ export default function BuildsPage() {
                 type="button"
                 onClick={() => handleSetStatusSelected(value)}
                 disabled={actionPending}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
               >
                 {label}
               </button>
@@ -471,7 +471,7 @@ export default function BuildsPage() {
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={actionPending}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-white transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-kyar-bg transition-colors disabled:opacity-50"
             >
               Delete
             </button>
@@ -502,7 +502,7 @@ export default function BuildsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
+              className="flex-1 py-3 border border-kyar-text text-sm font-bold uppercase tracking-wider rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               Cancel
             </button>
@@ -510,7 +510,7 @@ export default function BuildsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>
@@ -531,7 +531,7 @@ export default function BuildsPage() {
             type="button"
             onClick={handleUndoDelete}
             disabled={actionPending}
-            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-kyar-bg/10 disabled:opacity-50 transition-colors"
           >
             {actionPending ? "Undoing…" : "Undo"}
           </button>

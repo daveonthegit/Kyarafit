@@ -9,7 +9,7 @@ const MAX_WIDTH = "max-w-7xl mx-auto w-full";
 
 export function LandingDeviceShowcaseSection() {
   return (
-    <section className="overflow-hidden border-t border-kyar-borderSubtle bg-white py-20 sm:py-24 lg:py-32">
+    <section className="overflow-hidden border-t border-kyar-borderSubtle bg-kyar-bg py-20 sm:py-24 lg:py-32">
       <div
         className={`${SECTION_PADDING} ${MAX_WIDTH} flex flex-col items-center gap-12 sm:gap-14 lg:flex-row lg:items-center lg:gap-16`}
       >
@@ -20,7 +20,7 @@ export function LandingDeviceShowcaseSection() {
           transition={{ duration: 0.8 }}
           className="w-full lg:w-[min(32rem,46%)]"
         >
-          <h2 className="font-serif-elegant mb-6 text-[clamp(2.2rem,6vw,3.75rem)] font-normal leading-[1.05] sm:mb-8">
+          <h2 className="font-serif-elegant mb-6 text-[clamp(2.2rem,6vw,3.75rem)] font-normal leading-[1.05] text-kyar-text sm:mb-8">
             Your craft,
             <br />
             wherever you go.
@@ -34,7 +34,7 @@ export function LandingDeviceShowcaseSection() {
               href="https://apps.apple.com/app/kyarafit"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg bg-kyar-text px-6 py-4 text-white transition-all hover:-translate-y-0.5 hover:bg-kyar-accent hover:shadow-lg sm:w-auto sm:justify-start"
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg bg-kyar-text px-6 py-4 text-kyar-bg transition-all hover:-translate-y-0.5 hover:bg-kyar-accent hover:shadow-lg sm:w-auto sm:justify-start"
             >
               <span className="material-symbols-outlined text-2xl" aria-hidden>
                 apple
@@ -45,7 +45,7 @@ export function LandingDeviceShowcaseSection() {
               href="https://play.google.com/store/apps/details?id=com.kyarafit"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg border-2 border-kyar-borderSubtle bg-white px-6 py-4 text-kyar-text transition-colors hover:border-kyar-text sm:w-auto sm:justify-start"
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-3 rounded-lg border-2 border-kyar-borderSubtle bg-kyar-surface px-6 py-4 text-kyar-text transition-colors hover:border-kyar-text sm:w-auto sm:justify-start"
             >
               <span className="material-symbols-outlined text-2xl" aria-hidden>
                 android
@@ -61,14 +61,14 @@ export function LandingDeviceShowcaseSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="relative flex min-h-[24rem] w-full items-center justify-center sm:min-h-[30rem] lg:min-h-[32rem] lg:flex-1"
         >
-          <div className="absolute right-0 top-0 flex aspect-video w-[min(100%,42rem)] max-w-full flex-col overflow-hidden rounded-xl border border-kyar-border bg-white shadow-[0_24px_48px_rgba(0,0,0,0.08)] sm:w-[min(100%,40rem)] lg:right-0 lg:w-[min(100%,38rem)] xl:-right-8 xl:w-[min(100%,42rem)]">
+          <div className="absolute right-0 top-0 flex aspect-video w-[min(100%,42rem)] max-w-full flex-col overflow-hidden rounded-xl border border-kyar-cardBorder bg-kyar-surface shadow-card sm:w-[min(100%,40rem)] lg:right-0 lg:w-[min(100%,38rem)] xl:-right-8 xl:w-[min(100%,42rem)]">
             <div className="flex h-6 items-center gap-1.5 border-b border-kyar-borderSubtle bg-kyar-bgWarm px-4">
-              <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FF5F56]" />
-              <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#FFBD2E]" />
-              <div className="h-2.5 w-2.5 rounded-full border border-black/10 bg-[#27C93F]" />
+              <div className="h-2.5 w-2.5 rounded-full border border-kyar-text/10 bg-[#FF5F56]" />
+              <div className="h-2.5 w-2.5 rounded-full border border-kyar-text/10 bg-[#FFBD2E]" />
+              <div className="h-2.5 w-2.5 rounded-full border border-kyar-text/10 bg-[#27C93F]" />
             </div>
             <div className="flex min-h-[200px] flex-1 bg-kyar-bgWarm">
-              <div className="hidden w-44 flex-col gap-4 border-r border-kyar-borderSubtle bg-white px-3 py-5 sm:flex">
+              <div className="hidden w-44 flex-col gap-4 border-r border-kyar-borderSubtle bg-kyar-surface px-3 py-5 sm:flex">
                 <div className="px-2 font-serif-elegant text-base font-bold italic">Kyarafit</div>
                 <div className="flex flex-col gap-1">
                   <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary">
@@ -91,7 +91,7 @@ export function LandingDeviceShowcaseSection() {
                   {LANDING_BUILDS.slice(0, 3).map((build) => (
                     <div
                       key={build.id}
-                      className="overflow-hidden rounded-lg border border-kyar-borderSubtle bg-white"
+                      className="overflow-hidden rounded-lg border border-kyar-borderSubtle bg-kyar-surface"
                     >
                       <div className="relative aspect-[3/4] bg-kyar-muted">
                         <Image
@@ -101,9 +101,9 @@ export function LandingDeviceShowcaseSection() {
                           sizes="(min-width: 1280px) 120px, (min-width: 1024px) 10vw, 24vw"
                           className="object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/70 to-transparent" />
                         <div className="absolute bottom-1 left-1 right-1">
-                          <p className="truncate font-serif text-[10px] italic text-white">
+                          <p className="truncate font-serif text-[10px] italic text-kyar-bg">
                             {build.name}
                           </p>
                         </div>
@@ -115,15 +115,15 @@ export function LandingDeviceShowcaseSection() {
             </div>
           </div>
           <motion.div
-            className="absolute bottom-0 left-2 z-10 h-[min(70vw,28rem)] w-[min(42vw,14rem)] rounded-[2rem] border-[6px] border-[#E5E5E5] bg-white p-1 shadow-2xl sm:left-4 sm:h-[24rem] sm:w-[12rem] lg:left-0 lg:h-[26rem] lg:w-[13rem]"
+            className="absolute bottom-0 left-2 z-10 h-[min(70vw,28rem)] w-[min(42vw,14rem)] rounded-[2rem] border-[6px] border-kyar-border bg-kyar-surface p-1 shadow-card sm:left-4 sm:h-[24rem] sm:w-[12rem] lg:left-0 lg:h-[26rem] lg:w-[13rem]"
             initial={{ y: 50 }}
             whileInView={{ y: 0 }}
             viewport={{ margin: "-60px", amount: 0.15 }}
             transition={{ duration: 1, delay: 0.4 }}
           >
-            <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-white">
+            <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface">
               <div className="absolute left-1/2 top-0 z-20 h-4 w-20 -translate-x-1/2 rounded-b-xl bg-[#E5E5E5]" />
-              <div className="relative flex h-32 flex-col justify-end overflow-hidden bg-kyar-accent p-5 text-white">
+              <div className="relative flex h-32 flex-col justify-end overflow-hidden bg-kyar-accent p-5 text-kyar-bg">
                 <Image
                   src={MOCK_ACCOUNT.convention.heroImageSrc}
                   alt=""
@@ -140,7 +140,7 @@ export function LandingDeviceShowcaseSection() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-1 flex-col gap-3 bg-white p-4">
+              <div className="flex flex-1 flex-col gap-3 bg-kyar-surface p-4">
                 {MOCK_ACCOUNT.convention.packingPreviewRows.map((row) => (
                   <div
                     key={row.label}
@@ -150,12 +150,12 @@ export function LandingDeviceShowcaseSection() {
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
                         row.done
                           ? "border-kyar-accent bg-kyar-accent"
-                          : "border-kyar-border bg-white"
+                          : "border-kyar-border bg-kyar-surface"
                       }`}
                     >
                       {row.done && (
                         <svg
-                          className="h-2.5 w-2.5 text-white"
+                          className="h-2.5 w-2.5 text-kyar-bg"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="3"
@@ -175,7 +175,7 @@ export function LandingDeviceShowcaseSection() {
                   </div>
                 ))}
               </div>
-              <div className="flex h-14 items-center justify-around border-t border-kyar-borderSubtle bg-white px-2 text-kyar-textTertiary">
+              <div className="flex h-14 items-center justify-around border-t border-kyar-borderSubtle bg-kyar-surface px-2 text-kyar-textTertiary">
                 <span className="material-symbols-outlined text-[22px]">checkroom</span>
                 <span className="material-symbols-outlined text-[22px]">architecture</span>
                 <div className="flex flex-col items-center text-kyar-accent">

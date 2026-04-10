@@ -37,7 +37,7 @@ export function BuildNotesModal({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="flex-1 min-w-[100px] bg-kyar-text text-white py-2.5 text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
+            className="flex-1 min-w-[100px] bg-kyar-text text-kyar-bg py-2.5 text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>

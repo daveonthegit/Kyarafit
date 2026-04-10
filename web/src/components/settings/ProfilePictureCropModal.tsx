@@ -101,7 +101,7 @@ export function ProfilePictureCropModal({
             type="button"
             onClick={handleSave}
             disabled={saving || !croppedAreaPixels}
-            className="px-4 py-2 text-sm font-medium bg-black text-white rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="px-4 py-2 text-sm font-medium bg-kyar-text text-kyar-bg rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
           >
             {saving ? "Saving…" : "Save"}
           </button>

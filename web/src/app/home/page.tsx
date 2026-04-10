@@ -164,7 +164,7 @@ export default function HomePage() {
           trailing={
             <Link
               href="/settings"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
               aria-label={tCommon("settings")}
             >
               <span className="material-symbols-outlined font-light text-2xl">menu</span>
@@ -208,11 +208,11 @@ export default function HomePage() {
                       </div>
                     )}
                     <div
-                      className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+                      className="absolute inset-0 bg-gradient-to-t from-kyar-text/40 via-transparent to-transparent"
                       aria-hidden
                     />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
-                      <span className="inline-block text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium bg-black text-white px-2.5 py-1 rounded-sm mb-2">
+                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-kyar-bg">
+                      <span className="inline-block text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium bg-kyar-text text-kyar-bg px-2.5 py-1 rounded-sm mb-2">
                         {t("currentFocus")}
                       </span>
                       <p className="font-serif text-xl sm:text-2xl lg:text-4xl italic font-normal">
@@ -247,7 +247,7 @@ export default function HomePage() {
                       aria-valuemax={recentBuild.tasksTotal}
                     >
                       <div
-                        className="h-full bg-black rounded-full transition-[width] duration-300"
+                        className="h-full bg-kyar-text rounded-full transition-[width] duration-300"
                         style={{
                           width: `${(100 * recentBuild.tasksChecked) / recentBuild.tasksTotal}%`,
                         }}
@@ -266,7 +266,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={openFocusModal}
-                        className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text underline decoration-kyar-meta underline-offset-2 hover:decoration-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 rounded"
+                        className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text underline decoration-kyar-meta underline-offset-2 hover:decoration-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
                         aria-label={t("selectFocus")}
                       >
                         {t("selectFocus")}
@@ -287,7 +287,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               onClick={closeFocusModal}
-                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                               aria-label="Close"
                             >
                               <span className="material-symbols-outlined font-light text-xl">
@@ -302,7 +302,7 @@ export default function HomePage() {
                               value={focusSearch}
                               onChange={(e) => setFocusSearch(e.target.value)}
                               placeholder={t("searchBuildsPlaceholder")}
-                              className="w-full rounded-sm border border-kyar-borderSubtle bg-kyar-bg px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-meta focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                              className="w-full rounded-sm border border-kyar-borderSubtle bg-kyar-bg px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-meta focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                               aria-label={t("selectFocus")}
                             />
                           </div>
@@ -311,7 +311,7 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => selectFocus(undefined)}
-                                className="w-full flex items-center gap-3 p-3 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                                className="w-full flex items-center gap-3 p-3 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                               >
                                 <span className="w-12 h-12 shrink-0 rounded-sm bg-kyar-muted flex items-center justify-center text-kyar-textTertiary">
                                   <span className="material-symbols-outlined text-2xl">
@@ -331,7 +331,7 @@ export default function HomePage() {
                                     <button
                                       type="button"
                                       onClick={() => selectFocus(b._id)}
-                                      className="flex-1 flex items-center gap-3 p-3 min-w-0 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-inset"
+                                      className="flex-1 flex items-center gap-3 p-3 min-w-0 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-inset"
                                     >
                                       <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-kyar-muted">
                                         {hasImage ? (
@@ -371,7 +371,7 @@ export default function HomePage() {
                                       <button
                                         type="button"
                                         onClick={(e) => openCropForBuild(e, b)}
-                                        className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center text-kyar-meta hover:text-kyar-text hover:bg-kyar-borderSubtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                                        className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center text-kyar-meta hover:text-kyar-text hover:bg-kyar-borderSubtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                                         aria-label={t("adjustCrop")}
                                         title={t("adjustCrop")}
                                       >
@@ -414,7 +414,7 @@ export default function HomePage() {
                 </div>
                 <Link
                   href={recentBuild ? `/build-detail/${recentBuild._id}` : "/builds"}
-                  className="text-[10px] font-semibold uppercase tracking-widest border border-black px-4 py-2.5 min-h-[44px] inline-flex items-center rounded-sm hover:bg-black hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                  className="text-[10px] font-semibold uppercase tracking-widest border border-kyar-text px-4 py-2.5 min-h-[44px] inline-flex items-center rounded-sm text-kyar-text hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
                 >
                   {recentBuild ? t("continueEditing") : t("viewBuilds")}
                 </Link>
@@ -447,7 +447,7 @@ export default function HomePage() {
                       <Link
                         key={convention._id}
                         href={`/conventions/${convention._id}`}
-                        className="snap-start shrink-0 w-[240px] flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-white hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+                        className="snap-start shrink-0 w-[240px] flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-kyar-surface hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
                       >
                         {hasImage ? (
                           <div className="h-[120px] w-full bg-kyar-muted relative shrink-0">
@@ -489,7 +489,7 @@ export default function HomePage() {
                   <p className="text-sm text-kyar-textSecondary">
                     <Link
                       href="/conventions"
-                      className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 rounded"
+                      className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
                     >
                       {t("viewAllEvents")}
                     </Link>
@@ -516,7 +516,7 @@ export default function HomePage() {
                       <Link
                         key={build._id}
                         href={`/build-detail/${build._id}`}
-                        className="snap-start shrink-0 w-[180px] h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-white hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 relative"
+                        className="snap-start shrink-0 w-[180px] h-full flex flex-col rounded-2xl overflow-hidden border border-kyar-borderSubtle bg-kyar-surface hover:border-kyar-text hover:shadow-soft transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 relative"
                       >
                         <div className="flex-1 min-h-0 relative w-full bg-kyar-muted">
                           {hasImage ? (
@@ -534,10 +534,10 @@ export default function HomePage() {
                             </div>
                           )}
                           <div
-                            className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
+                            className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/20 to-transparent"
                             aria-hidden
                           />
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-bg">
                             <p className="font-serif italic text-lg leading-tight line-clamp-2">
                               {build.name}
                             </p>
@@ -555,7 +555,7 @@ export default function HomePage() {
                   <p className="text-sm text-kyar-textSecondary">
                     <Link
                       href="/builds"
-                      className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 rounded"
+                      className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
                     >
                       {t("viewAllBuilds")}
                     </Link>

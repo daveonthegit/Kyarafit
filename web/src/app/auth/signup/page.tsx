@@ -90,7 +90,7 @@ export default function SignUpPage() {
           <button
             onClick={() => handleOAuth("google")}
             disabled={anyLoading}
-            className="w-full flex items-center justify-center gap-3 border border-black py-3 text-xs uppercase tracking-widest font-semibold hover:bg-black hover:text-white transition-all disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 border border-kyar-text py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-text hover:text-kyar-bg transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -142,7 +142,7 @@ export default function SignUpPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <div>
@@ -155,7 +155,7 @@ export default function SignUpPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Choose a username (3+ characters)"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <div>
@@ -166,7 +166,7 @@ export default function SignUpPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <div>
@@ -178,7 +178,7 @@ export default function SignUpPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <div>
@@ -189,13 +189,13 @@ export default function SignUpPage() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <button
             type="submit"
             disabled={anyLoading}
-            className="w-full bg-black text-white py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-textSecondary transition-colors disabled:opacity-50"
+            className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
           >
             {loading ? "Creating account…" : "Create Account"}
           </button>
@@ -203,7 +203,7 @@ export default function SignUpPage() {
 
         <p className="mt-6 text-center text-xs text-kyar-textTertiary">
           Already have an account?{" "}
-          <Link href="/auth/signin" className="underline hover:text-black">
+          <Link href="/auth/signin" className="underline hover:text-kyar-text">
             Sign in
           </Link>
         </p>
@@ -215,7 +215,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-black">
+          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-kyar-text">
             &larr; Back to home
           </Link>
         </div>

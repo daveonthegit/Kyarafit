@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 
-/**
- * @deprecated Prefer `Surface` (default grouping) or `Panel` (elevated focus). Kept for incremental migration.
- */
-export interface SectionCardProps {
+export interface SurfaceProps {
   /** Optional section title. */
   title?: string;
   /** Optional action link (e.g. "View all") shown next to title. */
@@ -13,16 +10,20 @@ export interface SectionCardProps {
     label: string;
     href: string;
   };
-  /** Card content. */
+  /** Content. */
   children: React.ReactNode;
-  /** Extra class for the card wrapper. */
+  /** Extra class for the wrapper. */
   className?: string;
 }
 
-export function SectionCard({ title, action, children, className = "" }: SectionCardProps) {
+/**
+ * Default grouped container: light tint, subtle border, no shadow.
+ * Use for related content without heavy visual weight.
+ */
+export function Surface({ title, action, children, className = "" }: SurfaceProps) {
   return (
     <section
-      className={`rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft overflow-hidden ${className}`.trim()}
+      className={`rounded-lg border border-kyar-borderSubtle bg-kyar-surface/60 overflow-hidden ${className}`.trim()}
     >
       {(title || action) && (
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-kyar-borderSubtle">

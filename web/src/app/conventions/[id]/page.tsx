@@ -228,7 +228,7 @@ export default function ConventionDetailPage() {
         <div className="flex items-center gap-4 min-w-0">
           <Link
             href="/conventions"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 shrink-0"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 shrink-0"
           >
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
@@ -250,7 +250,7 @@ export default function ConventionDetailPage() {
               <button
                 type="button"
                 onClick={openEdit}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-black text-white rounded-full hover:bg-black/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-kyar-text text-kyar-bg rounded-full hover:opacity-90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
               >
                 Edit
               </button>
@@ -270,7 +270,7 @@ export default function ConventionDetailPage() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="e.g. Anime Expo"
-                  className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+                  className="w-full border-0 border-b border-kyar-border bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
                 />
               </div>
               <div>
@@ -280,7 +280,7 @@ export default function ConventionDetailPage() {
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
                   placeholder="City or venue"
-                  className="w-full border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+                  className="w-full border-0 border-b border-kyar-border bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
                 />
               </div>
               <div>
@@ -353,7 +353,7 @@ export default function ConventionDetailPage() {
                   <span className="material-symbols-outlined text-6xl">event</span>
                 </div>
               )}
-              <div className="absolute bottom-6 left-6 bg-black text-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+              <div className="absolute bottom-6 left-6 bg-kyar-text text-kyar-bg px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
                 EVENT {convention.startDate.substring(0, 4)}
               </div>
             </div>
@@ -402,7 +402,7 @@ export default function ConventionDetailPage() {
                     <li key={g._id}>
                       <Link
                         href={`/g/${g._id}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 border border-kyar-borderSubtle rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-kyar-borderSubtle rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-kyar-muted hover:border-kyar-text transition-colors"
                       >
                         {g.name}
                       </Link>
@@ -486,7 +486,7 @@ export default function ConventionDetailPage() {
                         </p>
                       </div>
 
-                      <div className="absolute left-0 md:left-1/2 flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-kyar-bg bg-black text-white md:-translate-x-1/2 shadow-sm z-10">
+                      <div className="absolute left-0 md:left-1/2 flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-kyar-bg bg-kyar-text text-kyar-bg md:-translate-x-1/2 shadow-sm z-10">
                         <span className="text-[8px] font-bold">{idx + 1}</span>
                       </div>
 
@@ -504,7 +504,7 @@ export default function ConventionDetailPage() {
                         <button
                           type="button"
                           onClick={() => setPickerDate(date)}
-                          className="w-full text-left rounded-2xl border border-kyar-borderSubtle hover:border-black hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent overflow-hidden bg-kyar-surface group/card"
+                          className="w-full text-left rounded-2xl border border-kyar-borderSubtle hover:border-kyar-text hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent overflow-hidden bg-kyar-surface group/card"
                         >
                           {build ? (
                             <div className="flex flex-col">
@@ -598,7 +598,7 @@ export default function ConventionDetailPage() {
                     <button
                       type="button"
                       onClick={handleRegeneratePacking}
-                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-black transition-colors"
+                      className="text-[9px] font-bold uppercase tracking-widest text-kyar-accent hover:text-kyar-text transition-colors"
                     >
                       SYNC BUILDS
                     </button>
@@ -715,7 +715,7 @@ export default function ConventionDetailPage() {
                           e.key === "Enter" && (e.preventDefault(), handleAddPackingItem())
                         }
                         placeholder="Add manual item..."
-                        className="flex-1 min-w-0 bg-transparent border-b border-kyar-borderSubtle py-2 text-xs focus:outline-none focus:border-black placeholder:text-kyar-meta transition-colors"
+                        className="flex-1 min-w-0 bg-transparent border-b border-kyar-borderSubtle py-2 text-xs focus:outline-none focus:border-kyar-text placeholder:text-kyar-meta transition-colors"
                       />
                       <button
                         type="button"
@@ -728,7 +728,7 @@ export default function ConventionDetailPage() {
                     </div>
                     <Link
                       href={`/conventions/${id}/packing`}
-                      className="text-[9px] font-bold uppercase tracking-widest text-center py-3 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors block mt-2"
+                      className="text-[9px] font-bold uppercase tracking-widest text-center py-3 border border-kyar-borderSubtle rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors block mt-2"
                     >
                       FULL PACKING VIEW
                     </Link>
@@ -744,11 +744,11 @@ export default function ConventionDetailPage() {
 
       {pickerDate !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6"
+          className="fixed inset-0 z-50 bg-kyar-text/40 backdrop-blur-sm flex items-center justify-center p-6"
           onClick={() => setPickerDate(null)}
         >
           <div
-            className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+            className="bg-kyar-surface border border-kyar-borderSubtle w-full max-w-sm rounded-3xl p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="font-serif text-2xl italic font-bold mb-6 text-center">Assign Build</h2>
@@ -764,7 +764,7 @@ export default function ConventionDetailPage() {
               <button
                 type="button"
                 onClick={() => handleAssign(pickerDate, null)}
-                className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-black hover:bg-kyar-muted transition-colors text-sm font-medium"
+                className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted transition-colors text-sm font-medium"
               >
                 Rest Day (Clear)
               </button>
@@ -773,7 +773,7 @@ export default function ConventionDetailPage() {
                   key={b._id}
                   type="button"
                   onClick={() => handleAssign(pickerDate, b._id)}
-                  className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-black hover:bg-kyar-muted transition-colors text-sm font-medium"
+                  className="block w-full text-left px-4 py-3 rounded-xl border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted transition-colors text-sm font-medium"
                 >
                   {b.name}{" "}
                   <span className="text-kyar-meta text-xs font-normal">

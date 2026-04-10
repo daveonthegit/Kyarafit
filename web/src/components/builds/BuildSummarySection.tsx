@@ -43,13 +43,13 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
     <div className="space-y-8" data-testid="build-summary-content">
       <div className="grid gap-6 border-b border-kyar-borderSubtle pb-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
               Status
             </p>
             <p className="mt-3 font-serif text-3xl capitalize text-kyar-text">{summary.status}</p>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
               Progress
             </p>
@@ -58,7 +58,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
               {summary.tasksChecked} of {summary.tasksTotal} tasks complete
             </p>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
               Timeline
             </p>
@@ -101,7 +101,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
               ) : null}
             </div>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-4">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
               Linked items
             </p>
@@ -112,7 +112,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-4 py-5">
+          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-4 py-5">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
               Build progress
             </p>
@@ -121,7 +121,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
             </div>
           </div>
           {summary.budgetCents != null && budgetUsedPercent != null ? (
-            <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-4 py-5">
+            <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-4 py-5">
               <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
                 Budget used
               </p>
@@ -136,7 +136,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
         </div>
       </div>
       {summary.budgetCents != null ? (
-        <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-5">
+        <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-5">
           <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
             Budget
           </span>
@@ -165,7 +165,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           </div>
         </div>
       ) : summary.linkedItemCount > 0 ? (
-        <div className="rounded-[24px] border border-kyar-borderSubtle bg-white px-5 py-5">
+        <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-5">
           <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
             Linked items cost
           </span>

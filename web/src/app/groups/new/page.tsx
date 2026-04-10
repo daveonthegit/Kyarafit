@@ -98,8 +98,8 @@ export default function NewGroupPage() {
                 onClick={() => setVisibility("private")}
                 className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
                   visibility === "private"
-                    ? "border-black bg-kyar-muted text-black"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
+                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
                 }`}
               >
                 Private
@@ -109,8 +109,8 @@ export default function NewGroupPage() {
                 onClick={() => setVisibility("public")}
                 className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
                   visibility === "public"
-                    ? "border-black bg-kyar-muted text-black"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
+                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
                 }`}
               >
                 Public
@@ -129,13 +129,13 @@ export default function NewGroupPage() {
             <button
               type="submit"
               disabled={pending || !name.trim()}
-              className="flex-1 bg-black text-white py-3 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
+              className="flex-1 bg-kyar-text text-kyar-bg py-3 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
             >
               {pending ? "Creating…" : "Create group"}
             </button>
             <Link
               href="/groups"
-              className="px-6 py-3 border border-kyar-border text-sm font-semibold uppercase tracking-wider hover:border-black rounded-sm inline-flex items-center"
+              className="px-6 py-3 border border-kyar-border text-sm font-semibold uppercase tracking-wider hover:border-kyar-text rounded-sm inline-flex items-center"
             >
               Cancel
             </Link>

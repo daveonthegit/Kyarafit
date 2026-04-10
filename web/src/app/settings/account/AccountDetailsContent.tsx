@@ -247,7 +247,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               }}
               placeholder="Display name"
               maxLength={500}
-              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
               disabled={displayNameLoading}
               data-testid="account-name-input"
               autoComplete="name"
@@ -306,7 +306,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               }}
               placeholder="username"
               maxLength={80}
-              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
               disabled={usernameLoading}
               data-testid="account-username-input"
               autoComplete="username"
@@ -366,7 +366,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
               placeholder="Short bio for your public profile"
               maxLength={500}
               rows={3}
-              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-black transition-colors"
+              className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
               disabled={bioLoading}
             />
             <div className="flex gap-2">
@@ -422,14 +422,14 @@ export function AccountDetailsContent({ user, onUpdateDisplayName }: Props) {
             <button
               type="button"
               onClick={() => handleSaveProfileVisibility("public")}
-              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors"
+              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               Public
             </button>
             <button
               type="button"
               onClick={() => handleSaveProfileVisibility("private")}
-              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors"
+              className="text-[10px] font-bold uppercase tracking-widest px-6 py-2.5 border border-kyar-borderSubtle rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               Private
             </button>

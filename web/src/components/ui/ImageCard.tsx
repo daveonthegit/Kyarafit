@@ -23,7 +23,7 @@ export function ImageCard({ imageUrl, title, tag, className = "" }: ImageCardPro
           sizes="(max-width: 768px) 50vw, 33vw"
         />
         {tag && (
-          <span className="absolute bottom-2 left-2 text-[10px] font-sans-wide font-semibold uppercase tracking-wider text-kyar-text bg-white/90 px-2 py-0.5">
+          <span className="absolute bottom-2 left-2 text-[10px] font-sans-wide font-semibold uppercase tracking-wider text-kyar-text bg-kyar-bg/90 px-2 py-0.5">
             {tag}
           </span>
         )}

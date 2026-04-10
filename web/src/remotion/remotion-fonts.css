@@ -1,8 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Material+Symbols+Outlined:opsz,wght,FILL@24,100..700,0..1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Bodoni+Moda:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL@24,100..700,0..1&display=swap");
 
 :root {
-  --font-inter: "Inter";
-  --font-montserrat: "Montserrat";
-  --font-playfair-display: "Playfair Display";
-  --font-bodoni-moda: "Bodoni Moda";
+  --font-body: "Albert Sans";
+  --font-display: "Bodoni Moda";
+  --font-explorer-mono: "JetBrains Mono";
 }

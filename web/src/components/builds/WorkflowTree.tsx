@@ -160,7 +160,7 @@ function WorkflowItemRow({
             })
           }
           disabled={!userId}
-          className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-white px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
+          className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
         >
           {WORKFLOW_STATUS_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -270,9 +270,9 @@ export function WorkflowTree({
           <span className="font-medium text-kyar-text">Workflow progress</span>
           <span className="text-kyar-textTertiary">{progressPercent}%</span>
         </div>
-        <div className="h-2 w-full border border-kyar-borderSubtle bg-white">
+        <div className="h-2 w-full border border-kyar-borderSubtle bg-kyar-surface">
           <div
-            className="h-full bg-black transition-[width] duration-200"
+            className="h-full bg-kyar-text transition-[width] duration-200"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -368,7 +368,7 @@ export function WorkflowTree({
           <button
             type="button"
             onClick={() => void handleCreateChild()}
-            className="bg-black px-3 py-2 text-[11px] font-semibold text-white"
+            className="bg-kyar-text px-3 py-2 text-[11px] font-semibold text-kyar-bg"
           >
             Save
           </button>
@@ -400,7 +400,7 @@ export function WorkflowTree({
           type="button"
           onClick={() => void handleCreateRoot()}
           disabled={!userId || !newRootTitle.trim()}
-          className="bg-black px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-50"
+          className="bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
         >
           Add step
         </button>

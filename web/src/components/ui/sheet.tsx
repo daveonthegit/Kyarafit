@@ -67,7 +67,7 @@ export function Sheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm"
+            className="fixed inset-0 z-[10000] bg-kyar-text/30 backdrop-blur-sm"
             aria-hidden="true"
             onClick={() => {
               if (!closeDisabled) onClose();
@@ -78,7 +78,7 @@ export function Sheet({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className={`fixed inset-y-0 right-0 z-[10001] w-full ${sizeClass[size]} bg-white shadow-[var(--shadow-soft)] flex flex-col border-l border-kyar-borderSubtle sm:rounded-l-3xl overflow-hidden`}
+            className={`fixed inset-y-0 right-0 z-[10001] w-full ${sizeClass[size]} bg-kyar-surface shadow-soft flex flex-col border-l border-kyar-borderSubtle sm:rounded-l-3xl overflow-hidden`}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}

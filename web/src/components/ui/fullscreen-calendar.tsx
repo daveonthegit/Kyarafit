@@ -178,7 +178,7 @@ export function FullScreenCalendar({
                   type="button"
                   onClick={() => setSelectedDay(day)}
                   className={cn(
-                    isEqual(day, selectedDay) && "text-white",
+                    isEqual(day, selectedDay) && "text-kyar-bg",
                     !isEqual(day, selectedDay) &&
                       !isToday(day) &&
                       isSameMonth(day, firstDayCurrentMonth) &&
@@ -195,8 +195,8 @@ export function FullScreenCalendar({
                     dateTime={format(day, "yyyy-MM-dd")}
                     className={cn(
                       "ml-auto flex size-6 items-center justify-center rounded-full",
-                      isEqual(day, selectedDay) && isToday(day) && "bg-black text-white",
-                      isEqual(day, selectedDay) && !isToday(day) && "bg-black text-white"
+                      isEqual(day, selectedDay) && isToday(day) && "bg-kyar-text text-kyar-bg",
+                      isEqual(day, selectedDay) && !isToday(day) && "bg-kyar-text text-kyar-bg"
                     )}
                   >
                     {format(day, "d")}
@@ -237,7 +237,7 @@ export function FullScreenCalendar({
                   <header className="flex items-center justify-between p-2.5">
                     <span
                       className={cn(
-                        isEqual(day, selectedDay) && "text-white",
+                        isEqual(day, selectedDay) && "text-kyar-bg",
                         !isEqual(day, selectedDay) &&
                           !isToday(day) &&
                           isSameMonth(day, firstDayCurrentMonth) &&
@@ -246,8 +246,8 @@ export function FullScreenCalendar({
                           !isToday(day) &&
                           !isSameMonth(day, firstDayCurrentMonth) &&
                           "text-kyar-textTertiary",
-                        isEqual(day, selectedDay) && isToday(day) && "rounded-full bg-black",
-                        isEqual(day, selectedDay) && !isToday(day) && "rounded-full bg-black",
+                        isEqual(day, selectedDay) && isToday(day) && "rounded-full bg-kyar-text",
+                        isEqual(day, selectedDay) && !isToday(day) && "rounded-full bg-kyar-text",
                         (isEqual(day, selectedDay) || isToday(day)) && "font-semibold",
                         "flex h-7 w-7 items-center justify-center rounded-full text-xs"
                       )}
@@ -284,7 +284,7 @@ export function FullScreenCalendar({
                 type="button"
                 onClick={() => setSelectedDay(day)}
                 className={cn(
-                  isEqual(day, selectedDay) && "text-white",
+                  isEqual(day, selectedDay) && "text-kyar-bg",
                   !isEqual(day, selectedDay) &&
                     !isToday(day) &&
                     isSameMonth(day, firstDayCurrentMonth) &&
@@ -301,8 +301,8 @@ export function FullScreenCalendar({
                   dateTime={format(day, "yyyy-MM-dd")}
                   className={cn(
                     "ml-auto flex size-6 items-center justify-center rounded-full",
-                    isEqual(day, selectedDay) && isToday(day) && "bg-black text-white",
-                    isEqual(day, selectedDay) && !isToday(day) && "bg-black text-white"
+                    isEqual(day, selectedDay) && isToday(day) && "bg-kyar-text text-kyar-bg",
+                    isEqual(day, selectedDay) && !isToday(day) && "bg-kyar-text text-kyar-bg"
                   )}
                 >
                   {format(day, "d")}

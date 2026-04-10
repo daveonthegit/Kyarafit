@@ -87,8 +87,8 @@ export function ImageUpload({
           onClick={() => setMode("file")}
           className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
             mode === "file"
-              ? "border-black bg-kyar-muted text-black"
-              : "border-kyar-border text-kyar-textTertiary hover:border-black"
+              ? "border-kyar-text bg-kyar-muted text-kyar-text"
+              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
           }`}
         >
           Upload File
@@ -98,8 +98,8 @@ export function ImageUpload({
           onClick={() => setMode("url")}
           className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border ${
             mode === "url"
-              ? "border-black bg-kyar-muted text-black"
-              : "border-kyar-border text-kyar-textTertiary hover:border-black"
+              ? "border-kyar-text bg-kyar-muted text-kyar-text"
+              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
           }`}
         >
           Enter URL
@@ -119,7 +119,7 @@ export function ImageUpload({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="w-full border-2 border-dashed border-kyar-border hover:border-black py-8 text-center transition disabled:opacity-50"
+            className="w-full border-2 border-dashed border-kyar-border hover:border-kyar-text py-8 text-center transition disabled:opacity-50"
           >
             {uploading ? (
               <span className="text-sm uppercase tracking-wider">
@@ -143,12 +143,12 @@ export function ImageUpload({
             value={urlInput ?? ""}
             onChange={(e) => setUrlInput(e.target.value)}
             placeholder="https://example.com/image.jpg"
-            className="flex-1 border-0 border-b border-black bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+            className="flex-1 border-0 border-b border-kyar-border bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
           />
           <button
             type="button"
             onClick={handleUrlSubmit}
-            className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800"
+            className="px-4 py-2 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider hover:opacity-90"
           >
             Add
           </button>

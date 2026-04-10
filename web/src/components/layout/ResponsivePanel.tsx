@@ -20,12 +20,12 @@ export function ResponsivePanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/40 lg:bg-transparent"
+        className="fixed inset-0 z-40 bg-kyar-text/40 lg:bg-transparent"
         aria-hidden
         onClick={onClose}
       />
       <aside
-        className="fixed top-0 right-0 z-50 h-full w-full max-w-sm bg-white shadow-xl flex flex-col lg:max-w-md lg:border-l lg:border-kyar-borderSubtle"
+        className="fixed top-0 right-0 z-50 h-full w-full max-w-sm bg-kyar-surface shadow-xl flex flex-col lg:max-w-md lg:border-l lg:border-kyar-borderSubtle"
         role="dialog"
         aria-modal="true"
         aria-label={title}

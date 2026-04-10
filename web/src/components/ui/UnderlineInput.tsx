@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useState } from "react";
+import { forwardRef } from "react";
 
 interface UnderlineInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -9,9 +9,12 @@ interface UnderlineInputProps extends React.InputHTMLAttributes<HTMLInputElement
 
 export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
   ({ label, error, className = "", value, ...props }, ref) => {
-    const [focused, setFocused] = useState(false);
+    const borderState = error
+      ? "border-b border-kyar-danger group-focus-within:border-kyar-danger"
+      : "border-b border-kyar-border group-focus-within:border-kyar-text";
+
     return (
-      <div className="w-full">
+      <div className="w-full group">
         {label && (
           <label className="block text-[11px] font-sans-wide font-semibold uppercase tracking-wide text-kyar-meta mb-1">
             {label}
@@ -20,17 +23,7 @@ export const UnderlineInput = forwardRef<HTMLInputElement, UnderlineInputProps>(
         <input
           ref={ref}
           value={value ?? ""}
-          onFocus={(e) => {
-            setFocused(true);
-            props.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setFocused(false);
-            props.onBlur?.(e);
-          }}
-          className={`w-full bg-transparent border-0 border-b text-sm md:text-base text-kyar-text placeholder:text-kyar-textTertiary outline-none py-2 ${
-            focused ? "border-kyar-text border-b" : "border-kyar-border border-b"
-          } ${error ? "border-kyar-danger" : ""} ${className}`}
+          className={`w-full bg-transparent border-0 text-sm md:text-base text-kyar-text placeholder:text-kyar-textTertiary outline-none py-2 transition-colors ${borderState} ${className}`}
           {...props}
         />
         {error && <p className="mt-1 text-xs text-kyar-danger">{error}</p>}

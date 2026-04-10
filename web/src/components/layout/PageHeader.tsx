@@ -51,18 +51,18 @@ export function PageHeader({
 
   return (
     <header className={wrapperClass}>
-      <div className="flex flex-wrap items-center justify-between gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif-elegant text-[32px] sm:text-[40px] font-normal italic tracking-tight text-kyar-text">
+          <h1 className="font-serif-elegant text-[30px] sm:text-[38px] font-normal italic tracking-tight text-kyar-text leading-[1.12]">
             {title}
           </h1>
           {subtitle && <p className="mt-1 text-[11px] text-kyar-textSecondary">{subtitle}</p>}
         </div>
 
-        <div className="flex items-center gap-6 shrink-0 w-full sm:w-auto">
+        <div className="flex w-full shrink-0 flex-col gap-4 sm:w-auto sm:min-w-[min(100%,20rem)] sm:max-w-md sm:items-end">
           {search && (
-            <div className="relative flex-1 sm:w-64 max-w-md">
-              <Search className="absolute left-0 top-1/2 -translate-y-1/2 size-4 text-kyar-textTertiary" />
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-0 top-1/2 -translate-y-1/2 size-4 text-kyar-textTertiary pointer-events-none" />
               <input
                 type="search"
                 placeholder={search.placeholder ?? "Search archive..."}
@@ -73,23 +73,7 @@ export function PageHeader({
               />
             </div>
           )}
-
-          <div className="flex items-center gap-4">
-            {/* Notification bell (placeholder for matching reference) */}
-            <button
-              type="button"
-              className="text-kyar-text hover:text-kyar-textSecondary focus:outline-none"
-              aria-label="Notifications"
-            >
-              <span
-                className="material-symbols-outlined text-[20px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                notifications
-              </span>
-            </button>
-            {trailing}
-          </div>
+          {trailing && <div className="flex items-center justify-end gap-2">{trailing}</div>}
         </div>
       </div>
       {children && <div className="mt-6 flex flex-wrap gap-4 items-center">{children}</div>}

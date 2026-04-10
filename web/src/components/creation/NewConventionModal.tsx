@@ -73,7 +73,7 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
           type="submit"
           form="new-convention-modal-form"
           disabled={isPending || !name.trim() || !startDate || !endDate}
-          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:bg-kyar-text/90 transition-colors shadow-md"
         >
           {isPending ? "Creating…" : "Create event"}
         </Button>
@@ -90,7 +90,7 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Anime Expo"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -100,7 +100,7 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="City or venue"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
           />
         </div>
         <div>

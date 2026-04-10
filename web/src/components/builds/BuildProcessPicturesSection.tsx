@@ -94,7 +94,7 @@ export function BuildProcessPicturesSection({
   if (list === undefined) {
     return (
       <div>
-        <h2 className="font-serif text-xl italic border-b border-black pb-2 mb-4">
+        <h2 className="font-serif text-xl italic border-b border-kyar-border pb-2 mb-4">
           Progress photos
         </h2>
         <p className="text-sm text-kyar-textTertiary">Loading…</p>
@@ -126,12 +126,12 @@ export function BuildProcessPicturesSection({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50"
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-kyar-text/45 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             aria-labelledby="upload-progress-modal-title"
           >
-            <div className="bg-white max-w-lg w-full rounded shadow-lg flex flex-col max-h-[90vh]">
+            <div className="bg-kyar-surface max-w-lg w-full rounded border border-kyar-borderSubtle shadow-lg flex flex-col max-h-[90vh]">
               <div className="flex items-center justify-between border-b border-kyar-border px-4 py-3 shrink-0">
                 <h2
                   id="upload-progress-modal-title"

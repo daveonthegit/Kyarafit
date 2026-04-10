@@ -137,7 +137,7 @@ export function BuildHeroCropModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-kyar-text border border-kyar-cardBorder rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="px-4 py-2 text-sm font-medium text-kyar-text border border-kyar-cardBorder rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text focus-visible:ring-offset-2"
           >
             Cancel
           </button>
@@ -145,7 +145,7 @@ export function BuildHeroCropModal({
             type="button"
             onClick={handleSave}
             disabled={saving || !croppedArea}
-            className="px-4 py-2 text-sm font-medium bg-black text-white rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="px-4 py-2 text-sm font-medium bg-kyar-text text-kyar-bg rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bg"
           >
             {saving ? "Saving…" : "Save"}
           </button>

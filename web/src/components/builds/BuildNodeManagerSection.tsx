@@ -235,8 +235,8 @@ function DragPreviewRow({
     <div
       className={`rounded-md px-3 py-2 ${
         isFloating
-          ? "border border-black/15 bg-white/95 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-[2px]"
-          : "border border-dashed border-black/40 bg-black/[0.04]"
+          ? "border border-kyar-borderSubtle bg-kyar-surface/95 shadow-card backdrop-blur-[2px]"
+          : "border border-dashed border-kyar-borderSubtle bg-kyar-text/5"
       }`}
       style={depth > 0 && !isFloating ? ({ marginLeft: depth * 16 } as CSSProperties) : undefined}
     >
@@ -738,12 +738,12 @@ export function BuildNodeManagerSection({
   return (
     <div className="space-y-4">
       {roots.length === 0 ? (
-        <div className="border border-dashed border-kyar-borderSubtle bg-white px-5 py-10 text-sm text-kyar-textTertiary">
+        <div className="border border-dashed border-kyar-borderSubtle bg-kyar-surface px-5 py-10 text-sm text-kyar-textTertiary">
           No linked nodes yet. Create a root node or link an existing element or material to start
           building the structure for this project.
         </div>
       ) : (
-        <div className="border border-kyar-borderSubtle bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+        <div className="border border-kyar-borderSubtle bg-kyar-surface shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-kyar-borderSubtle bg-kyar-bg px-4 py-3">
             <div>
               <p className="font-serif text-lg font-semibold tracking-tight text-kyar-text">
@@ -757,7 +757,7 @@ export function BuildNodeManagerSection({
               <button
                 type="button"
                 onClick={onCreateRoot}
-                className="inline-flex items-center gap-1.5 rounded-md border border-black bg-black px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white"
+                className="inline-flex items-center gap-1.5 rounded-md border border-kyar-text bg-kyar-text px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-kyar-bg"
               >
                 <span className="material-symbols-outlined text-base">create_new_folder</span>
                 New root
@@ -765,7 +765,7 @@ export function BuildNodeManagerSection({
               <button
                 type="button"
                 onClick={onOpenLinkNodes}
-                className="inline-flex items-center gap-1.5 rounded-md border border-kyar-borderSubtle bg-white px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-kyar-text"
+                className="inline-flex items-center gap-1.5 rounded-md border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-kyar-text"
               >
                 <span className="material-symbols-outlined text-base">link</span>
                 Link existing
@@ -781,7 +781,7 @@ export function BuildNodeManagerSection({
             <button
               type="button"
               onClick={selectBuildRoot}
-              className="max-w-[40%] truncate rounded px-1.5 py-0.5 text-left hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
+              className="max-w-[40%] truncate rounded px-1.5 py-0.5 text-left hover:bg-kyar-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text/30"
               title={buildName}
             >
               {buildName}
@@ -799,7 +799,7 @@ export function BuildNodeManagerSection({
                       selectedPath.slice(0, index + 1) as PathSegment[]
                     )
                   }
-                  className="max-w-[min(100%,12rem)] truncate rounded px-1.5 py-0.5 text-left hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
+                  className="max-w-[min(100%,12rem)] truncate rounded px-1.5 py-0.5 text-left hover:bg-kyar-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text/30"
                 >
                   {seg.label}
                 </button>
@@ -839,7 +839,7 @@ export function BuildNodeManagerSection({
                     data-root-drop-zone="true"
                     className={`font-explorer-mono mb-3 flex w-full items-center justify-center border border-dashed px-3 py-2.5 text-[10px] uppercase tracking-widest transition ${
                       dragOverNodeId === "__root__"
-                        ? "border-black bg-black text-white"
+                        ? "border-kyar-text bg-kyar-text text-kyar-bg"
                         : "border-kyar-borderSubtle text-kyar-textTertiary"
                     }`}
                   >
@@ -898,7 +898,7 @@ export function BuildNodeManagerSection({
               </div>
             </div>
 
-            <div className="min-w-0 border-t border-kyar-borderSubtle bg-white p-5 xl:border-t-0">
+            <div className="min-w-0 border-t border-kyar-borderSubtle bg-kyar-surface p-5 xl:border-t-0">
               {selectedDetail ? (
                 <div className="space-y-5">
                   <div className="border-b border-kyar-borderSubtle pb-4">
@@ -923,7 +923,7 @@ export function BuildNodeManagerSection({
                             }
                             onBlur={() => void flushInspectorSaveRef.current()}
                             aria-invalid={!inspectorForm.name.trim()}
-                            className={`font-serif w-full border-b border-transparent bg-transparent text-2xl text-kyar-text focus:border-black focus:outline-none ${
+                            className={`font-serif w-full border-b border-transparent bg-transparent text-2xl text-kyar-text focus:border-kyar-text focus:outline-none ${
                               !inspectorForm.name.trim() ? "border-red-500 text-red-700" : ""
                             }`}
                           />
@@ -1056,7 +1056,7 @@ export function BuildNodeManagerSection({
                           selectedDetail.nodeType === "material" ? "material" : "element"
                         )
                       }
-                      className="rounded-full border border-black px-4 py-3 text-[10px] uppercase tracking-widest"
+                      className="rounded-full border border-kyar-text px-4 py-3 text-[10px] uppercase tracking-widest text-kyar-text"
                     >
                       New child
                     </button>
@@ -1177,15 +1177,15 @@ function BuildNodeManagerRow({
         data-node-drop-meta={JSON.stringify(selectionMeta)}
         className={`rounded-md border transition ${
           isSelected
-            ? "border-black bg-kyar-bg"
-            : "border-transparent hover:border-kyar-borderSubtle hover:bg-black/[0.02]"
+            ? "border-kyar-text bg-kyar-bg"
+            : "border-transparent hover:border-kyar-borderSubtle hover:bg-kyar-text/5"
         } ${
           activeDropZone === "before"
-            ? "border-t-2 border-t-black"
+            ? "border-t-2 border-t-kyar-text"
             : activeDropZone === "after"
-              ? "border-b-2 border-b-black"
+              ? "border-b-2 border-b-kyar-text"
               : activeDropZone === "into"
-                ? "border-black bg-black/[0.03] ring-1 ring-black"
+                ? "border-kyar-text bg-kyar-text/5 ring-1 ring-kyar-text/40"
                 : ""
         } ${isDragging ? "opacity-45" : ""}`}
       >

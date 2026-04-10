@@ -18,12 +18,12 @@ export function LandingElementNodeCard({
   return (
     <div className="group relative">
       <div
-        className="pointer-events-none absolute right-3 top-3 z-20 h-5 w-5 rounded-full border border-white/30 bg-black/20"
+        className="pointer-events-none absolute right-3 top-3 z-20 h-5 w-5 rounded-full border border-kyar-bg/30 bg-kyar-text/20"
         aria-hidden
       />
       <Link
         href={href}
-        className="block overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-white shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg"
+        className="block overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg"
         aria-label={`Preview: ${node.name}`}
       >
         <div className="relative aspect-[4/5] overflow-hidden bg-kyar-mutedWarm">
@@ -40,19 +40,19 @@ export function LandingElementNodeCard({
               </span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/15 to-transparent" />
           <div className="absolute left-3 top-3 flex gap-2">
-            <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-wider text-white backdrop-blur">
+            <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
               {typeLabel}
             </span>
-            <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-wider text-white backdrop-blur">
+            <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
               {node.statusLabel}
             </span>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+          <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-bg">
             <p className="mb-1 text-[9px] uppercase tracking-[0.2em] opacity-80">{node.category}</p>
             <h3 className="truncate font-serif text-3xl italic leading-none">{node.name}</h3>
-            <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-white/80">
+            <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-kyar-bg/80">
               <span>{node.progressPercent}% progress</span>
               <span>
                 {node.childCount} child{node.childCount === 1 ? "" : "ren"}

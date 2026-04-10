@@ -188,7 +188,7 @@ export function LandingProductScrollySection() {
     <section
       ref={containerRef}
       id="product-demo"
-      className="relative scroll-mt-20 border-t border-kyar-borderSubtle bg-white lg:min-h-[288vh] lg:scroll-mt-24"
+      className="relative scroll-mt-20 border-t border-kyar-borderSubtle bg-kyar-bg lg:min-h-[288vh] lg:scroll-mt-24"
       aria-label="Product preview"
     >
       <div className="flex w-full min-h-0 flex-col justify-start py-8 sm:py-10 lg:sticky lg:top-20 lg:z-10 lg:py-10">
@@ -204,8 +204,8 @@ export function LandingProductScrollySection() {
                   onClick={() => handleMiniAppNav(NAV_BY_STEP[i])}
                   className={`min-h-[2.5rem] rounded-full border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 ${
                     i === step
-                      ? "border-kyar-text bg-kyar-text text-white"
-                      : "border-kyar-borderSubtle bg-white text-kyar-textSecondary hover:border-kyar-text/30 hover:text-kyar-text"
+                      ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                      : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text/30 hover:text-kyar-text"
                   }`}
                   aria-pressed={i === step}
                 >
@@ -243,7 +243,7 @@ export function LandingProductScrollySection() {
                     </p>
                     <h2
                       id={STEPS[step].headingId}
-                      className="font-serif-elegant mb-4 max-w-2xl text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.05]"
+                      className="font-serif-elegant mb-4 max-w-2xl text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.05] text-kyar-text"
                     >
                       {STEPS[step].title}
                     </h2>

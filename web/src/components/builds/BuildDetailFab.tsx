@@ -63,7 +63,7 @@ export function BuildDetailFab({
             <button
               type="button"
               onClick={() => openModal("reference")}
-              className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
+              className="flex items-center gap-2 rounded-full bg-kyar-surface border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
             >
               <span>Reference image</span>
               <ImageIcon className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
@@ -71,7 +71,7 @@ export function BuildDetailFab({
             <button
               type="button"
               onClick={() => openModal("progress")}
-              className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
+              className="flex items-center gap-2 rounded-full bg-kyar-surface border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
             >
               <span>Progress photo</span>
               <Camera className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
@@ -82,7 +82,7 @@ export function BuildDetailFab({
           <button
             type="button"
             onClick={() => openModal("linkNodes")}
-            className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
+            className="flex items-center gap-2 rounded-full bg-kyar-surface border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
           >
             <span>Link elements or materials</span>
             <Link2 className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
@@ -92,7 +92,7 @@ export function BuildDetailFab({
           <button
             type="button"
             onClick={() => openModal("task")}
-            className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
+            className="flex items-center gap-2 rounded-full bg-kyar-surface border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
           >
             <span>Add task</span>
             <ListTodo className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
@@ -102,7 +102,7 @@ export function BuildDetailFab({
           <button
             type="button"
             onClick={() => openModal("invite")}
-            className="flex items-center gap-2 rounded-full bg-white border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
+            className="flex items-center gap-2 rounded-full bg-kyar-surface border border-kyar-borderSubtle pl-4 pr-3 py-2.5 text-sm text-kyar-text shadow-md hover:bg-kyar-mutedWarm transition-colors"
           >
             <span>Invite collaborator</span>
             <UserPlus className="w-4 h-4 shrink-0 text-kyar-textSecondary" aria-hidden />
@@ -112,7 +112,7 @@ export function BuildDetailFab({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-kyar-text text-white shadow-lg hover:opacity-90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-kyar-text text-kyar-bg shadow-lg hover:opacity-90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={open ? "Close quick actions" : "Open quick actions"}

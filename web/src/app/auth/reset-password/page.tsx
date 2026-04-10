@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             href="/auth/signin"
-            className="inline-block border border-black px-8 py-3 text-xs uppercase tracking-widest font-semibold hover:bg-black hover:text-white transition-all"
+            className="inline-block border border-kyar-text px-8 py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-text hover:text-kyar-bg transition-all"
           >
             Back to sign in
           </Link>
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
               autoFocus
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <div>
@@ -105,20 +105,20 @@ export default function ResetPasswordPage() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-textSecondary transition-colors disabled:opacity-50"
+            className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
           >
             {loading ? "Saving…" : "Set New Password"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <Link href="/auth/signin" className="text-xs text-kyar-textTertiary hover:text-black">
+          <Link href="/auth/signin" className="text-xs text-kyar-textTertiary hover:text-kyar-text">
             &larr; Back to sign in
           </Link>
         </div>

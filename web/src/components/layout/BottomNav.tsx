@@ -9,7 +9,7 @@ import { NAV_ICON_MAP } from "@/lib/navIcons";
 import { MobileNavMenu } from "@/components/layout/MobileNavMenu";
 import { cn } from "@/lib/utils";
 
-/** Mobile viewport bottom nav: Home, Outfits, Closet, Planner, Menu. */
+/** Mobile viewport bottom nav: Home, Outfits, Elements, Planner, Menu. */
 export function BottomNav({ active, className = "" }: { active?: string; className?: string }) {
   const pathname = usePathname();
   const t = useTranslations("Nav");
@@ -20,7 +20,7 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
     <>
       <footer
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 bg-[#F4F4F4] border-t border-black/[0.06]",
+          "fixed bottom-0 left-0 right-0 z-50 bg-kyar-panel border-t border-kyar-borderSubtle",
           className
         )}
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))" }}
@@ -39,8 +39,8 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
                   className={cn(
                     "material-symbols-outlined text-2xl transition-colors mb-0.5",
                     isActive
-                      ? "text-black font-medium"
-                      : "text-kyar-meta group-hover:text-black font-light"
+                      ? "text-kyar-text font-medium"
+                      : "text-kyar-meta group-hover:text-kyar-text font-light"
                   )}
                   aria-hidden
                 >
@@ -48,22 +48,22 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
                 </span>
                 <span
                   className={cn(
-                    "text-[9px] uppercase tracking-[0.25em] transition-colors",
+                    "text-[10px] uppercase tracking-[0.16em] transition-colors",
                     isActive
-                      ? "font-bold text-black"
-                      : "font-semibold text-kyar-meta group-hover:text-black"
+                      ? "font-bold text-kyar-text"
+                      : "font-semibold text-kyar-meta group-hover:text-kyar-text"
                   )}
                 >
                   {label}
                 </span>
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-black rounded-b-full" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-kyar-text rounded-b-full" />
                 )}
               </>
             );
 
             const commonClasses =
-              "group relative flex flex-col items-center justify-center min-h-[56px] min-w-[44px] flex-1 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F4F4] hover:bg-black/5";
+              "group relative flex flex-col items-center justify-center min-h-[56px] min-w-[44px] flex-1 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel hover:bg-kyar-muted/50";
 
             if (isMenu) {
               return (

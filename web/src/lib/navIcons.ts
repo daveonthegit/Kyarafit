@@ -7,7 +7,7 @@ import type { NavSectionId } from "@kyarafit/design-system";
 export const NAV_ICON_MAP: Record<NavSectionId, string> = {
   home: "home",
   builds: "layers",
-  closet: "checkroom",
+  elements: "checkroom",
   events: "event",
   groups: "group",
   planner: "task_alt",

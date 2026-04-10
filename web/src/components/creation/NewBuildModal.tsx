@@ -65,7 +65,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
           type="submit"
           form="new-build-modal-form"
           disabled={isPending || !name.trim() || !hasImage}
-          className="w-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white rounded-full disabled:opacity-50 hover:bg-black/90 transition-colors shadow-md"
+          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:opacity-90 transition-colors shadow-md"
         >
           {isPending ? "Creating…" : "Create build"}
         </button>
@@ -82,7 +82,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Arlecchino"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -116,7 +116,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
             value={budgetCents}
             onChange={(e) => setBudgetCents(e.target.value)}
             placeholder="0.00"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-black focus:outline-none transition-colors"
+            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
           />
         </div>
         <div>
@@ -129,8 +129,8 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
                 onClick={() => setStatus(s)}
                 className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wider ${
                   status === s
-                    ? "border-black bg-kyar-muted text-black"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-black"
+                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
+                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
                 }`}
               >
                 {s}

@@ -108,7 +108,7 @@ export function NewClosetItemModal({
           type="submit"
           form="new-closet-item-modal-form"
           disabled={isPending}
-          className="w-full rounded-full bg-black py-4 text-[10px] font-bold uppercase tracking-widest text-white disabled:opacity-50"
+          className="w-full rounded-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg disabled:opacity-50"
         >
           {isPending ? "Saving…" : `Save ${nodeType}`}
         </button>
@@ -130,8 +130,8 @@ export function NewClosetItemModal({
                     setCategory(value === "material" ? "material" : "other");
                   }
                 }}
-                className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
-                  nodeType === value ? "bg-black text-white" : "bg-transparent text-black"
+                className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+                  nodeType === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
                 }`}
               >
                 {value}
@@ -174,8 +174,8 @@ export function NewClosetItemModal({
                 key={value}
                 type="button"
                 onClick={() => setCategory(value)}
-                className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
-                  category === value ? "bg-black text-white" : "bg-transparent text-black"
+                className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+                  category === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
                 }`}
               >
                 {value}

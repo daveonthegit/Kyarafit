@@ -48,8 +48,8 @@ export function LandingMiniBuildsPreviewContent({ builds }: { builds: MockBuild[
               onClick={() => setTab(id)}
               className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1 ${
                 tab === id
-                  ? "border-kyar-text bg-kyar-text text-white"
-                  : "border-kyar-borderSubtle bg-white text-kyar-textTertiary hover:border-kyar-text/40"
+                  ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text/40"
               }`}
             >
               {label}
@@ -64,7 +64,7 @@ export function LandingMiniBuildsPreviewContent({ builds }: { builds: MockBuild[
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search builds…"
-          className="h-8 w-full rounded-md border border-kyar-borderSubtle bg-white px-2 text-[10px] text-kyar-text placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none focus:ring-1 focus:ring-kyar-accent"
+          className="h-8 w-full rounded-md border border-kyar-borderSubtle bg-kyar-surface px-2 text-[10px] text-kyar-text placeholder:text-kyar-textMuted focus:border-kyar-accent focus:outline-none focus:ring-1 focus:ring-kyar-accent"
           autoComplete="off"
         />
       </label>
@@ -72,14 +72,14 @@ export function LandingMiniBuildsPreviewContent({ builds }: { builds: MockBuild[
         {filtered.map((b) => (
           <div
             key={b.id}
-            className="overflow-hidden rounded-xl border border-kyar-borderSubtle bg-white shadow-sm"
+            className="overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-surface shadow-sm"
           >
             <div className="relative aspect-[3/4] bg-kyar-muted">
               <img src={b.imageSrc} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/75 via-transparent to-transparent" />
               <div className="absolute bottom-1 left-1 right-1">
-                <p className="truncate font-serif text-[10px] italic text-white">{b.name}</p>
-                <p className="truncate text-[8px] font-bold uppercase tracking-wider text-white/80">
+                <p className="truncate font-serif text-[10px] italic text-kyar-bg">{b.name}</p>
+                <p className="truncate text-[8px] font-bold uppercase tracking-wider text-kyar-bg/80">
                   {b.character}
                 </p>
               </div>

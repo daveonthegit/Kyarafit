@@ -56,7 +56,7 @@ function ScrollButton({
     <button
       type="button"
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-full border border-kyar-border bg-white text-kyar-text shadow-soft transition-all duration-150 ease-out hover:border-black hover:bg-kyar-muted focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-8 w-8 items-center justify-center rounded-full border border-kyar-border bg-kyar-surface text-kyar-text shadow-soft transition-all duration-150 ease-out hover:border-kyar-text hover:bg-kyar-muted focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         isVisible
           ? "translate-y-0 scale-100 opacity-100"
           : "pointer-events-none translate-y-4 scale-95 opacity-0",

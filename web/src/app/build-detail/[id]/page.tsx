@@ -324,7 +324,7 @@ export default function BuildDetailPage() {
           <button
             type="button"
             onClick={() => setIsEditing(false)}
-            className="text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary hover:text-black"
+            className="text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary hover:text-kyar-text"
           >
             Cancel
           </button>
@@ -398,7 +398,7 @@ export default function BuildDetailPage() {
                         onClick={() => setEditStatus(s)}
                         className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
                           editStatus === s
-                            ? "border-kyar-text bg-kyar-text text-white"
+                            ? "border-kyar-text bg-kyar-text text-kyar-bg"
                             : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
                         }`}
                       >
@@ -446,7 +446,7 @@ export default function BuildDetailPage() {
                         onClick={() => setEditVisibility(v)}
                         className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
                           editVisibility === v
-                            ? "border-kyar-text bg-kyar-text text-white"
+                            ? "border-kyar-text bg-kyar-text text-kyar-bg"
                             : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
                         }`}
                       >
@@ -463,7 +463,7 @@ export default function BuildDetailPage() {
                     type="button"
                     onClick={handleSaveEdit}
                     disabled={savePending || !editName.trim()}
-                    className="flex-1 bg-kyar-text py-4 text-xs font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="flex-1 bg-kyar-text py-4 text-xs font-bold uppercase tracking-widest text-kyar-bg transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {savePending ? "Saving…" : "Save changes"}
                   </button>
@@ -526,7 +526,7 @@ export default function BuildDetailPage() {
                 <div
                   className={`${
                     build.imageStorageId || build.imageUrl
-                      ? "absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end bg-gradient-to-t from-white via-white/50 to-transparent px-6 pb-4 pt-20 sm:items-start sm:px-10 sm:pt-24"
+                      ? "absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end bg-gradient-to-t from-kyar-bg via-kyar-bg/50 to-transparent px-6 pb-4 pt-20 sm:items-start sm:px-10 sm:pt-24"
                       : ""
                   }`}
                 >
@@ -585,8 +585,8 @@ export default function BuildDetailPage() {
                   onClick={() => setActiveTab(value)}
                   className={`rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest transition-colors ${
                     activeTab === value
-                      ? "border-black bg-black text-white"
-                      : "border-kyar-borderSubtle text-kyar-textTertiary hover:border-black hover:text-black"
+                      ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                      : "border-kyar-borderSubtle text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
                   }`}
                 >
                   {label}
@@ -691,7 +691,7 @@ export default function BuildDetailPage() {
                   <div>
                     <BuildSummarySection summary={summary ?? null} formatCents={formatCents} />
                   </div>
-                  <div className="rounded-[24px] border border-kyar-borderSubtle bg-white p-5">
+                  <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -836,7 +836,7 @@ function DroppableNodeCard({
     >
       <Link
         href={`/elements/${item._id}`}
-        className="block cursor-pointer rounded-sm transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:ring-offset-2"
+        className="block cursor-pointer rounded-sm transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text/20 focus-visible:ring-offset-2"
         aria-label={`View ${item.name}`}
         onClick={(e) => {
           if (justDroppedRef.current) {

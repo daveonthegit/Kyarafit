@@ -224,8 +224,8 @@ export default function ConventionsPage() {
               onClick={() => setFilter(opt.value as ConventionFilter)}
               className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 filter === opt.value
-                  ? "border-black bg-black text-white shadow-md"
-                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
+                  ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
+                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text hover:bg-kyar-muted"
               }`}
               aria-pressed={filter === opt.value}
             >
@@ -256,7 +256,7 @@ export default function ConventionsPage() {
           <button
             type="button"
             onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-            className="inline-flex items-center text-kyar-meta hover:text-black transition-colors focus:outline-none"
+            className="inline-flex items-center text-kyar-meta hover:text-kyar-text transition-colors focus:outline-none"
             aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden>
@@ -321,9 +321,9 @@ export default function ConventionsPage() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300 pointer-events-none" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white pointer-events-none">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg pointer-events-none">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
@@ -343,8 +343,8 @@ export default function ConventionsPage() {
                         </span>
                         {days !== null && days >= 0 && (
                           <>
-                            <span className="w-1 h-1 rounded-full bg-white/50" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-white drop-shadow-sm">
+                            <span className="w-1 h-1 rounded-full bg-kyar-bg/50" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg drop-shadow-sm">
                               {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
                             </span>
                           </>
@@ -375,7 +375,7 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={selectAll}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors"
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               {selectedIds.size === filteredAndSorted.length ? "Deselect all" : "Select all"}
             </button>
@@ -397,7 +397,7 @@ export default function ConventionsPage() {
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c._id)}
-                      className="w-5 h-5 rounded-sm border-2 border-black bg-white focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+                      className="w-5 h-5 rounded-sm border-2 border-kyar-text bg-kyar-surface accent-kyar-accent focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
                       aria-label={`Select ${c.name}`}
                     />
                     <div className="min-w-0 flex-1">
@@ -422,7 +422,7 @@ export default function ConventionsPage() {
                   type="button"
                   onClick={() => handleArchiveSelected(true)}
                   disabled={actionPending}
-                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
                 >
                   Archive
                 </button>
@@ -432,7 +432,7 @@ export default function ConventionsPage() {
                   type="button"
                   onClick={() => handleArchiveSelected(false)}
                   disabled={actionPending}
-                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-black rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
                 >
                   Unarchive
                 </button>
@@ -441,7 +441,7 @@ export default function ConventionsPage() {
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={actionPending}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-kyar-bg transition-colors disabled:opacity-50"
               >
                 Delete
               </button>
@@ -457,7 +457,7 @@ export default function ConventionsPage() {
           <button
             type="button"
             onClick={() => setShowSelectModal(false)}
-            className="mt-4 w-full py-3 bg-black text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity"
+            className="mt-4 w-full py-3 bg-kyar-text text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity"
           >
             Done
           </button>
@@ -481,7 +481,7 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-3 border border-black text-sm font-bold uppercase tracking-wider rounded-full hover:bg-black hover:text-white transition-colors"
+              className="flex-1 py-3 border border-kyar-text text-sm font-bold uppercase tracking-wider rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               Cancel
             </button>
@@ -489,7 +489,7 @@ export default function ConventionsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-3 bg-kyar-danger text-white text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 py-3 bg-kyar-danger text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>
@@ -510,7 +510,7 @@ export default function ConventionsPage() {
             type="button"
             onClick={handleUndoDelete}
             disabled={actionPending}
-            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-kyar-bg/10 disabled:opacity-50 transition-colors"
           >
             {actionPending ? "Undoing…" : "Undo"}
           </button>

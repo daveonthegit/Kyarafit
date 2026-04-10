@@ -11,6 +11,7 @@ import {
 } from "@kyarafit/design-system";
 import { NAV_ICON_MAP } from "@/lib/navIcons";
 import { SidebarUserProfile } from "@/components/layout/SidebarUserProfile";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "kyar-sidebar-collapsed";
@@ -54,7 +55,7 @@ export function WebSidebar() {
   return (
     <aside
       className={cn(
-        "hidden lg:flex lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-kyar-borderSubtle bg-[#F4F4F4] lg:sticky lg:top-0 lg:h-screen overflow-hidden",
+        "hidden lg:flex lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-kyar-borderSubtle bg-kyar-panel lg:sticky lg:top-0 lg:h-screen overflow-hidden",
         "transition-[width] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
         collapsed ? "lg:w-[4.5rem]" : "lg:w-[260px]"
       )}
@@ -69,7 +70,7 @@ export function WebSidebar() {
         <Link
           href="/home"
           className={cn(
-            "relative flex items-center font-serif text-[22px] font-normal italic tracking-tight text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F4F4] rounded min-h-[28px]",
+            "relative flex items-center font-serif text-[21px] font-normal italic tracking-tight text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel rounded min-h-[28px]",
             collapsed ? "w-9 justify-center" : "justify-start"
           )}
           title="Kyarafit"
@@ -100,10 +101,7 @@ export function WebSidebar() {
         >
           <div className="overflow-hidden min-h-0">
             <div className="flex flex-col gap-1 pt-6">
-              <span className="font-serif-elegant text-[15px] font-medium text-kyar-text">
-                Kyarafit
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-kyar-meta">
+              <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-kyar-meta">
                 Cosplay Planner
               </span>
             </div>
@@ -121,15 +119,15 @@ export function WebSidebar() {
               href={section.path}
               title={collapsed ? t(section.id) : undefined}
               className={cn(
-                "group flex items-center min-h-[36px] transition-[padding,gap] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F4F4] rounded-sm",
+                "group flex items-center min-h-[36px] transition-[padding,gap] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel rounded-sm",
                 collapsed ? "justify-center gap-0 px-0 w-full" : "gap-4 px-4"
               )}
             >
               <span
                 className={`material-symbols-outlined text-[18px] transition-colors shrink-0 ${
                   isActive
-                    ? "text-black font-medium"
-                    : "text-kyar-meta group-hover:text-black font-light"
+                    ? "text-kyar-text font-medium"
+                    : "text-kyar-meta group-hover:text-kyar-text font-light"
                 }`}
                 aria-hidden
               >
@@ -137,16 +135,16 @@ export function WebSidebar() {
               </span>
               <span className={navLabelClass(collapsed)} aria-hidden={collapsed}>
                 <span
-                  className={`text-[10px] uppercase tracking-[0.25em] transition-colors ${
+                  className={`text-[11px] uppercase tracking-[0.16em] transition-colors ${
                     isActive
-                      ? "font-bold text-black"
-                      : "font-semibold text-kyar-meta group-hover:text-black"
+                      ? "font-bold text-kyar-text"
+                      : "font-semibold text-kyar-meta group-hover:text-kyar-text"
                   }`}
                 >
                   {t(section.id)}
                 </span>
                 {isActive && (
-                  <span className="absolute -bottom-1 left-0 w-full h-[1.5px] bg-black rounded-full" />
+                  <span className="absolute -bottom-1 left-0 w-full h-[1.5px] bg-kyar-text rounded-full" />
                 )}
               </span>
             </Link>
@@ -155,7 +153,7 @@ export function WebSidebar() {
 
         <div
           className={cn(
-            "my-6 border-t border-black/[0.06] transition-[margin] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+            "my-6 border-t border-kyar-borderSubtle transition-[margin] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
             collapsed ? "mx-2" : "mx-4"
           )}
           aria-hidden
@@ -170,15 +168,15 @@ export function WebSidebar() {
               href={section.path}
               title={collapsed ? t(section.id) : undefined}
               className={cn(
-                "group flex items-center min-h-[36px] transition-[padding,gap] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F4F4] rounded-sm",
+                "group flex items-center min-h-[36px] transition-[padding,gap] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel rounded-sm",
                 collapsed ? "justify-center gap-0 px-0 w-full" : "gap-4 px-4"
               )}
             >
               <span
                 className={`material-symbols-outlined text-[18px] transition-colors shrink-0 ${
                   isActive
-                    ? "text-black font-medium"
-                    : "text-kyar-meta group-hover:text-black font-light"
+                    ? "text-kyar-text font-medium"
+                    : "text-kyar-meta group-hover:text-kyar-text font-light"
                 }`}
                 aria-hidden
               >
@@ -186,16 +184,16 @@ export function WebSidebar() {
               </span>
               <span className={navLabelClass(collapsed)} aria-hidden={collapsed}>
                 <span
-                  className={`text-[10px] uppercase tracking-[0.25em] transition-colors ${
+                  className={`text-[11px] uppercase tracking-[0.16em] transition-colors ${
                     isActive
-                      ? "font-bold text-black"
-                      : "font-semibold text-kyar-meta group-hover:text-black"
+                      ? "font-bold text-kyar-text"
+                      : "font-semibold text-kyar-meta group-hover:text-kyar-text"
                   }`}
                 >
                   {t(section.id)}
                 </span>
                 {isActive && (
-                  <span className="absolute -bottom-1 left-0 w-full h-[1.5px] bg-black rounded-full" />
+                  <span className="absolute -bottom-1 left-0 w-full h-[1.5px] bg-kyar-text rounded-full" />
                 )}
               </span>
             </Link>
@@ -204,7 +202,15 @@ export function WebSidebar() {
 
         <div
           className={cn(
-            "mt-auto mb-4 transition-[padding] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+            "mt-auto mb-2 transition-[padding] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
+            collapsed ? "px-2" : "px-4"
+          )}
+        >
+          <ThemeToggle variant="sidebar" showLabel collapsed={collapsed} />
+        </div>
+        <div
+          className={cn(
+            "mb-4 transition-[padding] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
             collapsed ? "px-2" : "px-4"
           )}
         >
@@ -212,11 +218,11 @@ export function WebSidebar() {
         </div>
       </nav>
 
-      <div className="p-2 border-t border-black/[0.06]">
+      <div className="p-2 border-t border-kyar-borderSubtle">
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="min-h-[44px] w-full flex items-center justify-center rounded-sm text-kyar-meta hover:text-black hover:bg-black/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F4F4]"
+          className="min-h-[44px] w-full flex items-center justify-center rounded-sm text-kyar-meta hover:text-kyar-text hover:bg-kyar-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <span

@@ -110,13 +110,13 @@ export function TaskChecklist({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium">
+        <div className="flex justify-between items-end text-[9px] uppercase tracking-[0.2em] font-medium text-kyar-text">
           <span>Construction Progress</span>
           <span>{progressPercent}%</span>
         </div>
-        <div className="h-px bg-gray-200 w-full">
+        <div className="h-px bg-kyar-borderSubtle w-full">
           <div
-            className="h-full bg-black transition-all duration-300"
+            className="h-full bg-kyar-text transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -187,12 +187,12 @@ export function TaskChecklist({
             onChange={(e) => setNewTaskLabel(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleAddTask()}
             placeholder="Add a new task..."
-            className="flex-1 border-0 border-b border-black bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
+            className="flex-1 border-0 border-b border-kyar-border bg-transparent py-2 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-accent"
           />
           <button
             onClick={handleAddTask}
             disabled={!newTaskLabel.trim() || isPendingCreate}
-            className="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+            className="px-4 py-2 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider disabled:opacity-50"
           >
             {isPendingCreate ? "Adding..." : "Add"}
           </button>
@@ -204,7 +204,7 @@ export function TaskChecklist({
           onClick={() => {
             sortedTasks.forEach((t) => !t.checked && handleToggleTask(t._id, true));
           }}
-          className="flex-1 border border-kyar-border hover:border-black py-2 text-xs font-semibold uppercase tracking-wider"
+          className="flex-1 border border-kyar-border hover:border-kyar-text py-2 text-xs font-semibold uppercase tracking-wider text-kyar-text"
         >
           Mark All Complete
         </button>
@@ -218,16 +218,16 @@ export function TaskChecklist({
         <div className="space-y-2">
           <button
             onClick={() => handleAssignTask(null)}
-            className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
+            className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-kyar-text transition"
           >
-            <span className="material-symbols-outlined text-gray-400">close</span>
+            <span className="material-symbols-outlined text-kyar-textMuted">close</span>
             <span className="text-sm">Unassign from any node</span>
           </button>
           {linkedItems.map((item) => (
             <button
               key={item._id}
               onClick={() => handleAssignTask(item._id)}
-              className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-black transition"
+              className="w-full flex items-center gap-3 p-3 border border-kyar-border hover:border-kyar-text transition"
             >
               {item.imageStorageId || item.imageUrl ? (
                 <ResolvedImage
@@ -237,8 +237,8 @@ export function TaskChecklist({
                   className="w-10 h-10 object-cover rounded"
                 />
               ) : (
-                <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
-                  <span className="material-symbols-outlined text-gray-400">image</span>
+                <div className="w-10 h-10 bg-kyar-muted rounded flex items-center justify-center">
+                  <span className="material-symbols-outlined text-kyar-textMuted">image</span>
                 </div>
               )}
               <span className="text-sm flex-1 text-left">
@@ -309,14 +309,14 @@ function TaskRow({
   return (
     <div
       role="listitem"
-      className="flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-black transition group"
+      className="flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-kyar-text/50 transition group"
     >
       <div className="flex items-center gap-3">
         <input
           type="checkbox"
           checked={task.checked}
           onChange={(e) => onToggle(e.target.checked)}
-          className="w-4 h-4 accent-black"
+          className="w-4 h-4 accent-kyar-accent"
         />
         <div className="flex-1 min-w-0">
           <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
@@ -338,7 +338,7 @@ function TaskRow({
           <button
             type="button"
             onClick={onStartDueDateEdit}
-            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+            className="opacity-0 group-hover:opacity-100 text-kyar-textSecondary hover:text-kyar-text text-xs"
             title={task.dueDate ? "Change due date" : "Set due date"}
           >
             <span className="material-symbols-outlined text-base">calendar_today</span>
@@ -347,7 +347,7 @@ function TaskRow({
         <button
           type="button"
           onClick={onAssign}
-          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+          className="opacity-0 group-hover:opacity-100 text-kyar-textSecondary hover:text-kyar-text text-xs"
           title="Assign to node"
         >
           <span className="material-symbols-outlined text-base">link</span>
@@ -355,7 +355,7 @@ function TaskRow({
         <button
           type="button"
           onClick={onDelete}
-          className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+          className="opacity-0 group-hover:opacity-100 text-kyar-danger hover:opacity-90 text-xs"
           title="Delete task"
         >
           <span className="material-symbols-outlined text-base">delete</span>
@@ -425,13 +425,13 @@ function DraggableTaskRow({
     <div
       ref={setNodeRef}
       role="listitem"
-      className={`flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-black transition group ${
+          className={`flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-kyar-text/50 transition group ${
         isDragging ? "opacity-50 cursor-grabbing" : ""
       }`}
     >
       <div className="flex items-center gap-3">
         <span
-          className="material-symbols-outlined text-gray-400 text-base cursor-grab touch-none"
+          className="material-symbols-outlined text-kyar-textMuted text-base cursor-grab touch-none"
           {...listeners}
           {...attributes}
         >
@@ -441,7 +441,7 @@ function DraggableTaskRow({
           type="checkbox"
           checked={task.checked}
           onChange={(e) => onToggle(e.target.checked)}
-          className="w-4 h-4 accent-black"
+          className="w-4 h-4 accent-kyar-accent"
         />
         <div className="flex-1 min-w-0">
           <span className={`text-sm ${task.checked ? "line-through text-kyar-textTertiary" : ""}`}>
@@ -466,7 +466,7 @@ function DraggableTaskRow({
               e.stopPropagation();
               onStartDueDateEdit?.();
             }}
-            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+            className="opacity-0 group-hover:opacity-100 text-kyar-textSecondary hover:text-kyar-text text-xs"
             title={task.dueDate ? "Change due date" : "Set due date"}
           >
             <span className="material-symbols-outlined text-base">calendar_today</span>
@@ -478,7 +478,7 @@ function DraggableTaskRow({
             e.stopPropagation();
             onAssign();
           }}
-          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-black text-xs"
+          className="opacity-0 group-hover:opacity-100 text-kyar-textSecondary hover:text-kyar-text text-xs"
           title="Assign to node"
         >
           <span className="material-symbols-outlined text-base">link</span>
@@ -489,7 +489,7 @@ function DraggableTaskRow({
             e.stopPropagation();
             onDelete();
           }}
-          className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 text-xs"
+          className="opacity-0 group-hover:opacity-100 text-kyar-danger hover:opacity-90 text-xs"
           title="Delete task"
         >
           <span className="material-symbols-outlined text-base">delete</span>

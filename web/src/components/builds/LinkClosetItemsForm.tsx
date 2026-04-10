@@ -185,7 +185,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     useImperativeHandle(ref, () => ({ save }), [save]);
 
     const toolbar = (
-      <div className="sticky top-0 z-[1] -mx-1 mb-3 space-y-3 border-b border-kyar-borderSubtle bg-white pb-3 px-1">
+      <div className="sticky top-0 z-[1] -mx-1 mb-3 space-y-3 border-b border-kyar-borderSubtle bg-kyar-surface pb-3 px-1">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-kyar-textTertiary" />
           <input
@@ -203,7 +203,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-white px-2 py-2 text-sm text-kyar-text"
+              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-kyar-surface px-2 py-2 text-sm text-kyar-text"
             >
               <option value="all">All ({closetItems.length})</option>
               {categories.map((c) => (
@@ -218,7 +218,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             <select
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-white px-2 py-2 text-sm text-kyar-text"
+              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-kyar-surface px-2 py-2 text-sm text-kyar-text"
             >
               <option value="name">Name (A–Z)</option>
               <option value="recent">Newest first</option>
@@ -297,7 +297,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
           <button
             type="button"
             onClick={() => setQuickCreateOpen(true)}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-kyar-border bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-text shadow-sm hover:border-kyar-text"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-kyar-border bg-kyar-surface px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-text shadow-sm hover:border-kyar-text"
           >
             <Plus className="size-4" aria-hidden />
             New element or material
@@ -433,7 +433,7 @@ function DraggableClosetRow({
           }`}
         >
           {isSelected && (
-            <span className="material-symbols-outlined text-sm text-white">check</span>
+            <span className="material-symbols-outlined text-sm text-kyar-bg">check</span>
           )}
         </span>
         <span className="min-w-0 flex-1">

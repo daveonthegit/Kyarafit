@@ -97,7 +97,7 @@ export function LinkClosetQuickCreateModal({
             type="submit"
             form="link-closet-quick-create-form"
             disabled={pending}
-            className="flex-1 min-w-[100px] rounded-md bg-kyar-text py-2.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+            className="flex-1 min-w-[100px] rounded-md bg-kyar-text py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-bg disabled:opacity-50"
           >
             {pending ? "Creating…" : "Create & select"}
           </button>
@@ -121,8 +121,8 @@ export function LinkClosetQuickCreateModal({
                 setNodeType(value);
                 setCategory(value === "material" ? "material" : "other");
               }}
-              className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
-                nodeType === value ? "bg-black text-white" : "bg-transparent text-black"
+              className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+                nodeType === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
               }`}
             >
               {value}
@@ -160,8 +160,8 @@ export function LinkClosetQuickCreateModal({
               key={value}
               type="button"
               onClick={() => setCategory(value)}
-              className={`rounded-sm border border-black px-3 py-2 text-xs uppercase tracking-wide ${
-                category === value ? "bg-black text-white" : "bg-transparent text-black"
+              className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+                category === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
               }`}
             >
               {value}

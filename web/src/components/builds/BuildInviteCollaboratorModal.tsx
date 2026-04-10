@@ -67,7 +67,7 @@ export function BuildInviteCollaboratorModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full px-6 py-2.5 bg-kyar-text text-white text-xs font-bold uppercase tracking-wider rounded-md"
+          className="w-full px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
         >
           Done
         </button>
@@ -115,7 +115,7 @@ export function BuildInviteCollaboratorModal({
             id="invite-role"
             value={role}
             onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
-            className="w-full border border-kyar-border rounded-md px-3 py-2.5 text-sm bg-white"
+            className="w-full border border-kyar-border rounded-md px-3 py-2.5 text-sm bg-kyar-surface"
             disabled={pending}
           >
             <option value="viewer">Viewer</option>
@@ -126,7 +126,7 @@ export function BuildInviteCollaboratorModal({
           type="button"
           onClick={invite}
           disabled={pending || !email.trim()}
-          className="w-full py-2.5 bg-kyar-text text-white text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
+          className="w-full py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
         >
           {pending ? "Sending…" : "Send invite"}
         </button>

@@ -40,7 +40,7 @@ export function LandingMiniConventionDetailBody({
         }
       >
         <img src={convention.heroImageSrc} alt="" className="h-full w-full object-cover" />
-        <div className="absolute bottom-3 left-3 rounded-sm bg-black px-2 py-1 text-[8px] font-bold uppercase tracking-widest text-white">
+        <div className="absolute bottom-3 left-3 rounded-sm bg-kyar-text px-2 py-1 text-[8px] font-bold uppercase tracking-widest text-kyar-bg">
           Event {convention.subtitle.replace(/\D/g, "").slice(0, 4) || "2026"}
         </div>
       </div>
@@ -84,7 +84,7 @@ export function LandingMiniConventionDetailBody({
                     embedded ? "p-2.5" : "p-3"
                   }`}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-kyar-bg bg-black text-[10px] font-bold text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-kyar-borderSubtle bg-kyar-text text-[10px] font-bold text-kyar-bg">
                     {idx + 1}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export function LandingMiniConventionDetailBody({
                     </p>
                     {build ? (
                       <div className="mt-2 flex items-center gap-2">
-                        <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md border border-kyar-borderSubtle bg-white">
+                        <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md border border-kyar-borderSubtle bg-kyar-surface">
                           <img src={build.imageSrc} alt="" className="h-full w-full object-cover" />
                         </div>
                         <div className="min-w-0">
@@ -128,17 +128,17 @@ export function LandingMiniConventionDetailBody({
                 <button
                   type="button"
                   onClick={() => togglePacked(row.label)}
-                  className="flex w-full items-center gap-2 rounded-md text-left transition-colors hover:bg-white/60 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1"
+                  className="flex w-full items-center gap-2 rounded-md text-left transition-colors hover:bg-kyar-muted/40 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-1"
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                      row.done ? "border-kyar-accent bg-kyar-accent" : "border-kyar-border bg-white"
+                      row.done ? "border-kyar-accent bg-kyar-accent" : "border-kyar-border bg-kyar-surface"
                     }`}
                     aria-hidden
                   >
                     {row.done && (
                       <svg
-                        className="h-2.5 w-2.5 text-white"
+                        className="h-2.5 w-2.5 text-kyar-bg"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="3"
@@ -168,7 +168,7 @@ export function LandingMiniConventionDetailBody({
 /** Standalone card with window chrome (used when not embedded in app frame). */
 export function LandingMiniConventionDetail({ convention }: { convention: MockConvention }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-white shadow-[0_24px_60px_rgba(0,0,0,0.06)]">
+    <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-[0_24px_60px_rgba(0,0,0,0.06)]">
       <div className="flex h-7 items-center gap-1.5 border-b border-kyar-borderSubtle bg-kyar-bgWarm px-3">
         <span className="h-2 w-2 rounded-full bg-[#FF5F56]" />
         <span className="h-2 w-2 rounded-full bg-[#FFBD2E]" />

@@ -30,6 +30,10 @@ type CosplayNodeId = Id<"cosplayNodes">;
 type SortBy = "name" | "category" | "cost" | "progress" | "bucket";
 type SortOrder = "asc" | "desc";
 
+/** Shared filter control styles — avoid hardcoded bg-white (breaks dark mode contrast). */
+const FILTER_SELECT_CLASS =
+  "rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 text-xs uppercase tracking-wider text-kyar-text min-h-[40px]";
+
 const SUBSTATE_OPTIONS = [
   { value: "", label: "All states" },
   { value: "to_buy", label: "To buy" },
@@ -142,7 +146,7 @@ export default function ElementsPage() {
           <button
             type="button"
             onClick={() => open("newCloset")}
-            className="rounded-full border border-black bg-black px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-white"
+            className="rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg"
           >
             New node
           </button>
@@ -157,7 +161,7 @@ export default function ElementsPage() {
           <select
             value={nodeType}
             onChange={(e) => setNodeType(e.target.value)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Filter by node type"
           >
             <option value="">All types</option>
@@ -170,7 +174,7 @@ export default function ElementsPage() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Filter by category"
           >
             <option value="">All categories</option>
@@ -183,7 +187,7 @@ export default function ElementsPage() {
           <select
             value={bucket}
             onChange={(e) => setBucket(e.target.value)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Filter by progress bucket"
           >
             <option value="">All buckets</option>
@@ -196,7 +200,7 @@ export default function ElementsPage() {
           <select
             value={substate}
             onChange={(e) => setSubstate(e.target.value)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Filter by substate"
           >
             {SUBSTATE_OPTIONS.map((option) => (
@@ -208,7 +212,7 @@ export default function ElementsPage() {
           <select
             value={hierarchyMode}
             onChange={(e) => setHierarchyMode(e.target.value as typeof hierarchyMode)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Filter by hierarchy state"
           >
             <option value="all">All structures</option>
@@ -218,7 +222,7 @@ export default function ElementsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="rounded-full border border-kyar-borderSubtle bg-white px-4 py-2 text-xs uppercase tracking-wider"
+            className={FILTER_SELECT_CLASS}
             aria-label="Sort nodes by"
           >
             <option value="name">Name</option>
@@ -230,7 +234,7 @@ export default function ElementsPage() {
           <button
             type="button"
             onClick={() => setOrder((current) => (current === "asc" ? "desc" : "asc"))}
-            className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-xs uppercase tracking-wider"
+            className={`${FILTER_SELECT_CLASS} inline-flex items-center justify-center`}
           >
             {order === "asc" ? "Asc" : "Desc"}
           </button>
@@ -270,7 +274,7 @@ export default function ElementsPage() {
                   />
                   <Link
                     href={`/elements/${item._id}`}
-                    className="block overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-white shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg"
+                    className="block overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg"
                   >
                     <div className="relative aspect-[4/5] overflow-hidden bg-kyar-mutedWarm">
                       {item.imageStorageId || item.imageUrl ? (
@@ -287,23 +291,23 @@ export default function ElementsPage() {
                           </span>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/15 to-transparent" />
                       <div className="absolute left-3 top-3 flex gap-2">
-                        <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-wider text-white backdrop-blur">
+                        <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
                           {formatNodeTypeLabel(item.nodeType)}
                         </span>
-                        <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-wider text-white backdrop-blur">
+                        <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
                           {formatNodeStatus(item)}
                         </span>
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                      <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-bg">
                         <p className="mb-1 text-[9px] uppercase tracking-[0.2em] opacity-80">
                           {item.category || "uncategorized"}
                         </p>
                         <h3 className="truncate font-serif text-3xl italic leading-none">
                           {item.name}
                         </h3>
-                        <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-white/80">
+                        <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-kyar-bg/80">
                           <span>{item.progressPercent ?? 0}% progress</span>
                           <span>
                             {item.childCount ?? 0} child{(item.childCount ?? 0) === 1 ? "" : "ren"}
@@ -326,14 +330,14 @@ export default function ElementsPage() {
             <button
               type="button"
               onClick={() => setShowAssignPanel(true)}
-              className="rounded-full border border-black px-4 py-2 text-[10px] font-bold uppercase tracking-wider"
+              className="rounded-full border border-kyar-text px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-text hover:bg-kyar-text hover:text-kyar-bg transition-colors"
             >
               Link to build
             </button>
             <button
               type="button"
               onClick={() => setShowUnassignPanel(true)}
-              className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-wider"
+              className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-text"
             >
               Unlink from build
             </button>

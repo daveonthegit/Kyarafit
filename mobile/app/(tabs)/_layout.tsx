@@ -83,9 +83,9 @@ export default function TabLayout() {
         <Tabs.Screen
           name="closet"
           options={{
-            title: t("Nav.closet"),
+            title: t("Nav.elements"),
             tabBarIcon: ({ focused }) => (
-              <TabIcon focused={focused} icon="checkroom" label={t("Nav.closet")} />
+              <TabIcon focused={focused} icon="checkroom" label={t("Nav.elements")} />
             ),
           }}
         />

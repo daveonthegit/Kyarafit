@@ -43,7 +43,7 @@ export function BuildDetailModalShell({
 
   return (
     <div
-      className={`fixed inset-0 ${zOverlayClass} flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm`}
+      className={`fixed inset-0 ${zOverlayClass} flex items-center justify-center p-4 bg-kyar-text/45 backdrop-blur-sm`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -52,7 +52,7 @@ export function BuildDetailModalShell({
       }}
     >
       <div
-        className={`bg-white w-full ${sizeClass[size]} max-h-[90vh] flex flex-col rounded-lg border border-kyar-borderSubtle shadow-xl`}
+        className={`bg-kyar-surface w-full ${sizeClass[size]} max-h-[90vh] flex flex-col rounded-lg border border-kyar-borderSubtle shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-kyar-border px-4 py-3 shrink-0">

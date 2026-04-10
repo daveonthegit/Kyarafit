@@ -138,7 +138,7 @@ export default function PublicProfilePage() {
                 type="button"
                 onClick={handleFollow}
                 disabled={followPending}
-                className="mt-4 px-8 py-3 text-[9px] font-bold uppercase tracking-widest border border-kyar-borderSubtle rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-50 shadow-sm"
+                className="mt-4 px-8 py-3 text-[9px] font-bold uppercase tracking-widest border border-kyar-borderSubtle rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50 shadow-sm"
               >
                 {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
               </button>
@@ -182,9 +182,9 @@ export default function PublicProfilePage() {
                         <span className="material-symbols-outlined text-6xl">palette</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-colors duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-white">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           {b.character && (

@@ -191,13 +191,13 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
               />
             </div>
             <button
               type="submit"
               disabled={anyLoading}
-              className="w-full bg-black text-white py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-textSecondary transition-colors disabled:opacity-50"
+              className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {loading ? "Sending…" : "Send Reset Link"}
             </button>
@@ -207,7 +207,7 @@ export default function SignInPage() {
                 setMode("signin");
                 setError(null);
               }}
-              className="w-full text-xs text-kyar-textTertiary hover:text-black underline"
+              className="w-full text-xs text-kyar-textTertiary hover:text-kyar-text underline"
             >
               Back to sign in
             </button>
@@ -220,7 +220,7 @@ export default function SignInPage() {
               <button
                 onClick={() => handleOAuth("google")}
                 disabled={anyLoading}
-                className="w-full flex items-center justify-center gap-3 border border-black py-3 text-xs uppercase tracking-widest font-semibold hover:bg-black hover:text-white transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-3 border border-kyar-text py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-text hover:text-kyar-bg transition-all disabled:opacity-50"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -276,7 +276,7 @@ export default function SignInPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
                   />
                 </div>
               ) : (
@@ -289,7 +289,7 @@ export default function SignInPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Your username"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
                   />
                 </div>
               )}
@@ -302,7 +302,7 @@ export default function SignInPage() {
                       setMode("forgot");
                       setError(null);
                     }}
-                    className="text-xs text-kyar-textTertiary hover:text-black underline"
+                    className="text-xs text-kyar-textTertiary hover:text-kyar-text underline"
                   >
                     Forgot password?
                   </button>
@@ -313,13 +313,13 @@ export default function SignInPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                  className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
                 />
               </div>
               <button
                 type="submit"
                 disabled={anyLoading}
-                className="w-full bg-black text-white py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-textSecondary transition-colors disabled:opacity-50"
+                className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 {loading ? "Signing in…" : "Sign In"}
               </button>
@@ -333,13 +333,13 @@ export default function SignInPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-black"
+                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
                   />
                   <button
                     type="button"
                     onClick={handleResendVerification}
                     disabled={anyLoading || resendLoading || !email.trim()}
-                    className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-black transition-colors disabled:opacity-50 text-kyar-textSecondary hover:text-black"
+                    className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors disabled:opacity-50 text-kyar-textSecondary hover:text-kyar-text"
                   >
                     {resendLoading ? "Sending…" : "Resend verification email"}
                   </button>
@@ -354,7 +354,7 @@ export default function SignInPage() {
                   setSignInWithEmail(!signInWithEmail);
                   setError(null);
                 }}
-                className="text-xs text-kyar-textTertiary hover:text-black underline"
+                className="text-xs text-kyar-textTertiary hover:text-kyar-text underline"
               >
                 {signInWithEmail ? "Sign in with username instead" : "Sign in with email instead"}
               </button>
@@ -362,7 +362,7 @@ export default function SignInPage() {
 
             <p className="mt-6 text-center text-xs text-kyar-textTertiary">
               Don&apos;t have an account?{" "}
-              <Link href="/auth/signup" className="underline hover:text-black">
+              <Link href="/auth/signup" className="underline hover:text-kyar-text">
                 Create one
               </Link>
             </p>
@@ -370,7 +370,7 @@ export default function SignInPage() {
         )}
 
         <div className="mt-8 text-center">
-          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-black">
+          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-kyar-text">
             &larr; Back to home
           </Link>
         </div>

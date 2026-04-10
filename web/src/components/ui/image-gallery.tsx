@@ -118,7 +118,7 @@ export function ImageGallery({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {title && <h2 className="font-serif text-xl italic border-b border-black pb-2">{title}</h2>}
+      {title && <h2 className="font-serif text-xl italic border-b border-kyar-text pb-2">{title}</h2>}
 
       {/* Inline: clickable thumbnails or placeholder */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -142,7 +142,7 @@ export function ImageGallery({
                       e.stopPropagation();
                       onRemove(img.id);
                     }}
-                    className="absolute top-1 right-1 p-1.5 rounded-sm bg-black/60 text-white hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                    className="absolute top-1 right-1 p-1.5 rounded-sm bg-kyar-text/60 text-kyar-bg hover:bg-kyar-text/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                     aria-label="Remove image"
                   >
                     <Trash2 className="size-4" />
@@ -185,7 +185,7 @@ export function ImageGallery({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex flex-col bg-white"
+            className="fixed inset-0 z-[9999] flex flex-col bg-kyar-bg"
             role="dialog"
             aria-modal="true"
             aria-labelledby="gallery-modal-title"
@@ -199,7 +199,7 @@ export function ImageGallery({
                   <button
                     type="button"
                     onClick={onOpenAddPhoto}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-sm bg-kyar-accent text-white text-sm font-medium hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-sm bg-kyar-accent text-kyar-bg text-sm font-medium hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
                     aria-label="Add photo"
                   >
                     <Plus className="size-4" />
@@ -231,14 +231,14 @@ export function ImageGallery({
                         placeholder={PLACEHOLDER_SRC}
                       />
                       {(onRemove || onReorder) && (
-                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/50 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-kyar-text/50 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           {onReorder && (
                             <>
                               <button
                                 type="button"
                                 onClick={() => handleMove(index, "up")}
                                 disabled={index === 0}
-                                className="p-1.5 rounded-sm text-white hover:bg-white/20 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                className="p-1.5 rounded-sm text-kyar-bg hover:bg-kyar-bg/20 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-bg"
                                 aria-label="Move up"
                               >
                                 <ChevronUp className="size-5" />
@@ -247,7 +247,7 @@ export function ImageGallery({
                                 type="button"
                                 onClick={() => handleMove(index, "down")}
                                 disabled={index === images.length - 1}
-                                className="p-1.5 rounded-sm text-white hover:bg-white/20 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                className="p-1.5 rounded-sm text-kyar-bg hover:bg-kyar-bg/20 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-bg"
                                 aria-label="Move down"
                               >
                                 <ChevronDown className="size-5" />
@@ -258,7 +258,7 @@ export function ImageGallery({
                             <button
                               type="button"
                               onClick={() => onRemove(img.id)}
-                              className="p-1.5 rounded-sm text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                              className="p-1.5 rounded-sm text-kyar-bg hover:bg-kyar-bg/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-bg"
                               aria-label="Remove image"
                             >
                               <Trash2 className="size-5" />
