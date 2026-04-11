@@ -54,7 +54,7 @@ export function PageHeader({
   const [mobileControlsOpen, setMobileControlsOpen] = useState(defaultMobileControlsOpen);
   const hasCollapsibleControls = Boolean(children && mobileControlsLabel);
   const wrapperClass = [
-    "pt-12 sm:pt-16 pb-6",
+    "pt-7 sm:pt-16 pb-3 sm:pb-6",
     sticky ? "sticky top-0 z-30 bg-kyar-bg/95 backdrop-blur-md" : "",
     className,
   ]
@@ -63,15 +63,15 @@ export function PageHeader({
 
   return (
     <header className={wrapperClass}>
-      <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif-elegant text-[30px] sm:text-[38px] font-normal italic tracking-tight text-kyar-text leading-[1.12]">
+          <h1 className="font-serif-elegant text-[23px] sm:text-[38px] font-normal italic tracking-tight text-kyar-text leading-[1.08]">
             {title}
           </h1>
-          {subtitle && <p className="mt-1 text-[11px] text-kyar-textSecondary">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-[10px] sm:mt-1 sm:text-[11px] text-kyar-textSecondary">{subtitle}</p>}
         </div>
 
-        <div className="flex w-full shrink-0 flex-col gap-4 sm:w-auto sm:min-w-[min(100%,20rem)] sm:max-w-md sm:items-end">
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[min(100%,20rem)] sm:max-w-md sm:items-end sm:gap-4">
           {search && (
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-0 top-1/2 -translate-y-1/2 size-4 text-kyar-textTertiary pointer-events-none" />
@@ -80,7 +80,7 @@ export function PageHeader({
                 placeholder={search.placeholder ?? "Search archive..."}
                 value={search.value}
                 onChange={(e) => search.onChange(e.target.value)}
-                className="w-full min-h-[44px] pl-7 pr-3 py-2.5 text-sm border-b border-kyar-border bg-transparent text-kyar-text placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-text transition-colors"
+                className="w-full min-h-[38px] sm:min-h-[44px] pl-7 pr-3 py-2 text-[13px] sm:text-sm border-b border-kyar-border bg-transparent text-kyar-text placeholder:text-kyar-textTertiary focus:outline-none focus:border-kyar-text transition-colors"
                 aria-label={search["aria-label"] ?? "Search"}
               />
             </div>
@@ -93,22 +93,22 @@ export function PageHeader({
         </div>
       </div>
       {hasCollapsibleControls && (
-        <div className="mt-4 sm:hidden">
+        <div className="mt-3 sm:hidden">
           <button
             type="button"
             onClick={() => setMobileControlsOpen((open) => !open)}
-            className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2.5 text-left shadow-soft transition-colors hover:border-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="flex min-h-[42px] w-full items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 text-left shadow-soft transition-colors hover:border-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
             aria-expanded={mobileControlsOpen}
           >
             <span className="flex min-w-0 items-center gap-2">
               <SlidersHorizontal className="size-4 text-kyar-text" aria-hidden />
-              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-kyar-text">
+              <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-kyar-text">
                 {mobileControlsLabel}
               </span>
             </span>
             <span className="flex min-w-0 items-center gap-2">
               {mobileControlsSummary && (
-                <span className="truncate text-[11px] text-kyar-textSecondary">
+                <span className="truncate text-[10px] text-kyar-textSecondary">
                   {mobileControlsSummary}
                 </span>
               )}
@@ -125,9 +125,9 @@ export function PageHeader({
           className={
             hasCollapsibleControls
               ? mobileControlsOpen
-                ? "mt-4 flex flex-col gap-3 rounded-[28px] border border-kyar-borderSubtle bg-kyar-surface p-4 shadow-soft sm:mt-6 sm:flex sm:flex-wrap sm:flex-row sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
+                ? "mt-3 flex flex-col gap-3 rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-soft sm:mt-6 sm:flex sm:flex-wrap sm:flex-row sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
                 : "hidden sm:mt-6 sm:flex sm:flex-wrap sm:flex-row sm:items-center sm:gap-4"
-              : "mt-6 flex flex-wrap items-center gap-4"
+              : "mt-3 sm:mt-6 flex flex-wrap items-center gap-3 sm:gap-4"
           }
         >
           {children}

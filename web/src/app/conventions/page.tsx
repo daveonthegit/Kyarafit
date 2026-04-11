@@ -265,7 +265,7 @@ export default function ConventionsPage() {
         </div>
       </PageHeader>
 
-      <main className="flex-1 py-6">
+      <main className="flex-1 pt-3 pb-24 sm:py-6">
         {isLoading && <p className="meta-label text-kyar-meta">Loading...</p>}
         {!isLoading && conventions.length === 0 && (
           <p className="text-sm text-kyar-meta">
@@ -279,7 +279,7 @@ export default function ConventionsPage() {
         )}
         {!isLoading && filteredAndSorted.length > 0 && (
           <>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="mb-3 sm:mb-4 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
                 {filteredAndSorted.length} convention{filteredAndSorted.length !== 1 ? "s" : ""}
               </p>

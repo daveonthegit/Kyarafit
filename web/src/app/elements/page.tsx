@@ -164,13 +164,13 @@ export default function ElementsPage() {
             <button
               type="button"
               onClick={() => open("newCloset")}
-              className="min-h-[44px] rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg transition-colors hover:bg-kyar-textSecondary"
+              className="hidden sm:inline-flex min-h-[44px] items-center rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg transition-colors hover:bg-kyar-textSecondary"
             >
               New node
             </button>
             <Link
               href="/elements/new"
-              className="min-h-[44px] flex items-center rounded-full border border-kyar-borderSubtle px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
+              className="hidden sm:flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
             >
               Full create flow
             </Link>
@@ -261,7 +261,7 @@ export default function ElementsPage() {
         </div>
       </PageHeader>
 
-      <main className="flex-1 py-6">
+      <main className="flex-1 pt-3 pb-24 sm:py-6">
         {filtered.length === 0 ? (
           <EmptyState
             icon="account_tree"
@@ -270,7 +270,7 @@ export default function ElementsPage() {
           />
         ) : (
           <>
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-3 sm:mb-4 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-widest opacity-50">
                 {filtered.length} node{filtered.length !== 1 ? "s" : ""}
               </p>

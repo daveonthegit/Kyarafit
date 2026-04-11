@@ -197,14 +197,14 @@ export default function BuildsPage() {
             {sharedBuilds.length > 0 && (
               <a
                 href="#shared-with-me"
-                className="min-h-[44px] flex items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                className="hidden sm:flex min-h-[44px] items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               >
                 Shared ({sharedBuilds.length})
               </a>
             )}
             <Link
               href="/elements"
-              className="min-h-[44px] flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+              className="hidden sm:flex min-h-[44px] items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               aria-label="Open elements"
             >
               Elements
@@ -259,7 +259,7 @@ export default function BuildsPage() {
         </div>
       </PageHeader>
 
-      <main className="flex-1 mt-6">
+      <main className="flex-1 mt-3 sm:mt-6">
         {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
         {!isLoading && builds.length === 0 && !hasSearch && (
           <EmptyState
@@ -281,7 +281,7 @@ export default function BuildsPage() {
           <EmptyState icon="search_off" message="No builds match your search." />
         )}
         {!isLoading && builds.length > 0 && (
-          <div className="flex items-center gap-3 mb-4">
+          <div className="mb-3 sm:mb-4 flex items-center gap-3">
             <p className="text-[10px] uppercase tracking-widest opacity-50">
               {builds.length} build{builds.length !== 1 ? "s" : ""}
             </p>
