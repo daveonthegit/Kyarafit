@@ -22,6 +22,10 @@ vi.mock("@/lib/i18n/context", () => ({
   useLocaleContext: () => ({ locale: "en", setLocale: vi.fn() }),
 }));
 
+vi.mock("@/contexts/ThemeContext", () => ({
+  useTheme: () => ({ theme: "light", setTheme: vi.fn(), toggleTheme: vi.fn(), mounted: true }),
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: (ns: string) => {
     return (key: string, values?: Record<string, string>) => {
@@ -53,6 +57,11 @@ vi.mock("next-intl", () => ({
         if (key === "en") return "English";
         if (key === "es") return "Español";
       }
+      if (ns === "Theme") {
+        if (key === "appearance") return "Appearance";
+        if (key === "light") return "Light";
+        if (key === "dark") return "Dark";
+      }
       return key;
     };
   },
@@ -60,6 +69,24 @@ vi.mock("next-intl", () => ({
 
 vi.mock("@/components/layout/WebAppShell", () => ({
   WebAppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock("@/components/layout/PageHeader", () => ({
+  PageHeader: ({
+    title,
+    subtitle,
+    trailing,
+  }: {
+    title: string;
+    subtitle?: string;
+    trailing?: React.ReactNode;
+  }) => (
+    <header>
+      <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
+      {trailing}
+    </header>
+  ),
 }));
 
 describe("Settings page", () => {

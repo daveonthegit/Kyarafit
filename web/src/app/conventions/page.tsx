@@ -99,6 +99,9 @@ export default function ConventionsPage() {
   const removeMany = useMutation(api.conventions.removeMany);
   const createConvention = useMutation(api.conventions.create);
   const isLoading = conventions === undefined;
+  const activeFilterLabel = FILTER_OPTIONS.find((opt) => opt.value === filter)?.label ?? "All";
+  const activeSortLabel = SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label ?? "Start date";
+  const controlsSummary = `${activeFilterLabel} · ${activeSortLabel} · ${order === "asc" ? "Ascending" : "Descending"}`;
 
   const filteredAndSorted = useMemo(
     () => filterAndSortConventions(conventions, search, filter, sortBy, order),
@@ -212,8 +215,10 @@ export default function ConventionsPage() {
           placeholder: "Search conventions...",
           "aria-label": "Search conventions by name or location",
         }}
+        mobileControlsLabel="Refine circuit"
+        mobileControlsSummary={controlsSummary}
       >
-        <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
+        <div className="flex w-full flex-wrap items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
             Status
           </span>
@@ -233,18 +238,14 @@ export default function ConventionsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 ml-auto">
-          <label
-            htmlFor="convention-sort"
-            className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0"
-          >
+        <div className="flex w-full flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:justify-end">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
             Sort by
-          </label>
+          </span>
           <select
-            id="convention-sort"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
-            className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+            className="min-h-[44px] min-w-[11rem] flex-1 border-b border-kyar-border bg-transparent py-1.5 text-[11px] uppercase tracking-wider text-kyar-text focus:border-kyar-text focus:outline-none transition-colors sm:min-w-0 sm:flex-none"
             aria-label="Sort conventions by"
           >
             {SORT_OPTIONS.map((opt) => (
@@ -256,12 +257,10 @@ export default function ConventionsPage() {
           <button
             type="button"
             onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-            className="inline-flex items-center text-kyar-meta hover:text-kyar-text transition-colors focus:outline-none"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-4 text-[10px] font-bold uppercase tracking-[0.22em] text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
             aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden>
-              {order === "asc" ? "arrow_upward" : "arrow_downward"}
-            </span>
+            {order === "asc" ? "Asc" : "Desc"}
           </button>
         </div>
       </PageHeader>

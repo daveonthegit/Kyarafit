@@ -57,8 +57,8 @@ describe("BuildSummaryModal", () => {
       />
     );
     expect(screen.getByTestId("build-summary-content")).toBeInTheDocument();
-    expect(screen.getByText("60%")).toBeInTheDocument();
-    expect(screen.getByText("2 of 4 complete")).toBeInTheDocument();
+    expect(screen.getAllByText("60%").length).toBeGreaterThan(0);
+    expect(screen.getByText("2 / 4")).toBeInTheDocument();
   });
 
   it("shows loading message when open with null summary", () => {

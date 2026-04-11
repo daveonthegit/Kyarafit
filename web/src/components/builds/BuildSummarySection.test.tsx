@@ -29,12 +29,8 @@ describe("BuildSummarySection", () => {
   it("renders status and progress", () => {
     render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
     expect(screen.getByText("wip")).toBeInTheDocument();
-    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.getAllByText("60%").length).toBeGreaterThan(0);
     expect(screen.getByText("3 of 5 tasks complete")).toBeInTheDocument();
-    const progressbar = screen.getByRole("progressbar", {
-      name: /task completion progress/i,
-    });
-    expect(progressbar).toHaveAttribute("aria-valuenow", "60");
   });
 
   it("renders dates and elapsed/remaining", () => {
@@ -47,7 +43,8 @@ describe("BuildSummarySection", () => {
 
   it("renders linked items count", () => {
     render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
-    expect(screen.getByText("2 of 4 complete")).toBeInTheDocument();
+    expect(screen.getByText("2 / 4")).toBeInTheDocument();
+    expect(screen.getByText("Complete in this build")).toBeInTheDocument();
   });
 
   it("renders budget, spend, and difference", () => {
@@ -60,9 +57,9 @@ describe("BuildSummarySection", () => {
   it("omits due date and remaining when targetDate is null", () => {
     const noTarget = { ...mockSummary, targetDate: null, remainingDays: null };
     render(<BuildSummarySection summary={noTarget} formatCents={formatCents} />);
-    expect(screen.getByText(/initial date/i)).toBeInTheDocument();
+    expect(screen.getByText(/started/i)).toBeInTheDocument();
     expect(screen.getByText(/elapsed/i)).toBeInTheDocument();
-    expect(screen.queryByText(/due date/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^due$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/remaining/i)).not.toBeInTheDocument();
   });
 

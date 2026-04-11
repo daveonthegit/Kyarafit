@@ -29,6 +29,13 @@ const STATUS_OPTIONS: { value: BuildStatus; label: string }[] = [
   { value: "archived", label: "Archive" },
 ];
 
+const SORT_LABELS: Record<SortBy, string> = {
+  name: "Name",
+  progress: "Progress",
+  targetDate: "Target date",
+  budget: "Budget",
+};
+
 export default function BuildsPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [search, setSearch] = useState("");
@@ -57,6 +64,7 @@ export default function BuildsPage() {
   const removeMany = useMutation(api.builds.removeMany);
   const createBuild = useMutation(api.builds.create);
   const updateStatusMany = useMutation(api.builds.updateStatusMany);
+  const tabOptions = getTabFilterOptions();
 
   const listArgs = buildListArgs({
     userId: userId ?? null,
@@ -69,6 +77,8 @@ export default function BuildsPage() {
   const sharedBuilds = useQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip") ?? [];
   const isLoading = builds === undefined;
   const hasSearch = search.trim().length > 0;
+  const activeTabLabel = tabOptions.find((opt) => opt.value === activeTab)?.label ?? "All builds";
+  const controlsSummary = `${activeTabLabel} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"}`;
 
   const toggleSelect = useCallback((id: Id<"builds">) => {
     setSelectedIds((prev) => {
@@ -180,31 +190,33 @@ export default function BuildsPage() {
           placeholder: "Search builds...",
           "aria-label": "Search builds by name or character",
         }}
+        mobileControlsLabel="Refine builds"
+        mobileControlsSummary={controlsSummary}
         trailing={
-          <div className="flex items-center gap-2">
+          <>
             {sharedBuilds.length > 0 && (
               <a
                 href="#shared-with-me"
-                className="flex items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                className="min-h-[44px] flex items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               >
                 Shared ({sharedBuilds.length})
               </a>
             )}
             <Link
               href="/elements"
-              className="flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+              className="min-h-[44px] flex items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               aria-label="Open elements"
             >
               Elements
             </Link>
-          </div>
+          </>
         }
       >
-        <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1 -mx-1 sm:overflow-visible sm:mx-0">
+        <div className="flex w-full flex-wrap items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
             Status
           </span>
-          {getTabFilterOptions().map((opt) => (
+          {tabOptions.map((opt) => (
             <button
               key={opt.value}
               type="button"
@@ -220,18 +232,14 @@ export default function BuildsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 ml-auto">
-          <label
-            htmlFor="build-sort"
-            className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0"
-          >
+        <div className="flex w-full flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:justify-end">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
             Sort by
-          </label>
+          </span>
           <select
-            id="build-sort"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="text-[11px] uppercase tracking-wider border-b border-kyar-border py-1.5 bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+            className="min-h-[44px] min-w-[11rem] flex-1 border-b border-kyar-border bg-transparent py-1.5 text-[11px] uppercase tracking-wider text-kyar-text focus:border-kyar-text focus:outline-none transition-colors sm:min-w-0 sm:flex-none"
             aria-label="Sort builds by"
           >
             <option value="name">Name</option>
@@ -242,13 +250,11 @@ export default function BuildsPage() {
           <button
             type="button"
             onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-            className="inline-flex items-center text-kyar-meta hover:text-kyar-text transition-colors focus:outline-none"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-4 text-[10px] font-bold uppercase tracking-[0.22em] text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
             aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
             title={order === "asc" ? "Ascending" : "Descending"}
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden>
-              {order === "asc" ? "arrow_upward" : "arrow_downward"}
-            </span>
+            {order === "asc" ? "Asc" : "Desc"}
           </button>
         </div>
       </PageHeader>

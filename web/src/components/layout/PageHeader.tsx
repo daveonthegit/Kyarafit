@@ -1,6 +1,7 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -25,6 +26,12 @@ export interface PageHeaderProps {
   };
   /** Optional children (like filters) to show below the header */
   children?: React.ReactNode;
+  /** Optional mobile-only label used to collapse the controls into a compact toggle row */
+  mobileControlsLabel?: string;
+  /** Optional summary text shown alongside the mobile controls toggle */
+  mobileControlsSummary?: string;
+  /** Whether the mobile controls drawer should start open */
+  defaultMobileControlsOpen?: boolean;
   /** Extra class for the header wrapper. */
   className?: string;
   /** If true, header is sticky with background. */
@@ -38,9 +45,14 @@ export function PageHeader({
   trailing,
   search,
   children,
+  mobileControlsLabel,
+  mobileControlsSummary,
+  defaultMobileControlsOpen = false,
   className = "",
   sticky = true,
 }: PageHeaderProps) {
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(defaultMobileControlsOpen);
+  const hasCollapsibleControls = Boolean(children && mobileControlsLabel);
   const wrapperClass = [
     "pt-12 sm:pt-16 pb-6",
     sticky ? "sticky top-0 z-30 bg-kyar-bg/95 backdrop-blur-md" : "",
@@ -73,10 +85,54 @@ export function PageHeader({
               />
             </div>
           )}
-          {trailing && <div className="flex items-center justify-end gap-2">{trailing}</div>}
+          {trailing && (
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+              {trailing}
+            </div>
+          )}
         </div>
       </div>
-      {children && <div className="mt-6 flex flex-wrap gap-4 items-center">{children}</div>}
+      {hasCollapsibleControls && (
+        <div className="mt-4 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileControlsOpen((open) => !open)}
+            className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2.5 text-left shadow-soft transition-colors hover:border-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            aria-expanded={mobileControlsOpen}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <SlidersHorizontal className="size-4 text-kyar-text" aria-hidden />
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-kyar-text">
+                {mobileControlsLabel}
+              </span>
+            </span>
+            <span className="flex min-w-0 items-center gap-2">
+              {mobileControlsSummary && (
+                <span className="truncate text-[11px] text-kyar-textSecondary">
+                  {mobileControlsSummary}
+                </span>
+              )}
+              <ChevronDown
+                className={`size-4 shrink-0 text-kyar-text transition-transform ${mobileControlsOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              />
+            </span>
+          </button>
+        </div>
+      )}
+      {children && (
+        <div
+          className={
+            hasCollapsibleControls
+              ? mobileControlsOpen
+                ? "mt-4 flex flex-col gap-3 rounded-[28px] border border-kyar-borderSubtle bg-kyar-surface p-4 shadow-soft sm:mt-6 sm:flex sm:flex-wrap sm:flex-row sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
+                : "hidden sm:mt-6 sm:flex sm:flex-wrap sm:flex-row sm:items-center sm:gap-4"
+              : "mt-6 flex flex-wrap items-center gap-4"
+          }
+        >
+          {children}
+        </div>
+      )}
     </header>
   );
 }

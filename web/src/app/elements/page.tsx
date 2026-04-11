@@ -32,7 +32,15 @@ type SortOrder = "asc" | "desc";
 
 /** Shared filter control styles — avoid hardcoded bg-white (breaks dark mode contrast). */
 const FILTER_SELECT_CLASS =
-  "rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 text-xs uppercase tracking-wider text-kyar-text min-h-[40px]";
+  "min-h-[44px] w-full min-w-0 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 text-xs uppercase tracking-wider text-kyar-text sm:w-auto sm:min-w-[10.5rem]";
+
+const SORT_LABELS: Record<SortBy, string> = {
+  name: "Name",
+  category: "Category",
+  cost: "Cost",
+  progress: "Progress",
+  bucket: "Bucket",
+};
 
 const SUBSTATE_OPTIONS = [
   { value: "", label: "All states" },
@@ -107,6 +115,14 @@ export default function ElementsPage() {
   };
 
   const selectedCount = selectedIds.size;
+  const activeFilterCount = [
+    Boolean(nodeType),
+    Boolean(category),
+    Boolean(bucket),
+    Boolean(substate),
+    hierarchyMode !== "all",
+  ].filter(Boolean).length;
+  const controlsSummary = `${activeFilterCount === 0 ? "All nodes" : `${activeFilterCount} filters`} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"}`;
 
   const handleBulkDelete = async () => {
     if (!userId || selectedIds.size === 0) return;
@@ -141,23 +157,27 @@ export default function ElementsPage() {
           placeholder: "Search elements, materials, tags, or notes…",
           "aria-label": "Search elements and materials",
         }}
+        mobileControlsLabel="Refine elements"
+        mobileControlsSummary={controlsSummary}
+        trailing={
+          <>
+            <button
+              type="button"
+              onClick={() => open("newCloset")}
+              className="min-h-[44px] rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg transition-colors hover:bg-kyar-textSecondary"
+            >
+              New node
+            </button>
+            <Link
+              href="/elements/new"
+              className="min-h-[44px] flex items-center rounded-full border border-kyar-borderSubtle px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
+            >
+              Full create flow
+            </Link>
+          </>
+        }
       >
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => open("newCloset")}
-            className="rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg"
-          >
-            New node
-          </button>
-          <Link
-            href="/elements/new"
-            className="rounded-full border border-kyar-borderSubtle px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text"
-          >
-            Full create flow
-          </Link>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 pt-3">
+        <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center">
           <select
             value={nodeType}
             onChange={(e) => setNodeType(e.target.value)}
@@ -234,7 +254,7 @@ export default function ElementsPage() {
           <button
             type="button"
             onClick={() => setOrder((current) => (current === "asc" ? "desc" : "asc"))}
-            className={`${FILTER_SELECT_CLASS} inline-flex items-center justify-center`}
+            className={`${FILTER_SELECT_CLASS} inline-flex items-center justify-between sm:justify-center`}
           >
             {order === "asc" ? "Asc" : "Desc"}
           </button>
