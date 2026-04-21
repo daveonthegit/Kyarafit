@@ -3,6 +3,12 @@
 **Branch:** `design/home-dashboard-redesign`  
 **Date:** 2025-03-06
 
+## Design system (2026)
+
+The logged-in home dashboard is a **reference implementation** for workflow surfaces: hero chip, cards, and progress bars use **`kyar-*` semantic colors**; typography follows **Albert Sans + Bodoni Moda**. Pair with **[`PRODUCT_REDESIGN_PLAN.md`](./PRODUCT_REDESIGN_PLAN.md)** for what is complete vs. still planned (e.g. deeper builds/conventions token sweeps).
+
+---
+
 ## 1. Problems with the old homepage
 
 - **Single hero + three links:** The homepage showed only the most recent build (hero) and three quick links (My Builds, Conventions, Closet). It did not answer core planning questions.

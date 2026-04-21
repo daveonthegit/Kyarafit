@@ -1,6 +1,6 @@
 # Kyarafit Mobile Rewrite — Phase 0: Discovery & Audit
 
-> Produced by Claude Opus (planning role). This document is the canonical reference for the mobile rewrite.
+> This document is the canonical reference for the mobile rewrite.
 
 ---
 

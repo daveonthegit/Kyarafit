@@ -2,6 +2,8 @@
 
 Redesigning the Kyarafit web app to scale on desktop and tablet while preserving shared logic and Expo parity.
 
+**Design system:** Semantic **OKLCH** tokens (`--kyar-*`, Tailwind `kyar.*`), **dual light/dark** themes, typography **Albert Sans + Bodoni Moda + JetBrains Mono**. See [`../design/PRODUCT_REDESIGN_PLAN.md`](../design/PRODUCT_REDESIGN_PLAN.md) and `web/src/app/globals.css`.
+
 ## Implemented (current state)
 
 - **Phases 0–5:** Shared nav config in `design-system/navConfig.ts`; WebAppShell, WebContentContainer, WebSidebar, WebTopBar; ResponsiveGrid; AdaptiveModal and ResponsivePanel; FAB hidden on `lg`; authenticated pages use the new shell. Sidebar is sticky and full-height on desktop; only main content scrolls.
@@ -16,25 +18,25 @@ Redesigning the Kyarafit web app to scale on desktop and tablet while preserving
 ## Current architecture summary
 
 - **Monorepo:** npm workspaces: `web`, `mobile`, `design-system`.
-- **Web:** Next.js 16, App Router (`web/src/app/layout.tsx`). Styling: Tailwind; theme in `web/tailwind.config.js`.
-- **Mobile:** Expo ~55, expo-router (`mobile/app/(tabs)/_layout.tsx`). Styling: React Native StyleSheet + `@kyarafit/design-system/rn`.
-- **Shared:** `design-system` — types, Zod schemas (`design-system/types/`), RN tokens, Tailwind theme. Both apps use Convex (`convex/react`, `convex/_generated/api`). No shared API wrapper; hooks (e.g. `useCurrentUser`) duplicated.
-- **Responsive today:** Tailwind `sm:`/`md:` in places; landing has `max-w-6xl mx-auto`; most app pages use full-width + `px-6`/`px-8`; no app shell.
+- **Web:** Next.js (App Router, `web/src/app/layout.tsx`). Styling: Tailwind; **semantic theme** in `web/tailwind.config.js` + **`web/src/app/globals.css`** (OKLCH variables, theme script for `kyar-theme` / `data-theme`).
+- **Mobile:** Expo, expo-router (`mobile/app/(tabs)/_layout.tsx`). Styling: React Native StyleSheet + `@kyarafit/design-system/rn`.
+- **Shared:** `design-system` — types, Zod schemas (`design-system/types/`), RN tokens, Tailwind theme bridge. Both apps use Convex (`convex/react`, `convex/_generated/api`). No shared API wrapper; hooks (e.g. `useCurrentUser`) duplicated.
+- **Responsive today:** Tailwind `sm:`/`md:`/`lg:`; authenticated layout uses **WebAppShell** (sidebar + top bar + content container where implemented); mobile viewport uses **BottomNav**; landing and app surfaces consume **`kyar-*`** tokens.
 
 ## Current web issues (mobile-only pain)
 
-| Issue                                   | Where                                                                                        | Why it breaks desktop/tablet                                 | Fix category  |
-| --------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------- |
-| Single global nav: bottom bar only      | `web/src/components/layout/BottomNav.tsx` (home, builds, closet, conventions, packing, etc.) | Bottom nav is mobile-first; wastes vertical space on desktop | nav           |
-| No app shell                            | `web/src/app/layout.tsx` — only AuthGate + children; each page builds its own header         | No sidebar/topbar; inconsistent chrome                       | layout        |
-| No content max-width on app pages       | builds, closet, conventions, packing, itinerary, planner, settings                           | Content stretches full width; low density                    | layout        |
-| Single-column lists                     | builds (`space-y-16`), conventions, packing, itinerary, planner                              | Wasted horizontal space                                      | component     |
-| Fixed FAB                               | `web/src/components/layout/FloatingAdd.tsx`                                                  | FAB is mobile pattern; desktop better as toolbar action      | nav/component |
-| Modals always centered, small           | Delete confirms, TaskChecklist assign                                                        | No full-screen on mobile, no side panel on desktop           | component     |
-| Sticky headers with large padding       | builds `pt-14`, closet `pt-12`, home `pt-14`                                                 | Big vertical chrome on desktop                               | layout        |
-| Closet grid fixed at 2 columns          | `web/src/app/closet/page.tsx`                                                                | Doesn’t scale to 3–4 on desktop                              | component     |
-| Build detail / link-items single column | build-detail, build-detail/link-items                                                        | Doesn’t use horizontal space                                 | component     |
-| No sidebar/secondary nav                | All flows full-page stacks                                                                   | Desktop could show list + detail                             | nav/layout    |
+| Issue                                   | Where                                                              | Why it breaks desktop/tablet                            | Fix category  |
+| --------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- | ------------- |
+| Single global nav: bottom bar only      | `BottomNav` below `lg`                                             | Complement with **WebSidebar** on `lg+`                 | nav           |
+| Inconsistent shell on older routes      | Legacy pages that bypass **WebAppShell**                           | Migrate to shell + `WebContentContainer`                | layout        |
+| No content max-width on app pages       | builds, closet, conventions, packing, itinerary, planner, settings | Content stretches full width; low density               | layout        |
+| Single-column lists                     | builds (`space-y-16`), conventions, packing, itinerary, planner    | Wasted horizontal space                                 | component     |
+| Fixed FAB                               | `web/src/components/layout/FloatingAdd.tsx`                        | FAB is mobile pattern; desktop better as toolbar action | nav/component |
+| Modals always centered, small           | Delete confirms, TaskChecklist assign                              | No full-screen on mobile, no side panel on desktop      | component     |
+| Sticky headers with large padding       | builds `pt-14`, closet `pt-12`, home `pt-14`                       | Big vertical chrome on desktop                          | layout        |
+| Closet grid fixed at 2 columns          | `web/src/app/closet/page.tsx`                                      | Doesn’t scale to 3–4 on desktop                         | component     |
+| Build detail / link-items single column | build-detail, build-detail/link-items                              | Doesn’t use horizontal space                            | component     |
+| No sidebar/secondary nav                | All flows full-page stacks                                         | Desktop could show list + detail                        | nav/layout    |
 
 ## Shared vs platform-specific boundaries
 

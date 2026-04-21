@@ -3,6 +3,12 @@
 **Branch:** `design/navigation-redesign`  
 **Date:** 2026-03-06
 
+## Visual system (2026)
+
+Shell components share one **token vocabulary**: **`WebSidebar`** (`bg-kyar-panel`, `text-kyar-meta`, wordmark and active states on semantic colors), **`BottomNav`** (same pattern at mobile widths), **`GlobalFAB`** (`bg-kyar-text text-kyar-bg`, menus on `bg-kyar-surface`), and settings/theme pills on **`kyar-text` / `kyar-surface`**. IA and paths below remain accurate; for rollout status see **[`PRODUCT_REDESIGN_PLAN.md`](./PRODUCT_REDESIGN_PLAN.md)**.
+
+---
+
 ## 1. Problems with the old navigation
 
 ### Web (Next.js)

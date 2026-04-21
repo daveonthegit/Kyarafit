@@ -3,6 +3,14 @@
 **Branch:** `design/landing-page-redesign`  
 **Date:** 2025-03-06
 
+## Current design system alignment (2026)
+
+The landing experience has been brought onto the **shared semantic system**: `LandingHeroSection` (asymmetric layout, motion with reduced-motion support), `LandingSiteHeader` (theme toggle, blend header), `LandingMiniAppFrame` and mini previews (Builds / Elements / Conventions / Tasks) on **`kyar-*` tokens**, and checklist rows on tokenized check states. **Typography:** Bodoni Moda + Albert Sans. **Themes:** light and dark parity via root CSS variables.
+
+See the live checklist in **[`PRODUCT_REDESIGN_PLAN.md`](./PRODUCT_REDESIGN_PLAN.md)** §12 (Progress Tracker) and §13 (next sprints for remaining debt such as modal sweeps).
+
+---
+
 ## 1. Problems in the current landing page
 
 ### Messaging and hierarchy

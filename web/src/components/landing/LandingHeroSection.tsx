@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { LandingAuthCta } from "@/components/landing/LandingAuthCta";
 import { HeroVideoPlayer } from "@/components/landing/remotion/HeroVideoPlayer";
@@ -35,23 +35,19 @@ export function LandingHeroSection() {
     offset: ["start start", "end start"],
   });
 
-  const yHeroMockup = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
-  const opacityHeroMockup = useTransform(scrollYProgress, [0.35, 0.85], [1, 0.35]);
-  const smoothY = useSpring(yHeroMockup, { damping: 22, stiffness: 120 });
+  /** Direct scroll coupling (no spring) — springs trail scroll and read as lag. */
+  const yHeroMockup = useTransform(scrollYProgress, [0, 1], ["0%", "10%"]);
+  const opacityHeroMockup = useTransform(scrollYProgress, [0.4, 0.88], [1, 0.38]);
 
+  /** Ground: opacity + scale only. Avoid animating `filter: blur()` on scroll — very expensive. */
   const groundOpacity = useTransform(scrollYProgress, [0, 0.25, 0.55, 1], [0.5, 0.42, 0.22, 0.08]);
   const groundScaleX = useTransform(scrollYProgress, [0, 1], [1, 0.88]);
-  const groundBlur = useTransform(scrollYProgress, [0, 1], [28, 18]);
-  const groundFilter = useTransform(groundBlur, (b) => `blur(${Math.round(b)}px)`);
-  const rotateX = useTransform(scrollYProgress, [0, 0.6], [2.2, 0]);
 
   const videoMotionStyle = prefersReducedMotion
     ? undefined
     : {
-        y: smoothY,
+        y: yHeroMockup,
         opacity: opacityHeroMockup,
-        rotateX,
-        transformPerspective: 1200,
       };
 
   return (
@@ -94,8 +90,11 @@ export function LandingHeroSection() {
           </motion.div>
 
           <motion.div variants={fadeUp} className="relative z-0 w-full min-w-0 max-w-[min(100%,82rem)] shrink-0">
-            <div className="relative w-full [perspective:1200px]">
-              <motion.div className="relative mx-auto w-full will-change-transform" style={videoMotionStyle}>
+            <div className="relative w-full">
+              <motion.div
+                className="relative mx-auto w-full [transform:translateZ(0)]"
+                style={videoMotionStyle}
+              >
                 <div className="hero-video-frame relative mx-auto flex aspect-video w-full max-w-full min-w-0 items-center justify-center overflow-hidden rounded-[1.35rem] border border-kyar-cardBorder bg-[#0A0A0A] sm:rounded-[2rem]">
                   <HeroVideoPlayer />
                 </div>
@@ -103,11 +102,10 @@ export function LandingHeroSection() {
                 {!prefersReducedMotion && (
                   <motion.div
                     aria-hidden
-                    className="pointer-events-none absolute -bottom-[10%] left-1/2 h-[14%] min-h-[2.5rem] w-[88%] max-w-5xl -translate-x-1/2 rounded-[100%] bg-kyar-text"
+                    className="pointer-events-none absolute -bottom-[10%] left-1/2 h-[14%] min-h-[2.5rem] w-[88%] max-w-5xl -translate-x-1/2 rounded-[100%] bg-kyar-text blur-[22px]"
                     style={{
                       opacity: groundOpacity,
                       scaleX: groundScaleX,
-                      filter: groundFilter,
                     }}
                   />
                 )}

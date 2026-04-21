@@ -66,15 +66,16 @@ Change logs, fixes, and version history.
 
 ### `/design_system`
 
-Design system documentation and specifications.
+Design system documentation and specifications. **North star + rollout:** [design/PRODUCT_REDESIGN_PLAN.md](design/PRODUCT_REDESIGN_PLAN.md). **Web runtime:** `web/src/app/globals.css` (OKLCH `--kyar-*`).
 
 - `component_spec.md` - Component specifications
 - `design_lint.md` - Design linting rules
-- `design_tokens.json` - Design tokens definition
+- `EDITORIAL_GUIDELINES.md` - Editorial patterns and typography
+- `design_tokens.json` - Design tokens definition (v0.2+; light + dark)
 - `README.md` - Design system overview
 - `README_main.md` - Main design system guide
 - `rn_tokens.ts` - React Native design tokens
-- `tailwind.config.js` - Tailwind configuration
+- `tailwind.config.js` - Tailwind configuration (repo root `web/tailwind.config.js` for the app)
 
 ## 📚 Core Documentation (Root Level)
 
@@ -92,7 +93,8 @@ The following documentation remains at the root `/docs` level:
 - `project_structure.md` - Project structure overview
 - `roadmap.md` - Product roadmap (high-level)
 - `SECURITY.md` - Security policies and reporting
-- `style_doc.md` - Code style guide
+- `style_doc.md` - Visual & interaction style (tokens, typography, themes)
+- `design/PRODUCT_REDESIGN_PLAN.md` - Product redesign north star, phases, and progress tracker
 - `USER_FLOWS.md` - User flows (redirects to current feature/flows docs)
 - `WEB_MOBILE_PARITY_REVIEW.md` - Web vs mobile feature parity (Convex-era)
 - `GCP_QUICKSTART.md` - GCP quick start
@@ -118,7 +120,7 @@ The following documentation remains at the root `/docs` level:
 ### For Contributors
 
 - **Contributing**: Read `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`
-- **Style Guide**: See `style_doc.md` and `/design_system/`
+- **Style Guide**: See `style_doc.md`, `design/PRODUCT_REDESIGN_PLAN.md`, and `/design_system/`
 - **Patterns and rules**: See **[rules/](../rules/)** at repo root (backend, frontend, testing, CI/CD, security, commit/PR guidelines)
 - **Current Status**: Start at [implementation/README.md](implementation/README.md); then `FEATURE_STATUS.md`, `GAP_ANALYSIS.md`, `IMPLEMENTATION_STATUS.md`
 

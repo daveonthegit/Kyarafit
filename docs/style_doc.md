@@ -1,7 +1,8 @@
-# Kyarafit – Visual & Interaction Style Guide (Screen-Derived)
+# Kyarafit – Visual & Interaction Style Guide
 
-This document formalizes the **actual visual language demonstrated in the Kyarafit prototype screens**.
-It should be treated as the authoritative reference for UI decisions across mobile and web.
+This document describes the **current Kyarafit visual language** (2026 foundation). Implementation lives in `web/src/app/globals.css` (OKLCH `--kyar-*` variables), `web/tailwind.config.js` (`kyar.*` color map), and shared primitives under `web/src/components/ui/`.
+
+**Canonical product direction:** [`docs/design/PRODUCT_REDESIGN_PLAN.md`](./design/PRODUCT_REDESIGN_PLAN.md) (north star, phases, and progress tracker).
 
 ---
 
@@ -40,61 +41,45 @@ Every screen balances **aesthetic restraint** with **functional clarity**.
 
 ## Color System
 
-### Base
+Colors are **semantic and theme-aware**. Light and dark are both first-class: tokens are defined together in OKLCH and exposed as Tailwind `kyar.*` keys (`bg`, `surface`, `text`, `textSecondary`, `textTertiary`, `textMuted`, `meta`, `border`, `borderSubtle`, `accent`, `danger`, etc.).
 
-- Background: Pure white or warm off-white
-- Primary text: True black
-- Secondary text: Black at reduced opacity (40–70%)
+### Principles
 
-### Accent
+- Prefer **token classes** (`bg-kyar-bg`, `text-kyar-text`, `border-kyar-borderSubtle`) over raw hex, `gray-*`, or `black`/`white` on surfaces.
+- **One accent family** (`kyar-accent` / `kyar-accentSoft`) for focus, links, and emphasis—not rainbow UI chrome.
+- **Gradients** belong on imagery and intentional marketing moments, not as default app chrome (see redesign plan anti-patterns).
+- **WCAG 2.2 AA** is the accessibility baseline in both themes.
 
-- Single accent color (used sparingly)
-- Applied to:
-  - primary CTAs
-  - active states
-  - focus indicators
+### Reference
 
-No gradients. No multicolor accents.
+- JSON snapshot: `design-system/design_tokens.json` (v0.2+)
+- Runtime: CSS variables in `web/src/app/globals.css`
 
 ---
 
 ## Typography
 
-### Primary Display Serif
+### Display (serif)
 
-Used for:
+**Bodoni Moda** (`font-serif` / `--font-display`) — fashion/editorial display for:
 
-- screen titles
-- dates
-- cosplay names
-- section headers
+- hero and page titles
+- build and character names where display type fits
+- large numbers or stats when the layout calls for editorial emphasis
 
-Characteristics:
+### Body & UI (sans)
 
-- High contrast
-- Elegant italics
-- Editorial scale
+**Albert Sans** (`font-sans`, `font-sans-wide`) — UI, body, navigation, and wide-tracked meta labels.
 
-### Functional Sans Serif
+### Monospace
 
-Used for:
-
-- body copy
-- metadata
-- labels
-- navigation
-
-Characteristics:
-
-- Neutral
-- Highly legible
-- Tight vertical rhythm
+**JetBrains Mono** (`font-explorer-mono`) — codes, technical labels, and explorer-style metadata where a mono voice helps.
 
 ### Typography Rules
 
-- Serif never used for long instructions
-- Sans never used for emotional emphasis
-- Hierarchy created by size and spacing, not color
+- Display serif is not for long paragraphs; use sans for instructions and dense copy.
+- Hierarchy comes from **scale, weight, and spacing** first; color is secondary.
+- Avoid overusing **all-caps meta**; use `kyar-meta` and letter-spacing where labels need a studio stamp without shouting.
 
 ---
 
@@ -137,11 +122,11 @@ Images should feel archival and deliberate.
 
 ### Bottom Navigation
 
-- Icon + uppercase label
-- Opacity-based inactive states
-- Active indicator via color or weight
+- Icon + short label (token-colored; **`text-kyar-meta`** for inactive where used)
+- Opacity- or weight-based inactive states; active state uses semantic **`kyar-text`** / accent rules
+- Predictable placement; see shared **`navConfig`**
 
-Navigation is always visible and predictable.
+Navigation remains visible and predictable on core flows.
 
 ---
 
@@ -149,23 +134,20 @@ Navigation is always visible and predictable.
 
 ### Buttons
 
-- Rectangular
-- Sharp corners
-- Black primary button
-- Uppercase labels
-- Strong contrast
+- Primary fills use **semantic inverse**: `bg-kyar-text text-kyar-bg` (reads as “primary” in light and dark).
+- Variants live on the shared `Button` component; states use tokens, not one-off grays.
 
 ### Inputs
 
-- Underlined text fields
-- Minimal chrome
-- Clear focus state
+- **UnderlineInput** is the default editorial pattern: bottom border, token borders/focus (`kyar-accent` for focus ring where applicable).
+
+### Surfaces
+
+- Prefer **`Surface` / `Panel`** (and selective cards) over a single generic “rounded card everywhere” pattern.
 
 ### Checklists
 
-- Square checkboxes
-- High contrast checked state
-- Status conveyed through completion, not color
+- **ChecklistRow** uses theme tokens for box and fill (`kyar-text` / `kyar-bg`); completion is clear in both themes.
 
 ---
 
@@ -197,23 +179,22 @@ Patterns:
 
 ## Motion
 
-- Extremely restrained
-- Opacity and micro-translation only
-- No playful easing
+- **Product UI:** Short, crisp transitions; respect `prefers-reduced-motion`.
+- **Marketing / hero:** Slightly more expressive motion is allowed where it supports perceived quality (see landing hero), not novelty.
 
-Motion exists to confirm actions, not decorate.
+Motion exists to confirm actions and continuity; it should not decorate routine forms and lists.
 
 ---
 
 ## Consistency Across Platforms
 
-This style guide defines **design intent**, not pixel precision.
-
 Mobile and web may differ in density and navigation, but must preserve:
 
-- typographic hierarchy
-- spacing philosophy
-- calm editorial tone
+- the same **token-backed** colors and typography roles
+- **theme parity** (light/dark) where the surface exists on both
+- calm editorial tone and serious cosplay-studio clarity
+
+Shared reference: `@kyarafit/design-system` (tokens + RN map); web uses CSS variables + Tailwind `kyar.*`.
 
 ---
 

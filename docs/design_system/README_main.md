@@ -1,18 +1,21 @@
 # Kyarafit Design System
 
-Shared tokens and specs for web (Tailwind) and mobile (React Native).
+Shared tokens and specs for web (Tailwind) and mobile (React Native). **Light and dark themes are both first-class**; ship features that work in both unless explicitly scoped.
+
+See also: [`../design/PRODUCT_REDESIGN_PLAN.md`](../design/PRODUCT_REDESIGN_PLAN.md).
 
 ## Contents
 
-- `design_tokens.json` – canonical tokens (colors, spacing, typography)
-- `tailwind.config.js` – web theme aligned to tokens
+- `design_tokens.json` – canonical tokens (colors for light + dark, spacing, typography)
+- `web/tailwind.config.js` – `kyar.*` OKLCH-backed theme
 - `rn_tokens.ts` / `rn/index.ts` – React Native token map and helpers
 - `component_spec.md` – component rules and variants
 - `design_lint.md` – checklist to prevent UI drift
+- `EDITORIAL_GUIDELINES.md` – editorial + product patterns
 
 ## Usage
 
-**Web (Next.js):** Extend your `tailwind.config.js` with the theme from this package, or copy the `theme.extend` from `tailwind.config.js`. Use serif for titles, sans for body, uppercase meta labels with letter spacing.
+**Web (Next.js):** Theme variables live in `web/src/app/globals.css`; Tailwind maps them under `kyar.*`. Typography: **Albert Sans** (body/UI), **Bodoni Moda** (display), **JetBrains Mono** (mono). Use `font-serif` / `font-sans` / `font-explorer-mono` as defined in Tailwind.
 
 **Mobile (Expo):** Import from `@kyarafit/design-system/rn`:
 
@@ -24,15 +27,16 @@ import { colors, spacing, font, layout } from "@kyarafit/design-system/rn";
 
 - [Component spec](./component_spec.md)
 - [Design lint checklist](./design_lint.md)
+- [Editorial guidelines](./EDITORIAL_GUIDELINES.md)
 
 ## UI audit
 
 Before shipping a screen or component, run the [design lint checklist](./design_lint.md).
 
-**Banned patterns (do not use):**
+**Discouraged patterns (avoid without a spec exception):**
 
-- Boxed inputs (use underline-only inputs)
-- Pill / rounded buttons (use sharp corners, `radius.sm`)
-- Colorful chips or badges (use black/white/opacity only; one accent for focus)
-- Gradients in UI chrome
-- Generic SaaS card layouts (keep editorial: serif titles, wide uppercase labels, minimal borders)
+- Raw Tailwind grays or `bg-white` / `text-black` on app surfaces (use `kyar-*` tokens)
+- New UI built only in light mode (verify dark mode)
+- Boxed inputs where **UnderlineInput** is the standard for the flow
+- Decorative gradients and loud chrome that do not serve hierarchy (see redesign plan)
+- A single catch-all “card” component for every layout (prefer **Surface** / **Panel** and screen-appropriate archetypes)

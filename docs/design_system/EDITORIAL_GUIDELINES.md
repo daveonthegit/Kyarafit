@@ -2,6 +2,8 @@
 
 Kyarafit is a premium cosplay project workspace. It is **not** a generic productivity app or a bland CRUD dashboard. It sits at the intersection of cosplay project planning, visual inspiration, costume progress tracking, materials organization, and build collaboration.
 
+**Implementation source of truth:** OKLCH semantic tokens (`--kyar-*`), Tailwind `kyar.*`, and [`../design/PRODUCT_REDESIGN_PLAN.md`](../design/PRODUCT_REDESIGN_PLAN.md) for phased UX direction.
+
 ## Design Philosophy: The Cosplay Studio
 
 The app should feel like a curated cosplay build studio and a visual planning workspace.
@@ -25,35 +27,39 @@ Users should feel like they are working inside a premium, creative environment.
 
 ## Typography
 
-We use a specific combination of serif and sans-serif fonts to achieve the editorial feel.
+We pair a **fashion display serif** with a **neutral, legible sans** and a **mono** for technical moments.
 
-- **Serif (Playfair Display):** Used for major headings, build names, and large numbers (e.g., percentages, budgets). It provides the "fashion magazine" feel.
-- **Sans-Serif (Inter / Montserrat):** Used for UI elements, meta-text, body copy, and functional labels.
+- **Bodoni Moda (display / serif):** Major headings, hero lines, and display moments that should feel editorial—not long body copy.
+- **Albert Sans (sans):** UI chrome, body copy, navigation, and most labels.
+- **JetBrains Mono (`font-explorer-mono`):** Codes, compact technical labels, and “explorer” metadata where monospace improves scanability.
 
 ### Usage Rules
 
-- **Display Typography:** Use Serif for big moments (H1s, Hero sections).
-- **Meta Typography:** Use small, uppercase, widely tracked (letter-spaced) Sans-Serif for labels, section headers, and metadata (e.g., `text-[9px] uppercase tracking-widest text-kyar-textTertiary`).
+- **Display:** Use `font-serif` / Bodoni for hero and page titles, build names on marketing-heavy surfaces, and large stats when the layout is image-led.
+- **Meta:** Prefer `text-kyar-meta` with restrained tracking over stacking uppercase everywhere. Example: `text-xs tracking-meta text-kyar-meta`.
 
 ---
 
 ## Color System
 
-The color palette is restrained to let the user's imagery shine. We use a monochrome base with subtle borders and a single accent color.
+The palette is **semantic and dual-theme**: warm neutrals and ink tones are authored for **light and dark** together (`design_tokens.json` + `globals.css`). Let user photography stay the star; UI chrome stays quiet.
 
-- **Backgrounds:** Pure white (`#FFFFFF`) or very subtle off-white/muted (`#F9F9F9`) for differentiation.
-- **Text:** High contrast black (`#000000`) for primary text, with alpha variations for secondary (`60%`) and tertiary (`40%`) text.
-- **Borders:** Extremely subtle. Avoid heavy boxes. Use `rgba(0,0,0,0.10)` or `rgba(0,0,0,0.05)`.
-- **Accent:** A specific, elegant blue (`#1152D4`).
+- **Surfaces:** `kyar-bg`, `kyar-surface`, `kyar-panel`, `kyar-muted` — pick the minimum surface needed; avoid boxing every row in a card.
+- **Text:** `kyar-text`, `kyar-textSecondary`, `kyar-textTertiary`, `kyar-textMuted`, `kyar-meta`.
+- **Borders:** `kyar-border`, `kyar-borderSubtle`, `kyar-cardBorder`.
+- **Accent:** `kyar-accent` / `kyar-accentSoft` for links, focus, and single-accent emphasis.
+- **Danger:** `kyar-danger` for destructive actions and validation errors (supporting text, not whole-field paint).
+
+Do not rely on **pure `#000` / `#FFF`** for component surfaces; use tokens so dark mode stays legible.
 
 ---
 
 ## Shape & Structure
 
-- **Borders & Radii:** We use soft, elegant rounded corners to create a polished, modern feel. The default border-radius for larger cards and surfaces is `16px` (`2xl` in Tailwind), with interactive elements like checkboxes, small action buttons, and pills using fully rounded shapes (`full`).
-- **Lines & Separators:** Use thin, crisp lines (`1px` or hairline) to separate content, often full-bleed or deliberately inset to create structure.
-- **Shadows:** Use soft, diffused shadows (`shadow-soft`) to gently elevate cards and floating action bars above the background, avoiding harsh or dark drop shadows.
-- **Spacing:** Generous spacing. Use large gaps between distinct sections to let the content breathe.
+- **Radii:** Default interactive and surface rounding follows the Tailwind theme (`rounded-sm` = 6px for many controls; larger radii for marketing cards when intentional). Prefer **a small set of layout archetypes** (image-led showcase, planning list, summary panel) over one generic card for everything.
+- **Lines & Separators:** Thin `border-kyar-borderSubtle` dividers or inset rules; full-bleed when separating major sections.
+- **Shadows:** `shadow-soft`, `shadow-card`, `shadow-fab` — backed by `--kyar-shadow` for theme-aware elevation.
+- **Spacing:** Generous vertical rhythm; separate sections with space or a single clear divider—not nested boxes by default.
 
 ---
 
@@ -63,9 +69,9 @@ The color palette is restrained to let the user's imagery shine. We use a monoch
 
 ### Web
 
-- **Layout:** Spacious, multi-column (e.g., 3 columns on build detail), masonry grids for visual boards.
-- **Interactions:** Hover states are critical. Drag-and-drop is expected for organizing items and assigning tasks.
-- **Navigation:** Sidebar for desktop, top bar for global actions.
+- **Layout:** Spacious, multi-column where it helps (e.g., build detail); image grids stay simple and intentional.
+- **Interactions:** Hover states are critical on desktop. Drag-and-drop where implemented for organizing items and assigning tasks.
+- **Navigation:** Sidebar (`WebSidebar`) on large viewports; **BottomNav** below `lg`; **GlobalFAB** + add menus for creation flows (see `navConfig.ts`).
 
 ### Mobile
 
@@ -110,8 +116,8 @@ To avoid scattered and confusing creation flows, we use a Unified Add Action pat
 
 ### Inputs & Forms
 
-- Checkboxes should be `rounded-full` to fit the softer aesthetic.
-- Form inputs often look best with an underline style (`border-b`) or as fully rounded pills depending on context.
+- Default editorial pattern: **UnderlineInput** (`border-b`, token borders).
+- Checkboxes and toggles use token colors for border/fill; shape follows the shared row component (**ChecklistRow**), not ad-hoc grays.
 
 ### Progress Visualization
 

@@ -3,11 +3,13 @@
 **Branch:** `design/magic-ui-refinement`  
 **Date:** 2025-03-06
 
+> **2026 update:** The product-wide visual foundation is documented in **[`PRODUCT_REDESIGN_PLAN.md`](./PRODUCT_REDESIGN_PLAN.md)** (OKLCH `--kyar-*`, Albert Sans + Bodoni Moda + JetBrains Mono, dual-theme parity, refreshed shell and landing). This audit remains a **historical record** of the Magic UI pass and token fixes on that branch. For **current** token names and rules, use `docs/design_system/design_lint.md`, `component_spec.md`, and `EDITORIAL_GUIDELINES.md`.
+
 ## 1. Design system source of truth
 
-- **Tokens:** `design-system/design_tokens.json`, `web/tailwind.config.js` (kyar.\*)
-- **Rules:** `docs/design_system/component_spec.md`, `docs/design_system/design_lint.md`
-- **Principles:** Editorial utility; serif for titles, sans for body; uppercase meta labels; one accent (kyar.accent); sharp corners (radius.sm); underline-only inputs; square checkboxes; no gradients in UI chrome; minimal image overlays; subtle motion.
+- **Tokens:** `design-system/design_tokens.json` (v0.2+), `web/src/app/globals.css`, `web/tailwind.config.js` (`kyar.*` OKLCH map)
+- **Rules:** `docs/design_system/component_spec.md`, `docs/design_system/design_lint.md`, `EDITORIAL_GUIDELINES.md`
+- **Principles (still aligned):** Editorial utility; display serif for hero/titles, sans for body; restrained meta labels; one accent family; underline-first inputs; subtle motion; minimal gratuitous chrome. **Radii** follow the live Tailwind theme (e.g. `rounded-sm` = 6px).
 
 ## 2. What was visually weak
 
