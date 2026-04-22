@@ -22,6 +22,7 @@
     "test:backend": "cd backend && go test ./...",
     "test:image-service": "cd image-service && python -m pytest",
     "i18n:check": "node scripts/i18n/check-keys.mjs",
+    "apple:client-secret": "node scripts/generate-apple-client-secret.mjs",
     "validate": "npm run format:check && npm run i18n:check && npm run lint && npm run typecheck && npm run build:web",
     "ci": "bash scripts/ci-local.sh",
     "ci:win": "powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1"
@@ -35,6 +36,7 @@
   },
   "dependencies": {
     "@kyarafit/design-system": "*",
+    "jose": "^6.1.0",
     "@convex-dev/migrations": "^0.3.3",
     "convex": "^1.32.0",
     "expo-router": "~55.0.13",

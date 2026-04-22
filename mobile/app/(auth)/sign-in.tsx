@@ -1,15 +1,27 @@
 import { useState } from "react";
-import {
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { Text, TextInput, Pressable, ActivityIndicator, View } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { authClient, setStoredBearerToken } from "@/lib/auth/client";
+import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
+import {
+  AUTH_ON_PRIMARY,
+  AUTH_PLACEHOLDER_COLOR,
+  AuthScreenShell,
+  authErrorCls,
+  authFooterEmCls,
+  authFooterTextCls,
+  authInputCls,
+  authLabelCls,
+  authOAuthBtnCls,
+  authPrimaryBtnCls,
+  authSubtitleCls,
+  authSuccessCls,
+  authTitleCls,
+  authLinkCls,
+} from "@/components/auth/AuthScreenShell";
+
 export default function SignInScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -19,6 +31,21 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+
+  const busy = submitting || oauthLoading !== null;
+
+  async function onOAuth(provider: "google" | "apple") {
+    setError(null);
+    setOauthLoading(provider);
+    try {
+      await startSocialSignIn(provider);
+      setOauthLoading(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Sign in failed.");
+      setOauthLoading(null);
+    }
+  }
 
   async function onSubmit() {
     setError(null);
@@ -49,16 +76,53 @@ export default function SignInScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      className="flex-1 bg-white px-6 pt-4"
-    >
-      <Text className="text-2xl font-semibold text-neutral-900">{t("common.signIn")}</Text>
-      <Text className="mt-1 text-neutral-500">{t("auth.welcome")}</Text>
+    <AuthScreenShell>
+      <Text className={authTitleCls}>{t("common.signIn")}</Text>
+      <Text className={authSubtitleCls}>{t("auth.welcome")}</Text>
 
-      <Text className="mt-8 text-sm font-medium text-neutral-700">{t("common.email")}</Text>
+      <View className="mt-8 gap-3">
+        <Pressable
+          className={authOAuthBtnCls}
+          onPress={() => onOAuth("google")}
+          disabled={busy}
+        >
+          {oauthLoading === "google" ? (
+            <ActivityIndicator />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="google" size={22} color="#4285F4" />
+              <Text className="text-sm font-semibold text-kyar-text">{t("auth.continueWithGoogle")}</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          className={authOAuthBtnCls}
+          onPress={() => onOAuth("apple")}
+          disabled={busy}
+        >
+          {oauthLoading === "apple" ? (
+            <ActivityIndicator />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="apple" size={22} color="#171529" />
+              <Text className="text-sm font-semibold text-kyar-text">{t("auth.continueWithApple")}</Text>
+            </>
+          )}
+        </Pressable>
+
+      </View>
+
+      <View className="my-8 flex-row items-center gap-3">
+        <View className="h-px flex-1 bg-kyar-borderSubtle" />
+        <Text className="text-xs uppercase tracking-widest text-kyar-textSecondary">{t("auth.orDivider")}</Text>
+        <View className="h-px flex-1 bg-kyar-borderSubtle" />
+      </View>
+
+      <Text className={authLabelCls}>{t("common.email")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -67,46 +131,41 @@ export default function SignInScreen() {
         placeholder="you@example.com"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">{t("common.password")}</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("common.password")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         autoComplete="password"
       />
 
-      {resetSuccess ? (
-        <Text className="mt-3 text-sm text-green-700">{t("auth.passwordResetSuccess")}</Text>
-      ) : null}
-      {error ? <Text className="mt-3 text-sm text-red-600">{error}</Text> : null}
+      {resetSuccess ? <Text className={authSuccessCls}>{t("auth.passwordResetSuccess")}</Text> : null}
+      {error ? <Text className={authErrorCls}>{error}</Text> : null}
 
-      <Pressable
-        className="mt-8 items-center rounded-xl bg-neutral-900 py-4 active:opacity-90"
-        onPress={onSubmit}
-        disabled={submitting}
-      >
+      <Pressable className={authPrimaryBtnCls} onPress={onSubmit} disabled={busy}>
         {submitting ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={AUTH_ON_PRIMARY} />
         ) : (
-          <Text className="text-base font-semibold text-white">{t("common.signIn")}</Text>
+          <Text className="text-base font-semibold text-kyar-bg">{t("common.signIn")}</Text>
         )}
       </Pressable>
 
       <Link href="/(auth)/forgot-password" asChild>
         <Pressable className="mt-4 self-start">
-          <Text className="text-sm font-medium text-neutral-700">{t("auth.forgotPassword")}</Text>
+          <Text className={authLinkCls}>{t("auth.forgotPassword")}</Text>
         </Pressable>
       </Link>
 
       <Link href="/(auth)/sign-up" asChild>
         <Pressable className="mt-6">
-          <Text className="text-center text-sm text-neutral-600">
+          <Text className={authFooterTextCls}>
             {t("auth.needAccount")}{" "}
-            <Text className="font-semibold text-neutral-900">{t("common.signUp")}</Text>
+            <Text className={authFooterEmCls}>{t("common.signUp")}</Text>
           </Text>
         </Pressable>
       </Link>
-    </KeyboardAvoidingView>
+    </AuthScreenShell>
   );
 }

@@ -1,16 +1,25 @@
 import { useState } from "react";
-import {
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { Text, TextInput, Pressable, ActivityIndicator, View } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
+import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
+import {
+  AUTH_ON_PRIMARY,
+  AUTH_PLACEHOLDER_COLOR,
+  AuthScreenShell,
+  authErrorCls,
+  authFooterEmCls,
+  authFooterTextCls,
+  authInputCls,
+  authLabelCls,
+  authOAuthBtnCls,
+  authPrimaryBtnCls,
+  authSubtitleCls,
+  authTitleCls,
+} from "@/components/auth/AuthScreenShell";
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -22,19 +31,34 @@ export default function SignUpScreen() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+
+  const busy = submitting || oauthLoading !== null;
+
+  async function onOAuth(provider: "google" | "apple") {
+    setError(null);
+    setOauthLoading(provider);
+    try {
+      await startSocialSignIn(provider);
+      setOauthLoading(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Sign up failed.");
+      setOauthLoading(null);
+    }
+  }
 
   async function onSubmit() {
     setError(null);
     if (password !== confirm) {
-      setError("Passwords don't match.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("auth.passwordMinLength"));
       return;
     }
     if (username.trim().length < 3) {
-      setError("Username must be at least 3 characters.");
+      setError(t("auth.usernameMinLength"));
       return;
     }
     setSubmitting(true);
@@ -62,34 +86,75 @@ export default function SignUpScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      className="flex-1 bg-white px-6 pt-4"
-    >
-      <Text className="text-2xl font-semibold text-neutral-900">{t("common.signUp")}</Text>
-      <Text className="mt-1 text-neutral-500">{t("auth.createAccount")}</Text>
+    <AuthScreenShell>
+      <Text className={authTitleCls}>{t("common.signUp")}</Text>
+      <Text className={authSubtitleCls}>{t("auth.createAccount")}</Text>
 
-      <Text className="mt-8 text-sm font-medium text-neutral-700">Name</Text>
+      <View className="mt-8 gap-3">
+        <Pressable
+          className={authOAuthBtnCls}
+          onPress={() => onOAuth("google")}
+          disabled={busy}
+        >
+          {oauthLoading === "google" ? (
+            <ActivityIndicator />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="google" size={22} color="#4285F4" />
+              <Text className="text-sm font-semibold text-kyar-text">{t("auth.signUpWithGoogle")}</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          className={authOAuthBtnCls}
+          onPress={() => onOAuth("apple")}
+          disabled={busy}
+        >
+          {oauthLoading === "apple" ? (
+            <ActivityIndicator />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="apple" size={22} color="#171529" />
+              <Text className="text-sm font-semibold text-kyar-text">{t("auth.signUpWithApple")}</Text>
+            </>
+          )}
+        </Pressable>
+
+      </View>
+
+      <View className="my-8 flex-row items-center gap-3">
+        <View className="h-px flex-1 bg-kyar-borderSubtle" />
+        <Text className="text-xs uppercase tracking-widest text-kyar-textSecondary">{t("auth.orDivider")}</Text>
+        <View className="h-px flex-1 bg-kyar-borderSubtle" />
+      </View>
+
+      <Text className={authLabelCls}>{t("auth.name")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         value={name}
         onChangeText={setName}
-        placeholder="Display name"
+        placeholder={t("auth.namePlaceholder")}
+        autoComplete="name"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">Username</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("auth.username")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         autoCapitalize="none"
         autoCorrect={false}
         value={username}
         onChangeText={setUsername}
-        placeholder="At least 3 characters"
+        placeholder={t("auth.usernamePlaceholder")}
+        autoComplete="username"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">{t("common.email")}</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("common.email")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -98,46 +163,44 @@ export default function SignUpScreen() {
         placeholder="you@example.com"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">{t("common.password")}</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("common.password")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         autoComplete="new-password"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">Confirm password</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("auth.confirmPassword")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authInputCls}
+        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
         autoComplete="new-password"
       />
 
-      {error ? <Text className="mt-3 text-sm text-red-600">{error}</Text> : null}
+      {error ? <Text className={authErrorCls}>{error}</Text> : null}
 
-      <Pressable
-        className="mt-8 items-center rounded-xl bg-neutral-900 py-4 active:opacity-90"
-        onPress={onSubmit}
-        disabled={submitting}
-      >
+      <Pressable className={authPrimaryBtnCls} onPress={onSubmit} disabled={busy}>
         {submitting ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={AUTH_ON_PRIMARY} />
         ) : (
-          <Text className="text-base font-semibold text-white">{t("common.signUp")}</Text>
+          <Text className="text-base font-semibold text-kyar-bg">{t("common.signUp")}</Text>
         )}
       </Pressable>
 
       <Link href="/(auth)/sign-in" asChild>
         <Pressable className="mt-6">
-          <Text className="text-center text-sm text-neutral-600">
+          <Text className={authFooterTextCls}>
             {t("auth.haveAccount")}{" "}
-            <Text className="font-semibold text-neutral-900">{t("common.signIn")}</Text>
+            <Text className={authFooterEmCls}>{t("common.signIn")}</Text>
           </Text>
         </Pressable>
       </Link>
-    </KeyboardAvoidingView>
+    </AuthScreenShell>
   );
 }

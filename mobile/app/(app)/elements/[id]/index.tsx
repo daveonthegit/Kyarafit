@@ -1,10 +1,12 @@
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import DraggableFlatList, {
@@ -24,6 +26,7 @@ import {
   MATERIAL_STATUSES,
 } from "@kyarafit/design-system/types";
 import {
+  WORKFLOW_STATUSES,
   formatCostSummary,
   formatNodeStatus,
   formatNodeTypeLabel,
@@ -31,6 +34,7 @@ import {
 } from "@kyarafit/design-system/domain";
 import { DataBoundary } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
+import { TaskSwipeRow } from "@/screens/build-detail/TaskSwipeRow";
 
 type ParentRef = {
   _id: Id<"cosplayNodes">;
@@ -38,6 +42,26 @@ type ParentRef = {
   nodeType: string;
   linkId: Id<"cosplayNodeLinks">;
 };
+
+type WorkflowTreeNode = {
+  _id: Id<"workflowItems">;
+  title: string;
+  status: string;
+  kind: string;
+  dueDate?: string;
+  progressPercent: number;
+  children: WorkflowTreeNode[];
+};
+
+function flattenWorkflow(
+  nodes: WorkflowTreeNode[],
+  depth = 0
+): (WorkflowTreeNode & { depth: number })[] {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...flattenWorkflow(node.children, depth + 1),
+  ]);
+}
 
 type ChildRow = Doc<"cosplayNodes"> & {
   linkId: Id<"cosplayNodeLinks">;
@@ -144,8 +168,66 @@ function ElementDetailBody({
   const update = useMutation(api.cosplayNodes.update);
   const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
   const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
+  const createWorkflowTask = useMutation(api.workflow.create);
+  const updateWorkflowTask = useMutation(api.workflow.update);
+  const deleteWorkflowTask = useMutation(api.workflow.remove);
   const router = useRouter();
   const { node, userId, id } = loaded;
+
+  const [workflowScope, setWorkflowScope] = useState<"shared" | "outfit">("shared");
+  const [selectedWorkflowBuildId, setSelectedWorkflowBuildId] = useState<Id<"builds"> | "">("");
+  const [workflowTaskFilter, setWorkflowTaskFilter] = useState<"all" | "open" | "done">("all");
+  const [newWorkflowLabel, setNewWorkflowLabel] = useState("");
+  const [workflowStatusPickId, setWorkflowStatusPickId] = useState<Id<"workflowItems"> | null>(
+    null
+  );
+
+  const buildsUsingRaw = useQuery(api.builds.getBuildsUsingNode, { cosplayNodeId: id });
+  const buildsUsing = useMemo(() => buildsUsingRaw ?? [], [buildsUsingRaw]);
+  const nodeWorkflow = useQuery(api.workflow.listNodeWorkflow, {
+    cosplayNodeId: id,
+    buildId: selectedWorkflowBuildId ? (selectedWorkflowBuildId as Id<"builds">) : undefined,
+  });
+
+  useEffect(() => {
+    if (
+      workflowScope === "outfit" &&
+      !selectedWorkflowBuildId &&
+      buildsUsing.length === 1 &&
+      buildsUsing[0]
+    ) {
+      setSelectedWorkflowBuildId(buildsUsing[0]._id);
+    }
+  }, [workflowScope, selectedWorkflowBuildId, buildsUsing]);
+
+  const visibleWorkflowRows = useMemo(() => {
+    const source =
+      workflowScope === "shared"
+        ? (nodeWorkflow?.shared ?? [])
+        : (nodeWorkflow?.buildSpecific ?? []);
+    return flattenWorkflow(source as WorkflowTreeNode[]).filter((task) => {
+      const isDone = task.status === "done";
+      const matchesFilter =
+        workflowTaskFilter === "all" ||
+        (workflowTaskFilter === "open" ? !isDone : isDone);
+      return matchesFilter;
+    });
+  }, [
+    nodeWorkflow?.buildSpecific,
+    nodeWorkflow?.shared,
+    workflowScope,
+    workflowTaskFilter,
+  ]);
+
+  const workflowSummary = useMemo(() => {
+    const source =
+      workflowScope === "shared"
+        ? (nodeWorkflow?.shared ?? [])
+        : (nodeWorkflow?.buildSpecific ?? []);
+    const flat = flattenWorkflow(source as WorkflowTreeNode[]);
+    const done = flat.filter((r) => r.status === "done").length;
+    return { total: flat.length, done };
+  }, [nodeWorkflow?.buildSpecific, nodeWorkflow?.shared, workflowScope]);
 
   const statusLabel = useMemo(() => formatNodeStatus(node), [node]);
   const costLabel = useMemo(() => formatCostSummary(node), [node]);
@@ -185,6 +267,80 @@ function ElementDetailBody({
       { text: t("common.cancel"), style: "cancel" },
     ]);
   };
+
+  const toggleWorkflowDone = useCallback(
+    (taskId: Id<"workflowItems">, nextDone: boolean) => {
+      void updateWorkflowTask({
+        id: taskId,
+        userId,
+        status: nextDone ? "done" : "not_started",
+      });
+    },
+    [updateWorkflowTask, userId]
+  );
+
+  const confirmRemoveWorkflowTask = useCallback(
+    (taskId: Id<"workflowItems">, title: string) => {
+      Alert.alert(t("elements.workflowRemoveTitle"), title, [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("elements.workflowRemoveAction"),
+          style: "destructive",
+          onPress: () => {
+            void deleteWorkflowTask({ id: taskId, userId });
+          },
+        },
+      ]);
+    },
+    [deleteWorkflowTask, t, userId]
+  );
+
+  const handleAddWorkflowTask = useCallback(async () => {
+    const label = newWorkflowLabel.trim();
+    if (!label || !userId) return;
+    if (workflowScope === "outfit" && buildsUsing.length > 0 && !selectedWorkflowBuildId) {
+      Alert.alert(t("common.errorTitle"), t("elements.workflowPickOutfit"));
+      return;
+    }
+    const isBuildSpecific = workflowScope === "outfit" && !!selectedWorkflowBuildId;
+    try {
+      await createWorkflowTask({
+        userId,
+        title: label,
+        kind: "task",
+        category: "craft",
+        scopeKind: isBuildSpecific ? "build_specific" : "shared",
+        attachments: isBuildSpecific
+          ? [
+              {
+                entityType: "build",
+                entityId: selectedWorkflowBuildId as Id<"builds">,
+                role: "primary",
+                buildContextId: selectedWorkflowBuildId as Id<"builds">,
+              },
+              {
+                entityType: "cosplayNode",
+                entityId: id,
+                role: "progress_source",
+                buildContextId: selectedWorkflowBuildId as Id<"builds">,
+              },
+            ]
+          : [{ entityType: "cosplayNode", entityId: id, role: "primary" }],
+      });
+      setNewWorkflowLabel("");
+    } catch (e) {
+      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+    }
+  }, [
+    buildsUsing.length,
+    createWorkflowTask,
+    id,
+    newWorkflowLabel,
+    selectedWorkflowBuildId,
+    userId,
+    workflowScope,
+    t,
+  ]);
 
   const confirmRemoveLink = useCallback(
     (linkId: Id<"cosplayNodeLinks">, label: string) => {
@@ -261,7 +417,12 @@ function ElementDetailBody({
 
   const uri = heroUri ?? node.imageUrl ?? null;
 
+  const statusPickCurrent =
+    workflowStatusPickId &&
+    visibleWorkflowRows.find((r) => r._id === workflowStatusPickId)?.status;
+
   return (
+    <>
     <ScrollView className="flex-1 bg-white">
       <View className="aspect-[4/5] w-full bg-neutral-100">
         {uri ? (
@@ -346,6 +507,192 @@ function ElementDetailBody({
         </Pressable>
 
         <Text className="mt-10 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {t("elements.workflowSection")}
+        </Text>
+        <View className="mt-3 flex-row rounded-xl border border-neutral-200 p-1">
+          <Pressable
+            onPress={() => setWorkflowScope("shared")}
+            className={`flex-1 rounded-lg py-2 ${workflowScope === "shared" ? "bg-neutral-900" : ""}`}
+          >
+            <Text
+              className={`text-center text-sm font-medium ${
+                workflowScope === "shared" ? "text-white" : "text-neutral-700"
+              }`}
+            >
+              {t("elements.workflowShared")}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setWorkflowScope("outfit")}
+            className={`flex-1 rounded-lg py-2 ${workflowScope === "outfit" ? "bg-neutral-900" : ""}`}
+          >
+            <Text
+              className={`text-center text-sm font-medium ${
+                workflowScope === "outfit" ? "text-white" : "text-neutral-700"
+              }`}
+            >
+              {t("elements.workflowOutfit")}
+            </Text>
+          </Pressable>
+        </View>
+
+        {workflowScope === "outfit" && buildsUsing.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3 max-h-12"
+            contentContainerStyle={{ gap: 8, alignItems: "center", paddingVertical: 4 }}
+          >
+            {buildsUsing.map((b) => {
+              const selected = selectedWorkflowBuildId === b._id;
+              return (
+                <Pressable
+                  key={b._id}
+                  onPress={() =>
+                    setSelectedWorkflowBuildId(selected ? "" : (b._id as Id<"builds">))
+                  }
+                  className={`rounded-full border px-3 py-1.5 ${
+                    selected ? "border-neutral-900 bg-neutral-900" : "border-neutral-200 bg-neutral-50"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-medium ${selected ? "text-white" : "text-neutral-800"}`}
+                    numberOfLines={1}
+                  >
+                    {b.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {workflowScope === "outfit" && buildsUsing.length === 0 ? (
+          <Text className="mt-2 text-sm text-neutral-500">{t("elements.workflowNoOutfits")}</Text>
+        ) : null}
+
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {(["all", "open", "done"] as const).map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setWorkflowTaskFilter(f)}
+              className={`rounded-full border px-3 py-1.5 ${
+                workflowTaskFilter === f ? "border-neutral-900 bg-neutral-900" : "border-neutral-200"
+              }`}
+            >
+              <Text
+                className={`text-xs font-medium ${
+                  workflowTaskFilter === f ? "text-white" : "text-neutral-800"
+                }`}
+              >
+                {f === "all"
+                  ? t("elements.workflowFilterAll")
+                  : f === "open"
+                    ? t("elements.workflowFilterOpen")
+                    : t("elements.workflowFilterDone")}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text className="mt-2 text-xs text-neutral-500">
+          {t("elements.workflowCount", {
+            count: workflowSummary.total,
+            done: workflowSummary.done,
+          })}
+        </Text>
+
+        {nodeWorkflow === undefined ? (
+          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowLoading")}</Text>
+        ) : workflowScope === "outfit" && buildsUsing.length > 0 && !selectedWorkflowBuildId ? (
+          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowPickOutfit")}</Text>
+        ) : visibleWorkflowRows.length === 0 ? (
+          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowEmpty")}</Text>
+        ) : (
+          <View className="mt-3">
+            {visibleWorkflowRows.map((task) => {
+              const checked = task.status === "done";
+              return (
+                <View key={task._id} style={{ marginLeft: task.depth * 12 }}>
+                  <TaskSwipeRow checked={checked} onToggle={() => toggleWorkflowDone(task._id, !checked)}>
+                    <View className="flex-row items-center gap-2 px-3 py-3">
+                      <Pressable
+                        onPress={() => toggleWorkflowDone(task._id, !checked)}
+                        className="h-8 w-8 items-center justify-center rounded-full border border-neutral-300"
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked }}
+                      >
+                        <Text className="text-sm">{checked ? "✓" : ""}</Text>
+                      </Pressable>
+                      <View className="min-w-0 flex-1">
+                        <Text
+                          className={`text-base ${checked ? "text-neutral-400 line-through" : "text-neutral-900"}`}
+                        >
+                          {task.title}
+                        </Text>
+                        <Text className="mt-0.5 text-xs text-neutral-500">
+                          {task.kind} · {task.status.replace(/_/g, " ")} · {task.progressPercent}%
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => setWorkflowStatusPickId(task._id)}
+                        className="px-2 py-1"
+                        accessibilityLabel={t("elements.workflowStatus")}
+                      >
+                        <Text className="text-lg text-neutral-500">⋯</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => confirmRemoveWorkflowTask(task._id, task.title)}
+                        className="px-2 py-1"
+                        accessibilityLabel={t("elements.workflowRemoveAction")}
+                      >
+                        <Text className="text-base font-semibold text-red-600">×</Text>
+                      </Pressable>
+                    </View>
+                  </TaskSwipeRow>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        <View className="mt-4 flex-row items-end gap-2">
+          <TextInput
+            value={newWorkflowLabel}
+            onChangeText={setNewWorkflowLabel}
+            placeholder={
+              workflowScope === "outfit"
+                ? t("elements.workflowAddPlaceholderOutfit")
+                : t("elements.workflowAddPlaceholderShared")
+            }
+            placeholderTextColor="#a3a3a3"
+            className="min-h-[44px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-base text-neutral-900"
+            editable={
+              !!userId &&
+              !(
+                workflowScope === "outfit" &&
+                buildsUsing.length > 0 &&
+                !selectedWorkflowBuildId
+              )
+            }
+            onSubmitEditing={() => void handleAddWorkflowTask()}
+          />
+          <Pressable
+            onPress={() => void handleAddWorkflowTask()}
+            disabled={
+              !userId ||
+              !newWorkflowLabel.trim() ||
+              (workflowScope === "outfit" &&
+                buildsUsing.length > 0 &&
+                !selectedWorkflowBuildId)
+            }
+            className="rounded-xl bg-neutral-900 px-4 py-3 active:opacity-90 disabled:opacity-40"
+          >
+            <Text className="text-sm font-semibold text-white">{t("elements.workflowAdd")}</Text>
+          </Pressable>
+        </View>
+
+        <Text className="mt-10 text-xs font-semibold uppercase tracking-wide text-neutral-500">
           {t("elements.graphLinks")}
         </Text>
         <View className="mt-3 flex-row flex-wrap gap-2">
@@ -417,6 +764,54 @@ function ElementDetailBody({
         ) : null}
       </View>
     </ScrollView>
+
+    <Modal
+      visible={workflowStatusPickId !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setWorkflowStatusPickId(null)}
+    >
+      <Pressable
+        className="flex-1 justify-end bg-black/40"
+        onPress={() => setWorkflowStatusPickId(null)}
+      >
+        <Pressable
+          className="max-h-[70%] rounded-t-2xl bg-white px-4 pb-8 pt-4"
+          onPress={(e) => e.stopPropagation()}
+        >
+          <Text className="mb-3 text-center text-sm font-semibold text-neutral-900">
+            {t("elements.workflowStatus")}
+          </Text>
+          <ScrollView>
+            {WORKFLOW_STATUSES.map((st) => (
+              <Pressable
+                key={st}
+                onPress={() => {
+                  if (workflowStatusPickId) {
+                    void updateWorkflowTask({
+                      id: workflowStatusPickId,
+                      userId,
+                      status: st,
+                    });
+                  }
+                  setWorkflowStatusPickId(null);
+                }}
+                className={`border-b border-neutral-100 py-3 ${statusPickCurrent === st ? "bg-neutral-50" : ""}`}
+              >
+                <Text className="text-base text-neutral-900">{st.replace(/_/g, " ")}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable
+            onPress={() => setWorkflowStatusPickId(null)}
+            className="mt-3 rounded-xl border border-neutral-200 py-3"
+          >
+            <Text className="text-center text-base text-neutral-700">{t("common.cancel")}</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+    </>
   );
 }
 

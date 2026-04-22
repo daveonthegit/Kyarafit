@@ -2,7 +2,7 @@
 
 **Status:** canonical. This is the single source document for the Kyarafit mobile rebuild. It supersedes any prior `PHASE_0_AUDIT.md`, `PHASE_1_FOUNDATION.md`, and `PHASES_2_4_IMPLEMENTATION.md` that previously lived in this folder.
 
-**Last updated:** 2026-04-22 (rolling — see §6 *Rolling implementation status*; **Phase 4 Elements** in progress; Phase 3 home/builds/build detail core parity marked ship-ready).
+**Last updated:** 2026-04-22 (rolling — see §6 *Rolling implementation status*; **§1.4a** web-mobile viewport + design-system alignment; **Phase 4 Elements** in progress; Phase 3 home/builds/build detail + **More** menu core parity updated).
 
 **Applied decisions** (all merged into this document):
 
@@ -121,6 +121,37 @@ Per entity, the web exposes list + detail + create + edit + delete, plus:
 
 Universal UI states to implement everywhere: `loading skeleton`, `empty (with primary CTA)`, `error (with retry)`, `offline indicator`, `paginated loading`, `optimistic mutation pending`, `permission/tier gate`, `upgrade prompt`.
 
+### 1.4a Web mobile viewport — product target for the native app
+
+The **authenticated web app on a phone** (`lg:hidden` shell) is the UX reference, not the desktop sidebar layout:
+
+| Web component | Role |
+|---------------|------|
+| [`WebAppShell.tsx`](../../web/src/components/layout/WebAppShell.tsx) | Hides sidebar & bottom padding `pb-24` on mobile; [`BottomNav`](../../web/src/components/layout/BottomNav.tsx) fixed footer. |
+| [`BottomNav.tsx`](../../web/src/components/layout/BottomNav.tsx) | Uses [`NAV_SECTIONS_BOTTOM`](../../design-system/navConfig.ts): **Home, Outfits, Elements, Planner, Menu** — same five slots as Expo tabs. Active state: top hairline indicator + uppercase meta label (`text-[10px] tracking-[0.16em]`). |
+| [`MobileNavMenu.tsx`](../../web/src/components/layout/MobileNavMenu.tsx) | “Menu” opens a sheet listing [`NAV_SECTIONS_PRIMARY`](../../design-system/navConfig.ts) + Settings (editorial typography, underline on active). |
+
+**Native must match this chrome:** `(app)/(tabs)/_layout` tab order and labels ↔ `NAV_SECTIONS_BOTTOM`; **`(tabs)/more`** ↔ sheet entries *not* already in the tab bar (**Events, Groups, Discover, Feed**) + **Settings**, using the same [`NavSection`](../../design-system/navConfig.ts) ids and [`@kyarafit/design-system/rn`](../../design-system/rn_tokens.ts) tokens (see below). Routes not yet implemented in Expo may open **`EXPO_PUBLIC_WEB_APP_URL` + path** in an in-app browser as a temporary bridge.
+
+**Design system (single source):**
+
+- **Web:** Tailwind extends [`design-system/tailwind.config.js`](../../design-system/tailwind.config.js) (`kyar-*` colors, panels, borders).
+- **Mobile programmatic color / spacing:** `import { colors, spacing, … } from "@kyarafit/design-system/rn"` — must not hard-code hex greys when a token exists (tab bar, panels, borders).
+- **Domain math / labels:** `@kyarafit/design-system/domain` for workflow and cosplay progress (already shared).
+
+**Native UX lift (must exceed mobile web):** swipe-to-complete on lists where web uses checkbox rows; long-press drag reorder where web uses drag handles; pull-to-refresh on feeds; optional haptics on destructive actions — specified per screen in §2 tickets.
+
+Screen-by-screen alignment matrix (web mobile viewport vs Expo):
+
+| Web route (viewport `< lg`) | Native route | Notes |
+|-----------------------------|--------------|--------|
+| `/home` | `(tabs)/index` | Same dashboard composition goal. |
+| `/builds` | `(tabs)/builds` | Filters/sort/layout parity; native long-press actions. |
+| `/b/[buildId]` | `(app)/b/[buildId]` | Tabs: Explorer · Tasks · Board · Summary (authenticated editor — no public likes/comments). |
+| `/elements` | `(tabs)/elements` | All / Tree + filters. |
+| `/planner` | `(tabs)/planner` | Tree/grouping parity with web planner. |
+| Menu sheet: `/conventions`, `/groups`, `/discover`, `/feed`, `/settings` | `(tabs)/more` + stack | Until native stacks exist: optional browser bridge via `EXPO_PUBLIC_WEB_APP_URL`. |
+
 ### 1.5 Images/media pipeline
 
 Every image field follows: optional `imageStorageId` (Convex `_storage`) OR `imageUrl` (external). Upload path: generate upload URL (Convex action) → `expo-image-picker` → optional `expo-image-manipulator` compress → PUT to upload URL → save storage id to entity. Focal point editor for build heroes. Gallery (reference images + process pictures) with ordered `sortOrder`. See [web/src/components/ui/ImageUpload.tsx](web/src/components/ui/ImageUpload.tsx), [web/src/components/builds/BuildHeroCropModal.tsx](web/src/components/builds/BuildHeroCropModal.tsx), [web/src/components/builds/BuildReferenceImagesSection.tsx](web/src/components/builds/BuildReferenceImagesSection.tsx).
@@ -128,7 +159,7 @@ Every image field follows: optional `imageStorageId` (Convex `_storage`) OR `ima
 ### 1.6 Dashboards/summaries
 
 - Home: focused build card, upcoming convention, next workflow tasks, storage-usage meter, recent activity.
-- Build detail: hero + progress ring + cost summary + outline tree + reference gallery + process gallery + collaborators + likes/comments. See [web/src/components/builds/BuildSummarySection.tsx](web/src/components/builds/BuildSummarySection.tsx), [web/src/components/builds/EditorialBuildProgress.tsx](web/src/components/builds/EditorialBuildProgress.tsx).
+- Build detail (owner/editor): hero + progress + Explorer/Tasks/Board/Summary tabs + outline + reference + process + collaborators (likes/comments belong to **public** build view only). See [`BuildSummarySection`](../../web/src/components/builds/BuildSummarySection.tsx), [`EditorialBuildProgress`](../../web/src/components/builds/EditorialBuildProgress.tsx).
 - Convention detail: day tabs + day plan + packing subset + group days + countdown.
 - Settings: tier, usage bar, billing portal link, notification toggles.
 
@@ -167,19 +198,20 @@ Columns per feature: **Web behavior / Mobile equivalent / Required screens / Req
 
 ### 2.4 Build detail (P1)
 
-- Web: hero + progress + cost + tree + galleries + tabs (overview/outline/tasks/comments/collaborators).
-- Mobile: scrollable detail with pinned hero, tab-strip beneath, sheets for node inspection (mirrors [BuildNodeDetailSheet.tsx](web/src/components/builds/explorer/BuildNodeDetailSheet.tsx)).
-- Screens: `(app)/b/[buildId]`, plus modal routes: `/b/[buildId]/link-elements`, `/b/[buildId]/invite`, `/b/[buildId]/edit-hero`, `/b/[buildId]/photos`, `/b/[buildId]/notes`, `/b/[buildId]/add-task`.
-- Interactions: drag-to-reorder nodes (reanimated), focal-point crop, like/comment, comment threads, add collaborator.
-- Data: `api.builds.get`, `api.cosplayNodes.listForBuild`, `api.buildTasks.list`, `api.buildReferenceImages.list`, `api.buildProcessPictures.list`, `api.buildComments.list`, `api.buildCollaborators.list`.
-- Computed: overall progress, cost remaining; must reuse logic from [design-system/domain/cosplayUi.ts](design-system/domain/cosplayUi.ts) (`import { … } from "@kyarafit/design-system/domain"`).
-- Edge: offline read of last cache; collaborator vs owner permissions; public share token read-only mode.
+- Web (authenticated [`b/[buildId]/page.tsx`](../../web/src/app/b/[buildId]/page.tsx)): hero + tabs **Explorer · Tasks · Board · Summary** — Explorer tree ([`BuildNodeManagerSection`](../../web/src/components/builds/BuildNodeManagerSection.tsx)), workflow tasks (`workflow.*`), [`BuildVisualBoard`](../../web/src/components/builds/BuildVisualBoard.tsx), summary/collaborators/galleries. **Likes/comments are not on this page** — they belong to [`PublicBuildDetailView`](../../web/src/components/builds/PublicBuildDetailView.tsx) / share URLs.
+- Mobile: fixed hero + tab strip (`DetailBody.tsx`); **Explorer** = visual cards + `DraggableFlatList` root reorder + tree; **Tasks** = [`BuildWorkflowTasks`](../../mobile/src/screens/build-detail/BuildWorkflowTasks.tsx); **Board** = visual grid; **Summary** = stats + collaborators + reference/process strips. Sheets for deep node edits remain a parity stretch goal.
+- Screens: `(app)/b/[buildId]`; stack: [`b/link-elements`](../../mobile/app/(app)/b/link-elements.tsx); future: invite, crop, dedicated photos/notes routes as on web when needed.
+- Interactions: long-press drag reorder roots; tap row → element detail; focal modal; workflow step CRUD + status pickers; native affordances ≥ web mobile viewport.
+- Data: `api.builds.get`, `api.cosplayNodes.listBuildVisualNodes`, `api.workflow.listBuildTree` + mutations, `api.buildReferenceImages.*`, `api.buildProcessPictures.*`, `api.buildCollaborators.list` (owner gate). Not used on authenticated editor: `buildComments`, `buildLikes`, legacy `buildTasks` checklist.
+- Computed: overall progress via shared domain helpers from `@kyarafit/design-system/domain`.
+- Edge: collaborator vs owner permissions; optional public share read-only mode ([FOLLOWUP-public-build-viewer.md](FOLLOWUP-public-build-viewer.md)).
 
 ### 2.5 Elements list + detail (P1)
 
 - Web: flat list + tree view of parents/children, filters, pricing modes.
 - Mobile: tabbed "All / Tree" with nested accordion in Tree; detail screen with sub-elements/materials, status chips, pricing editor.
-- Screens: `(app)/(tabs)/elements`, `(app)/elements/[id]`, `(app)/elements/new`, `(app)/elements/[id]/add-child`, `(app)/elements/[id]/link-to-build`.
+- Screens: `(app)/(tabs)/elements`; stack under `(app)/elements/` — **`[id]/index`** (detail), **`[id]/edit`** (notes/tags/category/pricing/image), **`new`**, **`link-build`** (attach to outfit via `addNodesToBuild`), **`link-child`** / **`link-parent`** (parent ↔ child links via `addChildLink`). Route helpers live in [`mobile/src/lib/appRoutes.ts`](../../mobile/src/lib/appRoutes.ts) (`APP_HREF.element`, `elementEdit`, `elementLinkBuild`, `elementLinkChild`, `elementLinkParent`).
+- Client-side link eligibility (pickers / UX guardrails): [`mobile/src/lib/canLinkCosplay.ts`](../../mobile/src/lib/canLinkCosplay.ts) mirrors Convex [`cosplayGraph`](../../convex/lib/cosplayGraph.ts) allowed parent/child **element** vs **material** combinations.
 - Data: `api.cosplayNodes.list/get/create/update/remove`, `api.cosplayNodes.listLinks`, `api.cosplayNodes.linkToBuild`.
 - Computed: node overall bucket; rolled-up cost including child nodes by `quantity × unitCost` or `directCost`.
 
@@ -826,10 +858,10 @@ Web and mobile both import this. No duplication of tier policy between platforms
 
 Per feature area, how the web behavior translates.
 
-- **Sidebar → Tabs + More hub**: web has 8 sections in sidebar; mobile tabs fit 5. Home / Outfits / Elements / Planner / More. More hub screen surfaces Events, Groups, Feed, Discover, Settings.
+- **Sidebar → Tabs + More hub**: desktop sidebar (`NAV_SECTIONS`) vs mobile bottom nav (`NAV_SECTIONS_BOTTOM`) match Expo tabs: Home / Outfits / Elements / Planner / More. **More** mirrors web [`MobileNavMenu`](../../web/src/components/layout/MobileNavMenu.tsx): Events, Groups, Discover, Feed, Settings — same [`NavSection`](../../design-system/navConfig.ts) ids; optional `EXPO_PUBLIC_WEB_APP_URL` opens web routes until native stacks ship.
 - **Home dashboard cards → vertical feed**: web shows a responsive grid; mobile stacks focused build (big), upcoming convention (wide card with countdown), next tasks (list), storage bar (inline meter), activity (horizontal carousel).
 - **Builds grid/list → vertical feed + compact toggle**: default tall hero cards with focal point; toggle to compact list.
-- **Build detail tabs → sticky segmented control**: Overview / Outline / Tasks / Photos / Social. "Social" merges likes, comments, collaborators.
+- **Build detail tabs → aligned with web authenticated editor**: Explorer / Tasks / Board / Summary — not the public “social” layout; collaborators + galleries live under Summary / explorer-adjacent flows as on web.
 - **Outline tree with drag → long-press + reanimated drag**: web uses DnD Kit; mobile uses long-press → lift → vertical drag with haptic.
 - **Build hero crop (modal) → full-screen modal**: pinch/pan to set focal; applied live to preview.
 - **Elements grid + tree → tabbed within Elements screen**: "All" is a `FlashList`, "Tree" is a recursive accordion.
@@ -888,7 +920,7 @@ Each phase is a merge-ready milestone. "Done" means: builds on EAS, passes typec
 
 - Scope: Elements list (All + Tree), Element detail, node links (parent/child), link-to-build sheet, pricing editor, status chips, cost rollup.
 - DoD: creating an element, nesting it, attaching it to a build, and updating its status all reflect in Home.
-- **Current slice (2026-04-22):** mobile Elements tab lists nodes from `cosplayNodes.list` with search, sort, **All vs Tree (roots)** via `rootsOnly`; stack routes for **new element**, **detail**, and **link to outfit** (`addNodesToBuild`). Parent/child link editing and full pricing sheet follow in the same phase.
+- **Current slice (2026-04-22):** mobile Elements tab lists nodes from `cosplayNodes.list` with search, sort, **All vs Tree (roots)** via `rootsOnly`. **Routes:** `(app)/elements/new`; **`(app)/elements/[id]/index`** (detail: hero, chips, **workflow** via `workflow.listNodeWorkflow` + `workflow.create` / `update` / `remove`, outfit chips from `builds.getBuildsUsingNode`, shared vs outfit-specific); **`(app)/elements/[id]/edit`** (`cosplayNodes.update`); **`(app)/elements/link-build`**; **`(app)/elements/link-child`** / **`link-parent`** (`addChildLink`). **`APP_HREF`** in [`appRoutes.ts`](../../mobile/src/lib/appRoutes.ts); graph rule preview in [`canLinkCosplay.ts`](../../mobile/src/lib/canLinkCosplay.ts). **Still open:** bulk select, deeper tree accordion vs web.
 
 ### Phase 5 — Conventions + Packing + Itinerary (~2 weeks)
 
@@ -899,6 +931,7 @@ Each phase is a merge-ready milestone. "Done" means: builds on EAS, passes typec
 
 - Scope: Workflow tree, create/edit/reorder, templates, dependencies, attachments to build/element/convention, "today" view.
 - DoD: parity with [web/src/app/planner/page.tsx](web/src/app/planner/page.tsx).
+- **Web reference (grouping):** items from `workflow.listPlanner` that have **no** build or convention attachment (e.g. cosplay-node-only tasks) appear under **“Elements and other tasks”** so counts and lists stay aligned. Mobile daily planner must implement the same grouping when it ships Phase 6.
 
 ### Phase 7 — Settings + Unified Subscription (RevenueCat on all surfaces) + Storage + Notifications + Admin broadcasts (~1.5 weeks)
 
@@ -938,8 +971,8 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 | Phase 0 — foundations | **Done in repo** | Greenfield `mobile/` with Router, NativeWind, Metro + `watchFolders`, Hermes V1 + bsdiff + [`hermes-v1-rollback.md`](../runbooks/hermes-v1-rollback.md), [`prerequisites-accounts.md`](../runbooks/prerequisites-accounts.md), Stripe purged from `web/`. **Web:** add `fbjs` and `styleq` as direct `mobile` dependencies so `expo start --web` resolves `react-native-web` → `fbjs/lib/invariant` and `styleq/transform-localize-style` under monorepo hoisting. |
 | Phase 1 — auth + shell | **Done in repo** | `(auth)` + `(app)` groups, bearer secure-store plugin, session gate, sign-out on More, i18n bootstrap, Sentry init when DSN set. |
 | Phase 2 | **Partial (ship-ready for Phase 3)** | Core UI shell + schema + i18n + Settings: [`mobile/app/_layout.tsx`](../../mobile/app/_layout.tsx) (Theme, ErrorBoundary, SyncWorker, banner), [`settings/*`](../../mobile/app/(app)/settings/), [`APP_HREF`](../../mobile/src/lib/appRoutes.ts), locales + [`i18n:check`](../../package.json), **KFM-022** [`kyarafit/require-data-boundary`](../../mobile/eslint-rules/require-data-boundary.cjs). **Still open:** KFM-026–028 full offline acceptance; KFM-029 AI extract/translate. |
-| Phase 3 — Home / Builds | **Done (core parity)** | **Home** [`(tabs)/index`](../../mobile/app/(app)/(tabs)/index.tsx): hero + focal cover, planner preview, **horizontal strip from `builds.listFeedFromFollowing`** (public outfits from followed users) + empty state, other outfits strip, choose-focus sheet. **Builds list** [`(tabs)/builds`](../../mobile/app/(app)/(tabs)/builds.tsx): filters, search, sort, **comfortable/compact/grid** layout cycle, long-press **focus** + **archive** + **duplicate** with optimistic hide where applicable. **Build detail** [`b/[buildId]`](../../mobile/app/(app)/b/[buildId].tsx) + [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx): Overview / Outline / Tasks, reference + process galleries, focal modal, root reorder (`builds.reorderRootLinks`), link-elements route, create build + upload, **likes**, **comments**, **collaborators** (owner-only list with server-side gate). **Remaining web-parity gaps:** full-screen hero crop on create (focal adjust remains on detail); optional public-share read-only viewer ([FOLLOWUP-public-build-viewer.md](FOLLOWUP-public-build-viewer.md)). Shared: [`buildsListArgs`](../../mobile/src/lib/buildsListArgs.ts). |
-| Phase 4 — Elements | **In progress** | **List** [`(tabs)/elements`](../../mobile/app/(app)/(tabs)/elements.tsx): `cosplayNodes.list` with **All / Tree**, search/sort, **type / bucket / category filters**. **Routes:** [`elements/new`](../../mobile/app/(app)/elements/new.tsx), [`elements/[id]/index`](../../mobile/app/(app)/elements/[id]/index.tsx) (detail), [`elements/[id]/edit`](../../mobile/app/(app)/elements/[id]/edit.tsx) (`cosplayNodes.update`: notes/tags/category/pricing + optional hero upload), [`elements/link-child`](../../mobile/app/(app)/elements/link-child.tsx) / [`link-parent`](../../mobile/app/(app)/elements/link-parent.tsx) (`addChildLink`), **`reorderChildren`** + unlink on detail, [`elements/link-build`](../../mobile/app/(app)/elements/link-build.tsx). **Still open:** bulk select, workflow panel parity, richer tree accordion / web parity gaps. |
+| Phase 3 — Home / Builds | **Done (core parity)** | **Home** [`(tabs)/index`](../../mobile/app/(app)/(tabs)/index.tsx): hero + focal cover, planner preview, **horizontal strip from `builds.listFeedFromFollowing`** (public outfits from followed users) + empty state, other outfits strip, choose-focus sheet. **Builds list** [`(tabs)/builds`](../../mobile/app/(app)/(tabs)/builds.tsx): filters, search, sort, **comfortable/compact/grid** layout cycle, long-press **focus** + **archive** + **duplicate** with optimistic hide where applicable. **Build detail** [`b/[buildId]`](../../mobile/app/(app)/b/[buildId].tsx) + [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx): **Explorer · Tasks · Board · Summary** (workflow tasks via `workflow.*`, visual board, summary + galleries), focal modal, root reorder (`builds.reorderRootLinks`), link-elements route, create build + upload, **collaborators** (owner-only). **More** [`(tabs)/more`](../../mobile/app/(app)/(tabs)/more.tsx): mirrors web [`MobileNavMenu`](../../web/src/components/layout/MobileNavMenu.tsx) overflow destinations + Settings; optional `EXPO_PUBLIC_WEB_APP_URL` bridge. Tab bar uses **`@kyarafit/design-system/rn`** colors. **Remaining web-parity gaps:** full-screen hero crop on create; [`BuildNodeManagerSection`](../../web/src/components/builds/BuildNodeManagerSection.tsx)-level explorer tooling on RN; optional public-share read-only viewer ([FOLLOWUP-public-build-viewer.md](FOLLOWUP-public-build-viewer.md)). Shared: [`buildsListArgs`](../../mobile/src/lib/buildsListArgs.ts). |
+| Phase 4 — Elements | **In progress** | **List** [`(tabs)/elements`](../../mobile/app/(app)/(tabs)/elements.tsx): `cosplayNodes.list` with **All / Tree**, search/sort, **type / bucket / category filters**. **Stack routes:** [`elements/new`](../../mobile/app/(app)/elements/new.tsx); [`[id]/index`](../../mobile/app/(app)/elements/[id]/index.tsx) (detail + **element workflow** aligned with web `elements/[id]`); [`[id]/edit`](../../mobile/app/(app)/elements/[id]/edit.tsx); [`link-build`](../../mobile/app/(app)/elements/link-build.tsx); [`link-child`](../../mobile/app/(app)/elements/link-child.tsx) / [`link-parent`](../../mobile/app/(app)/elements/link-parent.tsx); **`reorderChildren`** + unlink on detail. **Helpers:** [`APP_HREF`](../../mobile/src/lib/appRoutes.ts), [`canLinkCosplay.ts`](../../mobile/src/lib/canLinkCosplay.ts) (allowed parent/child types vs server). **Still open:** bulk select, richer tree accordion / web parity gaps. |
 
 #### Phase 2 → Phase 3 handoff
 
@@ -993,9 +1026,9 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 
 - **KFM-030 Home screen** (focused build, upcoming, next tasks, activity). **Done:** same as prior plus **`builds.listFeedFromFollowing`** horizontal strip (activity surrogate) + empty copy. Hero focal uses shared crop component on cover; deep hero **crop-on-create** still web-parity gap.
 - **KFM-031 Builds list** with filters/search/sort/compact toggle. **Done:** comfortable / compact / grid cycle, long-press focus + archive, optimistic archive removal.
-- **KFM-032 Build detail overview tab**. **Done:** summary strip, galleries entry points, focal adjust modal.
-- **KFM-033 Build detail outline tab** with long-press drag reorder. **Done:** `DraggableFlatList` for roots + `builds.reorderRootLinks`.
-- **KFM-034 Build detail tasks tab** with swipe-complete. **Done:** `TaskSwipeRow` + task mutations.
+- **KFM-032 Build detail summary + hero**. **Done:** Summary tab stats, reference + process galleries entry, focal adjust modal (overview-style content lives under Summary tab alongside web editor pattern).
+- **KFM-033 Build detail Explorer tab** with long-press drag reorder + visual root cards. **Done:** `DraggableFlatList` for roots + `builds.reorderRootLinks`; card rows match web explorer affordances as closely as RN allows.
+- **KFM-034 Build detail Tasks tab** (workflow parity). **Done:** [`BuildWorkflowTasks`](../../mobile/src/screens/build-detail/BuildWorkflowTasks.tsx) — `workflow.listBuildTree` + grouped steps (replaces legacy `buildTasks` checklist).
 - **KFM-035 Create Build modal** with hero upload + focal point. **Done:** [`b/new`](../../mobile/app/(app)/b/new.tsx) with optional hero upload; focal set on detail via **KFM-036** modal, not inline on create.
 - **KFM-036 Build hero crop editor**. **Done on detail:** [`HeroFocalModal`](../../mobile/src/screens/build-detail/HeroFocalModal.tsx) (normalized focal x/y). Full web `BuildHeroCropModal` parity (viewport crop) not required for Phase 3 exit.
 - **KFM-037 Reference images gallery + add/remove**. **Done** in [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx).
@@ -1008,7 +1041,7 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 - **KFM-050 Elements list (All + Tree)**. **Partial:** [`(tabs)/elements`](../../mobile/app/(app)/(tabs)/elements.tsx) with search, sort, **All / Tree** (`rootsOnly`), **type / overall bucket / category** filters; Convex [`cosplayNodes.list`](../../convex/cosplayNodes.ts) `rootsOnly` + filters. **Still open:** bulk select.
 - **KFM-051 Element detail screen + status chips + pricing editor**. **Partial:** [`elements/[id]/index`](../../mobile/app/(app)/elements/[id]/index.tsx) + [`elements/[id]/edit`](../../mobile/app/(app)/elements/[id]/edit.tsx): hero, progress/bucket chips, **status**, children/parents + **graph link** actions, **link to outfit**; **edit** covers notes/tags/category/pricing + optional image (total vs per-unit).
 - **KFM-052 Create/Edit element modal**. **Partial:** [`elements/new`](../../mobile/app/(app)/elements/new.tsx) creates; **[id]/edit** updates fields via `cosplayNodes.update`.
-- **KFM-053 Link element to parent/child (node links)**. **Partial:** [`link-child`](../../mobile/app/(app)/elements/link-child.tsx) / [`link-parent`](../../mobile/app/(app)/elements/link-parent.tsx); detail **unlink** + **`reorderChildren`** (drag handle).
+- **KFM-053 Link element to parent/child (node links)**. **Partial:** [`link-child`](../../mobile/app/(app)/elements/link-child.tsx) / [`link-parent`](../../mobile/app/(app)/elements/link-parent.tsx); detail **unlink** + **`reorderChildren`** (drag handle). Client guardrails: [`canLinkCosplay.ts`](../../mobile/src/lib/canLinkCosplay.ts).
 - **KFM-054 Link element to build from element screen**. **Partial:** [`elements/link-build`](../../mobile/app/(app)/elements/link-build.tsx) (`addNodesToBuild`).
 
 ### Phase 5
@@ -1025,7 +1058,7 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 
 ### Phase 6
 
-- **KFM-070 Planner tree view**.
+- **KFM-070 Planner tree view**. Include **unattached workflow items** (no build/convention attachment in `listPlanner`) in an **“Elements and other tasks”** section — match [web planner grouping](../../web/src/app/planner/page.tsx) (`buildTaskTree` / `PlannerTaskTree`).
 - **KFM-071 Workflow item create/edit sheet**.
 - **KFM-072 Reorder + indent/outdent**.
 - **KFM-073 Dependencies linker**.

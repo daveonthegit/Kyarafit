@@ -83,9 +83,9 @@ export default function ElementsScreen() {
         <Link href={APP_HREF.elementNew} asChild>
           <Pressable
             accessibilityRole="button"
-            className="mr-2 rounded-lg bg-neutral-900 px-3 py-2 active:opacity-80"
+            className="mr-2 rounded-lg bg-kyar-text px-3 py-2 active:opacity-80"
           >
-            <Text className="text-sm font-semibold text-white">{t("elements.newShort")}</Text>
+            <Text className="text-sm font-semibold text-kyar-bg">{t("elements.newShort")}</Text>
           </Pressable>
         </Link>
       ),
@@ -196,46 +196,46 @@ function ElementsListBody({
         : t("elements.sortBucket");
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="border-b border-neutral-100 px-4 pb-3 pt-2">
+    <View className="flex-1 bg-kyar-bg">
+      <View className="border-b border-kyar-borderSubtle bg-kyar-bg px-4 pb-3 pt-2">
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder={t("elements.searchPlaceholder")}
-          placeholderTextColor="#a3a3a3"
-          className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-base text-neutral-900"
+          placeholderTextColor="rgba(23,22,41,0.52)"
+          className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-3 py-3 text-base text-kyar-text"
         />
         <View className="mt-3 flex-row flex-wrap items-center gap-2">
           <Pressable
             onPress={() => setViewMode("all")}
-            className={`rounded-full px-4 py-2 ${viewMode === "all" ? "bg-neutral-900" : "bg-neutral-100"}`}
+            className={`rounded-full px-4 py-2 ${viewMode === "all" ? "bg-kyar-text" : "bg-kyar-muted"}`}
           >
-            <Text className={`text-xs font-semibold uppercase ${viewMode === "all" ? "text-white" : "text-neutral-700"}`}>
+            <Text className={`text-xs font-semibold uppercase ${viewMode === "all" ? "text-kyar-bg" : "text-kyar-text"}`}>
               {t("elements.tabAll")}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => setViewMode("tree")}
-            className={`rounded-full px-4 py-2 ${viewMode === "tree" ? "bg-neutral-900" : "bg-neutral-100"}`}
+            className={`rounded-full px-4 py-2 ${viewMode === "tree" ? "bg-kyar-text" : "bg-kyar-muted"}`}
           >
             <Text
-              className={`text-xs font-semibold uppercase ${viewMode === "tree" ? "text-white" : "text-neutral-700"}`}
+              className={`text-xs font-semibold uppercase ${viewMode === "tree" ? "text-kyar-bg" : "text-kyar-text"}`}
             >
               {t("elements.tabTree")}
             </Text>
           </Pressable>
           <View className="flex-1" />
-          <Pressable onPress={cycleSort} className="rounded-full border border-neutral-200 px-3 py-2">
-            <Text className="text-xs font-medium text-neutral-700">{sortLabel}</Text>
+          <Pressable onPress={cycleSort} className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2">
+            <Text className="text-xs font-medium text-kyar-text">{sortLabel}</Text>
           </Pressable>
-          <Pressable onPress={toggleOrder} className="rounded-full border border-neutral-200 px-3 py-2">
-            <Text className="text-xs font-medium text-neutral-700">
+          <Pressable onPress={toggleOrder} className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2">
+            <Text className="text-xs font-medium text-kyar-text">
               {order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc")}
             </Text>
           </Pressable>
         </View>
 
-        <Text className="mt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        <Text className="mt-3 text-xs font-semibold uppercase tracking-wide text-kyar-meta">
           {t("elements.filtersHeading")}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
@@ -294,39 +294,40 @@ function ElementsListBody({
       </View>
 
       <FlatList
+        className="flex-1 bg-kyar-bg"
         data={rows}
         keyExtractor={(item) => item._id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          <Text className="mt-12 px-6 text-center text-neutral-500">
+          <Text className="mt-12 px-6 text-center text-kyar-meta">
             {search.trim() ? t("elements.emptySearch") : t("elements.empty")}
           </Text>
         }
         renderItem={({ item }) => (
           <Pressable
-            className="border-b border-neutral-100 px-4 py-4 active:bg-neutral-50"
+            className="border-b border-kyar-borderSubtle px-4 py-4 active:bg-kyar-mutedWarm"
             onPress={() => router.push(APP_HREF.element(item._id as string))}
           >
             <View className="flex-row items-start justify-between gap-3">
               <View className="min-w-0 flex-1">
-                <Text className="text-base font-semibold text-neutral-900">{item.name}</Text>
-                <Text className="mt-1 text-xs text-neutral-500">
+                <Text className="text-base font-semibold text-kyar-text">{item.name}</Text>
+                <Text className="mt-1 text-xs text-kyar-meta">
                   {formatNodeTypeLabel(item.nodeType)}
                   {item.category ? ` · ${item.category}` : ""}
                 </Text>
               </View>
               <View className="items-end">
-                <Text className="text-xs font-medium text-neutral-600">
+                <Text className="text-xs font-medium text-kyar-textSecondary">
                   {item.progressPercent ?? 0}%
                 </Text>
-                <Text className="mt-0.5 text-[10px] uppercase text-neutral-400">
+                <Text className="mt-0.5 text-[10px] uppercase text-kyar-textTertiary">
                   {formatOverallBucket(item.overallBucket)}
                 </Text>
               </View>
             </View>
-            <Text className="mt-2 text-sm text-neutral-600">{formatNodeStatus(item)}</Text>
+            <Text className="mt-2 text-sm text-kyar-textSecondary">{formatNodeStatus(item)}</Text>
             {item.childCount != null && item.childCount > 0 ? (
-              <Text className="mt-1 text-xs text-neutral-400">
+              <Text className="mt-1 text-xs text-kyar-textTertiary">
                 {t("elements.childCount", { count: item.childCount })}
               </Text>
             ) : null}
@@ -349,9 +350,9 @@ function FilterChip({
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-full px-3 py-1.5 ${active ? "bg-neutral-900" : "bg-neutral-100"}`}
+      className={`rounded-full px-3 py-1.5 ${active ? "bg-kyar-text" : "bg-kyar-muted"}`}
     >
-      <Text className={`text-xs font-medium ${active ? "text-white" : "text-neutral-700"}`}>
+      <Text className={`text-xs font-medium ${active ? "text-kyar-bg" : "text-kyar-text"}`}>
         {label}
       </Text>
     </Pressable>

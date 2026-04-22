@@ -28,3 +28,14 @@ export async function deleteAccount(args: DeleteUserArgs = {}) {
     }
   ).deleteUser(args);
 }
+
+type SetPasswordArgs = { newPassword: string };
+
+/** Adds a credential password for OAuth-only users (Better Auth `setPassword` endpoint). */
+export async function setCredentialPassword(args: SetPasswordArgs) {
+  return (
+    authClient as typeof authClient & {
+      setPassword: (input: SetPasswordArgs) => Promise<{ error?: { message?: string } | null }>;
+    }
+  ).setPassword(args);
+}

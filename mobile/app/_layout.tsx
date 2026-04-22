@@ -1,6 +1,6 @@
 import "../global.css";
 import { useEffect, useState, type ReactNode } from "react";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
@@ -92,6 +92,9 @@ function RootLayoutNav() {
         const sessionToken: string | undefined = data?.session?.token;
         if (!sessionToken) return;
         await setStoredBearerToken(sessionToken);
+        await authClient.getSession({
+          fetchOptions: { headers: { Authorization: `Bearer ${sessionToken}` } },
+        });
         const signal = (
           authClient as { $sessionSignal?: { get: () => boolean; set: (v: boolean) => void } }
         ).$sessionSignal;
@@ -99,6 +102,7 @@ function RootLayoutNav() {
           const val = signal.get();
           signal.set(!val);
         }
+        router.replace("/(app)/(tabs)");
       } catch (err) {
         console.error("[auth] OTT exchange failed:", err);
       }

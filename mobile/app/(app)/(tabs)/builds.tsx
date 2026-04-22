@@ -233,12 +233,12 @@ function BuildsListBody({
   const compactCards = layout !== "comfortable";
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-kyar-bg">
       <View className="flex-row items-center justify-between px-4 pt-2">
-        <Text className="text-2xl font-semibold text-neutral-900">{t("common.builds")}</Text>
+        <Text className="text-2xl font-semibold text-kyar-text">{t("common.builds")}</Text>
         <Link href={APP_HREF.buildNew} asChild>
-          <Pressable className="rounded-full bg-neutral-900 px-3 py-1.5 active:opacity-90">
-            <Text className="text-xs font-semibold text-white">{t("builds.createNew")}</Text>
+          <Pressable className="rounded-full bg-kyar-text px-3 py-1.5 active:opacity-90">
+            <Text className="text-xs font-semibold text-kyar-bg">{t("builds.createNew")}</Text>
           </Pressable>
         </Link>
       </View>
@@ -248,8 +248,8 @@ function BuildsListBody({
           value={search}
           onChangeText={setSearch}
           placeholder={t("builds.searchPlaceholder")}
-          placeholderTextColor="#a3a3a3"
-          className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-base text-neutral-900"
+          placeholderTextColor="rgba(23,22,41,0.52)"
+          className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-3 py-2.5 text-base text-kyar-text"
           autoCapitalize="none"
           autoCorrect={false}
           clearButtonMode="while-editing"
@@ -269,11 +269,11 @@ function BuildsListBody({
               key={opt.value}
               onPress={() => setActiveTab(opt.value)}
               className={`rounded-full border px-3 py-1.5 ${
-                active ? "border-neutral-900 bg-neutral-900" : "border-neutral-200 bg-white"
+                active ? "border-kyar-text bg-kyar-text" : "border-kyar-borderSubtle bg-kyar-surface"
               }`}
             >
               <Text
-                className={`text-xs font-semibold ${active ? "text-white" : "text-neutral-800"}`}
+                className={`text-xs font-semibold ${active ? "text-kyar-bg" : "text-kyar-textSecondary"}`}
               >
                 {t(TAB_I18N[opt.value])}
               </Text>
@@ -285,23 +285,23 @@ function BuildsListBody({
       <View className="mt-2 flex-row flex-wrap items-center gap-2 px-4">
         <Pressable
           onPress={cycleSort}
-          className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 active:opacity-80"
+          className="rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-2 py-1.5 active:opacity-80"
         >
-          <Text className="text-xs font-medium text-neutral-800">{t(SORT_I18N[sortBy])}</Text>
+          <Text className="text-xs font-medium text-kyar-text">{t(SORT_I18N[sortBy])}</Text>
         </Pressable>
         <Pressable
           onPress={toggleOrder}
-          className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 active:opacity-80"
+          className="rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-2 py-1.5 active:opacity-80"
         >
-          <Text className="text-xs font-medium text-neutral-800">
+          <Text className="text-xs font-medium text-kyar-text">
             {order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc")}
           </Text>
         </Pressable>
         <Pressable
           onPress={cycleLayout}
-          className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 active:opacity-80"
+          className="rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-2 py-1.5 active:opacity-80"
         >
-          <Text className="text-xs font-medium text-neutral-800">{layoutLabel}</Text>
+          <Text className="text-xs font-medium text-kyar-text">{layoutLabel}</Text>
         </Pressable>
       </View>
 
@@ -314,13 +314,13 @@ function BuildsListBody({
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          <Text className="py-12 text-center text-neutral-500">
+          <Text className="py-12 text-center text-kyar-meta">
             {search.trim() ? t("builds.emptySearch") : t("builds.empty")}
           </Text>
         }
         renderItem={({ item }) => (
           <Pressable
-            className={`${layout === "grid" ? "mb-3 flex-1" : "mb-3"} overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 active:opacity-90`}
+            className={`${layout === "grid" ? "mb-3 flex-1" : "mb-3"} overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-card active:opacity-90`}
             onPress={() => router.push(APP_HREF.build(item._id))}
             onLongPress={() => showActions(item)}
           >
@@ -345,21 +345,21 @@ function BuildCardRow({
   return (
     <View className={compact ? "px-3 py-2" : "px-4 py-3"}>
       <Text
-        className={`font-semibold text-neutral-900 ${compact ? "text-base" : "text-lg"}`}
+        className={`font-semibold text-kyar-text ${compact ? "text-base" : "text-lg"}`}
         numberOfLines={compact ? 2 : undefined}
       >
         {item.name}
       </Text>
       {item.character ? (
-        <Text className="mt-0.5 text-sm text-neutral-600">{item.character}</Text>
+        <Text className="mt-0.5 text-sm text-kyar-textSecondary">{item.character}</Text>
       ) : null}
-      <Text className="mt-2 text-xs text-neutral-500">
+      <Text className="mt-2 text-xs text-kyar-meta">
         {t("builds.tasksProgress", { checked: item.tasksChecked, total: item.tasksTotal })} ·{" "}
         {t("builds.progressPercent", { pct })}
       </Text>
       {item.tasksTotal > 0 ? (
-        <View className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-          <View className="h-full rounded-full bg-neutral-900" style={{ width: `${pct}%` }} />
+        <View className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-kyar-borderSubtle">
+          <View className="h-full rounded-full bg-kyar-text" style={{ width: `${pct}%` }} />
         </View>
       ) : null}
     </View>

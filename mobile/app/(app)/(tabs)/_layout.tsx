@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@kyarafit/design-system/rn";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
@@ -10,8 +11,12 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: true,
         headerTitle: t("common.appName"),
-        tabBarActiveTintColor: "#171717",
-        tabBarInactiveTintColor: "#737373",
+        tabBarActiveTintColor: colors.text,
+        tabBarInactiveTintColor: colors.meta,
+        tabBarStyle: {
+          borderTopColor: colors.border,
+          backgroundColor: colors.bg,
+        },
       }}
     >
       <Tabs.Screen

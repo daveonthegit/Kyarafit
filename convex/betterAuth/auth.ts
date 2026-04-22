@@ -54,6 +54,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     // Production app origins (keep in sync with convex/http.ts allowedOrigins)
     "https://www.kyarafit.com",
     "https://kyarafit.com",
+    // Sign in with Apple (Better Auth docs)
+    "https://appleid.apple.com",
   ];
   return {
     appName: "Kyarafit",
@@ -80,16 +82,26 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       },
     },
 
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google", "apple"],
+      },
+    },
+
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       },
-      ...(process.env.GITHUB_CLIENT_ID
+      ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
         ? {
-            github: {
-              clientId: process.env.GITHUB_CLIENT_ID!,
-              clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+            apple: {
+              clientId: process.env.APPLE_CLIENT_ID,
+              clientSecret: process.env.APPLE_CLIENT_SECRET,
+              ...(process.env.APPLE_APP_BUNDLE_IDENTIFIER
+                ? { appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER }
+                : {}),
             },
           }
         : {}),
@@ -111,7 +123,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       // callbackURL) works even without SITE_URL set; set SITE_URL in production
       // so web relative callbackURLs are rewritten to the app domain correctly.
       crossDomain({ siteUrl: (siteUrl ?? convexSiteUrl)! }),
-      username(),
+      // Keep min/max aligned with Convex `validateUsername` (convex/lib/validation.ts).
+      username({
+        minUsernameLength: 1,
+        maxUsernameLength: 80,
+      }),
     ],
   } satisfies BetterAuthOptions;
 };

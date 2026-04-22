@@ -59,13 +59,9 @@ export default function BuildDetailScreen() {
     id && userId ? { buildId: id, userId } : "skip"
   );
   const outlineNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, id ? { buildId: id } : "skip");
-  const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip");
   const refImages = useQuery(api.buildReferenceImages.listByBuild, id ? { buildId: id } : "skip");
   const processPics = useQuery(api.buildProcessPictures.listByBuild, id ? { buildId: id } : "skip");
 
-  const likeCount = useQuery(api.buildLikes.countByBuild, id ? { buildId: id } : "skip");
-  const liked = useQuery(api.buildLikes.isLikedBy, id && userId ? { buildId: id, userId } : "skip");
-  const comments = useQuery(api.buildComments.listByBuild, id ? { buildId: id } : "skip");
   const collaborators = useQuery(
     api.buildCollaborators.listByBuild,
     id && build && userId && build.userId === userId ? { buildId: id, userId } : "skip"
@@ -75,9 +71,6 @@ export default function BuildDetailScreen() {
     identity === undefined ||
     (id != null && build === undefined) ||
     (build != null && build.imageStorageId != null && heroStorageUrl === undefined) ||
-    (id != null && likeCount === undefined) ||
-    (id != null && comments === undefined) ||
-    (id != null && userId != null && liked === undefined) ||
     (id != null &&
       build != null &&
       userId != null &&
@@ -164,12 +157,8 @@ export default function BuildDetailScreen() {
           heroUri={loaded.heroUri}
           summary={loaded.summary}
           outlineNodes={outlineNodes}
-          tasks={tasks}
           refImages={refImages}
           processPics={processPics}
-          likeCount={likeCount ?? 0}
-          liked={liked ?? false}
-          comments={comments ?? []}
           collaborators={
             loaded.build.userId === loaded.userId ? collaborators ?? [] : undefined
           }

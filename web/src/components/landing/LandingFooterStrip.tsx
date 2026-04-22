@@ -47,6 +47,12 @@ export function LandingFooterStrip() {
           </Link>
         </>
       )}
+      <Link href="/privacy" className="underline-offset-4 hover:text-kyar-text hover:underline">
+        Privacy Policy
+      </Link>
+      <Link href="/terms" className="underline-offset-4 hover:text-kyar-text hover:underline">
+        Terms of Service
+      </Link>
     </nav>
   );
 }

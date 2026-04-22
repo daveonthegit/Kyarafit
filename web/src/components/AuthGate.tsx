@@ -8,6 +8,8 @@ import { api } from "convex/_generated/api";
 
 const PUBLIC_PATHS = [
   "/",
+  "/privacy",
+  "/terms",
   "/auth/signin",
   "/auth/signup",
   "/auth/verify-email",

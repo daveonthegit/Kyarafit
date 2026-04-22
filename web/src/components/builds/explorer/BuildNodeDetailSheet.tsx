@@ -57,7 +57,7 @@ export function BuildNodeDetailSheet({
 }: BuildNodeDetailSheetProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const [sheetHeight, setSheetHeight] = useState<"half" | "full">("half");
+  const [sheetHeight, setSheetHeight] = useState<"half" | "full">("full");
 
   const isOpen = detail != null && selected != null;
 

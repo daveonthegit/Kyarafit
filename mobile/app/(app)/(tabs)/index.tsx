@@ -227,8 +227,8 @@ function HomeDashboardBody({
       : 0;
 
   const heroCard = (
-    <View className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50">
-      <View className="relative aspect-[4/5] w-full bg-neutral-200">
+    <View className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft">
+      <View className="relative aspect-[4/5] w-full bg-kyar-muted">
         {heroUri ? (
           <FocalCoverImage
             uri={heroUri}
@@ -239,7 +239,7 @@ function HomeDashboardBody({
           />
         ) : (
           <View className="absolute inset-0 items-center justify-center">
-            <Text className="text-neutral-400">{t("home.heroFallback")}</Text>
+            <Text className="text-kyar-textTertiary">{t("home.heroFallback")}</Text>
           </View>
         )}
         <View className="absolute inset-x-0 bottom-0 bg-black/50 px-4 py-3">
@@ -266,10 +266,10 @@ function HomeDashboardBody({
         </View>
       </View>
       {recentBuild && recentBuild.tasksTotal > 0 ? (
-        <View className="px-4 py-2">
-          <View className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+        <View className="bg-kyar-surface px-4 py-2">
+          <View className="h-1.5 w-full overflow-hidden rounded-full bg-kyar-borderSubtle">
             <View
-              className="h-full rounded-full bg-neutral-900"
+              className="h-full rounded-full bg-kyar-text"
               style={{ width: `${taskPct}%` }}
               accessibilityRole="progressbar"
             />
@@ -281,11 +281,11 @@ function HomeDashboardBody({
 
   return (
     <ScrollView
-      className="flex-1 bg-white"
+      className="flex-1 bg-kyar-bg"
       contentContainerClassName="pb-8"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text className="px-4 pt-2 text-2xl font-semibold text-neutral-900">{t("home.title")}</Text>
+      <Text className="px-4 pt-2 text-2xl font-semibold text-kyar-text">{t("home.title")}</Text>
 
       <View className="mt-4 px-4">
         {recentBuild ? (
@@ -300,11 +300,11 @@ function HomeDashboardBody({
 
         {allBuilds.length > 0 ? (
           <View className="mt-3 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-            <Text className="text-[10px] uppercase tracking-widest text-neutral-500">
+            <Text className="text-[10px] uppercase tracking-widest text-kyar-meta">
               {recentBuild ? t("home.focusMetaHasBuild") : t("home.focusMetaNoBuild")}
             </Text>
             <Pressable onPress={openFocusSheet} accessibilityRole="button">
-              <Text className="text-[10px] font-semibold uppercase tracking-widest text-neutral-900 underline">
+              <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text underline decoration-kyar-meta">
                 {t("home.selectFocus")}
               </Text>
             </Pressable>
@@ -320,18 +320,18 @@ function HomeDashboardBody({
         />
 
         <Link href="/(app)/(tabs)/builds" asChild>
-          <Pressable className="mt-4 items-center rounded-xl bg-neutral-900 py-3 active:opacity-90">
-            <Text className="font-semibold text-white">{t("home.browseOutfits")}</Text>
+          <Pressable className="mt-4 items-center rounded-xl bg-kyar-text py-3 active:opacity-90">
+            <Text className="font-semibold text-kyar-bg">{t("home.browseOutfits")}</Text>
           </Pressable>
         </Link>
       </View>
 
       <View className="mt-8 px-4">
-        <Text className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        <Text className="text-sm font-semibold uppercase tracking-wide text-kyar-meta">
           {t("home.followingFeed")}
         </Text>
         {followingFeed.length === 0 ? (
-          <Text className="mt-2 text-neutral-600">{t("home.followingEmpty")}</Text>
+          <Text className="mt-2 text-kyar-textSecondary">{t("home.followingEmpty")}</Text>
         ) : (
           <ScrollView
             horizontal
@@ -341,22 +341,22 @@ function HomeDashboardBody({
           >
             {followingFeed.map((b) => (
               <Link key={b._id} href={APP_HREF.build(b._id)} asChild>
-                <Pressable className="w-[168] overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 active:opacity-90">
-                  <View className="h-[92] w-full items-center justify-center bg-neutral-200 px-2">
+                <Pressable className="w-[168] overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-card active:opacity-90">
+                  <View className="h-[92] w-full items-center justify-center bg-kyar-muted px-2">
                     <Text
-                      className="text-center text-[15px] font-semibold leading-tight text-neutral-900"
+                      className="text-center text-[15px] font-semibold leading-tight text-kyar-text"
                       numberOfLines={2}
                     >
                       {b.name}
                     </Text>
                   </View>
                   <View className="px-3 py-2">
-                    <Text className="text-[10px] uppercase tracking-wide text-neutral-500" numberOfLines={1}>
+                    <Text className="text-[10px] uppercase tracking-wide text-kyar-meta" numberOfLines={1}>
                       {b.ownerUsername
                         ? `@${b.ownerUsername}`
                         : b.ownerName ?? t("home.followingUnknownCreator")}
                     </Text>
-                    <Text className="mt-1 text-[10px] text-neutral-500">
+                    <Text className="mt-1 text-[10px] text-kyar-meta">
                       {t("home.itemsComplete", {
                         checked: b.tasksChecked,
                         total: b.tasksTotal,
@@ -373,12 +373,12 @@ function HomeDashboardBody({
       {otherOutfits.length > 0 ? (
         <View className="mt-8">
           <View className="flex-row items-baseline justify-between px-4">
-            <Text className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            <Text className="text-sm font-semibold uppercase tracking-wide text-kyar-meta">
               {t("home.currentProjects")}
             </Text>
             <Link href="/(app)/(tabs)/builds" asChild>
               <Pressable>
-                <Text className="text-xs font-semibold text-neutral-900 underline">
+                <Text className="text-xs font-semibold text-kyar-text underline decoration-kyar-meta">
                   {t("home.viewAllBuilds")}
                 </Text>
               </Pressable>
@@ -392,14 +392,14 @@ function HomeDashboardBody({
           >
             {otherOutfits.map((b) => (
               <Link key={b._id} href={APP_HREF.build(b._id)} asChild>
-                <Pressable className="w-[148] overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 active:opacity-90">
-                  <View className="h-[100] w-full items-center justify-center bg-neutral-200">
-                    <Text className="px-2 text-center text-base font-semibold leading-tight text-neutral-900">
+                <Pressable className="w-[148] overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-surface shadow-card active:opacity-90">
+                  <View className="h-[100] w-full items-center justify-center bg-kyar-muted">
+                    <Text className="px-2 text-center text-base font-semibold leading-tight text-kyar-text">
                       {b.name}
                     </Text>
                   </View>
                   <View className="px-3 py-2">
-                    <Text className="text-[10px] uppercase tracking-wide text-neutral-500">
+                    <Text className="text-[10px] uppercase tracking-wide text-kyar-meta">
                       {t("home.itemsComplete", {
                         checked: b.tasksChecked,
                         total: b.tasksTotal,
@@ -415,34 +415,34 @@ function HomeDashboardBody({
 
       <View className="mt-8 px-4">
         <View className="flex-row items-baseline justify-between">
-          <Text className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          <Text className="text-sm font-semibold uppercase tracking-wide text-kyar-meta">
             {t("home.nextSteps")}
           </Text>
           <Link href="/(app)/(tabs)/planner" asChild>
             <Pressable>
-              <Text className="text-xs font-semibold text-neutral-900 underline">
+              <Text className="text-xs font-semibold text-kyar-text underline decoration-kyar-meta">
                 {t("home.openPlanner")}
               </Text>
             </Pressable>
           </Link>
         </View>
         {plannerPreview.length === 0 ? (
-          <Text className="mt-2 text-neutral-600">{t("home.noOpenTasks")}</Text>
+          <Text className="mt-2 text-kyar-textSecondary">{t("home.noOpenTasks")}</Text>
         ) : (
           <View className="mt-2 gap-2">
             {plannerPreview.map((item) => (
               <View
                 key={item._id}
-                className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5"
+                className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-3 py-2.5"
               >
-                <Text className="text-sm font-medium text-neutral-900" numberOfLines={2}>
+                <Text className="text-sm font-medium text-kyar-text" numberOfLines={2}>
                   {item.title}
                 </Text>
                 {item.buildName ? (
-                  <Text className="mt-0.5 text-xs text-neutral-500">{item.buildName}</Text>
+                  <Text className="mt-0.5 text-xs text-kyar-meta">{item.buildName}</Text>
                 ) : null}
                 <Text
-                  className={`mt-1 text-xs ${item.overdue ? "font-semibold text-red-700" : "text-neutral-500"}`}
+                  className={`mt-1 text-xs ${item.overdue ? "font-semibold text-kyar-danger" : "text-kyar-meta"}`}
                 >
                   {item.overdue
                     ? t("home.overdue")
@@ -456,11 +456,11 @@ function HomeDashboardBody({
         )}
       </View>
 
-      <Text className="mt-8 px-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+      <Text className="mt-8 px-4 text-sm font-semibold uppercase tracking-wide text-kyar-meta">
         {t("home.upcomingEvents")}
       </Text>
       {upcoming.length === 0 ? (
-        <Text className="mt-2 px-4 text-neutral-600">{t("home.noUpcomingEvents")}</Text>
+        <Text className="mt-2 px-4 text-kyar-textSecondary">{t("home.noUpcomingEvents")}</Text>
       ) : (
         <View className="mt-2 px-4">
           {upcoming.map(({ convention, outfitCount }) => {
@@ -468,14 +468,14 @@ function HomeDashboardBody({
             return (
               <View
                 key={convention._id}
-                className="mb-2 rounded-xl border border-neutral-200 bg-white px-4 py-3"
+                className="mb-2 rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-3"
               >
-                <Text className="text-base font-semibold text-neutral-900">{convention.name}</Text>
-                <Text className="mt-1 text-sm text-neutral-600">
+                <Text className="text-base font-semibold text-kyar-text">{convention.name}</Text>
+                <Text className="mt-1 text-sm text-kyar-textSecondary">
                   {convention.startDate}
                   {d >= 0 ? ` · ${t("home.daysUntil", { count: d })}` : ""}
                 </Text>
-                <Text className="mt-1 text-xs text-neutral-500">
+                <Text className="mt-1 text-xs text-kyar-meta">
                   {outfitCount}{" "}
                   {outfitCount === 1 ? t("home.outfitSingular") : t("home.outfitPlural")}
                 </Text>

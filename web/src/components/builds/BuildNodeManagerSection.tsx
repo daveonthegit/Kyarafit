@@ -7,7 +7,6 @@ import type { Id } from "convex/_generated/dataModel";
 
 import { formatNodeStatus } from "@kyarafit/design-system/domain";
 import { BuildExplorerBreadcrumb } from "./explorer/BuildExplorerBreadcrumb";
-import { BuildExplorerDrillDown } from "./explorer/BuildExplorerDrillDown";
 import { BuildExplorerTree } from "./explorer/BuildExplorerTree";
 import { BuildExplorerToolbar } from "./explorer/BuildExplorerToolbar";
 import { BuildNodeDetailSheet } from "./explorer/BuildNodeDetailSheet";
@@ -51,7 +50,6 @@ export function BuildNodeManagerSection({
 
   const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [drillStack, setDrillStack] = useState<PathSegment[]>([]);
 
   const inspector = useNodeInspector({ buildId, userId });
   const {
@@ -109,40 +107,17 @@ export function BuildNodeManagerSection({
     [commitSelection]
   );
 
-  const handleDrillInto = useCallback(
-    (meta: NodeSelectionMeta, path: PathSegment[]) => {
-      setDrillStack(path);
-      void commitSelection(meta, path);
-    },
-    [commitSelection]
-  );
-
-  const handleDrillBack = useCallback(() => {
-    if (drillStack.length <= 1) {
-      setDrillStack([]);
-      return;
-    }
-    const newStack = drillStack.slice(0, -1);
-    setDrillStack(newStack);
-    const last = newStack[newStack.length - 1];
-    if (last) {
-      void commitSelection(last.meta, newStack);
-    }
-  }, [drillStack, commitSelection]);
-
   const handleBreadcrumbNavigate = useCallback(
     (index: number) => {
       const path = selectedPath.slice(0, index + 1);
       const seg = path[path.length - 1];
       if (!seg) return;
-      setDrillStack(path);
       void commitSelection(seg.meta, path);
     },
     [selectedPath, commitSelection]
   );
 
   const handleNavigateToRoot = useCallback(() => {
-    setDrillStack([]);
     const first = roots[0];
     if (!first) return;
     const meta: NodeSelectionMeta = { nodeId: first.node._id, isRoot: true, rootIndex: first.rootIndex };
@@ -225,10 +200,9 @@ export function BuildNodeManagerSection({
           path={selectedPath}
           onNavigateToRoot={handleNavigateToRoot}
           onNavigateToSegment={handleBreadcrumbNavigate}
-          onDrillBack={drillStack.length > 0 ? handleDrillBack : undefined}
         />
 
-        {/* Layout: tree/drill-down + optional desktop panel */}
+        {/* Layout: unified recursive tree + optional desktop panel */}
         <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-kyar-borderSubtle">
           {/* Main content area */}
           <div className="min-w-0">
@@ -253,33 +227,15 @@ export function BuildNodeManagerSection({
             ) : null}
 
             <div className="max-h-[min(640px,78vh)] overflow-y-auto">
-              {/* Desktop: collapsible tree */}
-              <div className="hidden md:block">
-                <BuildExplorerTree
-                  buildId={buildId}
-                  userId={userId}
-                  roots={roots}
-                  selectedNodeId={selected?.nodeId ?? null}
-                  drag={drag}
-                  onSelect={handleSelectNode}
-                  onDragStart={handleDragStart}
-                />
-              </div>
-
-              {/* Mobile: drill-down */}
-              <div className="block md:hidden">
-                <BuildExplorerDrillDown
-                  buildId={buildId}
-                  userId={userId}
-                  roots={roots}
-                  drillStack={drillStack}
-                  selectedNodeId={selected?.nodeId ?? null}
-                  drag={drag}
-                  onDrillInto={handleDrillInto}
-                  onSelectLeaf={handleSelectNode}
-                  onDragStart={handleDragStart}
-                />
-              </div>
+              <BuildExplorerTree
+                buildId={buildId}
+                userId={userId}
+                roots={roots}
+                selectedNodeId={selected?.nodeId ?? null}
+                drag={drag}
+                onSelect={handleSelectNode}
+                onDragStart={handleDragStart}
+              />
             </div>
 
             {/* Status footer */}
