@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
@@ -8,8 +8,26 @@ import type { Id } from "convex/_generated/dataModel";
 import { isAllowedImageType } from "@/lib/imageUtils";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ProfilePictureCropModal } from "@/components/settings/ProfilePictureCropModal";
+import { authClient, setCredentialPassword } from "@/lib/auth/auth-client";
 
 const EMAIL_HIDDEN_PLACEHOLDER = "••••••••••••••••";
+
+const LINKABLE_SOCIAL_PROVIDERS = [
+  { id: "google" as const, label: "Google" },
+  { id: "apple" as const, label: "Apple" },
+];
+
+type LinkedAccountRow = {
+  id: string;
+  providerId: string;
+  accountId: string;
+};
+
+function labelForProvider(providerId: string): string {
+  if (providerId === "credential") return "Email & password";
+  const match = LINKABLE_SOCIAL_PROVIDERS.find((p) => p.id === providerId);
+  return match?.label ?? providerId;
+}
 const SESSION_EMAIL_VISIBLE_KEY = "kyar_account_email_visible";
 
 export type UserWithUsername = {
@@ -56,6 +74,16 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
   const [cropImageSrc, setCropImageSrc] = useState<string>("");
   const [emailRevealed, setEmailRevealed] = useState(false);
 
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccountRow[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsActionError, setAccountsActionError] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState<string | null>(null);
+  const [unlinkBusy, setUnlinkBusy] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSetupLoading, setPasswordSetupLoading] = useState(false);
+  const [passwordSetupError, setPasswordSetupError] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       if (sessionStorage.getItem(SESSION_EMAIL_VISIBLE_KEY) === "true") {
@@ -65,6 +93,37 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
       /* private mode / denied */
     }
   }, []);
+
+  const loadLinkedAccounts = useCallback(async () => {
+    setAccountsLoading(true);
+    setAccountsActionError(null);
+    try {
+      const res = await authClient.listAccounts();
+      const err = res.error as { message?: string } | null | undefined;
+      if (err) {
+        setAccountsActionError(err.message ?? "Could not load sign-in methods.");
+        setLinkedAccounts([]);
+        return;
+      }
+      const rows = res.data as LinkedAccountRow[] | undefined;
+      setLinkedAccounts(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setAccountsActionError(e instanceof Error ? e.message : "Could not load sign-in methods.");
+      setLinkedAccounts([]);
+    } finally {
+      setAccountsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!externalId) return;
+    void loadLinkedAccounts();
+  }, [externalId, loadLinkedAccounts]);
+
+  const hasCredentialAccount = linkedAccounts.some((a) => a.providerId === "credential");
+  const oauthAccountRows = linkedAccounts.filter((a) => a.providerId !== "credential");
+  const canUnlinkOAuth =
+    oauthAccountRows.length === 0 ? false : hasCredentialAccount || oauthAccountRows.length > 1;
 
   const profileImageStorageId = convexUser?.imageStorageId ?? undefined;
   const profileImageUrl =
@@ -143,14 +202,112 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
   const handleSaveUsername = async () => {
     const raw = (usernameEdit ?? "").trim().toLowerCase();
     setUsernameError(null);
+
+    const sessionUsername = (user.username ?? "").trim().toLowerCase();
+    if (raw.length === 0) {
+      if (convexUser?.username || sessionUsername) {
+        setUsernameError("Username cannot be empty.");
+        return;
+      }
+      setUsernameEdit(null);
+      return;
+    }
+
     setUsernameLoading(true);
     try {
-      await updateProfile({ username: raw || undefined });
+      if (raw !== sessionUsername) {
+        const check = await authClient.isUsernameAvailable({ username: raw });
+        if (check.error) {
+          setUsernameError(check.error.message ?? "Could not verify username availability.");
+          return;
+        }
+        const available = (check.data as { available?: boolean } | undefined)?.available;
+        if (available === false) {
+          setUsernameError("That username is already taken. Try another.");
+          return;
+        }
+      }
+
+      const authRes = await authClient.updateUser({ username: raw });
+      if (authRes?.error) {
+        setUsernameError(authRes.error.message ?? "Could not update username for sign-in.");
+        return;
+      }
+
+      await updateProfile({ username: raw });
       setUsernameEdit(null);
+      await authClient.getSession();
     } catch (e) {
       setUsernameError(e instanceof Error ? e.message : "Could not update username.");
     } finally {
       setUsernameLoading(false);
+    }
+  };
+
+  const handleLinkSocial = async (provider: "google" | "apple") => {
+    setAccountsActionError(null);
+    setLinkBusy(provider);
+    try {
+      const origin = window.location.origin;
+      const res = await authClient.linkSocial({
+        provider,
+        callbackURL: `${origin}/settings/account`,
+        errorCallbackURL: `${origin}/settings/account`,
+      });
+      if (res?.error) {
+        setAccountsActionError(res.error.message ?? "Could not connect that account.");
+      }
+      // Successful OAuth continues via redirect (see auth client redirect plugin).
+    } catch (e) {
+      setAccountsActionError(e instanceof Error ? e.message : "Could not connect that account.");
+    } finally {
+      setLinkBusy(null);
+    }
+  };
+
+  const handleUnlink = async (providerId: string, accountId: string) => {
+    setAccountsActionError(null);
+    setUnlinkBusy(accountId);
+    try {
+      const res = await authClient.unlinkAccount({ providerId, accountId });
+      if (res?.error) {
+        setAccountsActionError(res.error.message ?? "Could not disconnect that account.");
+        return;
+      }
+      await loadLinkedAccounts();
+      await authClient.getSession();
+    } catch (e) {
+      setAccountsActionError(e instanceof Error ? e.message : "Could not disconnect that account.");
+    } finally {
+      setUnlinkBusy(null);
+    }
+  };
+
+  const handleCreatePassword = async () => {
+    setPasswordSetupError(null);
+    if (newPassword.length < 8) {
+      setPasswordSetupError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordSetupError("Passwords do not match.");
+      return;
+    }
+    setPasswordSetupLoading(true);
+    try {
+      const res = await setCredentialPassword({ newPassword });
+      if (res?.error) {
+        setPasswordSetupError(res.error.message ?? "Could not save password.");
+        return;
+      }
+      setNewPassword("");
+      setConfirmPassword("");
+      await loadLinkedAccounts();
+      await authClient.getSession();
+    } catch (e) {
+      setPasswordSetupError(e instanceof Error ? e.message : "Could not save password.");
+    } finally {
+      setPasswordSetupLoading(false);
     }
   };
 
@@ -425,6 +582,84 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
           </div>
         )}
       </div>
+
+      <div className="py-4 border-b border-kyar-borderSubtle">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
+              Sign-in methods
+            </p>
+            <p className="text-[11px] text-kyar-textTertiary leading-relaxed max-w-xl">
+              Link Google or Apple to sign in faster. Add email & password if you started
+              with OAuth only—or connect social accounts to an email/password profile.
+            </p>
+          </div>
+        </div>
+        {accountsActionError && (
+          <p className="text-xs text-red-500 mb-3" role="alert">
+            {accountsActionError}
+          </p>
+        )}
+        {accountsLoading ? (
+          <p className="text-sm text-kyar-textSecondary">Loading sign-in methods…</p>
+        ) : (
+          <ul className="space-y-3">
+            {linkedAccounts.map((acc) => (
+              <li
+                key={acc.id}
+                className="flex flex-wrap items-center justify-between gap-2 border border-kyar-borderSubtle rounded-xl px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-kyar-text">{labelForProvider(acc.providerId)}</p>
+                  <p className="text-[11px] text-kyar-textTertiary font-mono truncate max-w-[220px] sm:max-w-md">
+                    {acc.providerId === "credential" ? "Password on file" : `Connected · ${acc.accountId}`}
+                  </p>
+                </div>
+                {acc.providerId !== "credential" && (
+                  <button
+                    type="button"
+                    disabled={!canUnlinkOAuth || unlinkBusy === acc.id}
+                    onClick={() => void handleUnlink(acc.providerId, acc.accountId)}
+                    className="text-[11px] uppercase tracking-widest font-medium text-kyar-textSecondary hover:text-kyar-danger hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    {unlinkBusy === acc.id ? "Removing…" : "Disconnect"}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!accountsLoading && (
+          <div className="mt-4 space-y-2">
+            <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary">
+              Connect another provider
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {LINKABLE_SOCIAL_PROVIDERS.map((p) => {
+                const linked = linkedAccounts.some((a) => a.providerId === p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={linked || !!linkBusy}
+                    onClick={() => void handleLinkSocial(p.id)}
+                    className="inline-flex min-h-[40px] items-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors disabled:opacity-40"
+                  >
+                    {linkBusy === p.id ? "Redirecting…" : linked ? `${p.label} linked` : `Link ${p.label}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {!accountsLoading && !hasCredentialAccount && (
+          <p className="mt-3 text-[11px] text-kyar-textTertiary">
+            Disconnect is disabled when this is your only sign-in method. Add email & password below,
+            or link another provider first.
+          </p>
+        )}
+      </div>
+
       <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">Bio</p>
         {bioEdit === null ? (
@@ -536,16 +771,88 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
           Public: others can see your profile and public builds. Private: only you.
         </p>
       </div>
-      <div className="pt-4">
-        <Link
-          href="/auth/reset-password"
-          className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
-        >
-          Change password
-        </Link>
-        <p className="mt-1 text-[11px] text-kyar-textSecondary">
-          We’ll send you a link to set a new password.
-        </p>
+      <div className="pt-4 space-y-6">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-2">
+            Email & password
+          </p>
+          {accountsLoading ? (
+            <p className="text-sm text-kyar-textSecondary">Loading…</p>
+          ) : hasCredentialAccount ? (
+            <>
+              <Link
+                href="/auth/reset-password"
+                className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+              >
+                Change password
+              </Link>
+              <p className="mt-1 text-[11px] text-kyar-textSecondary">
+                We’ll send you a link to set a new password.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[11px] text-kyar-textSecondary mb-3">
+                You’re signed in with a social provider only. Create a password to enable email and
+                username sign-in with the same account.
+              </p>
+              <div className="space-y-2 max-w-md">
+                <label className="sr-only" htmlFor="create-password">
+                  New password
+                </label>
+                <input
+                  id="create-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordSetupError(null);
+                  }}
+                  placeholder="New password (min 8 characters)"
+                  className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+                  disabled={passwordSetupLoading}
+                />
+                <label className="sr-only" htmlFor="confirm-password">
+                  Confirm password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordSetupError(null);
+                  }}
+                  placeholder="Confirm password"
+                  className="w-full px-4 py-3 text-sm border-b border-kyar-borderSubtle bg-transparent focus:outline-none focus:border-kyar-text transition-colors"
+                  disabled={passwordSetupLoading}
+                />
+                {passwordSetupError && (
+                  <p className="text-xs text-red-500" role="alert">
+                    {passwordSetupError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleCreatePassword()}
+                  disabled={passwordSetupLoading}
+                  className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline disabled:opacity-50"
+                >
+                  {passwordSetupLoading ? "Saving…" : "Save password"}
+                </button>
+              </div>
+              <p className="mt-4 text-[11px] text-kyar-textTertiary">
+                Prefer email? Use{" "}
+                <Link href="/auth/reset-password" className="text-kyar-accent hover:underline">
+                  forgot password
+                </Link>{" "}
+                and we’ll send a link to {user.email ?? "your address"}.
+              </p>
+            </>
+          )}
+        </div>
       </div>
       <div className="pt-4 border-t border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-2">
@@ -557,6 +864,14 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
           stored locally so you stay signed in across refreshes.
         </p>
         <div className="mt-3 flex flex-wrap gap-4">
+          <Link
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline"
+          >
+            Terms of Service
+          </Link>
           <Link
             href="/privacy"
             target="_blank"
