@@ -45,12 +45,18 @@ type ConventionGroup = {
 function buildTaskTree(
   tasks: PlannerTask[],
   conventionsList: Array<{ _id: Id<"conventions">; name: string }> | undefined
-): { conventionGroups: ConventionGroup[]; standaloneBuilds: BuildGroup[] } {
+): {
+  conventionGroups: ConventionGroup[];
+  standaloneBuilds: BuildGroup[];
+  /** Tasks with no build or convention attachment (e.g. cosplay-node-only workflow items). */
+  unassignedTasks: PlannerTask[];
+} {
   const conventionMap = new Map<
     Id<"conventions">,
     { conventionName: string; builds: Map<Id<"builds">, BuildGroup>; packingTasks: PlannerTask[] }
   >();
   const standaloneMap = new Map<Id<"builds">, BuildGroup>();
+  const unassignedTasks: PlannerTask[] = [];
 
   const getConventionName = (conventionId: Id<"conventions">) =>
     conventionsList?.find((c) => c._id === conventionId)?.name ?? "Event";
@@ -85,8 +91,9 @@ function buildTaskTree(
         standaloneMap.set(task.buildId, buildGroup);
       }
       buildGroup.tasks.push(task);
+    } else {
+      unassignedTasks.push(task);
     }
-    // Edge case: task has neither conventionId nor buildId (shouldn't happen for planner; skip or put in "Other")
   }
 
   const conventionGroups: ConventionGroup[] = Array.from(conventionMap.entries()).map(
@@ -103,7 +110,7 @@ function buildTaskTree(
     a.buildName.localeCompare(b.buildName)
   );
 
-  return { conventionGroups, standaloneBuilds };
+  return { conventionGroups, standaloneBuilds, unassignedTasks };
 }
 
 type Timeframe = "all" | "today" | "week";
@@ -469,14 +476,19 @@ function PlannerTaskTree({
   userId,
   onToggle,
 }: {
-  tree: { conventionGroups: ConventionGroup[]; standaloneBuilds: BuildGroup[] };
+  tree: {
+    conventionGroups: ConventionGroup[];
+    standaloneBuilds: BuildGroup[];
+    unassignedTasks: PlannerTask[];
+  };
   userId: string | null;
   onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
 }) {
-  const { conventionGroups, standaloneBuilds } = tree;
+  const { conventionGroups, standaloneBuilds, unassignedTasks } = tree;
   const hasConventions = conventionGroups.length > 0;
   const hasStandalone = standaloneBuilds.length > 0;
-  if (!hasConventions && !hasStandalone) return null;
+  const hasUnassigned = unassignedTasks.length > 0;
+  if (!hasConventions && !hasStandalone && !hasUnassigned) return null;
 
   return (
     <div className="space-y-1">
@@ -626,6 +638,40 @@ function PlannerTaskTree({
           </ul>
         </details>
       ))}
+      {hasUnassigned && (
+        <details className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+              ▶
+            </span>
+            <span className="flex-1">Elements and other tasks</span>
+          </summary>
+          <ul className="pl-4 pr-2 pb-2 pt-2 space-y-2 border-t border-kyar-cardBorder">
+            {unassignedTasks.map((task) => (
+              <li key={task._id}>
+                <PlannerTaskRow
+                  title={task.title}
+                  done={task.status === "done"}
+                  userId={userId}
+                  onToggle={() => onToggle(task._id, task.status !== "done")}
+                  contextHref={
+                    task.cosplayNodeId
+                      ? `/elements/${task.cosplayNodeId}`
+                      : "/elements"
+                  }
+                  contextLabel={
+                    task.cosplayNodeId ? "Element" : "Workflow"
+                  }
+                  status={task.status}
+                  progressPercent={task.progressPercent}
+                  dueDate={task.dueDate}
+                  blockedByCount={task.blockedByCount}
+                />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

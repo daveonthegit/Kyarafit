@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
 import {
   Alert,
   Image,
@@ -7,6 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
+import DraggableFlatList, {
+  type RenderItemParams,
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -95,10 +99,20 @@ export default function ElementDetailScreen() {
       : undefined;
 
   useLayoutEffect(() => {
-    if (node?.name) {
-      navigation.setOptions({ title: node.name });
-    }
-  }, [navigation, node?.name]);
+    navigation.setOptions({
+      title: node?.name ?? "",
+      headerRight: () =>
+        id ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push(APP_HREF.elementEdit(id as string))}
+            className="mr-3"
+          >
+            <Text className="text-base font-semibold text-neutral-900">{t("elements.editShort")}</Text>
+          </Pressable>
+        ) : null,
+    });
+  }, [navigation, node?.name, id, router, t]);
 
   return (
     <DataBoundary<ElementDetailLoaded> status={status} data={data} error={error}>
@@ -128,6 +142,8 @@ function ElementDetailBody({
   t: TFunction;
 }) {
   const update = useMutation(api.cosplayNodes.update);
+  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
+  const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
   const router = useRouter();
   const { node, userId, id } = loaded;
 
@@ -169,6 +185,79 @@ function ElementDetailBody({
       { text: t("common.cancel"), style: "cancel" },
     ]);
   };
+
+  const confirmRemoveLink = useCallback(
+    (linkId: Id<"cosplayNodeLinks">, label: string) => {
+      Alert.alert(t("elements.unlinkConfirmTitle"), label, [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("elements.unlinkConfirmAction"),
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await removeChildLink({ id: linkId, userId });
+              } catch (e) {
+                Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+              }
+            })();
+          },
+        },
+      ]);
+    },
+    [removeChildLink, t, userId]
+  );
+
+  const onDragEnd = useCallback(
+    async ({ data }: { data: ChildRow[] }) => {
+      try {
+        await reorderChildren({
+          parentNodeId: id,
+          userId,
+          orderedLinkIds: data.map((c) => c.linkId),
+        });
+      } catch (e) {
+        Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      }
+    },
+    [id, reorderChildren, userId, t]
+  );
+
+  const renderChild = useCallback(
+    ({ item, drag, isActive }: RenderItemParams<ChildRow>) => (
+      <ScaleDecorator>
+        <View
+          className={`flex-row items-stretch border-b border-neutral-100 ${isActive ? "opacity-80" : ""}`}
+        >
+          <Pressable
+            className="flex-1 py-4 pr-2"
+            onPress={() => router.push(APP_HREF.element(item._id as string))}
+          >
+            <Text className="text-base font-medium text-neutral-900">{item.name}</Text>
+            <Text className="mt-0.5 text-sm text-neutral-500">
+              {formatNodeTypeLabel(item.nodeType as CosplayNodeType)} · {formatNodeStatus(item)}
+            </Text>
+          </Pressable>
+          <Pressable
+            onLongPress={drag}
+            delayLongPress={120}
+            className="justify-center px-2"
+            accessibilityLabel={t("elements.dragToReorder")}
+          >
+            <Text className="text-lg text-neutral-400">☰</Text>
+          </Pressable>
+          <Pressable
+            className="justify-center px-2"
+            onPress={() => confirmRemoveLink(item.linkId, item.name)}
+            accessibilityLabel={t("elements.unlinkChild")}
+          >
+            <Text className="text-base font-semibold text-red-600">×</Text>
+          </Pressable>
+        </View>
+      </ScaleDecorator>
+    ),
+    [confirmRemoveLink, router, t]
+  );
 
   const uri = heroUri ?? node.imageUrl ?? null;
 
@@ -256,19 +345,55 @@ function ElementDetailBody({
           </Text>
         </Pressable>
 
+        <Text className="mt-10 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {t("elements.graphLinks")}
+        </Text>
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          <Pressable
+            onPress={() =>
+              router.push(APP_HREF.elementLinkChild(id as string))
+            }
+            className="rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2"
+          >
+            <Text className="text-sm font-medium text-neutral-900">{t("elements.addChild")}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              router.push(APP_HREF.elementLinkParent(id as string))
+            }
+            className="rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2"
+          >
+            <Text className="text-sm font-medium text-neutral-900">{t("elements.attachParent")}</Text>
+          </Pressable>
+        </View>
+
         {node.parents.length > 0 ? (
           <View className="mt-10">
             <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               {t("elements.parents")}
             </Text>
             {node.parents.map((p: ParentRef) => (
-              <Pressable
+              <View
                 key={p._id}
-                className="mt-2 py-2"
-                onPress={() => router.push(APP_HREF.element(p._id as string))}
+                className="mt-2 flex-row items-center border-b border-neutral-100 py-3"
               >
-                <Text className="text-base font-medium text-neutral-900">{p.name}</Text>
-              </Pressable>
+                <Pressable
+                  className="min-w-0 flex-1"
+                  onPress={() => router.push(APP_HREF.element(p._id as string))}
+                >
+                  <Text className="text-base font-medium text-neutral-900">{p.name}</Text>
+                  <Text className="mt-0.5 text-xs text-neutral-500">
+                    {formatNodeTypeLabel(p.nodeType as CosplayNodeType)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  className="px-2 py-1"
+                  onPress={() => confirmRemoveLink(p.linkId, p.name)}
+                  accessibilityLabel={t("elements.unlinkParent")}
+                >
+                  <Text className="text-base font-semibold text-red-600">×</Text>
+                </Pressable>
+              </View>
             ))}
           </View>
         ) : null}
@@ -278,18 +403,16 @@ function ElementDetailBody({
             <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               {t("elements.children")}
             </Text>
-            {node.children.map((c: ChildRow) => (
-              <Pressable
-                key={c._id}
-                className="border-b border-neutral-100 py-4"
-                onPress={() => router.push(APP_HREF.element(c._id as string))}
-              >
-                <Text className="text-base font-medium text-neutral-900">{c.name}</Text>
-                <Text className="mt-0.5 text-sm text-neutral-500">
-                  {formatNodeTypeLabel(c.nodeType as CosplayNodeType)} · {formatNodeStatus(c)}
-                </Text>
-              </Pressable>
-            ))}
+            <Text className="mt-1 text-xs text-neutral-500">{t("elements.childrenDragHint")}</Text>
+            <DraggableFlatList
+              className="mt-2"
+              data={node.children}
+              keyExtractor={(item) => item.linkId as string}
+              onDragEnd={onDragEnd}
+              renderItem={renderChild}
+              scrollEnabled={false}
+              style={{ flexGrow: 0 }}
+            />
           </View>
         ) : null}
       </View>

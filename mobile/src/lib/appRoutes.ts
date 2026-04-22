@@ -19,4 +19,9 @@ export const APP_HREF = {
   elementNew: href("/(app)/elements/new"),
   elementLinkBuild: (cosplayNodeId: string) =>
     href(`/(app)/elements/link-build?cosplayNodeId=${encodeURIComponent(cosplayNodeId)}`),
+  elementEdit: (cosplayNodeId: string) => href(`/(app)/elements/${cosplayNodeId}/edit`),
+  elementLinkChild: (parentNodeId: string) =>
+    href(`/(app)/elements/link-child?parentNodeId=${encodeURIComponent(parentNodeId)}`),
+  elementLinkParent: (childNodeId: string) =>
+    href(`/(app)/elements/link-parent?childNodeId=${encodeURIComponent(childNodeId)}`),
 } as const;

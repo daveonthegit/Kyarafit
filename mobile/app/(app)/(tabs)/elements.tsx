@@ -3,6 +3,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -15,6 +16,11 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { CosplayExplorerItem } from "@kyarafit/design-system/domain";
 import {
+  COSPLAY_CATEGORIES,
+  COSPLAY_OVERALL_BUCKETS,
+  type CosplayNodeType,
+} from "@kyarafit/design-system/types";
+import {
   formatNodeStatus,
   formatNodeTypeLabel,
   formatOverallBucket,
@@ -25,6 +31,10 @@ import { APP_HREF } from "@/lib/appRoutes";
 type SortKey = "name" | "progress" | "bucket";
 
 type ViewMode = "all" | "tree";
+
+type TypeFilter = "all" | CosplayNodeType;
+type BucketFilter = "all" | (typeof COSPLAY_OVERALL_BUCKETS)[number];
+type CategoryFilter = "all" | (typeof COSPLAY_CATEGORIES)[number];
 
 type ElementListRow = CosplayExplorerItem & { _id: Id<"cosplayNodes"> };
 
@@ -42,6 +52,9 @@ export default function ElementsScreen() {
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [bucketFilter, setBucketFilter] = useState<BucketFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
 
   const identity = useQuery(api.auth.getCurrentUser);
@@ -56,8 +69,11 @@ export default function ElementsScreen() {
       order,
       rootsOnly: viewMode === "tree",
       ...(q ? { search: q } : {}),
+      ...(typeFilter !== "all" ? { nodeType: typeFilter } : {}),
+      ...(bucketFilter !== "all" ? { overallBucket: bucketFilter } : {}),
+      ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
     };
-  }, [userId, sortBy, order, search, viewMode]);
+  }, [userId, sortBy, order, search, viewMode, typeFilter, bucketFilter, categoryFilter]);
 
   const rows = useQuery(api.cosplayNodes.list, listArgs);
 
@@ -113,6 +129,12 @@ export default function ElementsScreen() {
           toggleOrder={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          bucketFilter={bucketFilter}
+          setBucketFilter={setBucketFilter}
+          categoryFilter={categoryFilter}
+          setCategoryFilter={setCategoryFilter}
           refreshing={refreshing}
           onRefresh={onRefresh}
           router={router}
@@ -133,6 +155,12 @@ function ElementsListBody({
   toggleOrder,
   viewMode,
   setViewMode,
+  typeFilter,
+  setTypeFilter,
+  bucketFilter,
+  setBucketFilter,
+  categoryFilter,
+  setCategoryFilter,
   refreshing,
   onRefresh,
   router,
@@ -147,6 +175,12 @@ function ElementsListBody({
   toggleOrder: () => void;
   viewMode: ViewMode;
   setViewMode: (v: ViewMode) => void;
+  typeFilter: TypeFilter;
+  setTypeFilter: (v: TypeFilter) => void;
+  bucketFilter: BucketFilter;
+  setBucketFilter: (v: BucketFilter) => void;
+  categoryFilter: CategoryFilter;
+  setCategoryFilter: (v: CategoryFilter) => void;
   refreshing: boolean;
   onRefresh: () => void;
   router: ReturnType<typeof useRouter>;
@@ -200,6 +234,63 @@ function ElementsListBody({
             </Text>
           </Pressable>
         </View>
+
+        <Text className="mt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {t("elements.filtersHeading")}
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+          <View className="flex-row flex-wrap gap-2 pb-1">
+            <FilterChip
+              active={typeFilter === "all"}
+              label={t("elements.filterAll")}
+              onPress={() => setTypeFilter("all")}
+            />
+            <FilterChip
+              active={typeFilter === "element"}
+              label={t("elements.typeElement")}
+              onPress={() => setTypeFilter("element")}
+            />
+            <FilterChip
+              active={typeFilter === "material"}
+              label={t("elements.typeMaterial")}
+              onPress={() => setTypeFilter("material")}
+            />
+          </View>
+        </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+          <View className="flex-row flex-wrap gap-2 pb-1">
+            <FilterChip
+              active={bucketFilter === "all"}
+              label={t("elements.filterAll")}
+              onPress={() => setBucketFilter("all")}
+            />
+            {COSPLAY_OVERALL_BUCKETS.map((b) => (
+              <FilterChip
+                key={b}
+                active={bucketFilter === b}
+                label={formatOverallBucket(b)}
+                onPress={() => setBucketFilter(b)}
+              />
+            ))}
+          </View>
+        </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+          <View className="flex-row flex-wrap gap-2 pb-1">
+            <FilterChip
+              active={categoryFilter === "all"}
+              label={t("elements.filterAll")}
+              onPress={() => setCategoryFilter("all")}
+            />
+            {COSPLAY_CATEGORIES.map((c) => (
+              <FilterChip
+                key={c}
+                active={categoryFilter === c}
+                label={c}
+                onPress={() => setCategoryFilter(c)}
+              />
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       <FlatList
@@ -243,5 +334,26 @@ function ElementsListBody({
         )}
       />
     </View>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={`rounded-full px-3 py-1.5 ${active ? "bg-neutral-900" : "bg-neutral-100"}`}
+    >
+      <Text className={`text-xs font-medium ${active ? "text-white" : "text-neutral-700"}`}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
