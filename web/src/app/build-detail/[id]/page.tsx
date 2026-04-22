@@ -105,6 +105,24 @@ export default function BuildDetailPage() {
   const [editVisibility, setEditVisibility] = useState<"private" | "unlisted" | "public">(
     "private"
   );
+  type PublicViewerToggleKey =
+    | "showExplorer"
+    | "showTasks"
+    | "showVisualBoard"
+    | "showSummary"
+    | "showNotes"
+    | "showCollaborators";
+  type PublicViewerToggleState = Record<PublicViewerToggleKey, boolean>;
+  const defaultPublicViewer: PublicViewerToggleState = {
+    showExplorer: true,
+    showTasks: true,
+    showVisualBoard: true,
+    showSummary: true,
+    showNotes: true,
+    showCollaborators: true,
+  };
+  const [publicViewerToggles, setPublicViewerToggles] =
+    useState<PublicViewerToggleState>(defaultPublicViewer);
   const [fabModal, setFabModal] = useState<BuildDetailFabModal | null>(null);
   const [activeTab, setActiveTab] = useState<"explorer" | "tasks" | "board" | "summary">(
     "explorer"
@@ -120,6 +138,15 @@ export default function BuildDetailPage() {
       setEditImageUrl(build.imageUrl ?? "");
       setEditImageStorageId(build.imageStorageId ?? null);
       setEditVisibility((build.visibility as "private" | "unlisted" | "public") ?? "private");
+      const p = build.publicViewerSettings ?? {};
+      setPublicViewerToggles({
+        showExplorer: p.showExplorer !== false,
+        showTasks: p.showTasks !== false,
+        showVisualBoard: p.showVisualBoard !== false,
+        showSummary: p.showSummary !== false,
+        showNotes: p.showNotes !== false,
+        showCollaborators: p.showCollaborators !== false,
+      });
     }
   }, [build, isEditing]);
 
@@ -192,6 +219,10 @@ export default function BuildDetailPage() {
         imageUrl: editImageUrl.trim() || undefined,
         imageStorageId: editImageStorageId ?? undefined,
         visibility: editVisibility,
+        publicViewerSettings:
+          editVisibility === "public" || editVisibility === "unlisted"
+            ? publicViewerToggles
+            : undefined,
       });
       setIsEditing(false);
     } finally {
@@ -460,6 +491,46 @@ export default function BuildDetailPage() {
                   <p className="mt-3 text-xs leading-relaxed text-kyar-textTertiary">
                     Private: only you. Unlisted: anyone with link. Public: on your profile.
                   </p>
+                  {(editVisibility === "public" || editVisibility === "unlisted") && (
+                    <div className="mt-8 space-y-3 border-t border-kyar-borderSubtle pt-6">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
+                        Shared page sections
+                      </p>
+                      <p className="text-xs leading-relaxed text-kyar-textTertiary">
+                        These apply to the public URL and unlisted share links for this build.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(
+                          [
+                            ["showExplorer", "Explorer (outline & notes block)"],
+                            ["showNotes", "Notes in explorer"],
+                            ["showTasks", "Tasks & timeline"],
+                            ["showVisualBoard", "Visual board (refs, progress, elements)"],
+                            ["showSummary", "Summary stats"],
+                            ["showCollaborators", "Collaborators"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <label
+                            key={key}
+                            className="flex cursor-pointer items-start gap-2 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-sm text-kyar-text"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={publicViewerToggles[key]}
+                              onChange={(e) =>
+                                setPublicViewerToggles((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-4 border-t border-kyar-borderSubtle pt-6">
                   <button

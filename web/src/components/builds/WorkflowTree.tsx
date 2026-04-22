@@ -298,7 +298,9 @@ export function WorkflowTree({
       <div className="space-y-2">
         {rows.length === 0 ? (
           <div className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-6 text-sm text-kyar-textTertiary shadow-sm">
-            No workflow items yet. Add the first step below.
+            {hideComposer
+              ? "No workflow items yet."
+              : "No workflow items yet. Add the first step below."}
           </div>
         ) : (
           sortedGroupKeys.map((groupKey) => {
