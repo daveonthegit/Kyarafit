@@ -1,48 +1,56 @@
-import i18n from "i18next";
+/* eslint-disable import/no-named-as-default-member -- use default i18next instance APIs */
+import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
 import * as Localization from "expo-localization";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+
 import en from "./locales/en.json";
+import ja from "./locales/ja.json";
 import es from "./locales/es.json";
 
-export const LANGUAGE_STORAGE_KEY = "kyarafit_app_language";
+const LOCALE_KEY = "kyarafit.i18n.locale";
+
+export const SUPPORTED_LOCALES = ["en", "ja", "es"] as const;
+export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
 const resources = {
   en: { translation: en },
+  ja: { translation: ja },
   es: { translation: es },
-} as const;
+};
 
-function deviceDefault(): "en" | "es" {
-  const code = Localization.getLocales()[0]?.languageCode;
-  return code === "es" ? "es" : "en";
+function normalizeLocale(raw: string | undefined): AppLocale {
+  const code = (raw ?? "en").split("-")[0]?.toLowerCase() ?? "en";
+  if (code === "ja") return "ja";
+  if (code === "es") return "es";
+  return "en";
 }
 
-/** Synchronous bootstrap so first render has translations (before AsyncStorage hydrate). */
-if (!i18n.isInitialized) {
-  void i18n.use(initReactI18next).init({
-    compatibilityJSON: "v4",
+function pickInitialLng(stored: string | null): AppLocale {
+  if (stored === "en" || stored === "ja" || stored === "es") {
+    return stored;
+  }
+  const device = Localization.getLocales()[0]?.languageCode;
+  return normalizeLocale(device ?? undefined);
+}
+
+export async function initI18n(): Promise<void> {
+  const stored = await SecureStore.getItemAsync(LOCALE_KEY);
+  const lng = pickInitialLng(stored);
+
+  await i18next.use(initReactI18next).init({
     resources,
-    lng: deviceDefault(),
+    lng,
     fallbackLng: "en",
     interpolation: { escapeValue: false },
+    compatibilityJSON: "v4",
   });
 }
 
-let hydrated = false;
-
-/** Hydrate preferred language from storage (call once at startup). */
-export async function initI18n(): Promise<void> {
-  if (hydrated) return;
-  hydrated = true;
-  const saved = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (saved === "es" || saved === "en") {
-    await i18n.changeLanguage(saved);
-  }
+/** Persists to Secure Store and applies immediately (KFM-029a). */
+export async function setAppLocale(next: AppLocale): Promise<void> {
+  await SecureStore.setItemAsync(LOCALE_KEY, next);
+  await i18next.changeLanguage(next);
 }
 
-export async function setAppLanguage(lng: "en" | "es"): Promise<void> {
-  await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
-  await i18n.changeLanguage(lng);
-}
-
-export default i18n;
+export default i18next;

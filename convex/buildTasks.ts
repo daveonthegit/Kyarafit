@@ -28,6 +28,21 @@ async function resolveCosplayNodeId(
   return migrated?._id ?? null;
 }
 
+export async function workflowTasksForBuildOwner(
+  ctx: QueryCtx,
+  buildId: Id<"builds">,
+  ownerUserId: string
+) {
+  const scoped = await getWorkflowItemsByAttachmentKey(
+    ctx,
+    ownerUserId,
+    [entityKey("build", buildId)],
+    buildId
+  );
+  const tasks = scoped.items.filter((item) => item.kind === "task");
+  return await Promise.all(tasks.map((item) => mapLegacyTaskShape(ctx, item, ownerUserId)));
+}
+
 async function mapLegacyTaskShape(ctx: QueryCtx, item: Doc<"workflowItems">, userId: string) {
   const attachments = (await getWorkflowAttachmentsForUser(ctx, userId)).filter(
     (attachment) => attachment.workflowItemId === item._id
@@ -53,18 +68,19 @@ async function mapLegacyTaskShape(ctx: QueryCtx, item: Doc<"workflowItems">, use
 }
 
 export const listByBuild = query({
-  args: { buildId: v.id("builds") },
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return [];
-    const scoped = await getWorkflowItemsByAttachmentKey(
-      ctx,
-      build.userId,
-      [entityKey("build", args.buildId)],
-      args.buildId
-    );
-    const tasks = scoped.items.filter((item) => item.kind === "task");
-    return await Promise.all(tasks.map((item) => mapLegacyTaskShape(ctx, item, build.userId)));
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return [];
+    return await workflowTasksForBuildOwner(ctx, args.buildId, build.userId);
   },
 });
 
@@ -107,10 +123,21 @@ export const listByClosetItem = query({
 export const listByBuilds = query({
   args: { buildIds: v.array(v.id("builds")) },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const results = [];
     for (const buildId of args.buildIds) {
       const build = await ctx.db.get(buildId);
       if (!build) {
+        results.push({ buildId, tasks: [] });
+        continue;
+      }
+      const allowed = await canReadBuildWorkflowData(ctx, build, {
+        viewerUserId,
+        shareToken: null,
+      });
+      if (!allowed) {
         results.push({ buildId, tasks: [] });
         continue;
       }

@@ -4,8 +4,18 @@ import { canUserEditBuild } from "./lib/buildAccess";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 export const listByBuild = query({
-  args: { buildId: v.id("builds") },
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return [];
     const rows = await ctx.db
       .query("buildProcessPictures")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))

@@ -19,10 +19,13 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     bio: v.optional(v.string()),
     profileVisibility: v.optional(v.string()),
+    /** App role; omit or `"user"` for normal users, `"admin"` for broadcast/admin APIs. */
+    role: v.optional(v.union(v.literal("user"), v.literal("admin"))),
   })
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])
-    .index("by_username", ["username"]),
+    .index("by_username", ["username"])
+    .index("by_role", ["role"]),
 
   closetItems: defineTable({
     userId: v.string(),
@@ -66,11 +69,14 @@ export default defineSchema({
     buildInstructions: v.optional(v.string()),
     finishedPhotoUrls: v.optional(v.array(v.string())),
     consumable: v.optional(v.boolean()),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_nodeType", ["userId", "nodeType"])
     .index("by_userId_category", ["userId", "category"])
-    .index("by_legacyClosetItemId", ["legacyClosetItemId"]),
+    .index("by_legacyClosetItemId", ["legacyClosetItemId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),
@@ -131,13 +137,29 @@ export default defineSchema({
     manualProgressPercent: v.optional(v.number()),
     visibility: v.optional(v.string()),
     shareToken: v.optional(v.string()),
+    /** Optional toggles for what anonymous/unlisted-link viewers see on public pages. Undefined keys default to true (show section). */
+    publicViewerSettings: v.optional(
+      v.object({
+        showExplorer: v.optional(v.boolean()),
+        showTasks: v.optional(v.boolean()),
+        showVisualBoard: v.optional(v.boolean()),
+        showSummary: v.optional(v.boolean()),
+        showNotes: v.optional(v.boolean()),
+        showCollaborators: v.optional(v.boolean()),
+      })
+    ),
     groupId: v.optional(v.id("groups")),
+    /** Offline-first client-generated id for dedupe (optional). */
+    clientId: v.optional(v.string()),
+    /** Optimistic concurrency / LWW (optional). */
+    version: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
     .index("by_shareToken", ["shareToken"])
     .index("by_groupId", ["groupId"])
-    .index("by_visibility", ["visibility"]),
+    .index("by_visibility", ["visibility"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   buildItemLinks: defineTable({
     userId: v.string(),
@@ -157,12 +179,15 @@ export default defineSchema({
     sortOrder: v.number(),
     checked: v.boolean(),
     dueDate: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_closetItemId", ["closetItemId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
-    .index("by_packingListItemId", ["packingListItemId"]),
+    .index("by_packingListItemId", ["packingListItemId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   workflowItems: defineTable({
     userId: v.string(),
@@ -201,13 +226,16 @@ export default defineSchema({
     recurrenceRule: v.optional(v.string()),
     legacyBuildTaskId: v.optional(v.id("buildTasks")),
     dedupeKey: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_parentId", ["parentId"])
     .index("by_parentId_sortOrder", ["parentId", "sortOrder"])
     .index("by_legacyBuildTaskId", ["legacyBuildTaskId"])
     .index("by_templateId", ["templateId"])
-    .index("by_dedupeKey", ["dedupeKey"]),
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   workflowAttachments: defineTable({
     userId: v.string(),
@@ -273,7 +301,11 @@ export default defineSchema({
     startDate: v.string(),
     endDate: v.string(),
     archived: v.optional(v.boolean()),
-  }).index("by_userId", ["userId"]),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   conventionDayPlans: defineTable({
     userId: v.string(),
@@ -281,7 +313,11 @@ export default defineSchema({
     date: v.string(),
     buildId: v.optional(v.id("builds")),
     notes: v.optional(v.string()),
-  }).index("by_conventionId", ["conventionId"]),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
+  })
+    .index("by_conventionId", ["conventionId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   packingListItems: defineTable({
     userId: v.string(),
@@ -297,11 +333,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
     checked: v.boolean(),
     sortOrder: v.optional(v.number()),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_conventionId", ["conventionId"])
     .index("by_userId", ["userId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
-    .index("by_workflowItemId", ["workflowItemId"]),
+    .index("by_workflowItemId", ["workflowItemId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   buildReferenceImages: defineTable({
     userId: v.string(),
@@ -309,9 +348,12 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_buildId", ["buildId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   buildProcessPictures: defineTable({
     userId: v.string(),
@@ -319,9 +361,12 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
+    clientId: v.optional(v.string()),
+    version: v.optional(v.number()),
   })
     .index("by_buildId", ["buildId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"]),
 
   groups: defineTable({
     name: v.string(),
@@ -395,4 +440,45 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_createdAt", ["userId", "createdAt"]),
+
+  /** Dedupe retries from offline/sync clients (Phase 2 / §3.13.5). */
+  idempotencyLedger: defineTable({
+    key: v.string(),
+    userId: v.string(),
+    createdAt: v.number(),
+    result: v.optional(v.any()),
+  }).index("by_key", ["key"]),
+
+  broadcasts: defineTable({
+    title: v.string(),
+    body: v.string(),
+    deepLink: v.optional(v.string()),
+    audience: v.union(
+      v.literal("all"),
+      v.literal("tier:pro"),
+      v.literal("tier:studio"),
+      v.literal("userIds")
+    ),
+    audienceArgs: v.optional(v.any()),
+    scheduledAt: v.number(),
+    sentAt: v.optional(v.number()),
+    deliveryStats: v.optional(
+      v.object({
+        queued: v.number(),
+        delivered: v.number(),
+        failed: v.number(),
+      })
+    ),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    cancelledAt: v.optional(v.number()),
+  }).index("by_scheduled", ["scheduledAt", "sentAt"]),
+
+  userPushPreferences: defineTable({
+    userId: v.id("users"),
+    expoPushToken: v.optional(v.string()),
+    marketingOptIn: v.boolean(),
+    transactionalOptIn: v.boolean(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
 });

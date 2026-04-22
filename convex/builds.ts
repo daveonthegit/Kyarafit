@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
 import { deriveNodeSummary } from "./cosplayNodes";
 import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
 import { getBuildScopedWorkflow } from "./workflow";
@@ -352,6 +353,137 @@ export const getByShareToken = query({
   },
 });
 
+/**
+ * Single payload for public share pages (`/b/[buildId]` when public, `/b/s/[token]` when unlisted).
+ * Enforces access server-side; respects `publicViewerSettings` toggles.
+ */
+export const getPublicViewerBundle = query({
+  args: {
+    buildId: v.optional(v.id("builds")),
+    shareToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.buildId && !args.shareToken) return null;
+
+    let build: Doc<"builds"> | null = null;
+    const shareTokenForAccess = args.shareToken;
+
+    if (args.shareToken) {
+      build = await ctx.db
+        .query("builds")
+        .withIndex("by_shareToken", (q) => q.eq("shareToken", args.shareToken))
+        .unique();
+    } else if (args.buildId) {
+      build = await ctx.db.get(args.buildId);
+      if (!build) return null;
+      const vis = build.visibility ?? "private";
+      if (vis !== "public") return null;
+    }
+
+    if (!build) return null;
+
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+
+    const { canReadBuildWorkflowData, resolvedPublicViewerSettings } = await import(
+      "./lib/buildPublicViewer"
+    );
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: shareTokenForAccess ?? null,
+    });
+    if (!allowed) return null;
+
+    const toggles = resolvedPublicViewerSettings(build);
+
+    const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
+      await getBuildWorkflowMetrics(ctx, build);
+
+    const { workflowTasksForBuildOwner } = await import("./buildTasks");
+    const { computeBuildVisualNodesList } = await import("./cosplayNodes");
+
+    const tasks =
+      toggles.showTasks && allowed
+        ? await workflowTasksForBuildOwner(ctx, build._id, build.userId)
+        : [];
+
+    const visualNodes =
+      (toggles.showExplorer || toggles.showVisualBoard) && allowed
+        ? await computeBuildVisualNodesList(ctx, build._id)
+        : [];
+
+    const summary =
+      toggles.showSummary && allowed ? await computeBuildSummaryPayload(ctx, build) : null;
+
+    const rootNodeIds =
+      toggles.showExplorer && allowed ? await getBuildRootNodeIds(ctx, build._id) : [];
+
+    let referenceImages: Doc<"buildReferenceImages">[] = [];
+    let processPictures: Doc<"buildProcessPictures">[] = [];
+    if (allowed && toggles.showVisualBoard) {
+      referenceImages = (
+        await ctx.db
+          .query("buildReferenceImages")
+          .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+          .collect()
+      ).sort((a, b) => a.sortOrder - b.sortOrder || a._creationTime - b._creationTime);
+      processPictures = (
+        await ctx.db
+          .query("buildProcessPictures")
+          .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+          .collect()
+      ).sort((a, b) => a.sortOrder - b.sortOrder || a._creationTime - b._creationTime);
+    }
+
+    let collaborators: Array<{
+      userId: string;
+      role: string;
+      email: string | null;
+      name: string | null;
+      username: string | null;
+    }> = [];
+    if (allowed && toggles.showCollaborators) {
+      const rows = await ctx.db
+        .query("buildCollaborators")
+        .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+        .collect();
+      collaborators = await Promise.all(
+        rows.map(async (r) => {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_externalId", (q) => q.eq("externalId", r.userId))
+            .unique();
+          return {
+            userId: r.userId,
+            role: r.role,
+            email: user?.email ?? null,
+            name: user?.displayName ?? user?.name ?? null,
+            username: user?.username ?? null,
+          };
+        })
+      );
+    }
+
+    return {
+      build: {
+        ...build,
+        tasksTotal,
+        tasksChecked,
+        progress,
+        workflowProgressPercent,
+      },
+      togglesResolved: toggles,
+      tasks,
+      visualNodes,
+      summary,
+      rootNodeIds,
+      referenceImages,
+      processPictures,
+      collaborators,
+    };
+  },
+});
+
 /** List public builds for a user (for public profile page). */
 export const listPublicByUser = query({
   args: { userId: v.string() },
@@ -547,6 +679,16 @@ export const update = mutation({
     visibility: v.optional(v.string()),
     shareToken: v.optional(v.union(v.string(), v.null())),
     groupId: v.optional(v.union(v.id("groups"), v.null())),
+    publicViewerSettings: v.optional(
+      v.object({
+        showExplorer: v.optional(v.boolean()),
+        showTasks: v.optional(v.boolean()),
+        showVisualBoard: v.optional(v.boolean()),
+        showSummary: v.optional(v.boolean()),
+        showNotes: v.optional(v.boolean()),
+        showCollaborators: v.optional(v.boolean()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const { id, userId, ...fields } = args;
@@ -593,6 +735,20 @@ export const update = mutation({
         patch.shareToken = val === null || val === "" ? undefined : val;
       } else if (k === "groupId") {
         patch.groupId = val === null || val === "" ? undefined : val;
+      } else if (k === "publicViewerSettings" && val && typeof val === "object") {
+        const prev = build.publicViewerSettings ?? {};
+        const incoming = val as Record<string, boolean | undefined>;
+        patch.publicViewerSettings = {
+          ...prev,
+          ...(incoming.showExplorer !== undefined ? { showExplorer: incoming.showExplorer } : {}),
+          ...(incoming.showTasks !== undefined ? { showTasks: incoming.showTasks } : {}),
+          ...(incoming.showVisualBoard !== undefined ? { showVisualBoard: incoming.showVisualBoard } : {}),
+          ...(incoming.showSummary !== undefined ? { showSummary: incoming.showSummary } : {}),
+          ...(incoming.showNotes !== undefined ? { showNotes: incoming.showNotes } : {}),
+          ...(incoming.showCollaborators !== undefined
+            ? { showCollaborators: incoming.showCollaborators }
+            : {}),
+        };
       } else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
@@ -779,14 +935,81 @@ export const updateStatusMany = mutation({
 });
 
 export const getNodes = query({
-  args: { buildId: v.id("builds") },
-  handler: async (ctx, args) => await getBuildRootNodeIds(ctx, args.buildId),
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return [];
+    return await getBuildRootNodeIds(ctx, args.buildId);
+  },
 });
 
 export const getItems = query({
   args: { buildId: v.id("builds") },
   handler: async (ctx, args) => await getBuildRootNodeIds(ctx, args.buildId),
 });
+
+async function computeBuildSummaryPayload(
+  ctx: import("./_generated/server").QueryCtx,
+  build: Doc<"builds">
+) {
+  const {
+    tasksChecked,
+    tasksTotal,
+    progress: progressPercent,
+    totalCostCents,
+  } = await getBuildWorkflowMetrics(ctx, build);
+
+  const links = await getBuildRootLinks(ctx, build._id);
+  let linkedItemCount = links.length;
+  let linkedItemsCompleteCount = 0;
+  const visited = new Set<string>();
+  for (const link of links) {
+    const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, build._id, visited);
+    if (summary.overallBucket === "complete") linkedItemsCompleteCount += 1;
+  }
+
+  const createdMs = (build as { _creationTime?: number })._creationTime ?? Date.now();
+  const createdDate = new Date(createdMs).toISOString().slice(0, 10);
+  const now = Date.now();
+  const elapsedMs = now - createdMs;
+  const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+
+  let remainingDays: number | null = null;
+  if (build.targetDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetStart = new Date(build.targetDate);
+    targetStart.setHours(0, 0, 0, 0);
+    remainingDays = Math.ceil((targetStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  const budgetCents = build.budgetCents ?? null;
+  const budgetDifferenceCents = budgetCents != null ? budgetCents - totalCostCents : null;
+
+  return {
+    status: build.status,
+    progressPercent,
+    tasksChecked,
+    tasksTotal,
+    createdDate,
+    targetDate: build.targetDate ?? null,
+    elapsedDays,
+    remainingDays,
+    linkedItemCount,
+    linkedItemsCompleteCount,
+    totalCostCents,
+    budgetCents,
+    budgetDifferenceCents,
+  };
+}
 
 /** Returns aggregated summary for one build (status, progress, dates, linked items, budget). Used by Summary dashboard. */
 export const getSummary = query({
@@ -797,56 +1020,7 @@ export const getSummary = query({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build || build.userId !== args.userId) return null;
-
-    const {
-      tasksChecked,
-      tasksTotal,
-      progress: progressPercent,
-      totalCostCents,
-    } = await getBuildWorkflowMetrics(ctx, build);
-
-    const links = await getBuildRootLinks(ctx, build._id);
-    let linkedItemCount = links.length;
-    let linkedItemsCompleteCount = 0;
-    const visited = new Set<string>();
-    for (const link of links) {
-      const summary = await deriveNodeSummary(ctx, link.cosplayNodeId, build._id, visited);
-      if (summary.overallBucket === "complete") linkedItemsCompleteCount += 1;
-    }
-
-    const createdMs = (build as { _creationTime?: number })._creationTime ?? Date.now();
-    const createdDate = new Date(createdMs).toISOString().slice(0, 10);
-    const now = Date.now();
-    const elapsedMs = now - createdMs;
-    const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
-
-    let remainingDays: number | null = null;
-    if (build.targetDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetStart = new Date(build.targetDate);
-      targetStart.setHours(0, 0, 0, 0);
-      remainingDays = Math.ceil((targetStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    }
-
-    const budgetCents = build.budgetCents ?? null;
-    const budgetDifferenceCents = budgetCents != null ? budgetCents - totalCostCents : null;
-
-    return {
-      status: build.status,
-      progressPercent,
-      tasksChecked,
-      tasksTotal,
-      createdDate,
-      targetDate: build.targetDate ?? null,
-      elapsedDays,
-      remainingDays,
-      linkedItemCount,
-      linkedItemsCompleteCount,
-      totalCostCents,
-      budgetCents,
-      budgetDifferenceCents,
-    };
+    return await computeBuildSummaryPayload(ctx, build);
   },
 });
 
@@ -998,6 +1172,227 @@ export const linkNodes = mutation({
       if (node && node.userId === args.userId) validIds.push(cosplayNodeId);
     }
     await replaceBuildRootLinks(ctx, args.userId, args.buildId, validIds);
+  },
+});
+
+/** Re-order root-linked cosplay nodes for a build (outline tab drag). */
+export const reorderRootLinks = mutation({
+  args: {
+    userId: v.string(),
+    buildId: v.id("builds"),
+    orderedCosplayNodeIds: v.array(v.id("cosplayNodes")),
+  },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) throw new Error("Build not found");
+    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    if (!canEdit) throw new Error("Not authorized");
+
+    const links = await ctx.db
+      .query("buildCosplayLinks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
+      .collect();
+
+    const linkByNode = new Map<string, (typeof links)[number]>();
+    for (const link of links) {
+      linkByNode.set(link.cosplayNodeId as string, link);
+    }
+
+    const seen = new Set<string>();
+    const orderedUnique: Id<"cosplayNodes">[] = [];
+    for (const id of args.orderedCosplayNodeIds) {
+      const key = id as string;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      orderedUnique.push(id);
+    }
+
+    if (orderedUnique.length !== linkByNode.size) {
+      throw new Error("Ordered nodes must match existing root links");
+    }
+    for (const id of orderedUnique) {
+      if (!linkByNode.has(id as string)) {
+        throw new Error("Unknown cosplay node for this build");
+      }
+    }
+
+    for (let i = 0; i < orderedUnique.length; i++) {
+      const nodeId = orderedUnique[i];
+      const link = linkByNode.get(nodeId as string);
+      if (!link) continue;
+      await ctx.db.patch(link._id, { sortOrder: i });
+    }
+    return orderedUnique.length;
+  },
+});
+
+/** Clone an outfit owned by the caller: new private build + linked nodes, per-build state, galleries, and planner tasks. */
+export const duplicate = mutation({
+  args: {
+    userId: v.string(),
+    sourceBuildId: v.id("builds"),
+  },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get(args.sourceBuildId);
+    if (!source) throw new Error("Build not found");
+    if (source.userId !== args.userId) {
+      throw new Error("Only the outfit owner can duplicate it");
+    }
+
+    const dupName = sanitizeAndLimit(`${source.name} (copy)`, MAX_LENGTH.name, "Name");
+
+    const newBuildId = await ctx.db.insert("builds", {
+      userId: args.userId,
+      name: dupName,
+      character: source.character,
+      status: "idea",
+      notes: source.notes,
+      imageUrl: source.imageUrl,
+      imageStorageId: source.imageStorageId,
+      imageFocalX: source.imageFocalX,
+      imageFocalY: source.imageFocalY,
+      budgetCents: source.budgetCents,
+      targetDate: source.targetDate,
+      visibility: "private",
+      manualProgressPercent: undefined,
+      shareToken: undefined,
+    });
+
+    const links = await ctx.db
+      .query("buildCosplayLinks")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
+      .collect();
+    for (const link of links) {
+      await ctx.db.insert("buildCosplayLinks", {
+        userId: args.userId,
+        buildId: newBuildId,
+        cosplayNodeId: link.cosplayNodeId,
+        sortOrder: link.sortOrder,
+      });
+    }
+
+    const states = await ctx.db
+      .query("buildNodeStates")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
+      .collect();
+    for (const s of states) {
+      await ctx.db.insert("buildNodeStates", {
+        userId: args.userId,
+        buildId: newBuildId,
+        cosplayNodeId: s.cosplayNodeId,
+        purchaseStatus: s.purchaseStatus,
+        buildStatus: s.buildStatus,
+        materialStatus: s.materialStatus,
+        manualOverallBucket: s.manualOverallBucket,
+        pricingMode: s.pricingMode,
+        directCostCents: s.directCostCents,
+        unitCostCents: s.unitCostCents,
+        quantity: s.quantity,
+        unit: s.unit,
+        purchasedAt: s.purchasedAt,
+        startedAt: s.startedAt,
+        completedAt: s.completedAt,
+      });
+    }
+
+    const refImgs = await ctx.db
+      .query("buildReferenceImages")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
+      .collect();
+    for (const r of [...refImgs].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      await ctx.db.insert("buildReferenceImages", {
+        userId: args.userId,
+        buildId: newBuildId,
+        imageStorageId: r.imageStorageId,
+        imageUrl: r.imageUrl,
+        sortOrder: r.sortOrder,
+      });
+    }
+
+    const proc = await ctx.db
+      .query("buildProcessPictures")
+      .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
+      .collect();
+    for (const p of [...proc].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      await ctx.db.insert("buildProcessPictures", {
+        userId: args.userId,
+        buildId: newBuildId,
+        imageStorageId: p.imageStorageId,
+        imageUrl: p.imageUrl,
+        sortOrder: p.sortOrder,
+      });
+    }
+
+    const scoped = await getWorkflowItemsByAttachmentKey(
+      ctx,
+      args.userId,
+      [entityKey("build", args.sourceBuildId)],
+      args.sourceBuildId
+    );
+    const sourceIdStr = args.sourceBuildId as string;
+    const taskItems = scoped.items.filter((item) => item.kind === "task");
+    for (const item of taskItems) {
+      if (item.parentId) continue;
+
+      const itemAtts = scoped.attachments.filter((a) => a.workflowItemId === item._id);
+      const buildPrimary = itemAtts.find(
+        (a) =>
+          a.entityType === "build" &&
+          String(a.entityId) === sourceIdStr &&
+          a.role === "primary"
+      );
+      if (!buildPrimary) continue;
+
+      const nodeAtt = itemAtts.find((a) => a.entityType === "cosplayNode");
+
+      const newItemId = await ctx.db.insert("workflowItems", {
+        userId: args.userId,
+        title: item.title,
+        notes: item.notes,
+        kind: "task",
+        category: item.category,
+        status: "not_started",
+        parentId: undefined,
+        ancestorIds: [],
+        sortOrder: item.sortOrder,
+        scopeKind: "build_specific",
+        sourceKind: item.sourceKind,
+        priority: item.priority,
+        startDate: item.startDate,
+        targetDate: item.targetDate,
+        dueDate: item.dueDate,
+        reminders: item.reminders,
+        weight: item.weight,
+        manualProgressPercent: undefined,
+        estimatedMinutes: item.estimatedMinutes,
+        actualMinutes: undefined,
+        estimatedCostCents: item.estimatedCostCents,
+        actualCostCents: undefined,
+      });
+
+      await ctx.db.insert("workflowAttachments", {
+        userId: args.userId,
+        workflowItemId: newItemId,
+        entityType: "build",
+        entityId: newBuildId as string,
+        entityKey: entityKey("build", newBuildId),
+        role: "primary",
+      });
+
+      if (nodeAtt) {
+        await ctx.db.insert("workflowAttachments", {
+          userId: args.userId,
+          workflowItemId: newItemId,
+          entityType: "cosplayNode",
+          entityId: nodeAtt.entityId,
+          entityKey: entityKey("cosplayNode", nodeAtt.entityId as Id<"cosplayNodes">),
+          role: "progress_source",
+          buildContextId: newBuildId,
+        });
+      }
+    }
+
+    return newBuildId;
   },
 });
 

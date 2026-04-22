@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
-import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
+import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
 

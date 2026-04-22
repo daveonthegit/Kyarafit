@@ -24,7 +24,7 @@ import {
   nodeMatchesSubstate,
   nodeSearchText,
   type CosplayExplorerItem,
-} from "@/lib/cosplayUi";
+} from "@kyarafit/design-system/domain";
 
 type CosplayNodeId = Id<"cosplayNodes">;
 type SortBy = "name" | "category" | "cost" | "progress" | "bucket";

@@ -8,11 +8,16 @@
     ".": "./index.ts",
     "./rn": "./rn/index.ts",
     "./types": "./types/index.ts",
-    "./tailwind": "./tailwind.config.js"
+    "./tailwind": "./tailwind.config.js",
+    "./domain": "./domain/index.ts",
+    "./domain/workflowProgress": "./domain/workflowProgress.ts",
+    "./domain/workflowDomain": "./domain/workflowDomain.ts",
+    "./domain/cosplayUi": "./domain/cosplayUi.ts",
+    "./domain/entitlements": "./domain/entitlements.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",
-    "typecheck": "tsc --noEmit --esModuleInterop --skipLibCheck *.ts types/*.ts rn/*.ts",
+    "typecheck": "tsc -p tsconfig.json",
     "format:check": "prettier --check \"**/*.{js,ts,json,md}\""
   },
   "dependencies": {

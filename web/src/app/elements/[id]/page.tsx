@@ -20,7 +20,7 @@ import {
   ELEMENT_PURCHASE_STATUSES,
   MATERIAL_STATUSES,
 } from "@kyarafit/design-system/types";
-import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
+import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import {
   WORKFLOW_STATUS_OPTIONS,
   plannerWorkflowRowClassName,

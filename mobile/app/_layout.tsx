@@ -1,7 +1,9 @@
 import "../global.css";
-import { useEffect, useState } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { useEffect, useState, type ReactNode } from "react";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -9,65 +11,68 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConvexReactClient } from "convex/react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import * as Linking from "expo-linking";
-import { useSession, authClient, setStoredBearerToken } from "../src/lib/auth/client";
-import { getOrCreateDeviceId } from "../src/lib/deviceId";
-import { initClosetDb } from "../src/storage/db";
-import { useCurrentUser } from "../src/hooks/useCurrentUser";
-import { useConvexSync } from "../src/hooks/useConvexSync";
-import { initI18n } from "../src/i18n";
+import * as WebBrowser from "expo-web-browser";
+import * as Sentry from "@sentry/react-native";
+import { authClient, hydrateBearerFromSecureStore, setStoredBearerToken } from "@/lib/auth/client";
+import { initI18n } from "@/i18n";
+import {
+  EXPO_PUBLIC_CONVEX_SITE_URL,
+  EXPO_PUBLIC_CONVEX_URL,
+  EXPO_PUBLIC_SENTRY_DSN,
+} from "@/config/env";
+import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ConnectivityBanner } from "@/components/ConnectivityBanner";
+import { SyncWorkerProvider } from "@/offline";
+
+WebBrowser.maybeCompleteAuthSession();
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const queryClient = new QueryClient();
 
-// Always create a client so ConvexProvider is present; tabs use useQuery(api.*) and useCurrentUser().
-// Without a provider, useQuery throws. Use placeholder URL when env is missing (e.g. mobile web).
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? "";
-const convex = new ConvexReactClient(convexUrl || "https://placeholder.convex.cloud");
+function ThemeChrome({ children }: { children: ReactNode }) {
+  const { resolvedScheme } = useTheme();
+  return (
+    <>
+      <StatusBar style={resolvedScheme === "dark" ? "light" : "dark"} />
+      <View style={{ flex: 1 }}>{children}</View>
+    </>
+  );
+}
 
-const CONVEX_SITE_URL = process.env.EXPO_PUBLIC_CONVEX_SITE_URL;
+const convex = new ConvexReactClient(EXPO_PUBLIC_CONVEX_URL || "https://placeholder.convex.cloud");
+
+if (EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: EXPO_PUBLIC_SENTRY_DSN,
+    sendDefaultPii: false,
+  });
+}
 
 function RootLayoutNav() {
-  const segments = useSegments();
-  const router = useRouter();
-  const { session, loading } = useSession();
-  const { userId } = useCurrentUser();
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Keep SQLite ↔ Convex in sync for signed-in users
-  useConvexSync(userId ?? null);
+  const [bootReady, setBootReady] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
     (async () => {
-      await initClosetDb();
-      await getOrCreateDeviceId();
-      await initI18n();
-      if (mounted) {
-        setIsInitialized(true);
+      try {
+        await hydrateBearerFromSecureStore();
+        await initI18n();
+      } finally {
+        if (!cancelled) {
+          setBootReady(true);
+          await SplashScreen.hideAsync();
+        }
       }
     })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, []);
 
-  useEffect(() => {
-    if (!isInitialized || loading) return;
-
-    const inAuthGroup = segments[0] === "auth";
-
-    if (session && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [session, segments, loading, isInitialized]);
-
-  // Handle OAuth deep-link callback: kyarafit:///?ott=<one-time-token>
-  // The crossDomain server plugin appends ?ott= to the callbackURL after OAuth completes.
-  // We exchange the OTT for a session token, persist it, and trigger a session refresh.
-  // Note: callbackURL must be kyarafit:/// (not kyarafit://(tabs)) — parentheses are
-  // invalid hostname characters and cause Better Auth to reject the request with 403.
   const incomingUrl = Linking.useURL();
   useEffect(() => {
-    if (!incomingUrl || !CONVEX_SITE_URL) return;
+    if (!incomingUrl || !EXPO_PUBLIC_CONVEX_SITE_URL) return;
     const parsed = Linking.parse(incomingUrl);
     const ott = parsed.queryParams?.ott;
     if (!ott || typeof ott !== "string") return;
@@ -75,7 +80,7 @@ function RootLayoutNav() {
     (async () => {
       try {
         const res = await fetch(
-          `${CONVEX_SITE_URL.replace(/\/$/, "")}/auth/cross-domain/one-time-token/verify`,
+          `${EXPO_PUBLIC_CONVEX_SITE_URL.replace(/\/$/, "")}/auth/cross-domain/one-time-token/verify`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -86,14 +91,10 @@ function RootLayoutNav() {
         const data = await res.json();
         const sessionToken: string | undefined = data?.session?.token;
         if (!sessionToken) return;
-        // setStoredBearerToken sets the in-memory cache synchronously, so any
-        // subsequent auth fetch (including the session-signal refresh below) will
-        // include the bearer token without waiting for AsyncStorage to finish writing.
         await setStoredBearerToken(sessionToken);
-        // Trigger the reactive session refresh. The memory token is already set,
-        // so GET /auth/get-session will include the bearer token and update useSession().
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const signal = (authClient as any).$sessionSignal;
+        const signal = (
+          authClient as { $sessionSignal?: { get: () => boolean; set: (v: boolean) => void } }
+        ).$sessionSignal;
         if (signal) {
           const val = signal.get();
           signal.set(!val);
@@ -104,41 +105,43 @@ function RootLayoutNav() {
     })();
   }, [incomingUrl]);
 
+  if (!bootReady) {
+    return null;
+  }
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="auth" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="packing" />
-      <Stack.Screen
-        name="add-item"
-        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
-      />
-      <Stack.Screen
-        name="build-new"
-        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
-      />
-      <Stack.Screen
-        name="convention-new"
-        options={{ presentation: "formSheet", sheetAllowedDetents: [0.9] } as any}
-      />
-    </Stack>
+    <View className="flex-1">
+      <ConnectivityBanner />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
+      </Stack>
+    </View>
   );
 }
 
 export default function RootLayout() {
   const content = (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="dark" />
-      <RootLayoutNav />
+      <ThemeChrome>
+        <RootLayoutNav />
+      </ThemeChrome>
     </QueryClientProvider>
   );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-          <BottomSheetModalProvider>{content}</BottomSheetModalProvider>
-        </ConvexBetterAuthProvider>
+        <ThemeProvider>
+          <ErrorBoundary>
+            <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+              <SyncWorkerProvider>
+                <BottomSheetModalProvider>{content}</BottomSheetModalProvider>
+              </SyncWorkerProvider>
+            </ConvexBetterAuthProvider>
+          </ErrorBoundary>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

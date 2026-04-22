@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true
+  },
+  "include": ["index.ts", "navConfig.ts", "rn_tokens.ts", "types/**/*.ts", "rn/**/*.ts", "domain/**/*.ts"]
+}

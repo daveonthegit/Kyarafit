@@ -81,7 +81,10 @@ export default function BuildDetailPage() {
   const linkNodes = useMutation(api.builds.linkNodes);
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
   const collaborators =
-    useQuery(api.buildCollaborators.listByBuild, id ? { buildId: id } : "skip") ?? [];
+    useQuery(
+      api.buildCollaborators.listByBuild,
+      id && userId ? { buildId: id, userId } : "skip"
+    ) ?? [];
   const removeCollaborator = useMutation(api.buildCollaborators.remove);
   const addReferenceImage = useMutation(api.buildReferenceImages.add);
   const addProgressPhoto = useMutation(api.buildProcessPictures.add);

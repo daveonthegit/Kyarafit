@@ -5,7 +5,7 @@ import {
   deriveWeightedProgress,
   deriveWorkflowAggregateProgress,
   isOverdueStatus,
-} from "../../../convex/lib/workflowProgress";
+} from "@kyarafit/design-system/domain";
 
 describe("workflowProgress", () => {
   it("prefers manual progress over status-derived progress", () => {

@@ -4,7 +4,7 @@ import {
   entityKey,
   flattenWorkflowTree,
   parentAncestorIds,
-} from "../../../convex/lib/workflowDomain";
+} from "@kyarafit/design-system/domain";
 
 describe("workflowDomain", () => {
   it("builds hierarchical trees and carries aggregate progress up", () => {

@@ -1,38 +1,53 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
-  deriveWorkflowAggregateProgress,
-  isDoneStatus,
-  isTerminalStatus,
-  type WorkflowAttachmentRole,
-  type WorkflowCategory,
-  type WorkflowEntityType,
-  type WorkflowItemKind,
-  type WorkflowScopeKind,
-  type WorkflowSourceKind,
-  type WorkflowStatus,
-} from "./workflowProgress";
-
-type Ctx = QueryCtx | MutationCtx;
+  buildWorkflowTree,
+  deriveDoneCounts,
+  entityKey,
+  flattenWorkflowTree,
+  parentAncestorIds as parentAncestorIdsCore,
+  sortWorkflowItems,
+  uniqueStrings,
+  type WorkflowAttachmentForTree,
+  type WorkflowDependencyForTree,
+  type WorkflowItemForTree,
+  type WorkflowTreeNode,
+} from "@kyarafit/design-system/domain/workflowDomain";
+import type {
+  WorkflowAttachmentRole,
+  WorkflowCategory,
+  WorkflowEntityType,
+  WorkflowItemKind,
+  WorkflowScopeKind,
+  WorkflowSourceKind,
+  WorkflowStatus,
+} from "@kyarafit/design-system/domain/workflowProgress";
 
 export type WorkflowItemDoc = Doc<"workflowItems">;
-export type WorkflowAttachmentDoc = Doc<"workflowAttachments">;
-export type WorkflowDependencyDoc = Doc<"workflowDependencies">;
 
-export function entityKey(entityType: WorkflowEntityType, entityId: string): string {
-  return `${entityType}:${entityId}`;
-}
+export {
+  buildWorkflowTree,
+  deriveDoneCounts,
+  entityKey,
+  flattenWorkflowTree,
+  sortWorkflowItems,
+  uniqueStrings,
+  type WorkflowAttachmentForTree,
+  type WorkflowDependencyForTree,
+  type WorkflowItemForTree,
+  type WorkflowTreeNode,
+};
 
-export function uniqueStrings(values: string[]): string[] {
-  return Array.from(new Set(values));
-}
-
+/** Convex `Id<"workflowItems">` branding for persisted ancestor chains. */
 export function parentAncestorIds(
   parent: Pick<WorkflowItemDoc, "_id" | "ancestorIds"> | null
 ): Id<"workflowItems">[] {
-  if (!parent) return [];
-  return [...parent.ancestorIds, parent._id];
+  return parentAncestorIdsCore(parent) as Id<"workflowItems">[];
 }
+
+type Ctx = QueryCtx | MutationCtx;
+export type WorkflowAttachmentDoc = Doc<"workflowAttachments">;
+export type WorkflowDependencyDoc = Doc<"workflowDependencies">;
 
 export async function getWorkflowItemById(
   ctx: Ctx,
@@ -115,118 +130,6 @@ export async function getWorkflowItemsByAttachmentKey(
   );
 
   return { items: scopedItems, attachments: scopedAttachments };
-}
-
-export function sortWorkflowItems(items: WorkflowItemDoc[]) {
-  return [...items].sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    if (a.parentId !== b.parentId) return (a.parentId ?? "").localeCompare(b.parentId ?? "");
-    return a.title.localeCompare(b.title);
-  });
-}
-
-type WorkflowTreeNode = WorkflowItemDoc & {
-  attachments: WorkflowAttachmentDoc[];
-  dependencies: WorkflowDependencyDoc[];
-  blockedByCount: number;
-  isBlocked: boolean;
-  progressPercent: number;
-  childCount: number;
-  children: WorkflowTreeNode[];
-};
-
-export function buildWorkflowTree(input: {
-  items: WorkflowItemDoc[];
-  attachments: WorkflowAttachmentDoc[];
-  dependencies: WorkflowDependencyDoc[];
-  externalProgress?: Map<
-    string,
-    Array<{ progressPercent?: number | null; weight?: number | null; excluded?: boolean }>
-  >;
-}) {
-  const sortedItems = sortWorkflowItems(input.items);
-  const attachmentsByItem = new Map<string, WorkflowAttachmentDoc[]>();
-  for (const attachment of input.attachments) {
-    const list = attachmentsByItem.get(attachment.workflowItemId) ?? [];
-    list.push(attachment);
-    attachmentsByItem.set(attachment.workflowItemId, list);
-  }
-
-  const prereqsBySuccessor = new Map<string, WorkflowDependencyDoc[]>();
-  for (const dependency of input.dependencies) {
-    const list = prereqsBySuccessor.get(dependency.successorWorkflowItemId) ?? [];
-    list.push(dependency);
-    prereqsBySuccessor.set(dependency.successorWorkflowItemId, list);
-  }
-
-  const itemMap = new Map<string, WorkflowItemDoc>(sortedItems.map((item) => [item._id, item]));
-  const childrenByParent = new Map<string, WorkflowItemDoc[]>();
-  const rootItems: WorkflowItemDoc[] = [];
-  for (const item of sortedItems) {
-    if (item.parentId) {
-      const list = childrenByParent.get(item.parentId) ?? [];
-      list.push(item);
-      childrenByParent.set(item.parentId, list);
-    } else {
-      rootItems.push(item);
-    }
-  }
-
-  const memo = new Map<string, WorkflowTreeNode>();
-  const visit = (item: WorkflowItemDoc): WorkflowTreeNode => {
-    const existing = memo.get(item._id);
-    if (existing) return existing;
-    const childItems = (childrenByParent.get(item._id) ?? []).map(visit);
-    const dependencies = prereqsBySuccessor.get(item._id) ?? [];
-    const blockedByCount = dependencies.filter((dependency) => {
-      const predecessor = itemMap.get(dependency.predecessorWorkflowItemId);
-      return predecessor ? !isDoneStatus(predecessor.status as WorkflowStatus) : false;
-    }).length;
-    const progressPercent = deriveWorkflowAggregateProgress({
-      kind: item.kind as WorkflowItemKind,
-      status: item.status as WorkflowStatus,
-      manualProgressPercent: item.manualProgressPercent,
-      childProgress: childItems.map((child) => ({
-        progressPercent: child.progressPercent,
-        weight: child.weight,
-        excluded: child.status === "cancelled",
-      })),
-      attachedProgress: input.externalProgress?.get(item._id) ?? [],
-    });
-
-    const node: WorkflowTreeNode = {
-      ...item,
-      attachments: attachmentsByItem.get(item._id) ?? [],
-      dependencies,
-      blockedByCount,
-      isBlocked: blockedByCount > 0 && !isTerminalStatus(item.status as WorkflowStatus),
-      progressPercent,
-      childCount: childItems.length,
-      children: childItems,
-    };
-    memo.set(item._id, node);
-    return node;
-  };
-
-  return rootItems.map(visit);
-}
-
-export function flattenWorkflowTree(nodes: WorkflowTreeNode[]): WorkflowTreeNode[] {
-  const flattened: WorkflowTreeNode[] = [];
-  const visit = (node: WorkflowTreeNode) => {
-    flattened.push(node);
-    node.children.forEach(visit);
-  };
-  nodes.forEach(visit);
-  return flattened;
-}
-
-export function deriveDoneCounts(items: Array<Pick<WorkflowItemDoc, "kind" | "status">>) {
-  const actionable = items.filter((item) => item.kind === "task");
-  return {
-    total: actionable.length,
-    done: actionable.filter((item) => item.status === "done").length,
-  };
 }
 
 export type WorkflowCreateInput = {

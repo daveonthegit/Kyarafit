@@ -56,8 +56,18 @@ export const isLikedBy = query({
 
 /** Like count for a build. */
 export const countByBuild = query({
-  args: { buildId: v.id("builds") },
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return 0;
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return 0;
     const rows = await ctx.db
       .query("buildLikes")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))

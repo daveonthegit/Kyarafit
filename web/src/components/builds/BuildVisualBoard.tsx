@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
-import type { Id } from "convex/_generated/dataModel";
+import type { Doc, Id } from "convex/_generated/dataModel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { createPortal } from "react-dom";
 import { X, Maximize2 } from "lucide-react";
@@ -30,6 +30,13 @@ type BuildVisualBoardProps = {
   linkedNodes: BuildVisualBoardNode[];
   onOpenLinkNodes: () => void;
   renderNodeCard: (item: BuildVisualBoardNode) => React.ReactNode;
+  /** Unlisted public pages: required for gallery queries when not using prefetched rows. */
+  shareToken?: string;
+  /** When set (including `[]`), skips Convex gallery queries (e.g. data from getPublicViewerBundle). */
+  prefetchedReferenceImages?: Doc<"buildReferenceImages">[];
+  prefetchedProcessPictures?: Doc<"buildProcessPictures">[];
+  /** Hide “link nodes” CTAs (public viewer). */
+  readOnly?: boolean;
 };
 
 const TABS: { id: VisualTab; label: string }[] = [
@@ -45,10 +52,30 @@ export function BuildVisualBoard({
   linkedNodes,
   onOpenLinkNodes,
   renderNodeCard,
+  shareToken,
+  prefetchedReferenceImages,
+  prefetchedProcessPictures,
+  readOnly = false,
 }: BuildVisualBoardProps) {
   const [tab, setTab] = useState<VisualTab>("all");
-  const refs = useQuery(api.buildReferenceImages.listByBuild, { buildId });
-  const progressPhotos = useQuery(api.buildProcessPictures.listByBuild, { buildId });
+  const refsQueryArgs =
+    prefetchedReferenceImages !== undefined
+      ? "skip"
+      : shareToken
+        ? { buildId, shareToken }
+        : { buildId };
+  const progressQueryArgs =
+    prefetchedProcessPictures !== undefined
+      ? "skip"
+      : shareToken
+        ? { buildId, shareToken }
+        : { buildId };
+  const refsFetched = useQuery(api.buildReferenceImages.listByBuild, refsQueryArgs);
+  const progressFetched = useQuery(api.buildProcessPictures.listByBuild, progressQueryArgs);
+  const refs =
+    prefetchedReferenceImages !== undefined ? prefetchedReferenceImages : refsFetched;
+  const progressPhotos =
+    prefetchedProcessPictures !== undefined ? prefetchedProcessPictures : progressFetched;
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -222,7 +249,7 @@ export function BuildVisualBoard({
             {allEmpty && (
               <div className="text-center py-10 bg-kyar-surface rounded-xl border border-kyar-borderSubtle">
                 <p className="text-sm text-kyar-textTertiary mb-3">No images or items yet.</p>
-                {_userId ? (
+                {!readOnly && _userId ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -233,6 +260,8 @@ export function BuildVisualBoard({
                   >
                     Link nodes
                   </button>
+                ) : readOnly ? (
+                  <p className="text-xs text-kyar-textTertiary">No images or items in this view.</p>
                 ) : (
                   <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
                 )}
@@ -291,7 +320,7 @@ export function BuildVisualBoard({
                 <p className="text-sm text-kyar-textTertiary mb-3">
                   No elements linked yet.
                 </p>
-                {_userId ? (
+                {!readOnly && _userId ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -302,6 +331,8 @@ export function BuildVisualBoard({
                   >
                     Link nodes
                   </button>
+                ) : readOnly ? (
+                  <p className="text-xs text-kyar-textTertiary">No elements in this view.</p>
                 ) : (
                   <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
                 )}

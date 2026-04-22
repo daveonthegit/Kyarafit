@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -30,10 +30,42 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router"],
-    "experiments": {
-      "typedRoutes": true
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useHermesV1": true,
+            "buildReactNativeFromSource": true
+          },
+          "android": {
+            "useHermesV1": true,
+            "buildReactNativeFromSource": true
+          }
+        }
+      ]
+    ],
+    "scheme": "kyarafit",
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
-    "scheme": "kyarafit"
+    "updates": {
+      "url": "https://u.expo.dev/ee198618-96ee-4330-9c3d-cefd43f6b68a",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "enableBsdiffPatchSupport": true
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ee198618-96ee-4330-9c3d-cefd43f6b68a"
+      }
+    },
+    "owner": "shukishi"
   }
 }

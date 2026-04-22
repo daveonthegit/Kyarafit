@@ -5,7 +5,7 @@ import {
   formatNodeTypeLabel,
   nodeMatchesSubstate,
   nodeSearchText,
-} from "./cosplayUi";
+} from "@kyarafit/design-system/domain";
 
 describe("cosplayUi", () => {
   test("formats node type labels", () => {

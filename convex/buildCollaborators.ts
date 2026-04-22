@@ -3,14 +3,25 @@ import { mutation, query } from "./_generated/server";
 
 const VALID_ROLES = ["viewer", "editor"] as const;
 
-/** List collaborators for a build. Only owner (or collaborator) can list. */
+/** List collaborators for a build. Only the owner or an existing collaborator may read the list (PII). */
 export const listByBuild = query({
-  args: { buildId: v.id("builds") },
+  args: {
+    buildId: v.id("builds"),
+    userId: v.string(),
+  },
   handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+
     const rows = await ctx.db
       .query("buildCollaborators")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
+
+    const allowed =
+      build.userId === args.userId || rows.some((r) => r.userId === args.userId);
+    if (!allowed) return [];
+
     const withUser = await Promise.all(
       rows.map(async (r) => {
         const user = await ctx.db

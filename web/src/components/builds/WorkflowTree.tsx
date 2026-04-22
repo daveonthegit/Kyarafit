@@ -192,12 +192,26 @@ function WorkflowItemRow({
 export function WorkflowTree({
   buildId,
   userId,
+  shareToken,
+  hideComposer = false,
 }: {
   buildId: Id<"builds">;
   userId: string | null;
+  /** Unlisted share links: pass token so the workflow tree loads for anonymous viewers. */
+  shareToken?: string;
+  /** Hide “add step” / subtask composers (public viewer). */
+  hideComposer?: boolean;
 }) {
-  const tree = useQuery(api.workflow.listBuildTree, { buildId });
-  const visualNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, { buildId }) ?? [];
+  const listTreeArgs =
+    shareToken !== undefined
+      ? { buildId, shareToken }
+      : { buildId };
+  const tree = useQuery(api.workflow.listBuildTree, listTreeArgs);
+  const listVisualArgs =
+    shareToken !== undefined
+      ? { buildId, shareToken }
+      : { buildId };
+  const visualNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, listVisualArgs) ?? [];
   const createWorkflow = useMutation(api.workflow.create);
   const updateWorkflow = useMutation(api.workflow.update);
   const removeWorkflow = useMutation(api.workflow.remove);
@@ -353,7 +367,7 @@ export function WorkflowTree({
         )}
       </div>
 
-      {newChildParentId && (
+      {newChildParentId && !hideComposer && (
         <div className="flex flex-wrap gap-2 rounded-xl border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-sm">
           <input
             type="text"
@@ -385,26 +399,28 @@ export function WorkflowTree({
         </div>
       )}
 
-      <div className="flex gap-2 border-t border-kyar-borderSubtle pt-4">
-        <input
-          type="text"
-          value={newRootTitle}
-          onChange={(event) => setNewRootTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void handleCreateRoot();
-          }}
-          placeholder="Add a workflow step"
-          className="flex-1 border border-kyar-borderSubtle px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          onClick={() => void handleCreateRoot()}
-          disabled={!userId || !newRootTitle.trim()}
-          className="bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
-        >
-          Add step
-        </button>
-      </div>
+      {!hideComposer && (
+        <div className="flex gap-2 border-t border-kyar-borderSubtle pt-4">
+          <input
+            type="text"
+            value={newRootTitle}
+            onChange={(event) => setNewRootTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void handleCreateRoot();
+            }}
+            placeholder="Add a workflow step"
+            className="flex-1 border border-kyar-borderSubtle px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => void handleCreateRoot()}
+            disabled={!userId || !newRootTitle.trim()}
+            className="bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
+          >
+            Add step
+          </button>
+        </div>
+      )}
     </div>
   );
 }

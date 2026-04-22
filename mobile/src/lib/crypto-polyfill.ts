@@ -1,7 +1,7 @@
 /**
  * Polyfill global `crypto` for React Native (Expo). RN does not provide the Web Crypto API;
- * expo-crypto provides randomUUID and getRandomBytes. This must be imported before any code
- * that uses crypto.randomUUID() or crypto.getRandomValues().
+ * expo-crypto provides randomUUID and getRandomBytes. Import this before any code that uses
+ * crypto.randomUUID() or crypto.getRandomValues().
  */
 import * as ExpoCrypto from "expo-crypto";
 

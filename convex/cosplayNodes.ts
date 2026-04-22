@@ -431,12 +431,11 @@ export const listChildren = query({
   },
 });
 
-export const listBuildVisualNodes = query({
-  args: { buildId: v.id("builds") },
-  handler: async (ctx, args) => {
+/** Shared implementation for build visual outline / board lists. */
+export async function computeBuildVisualNodesList(ctx: QueryCtx, buildId: Id<"builds">) {
     const rootLinks = await ctx.db
       .query("buildCosplayLinks")
-      .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", args.buildId))
+      .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", buildId))
       .collect();
 
     const visualNodes = new Map<
@@ -469,7 +468,7 @@ export const listBuildVisualNodes = query({
       const node = await ctx.db.get(cosplayNodeId);
       if (!node) return;
 
-      const summary = await deriveNodeSummary(ctx, cosplayNodeId, args.buildId);
+      const summary = await deriveNodeSummary(ctx, cosplayNodeId, buildId);
       const existing = visualNodes.get(cosplayNodeId);
       visualNodes.set(cosplayNodeId, {
         _id: node._id,
@@ -502,6 +501,22 @@ export const listBuildVisualNodes = query({
       if (a.depth !== b.depth) return a.depth - b.depth;
       return a.name.localeCompare(b.name);
     });
+}
+
+export const listBuildVisualNodes = query({
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return [];
+    return await computeBuildVisualNodesList(ctx, args.buildId);
   },
 });
 

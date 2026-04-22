@@ -15,7 +15,7 @@ import { Plus, Search } from "lucide-react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
-import { formatNodeStatus, formatNodeTypeLabel } from "@/lib/cosplayUi";
+import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import { setNativeDragLabelPreview } from "@/lib/nativeDragPreview";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;

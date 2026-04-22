@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
-import { formatNodeTypeLabel } from "@/lib/cosplayUi";
+import { formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import type {
   CosplayNodeId,
   DetailedLinkedNode,

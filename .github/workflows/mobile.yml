@@ -5,11 +5,13 @@ on:
     branches: [main, develop]
     paths:
       - "mobile/**"
+      - "scripts/i18n/**"
       - ".github/workflows/mobile.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "mobile/**"
+      - "scripts/i18n/**"
       - ".github/workflows/mobile.yml"
   workflow_call:
 
@@ -26,6 +28,9 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+
+      - name: Locale key parity (en / ja / es)
+        run: node scripts/i18n/check-keys.mjs
 
       - name: Install dependencies
         working-directory: ./mobile
@@ -44,6 +49,10 @@ jobs:
       - name: Run TypeScript check
         working-directory: ./mobile
         run: npx tsc --noEmit
+
+      - name: Enforce EXPO_PUBLIC_ env usage in mobile/src
+        working-directory: ./mobile
+        run: node scripts/check-expo-public-env.js
 
       - name: Run Prettier check
         working-directory: ./mobile
@@ -75,11 +84,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        working-directory: ./mobile
         run: npm install
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
 
       - name: Configure EAS
         working-directory: ./mobile
@@ -114,7 +119,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -n "$EXPO_TOKEN" ]; then
-            eas build --platform android --non-interactive --no-wait
+            npx eas build --platform android --non-interactive --no-wait
           else
             echo "EXPO_TOKEN not set, skipping EAS build"
           fi
@@ -125,7 +130,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -n "$EXPO_TOKEN" ]; then
-            eas build --platform ios --non-interactive --no-wait
+            npx eas build --platform ios --non-interactive --no-wait
           else
             echo "EXPO_TOKEN not set, skipping EAS build"
           fi

@@ -1,0 +1,224 @@
+# Mobile Parity Rule — Kyarafit
+
+## Purpose
+
+Ensure Kyarafit remains a **single coherent product across web and mobile**, not two diverging implementations.
+
+Mobile is not a secondary client.
+It is a **first-class platform** that must evolve in lockstep with the web app.
+
+---
+
+## Core Rule
+
+Any change to the web app that affects:
+
+* features
+* UI
+* flows
+* domain logic
+* data models
+* API behavior
+* derived/computed values
+* user-visible behavior
+
+**must also include a corresponding mobile implementation or update in the same workstream.**
+
+No exceptions unless explicitly documented.
+
+---
+
+## Default Assumption
+
+Every change is:
+
+> **Web + Mobile**
+
+If something is truly platform-specific, it must be explicitly labeled:
+
+* `web-only` (rare)
+* `mobile-only` (rare)
+
+Silence = parity required.
+
+---
+
+## What Requires Mobile Updates
+
+The following ALWAYS require mobile consideration:
+
+### 1. New Features
+
+* Any new product capability added to web must exist on mobile
+* Mobile may adapt UI, but must preserve behavior
+
+### 2. UI / UX Changes
+
+* Layout changes
+* New components
+* Interaction changes
+* Navigation changes
+* Information hierarchy changes
+
+### 3. Domain & Data Changes
+
+* Schema updates
+* New fields or relationships
+* Derived values (progress, cost, grouping, etc.)
+* Validation rules
+
+### 4. Behavior Changes
+
+* Business logic updates
+* Filtering / sorting logic
+* Status transitions
+* Automation or computed behavior
+
+### 5. Shared Components / Systems
+
+* Design system updates
+* Shared hooks/utilities
+* API contract changes
+
+---
+
+## Acceptable Differences (Important)
+
+Mobile does NOT need to copy web UI exactly.
+
+Allowed differences:
+
+* stacked layouts instead of multi-column
+* tabs instead of sidebars
+* drill-down screens instead of dense views
+* bottom sheets instead of modals
+* simplified but equivalent interactions
+
+**Rule: Behavior must match, presentation may adapt.**
+
+---
+
+## Explicit Non-Parity (Rare)
+
+If mobile will NOT implement something:
+
+You MUST document:
+
+1. Why it is web-only
+2. Why mobile cannot reasonably support it
+3. What the fallback behavior is on mobile
+
+This must be included in:
+
+* PR description
+* or a tracked follow-up issue
+
+---
+
+## Development Workflow Rules
+
+### Ticket Creation
+
+Every ticket must specify:
+
+* `platform: web | mobile | both`
+
+Default:
+
+> `platform: both`
+
+---
+
+### Implementation Rule for Agents
+
+When implementing a feature:
+
+1. Identify if it impacts shared product behavior
+2. If yes:
+
+   * implement web version
+   * implement mobile version
+3. If mobile UI differs:
+
+   * adapt UX
+   * preserve behavior
+4. Do NOT leave parity gaps for later unless explicitly tracked
+
+---
+
+### Pull Request Checklist
+
+Every PR must answer:
+
+* [ ] Does this change affect product behavior or UI?
+* [ ] Does mobile need to be updated?
+* [ ] Has the mobile implementation been included?
+* [ ] If not, is there a documented reason?
+* [ ] Were shared types/models updated for both platforms?
+* [ ] Are there any parity gaps introduced?
+
+PRs that introduce silent parity drift should be rejected.
+
+---
+
+## Architecture Guidance
+
+To make parity sustainable:
+
+* Keep **domain logic shared** where possible
+* Keep **types/models consistent**
+* Avoid duplicating business logic across platforms
+* Prefer shared abstractions for:
+
+  * validation
+  * derived values
+  * transformations
+* Allow UI to diverge, not behavior
+
+---
+
+## Anti-Patterns (Do NOT do this)
+
+* Shipping web features without mobile consideration
+* Letting mobile lag “temporarily” without tracking
+* Copy-pasting web UI blindly into mobile
+* Reimplementing business logic differently per platform
+* Treating mobile as a simplified version of the product
+
+---
+
+## Enforcement for AI Agents (Cursor)
+
+When working on this repository:
+
+* Always assume parity is required
+* Before implementing a feature:
+
+  * ask: “What is the mobile equivalent?”
+* After implementing:
+
+  * confirm parity exists
+* If unsure:
+
+  * default to implementing both
+* Never ignore mobile unless explicitly instructed
+
+---
+
+## Success Criteria
+
+This rule is working when:
+
+* Web and mobile feel like the same product
+* Features launch simultaneously across platforms
+* No backlog of “mobile catch-up work”
+* Users can switch platforms without losing capability
+* Codebases share logic instead of drifting
+
+---
+
+## Short Version (for quick reference)
+
+> If you change web, you change mobile.
+> Same behavior, adapted UI.
+> No silent drift.

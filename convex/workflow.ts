@@ -860,8 +860,18 @@ export const applyTemplate = mutation({
 });
 
 export const listBuildTree = query({
-  args: { buildId: v.id("builds") },
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUserId = identity?.subject ?? undefined;
+    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return null;
     const scoped = await getBuildScopedWorkflow(ctx, args.buildId);
     if (!scoped) return null;
     const { total, done } = deriveDoneCounts(scoped.items);

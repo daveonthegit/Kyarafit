@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
-import { formatNodeStatus } from "@/lib/cosplayUi";
+import { formatNodeStatus } from "@kyarafit/design-system/domain";
 import { BuildExplorerBreadcrumb } from "./explorer/BuildExplorerBreadcrumb";
 import { BuildExplorerDrillDown } from "./explorer/BuildExplorerDrillDown";
 import { BuildExplorerTree } from "./explorer/BuildExplorerTree";
