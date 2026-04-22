@@ -2,7 +2,7 @@
 
 **Status:** canonical. This is the single source document for the Kyarafit mobile rebuild. It supersedes any prior `PHASE_0_AUDIT.md`, `PHASE_1_FOUNDATION.md`, and `PHASES_2_4_IMPLEMENTATION.md` that previously lived in this folder.
 
-**Last updated:** 2026-04-22 (rolling — see §6 *Rolling implementation status*; Phase 3 home/builds/core build detail marked ship-ready this session).
+**Last updated:** 2026-04-22 (rolling — see §6 *Rolling implementation status*; **Phase 4 Elements** in progress; Phase 3 home/builds/build detail core parity marked ship-ready).
 
 **Applied decisions** (all merged into this document):
 
@@ -888,6 +888,7 @@ Each phase is a merge-ready milestone. "Done" means: builds on EAS, passes typec
 
 - Scope: Elements list (All + Tree), Element detail, node links (parent/child), link-to-build sheet, pricing editor, status chips, cost rollup.
 - DoD: creating an element, nesting it, attaching it to a build, and updating its status all reflect in Home.
+- **Current slice (2026-04-22):** mobile Elements tab lists nodes from `cosplayNodes.list` with search, sort, **All vs Tree (roots)** via `rootsOnly`; stack routes for **new element**, **detail**, and **link to outfit** (`addNodesToBuild`). Parent/child link editing and full pricing sheet follow in the same phase.
 
 ### Phase 5 — Conventions + Packing + Itinerary (~2 weeks)
 
@@ -937,7 +938,8 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 | Phase 0 — foundations | **Done in repo** | Greenfield `mobile/` with Router, NativeWind, Metro + `watchFolders`, Hermes V1 + bsdiff + [`hermes-v1-rollback.md`](../runbooks/hermes-v1-rollback.md), [`prerequisites-accounts.md`](../runbooks/prerequisites-accounts.md), Stripe purged from `web/`. **Web:** add `fbjs` and `styleq` as direct `mobile` dependencies so `expo start --web` resolves `react-native-web` → `fbjs/lib/invariant` and `styleq/transform-localize-style` under monorepo hoisting. |
 | Phase 1 — auth + shell | **Done in repo** | `(auth)` + `(app)` groups, bearer secure-store plugin, session gate, sign-out on More, i18n bootstrap, Sentry init when DSN set. |
 | Phase 2 | **Partial (ship-ready for Phase 3)** | Core UI shell + schema + i18n + Settings: [`mobile/app/_layout.tsx`](../../mobile/app/_layout.tsx) (Theme, ErrorBoundary, SyncWorker, banner), [`settings/*`](../../mobile/app/(app)/settings/), [`APP_HREF`](../../mobile/src/lib/appRoutes.ts), locales + [`i18n:check`](../../package.json), **KFM-022** [`kyarafit/require-data-boundary`](../../mobile/eslint-rules/require-data-boundary.cjs). **Still open:** KFM-026–028 full offline acceptance; KFM-029 AI extract/translate. |
-| Phase 3 — Home / Builds | **Done (core parity)** | **Home** [`(tabs)/index`](../../mobile/app/(app)/(tabs)/index.tsx): hero + focal cover, planner preview, **horizontal strip from `builds.listFeedFromFollowing`** (public outfits from followed users) + empty state, other outfits strip, choose-focus sheet. **Builds list** [`(tabs)/builds`](../../mobile/app/(app)/(tabs)/builds.tsx): filters, search, sort, **comfortable/compact/grid** layout cycle, long-press **focus** + **archive** with optimistic hide, new-outfit link. **Build detail** [`b/[buildId]`](../../mobile/app/(app)/b/[buildId].tsx) + [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx): Overview / Outline / Tasks, reference + process galleries, focal modal, root reorder (`builds.reorderRootLinks`), link-elements route, create build + upload. **Still not web-parity:** full-screen hero crop on create (focal adjust is post-create on detail), build **duplicate**, comments/collaborators tabs, likes. Shared: [`buildsListArgs`](../../mobile/src/lib/buildsListArgs.ts). |
+| Phase 3 — Home / Builds | **Done (core parity)** | **Home** [`(tabs)/index`](../../mobile/app/(app)/(tabs)/index.tsx): hero + focal cover, planner preview, **horizontal strip from `builds.listFeedFromFollowing`** (public outfits from followed users) + empty state, other outfits strip, choose-focus sheet. **Builds list** [`(tabs)/builds`](../../mobile/app/(app)/(tabs)/builds.tsx): filters, search, sort, **comfortable/compact/grid** layout cycle, long-press **focus** + **archive** + **duplicate** with optimistic hide where applicable. **Build detail** [`b/[buildId]`](../../mobile/app/(app)/b/[buildId].tsx) + [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx): Overview / Outline / Tasks, reference + process galleries, focal modal, root reorder (`builds.reorderRootLinks`), link-elements route, create build + upload, **likes**, **comments**, **collaborators** (owner-only list with server-side gate). **Remaining web-parity gaps:** full-screen hero crop on create (focal adjust remains on detail); optional public-share read-only viewer ([FOLLOWUP-public-build-viewer.md](FOLLOWUP-public-build-viewer.md)). Shared: [`buildsListArgs`](../../mobile/src/lib/buildsListArgs.ts). |
+| Phase 4 — Elements | **In progress** | **List** [`(tabs)/elements`](../../mobile/app/(app)/(tabs)/elements.tsx): `cosplayNodes.list` with **All / Tree (roots)** (`rootsOnly` on Convex). **Routes:** [`elements/new`](../../mobile/app/(app)/elements/new.tsx), [`elements/[id]`](../../mobile/app/(app)/elements/[id].tsx), [`elements/link-build`](../../mobile/app/(app)/elements/link-build.tsx). **Still to ship this phase:** parent/child link UI on device, full pricing editor sheet, rich tree accordion — see §6 Phase 4 tickets. |
 
 #### Phase 2 → Phase 3 handoff
 
@@ -1003,11 +1005,11 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 
 ### Phase 4
 
-- **KFM-050 Elements list (All + Tree)**.
-- **KFM-051 Element detail screen + status chips + pricing editor**.
-- **KFM-052 Create/Edit element modal**.
+- **KFM-050 Elements list (All + Tree)**. **Partial:** [`(tabs)/elements`](../../mobile/app/(app)/(tabs)/elements.tsx) with search, sort, **All / Tree** (`rootsOnly`); Convex [`cosplayNodes.list`](../../convex/cosplayNodes.ts) `rootsOnly` arg. **Still open:** category/type/bucket filters like web, bulk select.
+- **KFM-051 Element detail screen + status chips + pricing editor**. **Partial:** [`elements/[id]`](../../mobile/app/(app)/elements/[id].tsx) with hero, progress/bucket chips, **status** (alerts for element purchase/build; chip row for material), children/parents navigation, **link to outfit**; **not** full pricing editor yet.
+- **KFM-052 Create/Edit element modal**. **Partial:** [`elements/new`](../../mobile/app/(app)/elements/new.tsx) — name + element/material type → `cosplayNodes.create`. Edit screen / modal not split yet (use detail status controls).
 - **KFM-053 Link element to parent/child (node links)**.
-- **KFM-054 Link element to build from element screen**.
+- **KFM-054 Link element to build from element screen**. **Partial:** [`elements/link-build`](../../mobile/app/(app)/elements/link-build.tsx) (`addNodesToBuild`).
 
 ### Phase 5
 

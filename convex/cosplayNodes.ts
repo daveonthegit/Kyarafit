@@ -289,6 +289,8 @@ export const list = query({
     ),
     order: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
     buildId: v.optional(v.id("builds")),
+    /** When true, exclude nodes that are children of another node (tree roots only). */
+    rootsOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const order = args.order ?? "asc";
@@ -306,6 +308,15 @@ export const list = query({
           .query("cosplayNodes")
           .withIndex("by_userId", (q) => q.eq("userId", args.userId))
           .collect());
+
+    if (args.rootsOnly) {
+      const links = await ctx.db
+        .query("cosplayNodeLinks")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .collect();
+      const childIds = new Set(links.map((link) => link.childNodeId as string));
+      nodes = nodes.filter((node) => !childIds.has(node._id as string));
+    }
 
     if (categoryFilter) {
       nodes = nodes.filter((node) => node.category === categoryFilter);

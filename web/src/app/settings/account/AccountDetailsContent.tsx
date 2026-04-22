@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
@@ -8,6 +8,9 @@ import type { Id } from "convex/_generated/dataModel";
 import { isAllowedImageType } from "@/lib/imageUtils";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ProfilePictureCropModal } from "@/components/settings/ProfilePictureCropModal";
+
+const EMAIL_HIDDEN_PLACEHOLDER = "••••••••••••••••";
+const SESSION_EMAIL_VISIBLE_KEY = "kyar_account_email_visible";
 
 export type UserWithUsername = {
   id?: string;
@@ -51,6 +54,17 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string>("");
+  const [emailRevealed, setEmailRevealed] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(SESSION_EMAIL_VISIBLE_KEY) === "true") {
+        setEmailRevealed(true);
+      }
+    } catch {
+      /* private mode / denied */
+    }
+  }, []);
 
   const profileImageStorageId = convexUser?.imageStorageId ?? undefined;
   const profileImageUrl =
@@ -242,10 +256,49 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
         onError={handleCropError}
       />
       <div className="py-4 border-b border-kyar-borderSubtle">
-        <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">Email</p>
-        <p className="text-sm" data-testid="account-email">
-          {user.email ?? "—"}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
+              Email
+            </p>
+            <p
+              className={`text-sm break-all ${user.email && !emailRevealed ? "select-none text-kyar-textSecondary" : ""}`}
+              data-testid="account-email"
+              aria-label={
+                user.email && !emailRevealed ? "Email address hidden. Use Show to reveal." : undefined
+              }
+            >
+              {!user.email ? "—" : emailRevealed ? user.email : EMAIL_HIDDEN_PLACEHOLDER}
+            </p>
+            {user.email && (
+              <p className="mt-1 text-[11px] text-kyar-textTertiary leading-relaxed">
+                Hidden by default so shoulder-surfers or screen shares don’t see your address. Use
+                Show when you need to confirm it.
+              </p>
+            )}
+          </div>
+          {user.email ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEmailRevealed((prev) => {
+                  const next = !prev;
+                  try {
+                    sessionStorage.setItem(SESSION_EMAIL_VISIBLE_KEY, next ? "true" : "false");
+                  } catch {
+                    /* ignore */
+                  }
+                  return next;
+                });
+              }}
+              className="shrink-0 text-[11px] uppercase tracking-widest font-medium text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded min-h-[44px] px-1"
+              aria-expanded={emailRevealed}
+              data-testid="account-email-toggle"
+            >
+              {emailRevealed ? "Hide" : "Show"}
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="py-4 border-b border-kyar-borderSubtle">
         <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">

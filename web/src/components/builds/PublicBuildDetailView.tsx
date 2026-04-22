@@ -346,17 +346,15 @@ export function PublicBuildDetailView(props: PublicBuildDetailViewProps) {
                     {bundle.collaborators.length > 0 ? (
                       bundle.collaborators.map((c) => (
                         <div
-                          key={c.userId}
+                          key={c.collaboratorId}
                           className="flex items-center justify-between gap-3 rounded-2xl border border-kyar-borderSubtle px-4 py-3"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-muted text-xs font-serif text-kyar-text">
-                              {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
+                              {c.displayLabel.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm text-kyar-text">
-                                {c.name ?? c.email ?? c.userId}
-                              </p>
+                              <p className="truncate text-sm text-kyar-text">{c.displayLabel}</p>
                               <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
                                 {c.role}
                               </p>

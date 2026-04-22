@@ -27,14 +27,18 @@ export const listByBuild = query({
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", c.userId))
           .unique();
+        const authorUsername = user?.username?.trim() || null;
+        const authorName =
+          user?.displayName?.trim() ||
+          user?.name?.trim() ||
+          (authorUsername != null ? `@${authorUsername}` : "Member");
         return {
           _id: c._id,
           buildId: c.buildId,
-          userId: c.userId,
           body: c.body,
           createdAt: c.createdAt,
-          authorName: user?.displayName ?? user?.name ?? user?.email ?? "Unknown",
-          authorUsername: user?.username ?? null,
+          authorName,
+          authorUsername,
         };
       })
     );

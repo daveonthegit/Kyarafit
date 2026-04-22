@@ -28,6 +28,43 @@ function generateShareToken(): string {
     .join("");
 }
 
+/** Public viewer payload: no owner/collaborator identifiers, secrets, or sync-only fields. */
+function snapshotBuildForPublicViewer(
+  build: Doc<"builds">,
+  metrics: {
+    tasksTotal: number;
+    tasksChecked: number;
+    progress: number;
+    workflowProgressPercent: number;
+  }
+) {
+  return {
+    _id: build._id,
+    _creationTime: build._creationTime,
+    name: build.name,
+    character: build.character,
+    status: build.status,
+    notes: build.notes,
+    imageUrl: build.imageUrl,
+    imageStorageId: build.imageStorageId,
+    imageFocalX: build.imageFocalX,
+    imageFocalY: build.imageFocalY,
+    budgetCents: build.budgetCents,
+    targetDate: build.targetDate,
+    manualProgressPercent: build.manualProgressPercent,
+    visibility: build.visibility,
+    groupId: build.groupId,
+    publicViewerSettings: build.publicViewerSettings,
+    ...metrics,
+  };
+}
+
+/** Removes share/unlisted link token and offline sync metadata from build rows shown in public listings. */
+function stripBuildSyncSecrets(b: Doc<"builds">) {
+  const { shareToken: _st, clientId: _cid, version: _ver, ...rest } = b;
+  return rest;
+}
+
 const sortByValidator = v.optional(
   v.union(v.literal("name"), v.literal("progress"), v.literal("targetDate"), v.literal("budget"))
 );
@@ -432,11 +469,10 @@ export const getPublicViewerBundle = query({
     }
 
     let collaborators: Array<{
-      userId: string;
+      collaboratorId: Id<"buildCollaborators">;
       role: string;
-      email: string | null;
-      name: string | null;
       username: string | null;
+      displayLabel: string;
     }> = [];
     if (allowed && toggles.showCollaborators) {
       const rows = await ctx.db
@@ -449,25 +485,30 @@ export const getPublicViewerBundle = query({
             .query("users")
             .withIndex("by_externalId", (q) => q.eq("externalId", r.userId))
             .unique();
+          const username = user?.username?.trim() || null;
+          const displayLabel =
+            username != null
+              ? `@${username}`
+              : user?.displayName?.trim() ||
+                user?.name?.trim() ||
+                "Collaborator";
           return {
-            userId: r.userId,
+            collaboratorId: r._id,
             role: r.role,
-            email: user?.email ?? null,
-            name: user?.displayName ?? user?.name ?? null,
-            username: user?.username ?? null,
+            username,
+            displayLabel,
           };
         })
       );
     }
 
     return {
-      build: {
-        ...build,
+      build: snapshotBuildForPublicViewer(build, {
         tasksTotal,
         tasksChecked,
         progress,
         workflowProgressPercent,
-      },
+      }),
       togglesResolved: toggles,
       tasks,
       visualNodes,
@@ -492,7 +533,7 @@ export const listPublicByUser = query({
     return await Promise.all(
       publicOnly.map(async (b) => {
         return {
-          ...b,
+          ...stripBuildSyncSecrets(b),
           ...(await getBuildWorkflowMetrics(ctx, b)),
         };
       })
@@ -536,7 +577,7 @@ export const listDiscover = query({
           .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
           .unique();
         return {
-          ...b,
+          ...stripBuildSyncSecrets(b),
           ...(await getBuildWorkflowMetrics(ctx, b)),
           ownerUsername: user?.username ?? null,
           ownerName: user?.displayName ?? user?.name ?? null,
@@ -574,7 +615,7 @@ export const listFeedFromFollowing = query({
           .withIndex("by_externalId", (q) => q.eq("externalId", b.userId))
           .unique();
         return {
-          ...b,
+          ...stripBuildSyncSecrets(b),
           ...(await getBuildWorkflowMetrics(ctx, b)),
           ownerUsername: user?.username ?? null,
           ownerName: user?.displayName ?? user?.name ?? null,
