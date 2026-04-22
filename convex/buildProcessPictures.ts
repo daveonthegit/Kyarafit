@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 
 export const listByBuild = query({
@@ -10,7 +11,6 @@ export const listByBuild = query({
     if (!build) return [];
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,

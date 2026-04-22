@@ -3,8 +3,10 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
 import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
-import { deriveNodeSummary } from "./cosplayNodes";
+import { workflowTasksForBuildOwner } from "./buildTasks";
+import { computeBuildVisualNodesList, deriveNodeSummary } from "./cosplayNodes";
 import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
 import { getBuildScopedWorkflow } from "./workflow";
 import {
@@ -385,9 +387,6 @@ export const getPublicViewerBundle = query({
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
 
-    const { canReadBuildWorkflowData, resolvedPublicViewerSettings } = await import(
-      "./lib/buildPublicViewer"
-    );
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: shareTokenForAccess ?? null,
@@ -398,9 +397,6 @@ export const getPublicViewerBundle = query({
 
     const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
       await getBuildWorkflowMetrics(ctx, build);
-
-    const { workflowTasksForBuildOwner } = await import("./buildTasks");
-    const { computeBuildVisualNodesList } = await import("./cosplayNodes");
 
     const tasks =
       toggles.showTasks && allowed
@@ -941,7 +937,6 @@ export const getNodes = query({
     if (!build) return [];
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,

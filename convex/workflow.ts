@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import {
   buildWorkflowTree,
   deriveDoneCounts,
@@ -866,7 +867,6 @@ export const listBuildTree = query({
     if (!build) return null;
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,

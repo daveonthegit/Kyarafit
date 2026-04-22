@@ -9,6 +9,7 @@ import {
   getWorkflowItemsForUser,
 } from "./lib/workflowDomain";
 import { sanitizeAndLimit, validateDateString, MAX_LENGTH } from "./lib/validation";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 
 const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
 
@@ -74,7 +75,6 @@ export const listByBuild = query({
     if (!build) return [];
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
@@ -125,7 +125,6 @@ export const listByBuilds = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const results = [];
     for (const buildId of args.buildIds) {
       const build = await ctx.db.get(buildId);

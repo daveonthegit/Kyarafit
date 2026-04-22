@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 
 /** Like a build. User must be able to see the build (public, unlisted with link, or shared). */
 export const like = mutation({
@@ -62,7 +63,6 @@ export const countByBuild = query({
     if (!build) return 0;
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,

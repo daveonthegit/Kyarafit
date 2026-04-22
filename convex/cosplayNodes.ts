@@ -13,6 +13,7 @@ import {
 } from "./lib/cosplayGraph";
 import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
 import { syncGeneratedWorkflowForNode } from "./workflow";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -510,7 +511,6 @@ export const listBuildVisualNodes = query({
     if (!build) return [];
     const identity = await ctx.auth.getUserIdentity();
     const viewerUserId = identity?.subject ?? undefined;
-    const { canReadBuildWorkflowData } = await import("./lib/buildPublicViewer");
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
