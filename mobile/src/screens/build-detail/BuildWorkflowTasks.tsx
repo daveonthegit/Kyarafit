@@ -1,18 +1,23 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { TFunction } from "i18next";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { WORKFLOW_STATUSES } from "@kyarafit/design-system/domain";
+import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
-import { WorkflowTemplateModal } from "@/components/workflow/WorkflowTemplateModal";
+import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
+import { usePlannerTaskMove } from "@/planner/usePlannerTaskMove";
+import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
 import {
   BUILD_WORKFLOW_GROUP_KEY,
   flattenWorkflowWithElementGroup,
   sortWorkflowGroupKeys,
+  type WorkflowRowFlat,
   type WorkflowTreeNodeShape,
 } from "./buildWorkflowTreeHelpers";
+import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 
 type Props = {
   buildId: Id<"builds">;
@@ -27,14 +32,13 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
   const createWorkflow = useMutation(api.workflow.create);
   const updateWorkflow = useMutation(api.workflow.update);
   const removeWorkflow = useMutation(api.workflow.remove);
+  const moveWorkflow = useMutation(api.workflow.move);
 
   const [newRootTitle, setNewRootTitle] = useState("");
   const [newChildParentId, setNewChildParentId] = useState<Id<"workflowItems"> | null>(null);
   const [newChildTitle, setNewChildTitle] = useState("");
   const [statusPickId, setStatusPickId] = useState<Id<"workflowItems"> | null>(null);
   const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
-  const [templateOpen, setTemplateOpen] = useState(false);
-
   const roots = useMemo(() => (tree?.items ?? []) as WorkflowTreeNodeShape[], [tree?.items]);
   const rows = useMemo(() => flattenWorkflowWithElementGroup(roots), [roots]);
 
@@ -69,6 +73,63 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
     () => rows.map((row) => ({ _id: row._id, title: row.title })),
     [rows]
   );
+
+  const flatDropTasks = useMemo(
+    () =>
+      rows.map((r) => ({
+        _id: r._id,
+        parentId: r.parentId ?? null,
+        sortOrder: r.sortOrder ?? 0,
+      })),
+    [rows]
+  );
+
+  const taskElementGroupById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) m.set(r._id as string, r.elementGroupKey);
+    return m;
+  }, [rows]);
+
+  const siblingIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    const byKey = new Map<string, WorkflowTreeNodeShape[]>();
+    for (const r of rows) {
+      const k = `${r.elementGroupKey}\0${r.parentId ?? ""}`;
+      const list = byKey.get(k) ?? [];
+      list.push(r);
+      byKey.set(k, list);
+    }
+    for (const list of byKey.values()) {
+      list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      list.forEach((n, i) => m.set(n._id as string, i));
+    }
+    return m;
+  }, [rows]);
+
+  const applyDrop = useCallback(
+    async (dragged: PlannerTaskDragMeta, target: PlannerTaskDragMeta, zone: DropZone) => {
+      await applyWorkflowTreeDrop(
+        dragged,
+        target,
+        zone,
+        flatDropTasks,
+        {
+          userId,
+          moveTask: moveWorkflow,
+          updateTask: updateWorkflow,
+        },
+        (D, T) =>
+          taskElementGroupById.get(D._id as string) === taskElementGroupById.get(T._id as string)
+      );
+    },
+    [flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
+  );
+
+  const plannerTaskMove = usePlannerTaskMove({
+    userId,
+    onCommitDrop: applyDrop,
+    onError: (message) => Alert.alert(t("common.errorTitle"), message),
+  });
 
   const stats = tree?.stats;
   const progressPercent = stats?.workflowProgressPercent ?? 0;
@@ -127,22 +188,12 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
               {t("buildDetail.workflowProgress")}
             </Text>
             <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("workflowTemplates.buildHint")}
+              {t("buildDetail.workflowCardHint")}
             </Text>
           </View>
-          <View className="items-end gap-2">
-            <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {progressPercent}%
-            </Text>
-            <Pressable
-              onPress={() => setTemplateOpen(true)}
-              className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-            >
-              <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                {t("workflowTemplates.open")}
-              </Text>
-            </Pressable>
-          </View>
+          <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            {progressPercent}%
+          </Text>
         </View>
         <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
           <View
@@ -203,91 +254,34 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
                 </View>
                 <View className="gap-2 px-2 py-3">
                   {groupRows.map((node) => (
-                    <View
+                    <BuildWorkflowTaskRow
                       key={node._id as string}
-                      style={{ marginLeft: node.depth * 14 }}
-                      className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel p-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-                    >
-                      <View className="flex-row items-start gap-2">
-                        <Pressable
-                          onPress={() =>
-                            void updateWorkflow({
-                              id: node._id,
-                              userId,
-                              status: node.status === "done" ? "not_started" : "done",
-                            })
-                          }
-                          className="mt-0.5 h-8 w-8 items-center justify-center rounded-full border border-kyar-border bg-kyar-surface dark:border-kyar-dark-border dark:bg-kyar-dark-surface"
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: node.status === "done" }}
-                        >
-                          <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                            {node.status === "done" ? "✓" : ""}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setEditorTaskId(node._id)}
-                          className="min-w-0 flex-1"
-                        >
-                          <Text
-                            className={`text-base ${
-                              node.status === "done"
-                                ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
-                                : "text-kyar-text dark:text-kyar-dark-text"
-                            }`}
-                          >
-                            {node.title}
-                          </Text>
-                          <Text className="mt-0.5 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                            {node.kind} · {node.progressPercent}%
-                            {node.dueDate ? ` · ${node.dueDate}` : ""}
-                          </Text>
-                        </Pressable>
-                      </View>
-                      <View className="mt-2 flex-row flex-wrap gap-2">
-                        <Pressable
-                          onPress={() => setStatusPickId(node._id)}
-                          className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                        >
-                          <Text className="text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                            {node.status.replace(/_/g, " ")}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setEditorTaskId(node._id)}
-                          className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                        >
-                          <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">
-                            {t("workflowEditor.editAction")}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setNewChildParentId(node._id)}
-                          className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                        >
-                          <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">
-                            {t("buildDetail.workflowSubtask")}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() =>
-                            Alert.alert(t("elements.workflowRemoveTitle"), node.title, [
-                              { text: t("common.cancel"), style: "cancel" },
-                              {
-                                text: t("elements.workflowRemoveAction"),
-                                style: "destructive",
-                                onPress: () => void removeWorkflow({ id: node._id, userId }),
-                              },
-                            ])
-                          }
-                          className="rounded-full border border-kyar-danger/30 bg-kyar-surface px-3 py-2 dark:bg-kyar-dark-surface"
-                        >
-                          <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                            {t("elements.workflowRemoveAction")}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
+                      buildId={buildId}
+                      node={node}
+                      t={t}
+                      plannerTaskMove={plannerTaskMove}
+                      siblingIndexById={siblingIndexById}
+                      onToggleDone={() =>
+                        void updateWorkflow({
+                          id: node._id,
+                          userId,
+                          status: node.status === "done" ? "not_started" : "done",
+                        })
+                      }
+                      onOpenEditor={() => setEditorTaskId(node._id)}
+                      onOpenStatus={() => setStatusPickId(node._id)}
+                      onAddSubtask={() => setNewChildParentId(node._id)}
+                      onRemove={() =>
+                        Alert.alert(t("elements.workflowRemoveTitle"), node.title, [
+                          { text: t("common.cancel"), style: "cancel" },
+                          {
+                            text: t("elements.workflowRemoveAction"),
+                            style: "destructive",
+                            onPress: () => void removeWorkflow({ id: node._id, userId }),
+                          },
+                        ])
+                      }
+                    />
                   ))}
                 </View>
               </View>
@@ -400,14 +394,115 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         onClose={() => setEditorTaskId(null)}
       />
 
-      <WorkflowTemplateModal
-        visible={templateOpen}
-        userId={userId}
-        attachments={[{ entityType: "build", entityId: buildId, role: "primary" }]}
-        scopeKind="build_specific"
-        buildContextId={buildId}
-        onClose={() => setTemplateOpen(false)}
-      />
     </View>
+  );
+}
+
+function BuildWorkflowTaskRow({
+  buildId,
+  node,
+  t,
+  plannerTaskMove,
+  siblingIndexById,
+  onToggleDone,
+  onOpenEditor,
+  onOpenStatus,
+  onAddSubtask,
+  onRemove,
+}: {
+  buildId: Id<"builds">;
+  node: WorkflowRowFlat;
+  t: TFunction;
+  plannerTaskMove: PlannerTaskMoveController;
+  siblingIndexById: Map<string, number>;
+  onToggleDone: () => void;
+  onOpenEditor: () => void;
+  onOpenStatus: () => void;
+  onAddSubtask: () => void;
+  onRemove: () => void;
+}) {
+  const dragMeta = useMemo<PlannerTaskDragMeta>(
+    () => ({
+      taskId: node._id as string,
+      scopeKey: `wf:build:${buildId as string}:${node.elementGroupKey}`,
+      parentId: node.parentId ? (node.parentId as string) : undefined,
+      siblingIndex: siblingIndexById.get(node._id as string) ?? 0,
+      ancestorIds: (node.ancestorIds ?? []).map((a) => a as string),
+    }),
+    [buildId, node, siblingIndexById]
+  );
+
+  return (
+    <WorkflowTaskDragShell
+      taskId={node._id}
+      dragMeta={dragMeta}
+      taskMove={plannerTaskMove}
+      depthMargin={node.depth * 14}
+      dropIntoLabel={t("buildDetail.dropIntoLabel")}
+    >
+      <View className="p-3">
+        <View className="flex-row items-start gap-2">
+          <Pressable
+            onPress={onToggleDone}
+            className="mt-0.5 h-8 w-8 items-center justify-center rounded-full border border-kyar-border bg-kyar-surface dark:border-kyar-dark-border dark:bg-kyar-dark-surface"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: node.status === "done" }}
+          >
+            <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+              {node.status === "done" ? "✓" : ""}
+            </Text>
+          </Pressable>
+          <Pressable onPress={onOpenEditor} className="min-w-0 flex-1">
+            <Text
+              className={`text-base ${
+                node.status === "done"
+                  ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
+                  : "text-kyar-text dark:text-kyar-dark-text"
+              }`}
+            >
+              {node.title}
+            </Text>
+            <Text className="mt-0.5 text-xs text-kyar-meta dark:text-kyar-dark-meta">
+              {node.kind} · {node.progressPercent}%
+              {node.dueDate ? ` · ${node.dueDate}` : ""}
+            </Text>
+          </Pressable>
+        </View>
+        <View className="mt-2 flex-row flex-wrap gap-2">
+          <Pressable
+            onPress={onOpenStatus}
+            className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+          >
+            <Text className="text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              {node.status.replace(/_/g, " ")}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onOpenEditor}
+            className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+          >
+            <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">
+              {t("workflowEditor.editAction")}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onAddSubtask}
+            className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+          >
+            <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">
+              {t("buildDetail.workflowSubtask")}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onRemove}
+            className="rounded-full border border-kyar-danger/30 bg-kyar-surface px-3 py-2 dark:bg-kyar-dark-surface"
+          >
+            <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
+              {t("elements.workflowRemoveAction")}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </WorkflowTaskDragShell>
   );
 }

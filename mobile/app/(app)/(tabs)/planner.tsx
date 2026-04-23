@@ -1,5 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
+import { plannerTaskScopeKey } from "@kyarafit/design-system/domain";
+import { usePlannerTaskMove, type PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
+import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
+import type { WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable as GHPressable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -7,8 +13,8 @@ import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
-import { WorkflowTemplateModal } from "@/components/workflow/WorkflowTemplateModal";
 import { APP_HREF } from "@/lib/appRoutes";
+import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   Button,
@@ -48,6 +54,8 @@ type PlannerTask = {
 };
 
 type PlannerTaskNode = PlannerTask & { children: PlannerTaskNode[] };
+
+type PlannerTaskExplorerMenuMode = "full" | "editOnly";
 
 type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
 type ConventionGroup = {
@@ -282,7 +290,6 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
-  const [templateOpen, setTemplateOpen] = useState(false);
   const openingPath: string | null = null;
 
   const filteredTasks = useMemo(
@@ -359,85 +366,36 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
     [loaded.userId, updateTask]
   );
 
-  const resequenceTasks = useCallback(
-    async (ids: Id<"workflowItems">[]) => {
-      for (let index = 0; index < ids.length; index += 1) {
-        await updateTask({
-          id: ids[index],
-          userId: loaded.userId,
-          sortOrder: index,
-        });
-      }
-    },
-    [loaded.userId, updateTask]
+  const plannerFlatDropTasks = useMemo<WorkflowDropTask[]>(
+    () =>
+      loaded.tasks.map((task) => ({
+        _id: task._id,
+        parentId: task.parentId ?? null,
+        sortOrder: task.sortOrder ?? 0,
+      })),
+    [loaded.tasks]
   );
 
-  const moveTaskUp = useCallback(
-    async (siblings: PlannerTaskNode[], taskId: Id<"workflowItems">) => {
-      const index = siblings.findIndex((task) => task._id === taskId);
-      if (index <= 0) return;
-      const ids = siblings.map((task) => task._id);
-      [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-      await resequenceTasks(ids);
-    },
-    [resequenceTasks]
-  );
-
-  const moveTaskDown = useCallback(
-    async (siblings: PlannerTaskNode[], taskId: Id<"workflowItems">) => {
-      const index = siblings.findIndex((task) => task._id === taskId);
-      if (index < 0 || index >= siblings.length - 1) return;
-      const ids = siblings.map((task) => task._id);
-      [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-      await resequenceTasks(ids);
-    },
-    [resequenceTasks]
-  );
-
-  const indentTask = useCallback(
-    async (siblings: PlannerTaskNode[], taskId: Id<"workflowItems">) => {
-      const index = siblings.findIndex((task) => task._id === taskId);
-      if (index <= 0) return;
-      const task = siblings[index];
-      const previousSibling = siblings[index - 1];
-      await moveTask({
-        id: task._id,
+  const applyPlannerTaskDrop = useCallback(
+    async (dragged: PlannerTaskDragMeta, target: PlannerTaskDragMeta, zone: DropZone) => {
+      await applyWorkflowTreeDrop(dragged, target, zone, plannerFlatDropTasks, {
         userId: loaded.userId,
-        parentId: previousSibling._id,
-        sortOrder: previousSibling.children.length,
+        moveTask,
+        updateTask,
+      }, (D, T) => {
+        const d = loaded.tasks.find((x) => x._id === D._id);
+        const tt = loaded.tasks.find((x) => x._id === T._id);
+        return !!(d && tt && plannerTaskScopeKey(d) === plannerTaskScopeKey(tt));
       });
-      await resequenceTasks(
-        siblings.filter((candidate) => candidate._id !== task._id).map((candidate) => candidate._id)
-      );
     },
-    [loaded.userId, moveTask, resequenceTasks]
+    [loaded.tasks, loaded.userId, moveTask, plannerFlatDropTasks, updateTask]
   );
 
-  const outdentTask = useCallback(
-    async (
-      siblings: PlannerTaskNode[],
-      task: PlannerTaskNode,
-      parent: PlannerTaskNode,
-      parentSiblings: PlannerTaskNode[]
-    ) => {
-      const parentIndex = parentSiblings.findIndex((candidate) => candidate._id === parent._id);
-      if (parentIndex < 0) return;
-      const grandParentId = parent.parentId ?? null;
-      const nextParentIds = [...parentSiblings.map((candidate) => candidate._id)];
-      nextParentIds.splice(parentIndex + 1, 0, task._id);
-      await moveTask({
-        id: task._id,
-        userId: loaded.userId,
-        parentId: grandParentId,
-        sortOrder: parentIndex + 1,
-      });
-      await resequenceTasks(
-        siblings.filter((candidate) => candidate._id !== task._id).map((candidate) => candidate._id)
-      );
-      await resequenceTasks(nextParentIds);
-    },
-    [loaded.userId, moveTask, resequenceTasks]
-  );
+  const plannerTaskMove = usePlannerTaskMove({
+    userId: loaded.userId,
+    onCommitDrop: applyPlannerTaskDrop,
+    onError: (message) => Alert.alert(t("common.errorTitle"), message),
+  });
 
   const handleCreateTask = useCallback(async () => {
     const title = newTaskTitle.trim();
@@ -462,26 +420,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   }, [createTask, creatingTask, loaded.userId, newTaskTitle, t, view]);
 
   const plannerCreateActions = useMemo(
-    () => [
-      {
-        key: "quick-task",
-        label: t("planner.addTask"),
-        icon: "checkbox-outline" as const,
-        onPress: () => setCreateTaskOpen(true),
-      },
-      {
-        key: "templates",
-        label: t("workflowTemplates.open"),
-        icon: "albums-outline" as const,
-        onPress: () => setTemplateOpen(true),
-      },
-      {
-        key: "open-builds",
-        label: t("planner.openBuilds"),
-        icon: "shirt-outline" as const,
-        onPress: () => router.push("/(app)/(tabs)/builds"),
-      },
-    ],
+    () => buildGlobalAddMenuActions("planner", t, router),
     [router, t]
   );
 
@@ -502,8 +441,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         }}
       >
         <View>
-          <SectionHeading eyebrow={t("common.planner")} title={t("planner.title")} />
-          <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
             {t("planner.subtitle")}
           </Text>
         </View>
@@ -528,7 +466,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
           </View>
 
           {view === "tasks" ? (
-            <View className="mt-4 flex-row flex-wrap gap-2">
+            <View className="mt-4 flex-row flex-wrap items-center gap-2">
               <ChoicePill
                 active={timeframe === "all"}
                 label={t("planner.timeAll")}
@@ -544,6 +482,14 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                 label={t("planner.timeWeek")}
                 onPress={() => setTimeframe("week")}
               />
+              <Pressable
+                onPress={() => router.push("/(app)/(tabs)/builds")}
+                className="min-h-[36px] justify-center rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+              >
+                <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
+                  {t("planner.addTask")}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </SurfaceCard>
@@ -580,10 +526,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                     tree={dueSoonTree}
                     onToggleTask={toggleTask}
                     onEditTask={setEditorTaskId}
-                    onMoveTaskUp={moveTaskUp}
-                    onMoveTaskDown={moveTaskDown}
-                    onIndentTask={indentTask}
-                    onOutdentTask={outdentTask}
+                    taskMove={plannerTaskMove}
                     onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
                     onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
                     onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
@@ -598,15 +541,12 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                   tree={dueSoonTasks.length > 0 ? otherTree : allTree}
                   onToggleTask={toggleTask}
                   onEditTask={setEditorTaskId}
-                  onMoveTaskUp={moveTaskUp}
-                  onMoveTaskDown={moveTaskDown}
-                  onIndentTask={indentTask}
-                  onOutdentTask={outdentTask}
-                  onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                  onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                  onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                  openingPath={openingPath}
-                />
+                  taskMove={plannerTaskMove}
+                    onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                    onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                    onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
+                    openingPath={openingPath}
+                  />
               </>
             )}
           </>
@@ -708,14 +648,6 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         onClose={() => setEditorTaskId(null)}
       />
 
-      <WorkflowTemplateModal
-        visible={templateOpen}
-        userId={loaded.userId}
-        attachments={[]}
-        scopeKind="shared"
-        onClose={() => setTemplateOpen(false)}
-      />
-
       <Modal
         visible={createTaskOpen}
         transparent
@@ -779,10 +711,7 @@ function PlannerTreeSection({
   tree,
   onToggleTask,
   onEditTask,
-  onMoveTaskUp,
-  onMoveTaskDown,
-  onIndentTask,
-  onOutdentTask,
+  taskMove,
   onOpenBuild,
   onOpenElement,
   onOpenConvention,
@@ -792,15 +721,7 @@ function PlannerTreeSection({
   tree: PlannerTree;
   onToggleTask: (task: PlannerTask) => void | Promise<void>;
   onEditTask: (id: Id<"workflowItems">) => void;
-  onMoveTaskUp: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onMoveTaskDown: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onIndentTask: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onOutdentTask: (
-    siblings: PlannerTaskNode[],
-    task: PlannerTaskNode,
-    parent: PlannerTaskNode,
-    parentSiblings: PlannerTaskNode[]
-  ) => Promise<void>;
+  taskMove: PlannerTaskMoveController;
   onOpenBuild: (id: Id<"builds">) => void;
   onOpenElement: (id: Id<"cosplayNodes">) => void;
   onOpenConvention: (id: Id<"conventions">) => void;
@@ -844,13 +765,9 @@ function PlannerTreeSection({
                   <MetaLabel>{build.buildName}</MetaLabel>
                   <PlannerTaskTreeList
                     nodes={buildTaskHierarchy(build.tasks)}
-                    siblings={buildTaskHierarchy(build.tasks)}
                     onToggleTask={onToggleTask}
                     onEditTask={onEditTask}
-                    onMoveTaskUp={onMoveTaskUp}
-                    onMoveTaskDown={onMoveTaskDown}
-                    onIndentTask={onIndentTask}
-                    onOutdentTask={onOutdentTask}
+                    taskMove={taskMove}
                     onOpenBuild={onOpenBuild}
                     onOpenElement={onOpenElement}
                     onOpenConvention={onOpenConvention}
@@ -863,13 +780,9 @@ function PlannerTreeSection({
                   <MetaLabel>{t("planner.packingSection")}</MetaLabel>
                   <PlannerTaskTreeList
                     nodes={buildTaskHierarchy(group.packingTasks)}
-                    siblings={buildTaskHierarchy(group.packingTasks)}
                     onToggleTask={onToggleTask}
                     onEditTask={onEditTask}
-                    onMoveTaskUp={onMoveTaskUp}
-                    onMoveTaskDown={onMoveTaskDown}
-                    onIndentTask={onIndentTask}
-                    onOutdentTask={onOutdentTask}
+                    taskMove={taskMove}
                     onOpenBuild={onOpenBuild}
                     onOpenElement={onOpenElement}
                     onOpenConvention={onOpenConvention}
@@ -897,13 +810,9 @@ function PlannerTreeSection({
             </View>
             <PlannerTaskTreeList
               nodes={buildTaskHierarchy(build.tasks)}
-              siblings={buildTaskHierarchy(build.tasks)}
               onToggleTask={onToggleTask}
               onEditTask={onEditTask}
-              onMoveTaskUp={onMoveTaskUp}
-              onMoveTaskDown={onMoveTaskDown}
-              onIndentTask={onIndentTask}
-              onOutdentTask={onOutdentTask}
+              taskMove={taskMove}
               onOpenBuild={onOpenBuild}
               onOpenElement={onOpenElement}
               onOpenConvention={onOpenConvention}
@@ -916,13 +825,9 @@ function PlannerTreeSection({
             <MetaLabel>{t("planner.otherTaskGroup")}</MetaLabel>
             <PlannerTaskTreeList
               nodes={buildTaskHierarchy(tree.unassignedTasks)}
-              siblings={buildTaskHierarchy(tree.unassignedTasks)}
               onToggleTask={onToggleTask}
               onEditTask={onEditTask}
-              onMoveTaskUp={onMoveTaskUp}
-              onMoveTaskDown={onMoveTaskDown}
-              onIndentTask={onIndentTask}
-              onOutdentTask={onOutdentTask}
+              taskMove={taskMove}
               onOpenBuild={onOpenBuild}
               onOpenElement={onOpenElement}
               onOpenConvention={onOpenConvention}
@@ -936,125 +841,171 @@ function PlannerTreeSection({
 
 function PlannerTaskTreeList({
   nodes,
-  siblings,
   parent,
-  parentSiblings,
   onToggleTask,
   onEditTask,
-  onMoveTaskUp,
-  onMoveTaskDown,
-  onIndentTask,
-  onOutdentTask,
+  taskMove,
   onOpenBuild,
   onOpenElement,
   onOpenConvention,
+  menuMode = "full",
 }: {
   nodes: PlannerTaskNode[];
-  siblings: PlannerTaskNode[];
   parent?: PlannerTaskNode;
-  parentSiblings?: PlannerTaskNode[];
   onToggleTask: (task: PlannerTask) => void | Promise<void>;
   onEditTask: (id: Id<"workflowItems">) => void;
-  onMoveTaskUp: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onMoveTaskDown: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onIndentTask: (siblings: PlannerTaskNode[], id: Id<"workflowItems">) => Promise<void>;
-  onOutdentTask: (
-    siblings: PlannerTaskNode[],
-    task: PlannerTaskNode,
-    parent: PlannerTaskNode,
-    parentSiblings: PlannerTaskNode[]
-  ) => Promise<void>;
+  taskMove: PlannerTaskMoveController;
   onOpenBuild: (id: Id<"builds">) => void;
   onOpenElement: (id: Id<"cosplayNodes">) => void;
   onOpenConvention: (id: Id<"conventions">) => void;
+  menuMode?: PlannerTaskExplorerMenuMode;
 }) {
   if (nodes.length === 0) return null;
 
   return (
-    <View className="mt-2 gap-2">
+    <View className="mt-2">
       {nodes.map((task, index) => (
-        <View key={task._id}>
-          <PlannerTaskRowCard
-            task={task}
-            depth={task.ancestorIds.length}
-            canMoveUp={index > 0}
-            canMoveDown={index < nodes.length - 1}
-            canIndent={index > 0}
-            canOutdent={Boolean(parent && parentSiblings)}
-            onToggle={() => onToggleTask(task)}
-            onEdit={() => onEditTask(task._id)}
-            onMoveUp={() => void onMoveTaskUp(siblings, task._id)}
-            onMoveDown={() => void onMoveTaskDown(siblings, task._id)}
-            onIndent={() => void onIndentTask(siblings, task._id)}
-            onOutdent={
-              parent && parentSiblings
-                ? () => void onOutdentTask(siblings, task, parent, parentSiblings)
-                : undefined
-            }
-            onOpenBuild={onOpenBuild}
-            onOpenElement={onOpenElement}
-            onOpenConvention={onOpenConvention}
-          />
-
-          {task.children.length > 0 ? (
-            <PlannerTaskTreeList
-              nodes={task.children}
-              siblings={task.children}
-              parent={task}
-              parentSiblings={siblings}
-              onToggleTask={onToggleTask}
-              onEditTask={onEditTask}
-              onMoveTaskUp={onMoveTaskUp}
-              onMoveTaskDown={onMoveTaskDown}
-              onIndentTask={onIndentTask}
-              onOutdentTask={onOutdentTask}
-              onOpenBuild={onOpenBuild}
-              onOpenElement={onOpenElement}
-              onOpenConvention={onOpenConvention}
-            />
-          ) : null}
-        </View>
+        <PlannerTaskBranch
+          key={task._id}
+          task={task}
+          index={index}
+          parent={parent}
+          onToggleTask={onToggleTask}
+          onEditTask={onEditTask}
+          taskMove={taskMove}
+          onOpenBuild={onOpenBuild}
+          onOpenElement={onOpenElement}
+          onOpenConvention={onOpenConvention}
+          menuMode={menuMode}
+        />
       ))}
     </View>
   );
 }
 
-function PlannerTaskRowCard({
+function PlannerTaskBranch({
   task,
-  depth,
-  canMoveUp,
-  canMoveDown,
-  canIndent,
-  canOutdent,
-  onToggle,
-  onEdit,
-  onMoveUp,
-  onMoveDown,
-  onIndent,
-  onOutdent,
+  index,
+  parent,
+  onToggleTask,
+  onEditTask,
+  taskMove,
   onOpenBuild,
   onOpenElement,
   onOpenConvention,
+  menuMode,
 }: {
-  task: PlannerTask;
-  depth: number;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  canIndent: boolean;
-  canOutdent: boolean;
-  onToggle: () => void;
-  onEdit: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onIndent: () => void;
-  onOutdent?: () => void;
+  task: PlannerTaskNode;
+  index: number;
+  parent?: PlannerTaskNode;
+  onToggleTask: (task: PlannerTask) => void | Promise<void>;
+  onEditTask: (id: Id<"workflowItems">) => void;
+  taskMove: PlannerTaskMoveController;
   onOpenBuild: (id: Id<"builds">) => void;
   onOpenElement: (id: Id<"cosplayNodes">) => void;
   onOpenConvention: (id: Id<"conventions">) => void;
+  menuMode: PlannerTaskExplorerMenuMode;
+}) {
+  const [childrenExpanded, setChildrenExpanded] = useState(true);
+  const hasChildren = task.children.length > 0;
+
+  const dragMeta = useMemo<PlannerTaskDragMeta>(
+    () => ({
+      taskId: task._id as string,
+      scopeKey: plannerTaskScopeKey(task),
+      parentId: parent?._id as string | undefined,
+      siblingIndex: index,
+      ancestorIds: task.ancestorIds.map((id) => id as string),
+    }),
+    [index, parent?._id, task]
+  );
+
+  return (
+    <View>
+      <PlannerTaskExplorerRow
+        task={task}
+        depth={task.ancestorIds.length}
+        hasChildren={hasChildren}
+        childrenExpanded={childrenExpanded}
+        onToggleChildrenExpanded={() => setChildrenExpanded((v) => !v)}
+        onToggle={() => void onToggleTask(task)}
+        onEdit={() => onEditTask(task._id)}
+        onOpenBuild={onOpenBuild}
+        onOpenElement={onOpenElement}
+        onOpenConvention={onOpenConvention}
+        menuMode={menuMode}
+        taskMove={taskMove}
+        dragMeta={dragMeta}
+      />
+
+      {hasChildren && childrenExpanded ? (
+        <PlannerTaskTreeList
+          nodes={task.children}
+          parent={task}
+          onToggleTask={onToggleTask}
+          onEditTask={onEditTask}
+          taskMove={taskMove}
+          onOpenBuild={onOpenBuild}
+          onOpenElement={onOpenElement}
+          onOpenConvention={onOpenConvention}
+          menuMode={menuMode}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function PlannerTaskExplorerRow({
+  task,
+  depth,
+  hasChildren,
+  childrenExpanded,
+  onToggleChildrenExpanded,
+  onToggle,
+  onEdit,
+  onOpenBuild,
+  onOpenElement,
+  onOpenConvention,
+  menuMode,
+  taskMove,
+  dragMeta,
+}: {
+  task: PlannerTask;
+  depth: number;
+  hasChildren: boolean;
+  childrenExpanded: boolean;
+  onToggleChildrenExpanded: () => void;
+  onToggle: () => void;
+  onEdit: () => void;
+  onOpenBuild: (id: Id<"builds">) => void;
+  onOpenElement: (id: Id<"cosplayNodes">) => void;
+  onOpenConvention: (id: Id<"conventions">) => void;
+  menuMode: PlannerTaskExplorerMenuMode;
+  taskMove?: PlannerTaskMoveController;
+  dragMeta?: PlannerTaskDragMeta;
 }) {
   const { t } = useTranslation();
   const { colors } = useDesignTheme();
   const blockingPreview = dependencyPreview(task.blockedByTitles);
+  const rowRef = useRef<View>(null);
+
+  const dragEnabled = menuMode === "full" && taskMove != null && dragMeta != null;
+  const { draggingTaskId, dragOverTaskId, dragOverZone } = taskMove?.dragVisualState ?? {
+    draggingTaskId: null,
+    dragOverTaskId: null,
+    dragOverZone: null,
+  };
+
+  const dragging = dragEnabled && draggingTaskId === task._id;
+  const dropBefore = dragEnabled && dragOverTaskId === task._id && dragOverZone === "before";
+  const dropAfter = dragEnabled && dragOverTaskId === task._id && dragOverZone === "after";
+  const dropInto = dragEnabled && dragOverTaskId === task._id && dragOverZone === "into";
+
+  useEffect(() => {
+    if (!dragEnabled || !taskMove || !dragMeta) return;
+    taskMove.registerRow(task._id, rowRef.current, dragMeta);
+    return () => taskMove.unregisterRow(task._id);
+  }, [dragEnabled, dragMeta, task._id, taskMove]);
 
   const openContext = () => {
     if (task.buildId) onOpenBuild(task.buildId);
@@ -1062,22 +1013,57 @@ function PlannerTaskRowCard({
     else if (task.conventionId) onOpenConvention(task.conventionId);
   };
 
-  return (
-    <Pressable
-      onPress={openContext}
-      style={{ marginLeft: Math.min(28, depth * 12) }}
-      className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-    >
-      <View className="flex-row items-start gap-3">
+  const hasContextTarget = Boolean(task.buildId || task.cosplayNodeId || task.conventionId);
+
+  const rowDepth = Math.min(56, depth * 14);
+
+  const cardClass =
+    dropInto
+      ? "rounded-2xl border border-kyar-text bg-kyar-panelRaised px-2 py-2.5 shadow-sm dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised dark:shadow-none"
+      : "rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-2 py-2.5 shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none";
+
+  const rowBody = (
+    <>
+      {dropBefore ? (
+        <View className="absolute inset-x-4 top-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
+      ) : null}
+      {dropAfter ? (
+        <View className="absolute inset-x-4 bottom-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
+      ) : null}
+
+      <View className="flex-row items-start gap-1">
+        {hasChildren ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onToggleChildrenExpanded();
+            }}
+            hitSlop={8}
+            className="h-9 w-9 shrink-0 items-center justify-center rounded-full active:opacity-70"
+            accessibilityRole="button"
+            accessibilityLabel={
+              childrenExpanded
+                ? t("common.collapse", { defaultValue: "Collapse" })
+                : t("common.expand", { defaultValue: "Expand" })
+            }
+          >
+            <Text className="text-base text-kyar-meta dark:text-kyar-dark-textSecondary">
+              {childrenExpanded ? "▾" : "▸"}
+            </Text>
+          </Pressable>
+        ) : (
+          <View className="w-9 shrink-0" />
+        )}
+
         <Pressable
           onPress={(event) => {
-            event.stopPropagation();
+            event.stopPropagation?.();
             onToggle();
           }}
-          className={`mt-0.5 h-8 w-8 items-center justify-center rounded-full border ${
+          className={`mt-1 h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
             task.status === "done"
               ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-              : "border-kyar-border dark:border-kyar-dark-border"
+              : "border-kyar-border bg-transparent dark:border-kyar-dark-border dark:bg-kyar-dark-muted/70"
           }`}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: task.status === "done" }}
@@ -1087,9 +1073,14 @@ function PlannerTaskRowCard({
           ) : null}
         </Pressable>
 
-        <View className="min-w-0 flex-1">
+        <Pressable
+          onPress={openContext}
+          disabled={!hasContextTarget}
+          className="min-w-0 flex-1 py-0.5 active:opacity-80"
+          accessibilityRole={hasContextTarget ? "button" : "text"}
+        >
           <Text
-            className={`text-base ${
+            className={`text-base leading-snug ${
               task.status === "done"
                 ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
                 : "text-kyar-text dark:text-kyar-dark-text"
@@ -1097,24 +1088,29 @@ function PlannerTaskRowCard({
           >
             {task.title}
           </Text>
-          <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+          <Text className="mt-0.5 text-[11px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-textSecondary">
             {toPrettyStatus(task.status)} · {task.category}
             {task.dueDate ? ` · ${formatDateLabel(task.dueDate)}` : ""}
           </Text>
+          {dropInto ? (
+            <Text className="mt-2 text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+              {t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
+            </Text>
+          ) : null}
           {task.blockedByCount ? (
             <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("planner.blockedLabel", { count: task.blockedByCount })}
             </Text>
           ) : null}
           {blockingPreview.visible.length > 0 ? (
-            <View className="mt-2 flex-row flex-wrap gap-2">
+            <View className="mt-2 flex-row flex-wrap gap-1.5">
               {blockingPreview.visible.map((title) => (
                 <View
                   key={`${task._id}-${title}`}
-                  className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-1.5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                  className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-2.5 py-1 dark:border-kyar-dark-border dark:bg-kyar-dark-muted"
                 >
                   <Text
-                    className="text-[11px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
+                    className="text-[10px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
                     numberOfLines={1}
                   >
                     {title}
@@ -1122,74 +1118,76 @@ function PlannerTaskRowCard({
                 </View>
               ))}
               {blockingPreview.overflow > 0 ? (
-                <View className="rounded-full bg-kyar-borderSubtle px-3 py-1.5 dark:bg-kyar-dark-borderSubtle">
-                  <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+                <View className="rounded-full bg-kyar-borderSubtle px-2.5 py-1 dark:bg-kyar-dark-muted">
+                  <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-textSecondary">
                     +{blockingPreview.overflow}
                   </Text>
                 </View>
               ) : null}
             </View>
           ) : null}
-        </View>
+        </Pressable>
 
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-      </View>
-
-      <View className="mt-3 flex-row justify-end">
-        <View className="flex-row flex-wrap justify-end gap-2">
-          <StructurePill
-            label={t("planner.moveUp", { defaultValue: "Up" })}
-            onPress={onMoveUp}
-            disabled={!canMoveUp}
-          />
-          <StructurePill
-            label={t("planner.moveDown", { defaultValue: "Down" })}
-            onPress={onMoveDown}
-            disabled={!canMoveDown}
-          />
-          <StructurePill
-            label={t("planner.indent", { defaultValue: "Nest" })}
-            onPress={onIndent}
-            disabled={!canIndent}
-          />
-          <StructurePill
-            label={t("planner.outdent", { defaultValue: "Promote" })}
-            onPress={onOutdent}
-            disabled={!canOutdent || !onOutdent}
-          />
-          <StructurePill label={t("workflowEditor.editAction")} onPress={onEdit} />
+        <View className="shrink-0 flex-row items-center gap-0.5">
+          <Pressable
+            onPress={onEdit}
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+            accessibilityLabel={t("workflowEditor.editAction")}
+            accessibilityRole="button"
+          >
+            <Ionicons name="create-outline" size={22} color={colors.textSecondary} />
+          </Pressable>
+          {hasContextTarget ? (
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          ) : (
+            <View className="w-[18px]" />
+          )}
         </View>
       </View>
-    </Pressable>
+    </>
   );
-}
 
-function StructurePill({
-  label,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  onPress?: () => void;
-  disabled?: boolean;
-}) {
   return (
-    <Pressable
-      onPress={(event) => {
-        event.stopPropagation();
-        if (!disabled) onPress?.();
-      }}
-      disabled={disabled}
-      className={`rounded-full border px-3 py-2 ${
-        disabled
-          ? "border-kyar-borderSubtle bg-kyar-surface opacity-35 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
-    >
-      <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-        {label}
-      </Text>
-    </Pressable>
+    <View style={{ marginLeft: rowDepth }} className="mb-2">
+      {dragEnabled && taskMove && dragMeta ? (
+        <GHPressable
+          ref={rowRef}
+          onLongPress={(event) =>
+            void taskMove.startDrag(dragMeta, {
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            })
+          }
+          onTouchMove={(event) => {
+            if (!dragging) return;
+            taskMove.updateDragPoint({
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            });
+          }}
+          onTouchEnd={(event) => {
+            if (!dragging) return;
+            taskMove.finishDrag({
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            });
+          }}
+          onTouchCancel={() => {
+            if (!dragging) return;
+            taskMove.finishDrag();
+          }}
+          delayLongPress={220}
+          className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
+        >
+          {rowBody}
+        </GHPressable>
+      ) : (
+        <View ref={dragEnabled ? rowRef : undefined} className={`relative ${cardClass}`}>
+          {rowBody}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -1213,21 +1211,18 @@ function AgendaTaskRow({
   return (
     <View>
       <MetaLabel>{t("planner.agendaTaskLabel")}</MetaLabel>
-      <PlannerTaskRowCard
+      <PlannerTaskExplorerRow
         task={task}
         depth={task.ancestorIds.length}
-        canMoveUp={false}
-        canMoveDown={false}
-        canIndent={false}
-        canOutdent={false}
+        hasChildren={false}
+        childrenExpanded
+        onToggleChildrenExpanded={() => undefined}
         onToggle={onToggle}
         onEdit={onEdit}
-        onMoveUp={() => undefined}
-        onMoveDown={() => undefined}
-        onIndent={() => undefined}
         onOpenBuild={onOpenBuild}
         onOpenElement={onOpenElement}
         onOpenConvention={onOpenConvention}
+        menuMode="editOnly"
       />
     </View>
   );

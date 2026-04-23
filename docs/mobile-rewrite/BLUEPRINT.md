@@ -1000,6 +1000,37 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 | Phase 7 — Settings / Subscription | **In progress**                                    | **Settings hub** [`settings/index`](<../../mobile/app/(app)/settings/index.tsx>) now routes into native [`account`](<../../mobile/app/(app)/settings/account.tsx>), [`subscription`](<../../mobile/app/(app)/settings/subscription.tsx>), and [`notifications`](<../../mobile/app/(app)/settings/notifications.tsx>) screens instead of treating them as future browser-backed destinations. Account now covers profile basics + public visibility, live username availability, and profile-photo picking/cropping; subscription uses shared tier/storage data, and notifications has a native informational shell. **Still open:** shared RevenueCat paywall parity, privacy/storage deep parity, and push preference plumbing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Phase 8 — Groups / Social         | **In progress**                                    | **Groups** now exist in-tree via [`groups/index`](<../../mobile/app/(app)/groups/index.tsx>), [`groups/new`](<../../mobile/app/(app)/groups/new.tsx>), and [`g/[groupId]`](<../../mobile/app/(app)/g/[groupId].tsx>) with group detail, build assignment, and convention-day linking. **Social** now includes native [`feed`](<../../mobile/app/(app)/feed.tsx>), [`discover`](<../../mobile/app/(app)/discover.tsx>), and [`u/[username]`](<../../mobile/app/(app)/u/[username].tsx>) routes, including follow/unfollow plus public-build cards with likes and comment threads. More now deep-links into these native stacks instead of a browser bridge. **Still open:** collaborator invites and richer dedicated public build social actions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+#### Latest implementation log (current cycle)
+
+- **Workflow drag parity completed across planner/build detail/element detail**
+  - Shared drop logic is centralized in [`mobile/src/workflow/applyWorkflowTreeDrop.ts`](../../mobile/src/workflow/applyWorkflowTreeDrop.ts) and reused by planner, build workflow, and element workflow.
+  - Build detail tasks now use the same long-press drag shell + move/update resequencing model as planner, including scoped drag constraints for element-group safety.
+  - Element detail workflow now uses the same drag/drop system; drag is intentionally disabled when task filters are not `all` to avoid invalid reorder math with hidden siblings.
+- **Home mobile aligned to web-mobile card system**
+  - Home now consumes shared card components instead of bespoke card markup:
+    - [`BuildPortfolioCard`](../../mobile/src/components/builds/BuildPortfolioCard.tsx)
+    - [`ConventionEventPoster`](../../mobile/src/components/conventions/ConventionEventPoster.tsx)
+    - [`PublicBuildCard`](../../mobile/src/components/social/PublicBuildCard.tsx)
+  - Task preview remains on Home and is now intentionally positioned as the last section.
+- **Build detail visual board upgraded to web-model behavior**
+  - Native board now supports view filters: `All`, `References`, `Progress`, `Elements`.
+  - `All` is mixed media + elements; other filters provide focused slices.
+  - Board rendering now uses reusable portfolio cards for nodes and a masonry-style two-column layout on mobile.
+  - Board includes mode-aware empty states and keeps link-elements affordance in-context.
+
+#### Current remaining gaps (review snapshot)
+
+- **Visual board**
+  - Fullscreen board mode and tap-to-lightbox are still missing vs web.
+  - Optional richer metadata overlays (exact date chips and hover-equivalent affordances) are still simplified on mobile.
+- **Workflow/planner**
+  - Dependency graph visualization and advanced planner dependency authoring UX remain open.
+  - Additional explorer-grade structural tooling beyond current drag/reparent interactions is still pending.
+- **Parity hardening**
+  - Offline-first acceptance (KFM-026..028, KFM-113..114) is still not closed.
+  - Public unauthenticated share-token route parity remains open (KFM-110).
+  - RevenueCat unified paywall/purchase guardrail + webhook completion remains open (KFM-082..085).
+
 #### Phase 2 → Phase 3 handoff
 
 - **Start Phase 3** (Home / Builds): no longer blocked on Phase 2 tickets above except where a screen explicitly needs offline-first behavior — use Convex `useQuery` / `useOfflineQuery` alias until KFM-026 caches entity reads.

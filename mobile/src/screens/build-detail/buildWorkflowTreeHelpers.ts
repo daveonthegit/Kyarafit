@@ -11,6 +11,9 @@ export type WorkflowAttachment = {
 
 export type WorkflowTreeNodeShape = {
   _id: Id<"workflowItems">;
+  parentId?: Id<"workflowItems"> | null;
+  ancestorIds?: Id<"workflowItems">[];
+  sortOrder?: number;
   title: string;
   status: string;
   kind: string;

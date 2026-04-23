@@ -1,27 +1,18 @@
-import { useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { LinearGradient } from "expo-linear-gradient";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { ChooseFocusSheet } from "@/components/ChooseFocusSheet";
-import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { FocalCoverImage } from "@/components/FocalCoverImage";
+import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
+import { ConventionEventPoster } from "@/components/conventions/ConventionEventPoster";
+import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildListArgs } from "@/lib/buildsListArgs";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
-
-function daysUntil(startDate: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  return Math.ceil((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
+import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
 
 type FocusedBuildRow = Doc<"builds"> & {
   tasksTotal: number;
@@ -187,11 +178,9 @@ function HomeDashboardBody({
   t: (key: string, opt?: Record<string, string | number>) => string;
 }) {
   const router = useRouter();
-  const { scheme } = useDesignTheme();
   const {
     recentBuild,
     upcoming,
-    eventForBuild,
     heroUri,
     otherOutfits,
     plannerPreview,
@@ -226,15 +215,6 @@ function HomeDashboardBody({
     [setFocusedBuild]
   );
 
-  const taskPct =
-    recentBuild && recentBuild.tasksTotal > 0
-      ? (100 * recentBuild.tasksChecked) / recentBuild.tasksTotal
-      : 0;
-  const imageOverlayColors: [string, string, string] =
-    scheme === "dark"
-      ? ["rgba(12, 11, 20, 0.08)", "rgba(12, 11, 20, 0.18)", "rgba(12, 11, 20, 0.84)"]
-      : ["rgba(15, 12, 24, 0.04)", "rgba(15, 12, 24, 0.14)", "rgba(15, 12, 24, 0.72)"];
-
   const openPlannerItem = useCallback(
     (item: PlannerPreviewRow) => {
       if (item.buildId) {
@@ -256,99 +236,24 @@ function HomeDashboardBody({
       contentContainerClassName="pb-10"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="px-5 pb-2 pt-4">
-        <SectionHeading eyebrow={recentBuild?.character ?? "Kyarafit"} title={t("home.title")} />
-      </View>
-
-      <View className="mt-3 px-5">
-        <SurfaceCard className="overflow-hidden">
-          <View className="relative aspect-[4/4.6] w-full bg-kyar-muted dark:bg-kyar-dark-muted">
-            {heroUri ? (
-              <FocalCoverImage
-                uri={heroUri}
-                focalX={recentBuild?.imageFocalX}
-                focalY={recentBuild?.imageFocalY}
-                className="absolute inset-0"
-                accessibilityLabel={recentBuild?.name ?? t("home.title")}
-              />
-            ) : (
-              <View className="absolute inset-0 items-center justify-center">
-                <Text className="text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                  {t("home.heroFallback")}
-                </Text>
-              </View>
-            )}
-            <LinearGradient
-              pointerEvents="none"
-              colors={imageOverlayColors}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+      <View className="mt-3 px-5 pt-4">
+        <Link href={recentBuild ? APP_HREF.build(recentBuild._id) : "/(app)/(tabs)/builds"} asChild>
+          <Pressable className="active:opacity-90">
+            <BuildPortfolioCard
+              variant="comfortable"
+              projectIndex={1}
+              item={{
+                name: recentBuild?.name ?? t("home.addBuildsToFeature"),
+                character: recentBuild?.character ?? null,
+                status: recentBuild?.status ?? "planning",
+                imageStorageId: recentBuild?.imageStorageId ?? null,
+                imageUrl: heroUri,
+                tasksChecked: recentBuild?.tasksChecked ?? 0,
+                tasksTotal: recentBuild?.tasksTotal ?? 0,
+              }}
             />
-            <View className="absolute inset-x-0 bottom-0 gap-2 px-4 pb-5 pt-12">
-              <MetaLabel className="text-kyar-bg dark:text-kyar-bg">
-                {t("home.currentFocus")}
-              </MetaLabel>
-              <Text className="font-serif text-4xl italic leading-[40px] text-kyar-bg">
-                {recentBuild?.name ?? t("home.addBuildsToFeature")}
-              </Text>
-              {recentBuild ? (
-                <Text className="text-sm leading-6 text-kyar-bg/90">
-                  {t("home.itemsComplete", {
-                    checked: recentBuild.tasksChecked,
-                    total: recentBuild.tasksTotal,
-                  })}
-                  {recentBuild.character ? ` · ${recentBuild.character}` : ""}
-                </Text>
-              ) : null}
-              {recentBuild && eventForBuild ? (
-                <Text className="text-xs uppercase tracking-wide text-kyar-bg/80">
-                  {t("home.plannedFor", { name: eventForBuild.name })}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <View className="gap-3 px-4 pb-4 pt-4">
-            {recentBuild && recentBuild.tasksTotal > 0 ? (
-              <View>
-                <View className="h-1.5 overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
-                  <View
-                    className="h-full rounded-full bg-kyar-text dark:bg-kyar-dark-text"
-                    style={{ width: `${taskPct}%` }}
-                  />
-                </View>
-              </View>
-            ) : null}
-
-            <View className="flex-row gap-3">
-              <HomeInsightCard
-                label={t("planner.taskSection")}
-                value={
-                  recentBuild
-                    ? t("home.itemsComplete", {
-                        checked: recentBuild.tasksChecked,
-                        total: recentBuild.tasksTotal,
-                      })
-                    : t("home.browseOutfits")
-                }
-              />
-              <HomeInsightCard
-                label={t("home.upcomingEvents")}
-                value={
-                  eventForBuild
-                    ? t("home.plannedFor", { name: eventForBuild.name })
-                    : upcoming[0]
-                      ? t("home.daysUntil", {
-                          count: daysUntil(upcoming[0].convention.startDate),
-                        })
-                      : t("home.noUpcomingEvents")
-                }
-              />
-            </View>
-          </View>
-        </SurfaceCard>
+          </Pressable>
+        </Link>
 
         <ChooseFocusSheet
           sheetRef={focusSheetRef}
@@ -409,45 +314,25 @@ function HomeDashboardBody({
             contentContainerClassName="gap-3 px-5"
           >
             {upcoming.map(({ convention, outfitCount }) => {
-              const days = daysUntil(convention.startDate);
               return (
-                <SurfaceCard key={convention._id} className="w-[248px] overflow-hidden">
-                  <View className="h-[120px] bg-kyar-muted dark:bg-kyar-dark-muted">
-                    {convention.imageStorageId || convention.imageUrl ? (
-                      <ConvexStorageImage
-                        storageId={convention.imageStorageId}
-                        imageUrl={convention.imageUrl}
-                        className="h-full w-full"
-                        accessibilityLabel={convention.name}
-                      />
-                    ) : (
-                      <View className="h-full items-center justify-center">
-                        <Text className="text-3xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                          ⌁
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View className="px-4 py-4">
-                    <MetaLabel>
-                      {convention.startDate === convention.endDate
-                        ? convention.startDate
-                        : `${convention.startDate} – ${convention.endDate}`}
-                    </MetaLabel>
-                    <Text className="mt-2 font-serif text-xl italic text-kyar-text dark:text-kyar-dark-text">
-                      {convention.name}
-                    </Text>
-                    <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {days >= 0
-                        ? t("home.daysUntil", { count: days })
-                        : (convention.location ?? "")}
-                    </Text>
-                    <Text className="mt-1 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                      {outfitCount}{" "}
-                      {outfitCount === 1 ? t("home.outfitSingular") : t("home.outfitPlural")}
-                    </Text>
-                  </View>
-                </SurfaceCard>
+                <Link key={convention._id} href={APP_HREF.convention(convention._id)} asChild>
+                  <Pressable className="w-[284px] active:opacity-90">
+                    <ConventionEventPoster
+                      name={convention.name}
+                      startDate={convention.startDate}
+                      endDate={convention.endDate}
+                      location={convention.location}
+                      imageStorageId={convention.imageStorageId}
+                      imageUrl={convention.imageUrl}
+                      plannedBuilds={outfitCount}
+                      packingChecked={0}
+                      packingTotal={Math.max(1, outfitCount)}
+                      metricBuildsLabel={t("home.currentProjects")}
+                      metricPackingLabel={t("planner.taskSection")}
+                      metricDaysLabel={t("home.upcomingEvents")}
+                    />
+                  </Pressable>
+                </Link>
               );
             })}
           </ScrollView>
@@ -478,12 +363,50 @@ function HomeDashboardBody({
             className="mt-3 -mx-5"
             contentContainerClassName="gap-3 px-5"
           >
-            {otherOutfits.map((build) => (
+            {otherOutfits.map((build, index) => (
               <Link key={build._id} href={APP_HREF.build(build._id)} asChild>
                 <Pressable className="w-[184px] active:opacity-90">
-                  <BuildRailCard build={build} />
+                  <BuildPortfolioCard
+                    variant="grid"
+                    projectIndex={index + 2}
+                    item={{
+                      name: build.name,
+                      character: build.character,
+                      status: build.status ?? "planning",
+                      imageStorageId: build.imageStorageId ?? null,
+                      imageUrl: build.imageUrl ?? null,
+                      tasksChecked: build.tasksChecked,
+                      tasksTotal: build.tasksTotal,
+                    }}
+                  />
                 </Pressable>
               </Link>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {followingFeed.length > 0 ? (
+        <View className="mt-8 px-5">
+          <MetaLabel>{t("home.followingFeed")}</MetaLabel>
+          <Text className="mt-1 font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
+            {t("home.followingFeed")}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3 -mx-5"
+            contentContainerClassName="gap-3 px-5"
+          >
+            {followingFeed.map((build, index) => (
+              <View key={build._id} className="w-[292px]">
+                <PublicBuildCard
+                  build={build}
+                  currentUserId={null}
+                  onPress={() => router.push(APP_HREF.build(build._id))}
+                  projectIndex={index + 1}
+                />
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -561,109 +484,6 @@ function HomeDashboardBody({
           )}
         </SurfaceCard>
       </View>
-
-      {followingFeed.length > 0 ? (
-        <View className="mt-8 px-5">
-          <MetaLabel>{t("home.followingFeed")}</MetaLabel>
-          <Text className="mt-1 font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
-            {t("home.followingFeed")}
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mt-3 -mx-5"
-            contentContainerClassName="gap-3 px-5"
-          >
-            {followingFeed.map((build) => (
-              <Link key={build._id} href={APP_HREF.build(build._id)} asChild>
-                <Pressable className="w-[184px] active:opacity-90">
-                  <BuildRailCard
-                    build={build}
-                    footer={
-                      <Text
-                        className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta"
-                        numberOfLines={1}
-                      >
-                        {build.ownerUsername
-                          ? `@${build.ownerUsername}`
-                          : (build.ownerName ?? t("home.followingUnknownCreator"))}
-                      </Text>
-                    }
-                  />
-                </Pressable>
-              </Link>
-            ))}
-          </ScrollView>
-        </View>
-      ) : null}
     </ScrollView>
-  );
-}
-
-function HomeInsightCard({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-1 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel">
-      <MetaLabel>{label}</MetaLabel>
-      <Text className="mt-2 text-sm leading-6 text-kyar-text dark:text-kyar-dark-text">
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function BuildRailCard({ build, footer }: { build: BuildListRow; footer?: ReactNode }) {
-  const { scheme } = useDesignTheme();
-  const pct = build.tasksTotal > 0 ? Math.round((100 * build.tasksChecked) / build.tasksTotal) : 0;
-  const imageOverlayColors: [string, string, string] =
-    scheme === "dark"
-      ? ["rgba(12, 11, 20, 0.08)", "rgba(12, 11, 20, 0.18)", "rgba(12, 11, 20, 0.84)"]
-      : ["rgba(15, 12, 24, 0.04)", "rgba(15, 12, 24, 0.14)", "rgba(15, 12, 24, 0.72)"];
-
-  return (
-    <SurfaceCard className="overflow-hidden">
-      <View className="relative h-[188px] bg-kyar-muted dark:bg-kyar-dark-muted">
-        {build.imageStorageId || build.imageUrl ? (
-          <ConvexStorageImage
-            storageId={build.imageStorageId}
-            imageUrl={build.imageUrl}
-            className="h-full w-full"
-            accessibilityLabel={build.name}
-          />
-        ) : (
-          <View className="h-full items-center justify-center">
-            <Text className="text-4xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-              ✦
-            </Text>
-          </View>
-        )}
-        <LinearGradient
-          pointerEvents="none"
-          colors={imageOverlayColors}
-          locations={[0, 0.45, 1]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-        />
-        <View className="absolute inset-x-0 bottom-0 gap-1 px-4 pb-3 pt-10">
-          <Text
-            className="font-serif text-2xl italic leading-[28px] text-kyar-bg"
-            numberOfLines={2}
-          >
-            {build.name}
-          </Text>
-          {build.character ? (
-            <Text className="text-xs uppercase tracking-wide text-kyar-bg/85" numberOfLines={1}>
-              {build.character}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      <View className="px-4 py-3">
-        <Text className="text-xs text-kyar-meta dark:text-kyar-dark-meta">
-          {build.tasksChecked} / {build.tasksTotal} tasks · {pct}%
-        </Text>
-        {footer ? <View className="mt-2">{footer}</View> : null}
-      </View>
-    </SurfaceCard>
   );
 }

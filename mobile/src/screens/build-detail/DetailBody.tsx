@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Dimensions, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
+import { ElementPortfolioCard } from "@/components/elements/ElementPortfolioCard";
 import { ExplorerBranch, type ExplorerPathSegment } from "./ExplorerBranch";
 import { HeroFocalModal } from "./HeroFocalModal";
 import { BuildWorkflowTasks } from "./BuildWorkflowTasks";
@@ -48,6 +49,7 @@ type CollaboratorRow = {
 };
 
 type TabId = "summary" | "explorer" | "tasks" | "board";
+type BoardView = "all" | "references" | "progress" | "nodes";
 
 type Props = {
   buildId: Id<"builds">;
@@ -93,6 +95,7 @@ export function BuildDetailBody(props: Props) {
   } = props;
 
   const [tab, setTab] = useState<TabId>("summary");
+  const [boardView, setBoardView] = useState<BoardView>("all");
   const [focalOpen, setFocalOpen] = useState(false);
   const [rootOrderIds, setRootOrderIds] = useState<Id<"cosplayNodes">[]>([]);
   const [explorerSearch, setExplorerSearch] = useState("");
@@ -128,10 +131,6 @@ export function BuildDetailBody(props: Props) {
     detailSheetRef.current?.dismiss();
   }, [inspector]);
 
-  const windowW = Dimensions.get("window").width;
-  const boardGap = 12;
-  const boardPad = 16 * 2;
-  const boardCardW = Math.max(140, (windowW - boardPad - boardGap) / 2);
   const isOwner = build.userId === userId;
 
   const updateBuild = useMutation(api.builds.update);
@@ -145,6 +144,105 @@ export function BuildDetailBody(props: Props) {
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
 
   const roots = useMemo(() => (outlineNodes ?? []).filter((node) => node.isRoot), [outlineNodes]);
+  const boardRootElements = useMemo(
+    () => (outlineNodes ?? []).filter((node) => node.nodeType === "element" && node.isRoot),
+    [outlineNodes]
+  );
+  const boardElements = useMemo(
+    () => (outlineNodes ?? []).filter((node) => node.nodeType === "element"),
+    [outlineNodes]
+  );
+
+  const boardItemsAll = useMemo(() => {
+    const items: (
+      | {
+          key: string;
+          type: "reference";
+          sortKey: number;
+          imageStorageId?: Id<"_storage"> | null;
+          imageUrl?: string | null;
+        }
+      | {
+          key: string;
+          type: "progress";
+          sortKey: number;
+          imageStorageId?: Id<"_storage"> | null;
+          imageUrl?: string | null;
+          dayLabel: string;
+        }
+      | {
+          key: string;
+          type: "node";
+          sortKey: number;
+          node: OutlineNode;
+        }
+    )[] = [];
+    (refImages ?? []).forEach((r) =>
+      items.push({
+        key: `ref-${r._id}`,
+        type: "reference",
+        sortKey: r._creationTime,
+        imageStorageId: r.imageStorageId,
+        imageUrl: r.imageUrl,
+      })
+    );
+    const oldestProgress = processPics?.[processPics.length - 1]?._creationTime ?? Date.now();
+    (processPics ?? []).forEach((p) =>
+      items.push({
+        key: `progress-${p._id}`,
+        type: "progress",
+        sortKey: p._creationTime,
+        imageStorageId: p.imageStorageId,
+        imageUrl: p.imageUrl,
+        dayLabel: `Day ${Math.ceil((p._creationTime - oldestProgress) / (1000 * 60 * 60 * 24)) + 1}`,
+      })
+    );
+    boardRootElements.forEach((node, index) =>
+      items.push({
+        key: `node-${node._id}`,
+        type: "node",
+        sortKey: Date.now() - index,
+        node,
+      })
+    );
+    return items.sort((a, b) => b.sortKey - a.sortKey);
+  }, [boardRootElements, processPics, refImages]);
+
+  const boardItemsReferences = useMemo(
+    () => boardItemsAll.filter((item) => item.type === "reference"),
+    [boardItemsAll]
+  );
+  const boardItemsProgress = useMemo(
+    () => boardItemsAll.filter((item) => item.type === "progress"),
+    [boardItemsAll]
+  );
+  const boardItemsNodes = useMemo(
+    () =>
+      boardElements.map((node, index) => ({
+        key: `node-${node._id}`,
+        type: "node" as const,
+        sortKey: boardElements.length - index,
+        node,
+      })),
+    [boardElements]
+  );
+
+  const boardVisibleItems = useMemo(() => {
+    if (boardView === "references") return boardItemsReferences;
+    if (boardView === "progress") return boardItemsProgress;
+    if (boardView === "nodes") return boardItemsNodes;
+    return boardItemsAll;
+  }, [boardItemsAll, boardItemsNodes, boardItemsProgress, boardItemsReferences, boardView]);
+
+  const boardColumns = useMemo(() => {
+    const left: typeof boardVisibleItems = [];
+    const right: typeof boardVisibleItems = [];
+    boardVisibleItems.forEach((item, index) => {
+      if (index % 2 === 0) left.push(item);
+      else right.push(item);
+    });
+    return [left, right] as const;
+  }, [boardVisibleItems]);
 
   const rootsMembershipSig = useMemo(
     () => [...roots.map((root) => root._id as string)].sort().join("|"),
@@ -589,16 +687,6 @@ export function BuildDetailBody(props: Props) {
       onLayout={updateRootFrame}
       className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
     >
-      <View className="px-4 pb-3 pt-4">
-        {build.character ? <MetaLabel>{build.character}</MetaLabel> : null}
-        <Text
-          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-          className="mt-2 text-[42px] italic leading-[42px] text-kyar-text dark:text-kyar-dark-text"
-        >
-          {build.name}
-        </Text>
-      </View>
-
       <View className="px-4 pb-3">
         <View className="flex-row items-center gap-3">
           <Pressable
@@ -968,50 +1056,145 @@ export function BuildDetailBody(props: Props) {
 
         {tab === "board" ? (
           <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
-            {(outlineNodes ?? []).length === 0 ? (
-              <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
-                {t("buildDetail.boardEmpty")}
-              </Text>
-            ) : (
-              <View className="flex-row flex-wrap gap-3">
-                {(outlineNodes ?? []).map((node) => (
-                  <Pressable
-                    key={node._id as string}
-                    onPress={() => router.push(APP_HREF.element(node._id as string))}
-                    style={{ width: boardCardW }}
-                    className="overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                  >
-                    <View className="aspect-square w-full bg-kyar-muted dark:bg-kyar-dark-muted">
-                      {node.imageStorageId || node.imageUrl ? (
-                        <ConvexStorageImage
-                          storageId={node.imageStorageId}
-                          imageUrl={node.imageUrl}
-                          className="h-full w-full"
-                        />
-                      ) : (
-                        <View className="h-full w-full items-center justify-center">
-                          <Text className="text-4xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                            ◇
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View className="p-3">
-                      <Text
-                        style={{ fontFamily: APP_FONT_FAMILIES.sansSemiBold }}
-                        className="text-sm text-kyar-text dark:text-kyar-dark-text"
-                        numberOfLines={2}
-                      >
-                        {node.name}
-                      </Text>
-                      <Text className="mt-1 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                        {t("elements.progressPercent", { pct: Math.round(node.progressPercent) })}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
+            <SurfaceCard className="gap-4 px-4 py-4">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
+                  {t("buildDetail.tabBoard")}
+                </Text>
+                <Pressable
+                  onPress={openLinkElements}
+                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+                >
+                  <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                    {t("buildDetail.linkElements")}
+                  </Text>
+                </Pressable>
               </View>
-            )}
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {([
+                    { id: "all", label: "All" },
+                    { id: "references", label: "References" },
+                    { id: "progress", label: "Progress" },
+                    { id: "nodes", label: "Elements" },
+                  ] as { id: BoardView; label: string }[]).map((item) => (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => setBoardView(item.id)}
+                      className={`rounded-full border px-4 py-2 ${
+                        boardView === item.id
+                          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                      }`}
+                    >
+                      <Text
+                        className={`text-[10px] uppercase tracking-widest ${
+                          boardView === item.id
+                            ? "text-kyar-bg dark:text-kyar-dark-bg"
+                            : "text-kyar-text dark:text-kyar-dark-text"
+                        }`}
+                      >
+                        {t(`buildDetail.boardFilter${item.label}`, { defaultValue: item.label })}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+
+              {boardVisibleItems.length === 0 ? (
+                <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
+                  {boardView === "references"
+                    ? t("buildDetail.referencesEmpty", { defaultValue: "No reference images yet." })
+                    : boardView === "progress"
+                      ? t("buildDetail.progressEmpty", { defaultValue: "No progress photos yet." })
+                      : boardView === "nodes"
+                        ? t("buildDetail.nodesEmpty", { defaultValue: "No linked elements yet." })
+                        : t("buildDetail.boardEmpty")}
+                </Text>
+              ) : (
+                <View className="flex-row gap-3">
+                  {boardColumns.map((col, colIndex) => (
+                    <View key={`col-${colIndex}`} className="flex-1 gap-3">
+                      {col.map((item) => {
+                        if (item.type === "node") {
+                          const node = item.node;
+                          return (
+                            <Pressable
+                              key={item.key}
+                              onPress={() => router.push(APP_HREF.element(node._id as string))}
+                            >
+                              <ElementPortfolioCard
+                                variant="grid"
+                                item={{
+                                  name: node.name,
+                                  category: node.nodeType === "material" ? "materials" : "elements",
+                                  imageStorageId: node.imageStorageId ?? null,
+                                  imageUrl: node.imageUrl ?? null,
+                                  nodeType: (node.nodeType as "element" | "material") ?? "element",
+                                  progressPercent: node.progressPercent ?? 0,
+                                  childCount: node.childCount ?? 0,
+                                  typeBadge:
+                                    node.nodeType === "material"
+                                      ? t("elements.typeMaterial")
+                                      : t("elements.typeElement"),
+                                  statusBadge: t("elements.progressPercent", {
+                                    pct: Math.round(node.progressPercent ?? 0),
+                                  }),
+                                }}
+                                progressLabel={t("elements.progressPercent", {
+                                  pct: Math.round(node.progressPercent ?? 0),
+                                })}
+                                childrenLabel={t("elements.childCount", {
+                                  count: node.childCount ?? 0,
+                                  defaultValue:
+                                    (node.childCount ?? 0) === 1 ? "1 child" : `${node.childCount ?? 0} children`,
+                                })}
+                              />
+                            </Pressable>
+                          );
+                        }
+
+                        return (
+                          <View
+                            key={item.key}
+                            className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted"
+                          >
+                            <View className="relative min-h-[120px]">
+                              {item.imageStorageId || item.imageUrl ? (
+                                <ConvexStorageImage
+                                  storageId={item.imageStorageId}
+                                  imageUrl={item.imageUrl}
+                                  className="h-full w-full"
+                                />
+                              ) : (
+                                <View className="h-[140px] items-center justify-center">
+                                  <Text className="text-3xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                                    ⌁
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            <View className="px-3 py-2">
+                              <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                                {item.type === "reference"
+                                  ? t("buildDetail.referenceImages")
+                                  : t("buildDetail.processPictures")}
+                              </Text>
+                              {item.type === "progress" ? (
+                                <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                                  {item.dayLabel}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </SurfaceCard>
           </ScrollView>
         ) : null}
       </View>
@@ -1039,7 +1222,7 @@ export function BuildDetailBody(props: Props) {
             {
               key: "new-element",
               label: t("elements.newElementShort"),
-              icon: "layers-outline",
+              icon: "sparkles-outline",
               onPress: () => router.push(APP_HREF.elementNewWithType("element")),
             },
             {

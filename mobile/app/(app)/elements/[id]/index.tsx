@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import DraggableFlatList, {
   type RenderItemParams,
@@ -24,11 +24,15 @@ import {
   formatNodeTypeLabel,
   formatOverallBucket,
 } from "@kyarafit/design-system/domain";
+import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import { APP_HREF } from "@/lib/appRoutes";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { TaskSwipeRow } from "@/screens/build-detail/TaskSwipeRow";
+import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
+import { usePlannerTaskMove } from "@/planner/usePlannerTaskMove";
+import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 
 type ParentRef = {
   _id: Id<"cosplayNodes">;
@@ -39,6 +43,9 @@ type ParentRef = {
 
 type WorkflowTreeNode = {
   _id: Id<"workflowItems">;
+  parentId?: Id<"workflowItems"> | null;
+  ancestorIds?: Id<"workflowItems">[];
+  sortOrder?: number;
   title: string;
   status: string;
   kind: string;
@@ -56,6 +63,8 @@ function flattenWorkflow(
     ...flattenWorkflow(node.children, depth + 1),
   ]);
 }
+
+type FlatWorkflowRow = WorkflowTreeNode & { depth: number };
 
 type ChildRow = Doc<"cosplayNodes"> & {
   linkId: Id<"cosplayNodeLinks">;
@@ -202,6 +211,7 @@ function ElementDetailBody({
   const createWorkflowTask = useMutation(api.workflow.create);
   const updateWorkflowTask = useMutation(api.workflow.update);
   const deleteWorkflowTask = useMutation(api.workflow.remove);
+  const moveWorkflowTask = useMutation(api.workflow.move);
   const router = useRouter();
   const { node, userId, id } = loaded;
 
@@ -231,18 +241,71 @@ function ElementDetailBody({
     }
   }, [workflowScope, selectedWorkflowBuildId, buildsUsing]);
 
-  const visibleWorkflowRows = useMemo(() => {
+  const fullWorkflowFlat = useMemo(() => {
+    if (nodeWorkflow == null) return [];
     const source =
       workflowScope === "shared"
-        ? (nodeWorkflow?.shared ?? [])
-        : (nodeWorkflow?.buildSpecific ?? []);
-    return flattenWorkflow(source as WorkflowTreeNode[]).filter((task) => {
+        ? (nodeWorkflow.shared ?? [])
+        : (nodeWorkflow.buildSpecific ?? []);
+    return flattenWorkflow(source as WorkflowTreeNode[]);
+  }, [nodeWorkflow, workflowScope]);
+
+  const visibleWorkflowRows = useMemo(() => {
+    return fullWorkflowFlat.filter((task) => {
       const isDone = task.status === "done";
       const matchesFilter =
         workflowTaskFilter === "all" || (workflowTaskFilter === "open" ? !isDone : isDone);
       return matchesFilter;
     });
-  }, [nodeWorkflow?.buildSpecific, nodeWorkflow?.shared, workflowScope, workflowTaskFilter]);
+  }, [fullWorkflowFlat, workflowTaskFilter]);
+
+  const workflowFlatDropTasks = useMemo(
+    () =>
+      fullWorkflowFlat.map((r) => ({
+        _id: r._id,
+        parentId: r.parentId ?? null,
+        sortOrder: r.sortOrder ?? 0,
+      })),
+    [fullWorkflowFlat]
+  );
+
+  const workflowSiblingIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    const byParent = new Map<string, typeof fullWorkflowFlat>();
+    for (const r of fullWorkflowFlat) {
+      const pid = r.parentId ?? "";
+      const list = byParent.get(pid) ?? [];
+      list.push(r);
+      byParent.set(pid, list);
+    }
+    for (const list of byParent.values()) {
+      list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      list.forEach((n, i) => m.set(n._id as string, i));
+    }
+    return m;
+  }, [fullWorkflowFlat]);
+
+  const workflowDragScopeKey = useMemo(() => {
+    if (workflowScope === "shared") return `wf:element:${id as string}:shared`;
+    return `wf:element:${id as string}:build:${selectedWorkflowBuildId as string}`;
+  }, [workflowScope, id, selectedWorkflowBuildId]);
+
+  const applyElementWorkflowDrop = useCallback(
+    async (dragged: PlannerTaskDragMeta, target: PlannerTaskDragMeta, zone: DropZone) => {
+      await applyWorkflowTreeDrop(dragged, target, zone, workflowFlatDropTasks, {
+        userId,
+        moveTask: moveWorkflowTask,
+        updateTask: updateWorkflowTask,
+      });
+    },
+    [moveWorkflowTask, updateWorkflowTask, userId, workflowFlatDropTasks]
+  );
+
+  const plannerWorkflowMove = usePlannerTaskMove({
+    userId,
+    onCommitDrop: applyElementWorkflowDrop,
+    onError: (message) => Alert.alert(t("common.errorTitle"), message),
+  });
 
   const workflowSummary = useMemo(() => {
     const source =
@@ -528,9 +591,6 @@ function ElementDetailBody({
               {formatNodeTypeLabel(node.nodeType as CosplayNodeType)}
               {node.category ? ` · ${node.category}` : ""}
             </MetaLabel>
-            <Text className="mt-2 font-serif text-5xl italic leading-[56px] text-kyar-text dark:text-kyar-dark-text">
-              {node.name}
-            </Text>
 
             <View className="mt-4 flex-row flex-wrap gap-2">
               <DetailChip
@@ -776,6 +836,14 @@ function ElementDetailBody({
               })}
             </Text>
 
+            {workflowTaskFilter !== "all" ? (
+              <Text className="mt-2 text-xs text-kyar-meta dark:text-kyar-dark-meta">
+                {t("elements.workflowDragRequiresAllFilter", {
+                  defaultValue: "Switch to “All” to reorder tasks with drag and drop.",
+                })}
+              </Text>
+            ) : null}
+
             {nodeWorkflow === undefined ? (
               <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
                 {t("elements.workflowLoading")}
@@ -790,67 +858,22 @@ function ElementDetailBody({
               </Text>
             ) : (
               <View className="mt-4 gap-3">
-                {visibleWorkflowRows.map((task) => {
-                  const checked = task.status === "done";
-                  return (
-                    <View key={task._id} style={{ marginLeft: task.depth * 12 }}>
-                      <TaskSwipeRow
-                        checked={checked}
-                        onToggle={() => toggleWorkflowDone(task._id, !checked)}
-                      >
-                        <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
-                          <View className="flex-row items-center gap-3">
-                            <Pressable
-                              onPress={() => toggleWorkflowDone(task._id, !checked)}
-                              className="h-9 w-9 items-center justify-center rounded-full border border-kyar-border dark:border-kyar-dark-border"
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked }}
-                            >
-                              <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                                {checked ? "✓" : ""}
-                              </Text>
-                            </Pressable>
-
-                            <View className="min-w-0 flex-1">
-                              <Text
-                                className={`text-base ${
-                                  checked
-                                    ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
-                                    : "text-kyar-text dark:text-kyar-dark-text"
-                                }`}
-                              >
-                                {task.title}
-                              </Text>
-                              <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                                {task.kind} · {task.status.replace(/_/g, " ")} ·{" "}
-                                {task.progressPercent}%
-                              </Text>
-                            </View>
-
-                            <Pressable
-                              onPress={() => setWorkflowStatusPickId(task._id)}
-                              hitSlop={8}
-                              accessibilityLabel={t("elements.workflowStatus")}
-                            >
-                              <Ionicons
-                                name="ellipsis-horizontal"
-                                size={18}
-                                color={colors.textSecondary}
-                              />
-                            </Pressable>
-                            <Pressable
-                              onPress={() => confirmRemoveWorkflowTask(task._id, task.title)}
-                              hitSlop={8}
-                              accessibilityLabel={t("elements.workflowRemoveAction")}
-                            >
-                              <Ionicons name="close" size={18} color={colors.textSecondary} />
-                            </Pressable>
-                          </View>
-                        </View>
-                      </TaskSwipeRow>
-                    </View>
-                  );
-                })}
+                {visibleWorkflowRows.map((task) => (
+                  <ElementWorkflowTaskRow
+                    key={task._id}
+                    task={task}
+                    dragEnabled={workflowTaskFilter === "all"}
+                    workflowDragScopeKey={workflowDragScopeKey}
+                    siblingIndexById={workflowSiblingIndexById}
+                    taskMove={plannerWorkflowMove}
+                    colors={colors}
+                    t={t}
+                    checked={task.status === "done"}
+                    onToggle={() => toggleWorkflowDone(task._id, task.status !== "done")}
+                    onOpenStatus={() => setWorkflowStatusPickId(task._id)}
+                    onRemove={() => confirmRemoveWorkflowTask(task._id, task.title)}
+                  />
+                ))}
               </View>
             )}
 
@@ -1000,6 +1023,104 @@ function ElementDetailBody({
         </Pressable>
       </Modal>
     </>
+  );
+}
+
+function ElementWorkflowTaskRow({
+  task,
+  dragEnabled,
+  workflowDragScopeKey,
+  siblingIndexById,
+  taskMove,
+  colors,
+  t,
+  checked,
+  onToggle,
+  onOpenStatus,
+  onRemove,
+}: {
+  task: FlatWorkflowRow;
+  dragEnabled: boolean;
+  workflowDragScopeKey: string;
+  siblingIndexById: Map<string, number>;
+  taskMove: PlannerTaskMoveController;
+  colors: { textSecondary: string };
+  t: TFunction;
+  checked: boolean;
+  onToggle: () => void;
+  onOpenStatus: () => void;
+  onRemove: () => void;
+}) {
+  const dragMeta = useMemo<PlannerTaskDragMeta>(
+    () => ({
+      taskId: task._id as string,
+      scopeKey: workflowDragScopeKey,
+      parentId: task.parentId ? (task.parentId as string) : undefined,
+      siblingIndex: siblingIndexById.get(task._id as string) ?? 0,
+      ancestorIds: (task.ancestorIds ?? []).map((a) => a as string),
+    }),
+    [siblingIndexById, task, workflowDragScopeKey]
+  );
+
+  const body: ReactNode = (
+    <View className="px-3 py-3">
+      <View className="flex-row items-center gap-3">
+        <Pressable
+          onPress={onToggle}
+          className="h-9 w-9 items-center justify-center rounded-full border border-kyar-border dark:border-kyar-dark-border"
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+        >
+          <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+            {checked ? "✓" : ""}
+          </Text>
+        </Pressable>
+
+        <View className="min-w-0 flex-1">
+          <Text
+            className={`text-base ${
+              checked
+                ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
+                : "text-kyar-text dark:text-kyar-dark-text"
+            }`}
+          >
+            {task.title}
+          </Text>
+          <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+            {task.kind} · {task.status.replace(/_/g, " ")} · {task.progressPercent}%
+          </Text>
+        </View>
+
+        <Pressable onPress={onOpenStatus} hitSlop={8} accessibilityLabel={t("elements.workflowStatus")}>
+          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel={t("elements.workflowRemoveAction")}>
+          <Ionicons name="close" size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  if (!dragEnabled) {
+    return (
+      <View style={{ marginLeft: task.depth * 12 }}>
+        <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
+          {body}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <WorkflowTaskDragShell
+      taskId={task._id}
+      dragMeta={dragMeta}
+      taskMove={taskMove}
+      depthMargin={task.depth * 12}
+      dropIntoLabel={t("buildDetail.dropIntoLabel")}
+    >
+      {body}
+    </WorkflowTaskDragShell>
   );
 }
 
