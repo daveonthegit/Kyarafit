@@ -19,11 +19,15 @@ export const authComponent = createClient<DataModel, typeof schema>(components.b
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   const siteUrl = process.env.SITE_URL;
   const convexSiteUrl = process.env.CONVEX_SITE_URL;
-  // When SITE_URL is set, email links use app domain (app proxies to Convex). Otherwise use Convex URL.
-  const baseURL = siteUrl
-    ? `${siteUrl.replace(/\/$/, "")}/auth`
-    : convexSiteUrl
-      ? `${convexSiteUrl.replace(/\/$/, "")}/auth`
+  // OAuth redirect_uri must match the host the clients use (`NEXT_PUBLIC_CONVEX_SITE_URL` / mobile
+  // `EXPO_PUBLIC_CONVEX_SITE_URL` → `*.convex.site/auth`). Using SITE_URL here made Apple/Google
+  // expect `https://<SITE_URL>/auth/callback/...` while Return URLs were registered for
+  // `*.convex.site` → "Invalid web redirect url". Next.js does not serve `/auth/callback/*`.
+  // Prefer CONVEX_SITE_URL (always set on Convex) for baseURL; keep SITE_URL in trustedOrigins/CORS.
+  const baseURL = convexSiteUrl
+    ? `${convexSiteUrl.replace(/\/$/, "")}/auth`
+    : siteUrl
+      ? `${siteUrl.replace(/\/$/, "")}/auth`
       : undefined;
   const extraOrigins =
     process.env.ADDITIONAL_CORS_ORIGINS?.split(",")

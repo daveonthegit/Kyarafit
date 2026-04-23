@@ -16,6 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.kyarafit.mobile",
       "infoPlist": {
+        "NSCameraUsageDescription": "Kyarafit uses the camera only when you choose to take a photo for cosplay items, builds, or your profile.",
         "NSPhotoLibraryUsageDescription": "Kyarafit needs access to your photo library only when you choose images for cosplay items, builds, or profile pictures.",
         "NSPhotoLibraryAddUsageDescription": "Kyarafit may save edited cosplay images back to your library only when you choose to export or save them."
       }

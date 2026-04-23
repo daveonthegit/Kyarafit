@@ -114,7 +114,7 @@ atom is refreshed via `await authClient.getSession()` before navigating.
 
 1. `authClient.signIn.social({ provider, callbackURL: "/home" })`
 2. Browser redirects to the OAuth provider
-3. Provider redirects to `<convex.site>/auth/callback/<provider>`
+3. Provider redirects to `https://<your-deployment>.convex.site/auth/callback/<provider>` (Better Auth `baseURL` uses `CONVEX_SITE_URL`, not `SITE_URL`, so OAuth Return URLs stay on `*.convex.site`)
 4. `crossDomain` server plugin creates an OTT, appends `?ott=<token>` to the callbackURL
 5. Browser navigates to `/home?ott=<token>`
 6. `ConvexBetterAuthProvider` detects `ott`, calls `/auth/cross-domain/one-time-token/verify`
