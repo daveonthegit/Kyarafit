@@ -66,6 +66,15 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     baseURL,
     basePath: "/auth", // Must match client baseURL path so Convex registers /auth/* not /api/auth/*
     secret: process.env.BETTER_AUTH_SECRET,
+    // Apple uses form_post → cross-site POST to *.convex.site; Lax session cookies are unreliable
+    // on that navigation. None + Secure matches HTTPS Convex URLs and avoids OAuth edge cases
+    // (see better-auth discussions on Apple / POST callbacks).
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+      },
+    },
     // CORS: registerRoutes merges these with http.ts cors.allowedOrigins (localhost, Expo, etc.)
     trustedOrigins,
     database: authComponent.adapter(ctx),

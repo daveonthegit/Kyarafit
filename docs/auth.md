@@ -228,9 +228,12 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Google
 
-1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application)
-2. Authorized redirect URIs: `https://<deployment>.convex.site/auth/callback/google`
-3. Copy Client ID + Secret → Convex environment variables
+1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (**Web application** — not iOS/Android only; those clients cannot use the Convex callback below)
+2. **Authorized redirect URIs** (must match character-for-character; no trailing slash):
+   - `https://<deployment>.convex.site/auth/callback/google`  
+   Use the same host as **Convex Dashboard → your deployment → Settings → URL & Deploy Key** → HTTP Actions / “.convex.site” site URL (not the `.convex.cloud` data URL). Add **both** dev and prod URLs if you use two deployments.
+3. **Authorized JavaScript origins** (recommended): `https://<deployment>.convex.site` (and `http://localhost:3000` for local Next.js UI — the OAuth **redirect** still hits `*.convex.site`, so the Convex URI in step 2 is required even when developing on localhost)
+4. Copy Client ID + Secret → Convex environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (same Web client for dev/prod unless you use separate clients)
 
 ### GitHub (optional)
 
@@ -238,9 +241,29 @@ user completes the reset in their browser. A native reset-password screen can be
 2. Authorization callback URL: `https://<deployment>.convex.site/auth/callback/github`
 3. Copy Client ID + Secret → Convex environment variables
 
+### Apple (Sign in with Apple)
+
+Apple does **not** allow `http://localhost` as a return URL. Use your real Convex HTTPS callback in the Apple Developer portal.
+
+1. **Identifiers** → **Services IDs** → create or select the Service ID used for web OAuth. This identifier is **`APPLE_CLIENT_ID`** in Convex (not the iOS bundle ID).
+2. Enable **Sign in with Apple** → **Configure** → set **Primary App ID** to your app ID that has the Sign in with Apple capability (`com.kyarafit.mobile` matches `mobile/app.json`).
+3. **Domains and Subdomains**: add the hostname only for your HTTP deployment, e.g. `happy-animal-123.convex.site` (no `https://`, no path).
+4. **Return URLs** (must match exactly, no trailing slash):
+   - `https://<deployment>.convex.site/auth/callback/apple`  
+   Same `<deployment>` as `NEXT_PUBLIC_CONVEX_SITE_URL` / `EXPO_PUBLIC_CONVEX_SITE_URL` (the `*.convex.site` host).
+5. **Keys**: create a Sign in with Apple key, download the `.p8`, note **Key ID** and **Team ID**.
+6. **Convex env** (Dashboard → Environment Variables):
+   - `APPLE_CLIENT_ID` — Service ID string  
+   - `APPLE_CLIENT_SECRET` — JWT client secret (max **6 months**; regenerate with `npm run apple:client-secret` from repo root when it expires)  
+   - Optional: `APPLE_APP_BUNDLE_IDENTIFIER` — e.g. `com.kyarafit.mobile` (helps id-token audience checks; only set if it matches your App ID)
+
 ---
 
 ## Troubleshooting
+
+### Google `redirect_uri_mismatch` (400)
+
+The browser is sent to Google with `redirect_uri=https://<your-deployment>.convex.site/auth/callback/google`. In [Credentials](https://console.cloud.google.com/apis/credentials) open the **Web client** whose Client ID matches Convex `GOOGLE_CLIENT_ID`, then under **Authorized redirect URIs** add that exact URL (scheme `https`, path `/auth/callback/google`). If it still fails, confirm `NEXT_PUBLIC_CONVEX_SITE_URL` / mobile `EXPO_PUBLIC_CONVEX_SITE_URL` use the **same** host you registered (no typo, no `www`, no trailing slash).
 
 ### 403 Forbidden on sign-in or sign-up
 
@@ -262,11 +285,23 @@ and ensure `"kyarafit://"` is in `trustedOrigins`.
 After `signIn.email()` always call `setStoredBearerToken(data.token)`. OAuth sessions
 are persisted by `crossDomainClient` via the `Set-Better-Auth-Cookie` response header.
 
+### Apple / Convex logs: `ERROR [Better Auth]: No session found`
+
+That message comes from the **cross-domain** plugin after the OAuth callback: Better Auth did **not** create a session before redirecting (so there is no one-time token to send back to your app).
+
+Check **Convex function logs** for errors **immediately before** that line — common causes:
+
+1. **`email_not_found`** — Apple did not supply an email in the profile/id token (rare misconfiguration). Confirm the Service ID + Primary App ID and that users can complete the Apple consent flow.
+2. **`invalid_code` / `no_code`** — token exchange failed. Typical fixes: wrong **Return URL** in Apple (must be exactly `https://<deployment>.convex.site/auth/callback/apple`), wrong **`APPLE_CLIENT_ID`** (must be the **Services ID**, not the bundle ID), or an **expired `APPLE_CLIENT_SECRET`** JWT (regenerate every ≤6 months).
+3. **Domain not registered** — under the Service ID, **Domains and Subdomains** must include your deployment host (e.g. `something.convex.site`).
+
+`convex/betterAuth/auth.ts` sets cookie `SameSite=None` + `Secure` for OAuth compatibility with Apple’s **form_post** callback.
+
 ### Session not established after mobile OAuth
 
-- Check that `callbackURL: "kyarafit://(tabs)"` is used in `signIn.social()`
-- Check that `mobile/app/_layout.tsx` has the `Linking.useURL` OTT handler
-- Verify the Convex deployment has the `crossDomain` plugin registered (it creates the OTT)
+- `mobile` uses `Linking.createURL("/")` for OAuth `callbackURL` (trusted origin `kyarafit://`). Do **not** use `kyarafit://(tabs)` — parentheses are invalid in a URL host and trigger **Invalid callbackURL** / 403.
+- Confirm `mobile/app/_layout.tsx` has the `Linking.useURL` OTT handler and `EXPO_PUBLIC_CONVEX_SITE_URL` matches the deployment you registered with Google/Apple.
+- Verify the Convex deployment registers the `crossDomain` plugin (it creates the OTT).
 
 ### Verification email not received
 
