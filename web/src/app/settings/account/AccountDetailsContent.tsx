@@ -28,6 +28,24 @@ function labelForProvider(providerId: string): string {
   const match = LINKABLE_SOCIAL_PROVIDERS.find((p) => p.id === providerId);
   return match?.label ?? providerId;
 }
+
+function messageForOAuthLinkError(error: string, description: string | null): string {
+  const key = error.toLowerCase().replace(/\+/g, " ");
+  switch (key) {
+    case "email_doesn't_match":
+    case "email_doesnt_match":
+      return "The provider email did not match this account. Try Connect again; with Apple, use “Share My Email” if you want the same address as your Kyarafit login.";
+    case "account_not_linked":
+      return "That provider can’t be linked automatically. Sign in with your existing method, then use Connect from this page.";
+    case "unable_to_link_account":
+      return "Could not connect that sign-in method. It may already be used on another Kyarafit account.";
+    case "account_already_linked_to_different_user":
+      return "That provider is already linked to a different Kyarafit account.";
+    default:
+      if (description) return decodeURIComponent(description.replace(/\+/g, " "));
+      return `Could not connect (${error}). Try again or use another sign-in method.`;
+  }
+}
 const SESSION_EMAIL_VISIBLE_KEY = "kyar_account_email_visible";
 
 export type UserWithUsername = {
@@ -119,6 +137,17 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
     if (!externalId) return;
     void loadLinkedAccounts();
   }, [externalId, loadLinkedAccounts]);
+
+  /** OAuth link flow returns ?error=… on errorCallbackURL (e.g. email mismatch before allowDifferentEmails). */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (!err) return;
+    const desc = params.get("error_description");
+    setAccountsActionError(messageForOAuthLinkError(err, desc));
+    window.history.replaceState({}, "", "/settings/account");
+  }, []);
 
   const hasCredentialAccount = linkedAccounts.some((a) => a.providerId === "credential");
   const oauthAccountRows = linkedAccounts.filter((a) => a.providerId !== "credential");

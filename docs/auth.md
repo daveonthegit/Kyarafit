@@ -121,6 +121,8 @@ atom is refreshed via `await authClient.getSession()` before navigating.
 7. Gets `session.token`, calls `getSession()` with it; `crossDomainClient` stores the cookie
 8. `updateSession()` notifies the session atom → `useSession()` updates
 
+**Linking from Settings:** `linkSocial` compares the provider email to the Better Auth user email. Apple’s private relay address often differs, so `allowDifferentEmails: true` is set in `convex/betterAuth/auth.ts`. For **first-time** sign-in (not Settings), Better Auth still matches existing users by **same email**; use “Share My Email” with Apple if you need one account to merge with an email/password profile.
+
 ### OAuth — mobile (Expo)
 
 1. `authClient.signIn.social({ provider, callbackURL: "kyarafit:///" })`

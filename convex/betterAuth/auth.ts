@@ -90,6 +90,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       accountLinking: {
         enabled: true,
         trustedProviders: ["google", "apple"],
+        // Apple often returns a private-relay address while the profile email is the
+        // user's real address (or vice versa). Without this, /link-social → OAuth
+        // callback fails with email_doesn't_match and Apple never appears linked.
+        allowDifferentEmails: true,
+        updateUserInfoOnLink: true,
       },
     },
 
