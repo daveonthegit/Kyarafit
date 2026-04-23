@@ -315,6 +315,11 @@
     "profileIdentity": "Profile and identity",
     "quickLinks": "Account and billing",
     "accountDetails": "Account details",
+    "tierName": {
+      "FREE": "Free",
+      "PRO": "Pro",
+      "STUDIO": "Studio"
+    },
     "subscriptionPlan": "Subscription plan",
     "notificationStyle": "Notification style",
     "opensInApp": "Opens the native mobile screen",

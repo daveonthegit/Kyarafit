@@ -5,15 +5,9 @@
  */
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { convexTierStorageLimitMb } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 
 const BYTES_PER_MB = 1024 * 1024;
-
-const TIER_LIMITS: Record<string, number> = {
-  ANON: 0,
-  FREE: 50,
-  PREMIUM_BASIC: 500,
-  PREMIUM_PRO: -1,
-};
 
 /** Get file size in MB from Convex storage metadata. Returns 0 if missing. */
 export async function getStorageSizeMb(
@@ -59,7 +53,7 @@ export async function checkLimitAndAddUsage(
     .unique();
   if (!user) return;
 
-  const limitMb = TIER_LIMITS[user.tier] ?? 50;
+  const limitMb = convexTierStorageLimitMb(user.tier);
   if (limitMb >= 0 && user.currentUsageMb + sizeMb > limitMb) {
     throw new Error(
       `Storage limit reached (${user.currentUsageMb.toFixed(1)} / ${limitMb} MB). Upgrade to upload more.`

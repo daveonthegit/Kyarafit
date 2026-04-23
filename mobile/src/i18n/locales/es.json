@@ -315,6 +315,11 @@
     "profileIdentity": "Perfil e identidad",
     "quickLinks": "Cuenta y facturación",
     "accountDetails": "Detalles de la cuenta",
+    "tierName": {
+      "FREE": "Gratis",
+      "PRO": "Pro",
+      "STUDIO": "Studio"
+    },
     "subscriptionPlan": "Plan de suscripción",
     "notificationStyle": "Estilo de notificaciones",
     "opensInApp": "Abre la pantalla nativa",

@@ -1,39 +1,17 @@
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { bestConvexTierFromSubscriberEntitlements } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 
 /**
- * Maps RevenueCat entitlement identifiers (dashboard) to Kyarafit user tiers.
- * Create entitlements `premium_basic` and `premium_pro` in RevenueCat and attach products.
+ * RevenueCat entitlement ids → Convex `users.tier` (`FREE` | `PRO` | `STUDIO`) are defined in
+ * `design-system/domain/subscriptionTierPolicy.ts` (`pro`, `studio`, legacy `premium_*`).
  */
-const ENTITLEMENT_TO_TIER: Record<string, string> = {
-  premium_basic: "PREMIUM_BASIC",
-  premium_pro: "PREMIUM_PRO",
-};
-
-const TIER_RANK: Record<string, number> = {
-  FREE: 0,
-  PREMIUM_BASIC: 1,
-  PREMIUM_PRO: 2,
-};
-
 function tierFromSubscriberJson(data: {
   subscriber?: {
     entitlements?: Record<string, { expires_date?: string | null }>;
   };
 }): string {
-  const entitlements = data.subscriber?.entitlements ?? {};
-  let best = "FREE";
-  for (const [entitlementId, meta] of Object.entries(entitlements)) {
-    const exp = meta.expires_date;
-    if (exp != null && exp !== "") {
-      const d = new Date(exp);
-      if (!Number.isNaN(d.getTime()) && d.getTime() <= Date.now()) continue;
-    }
-    const tier = ENTITLEMENT_TO_TIER[entitlementId];
-    if (!tier) continue;
-    if ((TIER_RANK[tier] ?? -1) > (TIER_RANK[best] ?? -1)) best = tier;
-  }
-  return best;
+  return bestConvexTierFromSubscriberEntitlements(data.subscriber?.entitlements ?? {});
 }
 
 /**

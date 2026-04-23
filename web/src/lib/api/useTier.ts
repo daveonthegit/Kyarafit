@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { normalizeTier } from "@kyarafit/design-system/domain/entitlements";
 
 export interface MeResponse {
   tier: string;
@@ -43,27 +44,18 @@ export function useTier(): { data: MeResponse | null; isLoading: boolean } {
 /** Returns feature access based on user's tier */
 export function useFeatureAccess() {
   const { data: me } = useTier();
-
-  const tier = me?.tier || "ANON";
-  const tierOrder: Record<string, number> = {
-    ANON: 0,
-    FREE: 1,
-    PREMIUM_BASIC: 2,
-    PREMIUM_PRO: 3,
-  };
-
-  const currentTierLevel = tierOrder[tier] || 0;
+  const tier = normalizeTier(me?.tier ?? "ANON");
 
   return {
     tier,
-    canUseWeb: currentTierLevel >= tierOrder.FREE,
-    canUseCloudSync: currentTierLevel >= tierOrder.PREMIUM_BASIC,
-    canExport: currentTierLevel >= tierOrder.PREMIUM_BASIC,
-    canImport: currentTierLevel >= tierOrder.PREMIUM_BASIC,
-    canExportCSV: currentTierLevel >= tierOrder.PREMIUM_PRO,
-    canExportPDF: currentTierLevel >= tierOrder.PREMIUM_PRO,
-    hasUnlimitedStorage: currentTierLevel >= tierOrder.PREMIUM_PRO,
-    hasUnlimitedBuilds: currentTierLevel >= tierOrder.PREMIUM_PRO,
-    hasUnlimitedConventions: currentTierLevel >= tierOrder.PREMIUM_PRO,
+    canUseWeb: true,
+    canUseCloudSync: tier === "pro" || tier === "studio",
+    canExport: tier === "pro" || tier === "studio",
+    canImport: tier === "pro" || tier === "studio",
+    canExportCSV: tier === "studio",
+    canExportPDF: tier === "studio",
+    hasUnlimitedStorage: tier === "studio",
+    hasUnlimitedBuilds: tier === "studio",
+    hasUnlimitedConventions: tier === "studio",
   };
 }

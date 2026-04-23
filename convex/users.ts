@@ -3,6 +3,10 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
+import {
+  convexTierStorageLimitMb,
+  normalizeConvexTier,
+} from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
 
 // Typed reference to the internal sendWelcome action.
@@ -204,17 +208,10 @@ export const getMe = query({
       .unique();
     if (!user) return null;
 
-    const TIER_LIMITS: Record<string, number> = {
-      ANON: 0,
-      FREE: 50,
-      PREMIUM_BASIC: 500,
-      PREMIUM_PRO: -1,
-    };
-
     return {
-      tier: user.tier,
+      tier: normalizeConvexTier(user.tier),
       currentUsageMb: user.currentUsageMb,
-      storageLimitMb: TIER_LIMITS[user.tier] ?? 50,
+      storageLimitMb: convexTierStorageLimitMb(user.tier),
     };
   },
 });
@@ -401,7 +398,7 @@ export const setTier = internalMutation({
       .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
       .unique();
     if (!user) return null;
-    await ctx.db.patch(user._id, { tier: args.tier });
+    await ctx.db.patch(user._id, { tier: normalizeConvexTier(args.tier) });
     return user._id;
   },
 });

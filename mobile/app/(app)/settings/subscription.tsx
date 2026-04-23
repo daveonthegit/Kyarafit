@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import Purchases, { PURCHASES_ERROR_CODE, type PurchasesPackage } from "react-native-purchases";
 import { api } from "convex/_generated/api";
+import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { formatStorageMb } from "@/lib/formatStorageMb";
 import { useTier } from "@/lib/useTier";
 import { ensureRevenueCatConfigured, isRevenueCatSupportedPlatform } from "@/lib/revenuecat";
@@ -100,7 +101,10 @@ export default function SettingsSubscriptionScreen() {
     <>
       <Stack.Screen options={{ title: t("settings.subscriptionPlan"), headerLargeTitle: false }} />
       <DataBoundary status={status} data={{ tier }}>
-        {() => (
+        {() => {
+          const tierCode = normalizeConvexTier(tier?.tier ?? "FREE");
+          const tierTitle = t(`settings.tierName.${tierCode}`);
+          return (
           <ScrollView
             className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
             contentContainerClassName="px-5 pb-12 pt-4"
@@ -116,7 +120,7 @@ export default function SettingsSubscriptionScreen() {
                 style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
                 className="mt-3 text-[34px] italic text-kyar-text dark:text-kyar-dark-text"
               >
-                {tier?.tier ?? "FREE"}
+                {tierTitle}
               </Text>
               <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                 {isLoading
@@ -207,7 +211,8 @@ export default function SettingsSubscriptionScreen() {
               )}
             </SurfaceCard>
           </ScrollView>
-        )}
+          );
+        }}
       </DataBoundary>
     </>
   );

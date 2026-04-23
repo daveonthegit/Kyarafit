@@ -1,13 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { useTier } from "@/lib/api/useTier";
 import { formatStorageMb } from "@/lib/utils";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { WebSubscriptionRevenueCat } from "@/components/settings/WebSubscriptionRevenueCat";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+const TIER_LABEL: Record<string, string> = {
+  FREE: "Free",
+  PRO: "Pro",
+  STUDIO: "Studio",
+};
 
 export default function SettingsSubscriptionPage() {
   const { data: tier, isLoading } = useTier();
-  const isFree = tier?.tier === "FREE";
+  const { userId } = useCurrentUser();
+  const tierCode = tier ? normalizeConvexTier(tier.tier) : "FREE";
+  const isFree = tierCode === "FREE";
 
   return (
     <WebAppShell>
@@ -30,7 +41,7 @@ export default function SettingsSubscriptionPage() {
                 Current plan
               </p>
               <p className="text-sm font-medium" data-testid="subscription-tier">
-                {tier.tier}
+                {TIER_LABEL[tierCode] ?? tierCode}
               </p>
             </div>
             {tier.storageLimitMb >= 0 && (
@@ -75,8 +86,10 @@ export default function SettingsSubscriptionPage() {
                 </Link>
               )}
               <p className="mt-1 text-[11px] text-kyar-textSecondary">
-                Stripe checkout and portal coming soon.
+                Your tier is synced from RevenueCat (including Web Billing via Stripe when enabled). This page reads
+                your plan from the server.
               </p>
+              {userId ? <WebSubscriptionRevenueCat appUserId={userId} /> : null}
             </div>
           </section>
         )}

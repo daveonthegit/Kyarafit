@@ -6,6 +6,14 @@ vi.mock("@/lib/api/useTier", () => ({
   useTier: vi.fn(),
 }));
 
+vi.mock("@/hooks/useCurrentUser", () => ({
+  useCurrentUser: () => ({ userId: "test-user-id", isLoading: false, isAuthenticated: true, identity: { subject: "test-user-id" } }),
+}));
+
+vi.mock("@/components/settings/WebSubscriptionRevenueCat", () => ({
+  WebSubscriptionRevenueCat: () => null,
+}));
+
 vi.mock("@/components/layout/WebAppShell", () => ({
   WebAppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -34,7 +42,7 @@ describe("Settings Subscription page", () => {
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
-    expect(screen.getByTestId("subscription-tier")).toHaveTextContent("FREE");
+    expect(screen.getByTestId("subscription-tier")).toHaveTextContent("Free");
     expect(screen.getByTestId("subscription-storage")).toBeInTheDocument();
   });
 

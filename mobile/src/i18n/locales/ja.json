@@ -315,6 +315,11 @@
     "profileIdentity": "プロフィールとアカウント",
     "quickLinks": "アカウントと課金",
     "accountDetails": "アカウント詳細",
+    "tierName": {
+      "FREE": "無料",
+      "PRO": "Pro",
+      "STUDIO": "Studio"
+    },
     "subscriptionPlan": "サブスクリプション",
     "notificationStyle": "通知設定",
     "opensInApp": "ネイティブ画面を開きます",

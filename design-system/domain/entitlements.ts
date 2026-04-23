@@ -1,7 +1,10 @@
 /**
  * Single source for tier → limits / feature flags (web + mobile).
- * Normalize DB tier strings (`FREE`, `free`, etc.) via `normalizeTier`.
+ * Convex `users.tier` uses `FREE` | `PRO` | `STUDIO` (see `subscriptionTierPolicy.ts`);
+ * `normalizeTier` accepts those plus legacy `PREMIUM_*` values.
  */
+import { normalizeConvexTier } from "./subscriptionTierPolicy";
+
 export type Tier = "free" | "pro" | "studio";
 
 export type Feature =
@@ -12,10 +15,11 @@ export type Feature =
   | "advanced_planner"
   | "priority_support";
 
+/** Soft caps aligned with Convex enforcement (`convexTierStorageLimitMb`); studio = effectively unlimited. */
 const STORAGE_CAP_MB: Record<Tier, number> = {
-  free: 200,
-  pro: 2048,
-  studio: 10240,
+  free: 50,
+  pro: 500,
+  studio: 1_000_000_000,
 };
 
 const MAX_BUILDS: Record<Tier, number | null> = {
@@ -52,17 +56,10 @@ const FLAGS: Record<
 };
 
 export function normalizeTier(raw: string | undefined | null): Tier {
-  if (!raw) return "free";
-  switch (raw.trim().toLowerCase()) {
-    case "free":
-      return "free";
-    case "pro":
-      return "pro";
-    case "studio":
-      return "studio";
-    default:
-      return "free";
-  }
+  const c = normalizeConvexTier(raw ?? "");
+  if (c === "FREE") return "free";
+  if (c === "PRO") return "pro";
+  return "studio";
 }
 
 export function limit(tier: Tier, feature: Feature): number | null | boolean {
@@ -83,6 +80,7 @@ export function can(
   ctx?: { currentUsageMb?: number; currentBuildCount?: number }
 ): boolean {
   if (feature === "storage_mb_soft_cap") {
+    if (tier === "studio") return true;
     const cap = STORAGE_CAP_MB[tier];
     const usage = ctx?.currentUsageMb ?? 0;
     return usage < cap;

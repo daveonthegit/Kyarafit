@@ -14,7 +14,8 @@
     "./domain/workflowProgress": "./domain/workflowProgress.ts",
     "./domain/workflowDomain": "./domain/workflowDomain.ts",
     "./domain/cosplayUi": "./domain/cosplayUi.ts",
-    "./domain/entitlements": "./domain/entitlements.ts"
+    "./domain/entitlements": "./domain/entitlements.ts",
+    "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",
