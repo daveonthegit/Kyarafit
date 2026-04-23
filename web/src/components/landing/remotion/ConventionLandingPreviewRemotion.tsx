@@ -28,7 +28,7 @@ export function ConventionLandingPreviewRemotion({
             alt={convention.title}
             className="h-full w-full object-cover"
           />
-          <div className="absolute bottom-3 left-3 rounded-sm bg-kyar-text px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-kyar-bg">
+          <div className="absolute bottom-3 left-3 rounded-sm border border-white/20 bg-black/55 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-widest text-kyar-media-fg backdrop-blur-sm">
             EVENT {eventYear}
           </div>
         </div>

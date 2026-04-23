@@ -40,7 +40,10 @@ export default function SignUpScreen() {
     setError(null);
     setOauthLoading(provider);
     try {
-      await startSocialSignIn(provider);
+      const result = await startSocialSignIn(provider);
+      if (result === "signed_in") {
+        router.replace("/(app)/(tabs)");
+      }
       setOauthLoading(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Sign up failed.");

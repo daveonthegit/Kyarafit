@@ -3,16 +3,17 @@ import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/doma
 import { plannerTaskScopeKey } from "@kyarafit/design-system/domain";
 import { usePlannerTaskMove, type PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
-import type { WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
+import { promoteWorkflowTaskToRoot, type WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Pressable as GHPressable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { WorkflowTaskDragHandle } from "@/components/workflow/WorkflowTaskDragHandle";
+import { WorkflowTaskDragOverlay } from "@/components/workflow/WorkflowTaskDragOverlay";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
+import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRootDropZone";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import { useDesignTheme } from "@/theme/useDesignTheme";
@@ -24,6 +25,7 @@ import {
   SectionHeading,
   SurfaceCard,
 } from "@/ui";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 
 type PlannerView = "tasks" | "events" | "agenda";
 type Timeframe = "all" | "today" | "week";
@@ -239,11 +241,11 @@ function formatDateRange(startDate: string, endDate: string) {
 
 export default function PlannerScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const tasks = useQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
-  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
-  const upcomingEvents = useQuery(
+  const tasks = useOfflineQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
+  const upcomingEvents = useOfflineQuery(
     api.conventions.listUpcomingWithPlanCounts,
     userId ? { userId } : "skip"
   );
@@ -281,9 +283,9 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useDesignTheme();
-  const createTask = useMutation(api.workflow.create);
-  const updateTask = useMutation(api.workflow.update);
-  const moveTask = useMutation(api.workflow.move);
+  const createTask = useOfflineMutation(api.workflow.create);
+  const updateTask = useOfflineMutation(api.workflow.update);
+  const moveTask = useOfflineMutation(api.workflow.move);
   const [view, setView] = useState<PlannerView>("tasks");
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -378,15 +380,41 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
 
   const applyPlannerTaskDrop = useCallback(
     async (dragged: PlannerTaskDragMeta, target: PlannerTaskDragMeta, zone: DropZone) => {
-      await applyWorkflowTreeDrop(dragged, target, zone, plannerFlatDropTasks, {
-        userId: loaded.userId,
-        moveTask,
-        updateTask,
-      }, (D, T) => {
-        const d = loaded.tasks.find((x) => x._id === D._id);
-        const tt = loaded.tasks.find((x) => x._id === T._id);
-        return !!(d && tt && plannerTaskScopeKey(d) === plannerTaskScopeKey(tt));
-      });
+      await applyWorkflowTreeDrop(
+        dragged,
+        target,
+        zone,
+        plannerFlatDropTasks,
+        {
+          userId: loaded.userId,
+          moveTask,
+          updateTask,
+        },
+        (D, T) => {
+          const d = loaded.tasks.find((x) => x._id === D._id);
+          const tt = loaded.tasks.find((x) => x._id === T._id);
+          return !!(d && tt && plannerTaskScopeKey(d) === plannerTaskScopeKey(tt));
+        }
+      );
+    },
+    [loaded.tasks, loaded.userId, moveTask, plannerFlatDropTasks, updateTask]
+  );
+
+  const promotePlannerTaskToRoot = useCallback(
+    async (dragged: PlannerTaskDragMeta, scopeKey: string) => {
+      await promoteWorkflowTaskToRoot(
+        dragged,
+        plannerFlatDropTasks,
+        {
+          userId: loaded.userId,
+          moveTask,
+          updateTask,
+        },
+        (task) => {
+          const candidate = loaded.tasks.find((item) => item._id === task._id);
+          return !!candidate && plannerTaskScopeKey(candidate) === scopeKey;
+        }
+      );
     },
     [loaded.tasks, loaded.userId, moveTask, plannerFlatDropTasks, updateTask]
   );
@@ -394,8 +422,21 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const plannerTaskMove = usePlannerTaskMove({
     userId: loaded.userId,
     onCommitDrop: applyPlannerTaskDrop,
+    onCommitRootDrop: promotePlannerTaskToRoot,
     onError: (message) => Alert.alert(t("common.errorTitle"), message),
   });
+
+  const rootViewRef = useRef<View>(null);
+  const [rootFrame, setRootFrame] = useState({ x: 0, y: 0 });
+  const updateRootFrame = useCallback(() => {
+    rootViewRef.current?.measureInWindow?.((x, y) => {
+      setRootFrame({ x, y });
+    });
+  }, []);
+  useEffect(() => {
+    if (!plannerTaskMove.dragMeta) return;
+    updateRootFrame();
+  }, [plannerTaskMove.dragMeta, updateRootFrame]);
 
   const handleCreateTask = useCallback(async () => {
     const title = newTaskTitle.trim();
@@ -430,9 +471,10 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   );
 
   return (
-    <>
+    <View ref={rootViewRef} className="flex-1" onLayout={updateRootFrame}>
       <ScrollView
         className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
+        scrollEnabled={!plannerTaskMove.dragMeta}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 16,
@@ -702,7 +744,13 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
           </Pressable>
         </Pressable>
       </Modal>
-    </>
+
+      <WorkflowTaskDragOverlay
+        taskMove={plannerTaskMove}
+        fallbackLabel={t("planner.taskFallbackLabel", { defaultValue: "Task" })}
+        rootOffset={rootFrame}
+      />
+    </View>
   );
 }
 
@@ -860,10 +908,21 @@ function PlannerTaskTreeList({
   onOpenConvention: (id: Id<"conventions">) => void;
   menuMode?: PlannerTaskExplorerMenuMode;
 }) {
+  const { t } = useTranslation();
+  const scopeKey = nodes[0] ? plannerTaskScopeKey(nodes[0]) : null;
   if (nodes.length === 0) return null;
 
   return (
     <View className="mt-2">
+      {menuMode === "full" && scopeKey ? (
+        <WorkflowTaskRootDropZone
+          scopeKey={scopeKey}
+          taskMove={taskMove}
+          label={t("planner.dropToTopLevel", {
+            defaultValue: "Drop here to make it top level",
+          })}
+        />
+      ) : null}
       {nodes.map((task, index) => (
         <PlannerTaskBranch
           key={task._id}
@@ -916,6 +975,7 @@ function PlannerTaskBranch({
       parentId: parent?._id as string | undefined,
       siblingIndex: index,
       ancestorIds: task.ancestorIds.map((id) => id as string),
+      title: task.title,
     }),
     [index, parent?._id, task]
   );
@@ -1129,6 +1189,13 @@ function PlannerTaskExplorerRow({
         </Pressable>
 
         <View className="shrink-0 flex-row items-center gap-0.5">
+          {dragEnabled && taskMove && dragMeta ? (
+            <WorkflowTaskDragHandle
+              taskId={task._id}
+              dragMeta={dragMeta}
+              taskMove={taskMove}
+            />
+          ) : null}
           <Pressable
             onPress={onEdit}
             hitSlop={8}
@@ -1150,43 +1217,38 @@ function PlannerTaskExplorerRow({
 
   return (
     <View style={{ marginLeft: rowDepth }} className="mb-2">
-      {dragEnabled && taskMove && dragMeta ? (
-        <GHPressable
-          ref={rowRef}
-          onLongPress={(event) =>
-            void taskMove.startDrag(dragMeta, {
-              x: event.nativeEvent.pageX,
-              y: event.nativeEvent.pageY,
-            })
-          }
-          onTouchMove={(event) => {
-            if (!dragging) return;
-            taskMove.updateDragPoint({
-              x: event.nativeEvent.pageX,
-              y: event.nativeEvent.pageY,
-            });
-          }}
-          onTouchEnd={(event) => {
-            if (!dragging) return;
-            taskMove.finishDrag({
-              x: event.nativeEvent.pageX,
-              y: event.nativeEvent.pageY,
-            });
-          }}
-          onTouchCancel={() => {
-            if (!dragging) return;
-            taskMove.finishDrag();
-          }}
-          delayLongPress={220}
-          className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
-        >
-          {rowBody}
-        </GHPressable>
-      ) : (
-        <View ref={dragEnabled ? rowRef : undefined} className={`relative ${cardClass}`}>
-          {rowBody}
-        </View>
-      )}
+      <Pressable
+        ref={dragEnabled ? rowRef : undefined}
+        delayLongPress={220}
+        onLongPress={(event) => {
+          if (!dragEnabled || !taskMove || !dragMeta) return;
+          void taskMove.startDrag(dragMeta, {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          });
+        }}
+        onTouchMove={(event) => {
+          if (!dragging || !taskMove) return;
+          taskMove.updateDragPoint({
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          });
+        }}
+        onTouchEnd={(event) => {
+          if (!dragging || !taskMove) return;
+          taskMove.finishDrag({
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          });
+        }}
+        onTouchCancel={() => {
+          if (!dragging || !taskMove) return;
+          taskMove.finishDrag();
+        }}
+        className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
+      >
+        {rowBody}
+      </Pressable>
     </View>
   );
 }

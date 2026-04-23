@@ -133,13 +133,10 @@ export function EditorialPublicBuildDetail({
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-kyar-muted to-kyar-mutedWarm" />
             )}
-            <div
-              className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/35 to-kyar-text/10"
-              aria-hidden
-            />
+            <div className="absolute inset-0 bg-kyar-media-scrim-heavy" aria-hidden />
           </div>
           <div className="relative z-10 flex flex-col justify-end min-h-[min(52vw,380px)] sm:min-h-[400px] p-6 sm:p-10 lg:p-12">
-            <p className="text-kyar-bg/75 text-[10px] sm:text-[11px] uppercase tracking-[0.2em] mb-3 font-medium">
+            <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-media-fg-muted sm:text-[11px]">
               <span className="capitalize">{build.status}</span>
               {tasksTotal > 0 && (
                 <>
@@ -150,11 +147,11 @@ export function EditorialPublicBuildDetail({
                 </>
               )}
             </p>
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-kyar-bg leading-[1.05] tracking-tight max-w-[90%]">
+            <h1 className="max-w-[90%] font-serif text-4xl font-bold leading-[1.05] tracking-tight text-kyar-media-fg drop-shadow-md sm:text-5xl lg:text-6xl">
               {build.name}
             </h1>
             {build.character && (
-              <p className="text-kyar-bg/85 mt-3 text-base sm:text-lg font-medium max-w-xl">
+              <p className="mt-3 max-w-xl text-base font-medium text-kyar-media-fg-muted sm:text-lg">
                 {build.character}
               </p>
             )}

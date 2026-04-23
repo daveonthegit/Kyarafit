@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
-import { Button, DataBoundary, SectionHeading, SurfaceCard } from "@/ui";
+import { Button, DataBoundary, SurfaceCard } from "@/ui";
 
 export default function FeedScreen() {
   const { t } = useTranslation();
@@ -18,15 +18,20 @@ export default function FeedScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("nav.feed"), headerLargeTitle: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t("feed.title"),
+          headerLargeTitle: false,
+        }}
+      />
       <DataBoundary status={status} data={{ builds }}>
         {() => (
           <ScrollView
             className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
             contentContainerClassName="px-5 pb-12 pt-4"
           >
-            <SectionHeading eyebrow={t("nav.feed")} title={t("feed.title")} />
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("feed.subtitle")}
             </Text>
 
@@ -59,10 +64,11 @@ export default function FeedScreen() {
               </SurfaceCard>
             ) : (
               <View className="mt-5 gap-4">
-                {builds.map((build) => (
+                {builds.map((build, index) => (
                   <PublicBuildCard
                     key={build._id}
                     build={build}
+                    projectIndex={index + 1}
                     currentUserId={userId}
                     onPress={() => router.push(APP_HREF.publicBuild(build._id))}
                     onPressOwner={

@@ -27,9 +27,11 @@ import {
 import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import { APP_HREF } from "@/lib/appRoutes";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { WorkflowTaskDragHandle } from "@/components/workflow/WorkflowTaskDragHandle";
 import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
+import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRootDropZone";
 import { usePlannerTaskMove } from "@/planner/usePlannerTaskMove";
-import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
+import { applyWorkflowTreeDrop, promoteWorkflowTaskToRoot } from "@/workflow/applyWorkflowTreeDrop";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
@@ -301,9 +303,21 @@ function ElementDetailBody({
     [moveWorkflowTask, updateWorkflowTask, userId, workflowFlatDropTasks]
   );
 
+  const promoteElementWorkflowTaskToRoot = useCallback(
+    async (dragged: PlannerTaskDragMeta) => {
+      await promoteWorkflowTaskToRoot(dragged, workflowFlatDropTasks, {
+        userId,
+        moveTask: moveWorkflowTask,
+        updateTask: updateWorkflowTask,
+      });
+    },
+    [moveWorkflowTask, updateWorkflowTask, userId, workflowFlatDropTasks]
+  );
+
   const plannerWorkflowMove = usePlannerTaskMove({
     userId,
     onCommitDrop: applyElementWorkflowDrop,
+    onCommitRootDrop: promoteElementWorkflowTaskToRoot,
     onError: (message) => Alert.alert(t("common.errorTitle"), message),
   });
 
@@ -562,6 +576,7 @@ function ElementDetailBody({
     <>
       <ScrollView
         className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
+        scrollEnabled={!plannerWorkflowMove.dragMeta}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 16,
@@ -858,6 +873,15 @@ function ElementDetailBody({
               </Text>
             ) : (
               <View className="mt-4 gap-3">
+                {workflowTaskFilter === "all" ? (
+                  <WorkflowTaskRootDropZone
+                    scopeKey={workflowDragScopeKey}
+                    taskMove={plannerWorkflowMove}
+                    label={t("elements.workflowDropToTopLevel", {
+                      defaultValue: "Drop here to make it a top-level task",
+                    })}
+                  />
+                ) : null}
                 {visibleWorkflowRows.map((task) => (
                   <ElementWorkflowTaskRow
                     key={task._id}
@@ -1076,7 +1100,12 @@ function ElementWorkflowTaskRow({
           </Text>
         </Pressable>
 
-        <View className="min-w-0 flex-1">
+        <Pressable
+          onPress={onOpenStatus}
+          className="min-w-0 flex-1 active:opacity-80"
+          accessibilityRole="button"
+          accessibilityLabel={task.title}
+        >
           <Text
             className={`text-base ${
               checked
@@ -1089,8 +1118,15 @@ function ElementWorkflowTaskRow({
           <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
             {task.kind} · {task.status.replace(/_/g, " ")} · {task.progressPercent}%
           </Text>
-        </View>
+        </Pressable>
 
+        {dragEnabled ? (
+          <WorkflowTaskDragHandle
+            taskId={task._id}
+            dragMeta={dragMeta}
+            taskMove={taskMove}
+          />
+        ) : null}
         <Pressable onPress={onOpenStatus} hitSlop={8} accessibilityLabel={t("elements.workflowStatus")}>
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.textSecondary} />
         </Pressable>

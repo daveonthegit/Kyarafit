@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kyarafit.mobile",
@@ -33,6 +35,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-build-properties",
         {
@@ -45,7 +48,8 @@
             "buildReactNativeFromSource": true
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "kyarafit",
     "runtimeVersion": {

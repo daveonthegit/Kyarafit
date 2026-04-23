@@ -320,9 +320,9 @@ export default function ConventionsPage() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300 pointer-events-none" />
+                    <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300 pointer-events-none" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg pointer-events-none">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-media-fg pointer-events-none">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
@@ -330,7 +330,7 @@ export default function ConventionsPage() {
                               ? c.startDate
                               : `${c.startDate} – ${c.endDate}`}
                           </span>
-                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover:opacity-90">
+                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate text-kyar-media-fg drop-shadow-md transition-opacity group-hover:opacity-90">
                             {c.name}
                           </h3>
                         </div>
@@ -342,8 +342,8 @@ export default function ConventionsPage() {
                         </span>
                         {days !== null && days >= 0 && (
                           <>
-                            <span className="w-1 h-1 rounded-full bg-kyar-bg/50" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg drop-shadow-sm">
+                            <span className="w-1 h-1 rounded-full bg-kyar-media-ring" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-kyar-media-fg drop-shadow-sm">
                               {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
                             </span>
                           </>

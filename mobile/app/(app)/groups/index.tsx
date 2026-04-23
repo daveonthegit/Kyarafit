@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useQuery } from "convex/react";
@@ -6,13 +7,13 @@ import { api } from "convex/_generated/api";
 import type { Doc } from "convex/_generated/dataModel";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
+import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import {
   Button,
   DataBoundary,
   FloatingCreateMenu,
   MetaLabel,
-  SectionHeading,
   SurfaceCard,
 } from "@/ui";
 
@@ -24,17 +25,27 @@ export default function GroupsIndexScreen() {
   const groups = useQuery(api.groups.listForUser, userId ? { userId } : "skip") ?? [];
   const status = identity === undefined ? "loading" : "ready";
 
+  const createActions = useMemo(
+    () => buildGlobalAddMenuActions("groups", t, router),
+    [router, t]
+  );
+
   return (
     <>
-      <Stack.Screen options={{ title: t("nav.groups"), headerLargeTitle: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t("groups.title"),
+          headerLargeTitle: false,
+        }}
+      />
       <DataBoundary status={status} data={{ groups }}>
         {() => (
           <ScrollView
             className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
             contentContainerClassName="px-5 pb-28 pt-4"
           >
-            <SectionHeading eyebrow={t("nav.groups")} title={t("groups.title")} />
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("groups.subtitle")}
             </Text>
 
@@ -103,16 +114,7 @@ export default function GroupsIndexScreen() {
         )}
       </DataBoundary>
 
-      <FloatingCreateMenu
-        actions={[
-          {
-            key: "new-group",
-            label: t("groups.createAction"),
-            icon: "people-outline",
-            onPress: () => router.push(APP_HREF.groupNew),
-          },
-        ]}
-      />
+      <FloatingCreateMenu actions={createActions} />
     </>
   );
 }

@@ -12,9 +12,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { useOfflineQuery } from "@/offline";
 import type { CosplayExplorerItem } from "@kyarafit/design-system/domain";
 import {
   COSPLAY_CATEGORIES,
@@ -31,6 +31,7 @@ import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { DataBoundary, FloatingCreateMenu, MetaLabel } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
+import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 
 type SortKey = "name" | "progress" | "bucket";
 type ViewMode = "all" | "tree";
@@ -60,7 +61,7 @@ export default function ElementsScreen() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   const listArgs = useMemo(() => {
@@ -78,7 +79,7 @@ export default function ElementsScreen() {
     };
   }, [bucketFilter, categoryFilter, order, search, sortBy, typeFilter, userId, viewMode]);
 
-  const rows = useQuery(api.cosplayNodes.list, listArgs);
+  const rows = useOfflineQuery(api.cosplayNodes.list, listArgs);
 
   const loading = identity === undefined || (userId != null && rows === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -186,6 +187,11 @@ function ElementsListBody({
     );
   }, []);
 
+  const addMenuActions = useMemo(
+    () => buildGlobalAddMenuActions("elements", t, router),
+    [t, router]
+  );
+
   const sortLabel =
     sortBy === "name"
       ? t("elements.sortName")
@@ -224,15 +230,8 @@ function ElementsListBody({
 
   return (
     <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
-      <View className="px-5 pb-3 pt-7">
-        <Text
-          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-          className="text-[23px] leading-[1.08] tracking-tight text-kyar-text dark:text-kyar-dark-text"
-        >
-          {t("elements.pageTitle")}
-        </Text>
-
-        <View className="mt-5 w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
+      <View className="px-5 pb-3 pt-4">
+        <View className="w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
           <Ionicons
             name="search"
             size={18}
@@ -442,22 +441,7 @@ function ElementsListBody({
         }}
       />
 
-      <FloatingCreateMenu
-        actions={[
-          {
-            key: "new-element",
-            label: t("elements.newShort"),
-            icon: "layers-outline",
-            onPress: () => router.push(APP_HREF.elementNew),
-          },
-          {
-            key: "new-build",
-            label: t("builds.createNew"),
-            icon: "shirt-outline",
-            onPress: () => router.push(APP_HREF.buildNew),
-          },
-        ]}
-      />
+      <FloatingCreateMenu actions={addMenuActions} />
     </View>
   );
 }

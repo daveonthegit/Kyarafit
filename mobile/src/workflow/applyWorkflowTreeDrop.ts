@@ -96,6 +96,46 @@ export async function applyWorkflowTreeDrop(
   }
 }
 
+export async function promoteWorkflowTaskToRoot(
+  dragged: PlannerTaskDragMeta,
+  tasks: WorkflowDropTask[],
+  fns: WorkflowTreeMoveFns,
+  canPromoteIntoRootGroup?: (task: WorkflowDropTask) => boolean
+): Promise<void> {
+  const dragId = dragged.taskId as Id<"workflowItems">;
+  const draggedTask = tasks.find((task) => task._id === dragId);
+  if (!draggedTask) return;
+
+  const oldParent = draggedTask.parentId ?? null;
+  if (oldParent == null) return;
+
+  const rootIds = tasks
+    .filter(
+      (task) =>
+        task._id !== dragId &&
+        (task.parentId ?? null) === null &&
+        (canPromoteIntoRootGroup ? canPromoteIntoRootGroup(task) : true)
+    )
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((task) => task._id);
+
+  await fns.moveTask({
+    id: dragId,
+    userId: fns.userId,
+    parentId: null,
+    sortOrder: rootIds.length,
+  });
+
+  await resequenceTasks(fns, [...rootIds, dragId]);
+
+  const oldParentSiblingIds = tasks
+    .filter((task) => (task.parentId ?? null) === oldParent && task._id !== dragId)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((task) => task._id);
+
+  await resequenceTasks(fns, oldParentSiblingIds);
+}
+
 async function resequenceTasks(fns: WorkflowTreeMoveFns, ids: Id<"workflowItems">[]) {
   for (let index = 0; index < ids.length; index += 1) {
     await fns.updateTask({

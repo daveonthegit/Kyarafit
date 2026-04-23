@@ -121,9 +121,9 @@ export function BuildVisualBoard({
                 alt="Reference"
                 className="w-full h-auto object-cover min-h-[120px]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/0 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="pointer-events-none absolute inset-0 bg-kyar-media-scrim-mid opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-2 group-hover:translate-y-0">
-                <p className="text-kyar-bg text-xs font-medium truncate">Reference</p>
+                <p className="truncate text-xs font-medium text-kyar-media-fg">Reference</p>
               </div>
             </button>
           ),
@@ -147,9 +147,9 @@ export function BuildVisualBoard({
                 alt="Progress"
                 className="w-full h-auto object-cover min-h-[120px]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/0 to-transparent pointer-events-none opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="pointer-events-none absolute inset-0 bg-kyar-media-scrim-mid opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100" />
               <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none flex items-center justify-between opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
-                <p className="text-kyar-bg text-xs font-medium truncate drop-shadow-md">
+                <p className="truncate text-xs font-medium text-kyar-media-fg drop-shadow-md">
                   Day{" "}
                   {Math.ceil(
                     (p._creationTime -
@@ -158,7 +158,7 @@ export function BuildVisualBoard({
                       (1000 * 60 * 60 * 24)
                   ) + 1}
                 </p>
-                <span className="text-kyar-bg/90 text-[10px] drop-shadow-md">
+                <span className="text-[10px] text-kyar-media-fg-muted drop-shadow-md">
                   {new Date(p._creationTime).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",

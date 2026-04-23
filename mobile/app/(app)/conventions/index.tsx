@@ -11,17 +11,16 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
-import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { ConventionEventPoster } from "@/components/conventions/ConventionEventPoster";
 import { APP_HREF } from "@/lib/appRoutes";
+import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
+import { useOfflineQuery } from "@/offline";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   countPackingProgress,
   countPlannedBuilds,
   filterAndSortConventions,
-  formatDateRange,
-  getCountdownMeta,
   type ConventionFilter,
   type ConventionSortBy,
   type ConventionWithDetails,
@@ -38,9 +37,9 @@ type Ready = {
 
 export default function ConventionsIndexScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const conventions = useQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
 
   const loading = identity === undefined || (userId != null && conventions === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -58,7 +57,7 @@ export default function ConventionsIndexScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("common.events") }} />
+      <Stack.Screen options={{ headerShown: true, title: t("nav.events"), headerLargeTitle: false }} />
       <DataBoundary status={status} data={data} error={error} empty={<EmptyConventionState />}>
         {(loaded) => <ConventionsBody conventions={loaded.conventions} />}
       </DataBoundary>
@@ -88,26 +87,7 @@ function ConventionsBody({ conventions }: Ready) {
   }, []);
 
   const createActions = useMemo(
-    () => [
-      {
-        key: "new-event",
-        label: t("conventions.createAction"),
-        icon: "calendar-outline" as const,
-        onPress: () => router.push(APP_HREF.conventionNew),
-      },
-      {
-        key: "packing-overview",
-        label: t("conventions.crossPackingTitle"),
-        icon: "briefcase-outline" as const,
-        onPress: () => router.push(APP_HREF.packing),
-      },
-      {
-        key: "itinerary",
-        label: t("conventions.itineraryTitle"),
-        icon: "list-outline" as const,
-        onPress: () => router.push(APP_HREF.itinerary),
-      },
-    ],
+    () => buildGlobalAddMenuActions("events", t, router),
     [router, t]
   );
 
@@ -131,10 +111,14 @@ function ConventionsBody({ conventions }: Ready) {
         }}
         ListHeaderComponent={
           <View className="gap-4">
-            <SectionHeading eyebrow={t("conventions.eyebrow")} title={t("common.events")} />
-            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("conventions.subtitle")}
-            </Text>
+            <View className="min-w-0">
+              <Text className="text-[11px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                {t("conventions.eyebrow")}
+              </Text>
+              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                {t("conventions.subtitle")}
+              </Text>
+            </View>
 
             <SurfaceCard className="px-4 py-4">
               <TextInput
@@ -216,92 +200,35 @@ function ConventionsBody({ conventions }: Ready) {
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <ConventionCard
-            convention={item}
-            onPress={() => router.push(APP_HREF.convention(item._id))}
-          />
-        )}
+        renderItem={({ item }) => {
+          const plannedBuilds = countPlannedBuilds(item.plans);
+          const packing = countPackingProgress(item.packing);
+          return (
+            <Pressable
+              onPress={() => router.push(APP_HREF.convention(item._id))}
+              className="active:opacity-95"
+            >
+              <ConventionEventPoster
+                name={item.name}
+                startDate={item.startDate}
+                endDate={item.endDate}
+                location={item.location}
+                imageStorageId={item.imageStorageId}
+                imageUrl={item.imageUrl}
+                plannedBuilds={plannedBuilds}
+                packingChecked={packing.checked}
+                packingTotal={packing.total}
+                metricBuildsLabel={t("conventions.metricBuilds")}
+                metricPackingLabel={t("conventions.metricPacking")}
+                metricDaysLabel={t("conventions.metricDays")}
+              />
+            </Pressable>
+          );
+        }}
         ItemSeparatorComponent={() => <View className="h-4" />}
       />
 
       <FloatingCreateMenu actions={createActions} />
-    </View>
-  );
-}
-
-function ConventionCard({
-  convention,
-  onPress,
-}: {
-  convention: ConventionWithDetails;
-  onPress: () => void;
-}) {
-  const countdown = getCountdownMeta(convention.startDate);
-  const plannedBuilds = countPlannedBuilds(convention.plans);
-  const packing = countPackingProgress(convention.packing);
-
-  return (
-    <Pressable onPress={onPress} className="active:opacity-90">
-      <SurfaceCard className="overflow-hidden">
-        <View className="relative h-44">
-          <ConvexStorageImage
-            storageId={convention.imageStorageId}
-            imageUrl={convention.imageUrl}
-            className="h-44 w-full"
-            accessibilityLabel={convention.name}
-          />
-          <View className="absolute inset-x-0 bottom-0 top-0 bg-kyar-text/10 dark:bg-kyar-dark-text/10" />
-          <View className="absolute left-4 top-4 rounded-full bg-kyar-bg/92 px-3 py-2 dark:bg-kyar-dark-bg/92">
-            <MetaLabel>{convention.archived ? "Archived" : "Event"}</MetaLabel>
-          </View>
-          <View
-            className={`absolute right-4 top-4 rounded-full px-3 py-2 ${
-              countdown.tone === "accent"
-                ? "bg-kyar-accent text-kyar-bg"
-                : countdown.tone === "muted"
-                  ? "bg-kyar-panel dark:bg-kyar-dark-panel"
-                  : "bg-kyar-bg/92 dark:bg-kyar-dark-bg/92"
-            }`}
-          >
-            <Text className="text-xs font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {countdown.label}
-            </Text>
-          </View>
-        </View>
-
-        <View className="gap-4 px-4 py-4">
-          <View>
-            <Text className="text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {convention.name}
-            </Text>
-            <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {formatDateRange(convention.startDate, convention.endDate)}
-            </Text>
-            {convention.location ? (
-              <Text className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {convention.location}
-              </Text>
-            ) : null}
-          </View>
-
-          <View className="flex-row gap-3">
-            <MiniStat label="Builds" value={plannedBuilds} />
-            <MiniStat label="Packed" value={`${packing.checked}/${packing.total}`} />
-          </View>
-        </View>
-      </SurfaceCard>
-    </Pressable>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View className="flex-1 rounded-2xl bg-kyar-panel px-3 py-3 dark:bg-kyar-dark-panel">
-      <MetaLabel>{label}</MetaLabel>
-      <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-        {value}
-      </Text>
     </View>
   );
 }

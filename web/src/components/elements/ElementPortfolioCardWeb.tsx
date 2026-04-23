@@ -68,8 +68,8 @@ function Badges({
 }) {
   const wrap = compact ? "flex-col gap-1" : "gap-2";
   const pill = compact
-    ? "rounded-full border border-kyar-bg/15 bg-kyar-text/40 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-kyar-bg"
-    : "rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-kyar-bg backdrop-blur";
+    ? "rounded-full border border-white/25 bg-black/40 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-kyar-media-fg backdrop-blur"
+    : "rounded-full border border-white/25 bg-black/40 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-kyar-media-fg backdrop-blur";
   return (
     <div className={`absolute left-3 top-3 z-10 flex ${wrap}`}>
       <span className={pill}>{typeBadge}</span>
@@ -115,9 +115,9 @@ function PosterBody({
           </span>
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/15 to-transparent" />
+      <div className="absolute inset-0 bg-kyar-media-scrim-heavy" />
       <Badges typeBadge={item.typeBadge} statusBadge={item.statusBadge} />
-      <div className={`absolute bottom-0 left-0 right-0 text-kyar-bg ${pad}`}>
+      <div className={`absolute bottom-0 left-0 right-0 text-kyar-media-fg ${pad}`}>
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p
@@ -130,12 +130,12 @@ function PosterBody({
           <ProgressRing
             progress={progress}
             sizeClass={ringSize}
-            textClass="text-kyar-bg drop-shadow-md"
-            trackClass="text-kyar-bg/20"
+            textClass="text-kyar-media-fg drop-shadow-md"
+            trackClass="text-kyar-media-fg/25"
           />
         </div>
         <div
-          className={`flex items-center justify-between font-bold uppercase tracking-wider text-kyar-bg/80 ${isGrid ? "mt-2 text-[9px]" : "mt-3 text-[10px]"}`}
+          className={`flex items-center justify-between font-bold uppercase tracking-wider text-kyar-media-fg-muted ${isGrid ? "mt-2 text-[9px]" : "mt-3 text-[10px]"}`}
         >
           <span>{progressLabel}</span>
           <span className="truncate pl-2">{childrenLabel}</span>
@@ -177,9 +177,9 @@ export function ElementPortfolioCardWeb({
                 </span>
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/45 to-transparent" />
+            <div className="absolute inset-0 bg-kyar-media-scrim-faint" />
             <div className="absolute left-2 top-2">
-              <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/40 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-kyar-bg">
+              <span className="rounded-full border border-white/25 bg-black/40 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-kyar-media-fg backdrop-blur">
                 {item.typeBadge}
               </span>
             </div>

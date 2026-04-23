@@ -11,8 +11,8 @@ export const APP_HREF = {
   settingsAccount: href("/settings/account"),
   settingsSubscription: href("/settings/subscription"),
   settingsNotifications: href("/settings/notifications"),
+  settingsOffline: href("/settings/offline"),
   settingsDevGallery: href("/settings/dev/gallery"),
-  settingsDevOffline: href("/settings/dev/offline"),
   groups: href("/groups"),
   groupNew: href("/groups/new"),
   group: (groupId: string) => href(`/g/${groupId}`),
@@ -34,7 +34,9 @@ export const APP_HREF = {
   /** Outfit (build) detail — stack route under `(app)/b/[buildId]`. */
   build: (buildId: string) => href(`/(app)/b/${buildId}`),
   /** Public outfit viewer — used by Discover / Feed / public profile taps. */
-  publicBuild: (buildId: string) => href(`/(app)/public-builds/${buildId}`),
+  publicBuild: (buildId: string) => href(`/public-builds/${buildId}`),
+  /** Unlisted outfit share page parity with web `/b/s/[shareToken]`. */
+  publicBuildShare: (shareToken: string) => href(`/b/s/${encodeURIComponent(shareToken)}`),
   buildNew: href("/(app)/b/new"),
   buildLinkElements: (buildId: string) => href(`/(app)/b/link-elements?buildId=${buildId}`),
   /** Cosplay element (node) detail — `(app)/elements/[id]`. */

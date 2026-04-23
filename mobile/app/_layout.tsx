@@ -13,7 +13,8 @@ import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as Sentry from "@sentry/react-native";
-import { authClient, hydrateBearerFromSecureStore, setStoredBearerToken } from "@/lib/auth/client";
+import { authClient, hydrateBearerFromSecureStore } from "@/lib/auth/client";
+import { verifyOneTimeTokenFromUrl } from "@/lib/auth/verifyOtt";
 import { initI18n } from "@/i18n";
 import {
   EXPO_PUBLIC_CONVEX_SITE_URL,
@@ -79,32 +80,12 @@ function RootLayoutNav() {
     const ott = parsed.queryParams?.ott;
     if (!ott || typeof ott !== "string") return;
 
-    (async () => {
+    void (async () => {
       try {
-        const res = await fetch(
-          `${EXPO_PUBLIC_CONVEX_SITE_URL.replace(/\/$/, "")}/auth/cross-domain/one-time-token/verify`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: ott }),
-          }
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        const sessionToken: string | undefined = data?.session?.token;
-        if (!sessionToken) return;
-        await setStoredBearerToken(sessionToken);
-        await authClient.getSession({
-          fetchOptions: { headers: { Authorization: `Bearer ${sessionToken}` } },
-        });
-        const signal = (
-          authClient as { $sessionSignal?: { get: () => boolean; set: (v: boolean) => void } }
-        ).$sessionSignal;
-        if (signal) {
-          const val = signal.get();
-          signal.set(!val);
+        const ok = await verifyOneTimeTokenFromUrl(incomingUrl);
+        if (ok) {
+          router.replace("/(app)/(tabs)");
         }
-        router.replace("/(app)/(tabs)");
       } catch (err) {
         console.error("[auth] OTT exchange failed:", err);
       }
@@ -122,6 +103,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />
+        <Stack.Screen name="(public)" />
       </Stack>
     </View>
   );

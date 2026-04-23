@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
-import { DataBoundary, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary, SurfaceCard } from "@/ui";
 
 export default function DiscoverScreen() {
   const { t } = useTranslation();
@@ -17,15 +17,20 @@ export default function DiscoverScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("nav.discover"), headerLargeTitle: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t("discover.title"),
+          headerLargeTitle: false,
+        }}
+      />
       <DataBoundary status={status} data={{ builds }}>
         {() => (
           <ScrollView
             className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
             contentContainerClassName="px-5 pb-12 pt-4"
           >
-            <SectionHeading eyebrow={t("nav.discover")} title={t("discover.title")} />
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("discover.subtitle")}
             </Text>
 
@@ -37,10 +42,11 @@ export default function DiscoverScreen() {
               </SurfaceCard>
             ) : (
               <View className="mt-5 gap-4">
-                {builds.map((build) => (
+                {builds.map((build, index) => (
                   <PublicBuildCard
                     key={build._id}
                     build={build}
+                    projectIndex={index + 1}
                     currentUserId={currentUserId}
                     onPress={() => router.push(APP_HREF.publicBuild(build._id))}
                     onPressOwner={

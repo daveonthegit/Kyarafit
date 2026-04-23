@@ -12,14 +12,15 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { DataBoundary, FloatingCreateMenu, MetaLabel } from "@/ui";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { APP_HREF } from "@/lib/appRoutes";
+import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import {
   buildListArgs,
   getTabFilterOptions,
@@ -60,7 +61,7 @@ export default function BuildsScreen() {
   const [order, setOrder] = useState<SortOrder>("asc");
   const [refreshing, setRefreshing] = useState(false);
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   const listArgs = useMemo(
@@ -75,7 +76,7 @@ export default function BuildsScreen() {
     [activeTab, order, search, sortBy, userId]
   );
 
-  const rows = useQuery(api.builds.list, listArgs);
+  const rows = useOfflineQuery(api.builds.list, listArgs);
 
   const loading = identity === undefined || (userId != null && rows === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -158,9 +159,9 @@ function BuildsListBody({
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const setFocusedBuild = useMutation(api.users.setFocusedBuild);
-  const updateBuild = useMutation(api.builds.update);
-  const duplicateBuild = useMutation(api.builds.duplicate);
+  const setFocusedBuild = useOfflineMutation(api.users.setFocusedBuild);
+  const updateBuild = useOfflineMutation(api.builds.update);
+  const duplicateBuild = useOfflineMutation(api.builds.duplicate);
 
   const cycleLayout = useCallback(() => {
     setLayout((mode) =>
@@ -171,6 +172,11 @@ function BuildsListBody({
   const visibleRows = useMemo(
     () => rows.filter((row) => !hiddenIds.has(row._id as string)),
     [hiddenIds, rows]
+  );
+
+  const addMenuActions = useMemo(
+    () => buildGlobalAddMenuActions("builds", t, router),
+    [t]
   );
 
   const showActions = useCallback(
@@ -239,15 +245,8 @@ function BuildsListBody({
 
   return (
     <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
-      <View className="px-5 pb-3 pt-7">
-        <Text
-          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-          className="text-[23px] leading-[1.08] tracking-tight text-kyar-text dark:text-kyar-dark-text"
-        >
-          {t("builds.pageTitle")}
-        </Text>
-
-        <View className="mt-5 w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
+      <View className="px-5 pb-3 pt-4">
+        <View className="w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
           <Ionicons
             name="search"
             size={18}
@@ -396,22 +395,7 @@ function BuildsListBody({
         )}
       />
 
-      <FloatingCreateMenu
-        actions={[
-          {
-            key: "new-build",
-            label: t("builds.createNew"),
-            icon: "shirt-outline",
-            onPress: () => router.push(APP_HREF.buildNew),
-          },
-          {
-            key: "new-element",
-            label: t("common.elements"),
-            icon: "layers-outline",
-            onPress: () => router.push(APP_HREF.elementNew),
-          },
-        ]}
-      />
+      <FloatingCreateMenu actions={addMenuActions} />
     </View>
   );
 }

@@ -143,16 +143,16 @@ export function ClosetCarouselCardContent({
           <span className="material-symbols-outlined text-4xl">checkroom</span>
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/0 to-transparent pointer-events-none" />
-      <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-none flex flex-col gap-0.5">
-        <p className="text-kyar-bg text-xs font-medium truncate">{item.name}</p>
-        <div className="flex items-center justify-between text-kyar-bg/80 text-[10px]">
+      <div className="pointer-events-none absolute inset-0 bg-kyar-media-scrim-mid" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex flex-col gap-0.5 p-3">
+        <p className="truncate text-xs font-medium text-kyar-media-fg">{item.name}</p>
+        <div className="flex items-center justify-between text-[10px] text-kyar-media-fg-muted">
           <span>
             {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}
           </span>
           {item.costCents != null && <span>{formatCents(item.costCents)}</span>}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-kyar-bg/70">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-kyar-media-fg-soft">
           {item.nodeType && <span>{formatNodeStatus(item)}</span>}
           {typeof item.progressPercent === "number" && (
             <span>{item.progressPercent}% progress</span>

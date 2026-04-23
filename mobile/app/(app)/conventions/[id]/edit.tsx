@@ -1,11 +1,11 @@
 import { Alert } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { APP_HREF } from "@/lib/appRoutes";
 import { ConventionForm } from "@/screens/conventions/ConventionForm";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { DataBoundary } from "@/ui";
 
 type Ready = {
@@ -16,9 +16,12 @@ type Ready = {
 export default function EditConventionScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const convention = useQuery(api.conventions.get, id ? { id: id as Id<"conventions"> } : "skip");
+  const convention = useOfflineQuery(
+    api.conventions.get,
+    id ? { id: id as Id<"conventions"> } : "skip"
+  );
 
   const loading = identity === undefined || (userId != null && convention === undefined);
   const error =
@@ -50,7 +53,7 @@ export default function EditConventionScreen() {
 function EditConventionBody({ userId, convention }: Ready) {
   const { t } = useTranslation();
   const router = useRouter();
-  const updateConvention = useMutation(api.conventions.update);
+  const updateConvention = useOfflineMutation(api.conventions.update);
 
   return (
     <ConventionForm

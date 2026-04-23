@@ -76,10 +76,12 @@ export function LandingMiniBuildsPreviewContent({ builds }: { builds: MockBuild[
           >
             <div className="relative aspect-[3/4] bg-kyar-muted">
               <img src={b.imageSrc} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/75 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-kyar-media-scrim-soft" />
               <div className="absolute bottom-1 left-1 right-1">
-                <p className="truncate font-serif text-[10px] italic text-kyar-bg">{b.name}</p>
-                <p className="truncate text-[8px] font-bold uppercase tracking-wider text-kyar-bg/80">
+                <p className="truncate font-serif text-[10px] italic text-kyar-media-fg drop-shadow-sm">
+                  {b.name}
+                </p>
+                <p className="truncate text-[8px] font-bold uppercase tracking-wider text-kyar-media-fg-muted">
                   {b.character}
                 </p>
               </div>

@@ -1,13 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useMutation } from "convex/react";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { useTranslation } from "react-i18next";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { Button, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
+import { useOfflineMutation } from "@/offline";
+import { parseIsoDateOnly } from "@/screens/conventions/utils";
+import { Button, DatePickerField, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
 
 type ConventionFormValues = {
   name: string;
@@ -38,7 +39,7 @@ export function ConventionForm({
   onSubmit,
 }: Props) {
   const { t } = useTranslation();
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
   const [name, setName] = useState(initialValues?.name ?? "");
   const [location, setLocation] = useState(initialValues?.location ?? "");
   const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
@@ -143,23 +144,25 @@ export function ConventionForm({
           />
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <TextField
-                value={startDate}
-                onChangeText={setStartDate}
+              <DatePickerField
                 label={t("conventions.fieldStartDate")}
+                value={startDate}
                 placeholder={t("conventions.fieldDatePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
+                onChange={(iso) => {
+                  setStartDate(iso);
+                  setEndDate((prev) => (prev && prev < iso ? iso : prev));
+                }}
               />
             </View>
             <View className="flex-1">
-              <TextField
-                value={endDate}
-                onChangeText={setEndDate}
+              <DatePickerField
                 label={t("conventions.fieldEndDate")}
+                value={endDate}
                 placeholder={t("conventions.fieldDatePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
+                minimumDate={parseIsoDateOnly(startDate) ?? undefined}
+                onChange={(iso) =>
+                  setEndDate(startDate && iso < startDate ? startDate : iso)
+                }
               />
             </View>
           </View>

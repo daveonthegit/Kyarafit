@@ -86,9 +86,9 @@ function PosterOverlay({
           <span className="material-symbols-outlined text-6xl">image</span>
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
+      <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
       <div
-        className={`absolute inset-0 flex flex-col justify-end text-kyar-bg ${isGrid ? "p-3" : "p-5"}`}
+        className={`absolute inset-0 flex flex-col justify-end text-kyar-media-fg ${isGrid ? "p-3" : "p-5"}`}
       >
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -98,7 +98,7 @@ function PosterOverlay({
               Project {projectNumber}
             </span>
             <h2
-              className={`truncate text-kyar-bg transition-colors group-hover:text-kyar-accent ${titleClass}`}
+              className={`truncate text-kyar-media-fg drop-shadow-md transition-colors group-hover:text-kyar-accent ${titleClass}`}
             >
               {item.name}
             </h2>
@@ -106,8 +106,8 @@ function PosterOverlay({
           <ProgressRing
             progress={progress}
             sizeClass={ringSize}
-            textClass="text-kyar-bg drop-shadow-md"
-            trackClass="text-kyar-bg/20"
+            textClass="text-kyar-media-fg drop-shadow-md"
+            trackClass="text-kyar-media-fg/25"
           />
         </div>
         <div className={`flex items-center gap-3 ${isGrid ? "pt-2" : "pt-3"}`}>
@@ -118,7 +118,7 @@ function PosterOverlay({
           </span>
           {item.character ? (
             <>
-              <span className="h-1 w-1 rounded-full bg-kyar-bg/50" />
+              <span className="h-1 w-1 rounded-full bg-kyar-media-ring" />
               <span
                 className={`truncate font-bold uppercase tracking-widest opacity-90 drop-shadow-sm ${metaClass}`}
               >
@@ -163,7 +163,7 @@ export function BuildPortfolioCardWeb({
                 <span className="material-symbols-outlined text-4xl">image</span>
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/50 to-transparent" />
+            <div className="absolute inset-0 bg-kyar-media-scrim-soft" />
           </div>
           <div className="flex min-w-0 flex-1 flex-col justify-between bg-kyar-surface py-3 pl-3 pr-4">
             <div className="min-w-0">

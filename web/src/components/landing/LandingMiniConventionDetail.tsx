@@ -40,7 +40,7 @@ export function LandingMiniConventionDetailBody({
         }
       >
         <img src={convention.heroImageSrc} alt="" className="h-full w-full object-cover" />
-        <div className="absolute bottom-3 left-3 rounded-sm bg-kyar-text px-2 py-1 text-[8px] font-bold uppercase tracking-widest text-kyar-bg">
+        <div className="absolute bottom-3 left-3 rounded-sm border border-white/20 bg-black/55 px-2 py-1 text-[8px] font-bold uppercase tracking-widest text-kyar-media-fg backdrop-blur-sm">
           Event {convention.subtitle.replace(/\D/g, "").slice(0, 4) || "2026"}
         </div>
       </div>

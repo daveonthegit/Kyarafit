@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import * as Linking from "expo-linking";
 import { Link, Stack, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
@@ -7,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { setAppLocale, SUPPORTED_LOCALES, type AppLocale } from "@/i18n";
 import { APP_HREF } from "@/lib/appRoutes";
+import { openWebAppPath } from "@/lib/openWebAppPath";
 import { formatStorageMb } from "@/lib/formatStorageMb";
 import { signOut } from "@/lib/auth/client";
 import { useTier } from "@/lib/useTier";
@@ -20,10 +22,7 @@ const SETTINGS_LINKS = [
   { key: "notificationStyle", href: APP_HREF.settingsNotifications, icon: "notifications-outline" },
 ] as const;
 
-const DEV_LINKS = [
-  { key: "devGallery", path: "/(app)/settings/dev/gallery", icon: "color-wand-outline" },
-  { key: "devOffline", path: "/(app)/settings/dev/offline", icon: "cloud-offline-outline" },
-] as const;
+const DEV_LINKS = [{ key: "devGallery", path: "/(app)/settings/dev/gallery", icon: "color-wand-outline" }] as const;
 
 export default function SettingsIndexScreen() {
   const { t, i18n } = useTranslation();
@@ -180,6 +179,65 @@ export default function SettingsIndexScreen() {
                     showBorder={index < SETTINGS_LINKS.length - 1}
                   />
                 ))}
+              </SurfaceCard>
+
+              <SurfaceCard className="px-4 py-4">
+                <MetaLabel>{t("settings.legalAndPolicies")}</MetaLabel>
+                <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                  {t("settings.legalAndPoliciesSubtitle")}
+                </Text>
+                <View className="mt-4 gap-3">
+                  <Pressable
+                    onPress={() => void openWebAppPath("/terms", t)}
+                    className="min-h-[44px] justify-center active:opacity-80"
+                    accessibilityRole="link"
+                    accessibilityLabel={t("settings.accountPage.termsOfService")}
+                  >
+                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
+                      {t("settings.accountPage.termsOfService")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void openWebAppPath("/privacy", t)}
+                    className="min-h-[44px] justify-center active:opacity-80"
+                    accessibilityRole="link"
+                    accessibilityLabel={t("settings.accountPage.privacyPolicy")}
+                  >
+                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
+                      {t("settings.accountPage.privacyPolicy")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      void Linking.openURL(
+                        "mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
+                      )
+                    }
+                    className="min-h-[44px] justify-center active:opacity-80"
+                    accessibilityRole="link"
+                    accessibilityLabel={t("settings.accountPage.securitySupport")}
+                  >
+                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
+                      {t("settings.accountPage.securitySupport")}
+                    </Text>
+                  </Pressable>
+                </View>
+              </SurfaceCard>
+
+              <SurfaceCard className="overflow-hidden">
+                <View className="px-4 pb-2 pt-4">
+                  <MetaLabel>{t("settings.offlineSectionEyebrow")}</MetaLabel>
+                </View>
+                <SettingsRow
+                  icon="cloud-offline-outline"
+                  title={t("settings.offlineCapability")}
+                  subtitle={t("settings.offlineCapabilitySubtitle")}
+                  onPress={() => undefined}
+                  href={APP_HREF.settingsOffline}
+                  iconColor={colors.text}
+                  metaColor={colors.meta}
+                  showBorder={false}
+                />
               </SurfaceCard>
 
               <SurfaceCard className="overflow-hidden">

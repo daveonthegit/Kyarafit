@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
-import { ensurePackingWorkflowItem } from "./workflow";
+import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -200,7 +200,10 @@ export const removeMany = mutation({
         .query("packingListItems")
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
         .collect();
-      for (const pi of packingItems) await ctx.db.delete(pi._id);
+      for (const pi of packingItems) {
+        if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
+        else await ctx.db.delete(pi._id);
+      }
       await ctx.db.delete(id);
     }
   },
@@ -225,7 +228,10 @@ export const remove = mutation({
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.id))
       .collect();
-    for (const pi of packingItems) await ctx.db.delete(pi._id);
+    for (const pi of packingItems) {
+      if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
+      else await ctx.db.delete(pi._id);
+    }
 
     await ctx.db.delete(args.id);
   },
@@ -337,6 +343,7 @@ export const updatePackingItem = mutation({
         buildId: updated.buildId,
         cosplayNodeId: updated.cosplayNodeId,
         label: updated.label,
+        notes: updated.notes,
         dueDate: updated.date,
         checked: args.checked ?? updated.checked,
         manual: updated.entryKind === "manual" || (!updated.cosplayNodeId && !updated.buildId),
@@ -390,6 +397,7 @@ export const addManualPackingItem = mutation({
       conventionId: args.conventionId,
       buildId: args.buildId,
       label,
+      notes,
       dueDate: date,
       checked: false,
       manual: true,
@@ -409,7 +417,8 @@ export const deletePackingItem = mutation({
       throw new Error("Not found or not authorized");
     }
     if (item.workflowItemId) {
-      await ctx.db.delete(item.workflowItemId);
+      await removeWorkflowItemCascade(ctx, item.workflowItemId);
+      return;
     }
     await ctx.db.delete(args.id);
   },
@@ -465,9 +474,10 @@ export const regeneratePacking = mutation({
     for (const item of existing) {
       if (item.entryKind !== "manual") {
         if (item.workflowItemId) {
-          await ctx.db.delete(item.workflowItemId);
+          await removeWorkflowItemCascade(ctx, item.workflowItemId);
+        } else {
+          await ctx.db.delete(item._id);
         }
-        await ctx.db.delete(item._id);
       }
     }
 
@@ -518,6 +528,7 @@ export const regeneratePacking = mutation({
           buildId: plan.buildId,
           cosplayNodeId: link.cosplayNodeId,
           label: `Pack ${node.name}`,
+          notes: undefined,
           dueDate: plan.date,
           checked: false,
           manual: false,

@@ -570,6 +570,7 @@ async function ensureWorkflowItem(
     userId: string;
     dedupeKey: string;
     title: string;
+    notes?: string;
     category: string;
     status?: string;
     attachments: Array<{
@@ -593,6 +594,7 @@ async function ensureWorkflowItem(
   if (existing) {
     await ctx.db.patch(existing._id, {
       title: input.title,
+      notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
       category: coerceCategory(input.category),
       status: normalizedStatus,
       dueDate: input.dueDate,
@@ -606,6 +608,7 @@ async function ensureWorkflowItem(
   const id = await ctx.db.insert("workflowItems", {
     userId: input.userId,
     title: sanitizeAndLimit(input.title, MAX_LENGTH.label, "Workflow title"),
+    notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
     kind: "task",
     category: coerceCategory(input.category),
     status: normalizedStatus,
@@ -692,6 +695,7 @@ export async function ensurePackingWorkflowItem(
     buildId?: Id<"builds">;
     cosplayNodeId?: Id<"cosplayNodes">;
     label: string;
+    notes?: string;
     dueDate?: string;
     checked: boolean;
     manual: boolean;
@@ -731,6 +735,7 @@ export async function ensurePackingWorkflowItem(
     userId: input.userId,
     dedupeKey,
     title: input.label,
+    notes: input.notes,
     category: "pack",
     status: input.checked ? "done" : "not_started",
     scopeKind: input.buildId ? "build_specific" : "shared",
@@ -744,6 +749,64 @@ export async function ensurePackingWorkflowItem(
     sourceKind: input.manual ? "manual" : "workflow",
   });
   return workflowItemId;
+}
+
+async function syncPackingItemsFromWorkflowItem(
+  ctx: MutationCtx,
+  workflowItem: Doc<"workflowItems">
+) {
+  const attachments = await ctx.db
+    .query("workflowAttachments")
+    .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItem._id))
+    .collect();
+
+  for (const attachment of attachments) {
+    if (attachment.entityType !== "packingItem") continue;
+    await ctx.db.patch(attachment.entityId as Id<"packingListItems">, {
+      workflowItemId: workflowItem._id,
+      label: workflowItem.title,
+      notes: workflowItem.notes,
+      date: workflowItem.dueDate,
+      checked: workflowItem.status === "done",
+    });
+  }
+}
+
+export async function removeWorkflowItemCascade(
+  ctx: MutationCtx,
+  workflowItemId: Id<"workflowItems">
+) {
+  const item = await ctx.db.get(workflowItemId);
+  if (!item) return;
+
+  const userItems = await getWorkflowItemsForUser(ctx, item.userId);
+  const subtreeIds = userItems
+    .filter((candidate) => candidate._id === workflowItemId || candidate.ancestorIds.includes(workflowItemId))
+    .map((candidate) => candidate._id);
+  const idSet = new Set(subtreeIds);
+
+  const attachments = await getWorkflowAttachmentsForUser(ctx, item.userId);
+  for (const attachment of attachments) {
+    if (!idSet.has(attachment.workflowItemId)) continue;
+    if (attachment.entityType === "packingItem") {
+      await ctx.db.delete(attachment.entityId as Id<"packingListItems">);
+    }
+    await ctx.db.delete(attachment._id);
+  }
+
+  const dependencies = await getWorkflowDependenciesForUser(ctx, item.userId);
+  for (const dependency of dependencies) {
+    if (
+      idSet.has(dependency.predecessorWorkflowItemId) ||
+      idSet.has(dependency.successorWorkflowItemId)
+    ) {
+      await ctx.db.delete(dependency._id);
+    }
+  }
+
+  for (const id of subtreeIds.reverse()) {
+    await ctx.db.delete(id);
+  }
 }
 
 export const listTemplates = query({
@@ -1274,7 +1337,11 @@ export const update = mutation({
     if (args.attachments) {
       await replaceAttachments(ctx, args.userId, args.id, args.attachments);
     }
-    return await ctx.db.get(args.id);
+    const updated = await ctx.db.get(args.id);
+    if (updated) {
+      await syncPackingItemsFromWorkflowItem(ctx, updated);
+    }
+    return updated;
   },
 });
 
@@ -1364,37 +1431,7 @@ export const remove = mutation({
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
     await assertWorkflowEditable(ctx, item, args.userId);
-
-    const userItems = await getWorkflowItemsForUser(ctx, item.userId);
-    const subtreeIds = userItems
-      .filter((candidate) => candidate._id === args.id || candidate.ancestorIds.includes(args.id))
-      .map((candidate) => candidate._id);
-    const idSet = new Set(subtreeIds);
-
-    const attachments = await getWorkflowAttachmentsForUser(ctx, item.userId);
-    for (const attachment of attachments) {
-      if (!idSet.has(attachment.workflowItemId)) continue;
-      if (attachment.entityType === "packingItem") {
-        await ctx.db.patch(attachment.entityId as Id<"packingListItems">, {
-          workflowItemId: undefined,
-        });
-      }
-      await ctx.db.delete(attachment._id);
-    }
-
-    const dependencies = await getWorkflowDependenciesForUser(ctx, item.userId);
-    for (const dependency of dependencies) {
-      if (
-        idSet.has(dependency.predecessorWorkflowItemId) ||
-        idSet.has(dependency.successorWorkflowItemId)
-      ) {
-        await ctx.db.delete(dependency._id);
-      }
-    }
-
-    for (const workflowItemId of subtreeIds.reverse()) {
-      await ctx.db.delete(workflowItemId);
-    }
+    await removeWorkflowItemCascade(ctx, args.id);
   },
 });
 

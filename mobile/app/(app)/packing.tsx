@@ -1,24 +1,24 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import { APP_HREF } from "@/lib/appRoutes";
+import { useOfflineQuery } from "@/offline";
 import {
   countPackingProgress,
   countPlannedBuilds,
   formatDateRange,
   type ConventionWithDetails,
 } from "@/screens/conventions/utils";
-import { DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
 
 type Ready = { conventions: ConventionWithDetails[] };
 
 export default function PackingOverviewScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const conventions = useQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
 
   const loading = identity === undefined || (userId != null && conventions === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -54,10 +54,6 @@ function PackingOverviewBody({ conventions }: Ready) {
       className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 }}
     >
-      <SectionHeading
-        eyebrow={t("conventions.packingEyebrow")}
-        title={t("conventions.crossPackingTitle")}
-      />
       <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
         {t("conventions.crossPackingSubtitle")}
       </Text>

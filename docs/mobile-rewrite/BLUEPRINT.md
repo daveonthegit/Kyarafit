@@ -1017,18 +1017,33 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
   - `All` is mixed media + elements; other filters provide focused slices.
   - Board rendering now uses reusable portfolio cards for nodes and a masonry-style two-column layout on mobile.
   - Board includes mode-aware empty states and keeps link-elements affordance in-context.
+- **Visual board parity pass (fullscreen + lightbox)**
+  - [`mobile/src/screens/build-detail/DetailBody.tsx`](../../mobile/src/screens/build-detail/DetailBody.tsx) now supports fullscreen board mode and tap-to-lightbox for reference/progress media tiles.
+  - Board rendering is shared between inline and fullscreen containers to keep filtering/state behavior consistent.
+- **Public/share parity hardening**
+  - Added unauthenticated mobile routes for public build viewing and share-token URLs:
+    - [`mobile/app/(public)/public-builds/[buildId].tsx`](<../../mobile/app/(public)/public-builds/[buildId].tsx>)
+    - [`mobile/app/(public)/b/s/[shareToken].tsx`](<../../mobile/app/(public)/b/s/[shareToken].tsx>)
+  - Public viewer queries now forward optional `shareToken` for workflow/likes/comments parity with web in [`PublicBuildDetailScreen`](../../mobile/src/screens/public-build/PublicBuildDetailScreen.tsx).
+- **Offline hardening guardrails (KFM-113/114 progress)**
+  - Added DB maintenance primitives in [`mobile/src/offline/db.ts`](../../mobile/src/offline/db.ts):
+    - queue cap enforcement (`10,000` rows),
+    - storage cap enforcement (`50 MB`) with oldest-first eviction,
+    - synced tombstone pruning (`30-day` retention),
+    - sign-out/account-switch offline-state reset helper (SQLite + image cache wipe best-effort).
+  - [`SyncWorkerProvider`](../../mobile/src/offline/SyncWorkerProvider.tsx) now runs cap + tombstone maintenance at startup and on connectivity transitions.
+  - Added ESLint rule [`kyarafit/no-direct-convex-in-offline-core`](../../mobile/eslint-rules/no-direct-convex-in-offline-core.cjs) and wired it in [`mobile/eslint.config.js`](../../mobile/eslint.config.js) to block direct `convex/react` hooks on Offline Core screens.
+  - Migrated Offline Core route/screens to the offline hook bridge (`useOfflineQuery` / `useOfflineMutation`) across planner/builds/elements/conventions/packing/itinerary and build-detail/convention forms.
 
 #### Current remaining gaps (review snapshot)
 
 - **Visual board**
-  - Fullscreen board mode and tap-to-lightbox are still missing vs web.
   - Optional richer metadata overlays (exact date chips and hover-equivalent affordances) are still simplified on mobile.
 - **Workflow/planner**
   - Dependency graph visualization and advanced planner dependency authoring UX remain open.
   - Additional explorer-grade structural tooling beyond current drag/reparent interactions is still pending.
 - **Parity hardening**
-  - Offline-first acceptance (KFM-026..028, KFM-113..114) is still not closed.
-  - Public unauthenticated share-token route parity remains open (KFM-110).
+  - Offline-first acceptance (KFM-026..028, KFM-113..114) is in progress; guardrails are in, but full E2E/offline UX acceptance remains.
   - RevenueCat unified paywall/purchase guardrail + webhook completion remains open (KFM-082..085).
 
 #### Phase 2 → Phase 3 handoff
@@ -1153,11 +1168,11 @@ Use this subsection to see what is already in the tree vs what §6 tickets still
 
 ### Phase 9
 
-- **KFM-110 Public share route** (no auth). The authenticated social/public-profile entry path now has a native public-build viewer; remaining parity here is the unauthenticated share-token route and deep-link plumbing.
+- **KFM-110 ✅ Public share route** (no auth). Mobile now ships unauthenticated routes for both `/public-builds/[buildId]` and share-token deep links (`/b/s/[shareToken]`) via the `(public)` route group, and public viewer queries pass `shareToken` to workflow/likes/comments fetches for parity with web behavior.
 - **KFM-111 Accessibility audit**.
 - **KFM-112 FlashList migration where needed**.
-- **KFM-113 Offline hardening**. Scope: enforce 50 MB / 10 000-row caps on `mutation_queue` + `query_cache` via LRU eviction + oldest-non-user-visible-first overflow policy (Section 3.13.3); tombstone cleanup cron (local, runs on app foreground, removes `deleted=1` rows older than 30 days once sync confirms them); conflict-toast rate limiter; sign-out wipe verified to drop SQLite, `id_map`, `expo-image` disk cache, and SecureStore; account-switch wipe identical. Acceptance: filling the queue past cap triggers eviction without crashing; sign-out leaves no PII on disk (verified via file-system probe in E2E).
-- **KFM-114 Sync-indicator + Offline Core audit**. Scope: verify every screen in the Offline Core reads via `useOfflineQuery` and writes via `useOfflineMutation`, shows a `SyncBadge` on pending rows, and renders gracefully offline. Add a lint rule `no-direct-convex-in-offline-core` that flags raw `useQuery`/`useMutation` inside `features/{builds,elements,conventions,packing,planner}/`\*\*.
+- **KFM-113 Offline hardening**. **In progress**. Queue/storage caps + eviction, tombstone pruning, and sign-out/account-switch offline resets are implemented in the mobile offline layer; remaining acceptance is explicit overflow/sign-out E2E verification and conflict-rate-limit behavior.
+- **KFM-114 Sync-indicator + Offline Core audit**. **In progress**. Offline Core lint guardrail (`no-direct-convex-in-offline-core`) is active and core screens are migrated to offline hooks; remaining acceptance is final UX audit for pending-sync indicators and full offline-path verification.
 - **KFM-115 Perf audit + 120fps animations**.
 - **KFM-116 Maestro E2E smoke suite** (includes offline flows per Section 3.13 E2E case and the RevenueCat sandbox purchase flow per Section 3.15.7).
 - **KFM-117 Locale screenshot audit (en/ja/es)**. Scope: extend the Maestro smoke suite with a locale matrix that, for each of `en`, `ja`, `es`, walks all P1 screens (Home, Builds list, Build detail overview/outline/tasks, Elements list, Convention detail with day tabs, Packing day, Planner tree, Settings hub + Subscription + Notifications + Language) and captures a screenshot per screen per locale; a post-run analyzer flags screenshots where text appears clipped via a simple bounding-box heuristic and writes a CI report. Acceptance: zero critical findings (any text cut off more than 10 px); soft findings logged as post-launch polish tickets.

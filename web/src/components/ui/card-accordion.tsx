@@ -78,12 +78,12 @@ function CardAccordionPanelInner<T extends CardAccordionItem>({
         )}
       </div>
       {/* Dark overlay for text readability */}
-      <div className="absolute inset-0 bg-kyar-text/40" aria-hidden />
+      <div className="absolute inset-0 bg-black/50" aria-hidden />
 
       {/* Caption: active = horizontal at bottom; inactive = vertical at bottom */}
       <span
         className={cn(
-          "absolute z-10 text-kyar-bg text-lg font-semibold whitespace-nowrap transition-all duration-300 ease-in-out",
+          "absolute z-10 text-lg font-semibold whitespace-nowrap text-kyar-media-fg drop-shadow-md transition-all duration-300 ease-in-out",
           isActive
             ? "bottom-6 left-1/2 -translate-x-1/2 rotate-0"
             : "bottom-24 left-1/2 -translate-x-1/2 rotate-90 origin-center"
@@ -92,7 +92,7 @@ function CardAccordionPanelInner<T extends CardAccordionItem>({
         {item.title}
       </span>
       {isActive && item.subtitle && (
-        <p className="absolute bottom-12 left-6 right-6 z-10 text-kyar-bg/90 text-xs uppercase tracking-wide truncate">
+        <p className="absolute bottom-12 left-6 right-6 z-10 truncate text-xs uppercase tracking-wide text-kyar-media-fg-muted">
           {item.subtitle}
         </p>
       )}

@@ -1,16 +1,16 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { APP_HREF } from "@/lib/appRoutes";
+import { useOfflineQuery } from "@/offline";
 import {
   enumerateConventionDays,
   formatLongDateLabel,
   type ConventionWithDetails,
 } from "@/screens/conventions/utils";
-import { DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
 
 type Ready = {
   conventions: ConventionWithDetails[];
@@ -26,10 +26,10 @@ type Ready = {
 
 export default function ItineraryScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const conventions = useQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
   const loading =
     identity === undefined ||
@@ -84,7 +84,6 @@ function ItineraryBody({ conventions, builds }: Ready) {
       className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 }}
     >
-      <SectionHeading eyebrow={t("conventions.eyebrow")} title={t("conventions.itineraryTitle")} />
       <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
         {t("conventions.itinerarySubtitle")}
       </Text>

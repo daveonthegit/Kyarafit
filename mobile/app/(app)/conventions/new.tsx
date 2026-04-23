@@ -1,17 +1,17 @@
 import { Alert } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import { APP_HREF } from "@/lib/appRoutes";
 import { ConventionForm } from "@/screens/conventions/ConventionForm";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { DataBoundary } from "@/ui";
 
 type Ready = { userId: string };
 
 export default function NewConventionScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   const loading = identity === undefined;
@@ -38,7 +38,7 @@ export default function NewConventionScreen() {
 function NewConventionBody({ userId }: Ready) {
   const { t } = useTranslation();
   const router = useRouter();
-  const createConvention = useMutation(api.conventions.create);
+  const createConvention = useOfflineMutation(api.conventions.create);
 
   return (
     <ConventionForm

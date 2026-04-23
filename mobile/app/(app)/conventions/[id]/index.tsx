@@ -3,9 +3,10 @@ import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "reac
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
+import { ConventionEventPoster } from "@/components/conventions/ConventionEventPoster";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
 import { useDesignTheme } from "@/theme/useDesignTheme";
@@ -13,11 +14,10 @@ import {
   countPackingProgress,
   countPlannedBuilds,
   enumerateConventionDays,
-  formatDateRange,
-  getConventionDayHeading,
-  getCountdownMeta,
-  resolveBuildForDate,
+  formatConventionTimelineDate,
 } from "@/screens/conventions/utils";
+import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
 type Ready = {
@@ -38,15 +38,18 @@ type Ready = {
 export default function ConventionDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const convention = useQuery(api.conventions.get, id ? { id: id as Id<"conventions"> } : "skip");
-  const plans = useQuery(
+  const convention = useOfflineQuery(
+    api.conventions.get,
+    id ? { id: id as Id<"conventions"> } : "skip"
+  );
+  const plans = useOfflineQuery(
     api.conventions.getPlan,
     id ? { conventionId: id as Id<"conventions"> } : "skip"
   );
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip");
-  const packing = useQuery(
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
+  const packing = useOfflineQuery(
     api.conventions.getPacking,
     id ? { conventionId: id as Id<"conventions"> } : "skip"
   );
@@ -90,23 +93,20 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useDesignTheme();
-  const replacePlan = useMutation(api.conventions.replacePlan);
-  const regeneratePacking = useMutation(api.conventions.regeneratePacking);
+  const replacePlan = useOfflineMutation(api.conventions.replacePlan);
+  const regeneratePacking = useOfflineMutation(api.conventions.regeneratePacking);
   const days = useMemo(
     () => enumerateConventionDays(convention.startDate, convention.endDate),
     [convention.endDate, convention.startDate]
   );
-  const [selectedDay, setSelectedDay] = useState(days[0] ?? convention.startDate);
   const [assigningDay, setAssigningDay] = useState<string | null>(null);
   const [buildSearch, setBuildSearch] = useState("");
-  const countdown = getCountdownMeta(convention.startDate);
-  const selectedBuild = useMemo(
-    () => resolveBuildForDate(plans, builds, selectedDay),
-    [builds, plans, selectedDay]
-  );
+  const primaryDay = days[0] ?? convention.startDate;
+  const planByDate = useMemo(() => new Map(plans.map((p) => [p.date, p])), [plans]);
+  const [timelineBlockHeight, setTimelineBlockHeight] = useState(0);
   const dayPacking = useMemo(
-    () => packing.filter((item) => item.date === selectedDay || !item.date),
-    [packing, selectedDay]
+    () => packing.filter((item) => item.date === primaryDay || !item.date),
+    [packing, primaryDay]
   );
   const packingProgress = countPackingProgress(packing);
   const plannedBuilds = countPlannedBuilds(plans);
@@ -156,151 +156,153 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
           gap: 20,
         }}
       >
-        <View>
-          <SectionHeading
-            eyebrow={t("conventions.eyebrow")}
-            title={convention.name}
-            action={
-              <Pressable onPress={() => router.push(APP_HREF.conventionEdit(convention._id))}>
-                <Text className="text-sm font-semibold text-kyar-text underline dark:text-kyar-dark-text">
-                  {t("conventions.editAction")}
-                </Text>
-              </Pressable>
-            }
-          />
-          <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {convention.location
-              ? `${formatDateRange(convention.startDate, convention.endDate)} · ${convention.location}`
-              : formatDateRange(convention.startDate, convention.endDate)}
-          </Text>
-        </View>
+        <ConventionEventPoster
+          name={convention.name}
+          startDate={convention.startDate}
+          endDate={convention.endDate}
+          location={convention.location}
+          imageStorageId={convention.imageStorageId}
+          imageUrl={convention.imageUrl}
+          plannedBuilds={plannedBuilds}
+          packingChecked={packingProgress.checked}
+          packingTotal={packingProgress.total}
+          daysCount={days.length}
+          metricBuildsLabel={t("conventions.metricBuilds")}
+          metricPackingLabel={t("conventions.metricPacking")}
+          metricDaysLabel={t("conventions.metricDays")}
+          topAccessory={
+            <Pressable
+              onPress={() => router.push(APP_HREF.conventionEdit(convention._id))}
+              hitSlop={10}
+              className="active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-kyar-bg">{t("conventions.editAction")}</Text>
+            </Pressable>
+          }
+        />
 
-        <SurfaceCard className="overflow-hidden">
-          <View className="relative h-64">
-            <ConvexStorageImage
-              storageId={convention.imageStorageId}
-              imageUrl={convention.imageUrl}
-              className="h-64 w-full"
-              accessibilityLabel={convention.name}
-            />
-            <View className="absolute inset-0 bg-kyar-text/10 dark:bg-kyar-dark-text/10" />
-            <View className="absolute left-4 top-4 rounded-full bg-kyar-bg/92 px-3 py-2 dark:bg-kyar-dark-bg/92">
-              <MetaLabel>{t("common.events")}</MetaLabel>
-            </View>
-            <View className="absolute right-4 top-4 rounded-full bg-kyar-accent px-3 py-2">
-              <Text className="text-xs font-semibold text-kyar-bg">{countdown.label}</Text>
-            </View>
-            <View className="absolute inset-x-4 bottom-4 rounded-[28px] bg-kyar-bg/92 px-4 py-4 dark:bg-kyar-dark-bg/92">
-              <View className="flex-row gap-3">
-                <MetricCard label={t("conventions.metricBuilds")} value={plannedBuilds} />
-                <MetricCard
-                  label={t("conventions.metricPacking")}
-                  value={`${packingProgress.checked}/${packingProgress.total}`}
-                />
-                <MetricCard label={t("conventions.metricDays")} value={days.length} />
-              </View>
-            </View>
-          </View>
-        </SurfaceCard>
-
-        <SurfaceCard className="px-4 py-4">
-          <View className="flex-row items-center justify-between">
-            <MetaLabel>{t("conventions.dayPlansTitle")}</MetaLabel>
-            <Pressable onPress={() => router.push(APP_HREF.itinerary)}>
-              <Text className="text-xs font-semibold text-kyar-text underline dark:text-kyar-dark-text">
+        {/* Cosplay timeline — structure aligned with web `/conventions/[id]` (vertical spine + nodes + cards) */}
+        <View className="mb-4">
+          <View className="mb-6 flex-row items-center justify-between border-b border-kyar-borderSubtle pb-3 dark:border-kyar-dark-borderSubtle">
+            <Text
+              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
+              className="text-[9px] uppercase tracking-[0.2em] text-kyar-text dark:text-kyar-dark-text"
+            >
+              {t("conventions.timelineTitle")}
+            </Text>
+            <Pressable onPress={() => router.push(APP_HREF.itinerary)} hitSlop={8}>
+              <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-accent">
                 {t("conventions.itineraryTitle")}
               </Text>
             </Pressable>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mt-4"
-            contentContainerClassName="gap-2"
+          <View
+            className="relative"
+            onLayout={(e) => setTimelineBlockHeight(e.nativeEvent.layout.height)}
           >
-            {days.map((date, index) => (
-              <Pressable
-                key={date}
-                onPress={() => setSelectedDay(date)}
-                className={`rounded-full border px-4 py-3 ${
-                  selectedDay === date
-                    ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                    : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-semibold uppercase tracking-wide ${
-                    selectedDay === date
-                      ? "text-kyar-bg dark:text-kyar-dark-bg"
-                      : "text-kyar-text dark:text-kyar-dark-text"
-                  }`}
-                >
-                  {getConventionDayHeading(date, index)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <SurfaceCard className="mt-4 px-4 py-4">
-            <MetaLabel>{t("conventions.selectedDayLabel")}</MetaLabel>
-            <Text className="mt-2 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {selectedDay}
-            </Text>
-
-            {selectedBuild ? (
-              <View className="mt-4 flex-row items-center gap-3">
-                <ConvexStorageImage
-                  storageId={selectedBuild.imageStorageId}
-                  imageUrl={selectedBuild.imageUrl}
-                  className="h-20 w-20 rounded-2xl"
-                  accessibilityLabel={selectedBuild.name}
-                />
-                <View className="min-w-0 flex-1">
-                  <MetaLabel>{selectedBuild.status ?? "Build"}</MetaLabel>
-                  <Text className="mt-2 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-                    {selectedBuild.name}
-                  </Text>
-                  {selectedBuild.character ? (
-                    <Text className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {selectedBuild.character}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            ) : (
-              <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.unassignedDay")}
-              </Text>
-            )}
-
-            <View className="mt-4 flex-row gap-3">
-              <Button
-                title={
-                  selectedBuild
-                    ? t("conventions.changeBuildAction")
-                    : t("conventions.assignBuildAction")
-                }
-                variant="secondary"
-                onPress={() => setAssigningDay(selectedDay)}
-                className="flex-1"
+            {timelineBlockHeight > 0 ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 11,
+                  top: 0,
+                  width: 2,
+                  height: timelineBlockHeight,
+                  backgroundColor: colors.borderSubtle,
+                  zIndex: 0,
+                }}
               />
-              {selectedBuild ? (
-                <Button
-                  title={t("conventions.openBuildAction")}
-                  onPress={() => router.push(APP_HREF.build(selectedBuild._id))}
-                  className="flex-1"
-                />
-              ) : null}
-            </View>
-          </SurfaceCard>
-        </SurfaceCard>
+            ) : null}
+
+            {days.map((date, idx) => {
+              const entry = planByDate.get(date);
+              const build = entry?.buildId
+                ? builds.find((b) => b._id === entry.buildId)
+                : undefined;
+
+              return (
+                <View
+                  key={date}
+                  className={`relative z-[1] flex-row pb-12 ${idx === days.length - 1 ? "pb-2" : ""}`}
+                >
+                  <View className="z-[2] w-6 items-center">
+                    <View className="h-6 w-6 items-center justify-center rounded-full border-[3px] border-kyar-bg bg-kyar-text dark:border-kyar-dark-bg dark:bg-kyar-dark-text">
+                      <Text className="text-[8px] font-bold text-kyar-bg dark:text-kyar-dark-bg">
+                        {idx + 1}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="min-w-0 flex-1 pl-4">
+                    <Text
+                      style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
+                      className="text-xl font-bold italic text-kyar-text dark:text-kyar-dark-text"
+                    >
+                      {t("conventions.timelineDayHeading", { n: idx + 1 })}
+                    </Text>
+                    <Text className="mt-1 text-[9px] uppercase tracking-wider text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                      {formatConventionTimelineDate(date)}
+                    </Text>
+
+                    <Pressable
+                      onPress={() =>
+                        build
+                          ? router.push(APP_HREF.build(build._id))
+                          : setAssigningDay(date)
+                      }
+                      onLongPress={build ? () => setAssigningDay(date) : undefined}
+                      delayLongPress={400}
+                      className="mt-3 active:opacity-95"
+                    >
+                      {build ? (
+                        <BuildPortfolioCard
+                          variant="comfortable"
+                          projectIndex={idx + 1}
+                          item={{
+                            name: build.name,
+                            character: build.character,
+                            status: build.status ?? "",
+                            imageStorageId: build.imageStorageId,
+                            imageUrl: build.imageUrl,
+                            tasksTotal: build.tasksTotal,
+                            tasksChecked: build.tasksChecked,
+                          }}
+                        />
+                      ) : (
+                        <View className="aspect-[3/2] items-center justify-center border border-dashed border-kyar-borderSubtle bg-kyar-muted/40 px-6 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted/40">
+                          <Ionicons
+                            name="add-circle-outline"
+                            size={28}
+                            color={colors.textTertiary}
+                          />
+                          <Text
+                            style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
+                            className="mt-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary dark:text-kyar-dark-textTertiary"
+                          >
+                            {t("conventions.restDay")}
+                          </Text>
+                          <Text className="mt-1 text-[9px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                            {t("conventions.timelineTapToAssign")}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
         <SurfaceCard className="px-4 py-4">
           <View className="flex-row items-center justify-between">
             <MetaLabel>{t("conventions.dayPackingTitle")}</MetaLabel>
             <Pressable
-              onPress={() => router.push(APP_HREF.conventionPacking(convention._id, selectedDay))}
+              onPress={() =>
+                router.push(APP_HREF.conventionPacking(convention._id, primaryDay))
+              }
             >
               <Text className="text-xs font-semibold text-kyar-text underline dark:text-kyar-dark-text">
                 {t("conventions.openPackingAction")}
@@ -380,7 +382,7 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
           >
             <SectionHeading
               eyebrow={t("conventions.assignBuildAction")}
-              title={assigningDay ?? ""}
+              title={assigningDay ? formatConventionTimelineDate(assigningDay) : ""}
             />
             <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("conventions.assignBuildSubtitle")}
@@ -434,13 +436,3 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View className="flex-1 rounded-2xl bg-kyar-panel px-3 py-3 dark:bg-kyar-dark-panel">
-      <MetaLabel>{label}</MetaLabel>
-      <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-        {value}
-      </Text>
-    </View>
-  );
-}

@@ -3,8 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, G } from "react-native-svg";
 import type { Id } from "convex/_generated/dataModel";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { mediaOverlay, mediaOverlayTitleShadow } from "@/theme/mediaOverlayColors";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 
 export type BuildPortfolioVariant = "comfortable" | "compact" | "grid";
 
@@ -97,7 +98,7 @@ export function BuildPortfolioCard({
   const { scheme, colors } = useDesignTheme();
   const pct = item.tasksTotal > 0 ? Math.round((100 * item.tasksChecked) / item.tasksTotal) : 0;
   const projectNumber = String(projectIndex).padStart(3, "0");
-  const overlayText = colors.bg;
+  const overlayText = mediaOverlay.primary;
   const stops = gradientStops(scheme);
 
   const isCompact = variant === "compact";
@@ -142,18 +143,21 @@ export function BuildPortfolioCard({
             <Text
               style={{
                 fontFamily: APP_FONT_FAMILIES.sansBold,
-                color: overlayText,
+                color: mediaOverlay.secondary,
                 letterSpacing: isGrid ? 1.6 : 2,
                 fontSize: isGrid ? 8 : 9,
                 marginBottom: 4,
-                opacity: 0.85,
                 textTransform: "uppercase",
               }}
             >
               Project {projectNumber}
             </Text>
             <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.displayItalic, color: overlayText }}
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                color: overlayText,
+                ...mediaOverlayTitleShadow,
+              }}
               className={`${titleClass} font-normal tracking-tight`}
               numberOfLines={isGrid ? 2 : 2}
             >
@@ -172,7 +176,10 @@ export function BuildPortfolioCard({
           </Text>
           {item.character ? (
             <>
-              <View className="h-1 w-1 rounded-full bg-kyar-bg/50" />
+              <View
+                className="h-1 w-1 rounded-full"
+                style={{ backgroundColor: mediaOverlay.muted }}
+              />
               <Text
                 style={{ fontFamily: APP_FONT_FAMILIES.sansBold, color: overlayText }}
                 className={`${isGrid ? "text-[9px]" : "text-[10px]"} uppercase tracking-widest opacity-90`}

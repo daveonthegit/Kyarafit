@@ -6,7 +6,6 @@ import { api } from "convex/_generated/api";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
 export default function PublicProfileScreen() {
@@ -64,8 +63,7 @@ export default function PublicProfileScreen() {
               </SurfaceCard>
             ) : (
               <>
-                <SectionHeading eyebrow={t("profile.eyebrow")} title={displayName} />
-                <View className="mt-5 flex-row items-start gap-4">
+                <View className="flex-row items-start gap-4">
                   <ProfileAvatar
                     imageStorageId={profile.imageStorageId}
                     imageUrl={profile.image}
@@ -74,12 +72,6 @@ export default function PublicProfileScreen() {
                   />
                   <View className="min-w-0 flex-1">
                     {profile.username ? <MetaLabel>@{profile.username}</MetaLabel> : null}
-                    <Text
-                      style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-                      className="mt-2 text-[32px] italic text-kyar-text dark:text-kyar-dark-text"
-                    >
-                      {displayName}
-                    </Text>
                     {profile.bio ? (
                       <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                         {profile.bio}
@@ -114,10 +106,11 @@ export default function PublicProfileScreen() {
                         </Text>
                       </SurfaceCard>
                     ) : (
-                      builds.map((build) => (
+                      builds.map((build, index) => (
                         <PublicBuildCard
                           key={build._id}
                           build={build}
+                          projectIndex={index + 1}
                           currentUserId={currentUserId}
                           onPress={() => router.push(APP_HREF.publicBuild(build._id))}
                         />

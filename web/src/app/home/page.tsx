@@ -207,15 +207,12 @@ export default function HomePage() {
                         </span>
                       </div>
                     )}
-                    <div
-                      className="absolute inset-0 bg-gradient-to-t from-kyar-text/40 via-transparent to-transparent"
-                      aria-hidden
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-kyar-bg">
-                      <span className="inline-block text-[10px] sm:text-xs uppercase tracking-[0.2em] font-medium bg-kyar-text text-kyar-bg px-2.5 py-1 rounded-sm mb-2">
+                    <div className="absolute inset-0 bg-kyar-media-scrim-faint" aria-hidden />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-media-fg sm:p-6">
+                      <span className="mb-2 inline-block rounded-sm border border-white/20 bg-black/50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-media-fg backdrop-blur-sm sm:text-xs">
                         {t("currentFocus")}
                       </span>
-                      <p className="font-serif text-xl sm:text-2xl lg:text-4xl italic font-normal">
+                      <p className="font-serif text-xl font-normal italic drop-shadow-md sm:text-2xl lg:text-4xl">
                         {recentBuild ? recentBuild.name : t("addBuildsToFeature")}
                       </p>
                       {recentBuild && (
@@ -533,12 +530,9 @@ export default function HomePage() {
                               </span>
                             </div>
                           )}
-                          <div
-                            className="absolute inset-0 bg-gradient-to-t from-kyar-text/60 via-kyar-text/20 to-transparent"
-                            aria-hidden
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-bg">
-                            <p className="font-serif italic text-lg leading-tight line-clamp-2">
+                          <div className="absolute inset-0 bg-kyar-media-scrim-mid" aria-hidden />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-media-fg">
+                            <p className="line-clamp-2 font-serif text-lg italic leading-tight drop-shadow-sm">
                               {build.name}
                             </p>
                             <p className="text-[10px] uppercase tracking-wider opacity-90 mt-1">

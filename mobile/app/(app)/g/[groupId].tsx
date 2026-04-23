@@ -144,8 +144,7 @@ export default function GroupDetailScreen() {
               </SurfaceCard>
             ) : (
               <>
-                <SectionHeading eyebrow={t("nav.groups")} title={group.name} />
-                <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                   {group.description || t("groups.detailSubtitle")}
                 </Text>
 
@@ -296,10 +295,11 @@ export default function GroupDetailScreen() {
                         </Text>
                       </SurfaceCard>
                     ) : (
-                      builds.map((build) => (
+                      builds.map((build, index) => (
                         <View key={build._id}>
                           <PublicBuildCard
                             build={build}
+                            projectIndex={index + 1}
                             onPress={() => router.push(APP_HREF.build(build._id))}
                           />
                           {userId === build.userId ? (
@@ -431,13 +431,13 @@ export default function GroupDetailScreen() {
                     {t("groups.availableBuildsEmpty")}
                   </Text>
                 ) : (
-                  availableBuilds.map((build) => (
-                    <Pressable key={build._id} onPress={() => void addBuildToGroup(build._id)}>
-                      <PublicBuildCard
-                        build={build}
-                        onPress={() => void addBuildToGroup(build._id)}
-                      />
-                    </Pressable>
+                  availableBuilds.map((build, index) => (
+                    <PublicBuildCard
+                      key={build._id}
+                      build={build}
+                      projectIndex={index + 1}
+                      onPress={() => void addBuildToGroup(build._id)}
+                    />
                   ))
                 )}
               </View>

@@ -19,7 +19,7 @@ Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single so
 ## RevenueCat dashboard
 
 1. Create a project and add **iOS** and **Android** apps with the correct bundle IDs.
-2. Under **Entitlements**, create `**pro`** and `**studio**` (or keep legacy `premium_basic` / `premium_pro` and map them as above).
+2. Under **Entitlements**, create `**pro`** and `**studio`** (or keep legacy `premium_basic` / `premium_pro` and map them as above).
 3. In **App Store Connect** / **Google Play Console**, create subscription products (e.g. `com.kyarafit.pro.monthly`, `com.kyarafit.studio.annual`). Attach them to the matching entitlements in RevenueCat.
 4. Create an **Offering** (e.g. `default`) with packages pointing at those products so `Purchases.getOfferings()` returns packages in the app.
 
@@ -61,7 +61,7 @@ On **web**, Kyarafit uses `**@revenuecat/purchases-js`** (RevenueCat Web Billing
 
 1. In RevenueCat, add a **Web** app (or use the Web Billing app) and copy the **Web Billing SDK API key** (often prefixed `rcb_`).
 2. **Connect Stripe** under RevenueCat’s Web Billing / payment settings (exact menu varies; see [RevenueCat Web Billing docs](https://www.revenuecat.com/docs/web/web-billing)).
-3. Create **Web** subscription products in RevenueCat (linked to Stripe prices), attach them to entitlements `**pro`** and `**studio**`, and add them to the same **Offering** you use on mobile (e.g. `default`) so `getOfferings()` returns packages.
+3. Create **Web** subscription products in RevenueCat (linked to Stripe prices), attach them to entitlements `**pro`** and `**studio`**, and add them to the same **Offering** you use on mobile (e.g. `default`) so `getOfferings()` returns packages.
 4. Ensure the **Convex webhook** (above) is registered so web purchases update `users.tier` the same way as iOS/Android.
 
 ### Next.js env

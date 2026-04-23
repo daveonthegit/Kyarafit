@@ -182,9 +182,9 @@ export default function PublicProfilePage() {
                         <span className="material-symbols-outlined text-6xl">palette</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
+                    <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
 
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
+                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-media-fg">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
                           {b.character && (
@@ -192,7 +192,7 @@ export default function PublicProfilePage() {
                               {b.character}
                             </span>
                           )}
-                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover:opacity-90">
+                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate text-kyar-media-fg drop-shadow-md transition-opacity group-hover:opacity-90">
                             {b.name}
                           </h3>
                         </div>

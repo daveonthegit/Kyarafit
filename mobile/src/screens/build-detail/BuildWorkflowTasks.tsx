@@ -1,15 +1,17 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { TFunction } from "i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { WORKFLOW_STATUSES } from "@kyarafit/design-system/domain";
 import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
+import { WorkflowTaskDragHandle } from "@/components/workflow/WorkflowTaskDragHandle";
+import { WorkflowTaskDragOverlay } from "@/components/workflow/WorkflowTaskDragOverlay";
 import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
+import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRootDropZone";
 import { usePlannerTaskMove } from "@/planner/usePlannerTaskMove";
-import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
+import { applyWorkflowTreeDrop, promoteWorkflowTaskToRoot } from "@/workflow/applyWorkflowTreeDrop";
 import {
   BUILD_WORKFLOW_GROUP_KEY,
   flattenWorkflowWithElementGroup,
@@ -18,6 +20,7 @@ import {
   type WorkflowTreeNodeShape,
 } from "./buildWorkflowTreeHelpers";
 import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 
 type Props = {
   buildId: Id<"builds">;
@@ -26,13 +29,13 @@ type Props = {
 };
 
 export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
-  const tree = useQuery(api.workflow.listBuildTree, { buildId });
-  const visualNodesQuery = useQuery(api.cosplayNodes.listBuildVisualNodes, { buildId });
+  const tree = useOfflineQuery(api.workflow.listBuildTree, { buildId });
+  const visualNodesQuery = useOfflineQuery(api.cosplayNodes.listBuildVisualNodes, { buildId });
 
-  const createWorkflow = useMutation(api.workflow.create);
-  const updateWorkflow = useMutation(api.workflow.update);
-  const removeWorkflow = useMutation(api.workflow.remove);
-  const moveWorkflow = useMutation(api.workflow.move);
+  const createWorkflow = useOfflineMutation(api.workflow.create);
+  const updateWorkflow = useOfflineMutation(api.workflow.update);
+  const removeWorkflow = useOfflineMutation(api.workflow.remove);
+  const moveWorkflow = useOfflineMutation(api.workflow.move);
 
   const [newRootTitle, setNewRootTitle] = useState("");
   const [newChildParentId, setNewChildParentId] = useState<Id<"workflowItems"> | null>(null);
@@ -125,11 +128,42 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
     [flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
   );
 
+  const promoteTaskToRoot = useCallback(
+    async (dragged: PlannerTaskDragMeta, scopeKey: string) => {
+      await promoteWorkflowTaskToRoot(
+        dragged,
+        flatDropTasks,
+        {
+          userId,
+          moveTask: moveWorkflow,
+          updateTask: updateWorkflow,
+        },
+        (task) => `wf:build:${buildId as string}:${taskElementGroupById.get(task._id as string)}` === scopeKey
+      );
+    },
+    [buildId, flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
+  );
+
   const plannerTaskMove = usePlannerTaskMove({
     userId,
     onCommitDrop: applyDrop,
+    onCommitRootDrop: promoteTaskToRoot,
     onError: (message) => Alert.alert(t("common.errorTitle"), message),
   });
+
+  const rootViewRef = useRef<View>(null);
+  const [rootFrame, setRootFrame] = useState({ x: 0, y: 0 });
+
+  const updateRootFrame = useCallback(() => {
+    rootViewRef.current?.measureInWindow?.((x, y) => {
+      setRootFrame({ x, y });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!plannerTaskMove.dragMeta) return;
+    updateRootFrame();
+  }, [plannerTaskMove.dragMeta, updateRootFrame]);
 
   const stats = tree?.stats;
   const progressPercent = stats?.workflowProgressPercent ?? 0;
@@ -180,7 +214,7 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
   }
 
   return (
-    <View className="flex-1">
+    <View ref={rootViewRef} className="flex-1" onLayout={updateRootFrame}>
       <View className="mx-4 mt-2 rounded-3xl border border-kyar-borderSubtle bg-kyar-panel p-4 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1">
@@ -209,7 +243,11 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         </Text>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-4" contentContainerClassName="pb-12">
+      <ScrollView
+        className="flex-1 px-4 pt-4"
+        contentContainerClassName="pb-12"
+        scrollEnabled={!plannerTaskMove.dragMeta}
+      >
         {rows.length === 0 ? (
           <View className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-6 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
             <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
@@ -253,6 +291,13 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
                   )}
                 </View>
                 <View className="gap-2 px-2 py-3">
+                  <WorkflowTaskRootDropZone
+                    scopeKey={`wf:build:${buildId as string}:${groupKey}`}
+                    taskMove={plannerTaskMove}
+                    label={t("buildDetail.dropToTopLevel", {
+                      defaultValue: "Drop here to make it a top-level step",
+                    })}
+                  />
                   {groupRows.map((node) => (
                     <BuildWorkflowTaskRow
                       key={node._id as string}
@@ -394,6 +439,11 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         onClose={() => setEditorTaskId(null)}
       />
 
+      <WorkflowTaskDragOverlay
+        taskMove={plannerTaskMove}
+        fallbackLabel={t("buildDetail.workflowTask", { defaultValue: "Task" })}
+        rootOffset={rootFrame}
+      />
     </View>
   );
 }
@@ -428,6 +478,7 @@ function BuildWorkflowTaskRow({
       parentId: node.parentId ? (node.parentId as string) : undefined,
       siblingIndex: siblingIndexById.get(node._id as string) ?? 0,
       ancestorIds: (node.ancestorIds ?? []).map((a) => a as string),
+      title: node.title,
     }),
     [buildId, node, siblingIndexById]
   );
@@ -467,6 +518,11 @@ function BuildWorkflowTaskRow({
               {node.dueDate ? ` · ${node.dueDate}` : ""}
             </Text>
           </Pressable>
+          <WorkflowTaskDragHandle
+            taskId={node._id}
+            dragMeta={dragMeta}
+            taskMove={plannerTaskMove}
+          />
         </View>
         <View className="mt-2 flex-row flex-wrap gap-2">
           <Pressable

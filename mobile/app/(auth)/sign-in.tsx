@@ -1,13 +1,12 @@
-import { useState, useCallback } from "react";
-import { Text, TextInput, Pressable, ActivityIndicator, View, Alert } from "react-native";
+import { useState } from "react";
+import { Text, TextInput, Pressable, ActivityIndicator, View } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
 import { authClient, setStoredBearerToken } from "@/lib/auth/client";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
-import { EXPO_PUBLIC_WEB_APP_URL } from "@/config/env";
+import { openWebAppPath } from "@/lib/openWebAppPath";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import {
@@ -41,28 +40,15 @@ export default function SignInScreen() {
 
   const busy = submitting || oauthLoading !== null;
 
-  const openWebPath = useCallback(
-    async (path: string) => {
-      const base = EXPO_PUBLIC_WEB_APP_URL.trim().replace(/\/$/, "");
-      if (!base) {
-        Alert.alert(t("more.webUnavailableTitle"), t("more.webUnavailableBody"));
-        return;
-      }
-      try {
-        await WebBrowser.openBrowserAsync(`${base}${path}`);
-      } catch (e: unknown) {
-        Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
-      }
-    },
-    [t]
-  );
-
   async function onOAuth(provider: "google" | "apple") {
     setError(null);
     setInfo(null);
     setOauthLoading(provider);
     try {
-      await startSocialSignIn(provider);
+      const result = await startSocialSignIn(provider);
+      if (result === "signed_in") {
+        router.replace("/(app)/(tabs)");
+      }
       setOauthLoading(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Sign in failed.");
@@ -339,13 +325,13 @@ export default function SignInScreen() {
         <Text className="text-center text-xs leading-5 text-kyar-textTertiary">
           {t("auth.readOur")}{" "}
         </Text>
-        <Pressable onPress={() => openWebPath("/privacy")} className="active:opacity-80">
+        <Pressable onPress={() => void openWebAppPath("/privacy", t)} className="active:opacity-80">
           <Text className="text-xs leading-5 text-kyar-textTertiary underline">
             {t("auth.privacyPolicyName")}
           </Text>
         </Pressable>
         <Text className="text-xs leading-5 text-kyar-textTertiary">{` ${t("auth.andConj")} `}</Text>
-        <Pressable onPress={() => openWebPath("/terms")} className="active:opacity-80">
+        <Pressable onPress={() => void openWebAppPath("/terms", t)} className="active:opacity-80">
           <Text className="text-xs leading-5 text-kyar-textTertiary underline">
             {t("auth.termsOfServiceName")}
           </Text>
@@ -353,7 +339,7 @@ export default function SignInScreen() {
         <Text className="text-xs leading-5 text-kyar-textTertiary">.</Text>
       </View>
 
-      <Pressable className="mt-8 items-center py-2" onPress={() => openWebPath("/")}>
+      <Pressable className="mt-8 items-center py-2" onPress={() => void openWebAppPath("/", t)}>
         <Text className="text-xs text-kyar-textTertiary">{t("auth.backToHome")}</Text>
       </Pressable>
     </AuthScreenShell>

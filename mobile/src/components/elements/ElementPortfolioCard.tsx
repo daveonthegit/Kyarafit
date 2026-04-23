@@ -5,8 +5,9 @@ import Svg, { Circle, G } from "react-native-svg";
 import type { Id } from "convex/_generated/dataModel";
 import type { CosplayNodeType } from "@kyarafit/design-system/types";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { mediaOverlay, mediaOverlayTitleShadow } from "@/theme/mediaOverlayColors";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 
 export type ElementPortfolioVariant = "comfortable" | "compact" | "grid";
 
@@ -86,10 +87,22 @@ function CircularProgressRing({
 
 function Badge({ children }: { children: string }) {
   return (
-    <View className="rounded-full border border-kyar-bg/20 bg-kyar-text/45 px-2.5 py-1">
+    <View
+      className="rounded-full px-2.5 py-1"
+      style={{
+        borderWidth: 1,
+        borderColor: "rgba(255, 253, 248, 0.28)",
+        backgroundColor: "rgba(0, 0, 0, 0.42)",
+      }}
+    >
       <Text
-        style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-        className="text-[9px] uppercase tracking-wider text-kyar-bg"
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          color: mediaOverlay.primary,
+          fontSize: 9,
+          letterSpacing: 1.2,
+          textTransform: "uppercase",
+        }}
       >
         {children}
       </Text>
@@ -112,7 +125,7 @@ export function ElementPortfolioCard({
 }) {
   const { scheme, colors } = useDesignTheme();
   const stops = gradientStops(scheme);
-  const overlayText = colors.bg;
+  const overlayText = mediaOverlay.primary;
   const pct = Math.min(100, Math.max(0, item.progressPercent));
 
   const isCompact = variant === "compact";
@@ -163,17 +176,20 @@ export function ElementPortfolioCard({
             <Text
               style={{
                 fontFamily: APP_FONT_FAMILIES.sansBold,
-                color: overlayText,
+                color: mediaOverlay.secondary,
                 letterSpacing: isGrid ? 1.4 : 2,
                 fontSize: isGrid ? 8 : 9,
                 marginBottom: 6,
-                opacity: 0.88,
               }}
             >
               {categoryUpper}
             </Text>
             <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.displayItalic, color: overlayText }}
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                color: overlayText,
+                ...mediaOverlayTitleShadow,
+              }}
               className={`${titleClass} font-normal tracking-tight`}
               numberOfLines={isGrid ? 2 : 2}
             >
@@ -228,10 +244,22 @@ export function ElementPortfolioCard({
               style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
             />
             <View className="absolute left-2 top-2 flex-col gap-1">
-              <View className="rounded-full border border-kyar-bg/15 bg-kyar-text/40 px-2 py-0.5">
+              <View
+                className="rounded-full px-2 py-0.5"
+                style={{
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 253, 248, 0.22)",
+                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                }}
+              >
                 <Text
-                  style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-                  className="text-[8px] uppercase tracking-wide text-kyar-bg"
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    color: mediaOverlay.primary,
+                    fontSize: 8,
+                    letterSpacing: 0.8,
+                    textTransform: "uppercase",
+                  }}
                 >
                   {item.typeBadge.toUpperCase()}
                 </Text>

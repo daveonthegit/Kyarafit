@@ -60,15 +60,15 @@ export default function GroupsPage() {
                       <span className="material-symbols-outlined text-6xl">group</span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
+                  <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
 
-                  <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
+                  <div className="absolute inset-0 flex flex-col justify-end p-5 text-kyar-media-fg">
                     <div className="flex justify-between items-end gap-2">
                       <div className="flex-1 min-w-0">
                         <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
                           {group.visibility}
                         </span>
-                        <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover/card:opacity-90">
+                        <h3 className="truncate font-serif text-2xl font-normal italic leading-none tracking-tight text-kyar-media-fg drop-shadow-md transition-opacity group-hover/card:opacity-90 lg:text-3xl">
                           {group.name}
                         </h3>
                       </div>

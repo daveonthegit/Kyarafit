@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { FocalCoverImage } from "@/components/FocalCoverImage";
@@ -20,6 +19,7 @@ import { BuildWorkflowTasks } from "./BuildWorkflowTasks";
 import { NodeDetailSheet, type NodeDetailSheetRef } from "./NodeDetailSheet";
 import { useNodeInspector, type NodeSelectionMeta } from "./useNodeInspector";
 import { useExplorerMove } from "./useExplorerMove";
+import { useOfflineMutation } from "@/offline";
 
 type BuildRow = Doc<"builds"> & {
   tasksTotal: number;
@@ -96,6 +96,13 @@ export function BuildDetailBody(props: Props) {
 
   const [tab, setTab] = useState<TabId>("summary");
   const [boardView, setBoardView] = useState<BoardView>("all");
+  const [boardFullscreen, setBoardFullscreen] = useState(false);
+  const [boardLightbox, setBoardLightbox] = useState<{
+    imageStorageId: Id<"_storage"> | null;
+    imageUrl: string | null;
+    label: string;
+    dayLabel?: string | null;
+  } | null>(null);
   const [focalOpen, setFocalOpen] = useState(false);
   const [rootOrderIds, setRootOrderIds] = useState<Id<"cosplayNodes">[]>([]);
   const [explorerSearch, setExplorerSearch] = useState("");
@@ -133,15 +140,15 @@ export function BuildDetailBody(props: Props) {
 
   const isOwner = build.userId === userId;
 
-  const updateBuild = useMutation(api.builds.update);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const addRef = useMutation(api.buildReferenceImages.add);
-  const removeRef = useMutation(api.buildReferenceImages.remove);
-  const addProcess = useMutation(api.buildProcessPictures.add);
-  const removeProcess = useMutation(api.buildProcessPictures.remove);
-  const createNode = useMutation(api.cosplayNodes.create);
-  const addNodesToBuild = useMutation(api.builds.addNodesToBuild);
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
+  const updateBuild = useOfflineMutation(api.builds.update);
+  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
+  const addRef = useOfflineMutation(api.buildReferenceImages.add);
+  const removeRef = useOfflineMutation(api.buildReferenceImages.remove);
+  const addProcess = useOfflineMutation(api.buildProcessPictures.add);
+  const removeProcess = useOfflineMutation(api.buildProcessPictures.remove);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
+  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
 
   const roots = useMemo(() => (outlineNodes ?? []).filter((node) => node.isRoot), [outlineNodes]);
   const boardRootElements = useMemo(
@@ -681,6 +688,173 @@ export function BuildDetailBody(props: Props) {
     </View>
   );
 
+  const boardPanel = (isFullscreen = false) => (
+    <SurfaceCard className="gap-4 px-4 py-4">
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
+          {t("buildDetail.tabBoard")}
+        </Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => setBoardFullscreen((value) => !value)}
+            className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+          >
+            <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+              {isFullscreen
+                ? t("common.close", { defaultValue: "Close" })
+                : t("common.fullscreen", { defaultValue: "Fullscreen" })}
+            </Text>
+          </Pressable>
+          {!isFullscreen ? (
+            <Pressable
+              onPress={openLinkElements}
+              className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+            >
+              <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                {t("buildDetail.linkElements")}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="flex-row gap-2">
+          {([
+            { id: "all", label: "All" },
+            { id: "references", label: "References" },
+            { id: "progress", label: "Progress" },
+            { id: "nodes", label: "Elements" },
+          ] as { id: BoardView; label: string }[]).map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => setBoardView(item.id)}
+              className={`rounded-full border px-4 py-2 ${
+                boardView === item.id
+                  ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                  : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+              }`}
+            >
+              <Text
+                className={`text-[10px] uppercase tracking-widest ${
+                  boardView === item.id
+                    ? "text-kyar-bg dark:text-kyar-dark-bg"
+                    : "text-kyar-text dark:text-kyar-dark-text"
+                }`}
+              >
+                {t(`buildDetail.boardFilter${item.label}`, { defaultValue: item.label })}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+
+      {boardVisibleItems.length === 0 ? (
+        <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
+          {boardView === "references"
+            ? t("buildDetail.referencesEmpty", { defaultValue: "No reference images yet." })
+            : boardView === "progress"
+              ? t("buildDetail.progressEmpty", { defaultValue: "No progress photos yet." })
+              : boardView === "nodes"
+                ? t("buildDetail.nodesEmpty", { defaultValue: "No linked elements yet." })
+                : t("buildDetail.boardEmpty")}
+        </Text>
+      ) : (
+        <View className="flex-row gap-3">
+          {boardColumns.map((col, colIndex) => (
+            <View key={`col-${colIndex}`} className="flex-1 gap-3">
+              {col.map((item) => {
+                if (item.type === "node") {
+                  const node = item.node;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => router.push(APP_HREF.element(node._id as string))}
+                    >
+                      <ElementPortfolioCard
+                        variant="grid"
+                        item={{
+                          name: node.name,
+                          category: node.nodeType === "material" ? "materials" : "elements",
+                          imageStorageId: node.imageStorageId ?? null,
+                          imageUrl: node.imageUrl ?? null,
+                          nodeType: (node.nodeType as "element" | "material") ?? "element",
+                          progressPercent: node.progressPercent ?? 0,
+                          childCount: node.childCount ?? 0,
+                          typeBadge:
+                            node.nodeType === "material"
+                              ? t("elements.typeMaterial")
+                              : t("elements.typeElement"),
+                          statusBadge: t("elements.progressPercent", {
+                            pct: Math.round(node.progressPercent ?? 0),
+                          }),
+                        }}
+                        progressLabel={t("elements.progressPercent", {
+                          pct: Math.round(node.progressPercent ?? 0),
+                        })}
+                        childrenLabel={t("elements.childCount", {
+                          count: node.childCount ?? 0,
+                          defaultValue:
+                            (node.childCount ?? 0) === 1 ? "1 child" : `${node.childCount ?? 0} children`,
+                        })}
+                      />
+                    </Pressable>
+                  );
+                }
+
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() =>
+                      setBoardLightbox({
+                        imageStorageId: item.imageStorageId ?? null,
+                        imageUrl: item.imageUrl ?? null,
+                        label:
+                          item.type === "reference"
+                            ? t("buildDetail.referenceImages")
+                            : t("buildDetail.processPictures"),
+                        dayLabel: item.type === "progress" ? item.dayLabel : null,
+                      })
+                    }
+                    className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted"
+                  >
+                    <View className="relative min-h-[120px]">
+                      {item.imageStorageId || item.imageUrl ? (
+                        <ConvexStorageImage
+                          storageId={item.imageStorageId}
+                          imageUrl={item.imageUrl}
+                          className="h-full w-full"
+                        />
+                      ) : (
+                        <View className="h-[140px] items-center justify-center">
+                          <Text className="text-3xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                            ⌁
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View className="px-3 py-2">
+                      <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                        {item.type === "reference"
+                          ? t("buildDetail.referenceImages")
+                          : t("buildDetail.processPictures")}
+                      </Text>
+                      {item.type === "progress" ? (
+                        <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                          {item.dayLabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      )}
+    </SurfaceCard>
+  );
+
   return (
     <View
       ref={rootViewRef}
@@ -1056,145 +1230,7 @@ export function BuildDetailBody(props: Props) {
 
         {tab === "board" ? (
           <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
-            <SurfaceCard className="gap-4 px-4 py-4">
-              <View className="flex-row items-center justify-between gap-3">
-                <Text className="font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
-                  {t("buildDetail.tabBoard")}
-                </Text>
-                <Pressable
-                  onPress={openLinkElements}
-                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-                >
-                  <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                    {t("buildDetail.linkElements")}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-2">
-                  {([
-                    { id: "all", label: "All" },
-                    { id: "references", label: "References" },
-                    { id: "progress", label: "Progress" },
-                    { id: "nodes", label: "Elements" },
-                  ] as { id: BoardView; label: string }[]).map((item) => (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => setBoardView(item.id)}
-                      className={`rounded-full border px-4 py-2 ${
-                        boardView === item.id
-                          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                      }`}
-                    >
-                      <Text
-                        className={`text-[10px] uppercase tracking-widest ${
-                          boardView === item.id
-                            ? "text-kyar-bg dark:text-kyar-dark-bg"
-                            : "text-kyar-text dark:text-kyar-dark-text"
-                        }`}
-                      >
-                        {t(`buildDetail.boardFilter${item.label}`, { defaultValue: item.label })}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
-
-              {boardVisibleItems.length === 0 ? (
-                <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
-                  {boardView === "references"
-                    ? t("buildDetail.referencesEmpty", { defaultValue: "No reference images yet." })
-                    : boardView === "progress"
-                      ? t("buildDetail.progressEmpty", { defaultValue: "No progress photos yet." })
-                      : boardView === "nodes"
-                        ? t("buildDetail.nodesEmpty", { defaultValue: "No linked elements yet." })
-                        : t("buildDetail.boardEmpty")}
-                </Text>
-              ) : (
-                <View className="flex-row gap-3">
-                  {boardColumns.map((col, colIndex) => (
-                    <View key={`col-${colIndex}`} className="flex-1 gap-3">
-                      {col.map((item) => {
-                        if (item.type === "node") {
-                          const node = item.node;
-                          return (
-                            <Pressable
-                              key={item.key}
-                              onPress={() => router.push(APP_HREF.element(node._id as string))}
-                            >
-                              <ElementPortfolioCard
-                                variant="grid"
-                                item={{
-                                  name: node.name,
-                                  category: node.nodeType === "material" ? "materials" : "elements",
-                                  imageStorageId: node.imageStorageId ?? null,
-                                  imageUrl: node.imageUrl ?? null,
-                                  nodeType: (node.nodeType as "element" | "material") ?? "element",
-                                  progressPercent: node.progressPercent ?? 0,
-                                  childCount: node.childCount ?? 0,
-                                  typeBadge:
-                                    node.nodeType === "material"
-                                      ? t("elements.typeMaterial")
-                                      : t("elements.typeElement"),
-                                  statusBadge: t("elements.progressPercent", {
-                                    pct: Math.round(node.progressPercent ?? 0),
-                                  }),
-                                }}
-                                progressLabel={t("elements.progressPercent", {
-                                  pct: Math.round(node.progressPercent ?? 0),
-                                })}
-                                childrenLabel={t("elements.childCount", {
-                                  count: node.childCount ?? 0,
-                                  defaultValue:
-                                    (node.childCount ?? 0) === 1 ? "1 child" : `${node.childCount ?? 0} children`,
-                                })}
-                              />
-                            </Pressable>
-                          );
-                        }
-
-                        return (
-                          <View
-                            key={item.key}
-                            className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted"
-                          >
-                            <View className="relative min-h-[120px]">
-                              {item.imageStorageId || item.imageUrl ? (
-                                <ConvexStorageImage
-                                  storageId={item.imageStorageId}
-                                  imageUrl={item.imageUrl}
-                                  className="h-full w-full"
-                                />
-                              ) : (
-                                <View className="h-[140px] items-center justify-center">
-                                  <Text className="text-3xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                                    ⌁
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            <View className="px-3 py-2">
-                              <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                                {item.type === "reference"
-                                  ? t("buildDetail.referenceImages")
-                                  : t("buildDetail.processPictures")}
-                              </Text>
-                              {item.type === "progress" ? (
-                                <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                                  {item.dayLabel}
-                                </Text>
-                              ) : null}
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ))}
-                </View>
-              )}
-            </SurfaceCard>
+            {boardPanel(false)}
           </ScrollView>
         ) : null}
       </View>
@@ -1250,6 +1286,56 @@ export function BuildDetailBody(props: Props) {
         onClose={() => setFocalOpen(false)}
         onSave={saveFocal}
       />
+
+      <Modal
+        visible={boardFullscreen}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setBoardFullscreen(false)}
+      >
+        <View className="flex-1 bg-kyar-bg px-4 pb-10 pt-14 dark:bg-kyar-dark-bg">
+          <ScrollView className="flex-1" contentContainerClassName="pb-8">
+            {boardPanel(true)}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!boardLightbox}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setBoardLightbox(null)}
+      >
+        <View className="flex-1 bg-black/95 px-4 pb-8 pt-14">
+          <View className="mb-4 flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-[11px] uppercase tracking-widest text-white/80">
+                {boardLightbox?.label ?? ""}
+              </Text>
+              {boardLightbox?.dayLabel ? (
+                <Text className="mt-1 text-xs text-white/70">{boardLightbox.dayLabel}</Text>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={() => setBoardLightbox(null)}
+              className="rounded-full border border-white/25 px-3 py-2"
+            >
+              <Text className="text-[10px] uppercase tracking-widest text-white">
+                {t("common.close", { defaultValue: "Close" })}
+              </Text>
+            </Pressable>
+          </View>
+          <View className="flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black">
+            {boardLightbox ? (
+              <ConvexStorageImage
+                storageId={boardLightbox.imageStorageId}
+                imageUrl={boardLightbox.imageUrl}
+                className="h-full w-full"
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <NodeDetailSheet
         ref={detailSheetRef}

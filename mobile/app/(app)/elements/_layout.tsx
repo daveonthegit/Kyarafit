@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { navHeaderTitleStyle } from "@/theme/appFonts";
 
 export default function ElementsStackLayout() {
   const { colors } = useDesignTheme();
@@ -15,10 +15,7 @@ export default function ElementsStackLayout() {
         headerStyle: {
           backgroundColor: colors.bg,
         },
-        headerTitleStyle: {
-          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-          color: colors.text,
-        },
+        headerTitleStyle: navHeaderTitleStyle(colors.text),
         contentStyle: {
           backgroundColor: colors.bg,
         },

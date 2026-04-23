@@ -23,7 +23,6 @@ import {
   DataBoundary,
   FloatingCreateMenu,
   MetaLabel,
-  SectionHeading,
   SurfaceCard,
 } from "@/ui";
 
@@ -259,8 +258,7 @@ function LinkElementsBody({
   return (
     <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
       <View className="px-5 pb-3 pt-4">
-        <SectionHeading eyebrow={loaded.buildName} title={t("linkElements.title")} />
-        <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+        <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
           {t("linkElements.subtitle")}
         </Text>
 
@@ -431,7 +429,7 @@ function LinkElementsBody({
           {
             key: "new-element",
             label: t("elements.newElementShort"),
-            icon: "layers-outline",
+            icon: "sparkles-outline",
             onPress: onCreateElement,
           },
           {

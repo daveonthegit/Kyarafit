@@ -23,6 +23,19 @@ export const APP_FONT_FAMILIES = {
   displayBoldItalic: "BodoniModa_700Bold_Italic",
 } as const;
 
+/** Navigation bar title — Bodoni italic, aligned with former Builds/Elements page titles. */
+export function navHeaderTitleStyle(color: string) {
+  return {
+    fontFamily: APP_FONT_FAMILIES.displayItalic,
+    fontSize: 17,
+    color,
+  } as {
+    fontFamily: string;
+    fontSize: number;
+    color: string;
+  };
+}
+
 export function useAppFonts() {
   return useFonts({
     AlbertSans_400Regular,

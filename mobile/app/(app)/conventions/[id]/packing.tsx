@@ -4,9 +4,10 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
 import {
@@ -25,13 +26,13 @@ export default function ConventionPackingScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ id: string; day?: string | string[] }>();
   const initialDay = Array.isArray(params.day) ? params.day[0] : params.day;
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const convention = useQuery(
+  const convention = useOfflineQuery(
     api.conventions.get,
     params.id ? { id: params.id as Id<"conventions"> } : "skip"
   );
-  const items = useQuery(
+  const items = useOfflineQuery(
     api.conventions.getPacking,
     params.id ? { conventionId: params.id as Id<"conventions"> } : "skip"
   );
@@ -56,7 +57,11 @@ export default function ConventionPackingScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("conventions.dayPackingTitle") }} />
+      <Stack.Screen
+        options={{
+          title: convention?.name ?? t("conventions.dayPackingTitle"),
+        }}
+      />
       <DataBoundary status={status} data={data} error={error}>
         {(loaded) => <ConventionPackingBody {...loaded} initialDay={initialDay} />}
       </DataBoundary>
@@ -71,10 +76,10 @@ function ConventionPackingBody({
   initialDay,
 }: Ready & { initialDay?: string }) {
   const { t } = useTranslation();
-  const updateItem = useMutation(api.conventions.updatePackingItem);
-  const regeneratePacking = useMutation(api.conventions.regeneratePacking);
-  const addManualPackingItem = useMutation(api.conventions.addManualPackingItem);
-  const deletePackingItem = useMutation(api.conventions.deletePackingItem);
+  const updateItem = useOfflineMutation(api.conventions.updatePackingItem);
+  const regeneratePacking = useOfflineMutation(api.conventions.regeneratePacking);
+  const addManualPackingItem = useOfflineMutation(api.conventions.addManualPackingItem);
+  const deletePackingItem = useOfflineMutation(api.conventions.deletePackingItem);
   const days = useMemo(
     () => enumerateConventionDays(convention.startDate, convention.endDate),
     [convention.endDate, convention.startDate]
@@ -84,6 +89,7 @@ function ConventionPackingBody({
   const [newItemLabel, setNewItemLabel] = useState("");
   const [newItemNotes, setNewItemNotes] = useState("");
   const [editingItem, setEditingItem] = useState<ConventionPackingItem | null>(null);
+  const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
   const swipeRef = useRef<Swipeable | null>(null);
 
   const visibleItems = useMemo(() => {
@@ -92,6 +98,19 @@ function ConventionPackingBody({
   }, [items, selectedDay]);
 
   const grouped = useMemo(() => groupPackingByDate(visibleItems), [visibleItems]);
+  const editorCandidates = useMemo(
+    () =>
+      items
+        .filter(
+          (
+            item
+          ): item is ConventionPackingItem & {
+            workflowItemId: Id<"workflowItems">;
+          } => item.workflowItemId !== undefined
+        )
+        .map((item) => ({ _id: item.workflowItemId, title: item.label })),
+    [items]
+  );
 
   const saveManualItem = useCallback(async () => {
     const label = newItemLabel.trim();
@@ -139,12 +158,9 @@ function ConventionPackingBody({
           gap: 20,
         }}
       >
-        <View>
-          <SectionHeading eyebrow={t("conventions.packingEyebrow")} title={convention.name} />
-          <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("conventions.packingSubtitle")}
-          </Text>
-        </View>
+        <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          {t("conventions.packingSubtitle")}
+        </Text>
 
         <SurfaceCard className="px-4 py-4">
           <ScrollView
@@ -190,6 +206,7 @@ function ConventionPackingBody({
             onToggle={(item) => updateItem({ id: item._id, userId, checked: !item.checked })}
             onDelete={(item) => deletePackingItem({ id: item._id, userId })}
             onEdit={setEditingItem}
+            onOpenTaskEditor={setEditorTaskId}
             swipeRef={swipeRef}
           />
         ) : null}
@@ -202,6 +219,7 @@ function ConventionPackingBody({
             onToggle={(item) => updateItem({ id: item._id, userId, checked: !item.checked })}
             onDelete={(item) => deletePackingItem({ id: item._id, userId })}
             onEdit={setEditingItem}
+            onOpenTaskEditor={setEditorTaskId}
             swipeRef={swipeRef}
           />
         ))}
@@ -301,6 +319,14 @@ function ConventionPackingBody({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <WorkflowTaskEditorModal
+        visible={editorTaskId !== null}
+        workflowItemId={editorTaskId}
+        userId={userId}
+        candidateTasks={editorCandidates}
+        onClose={() => setEditorTaskId(null)}
+      />
     </>
   );
 }
@@ -311,6 +337,7 @@ function PackingSection({
   onToggle,
   onDelete,
   onEdit,
+  onOpenTaskEditor,
   swipeRef,
 }: {
   title: string;
@@ -318,6 +345,7 @@ function PackingSection({
   onToggle: (item: ConventionPackingItem) => void;
   onDelete: (item: ConventionPackingItem) => void;
   onEdit: (item: ConventionPackingItem) => void;
+  onOpenTaskEditor: (id: Id<"workflowItems">) => void;
   swipeRef: MutableRefObject<Swipeable | null>;
 }) {
   return (
@@ -331,6 +359,9 @@ function PackingSection({
             onToggle={() => onToggle(item)}
             onDelete={() => onDelete(item)}
             onEdit={() => onEdit(item)}
+            onOpenTaskEditor={
+              item.workflowItemId ? () => onOpenTaskEditor(item.workflowItemId!) : undefined
+            }
             swipeRef={swipeRef}
           />
         ))}
@@ -344,12 +375,14 @@ function PackingRow({
   onToggle,
   onDelete,
   onEdit,
+  onOpenTaskEditor,
   swipeRef,
 }: {
   item: ConventionPackingItem;
   onToggle: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onOpenTaskEditor?: () => void;
   swipeRef: MutableRefObject<Swipeable | null>;
 }) {
   const { colors } = useDesignTheme();
@@ -391,7 +424,7 @@ function PackingRow({
     >
       <Pressable
         onPress={onToggle}
-        onLongPress={isManual ? onEdit : undefined}
+        onLongPress={onOpenTaskEditor ?? (isManual ? onEdit : undefined)}
         className="flex-row items-center gap-3 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-4 active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
       >
         <View
@@ -408,10 +441,16 @@ function PackingRow({
             {item.label}
           </Text>
           <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {item.notes ? item.notes : isManual ? "Long-press to edit" : "Swipe to mark packed"}
+            {item.notes
+              ? item.notes
+              : onOpenTaskEditor
+                ? "Long-press for task details"
+                : isManual
+                  ? "Long-press to edit"
+                  : "Swipe to mark packed"}
           </Text>
         </View>
-        {isManual ? (
+        {onOpenTaskEditor || isManual ? (
           <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
         ) : null}
       </Pressable>

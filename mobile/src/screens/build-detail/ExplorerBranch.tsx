@@ -1,12 +1,12 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { useTranslation } from "react-i18next";
 import { formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { useOfflineQuery } from "@/offline";
 import type { NodeSelectionMeta } from "./useNodeInspector";
 
 type BranchNode = {
@@ -79,7 +79,7 @@ function ExplorerBranchImpl({
   const hasChildren = (node.childCount ?? 0) > 0;
   const rowRef = useRef<View>(null);
 
-  const detail = useQuery(
+  const detail = useOfflineQuery(
     api.cosplayNodes.get,
     expanded || selectedNodeId === node._id ? { id: node._id, buildId } : "skip"
   );

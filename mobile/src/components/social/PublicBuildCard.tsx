@@ -5,15 +5,15 @@ import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
-import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
-import { MetaLabel, SurfaceCard } from "@/ui";
+import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 
 type Props = {
   build: {
     _id: Id<"builds">;
     name: string;
     character?: string | null;
+    status?: string | null;
     imageStorageId?: Id<"_storage"> | null;
     imageUrl?: string | null;
     ownerUsername?: string | null;
@@ -24,10 +24,19 @@ type Props = {
   onPress: () => void;
   onPressOwner?: () => void;
   currentUserId?: string | null;
+  /** 1-based “Project 001” index; defaults to 1 */
+  projectIndex?: number;
 };
 
-export function PublicBuildCard({ build, onPress, onPressOwner, currentUserId }: Props) {
+export function PublicBuildCard({
+  build,
+  onPress,
+  onPressOwner,
+  currentUserId,
+  projectIndex = 1,
+}: Props) {
   const { t } = useTranslation();
+  const { colors } = useDesignTheme();
   const likeCount = useQuery(api.buildLikes.countByBuild, { buildId: build._id });
   const comments = useQuery(api.buildComments.listByBuild, { buildId: build._id }) ?? [];
   const isLiked = useQuery(
@@ -63,92 +72,76 @@ export function PublicBuildCard({ build, onPress, onPressOwner, currentUserId }:
     }
   };
 
+  const tasksTotal = build.tasksTotal ?? 0;
+  const tasksChecked = build.tasksChecked ?? 0;
+
   return (
     <>
-      <Pressable onPress={onPress} className="active:opacity-90">
-        <SurfaceCard className="overflow-hidden">
-          <View className="aspect-[4/3] w-full bg-kyar-muted dark:bg-kyar-dark-muted">
-            {build.imageStorageId || build.imageUrl ? (
-              <ConvexStorageImage
-                storageId={build.imageStorageId}
-                imageUrl={build.imageUrl}
-                className="h-full w-full"
-              />
-            ) : (
-              <View className="h-full items-center justify-center">
-                <Text className="text-4xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                  ◇
-                </Text>
-              </View>
-            )}
-          </View>
+      <View className="gap-2">
+        <Pressable onPress={onPress} className="active:opacity-90">
+          <BuildPortfolioCard
+            variant="comfortable"
+            projectIndex={projectIndex}
+            item={{
+              name: build.name,
+              character: build.character,
+              status: build.status ?? "",
+              imageStorageId: build.imageStorageId,
+              imageUrl: build.imageUrl,
+              tasksTotal,
+              tasksChecked,
+            }}
+          />
+        </Pressable>
 
-          <View className="gap-2 px-4 py-4">
-            {build.character ? <MetaLabel>{build.character}</MetaLabel> : null}
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-              className="text-[30px] italic leading-[32px] text-kyar-text dark:text-kyar-dark-text"
-              numberOfLines={2}
-            >
-              {build.name}
+        {ownerLabel ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              onPressOwner?.();
+            }}
+            disabled={!onPressOwner}
+            className="self-start"
+          >
+            <Text className="text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+              {ownerLabel}
             </Text>
+          </Pressable>
+        ) : null}
 
-            {typeof build.tasksTotal === "number" && build.tasksTotal > 0 ? (
-              <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {build.tasksChecked ?? 0} / {build.tasksTotal} tasks
-              </Text>
-            ) : null}
+        <View className="flex-row items-center gap-3 border-t border-kyar-borderSubtle pt-3 dark:border-kyar-dark-borderSubtle">
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              void handleToggleLike();
+            }}
+            disabled={!currentUserId}
+            className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 disabled:opacity-50 dark:border-kyar-dark-borderSubtle"
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={16}
+              color={isLiked ? colors.danger : colors.textSecondary}
+            />
+            <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
+              {likeCount ?? 0}
+            </Text>
+          </Pressable>
 
-            {ownerLabel ? (
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onPressOwner?.();
-                }}
-                disabled={!onPressOwner}
-                className="self-start"
-              >
-                <Text className="text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                  {ownerLabel}
-                </Text>
-              </Pressable>
-            ) : null}
-
-            <View className="mt-2 flex-row items-center gap-3 border-t border-kyar-borderSubtle pt-3 dark:border-kyar-dark-borderSubtle">
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  void handleToggleLike();
-                }}
-                disabled={!currentUserId}
-                className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 disabled:opacity-50 dark:border-kyar-dark-borderSubtle"
-              >
-                <Ionicons
-                  name={isLiked ? "heart" : "heart-outline"}
-                  size={16}
-                  color={isLiked ? "#c35563" : "#6d675f"}
-                />
-                <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-                  {likeCount ?? 0}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  setCommentsOpen(true);
-                }}
-                className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 dark:border-kyar-dark-borderSubtle"
-              >
-                <Ionicons name="chatbubble-outline" size={16} color="#6d675f" />
-                <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-                  {comments.length}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </SurfaceCard>
-      </Pressable>
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              setCommentsOpen(true);
+            }}
+            className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 dark:border-kyar-dark-borderSubtle"
+          >
+            <Ionicons name="chatbubble-outline" size={16} color={colors.textSecondary} />
+            <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
+              {comments.length}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       <Modal
         visible={commentsOpen}

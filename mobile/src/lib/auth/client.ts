@@ -6,7 +6,7 @@ import {
   hydrateBearerFromSecureStore,
   setStoredBearerToken,
 } from "./bearer-storage-plugin";
-import { resetOfflineDatabaseForAccountSwitch } from "@/offline/db";
+import { resetOfflineStateForAccountSwitch } from "@/offline/db";
 import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
 
 const CONVEX_SITE_URL = EXPO_PUBLIC_CONVEX_SITE_URL || undefined;
@@ -74,5 +74,6 @@ export async function setCredentialPassword(args: SetPasswordArgs) {
 
 export async function signOut() {
   await authClient.signOut();
-  resetOfflineDatabaseForAccountSwitch();
+  await setStoredBearerToken(null);
+  await resetOfflineStateForAccountSwitch();
 }

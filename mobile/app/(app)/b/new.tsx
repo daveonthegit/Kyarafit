@@ -1,19 +1,25 @@
-import { useCallback, useState } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput } from "react-native";
+import { useCallback, useLayoutEffect, useState } from "react";
+import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { DataBoundary } from "@/ui";
+import { BUILD_STATUSES, type BuildStatus } from "@kyarafit/design-system/types";
+import { DataBoundary, MetaLabel, Button, TextField } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 
 export default function NewBuildScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation();
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t("newBuild.title") });
+  }, [navigation, t]);
 
   const loading = identity === undefined;
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -29,20 +35,25 @@ export default function NewBuildScreen() {
 
   return (
     <DataBoundary<Ready> status={status} data={data} error={error}>
-      {(loaded) => <NewBuildForm userId={loaded.userId} t={t} />}
+      {(loaded) => <NewBuildForm userId={loaded.userId} />}
     </DataBoundary>
   );
 }
 
-function NewBuildForm({ userId, t }: { userId: string; t: (key: string) => string }) {
+function NewBuildForm({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const createBuild = useMutation(api.builds.create);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [name, setName] = useState("");
-  const [character, setCharacter] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<BuildStatus>("idea");
   const [pickedUri, setPickedUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [budgetDollars, setBudgetDollars] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const hasImage = pickedUri != null || imageUrl.trim() !== "";
 
   const pickHero = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,82 +64,147 @@ function NewBuildForm({ userId, t }: { userId: string; t: (key: string) => strin
     });
     if (!result.canceled && result.assets[0]) {
       setPickedUri(result.assets[0].uri);
+      setImageUrl("");
     }
   }, []);
 
   const submit = useCallback(async () => {
     const n = name.trim();
-    if (!n || busy) return;
+    if (!n || busy || !hasImage) return;
     setBusy(true);
     try {
-      let storageId: Id<"_storage"> | undefined;
+      let imageStorageId: Id<"_storage"> | undefined;
       if (pickedUri) {
         const uploadUrl = await generateUploadUrl();
-        storageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
+        imageStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
       }
+      const trimmedUrl = imageUrl.trim();
+      const budgetCents = budgetDollars.trim()
+        ? Math.round(Number.parseFloat(budgetDollars.replace(",", ".")) * 100)
+        : undefined;
+
       const created = await createBuild({
         userId,
         name: n,
-        character: character.trim() || undefined,
-        status: "idea",
-        imageStorageId: storageId,
+        status,
+        imageStorageId,
+        imageUrl: !imageStorageId && trimmedUrl ? trimmedUrl : undefined,
+        budgetCents: budgetCents != null && !Number.isNaN(budgetCents) ? budgetCents : undefined,
       });
       if (created?._id) {
         router.replace(APP_HREF.build(created._id));
       }
+    } catch (e) {
+      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
     } finally {
       setBusy(false);
     }
-  }, [busy, character, createBuild, generateUploadUrl, name, pickedUri, router, userId]);
+  }, [
+    busy,
+    budgetDollars,
+    createBuild,
+    generateUploadUrl,
+    hasImage,
+    imageUrl,
+    name,
+    pickedUri,
+    router,
+    status,
+    t,
+    userId,
+  ]);
 
   return (
-    <ScrollView className="flex-1 bg-white px-4 pt-4" keyboardShouldPersistTaps="handled">
-      <Text className="text-2xl font-semibold text-neutral-900">{t("newBuild.title")}</Text>
-      <Text className="mt-1 text-sm text-neutral-600">{t("newBuild.subtitle")}</Text>
-
-      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">
-        {t("newBuild.nameLabel")}
+    <ScrollView
+      className="flex-1 bg-kyar-bg px-4 pt-4 dark:bg-kyar-dark-bg"
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+        {t("newBuild.intro")}
       </Text>
-      <TextInput
+
+      <TextField
+        className="mt-5"
+        label={t("newBuild.nameLabel")}
         value={name}
         onChangeText={setName}
         placeholder={t("newBuild.namePlaceholder")}
-        className="mt-1 rounded-xl border border-neutral-200 px-3 py-2.5 text-neutral-900"
+        autoCapitalize="sentences"
       />
 
-      <Text className="mt-4 text-xs font-semibold uppercase text-neutral-500">
-        {t("newBuild.characterLabel")}
-      </Text>
-      <TextInput
-        value={character}
-        onChangeText={setCharacter}
-        placeholder={t("newBuild.characterPlaceholder")}
-        className="mt-1 rounded-xl border border-neutral-200 px-3 py-2.5 text-neutral-900"
-      />
-
-      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">
-        {t("newBuild.heroLabel")}
-      </Text>
+      <MetaLabel className="mt-6">{t("newBuild.imageSectionLabel")}</MetaLabel>
       <Pressable
         onPress={() => void pickHero()}
-        className="mt-2 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-neutral-400 bg-neutral-50 py-8 active:opacity-90"
+        className="mt-2 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-kyar-borderSubtle bg-kyar-panel py-8 active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
       >
         {pickedUri ? (
           <Image source={{ uri: pickedUri }} className="h-48 w-full" resizeMode="cover" />
         ) : (
-          <Text className="text-neutral-500">{t("newBuild.heroPick")}</Text>
+          <Text className="text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            {t("newBuild.heroPick")}
+          </Text>
         )}
       </Pressable>
 
-      <Pressable
-        onPress={() => void submit()}
-        disabled={busy || !name.trim()}
-        className={`mt-8 items-center rounded-xl py-3 ${busy || !name.trim() ? "bg-neutral-300" : "bg-neutral-900"} active:opacity-90`}
-      >
-        <Text className="font-semibold text-white">
-          {busy ? t("newBuild.creating") : t("newBuild.create")}
+      <TextField
+        className="mt-4"
+        label={t("newBuild.imageUrlLabel")}
+        value={imageUrl}
+        onChangeText={(text) => {
+          setImageUrl(text);
+          if (text.trim()) setPickedUri(null);
+        }}
+        placeholder={t("newBuild.imageUrlPlaceholder")}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+      {!hasImage ? (
+        <Text className="mt-2 text-xs text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+          {t("newBuild.imageRequiredHint")}
         </Text>
-      </Pressable>
+      ) : null}
+
+      <TextField
+        className="mt-5"
+        label={t("newBuild.budgetLabel")}
+        value={budgetDollars}
+        onChangeText={setBudgetDollars}
+        placeholder={t("newBuild.budgetPlaceholder")}
+        keyboardType="decimal-pad"
+      />
+
+      <MetaLabel className="mt-6">{t("newBuild.statusLabel")}</MetaLabel>
+      <View className="mt-2 flex-row flex-wrap gap-2">
+        {BUILD_STATUSES.map((s) => (
+          <Pressable
+            key={s}
+            onPress={() => setStatus(s)}
+            className={`rounded-xl border px-3 py-2 ${
+              status === s
+                ? "border-kyar-text bg-kyar-muted dark:border-kyar-dark-text dark:bg-kyar-dark-muted"
+                : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+            }`}
+          >
+            <Text
+              className={`text-xs font-semibold uppercase tracking-wide ${
+                status === s
+                  ? "text-kyar-text dark:text-kyar-dark-text"
+                  : "text-kyar-textTertiary dark:text-kyar-dark-textTertiary"
+              }`}
+            >
+              {s}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Button
+        title={busy ? t("newBuild.creating") : t("newBuild.create")}
+        onPress={() => void submit()}
+        disabled={busy || !name.trim() || !hasImage}
+        className="mt-8"
+      />
     </ScrollView>
   );
 }

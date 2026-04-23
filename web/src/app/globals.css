@@ -29,6 +29,17 @@
   --kyar-danger: 0.615 0.190 22;
   --kyar-shadow: 0.230 0.020 278;
 
+  /*
+   * Photo / poster overlays: fixed light foreground + dark scrim.
+   * Do not flip with theme — using kyar-text for scrims and kyar-bg for labels
+   * breaks in dark mode (light wash + dark text on photos).
+   */
+  --kyar-media-fg: #fffdf8;
+  --kyar-media-fg-muted: rgb(255 253 248 / 0.78);
+  --kyar-media-fg-soft: rgb(255 253 248 / 0.7);
+  --kyar-media-fg-subtle: rgb(255 253 248 / 0.45);
+  --kyar-media-ring: rgb(255 253 248 / 0.35);
+
   --space-2xs: 0.25rem;
   --space-xs: 0.5rem;
   --space-sm: 0.75rem;
@@ -240,4 +251,38 @@ button:active,
     0 22px 48px -28px oklch(var(--kyar-shadow) / 0.3),
     0 10px 24px -14px oklch(var(--kyar-shadow) / 0.18),
     0 3px 0 0 oklch(var(--kyar-shadow) / 0.14);
+}
+
+@layer utilities {
+  /* Bottom scrims on images (replaces from-kyar-text/… gradients that invert in dark theme) */
+  .bg-kyar-media-scrim {
+    background-image: linear-gradient(
+      to top,
+      rgb(12 11 20 / 0.82) 0%,
+      rgb(12 11 20 / 0.22) 45%,
+      transparent 100%
+    );
+  }
+  .bg-kyar-media-scrim-heavy {
+    background-image: linear-gradient(
+      to top,
+      rgb(12 11 20 / 0.88) 0%,
+      rgb(12 11 20 / 0.18) 42%,
+      transparent 100%
+    );
+  }
+  .bg-kyar-media-scrim-mid {
+    background-image: linear-gradient(
+      to top,
+      rgb(12 11 20 / 0.62) 0%,
+      rgb(12 11 20 / 0.2) 50%,
+      transparent 100%
+    );
+  }
+  .bg-kyar-media-scrim-soft {
+    background-image: linear-gradient(to top, rgb(12 11 20 / 0.5) 0%, transparent 100%);
+  }
+  .bg-kyar-media-scrim-faint {
+    background-image: linear-gradient(to top, rgb(12 11 20 / 0.42) 0%, transparent 100%);
+  }
 }

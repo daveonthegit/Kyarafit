@@ -101,9 +101,9 @@ export function LandingDeviceShowcaseSection() {
                           sizes="(min-width: 1280px) 120px, (min-width: 1024px) 10vw, 24vw"
                           className="object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/70 to-transparent" />
+                        <div className="absolute inset-0 bg-kyar-media-scrim-mid" />
                         <div className="absolute bottom-1 left-1 right-1">
-                          <p className="truncate font-serif text-[10px] italic text-kyar-bg">
+                          <p className="truncate font-serif text-[10px] italic text-kyar-media-fg drop-shadow-sm">
                             {build.name}
                           </p>
                         </div>

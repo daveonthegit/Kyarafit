@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscription
 import { formatStorageMb } from "@/lib/formatStorageMb";
 import { useTier } from "@/lib/useTier";
 import { ensureRevenueCatConfigured, isRevenueCatSupportedPlatform } from "@/lib/revenuecat";
+import { openWebAppPath } from "@/lib/openWebAppPath";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
@@ -200,6 +201,34 @@ export default function SettingsSubscriptionScreen() {
                     disabled={working || !identity?.subject}
                     onPress={() => void onRestore()}
                   />
+                  <View className="mt-6 border-t border-kyar-borderSubtle pt-5 dark:border-kyar-dark-borderSubtle">
+                    <MetaLabel>{t("settings.subscriptionLegalSection")}</MetaLabel>
+                    <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                      {t("settings.subscriptionLegalNotice")}
+                    </Text>
+                    <View className="mt-4 flex-row flex-wrap gap-4">
+                      <Pressable
+                        onPress={() => void openWebAppPath("/terms", t)}
+                        className="active:opacity-80"
+                        accessibilityRole="link"
+                        accessibilityLabel={t("settings.accountPage.termsOfService")}
+                      >
+                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
+                          {t("settings.accountPage.termsOfService")}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => void openWebAppPath("/privacy", t)}
+                        className="active:opacity-80"
+                        accessibilityRole="link"
+                        accessibilityLabel={t("settings.accountPage.privacyPolicy")}
+                      >
+                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
+                          {t("settings.accountPage.privacyPolicy")}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 </>
               ) : (
                 <Button

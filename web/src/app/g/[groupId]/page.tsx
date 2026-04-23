@@ -170,7 +170,7 @@ export default function GroupDetailPage() {
                   <span className="material-symbols-outlined text-6xl">group</span>
                 </div>
               )}
-              <div className="absolute bottom-6 left-6 bg-kyar-text text-kyar-bg px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-sm">
+              <div className="absolute bottom-6 left-6 rounded-sm border border-white/20 bg-black/55 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-kyar-media-fg backdrop-blur-sm">
                 GROUP COSPLAY
               </div>
             </div>
@@ -225,12 +225,12 @@ export default function GroupDetailPage() {
                         <span className="material-symbols-outlined text-3xl">person</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent" />
+                    <div className="absolute inset-0 bg-kyar-media-scrim" />
                     <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-kyar-bg text-[10px] font-bold uppercase tracking-widest truncate">
+                      <p className="text-kyar-media-fg text-[10px] font-bold uppercase tracking-widest truncate">
                         {m.name}
                       </p>
-                      <p className="text-kyar-bg/70 text-[8px] uppercase tracking-[0.2em]">
+                      <p className="text-kyar-media-fg-soft text-[8px] uppercase tracking-[0.2em]">
                         {m.role}
                       </p>
                     </div>
@@ -363,9 +363,9 @@ export default function GroupDetailPage() {
                             <span className="material-symbols-outlined text-6xl">palette</span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
+                        <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
 
-                        <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
+                        <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-media-fg">
                           <div className="flex justify-between items-end gap-2">
                             <div className="flex-1 min-w-0">
                               {b.character && (
@@ -373,7 +373,7 @@ export default function GroupDetailPage() {
                                   {b.character}
                                 </span>
                               )}
-                              <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate drop-shadow-sm transition-opacity group-hover/build:opacity-90">
+                              <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate text-kyar-media-fg drop-shadow-md transition-opacity group-hover/build:opacity-90">
                                 {b.name}
                               </h3>
                             </div>
@@ -384,7 +384,7 @@ export default function GroupDetailPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveBuildFromGroup(b._id)}
-                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-kyar-text/50 text-kyar-bg flex items-center justify-center hover:bg-red-600 transition-colors backdrop-blur-sm z-10"
+                          className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-kyar-media-fg backdrop-blur-sm transition-colors hover:bg-red-600"
                           aria-label="Remove from group"
                         >
                           <span className="material-symbols-outlined text-[16px]">close</span>

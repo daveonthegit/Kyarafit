@@ -77,20 +77,20 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
                 {node.imageSrc ? (
                   <img src={node.imageSrc} alt="" className="h-full w-full object-cover" />
                 ) : null}
-                <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/10 to-transparent" />
+                <div className="absolute inset-0 bg-kyar-media-scrim-heavy" />
                 <div className="absolute left-1.5 top-1.5 flex flex-wrap gap-1">
-                  <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-bg">
+                  <span className="rounded-full border border-white/25 bg-black/40 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-media-fg backdrop-blur">
                     {typeLabel}
                   </span>
-                  <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-bg">
+                  <span className="rounded-full border border-white/25 bg-black/40 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-kyar-media-fg backdrop-blur">
                     {node.statusLabel}
                   </span>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-2 text-kyar-bg">
+                <div className="absolute bottom-0 left-0 right-0 p-2 text-kyar-media-fg">
                   <p className="mb-0.5 text-[7px] uppercase tracking-wider opacity-80">
                     {node.category}
                   </p>
-                  <p className="truncate font-serif text-sm italic leading-tight">{node.name}</p>
+                  <p className="truncate font-serif text-sm italic leading-tight drop-shadow-sm">{node.name}</p>
                 </div>
               </div>
             </div>

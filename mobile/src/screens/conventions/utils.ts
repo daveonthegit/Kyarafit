@@ -11,6 +11,22 @@ export type ConventionFilter = "all" | "upcoming" | "past" | "archived";
 export type ConventionSortBy = "startDate" | "name" | "location";
 export type SortOrder = "asc" | "desc";
 
+/** Parse `YYYY-MM-DD` as a local calendar date (noon) — consistent with timeline utilities. */
+export function parseIsoDateOnly(iso: string): Date | null {
+  const s = iso.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+}
+
+/** Format a local `Date` as `YYYY-MM-DD` for Convex / forms. */
+export function formatIsoDateOnly(d: Date): string {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
 export function enumerateConventionDays(startDate: string, endDate: string): string[] {
   const days: string[] = [];
   const cursor = new Date(`${startDate}T12:00:00`);
@@ -39,6 +55,15 @@ export function formatLongDateLabel(dateString: string) {
   });
 }
 
+/** Long weekday + month + day — matches web convention timeline row dates. */
+export function formatConventionTimelineDate(dateString: string) {
+  return new Date(`${dateString}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export function formatDateRange(startDate: string, endDate: string) {
   const start = new Date(`${startDate}T12:00:00`);
   const end = new Date(`${endDate}T12:00:00`);
@@ -61,6 +86,17 @@ export function getDaysUntil(startDate: string) {
   const target = new Date(`${startDate}T12:00:00`);
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/** Matches events list cards: countdown beside location while the event is still active. */
+export function overlayCountdownLabel(startDate: string, endDate: string): string | null {
+  const today = new Date().toISOString().slice(0, 10);
+  if (endDate < today) return null;
+  const days = getDaysUntil(startDate);
+  if (days < 0) return null;
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `${days} days`;
 }
 
 export function getCountdownMeta(startDate: string) {

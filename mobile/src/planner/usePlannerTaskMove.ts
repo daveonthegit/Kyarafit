@@ -46,14 +46,20 @@ function measureView(
 
 type DropTarget =
   | {
+      kind: "row";
       taskId: Id<"workflowItems">;
       zone: DropZone;
+    }
+  | {
+      kind: "root";
+      scopeKey: string;
     }
   | null;
 
 export function usePlannerTaskMove({
   userId,
   onCommitDrop,
+  onCommitRootDrop,
   onError,
 }: {
   userId: string | null;
@@ -62,10 +68,20 @@ export function usePlannerTaskMove({
     target: PlannerTaskDragMeta,
     zone: DropZone
   ) => Promise<void>;
+  onCommitRootDrop?: (dragged: PlannerTaskDragMeta, scopeKey: string) => Promise<void>;
   onError: (message: string) => void;
 }) {
   const rowRegistryRef = useRef(new Map<string, RegisteredRow>());
   const rowRectsRef = useRef(new Map<string, RectLike>());
+  const rootDropRegistryRef = useRef(
+    new Map<
+      string,
+      {
+        measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      } | null
+    >()
+  );
+  const rootDropRectsRef = useRef(new Map<string, RectLike>());
 
   const [dragging, setDragging] = useState<{
     meta: PlannerTaskDragMeta | null;
@@ -97,6 +113,32 @@ export function usePlannerTaskMove({
     rowRectsRef.current.delete(taskId as string);
   }, []);
 
+  const registerRootDropZone = useCallback(
+    (
+      scopeKey: string,
+      ref: {
+        measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      } | null
+    ) => {
+      rootDropRegistryRef.current.set(scopeKey, ref);
+      // Root drop zones typically mount only during an active drag, so we
+      // measure them immediately instead of waiting for the next drag start.
+      if (ref?.measureInWindow) {
+        requestAnimationFrame(() => {
+          void measureView(ref).then((rect) => {
+            if (rect) rootDropRectsRef.current.set(scopeKey, rect);
+          });
+        });
+      }
+    },
+    []
+  );
+
+  const unregisterRootDropZone = useCallback((scopeKey: string) => {
+    rootDropRegistryRef.current.delete(scopeKey);
+    rootDropRectsRef.current.delete(scopeKey);
+  }, []);
+
   const measureTargets = useCallback(async () => {
     const entries = Array.from(rowRegistryRef.current.entries());
     const measured = await Promise.all(
@@ -105,40 +147,57 @@ export function usePlannerTaskMove({
     rowRectsRef.current = new Map(
       measured.filter((entry): entry is [string, RectLike] => entry[1] !== null)
     );
+
+    const rootEntries = Array.from(rootDropRegistryRef.current.entries());
+    const measuredRoots = await Promise.all(
+      rootEntries.map(async ([scopeKey, ref]) => [scopeKey, await measureView(ref)] as const)
+    );
+    rootDropRectsRef.current = new Map(
+      measuredRoots.filter((entry): entry is [string, RectLike] => entry[1] !== null)
+    );
   }, []);
 
-  const resolveTarget = useCallback((x: number, y: number, dragMeta: PlannerTaskDragMeta): DropTarget => {
-    const candidates = Array.from(rowRectsRef.current.entries());
-    let match: [string, RectLike] | null = null;
-    let fallback: [string, RectLike] | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (const entry of candidates) {
-      const [, rect] = entry;
-      if (pointInsideRect(x, y, rect)) {
-        match = entry;
-        break;
+  const resolveTarget = useCallback(
+    (x: number, y: number, dragMeta: PlannerTaskDragMeta): DropTarget => {
+      const rootRect = rootDropRectsRef.current.get(dragMeta.scopeKey);
+      if (rootRect && pointInsideRect(x, y, rootRect)) {
+        return { kind: "root", scopeKey: dragMeta.scopeKey };
       }
-      const withinHorizontalReach = x >= rect.left - 36 && x <= rect.right + 36;
-      if (!withinHorizontalReach) continue;
-      const verticalDistance = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
-      if (verticalDistance < bestDistance) {
-        bestDistance = verticalDistance;
-        fallback = entry;
+
+      const candidates = Array.from(rowRectsRef.current.entries());
+      let match: [string, RectLike] | null = null;
+      let fallback: [string, RectLike] | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      for (const entry of candidates) {
+        const [, rect] = entry;
+        if (pointInsideRect(x, y, rect)) {
+          match = entry;
+          break;
+        }
+        const withinHorizontalReach = x >= rect.left - 36 && x <= rect.right + 36;
+        if (!withinHorizontalReach) continue;
+        const verticalDistance =
+          y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+        if (verticalDistance < bestDistance) {
+          bestDistance = verticalDistance;
+          fallback = entry;
+        }
       }
-    }
 
-    const chosen = match ?? (bestDistance <= 18 ? fallback : null);
-    if (!chosen) return null;
+      const chosen = match ?? (bestDistance <= 18 ? fallback : null);
+      if (!chosen) return null;
 
-    const [nodeId, rect] = chosen;
-    const targetRow = rowRegistryRef.current.get(nodeId);
-    if (!targetRow) return null;
+      const [nodeId, rect] = chosen;
+      const targetRow = rowRegistryRef.current.get(nodeId);
+      if (!targetRow) return null;
 
-    const zone = computePlannerTaskDropZone(y, rect, dragMeta, targetRow.meta);
-    if (!zone) return null;
-    return { taskId: targetRow.meta.taskId as Id<"workflowItems">, zone };
-  }, []);
+      const zone = computePlannerTaskDropZone(y, rect, dragMeta, targetRow.meta);
+      if (!zone) return null;
+      return { kind: "row", taskId: targetRow.meta.taskId as Id<"workflowItems">, zone };
+    },
+    []
+  );
 
   const clearDrag = useCallback(() => {
     setDragging({ meta: null, point: null, target: null, busy: false });
@@ -147,6 +206,11 @@ export function usePlannerTaskMove({
   const commitDrop = useCallback(
     async (target: DropTarget, dragMeta: PlannerTaskDragMeta) => {
       if (!userId || !target) return;
+
+      if (target.kind === "root") {
+        await onCommitRootDrop?.(dragMeta, target.scopeKey);
+        return;
+      }
 
       const targetRow = rowRegistryRef.current.get(target.taskId as string);
       if (!targetRow || dragMeta.taskId === targetRow.meta.taskId) return;
@@ -157,7 +221,7 @@ export function usePlannerTaskMove({
         onError(error instanceof Error ? error.message : String(error));
       }
     },
-    [onCommitDrop, onError, userId]
+    [onCommitDrop, onCommitRootDrop, onError, userId]
   );
 
   const startDrag = useCallback(
@@ -226,8 +290,9 @@ export function usePlannerTaskMove({
     const target = dragging.target;
     return {
       draggingTaskId: dragging.meta?.taskId ?? null,
-      dragOverTaskId: target?.taskId ?? null,
-      dragOverZone: target?.zone ?? null,
+      dragOverTaskId: target?.kind === "row" ? target.taskId : null,
+      dragOverZone: target?.kind === "row" ? target.zone : null,
+      dragOverRootScopeKey: target?.kind === "root" ? target.scopeKey : null,
       dragPoint: dragging.point,
       busy: dragging.busy,
     };
@@ -236,6 +301,8 @@ export function usePlannerTaskMove({
   return {
     registerRow,
     unregisterRow,
+    registerRootDropZone,
+    unregisterRootDropZone,
     startDrag,
     updateDragPoint,
     finishDrag,

@@ -67,7 +67,7 @@ export interface AddMenuItem {
 
 export const ADD_MENU_ITEMS: AddMenuItem[] = [
   { labelKey: "addBuild", href: "/builds/new", modal: "newBuild" },
-  { labelKey: "addItem", href: "/elements/new", modal: "newCloset" },
+  { labelKey: "addElement", href: "/elements/new", modal: "newCloset" },
   { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
   { labelKey: "addGroup", href: "/groups/new", modal: "newGroup" },
 ];

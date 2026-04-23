@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Text, View } from "react-native";
-import { Pressable } from "react-native-gesture-handler";
 import type { Id } from "convex/_generated/dataModel";
 import type { PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
@@ -12,14 +11,18 @@ type Props = {
   /** Indent for nested tasks (px). */
   depthMargin?: number;
   className?: string;
-  /** Shown when the dragged task targets the middle “nest” zone of this row. */
+  /** Shown when the dragged task targets the middle "nest" zone of this row. */
   dropIntoLabel?: string;
   children: React.ReactNode;
 };
 
 /**
- * Long-press to drag (same interaction model as planner). Uses RNGH `Pressable` so
- * vertical scroll and drag cooperate better than RN core `Pressable`.
+ * Drop surface for a workflow task row. Registers the row with the planner
+ * controller so it can be measured as a drop target, and renders the
+ * before/after/into drop indicators. Does NOT own the drag gesture — that
+ * belongs to <WorkflowTaskDragHandle> inside the row. Wrapping the whole row
+ * in a Pressable here would have its long-press eaten by the many interactive
+ * controls inside (checkbox, title, edit, etc).
  */
 export function WorkflowTaskDragShell({
   taskId,
@@ -54,33 +57,8 @@ export function WorkflowTaskDragShell({
 
   return (
     <View style={{ marginLeft: depthMargin }} className={`relative mb-2 ${className}`}>
-      <Pressable
+      <View
         ref={rowRef}
-        delayLongPress={220}
-        onLongPress={(event) =>
-          void taskMove.startDrag(dragMeta, {
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          })
-        }
-        onTouchMove={(event) => {
-          if (!dragging) return;
-          taskMove.updateDragPoint({
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          });
-        }}
-        onTouchEnd={(event) => {
-          if (!dragging) return;
-          taskMove.finishDrag({
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          });
-        }}
-        onTouchCancel={() => {
-          if (!dragging) return;
-          taskMove.finishDrag();
-        }}
         className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
       >
         {dropBefore ? (
@@ -95,7 +73,7 @@ export function WorkflowTaskDragShell({
             {dropIntoLabel}
           </Text>
         ) : null}
-      </Pressable>
+      </View>
     </View>
   );
 }

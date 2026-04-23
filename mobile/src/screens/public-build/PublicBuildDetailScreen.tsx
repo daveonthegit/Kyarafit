@@ -107,6 +107,7 @@ type WorkflowTreeData = {
 
 type Props = {
   buildId: Id<"builds"> | undefined;
+  shareToken?: string;
 };
 
 type TabId = "explorer" | "tasks" | "board" | "summary";
@@ -209,21 +210,32 @@ function PublicMediaImage({
   return <FocalCoverImage uri={resolvedUri} className="h-full w-full" />;
 }
 
-export function PublicBuildDetailScreen({ buildId }: Props) {
+export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
   const { t } = useTranslation();
   const identity = useQuery(api.auth.getCurrentUser);
   const currentUserId = identity?.subject ?? null;
-  const bundle = useQuery(api.builds.getPublicViewerBundle, buildId ? { buildId } : "skip") as
+  const bundleArgs = buildId
+    ? { buildId }
+    : shareToken
+      ? { shareToken }
+      : "skip";
+  const bundle = useQuery(api.builds.getPublicViewerBundle, bundleArgs) as
     | PublicViewerBundle
     | null
     | undefined;
+  const buildIdForTree = bundle?.build._id;
+  const shareTokenForQueries = shareToken?.trim() ? shareToken : undefined;
   const workflowTree = useQuery(
     api.workflow.listBuildTree,
-    buildId && bundle?.togglesResolved.showTasks ? { buildId } : "skip"
+    buildIdForTree && bundle?.togglesResolved.showTasks
+      ? shareTokenForQueries
+        ? { buildId: buildIdForTree, shareToken: shareTokenForQueries }
+        : { buildId: buildIdForTree }
+      : "skip"
   ) as WorkflowTreeData | undefined;
 
   const status =
-    buildId == null || bundle === null
+    (buildId == null && !shareTokenForQueries) || bundle === null
       ? "empty"
       : bundle === undefined ||
           identity === undefined ||
@@ -255,6 +267,7 @@ export function PublicBuildDetailScreen({ buildId }: Props) {
             bundle={loadedBundle}
             workflowTree={workflowTree ?? null}
             currentUserId={currentUserId}
+            shareToken={shareTokenForQueries}
           />
         )}
       </DataBoundary>
@@ -266,16 +279,25 @@ function PublicBuildDetailBody({
   bundle,
   workflowTree,
   currentUserId,
+  shareToken,
 }: {
   bundle: PublicViewerBundle;
   workflowTree: WorkflowTreeData;
   currentUserId: string | null;
+  shareToken?: string;
 }) {
   const { t } = useTranslation();
   const build = bundle.build;
   const toggles = bundle.togglesResolved;
-  const likeCount = useQuery(api.buildLikes.countByBuild, { buildId: build._id });
-  const comments = useQuery(api.buildComments.listByBuild, { buildId: build._id }) ?? [];
+  const likeCount = useQuery(
+    api.buildLikes.countByBuild,
+    shareToken ? { buildId: build._id, shareToken } : { buildId: build._id }
+  );
+  const comments =
+    useQuery(
+      api.buildComments.listByBuild,
+      shareToken ? { buildId: build._id, shareToken } : { buildId: build._id }
+    ) ?? [];
   const isLiked = useQuery(
     api.buildLikes.isLikedBy,
     currentUserId ? { userId: currentUserId, buildId: build._id } : "skip"
@@ -426,12 +448,6 @@ function PublicBuildDetailBody({
         <PublicBuildHero build={build} />
         <View className="gap-3 px-4 py-4">
           {build.character ? <MetaLabel>{build.character}</MetaLabel> : null}
-          <Text
-            style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-            className="text-[34px] italic leading-[38px] text-kyar-text dark:text-kyar-dark-text"
-          >
-            {build.name}
-          </Text>
           <View className="flex-row flex-wrap items-center gap-3">
             <Text className="text-xs uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
               {build.status}
