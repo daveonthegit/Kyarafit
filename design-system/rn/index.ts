@@ -1,1 +1,15 @@
-export { colors, spacing, layout, radius, borderWidth, shadow, font, ls } from "../rn_tokens";
+export {
+  colors,
+  colorThemes,
+  getColors,
+  spacing,
+  layout,
+  radius,
+  borderWidth,
+  shadow,
+  font,
+  motion,
+  ls,
+  type DesignColors,
+  type DesignThemeName,
+} from "../rn_tokens";

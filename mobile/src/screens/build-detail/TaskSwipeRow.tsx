@@ -16,9 +16,9 @@ export function TaskSwipeRow({ children, checked, onToggle }: Props) {
     <View className="justify-center pr-2">
       <Pressable
         onPress={onToggle}
-        className="h-full min-w-[88px] items-center justify-center rounded-xl bg-neutral-900 px-4 active:opacity-90"
+        className="h-full min-w-[88px] items-center justify-center rounded-2xl bg-kyar-text px-4 active:opacity-90 dark:bg-kyar-dark-text"
       >
-        <Text className="text-center text-sm font-semibold text-white">
+        <Text className="text-center text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
           {checked ? t("buildDetail.taskMarkOpen") : t("buildDetail.taskMarkDone")}
         </Text>
       </Pressable>
@@ -27,7 +27,9 @@ export function TaskSwipeRow({ children, checked, onToggle }: Props) {
 
   return (
     <Swipeable renderRightActions={() => actions} overshootRight={false}>
-      <View className="rounded-xl border border-neutral-200 bg-white">{children}</View>
+      <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
+        {children}
+      </View>
     </Swipeable>
   );
 }

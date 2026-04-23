@@ -131,7 +131,9 @@ export function NewClosetItemModal({
                   }
                 }}
                 className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
-                  nodeType === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
+                  nodeType === value
+                    ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                    : "bg-transparent text-kyar-text"
                 }`}
               >
                 {value}
@@ -175,7 +177,9 @@ export function NewClosetItemModal({
                 type="button"
                 onClick={() => setCategory(value)}
                 className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
-                  category === value ? "border-kyar-text bg-kyar-text text-kyar-bg" : "bg-transparent text-kyar-text"
+                  category === value
+                    ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                    : "bg-transparent text-kyar-text"
                 }`}
               >
                 {value}

@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const b = bundle.build;
     const title = b.character ? `${b.name} · ${b.character}` : b.name;
     const description =
-      b.notes && b.notes.length > 160 ? `${b.notes.slice(0, 157)}…` : b.notes ?? undefined;
+      b.notes && b.notes.length > 160 ? `${b.notes.slice(0, 157)}…` : (b.notes ?? undefined);
     const images: string[] = [];
     if (b.imageUrl) images.push(b.imageUrl);
     return {

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, type PressableProps } from "react-native";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 
 type Props = PressableProps & {
   title: string;
@@ -16,12 +17,15 @@ export function Button({
   className,
   ...rest
 }: Props) {
+  const { colors } = useDesignTheme();
   const base =
     variant === "primary"
-      ? "rounded-xl bg-neutral-900 px-4 py-3 active:opacity-90"
-      : "rounded-xl border border-neutral-300 bg-white px-4 py-3 active:opacity-90";
+      ? "rounded-xl bg-kyar-text px-4 py-3 active:opacity-90 dark:bg-kyar-dark-text"
+      : "rounded-xl border border-kyar-border bg-kyar-surface px-4 py-3 active:opacity-90 dark:border-kyar-dark-border dark:bg-kyar-dark-surface";
   const text =
-    variant === "primary" ? "text-center font-semibold text-white" : "text-center font-semibold text-neutral-900";
+    variant === "primary"
+      ? "text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg"
+      : "text-center font-semibold text-kyar-text dark:text-kyar-dark-text";
 
   return (
     <Pressable
@@ -31,7 +35,7 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#fff" : "#171717"} />
+        <ActivityIndicator color={variant === "primary" ? colors.bg : colors.text} />
       ) : (
         <Text className={text}>{title}</Text>
       )}

@@ -132,7 +132,9 @@ export function LandingMiniConventionDetailBody({
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                      row.done ? "border-kyar-accent bg-kyar-accent" : "border-kyar-border bg-kyar-surface"
+                      row.done
+                        ? "border-kyar-accent bg-kyar-accent"
+                        : "border-kyar-border bg-kyar-surface"
                     }`}
                     aria-hidden
                   >

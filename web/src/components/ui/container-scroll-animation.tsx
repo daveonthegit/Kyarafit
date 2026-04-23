@@ -7,7 +7,11 @@ type ContainerScrollVariant = "default" | "compact";
 
 /** Matches personal portfolio revealer: translateY + opacity, cubic-bezier(0.2, 0.8, 0.2, 1), IO thresholds — not scroll-progress-driven 3D (which janks). */
 const REVEAL_EASE = [0.2, 0.8, 0.2, 1] as const;
-const VIEWPORT = { once: false as const, margin: "0px 0px -8% 0px" as const, amount: 0.12 as const };
+const VIEWPORT = {
+  once: false as const,
+  margin: "0px 0px -8% 0px" as const,
+  amount: 0.12 as const,
+};
 
 export const ContainerScroll = ({
   titleComponent,

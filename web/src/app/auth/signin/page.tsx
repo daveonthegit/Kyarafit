@@ -253,7 +253,6 @@ export default function SignInPage() {
                 </svg>
                 {oauthLoading === "apple" ? "Redirecting…" : "Continue with Apple"}
               </button>
-
             </div>
 
             {/* Divider */}

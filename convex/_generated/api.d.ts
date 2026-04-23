@@ -39,6 +39,7 @@ import type * as lib_workflowDomain from "../lib/workflowDomain.js";
 import type * as lib_workflowProgress from "../lib/workflowProgress.js";
 import type * as migrations from "../migrations.js";
 import type * as push from "../push.js";
+import type * as revenuecat from "../revenuecat.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
 import type * as users from "../users.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "lib/workflowProgress": typeof lib_workflowProgress;
   migrations: typeof migrations;
   push: typeof push;
+  revenuecat: typeof revenuecat;
   seed: typeof seed;
   storageUsage: typeof storageUsage;
   users: typeof users;

@@ -1,6 +1,6 @@
 /**
  * Shared navigation config: single source of truth for app sections.
- * Primary: Home, Outfits (builds), Elements, Events, Planner. Secondary: Settings.
+ * Primary: Home, Builds, Elements, Events, Planner. Secondary: Settings.
  */
 
 export type NavSectionId =
@@ -23,10 +23,10 @@ export interface NavSection {
   iconKey: string;
 }
 
-/** Primary nav sections (sidebar/tabs): Home, Outfits, Elements, Events, Groups, Planner, Discover, Feed. */
+/** Primary nav sections (sidebar/tabs): Home, Builds, Elements, Events, Groups, Planner, Discover, Feed. */
 export const NAV_SECTIONS_PRIMARY: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
-  { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
+  { id: "builds", label: "Builds", path: "/builds", iconKey: "builds" },
   { id: "elements", label: "Elements", path: "/elements", iconKey: "elements" },
   { id: "events", label: "Events", path: "/conventions", iconKey: "events" },
   { id: "groups", label: "Groups", path: "/groups", iconKey: "groups" },
@@ -46,10 +46,10 @@ export const NAV_SECTION_SETTINGS: NavSection = {
 /** All sections in order: primary first, then settings. */
 export const NAV_SECTIONS: NavSection[] = [...NAV_SECTIONS_PRIMARY, NAV_SECTION_SETTINGS];
 
-/** Bottom nav (mobile viewport): Home, Outfits, Elements, Planner, Menu. */
+/** Bottom nav (mobile viewport): Home, Builds, Elements, Planner, Menu. */
 export const NAV_SECTIONS_BOTTOM: NavSection[] = [
   { id: "home", label: "Home", path: "/home", iconKey: "home" },
-  { id: "builds", label: "Outfits", path: "/builds", iconKey: "builds" },
+  { id: "builds", label: "Builds", path: "/builds", iconKey: "builds" },
   { id: "elements", label: "Elements", path: "/elements", iconKey: "elements" },
   { id: "planner", label: "Planner", path: "/planner", iconKey: "planner" },
   { id: "menu", label: "Menu", path: "#", iconKey: "menu" },
@@ -66,7 +66,7 @@ export interface AddMenuItem {
 }
 
 export const ADD_MENU_ITEMS: AddMenuItem[] = [
-  { labelKey: "addOutfit", href: "/builds/new", modal: "newBuild" },
+  { labelKey: "addBuild", href: "/builds/new", modal: "newBuild" },
   { labelKey: "addItem", href: "/elements/new", modal: "newCloset" },
   { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
   { labelKey: "addGroup", href: "/groups/new", modal: "newGroup" },

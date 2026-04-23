@@ -9,6 +9,7 @@
     "./rn": "./rn/index.ts",
     "./types": "./types/index.ts",
     "./tailwind": "./tailwind.config.js",
+    "./tailwind-web": "./tailwind.web.js",
     "./domain": "./domain/index.ts",
     "./domain/workflowProgress": "./domain/workflowProgress.ts",
     "./domain/workflowDomain": "./domain/workflowDomain.ts",

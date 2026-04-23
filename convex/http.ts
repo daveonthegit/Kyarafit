@@ -1,7 +1,14 @@
 import { httpRouter } from "convex/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
+import { revenuecatWebhook } from "./revenuecat";
 
 const http = httpRouter();
+
+http.route({
+  path: "/webhooks/revenuecat",
+  method: "POST",
+  handler: revenuecatWebhook,
+});
 
 // IMPORTANT: Every origin listed here MUST also appear in `trustedOrigins` inside
 // `convex/betterAuth/auth.ts`. Better Auth has its own CSRF origin check that runs

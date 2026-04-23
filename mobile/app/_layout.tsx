@@ -21,9 +21,11 @@ import {
   EXPO_PUBLIC_SENTRY_DSN,
 } from "@/config/env";
 import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
+import { useAppFonts } from "@/theme/appFonts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { SyncWorkerProvider } from "@/offline";
+import { RevenueCatBootstrap } from "@/components/RevenueCatBootstrap";
 
 WebBrowser.maybeCompleteAuthSession();
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -126,6 +128,12 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useAppFonts();
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   const content = (
     <QueryClientProvider client={queryClient}>
       <ThemeChrome>
@@ -140,6 +148,7 @@ export default function RootLayout() {
         <ThemeProvider>
           <ErrorBoundary>
             <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+              <RevenueCatBootstrap />
               <SyncWorkerProvider>
                 <BottomSheetModalProvider>{content}</BottomSheetModalProvider>
               </SyncWorkerProvider>

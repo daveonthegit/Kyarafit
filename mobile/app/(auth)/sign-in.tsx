@@ -1,24 +1,17 @@
 import { useState, useCallback } from "react";
-import {
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  View,
-  Alert,
-} from "react-native";
+import { Text, TextInput, Pressable, ActivityIndicator, View, Alert } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useFonts, BodoniModa_400Regular_Italic } from "@expo-google-fonts/bodoni-moda";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { authClient, setStoredBearerToken } from "@/lib/auth/client";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { EXPO_PUBLIC_WEB_APP_URL } from "@/config/env";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import {
   AUTH_ON_PRIMARY,
-  AUTH_PLACEHOLDER_COLOR,
   AuthScreenShell,
   authFieldInputCls,
   authMetaLabelCls,
@@ -31,12 +24,9 @@ import {
 export default function SignInScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors } = useDesignTheme();
   const { reset: resetParam } = useLocalSearchParams<{ reset?: string }>();
   const resetSuccess = resetParam === "success";
-
-  const [fontsLoaded] = useFonts({
-    BodoniModa_400Regular_Italic,
-  });
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -171,9 +161,7 @@ export default function SignInScreen() {
         </Text>
         <Text
           className="text-center text-4xl italic text-kyar-text"
-          style={
-            fontsLoaded ? { fontFamily: "BodoniModa_400Regular_Italic" } : undefined
-          }
+          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
         >
           {t("common.appName")}
         </Text>
@@ -182,13 +170,13 @@ export default function SignInScreen() {
       {(error || resetSuccess || info) && (
         <View className="mb-4 w-full gap-3">
           {error ? (
-            <View className="border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm text-red-800">{error}</Text>
+            <View className="border border-kyar-danger bg-kyar-surface px-4 py-3 dark:border-kyar-dark-danger dark:bg-kyar-dark-surface">
+              <Text className="text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
             </View>
           ) : null}
           {(info || resetSuccess) && (
-            <View className="border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <Text className="text-sm text-emerald-800">
+            <View className="border border-kyar-accent bg-kyar-accentSoft px-4 py-3 dark:border-kyar-dark-accent dark:bg-kyar-dark-accentSoft">
+              <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
                 {resetSuccess ? t("auth.passwordResetSuccess") : info}
               </Text>
             </View>
@@ -239,7 +227,7 @@ export default function SignInScreen() {
           <Text className={authMetaLabelCls}>{t("common.email")}</Text>
           <TextInput
             className={authFieldInputCls}
-            placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
@@ -253,7 +241,7 @@ export default function SignInScreen() {
           <Text className={authMetaLabelCls}>{t("auth.username")}</Text>
           <TextInput
             className={authFieldInputCls}
-            placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="none"
             autoComplete="username"
             textContentType="username"
@@ -268,13 +256,15 @@ export default function SignInScreen() {
         <Text className={authMetaLabelCls}>{t("common.password")}</Text>
         <Link href="/(auth)/forgot-password" asChild>
           <Pressable className="py-1">
-            <Text className="text-xs text-kyar-textTertiary underline">{t("auth.forgotPassword")}</Text>
+            <Text className="text-xs text-kyar-textTertiary underline">
+              {t("auth.forgotPassword")}
+            </Text>
           </Pressable>
         </Link>
       </View>
       <TextInput
         className={authFieldInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -286,7 +276,7 @@ export default function SignInScreen() {
         {submitting ? (
           <ActivityIndicator color={AUTH_ON_PRIMARY} />
         ) : (
-          <Text className="text-xs font-semibold uppercase tracking-widest text-kyar-bg">
+          <Text className="text-xs font-semibold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
             {t("common.signIn")}
           </Text>
         )}
@@ -297,7 +287,7 @@ export default function SignInScreen() {
           <Text className={authMetaLabelCls}>{t("auth.resendVerificationHint")}</Text>
           <TextInput
             className={authFieldInputCls}
-            placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
@@ -306,7 +296,7 @@ export default function SignInScreen() {
             placeholder="you@example.com"
           />
           <Pressable
-            className="w-full items-center rounded-none border border-kyar-border bg-transparent py-3 active:opacity-90"
+            className="w-full items-center rounded-none border border-kyar-border bg-transparent py-3 active:opacity-90 dark:border-kyar-dark-border"
             onPress={onResendVerification}
             disabled={busy || resendLoading || !email.trim()}
           >
@@ -337,7 +327,9 @@ export default function SignInScreen() {
           {t("auth.dontHaveAccount")}{" "}
           <Link href="/(auth)/sign-up" asChild>
             <Pressable className="active:opacity-80">
-              <Text className="text-xs text-kyar-textTertiary underline">{t("auth.createOne")}</Text>
+              <Text className="text-xs text-kyar-textTertiary underline">
+                {t("auth.createOne")}
+              </Text>
             </Pressable>
           </Link>
         </Text>

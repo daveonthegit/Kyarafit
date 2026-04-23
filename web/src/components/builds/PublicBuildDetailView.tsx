@@ -29,9 +29,7 @@ export type PublicBuildDetailViewProps = {
 export function PublicBuildDetailView(props: PublicBuildDetailViewProps) {
   const { backHref, backLabel } = props;
   const bundleArgs =
-    props.mode === "public"
-      ? { buildId: props.buildId }
-      : { shareToken: props.shareToken };
+    props.mode === "public" ? { buildId: props.buildId } : { shareToken: props.shareToken };
   const bundle = useQuery(api.builds.getPublicViewerBundle, bundleArgs);
   const { userId } = useCurrentUser();
 
@@ -50,14 +48,15 @@ export function PublicBuildDetailView(props: PublicBuildDetailViewProps) {
     api.buildLikes.isLikedBy,
     buildId && userId ? { buildId, userId } : "skip"
   );
-  const comments = useQuery(
-    api.buildComments.listByBuild,
-    buildId
-      ? shareTokenForQueries
-        ? { buildId, shareToken: shareTokenForQueries }
-        : { buildId }
-      : "skip"
-  ) ?? [];
+  const comments =
+    useQuery(
+      api.buildComments.listByBuild,
+      buildId
+        ? shareTokenForQueries
+          ? { buildId, shareToken: shareTokenForQueries }
+          : { buildId }
+        : "skip"
+    ) ?? [];
 
   const likeMut = useMutation(api.buildLikes.like);
   const unlikeMut = useMutation(api.buildLikes.unlike);
@@ -179,9 +178,7 @@ export function PublicBuildDetailView(props: PublicBuildDetailViewProps) {
           </div>
           <div className="p-5 sm:p-8">
             <h1 className="font-serif text-3xl font-semibold sm:text-4xl">{build.name}</h1>
-            {build.character && (
-              <p className="mt-1 text-kyar-textSecondary">{build.character}</p>
-            )}
+            {build.character && <p className="mt-1 text-kyar-textSecondary">{build.character}</p>}
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-kyar-textTertiary">
               <span className="capitalize">{build.status}</span>
               {tasksTotal > 0 && (

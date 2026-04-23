@@ -43,10 +43,8 @@ export function BuildNodeManagerSection({
   onCreateRoot,
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
-  const allNodes = (useQuery(
-    api.cosplayNodes.list,
-    userId ? { userId, sortBy: "name" } : "skip"
-  ) ?? []) as ExplorerLinkedNode[];
+  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ??
+    []) as ExplorerLinkedNode[];
 
   const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -120,7 +118,11 @@ export function BuildNodeManagerSection({
   const handleNavigateToRoot = useCallback(() => {
     const first = roots[0];
     if (!first) return;
-    const meta: NodeSelectionMeta = { nodeId: first.node._id, isRoot: true, rootIndex: first.rootIndex };
+    const meta: NodeSelectionMeta = {
+      nodeId: first.node._id,
+      isRoot: true,
+      rootIndex: first.rootIndex,
+    };
     void commitSelection(meta, [{ meta, label: first.node.name }]);
   }, [roots, commitSelection]);
 
@@ -309,9 +311,7 @@ export function BuildNodeManagerSection({
           }}
         >
           <DragPreviewRow
-            node={
-              allNodes.find((n) => n._id === drag.draggingMeta!.nodeId) ?? linkedNodes[0]
-            }
+            node={allNodes.find((n) => n._id === drag.draggingMeta!.nodeId) ?? linkedNodes[0]}
             label={
               drag.dragOverNodeId === "__root__"
                 ? "Promote to root"

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Appearance, Platform, useColorScheme as useRnColorScheme } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { useColorScheme as useNativeWindColorScheme } from "nativewind";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -22,12 +23,9 @@ type ThemeCtx = {
 
 const ThemeContext = createContext<ThemeCtx | null>(null);
 
-export function ThemeProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useRnColorScheme();
+  const { setColorScheme } = useNativeWindColorScheme();
   const [preference, setPrefState] = useState<ThemePreference>("system");
 
   useEffect(() => {
@@ -40,11 +38,11 @@ export function ThemeProvider({
   }, []);
 
   const resolvedScheme =
-    preference === "system"
-      ? system === "dark"
-        ? "dark"
-        : "light"
-      : preference;
+    preference === "system" ? (system === "dark" ? "dark" : "light") : preference;
+
+  useEffect(() => {
+    setColorScheme(preference);
+  }, [preference, setColorScheme]);
 
   const setPreference = useCallback(async (p: ThemePreference) => {
     setPrefState(p);

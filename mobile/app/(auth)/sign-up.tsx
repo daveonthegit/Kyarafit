@@ -6,9 +6,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   AUTH_ON_PRIMARY,
-  AUTH_PLACEHOLDER_COLOR,
   AuthScreenShell,
   authErrorCls,
   authFooterEmCls,
@@ -24,6 +24,7 @@ import {
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors } = useDesignTheme();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -91,48 +92,45 @@ export default function SignUpScreen() {
       <Text className={authSubtitleCls}>{t("auth.createAccount")}</Text>
 
       <View className="mt-8 gap-3">
-        <Pressable
-          className={authOAuthBtnCls}
-          onPress={() => onOAuth("google")}
-          disabled={busy}
-        >
+        <Pressable className={authOAuthBtnCls} onPress={() => onOAuth("google")} disabled={busy}>
           {oauthLoading === "google" ? (
             <ActivityIndicator />
           ) : (
             <>
               <MaterialCommunityIcons name="google" size={22} color="#4285F4" />
-              <Text className="text-sm font-semibold text-kyar-text">{t("auth.signUpWithGoogle")}</Text>
+              <Text className="text-sm font-semibold text-kyar-text">
+                {t("auth.signUpWithGoogle")}
+              </Text>
             </>
           )}
         </Pressable>
 
-        <Pressable
-          className={authOAuthBtnCls}
-          onPress={() => onOAuth("apple")}
-          disabled={busy}
-        >
+        <Pressable className={authOAuthBtnCls} onPress={() => onOAuth("apple")} disabled={busy}>
           {oauthLoading === "apple" ? (
             <ActivityIndicator />
           ) : (
             <>
               <MaterialCommunityIcons name="apple" size={22} color="#171529" />
-              <Text className="text-sm font-semibold text-kyar-text">{t("auth.signUpWithApple")}</Text>
+              <Text className="text-sm font-semibold text-kyar-text">
+                {t("auth.signUpWithApple")}
+              </Text>
             </>
           )}
         </Pressable>
-
       </View>
 
       <View className="my-8 flex-row items-center gap-3">
         <View className="h-px flex-1 bg-kyar-borderSubtle" />
-        <Text className="text-xs uppercase tracking-widest text-kyar-textSecondary">{t("auth.orDivider")}</Text>
+        <Text className="text-xs uppercase tracking-widest text-kyar-textSecondary">
+          {t("auth.orDivider")}
+        </Text>
         <View className="h-px flex-1 bg-kyar-borderSubtle" />
       </View>
 
       <Text className={authLabelCls}>{t("auth.name")}</Text>
       <TextInput
         className={authInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         value={name}
         onChangeText={setName}
         placeholder={t("auth.namePlaceholder")}
@@ -142,7 +140,7 @@ export default function SignUpScreen() {
       <Text className={`mt-4 ${authLabelCls}`}>{t("auth.username")}</Text>
       <TextInput
         className={authInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         autoCapitalize="none"
         autoCorrect={false}
         value={username}
@@ -154,7 +152,7 @@ export default function SignUpScreen() {
       <Text className={`mt-4 ${authLabelCls}`}>{t("common.email")}</Text>
       <TextInput
         className={authInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -166,7 +164,7 @@ export default function SignUpScreen() {
       <Text className={`mt-4 ${authLabelCls}`}>{t("common.password")}</Text>
       <TextInput
         className={authInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -176,7 +174,7 @@ export default function SignUpScreen() {
       <Text className={`mt-4 ${authLabelCls}`}>{t("auth.confirmPassword")}</Text>
       <TextInput
         className={authInputCls}
-        placeholderTextColor={AUTH_PLACEHOLDER_COLOR}
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
@@ -189,15 +187,16 @@ export default function SignUpScreen() {
         {submitting ? (
           <ActivityIndicator color={AUTH_ON_PRIMARY} />
         ) : (
-          <Text className="text-base font-semibold text-kyar-bg">{t("common.signUp")}</Text>
+          <Text className="text-base font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+            {t("common.signUp")}
+          </Text>
         )}
       </Pressable>
 
       <Link href="/(auth)/sign-in" asChild>
         <Pressable className="mt-6">
           <Text className={authFooterTextCls}>
-            {t("auth.haveAccount")}{" "}
-            <Text className={authFooterEmCls}>{t("common.signIn")}</Text>
+            {t("auth.haveAccount")} <Text className={authFooterEmCls}>{t("common.signIn")}</Text>
           </Text>
         </Pressable>
       </Link>

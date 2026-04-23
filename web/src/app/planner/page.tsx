@@ -654,14 +654,8 @@ function PlannerTaskTree({
                   done={task.status === "done"}
                   userId={userId}
                   onToggle={() => onToggle(task._id, task.status !== "done")}
-                  contextHref={
-                    task.cosplayNodeId
-                      ? `/elements/${task.cosplayNodeId}`
-                      : "/elements"
-                  }
-                  contextLabel={
-                    task.cosplayNodeId ? "Element" : "Workflow"
-                  }
+                  contextHref={task.cosplayNodeId ? `/elements/${task.cosplayNodeId}` : "/elements"}
+                  contextLabel={task.cosplayNodeId ? "Element" : "Workflow"}
                   status={task.status}
                   progressPercent={task.progressPercent}
                   dueDate={task.dueDate}

@@ -9,11 +9,6 @@ import "./src/lib/crypto-polyfill";
  * @see https://docs.expo.dev/router/reference/troubleshooting/#expo_router_app_root-not-defined
  */
 import { registerRootComponent } from "expo";
-import { ExpoRoot } from "expo-router";
-
-export function App() {
-  const ctx = require.context("./app");
-  return <ExpoRoot context={ctx} />;
-}
+import App from "./App";
 
 registerRootComponent(App);

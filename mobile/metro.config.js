@@ -17,6 +17,13 @@ config.resolver.nodeModulesPaths = [
 ];
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.startsWith("@/")) {
+    return context.resolveRequest(
+      context,
+      path.join(projectRoot, "src", moduleName.slice(2)),
+      platform
+    );
+  }
   if (moduleName === "convex/_generated/api" || moduleName === "convex/_generated/server") {
     const subpath = moduleName.replace("convex/_generated/", "");
     const filePath = path.join(convexRoot, "_generated", `${subpath}.js`);

@@ -266,7 +266,14 @@ export function useExplorerDrag({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [allNodes, drag.draggingMeta, setDragState, clearDragState, promoteNodeToRoot, handleDropOnNode]);
+  }, [
+    allNodes,
+    drag.draggingMeta,
+    setDragState,
+    clearDragState,
+    promoteNodeToRoot,
+    handleDropOnNode,
+  ]);
 
   return {
     drag,

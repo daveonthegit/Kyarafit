@@ -45,6 +45,66 @@ export const getByUsername = query({
   },
 });
 
+export const checkUsernameAvailability = query({
+  args: {
+    username: v.string(),
+    currentExternalId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const raw = args.username.trim();
+    if (!raw) {
+      return {
+        normalized: "",
+        valid: false,
+        available: false,
+        reason: "empty",
+      };
+    }
+
+    let normalized: string;
+    try {
+      normalized = validateUsername(raw);
+    } catch (error) {
+      return {
+        normalized: raw.toLowerCase(),
+        valid: false,
+        available: false,
+        reason: error instanceof Error ? error.message : "invalid",
+      };
+    }
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", normalized))
+      .unique();
+
+    if (!existing) {
+      return {
+        normalized,
+        valid: true,
+        available: true,
+        reason: null,
+      };
+    }
+
+    if (args.currentExternalId && existing.externalId === args.currentExternalId) {
+      return {
+        normalized,
+        valid: true,
+        available: true,
+        reason: "current_user",
+      };
+    }
+
+    return {
+      normalized,
+      valid: true,
+      available: false,
+      reason: "taken",
+    };
+  },
+});
+
 export const upsert = mutation({
   args: {
     externalId: v.string(),

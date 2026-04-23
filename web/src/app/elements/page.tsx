@@ -1,14 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { ElementPortfolioCardWeb } from "@/components/elements/ElementPortfolioCardWeb";
+import { ControlPill } from "@/components/ui/ControlPill";
+import {
+  PORTFOLIO_LAYOUT_LABELS,
+  cyclePortfolioLayout,
+  type PortfolioLayoutMode,
+} from "@/lib/portfolioLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
@@ -21,10 +26,12 @@ import {
 import {
   formatNodeStatus,
   formatNodeTypeLabel,
+  formatOverallBucket,
   nodeMatchesSubstate,
   nodeSearchText,
   type CosplayExplorerItem,
 } from "@kyarafit/design-system/domain";
+import type { CosplayNodeType } from "@kyarafit/design-system/types";
 
 type CosplayNodeId = Id<"cosplayNodes">;
 type SortBy = "name" | "category" | "cost" | "progress" | "bucket";
@@ -41,6 +48,25 @@ const SORT_LABELS: Record<SortBy, string> = {
   progress: "Progress",
   bucket: "Bucket",
 };
+
+const ELEMENT_SORT_MOBILE_CYCLE: Array<"name" | "progress" | "bucket"> = [
+  "name",
+  "progress",
+  "bucket",
+];
+
+function portfolioGridClass(layout: PortfolioLayoutMode): string {
+  switch (layout) {
+    case "comfortable":
+      return "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    case "compact":
+      return "grid w-full max-w-3xl grid-cols-1 gap-3 mx-auto";
+    case "grid":
+      return "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4";
+    default:
+      return "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  }
+}
 
 const SUBSTATE_OPTIONS = [
   { value: "", label: "All states" },
@@ -69,6 +95,8 @@ export default function ElementsPage() {
   );
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [order, setOrder] = useState<SortOrder>("asc");
+  const [layout, setLayout] = useState<PortfolioLayoutMode>("comfortable");
+  const [viewMode, setViewMode] = useState<"all" | "tree">("all");
   const [selectedIds, setSelectedIds] = useState<Set<CosplayNodeId>>(new Set());
   const [showAssignPanel, setShowAssignPanel] = useState(false);
   const [showUnassignPanel, setShowUnassignPanel] = useState(false);
@@ -84,6 +112,7 @@ export default function ElementsPage() {
           overallBucket: bucket || undefined,
           sortBy,
           order,
+          rootsOnly: viewMode === "tree",
         }
       : "skip"
   ) ?? []) as Array<CosplayExplorerItem & { _id: CosplayNodeId }>;
@@ -115,14 +144,38 @@ export default function ElementsPage() {
   };
 
   const selectedCount = selectedIds.size;
-  const activeFilterCount = [
-    Boolean(nodeType),
-    Boolean(category),
-    Boolean(bucket),
-    Boolean(substate),
-    hierarchyMode !== "all",
-  ].filter(Boolean).length;
-  const controlsSummary = `${activeFilterCount === 0 ? "All nodes" : `${activeFilterCount} filters`} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"}`;
+  const viewModeLabel = viewMode === "all" ? "All nodes" : "Tree view";
+  const typeSummary = nodeType ? formatNodeTypeLabel(nodeType as CosplayNodeType) : null;
+  const bucketSummary = bucket ? formatOverallBucket(bucket) : null;
+  const categorySummary = category || null;
+  const layoutLabel = PORTFOLIO_LAYOUT_LABELS[layout];
+  const controlsSummary = [
+    viewModeLabel,
+    typeSummary,
+    bucketSummary,
+    categorySummary,
+    SORT_LABELS[sortBy],
+    order === "asc" ? "Ascending" : "Descending",
+    layoutLabel,
+  ]
+    .filter((p): p is string => Boolean(p))
+    .join(" · ");
+
+  const cycleElementSort = useCallback(() => {
+    setSortBy((prev) => {
+      const current = ELEMENT_SORT_MOBILE_CYCLE.includes(
+        prev as (typeof ELEMENT_SORT_MOBILE_CYCLE)[number]
+      )
+        ? (prev as (typeof ELEMENT_SORT_MOBILE_CYCLE)[number])
+        : "name";
+      const i = ELEMENT_SORT_MOBILE_CYCLE.indexOf(current);
+      return ELEMENT_SORT_MOBILE_CYCLE[(i + 1) % ELEMENT_SORT_MOBILE_CYCLE.length]!;
+    });
+  }, []);
+
+  const cycleLayout = useCallback(() => {
+    setLayout((prev) => cyclePortfolioLayout(prev));
+  }, []);
 
   const handleBulkDelete = async () => {
     if (!userId || selectedIds.size === 0) return;
@@ -177,7 +230,101 @@ export default function ElementsPage() {
           </>
         }
       >
-        <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center">
+        <div className="flex flex-col gap-5 sm:hidden">
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">View</span>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              <ElementsFilterChip
+                active={viewMode === "all"}
+                label="All nodes"
+                onClick={() => setViewMode("all")}
+              />
+              <ElementsFilterChip
+                active={viewMode === "tree"}
+                label="Tree view"
+                onClick={() => setViewMode("tree")}
+              />
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">
+              Sort &amp; view
+            </span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <ControlPill
+                label={SORT_LABELS[sortBy]}
+                onClick={cycleElementSort}
+                aria-label="Change sort"
+              />
+              <ControlPill
+                label={order === "asc" ? "Ascending" : "Descending"}
+                onClick={() => setOrder((current) => (current === "asc" ? "desc" : "asc"))}
+                aria-label="Toggle sort order"
+              />
+              <ControlPill
+                label={layoutLabel}
+                onClick={cycleLayout}
+                aria-label="Change card layout"
+              />
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">Type</span>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              <ElementsFilterChip
+                active={nodeType === ""}
+                label="All types"
+                onClick={() => setNodeType("")}
+              />
+              {COSPLAY_NODE_TYPES.map((value) => (
+                <ElementsFilterChip
+                  key={value}
+                  active={nodeType === value}
+                  label={formatNodeTypeLabel(value)}
+                  onClick={() => setNodeType(value)}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">Bucket</span>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              <ElementsFilterChip
+                active={bucket === ""}
+                label="All buckets"
+                onClick={() => setBucket("")}
+              />
+              {COSPLAY_OVERALL_BUCKETS.map((value) => (
+                <ElementsFilterChip
+                  key={value}
+                  active={bucket === value}
+                  label={formatOverallBucket(value)}
+                  onClick={() => setBucket(value)}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">Category</span>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              <ElementsFilterChip
+                active={category === ""}
+                label="All categories"
+                onClick={() => setCategory("")}
+              />
+              {COSPLAY_CATEGORIES.map((value) => (
+                <ElementsFilterChip
+                  key={value}
+                  active={category === value}
+                  label={value}
+                  onClick={() => setCategory(value)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden w-full grid-cols-1 gap-3 sm:grid sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
           <select
             value={nodeType}
             onChange={(e) => setNodeType(e.target.value)}
@@ -258,6 +405,7 @@ export default function ElementsPage() {
           >
             {order === "asc" ? "Asc" : "Desc"}
           </button>
+          <ControlPill label={layoutLabel} onClick={cycleLayout} aria-label="Change card layout" />
         </div>
       </PageHeader>
 
@@ -282,63 +430,49 @@ export default function ElementsPage() {
                 Select all visible
               </button>
             </div>
-            <ResponsiveGrid className="gap-4">
-              {filtered.map((item) => (
-                <div key={item._id} className="group relative">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(item._id)}
-                    onChange={() => toggleSelected(item._id)}
-                    className="absolute right-3 top-3 z-20 h-5 w-5 rounded-full"
-                    aria-label={`Select ${item.name}`}
-                  />
-                  <Link
-                    href={`/elements/${item._id}`}
-                    className="block overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg"
-                  >
-                    <div className="relative aspect-[4/5] overflow-hidden bg-kyar-mutedWarm">
-                      {item.imageStorageId || item.imageUrl ? (
-                        <ResolvedImage
-                          imageStorageId={item.imageStorageId as Id<"_storage"> | undefined}
-                          imageUrl={item.imageUrl ?? undefined}
-                          alt={item.name}
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-kyar-textTertiary">
-                          <span className="material-symbols-outlined text-5xl">
-                            {item.nodeType === "material" ? "science" : "checkroom"}
-                          </span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/85 via-kyar-text/15 to-transparent" />
-                      <div className="absolute left-3 top-3 flex gap-2">
-                        <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
-                          {formatNodeTypeLabel(item.nodeType)}
-                        </span>
-                        <span className="rounded-full border border-kyar-bg/15 bg-kyar-text/45 px-3 py-1 text-[9px] uppercase tracking-wider text-kyar-bg backdrop-blur">
-                          {formatNodeStatus(item)}
-                        </span>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-bg">
-                        <p className="mb-1 text-[9px] uppercase tracking-[0.2em] opacity-80">
-                          {item.category || "uncategorized"}
-                        </p>
-                        <h3 className="truncate font-serif text-3xl italic leading-none">
-                          {item.name}
-                        </h3>
-                        <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-kyar-bg/80">
-                          <span>{item.progressPercent ?? 0}% progress</span>
-                          <span>
-                            {item.childCount ?? 0} child{(item.childCount ?? 0) === 1 ? "" : "ren"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-              ))}
-            </ResponsiveGrid>
+            <div className={portfolioGridClass(layout)}>
+              {filtered.map((item) => {
+                const pct = item.progressPercent ?? 0;
+                const childrenN = item.childCount ?? 0;
+                const progressLabel = `${pct}% progress`.toUpperCase();
+                const childrenLabel =
+                  `${childrenN} ${childrenN === 1 ? "CHILD" : "CHILDREN"}`.toUpperCase();
+                return (
+                  <div key={item._id} className="group relative">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item._id)}
+                      onChange={() => toggleSelected(item._id)}
+                      className={`absolute z-20 rounded-full border border-kyar-borderSubtle bg-kyar-bg/80 shadow-sm ${
+                        layout === "compact" ? "right-2 top-2 h-5 w-5" : "right-3 top-3 h-5 w-5"
+                      }`}
+                      aria-label={`Select ${item.name}`}
+                    />
+                    <Link
+                      href={`/elements/${item._id}`}
+                      className="block overflow-hidden rounded-3xl transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                    >
+                      <ElementPortfolioCardWeb
+                        variant={layout}
+                        item={{
+                          name: item.name,
+                          category: item.category,
+                          imageStorageId: item.imageStorageId as Id<"_storage"> | null,
+                          imageUrl: item.imageUrl,
+                          nodeType: item.nodeType,
+                          progressPercent: pct,
+                          childCount: childrenN,
+                          typeBadge: formatNodeTypeLabel(item.nodeType),
+                          statusBadge: formatNodeStatus(item),
+                        }}
+                        progressLabel={progressLabel}
+                        childrenLabel={childrenLabel}
+                      />
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </main>
@@ -412,5 +546,29 @@ export default function ElementsPage() {
         </div>
       </ResponsivePanel>
     </WebAppShell>
+  );
+}
+
+function ElementsFilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-[38px] shrink-0 rounded-full border px-4 py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+        active
+          ? "border-kyar-text bg-kyar-text text-kyar-bg"
+          : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

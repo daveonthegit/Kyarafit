@@ -1,99 +1,139 @@
-// Kyarafit React Native Token Map (token-aligned)
-export const colors = {
-  black: "#000000",
-  white: "#FFFFFF",
-  bg: "#FFFFFF",
-  surface: "#FFFFFF",
-  muted: "#F9F9F9",
-  text: "#000000",
-  textSecondary: "rgba(0,0,0,0.60)",
-  textTertiary: "rgba(0,0,0,0.40)",
-  textMuted: "rgba(0,0,0,0.30)",
-  meta: "rgba(0,0,0,0.50)",
-  border: "rgba(0,0,0,0.10)",
-  borderSubtle: "rgba(0,0,0,0.05)",
-  borderStrong: "#000000",
-  accent: "#1152D4",
-  danger: "rgba(239,68,68,0.80)",
+import designTokens from "./design_tokens.json";
+
+type ThemeName = keyof typeof designTokens.themes;
+
+const pxUnit = designTokens.spacing.unitPx;
+
+function trackToEm(value: string): number {
+  return Number(value.replace("em", ""));
+}
+
+function mapTheme(themeName: ThemeName) {
+  const theme = designTokens.themes[themeName].color;
+
+  return {
+    bg: theme.background.base,
+    bgWarm: theme.background.warm,
+    surface: theme.background.surface,
+    surfaceWarm: theme.background.surfaceWarm,
+    card: theme.background.surface,
+    muted: theme.background.muted,
+    mutedWarm: theme.background.mutedWarm,
+    panel: theme.background.panel,
+    panelRaised: theme.background.panelRaised,
+    overlay: theme.background.overlay,
+    text: theme.text.primary,
+    textSecondary: theme.text.secondary,
+    textTertiary: theme.text.tertiary,
+    textMuted: theme.text.muted,
+    meta: theme.text.meta,
+    border: theme.border.default,
+    borderSubtle: theme.border.subtle,
+    cardBorder: theme.border.card,
+    borderStrong: theme.border.strong,
+    accent: theme.accent.primary,
+    accentSoft: theme.accent.soft,
+    danger: theme.state.danger,
+  } as const;
+}
+
+export const colorThemes = {
+  light: mapTheme("light"),
+  dark: mapTheme("dark"),
 } as const;
+
+export type DesignThemeName = keyof typeof colorThemes;
+export type DesignColors = (typeof colorThemes)[DesignThemeName];
+
+export const colors = colorThemes.light;
+
+export function getColors(theme: DesignThemeName = "light"): DesignColors {
+  return colorThemes[theme];
+}
 
 export const spacing = {
   0: 0,
-  0.5: 2,
-  1: 4,
-  2: 8,
-  3: 12,
-  4: 16,
-  5: 20,
-  6: 24,
-  8: 32,
-  10: 40,
-  12: 48,
-  14: 56,
-  16: 64,
+  0.5: pxUnit * 0.5,
+  1: pxUnit,
+  2: pxUnit * 2,
+  3: pxUnit * 3,
+  4: pxUnit * 4,
+  5: pxUnit * 5,
+  6: pxUnit * 6,
+  8: pxUnit * 8,
+  10: pxUnit * 10,
+  12: pxUnit * 12,
+  14: pxUnit * 14,
+  16: pxUnit * 16,
+  24: pxUnit * 24,
 } as const;
 
 export const layout = {
-  screenPaddingX: 24,
-  screenPaddingXWide: 32,
-  sectionGap: 48,
-  stackGap: 24,
-  gridGap: 12,
+  screenPaddingX: designTokens.spacing.layout.screenPaddingX,
+  screenPaddingXWide: designTokens.spacing.layout.screenPaddingXWide,
+  sectionGap: designTokens.spacing.layout.sectionGap,
+  stackGap: designTokens.spacing.layout.stackGap,
+  gridGap: designTokens.spacing.layout.gridGap,
 } as const;
 
 export const radius = {
-  none: 0,
-  sm: 2,
-  md: 6,
-  lg: 12,
+  none: designTokens.radius.none,
+  sm: designTokens.radius.sm,
+  base: designTokens.radius.base,
+  md: designTokens.radius.md,
+  lg: designTokens.radius.lg,
+  xl: designTokens.radius.xl,
 } as const;
 
 export const borderWidth = {
-  hairline: 0.5,
-  thin: 1,
-  thick: 2,
+  hairline: designTokens.borderWidth.hairline,
+  thin: designTokens.borderWidth.thin,
+  thick: designTokens.borderWidth.thick,
 } as const;
 
 export const shadow = {
   soft: {
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 20 },
-    elevation: 1,
+    shadowColor: colorThemes.light.text,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 2,
+  },
+  card: {
+    shadowColor: colorThemes.light.text,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   fab: {
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    shadowColor: colorThemes.light.text,
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 5,
   },
 } as const;
 
 export const font = {
   family: {
-    sans: "Inter",
-    serifDisplay: "PlayfairDisplay",
-    serifElegant: "BodoniModa",
-    sansWide: "Montserrat",
+    sans: "AlbertSans_500Medium",
+    serifDisplay: "BodoniModa_400Regular_Italic",
+    serifElegant: "BodoniModa_400Regular_Italic",
+    sansWide: "AlbertSans_700Bold",
+    mono: "Courier",
   },
-  /** Alias for serif display (editorial titles). */
-  serif: "PlayfairDisplay",
-  sansSerif: "Inter",
-  size: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    lg: 18,
-    xl: 20,
-    "2xl": 24,
-    "3xl": 30,
-    "4xl": 36,
-    "5xl": 48,
+  role: designTokens.typography.roles,
+  size: designTokens.typography.fontSize,
+  tracking: {
+    meta: trackToEm(designTokens.typography.tracking.meta),
+    wide: trackToEm(designTokens.typography.tracking.wide),
+    wider: trackToEm(designTokens.typography.tracking.wider),
+    widest: trackToEm(designTokens.typography.tracking.widest),
   },
-  tracking: { meta: 0.2, wide: 0.25, wider: 0.3, widest: 0.4 },
 } as const;
+
+export const motion = designTokens.motion;
 
 export function ls(em: number, fontSize: number) {
   return em * fontSize;

@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { AUTH_ON_PRIMARY, AuthScreenShell } from "@/components/auth/AuthScreenShell";
 
 function singleParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -20,6 +22,7 @@ function isSafeToken(t: string): boolean {
 
 export default function VerifyEmailScreen() {
   const { t } = useTranslation();
+  const { colors } = useDesignTheme();
   const params = useLocalSearchParams();
   const email = singleParam(params.email);
   const token = singleParam(params.token);
@@ -77,54 +80,72 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white px-6 pt-8">
-      <Text className="text-xl font-semibold text-neutral-900">{t("auth.checkYourEmail")}</Text>
-      <Text className="mt-2 text-neutral-600">
+    <AuthScreenShell>
+      <Text className="text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
+        {t("auth.checkYourEmail")}
+      </Text>
+      <Text className="mt-2 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
         {t("auth.verifyEmailBody")}
         {email ? ` ${email}` : ""}.
       </Text>
 
       {token && verifyUrl ? (
-        <View className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-          <Text className="text-sm text-neutral-700">{t("auth.verifyTokenHint")}</Text>
+        <View className="mt-6 rounded-xl border border-kyar-border bg-kyar-surface p-4 dark:border-kyar-dark-border dark:bg-kyar-dark-surface">
+          <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            {t("auth.verifyTokenHint")}
+          </Text>
           <Pressable
-            className="mt-4 items-center rounded-lg bg-neutral-900 py-3 active:opacity-90"
+            className="mt-4 items-center rounded-lg bg-kyar-text py-3 active:opacity-90 dark:bg-kyar-dark-text"
             onPress={openVerifyInBrowser}
             disabled={browserLoading}
           >
             {browserLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={AUTH_ON_PRIMARY} />
             ) : (
-              <Text className="font-semibold text-white">{t("auth.completeVerification")}</Text>
+              <Text className="font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+                {t("auth.completeVerification")}
+              </Text>
             )}
           </Pressable>
         </View>
       ) : null}
 
-      {error ? <Text className="mt-4 text-sm text-red-600">{error}</Text> : null}
-      {resent ? <Text className="mt-4 text-sm text-green-700">{t("auth.verifyResent")}</Text> : null}
+      {error ? (
+        <Text className="mt-4 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+      ) : null}
+      {resent ? (
+        <Text className="mt-4 text-sm text-kyar-accent dark:text-kyar-dark-accent">
+          {t("auth.verifyResent")}
+        </Text>
+      ) : null}
 
       {email && !resent ? (
         <Pressable
-          className="mt-6 items-center rounded-xl border border-neutral-300 py-4 active:opacity-90"
+          className="mt-6 items-center rounded-xl border border-kyar-border py-4 active:opacity-90 dark:border-kyar-dark-border"
           onPress={handleResend}
           disabled={resending}
         >
           {resending ? (
-            <ActivityIndicator />
+            <ActivityIndicator color={colors.text} />
           ) : (
-            <Text className="font-semibold text-neutral-900">{t("auth.resendVerification")}</Text>
+            <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
+              {t("auth.resendVerification")}
+            </Text>
           )}
         </Pressable>
       ) : null}
 
       <Link href="/(auth)/sign-in" asChild>
         <Pressable className="mt-8 self-start">
-          <Text className="font-semibold text-neutral-900">{t("auth.backToSignIn")}</Text>
+          <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
+            {t("auth.backToSignIn")}
+          </Text>
         </Pressable>
       </Link>
 
-      <Text className="mt-6 text-xs text-neutral-500">{t("auth.verifySpamHint")}</Text>
-    </View>
+      <Text className="mt-6 text-xs text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+        {t("auth.verifySpamHint")}
+      </Text>
+    </AuthScreenShell>
   );
 }

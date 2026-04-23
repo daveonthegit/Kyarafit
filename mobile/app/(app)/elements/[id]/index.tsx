@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import DraggableFlatList, {
   type RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -32,9 +24,11 @@ import {
   formatNodeTypeLabel,
   formatOverallBucket,
 } from "@kyarafit/design-system/domain";
-import { DataBoundary } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
+import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { TaskSwipeRow } from "@/screens/build-detail/TaskSwipeRow";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
 type ParentRef = {
   _id: Id<"cosplayNodes">;
@@ -90,25 +84,34 @@ export type ElementDetailLoaded = {
   };
 };
 
+function formatCurrency(cents: number | null | undefined) {
+  if (cents == null) return "—";
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function prettyStatus(value: string | null | undefined) {
+  return value ? value.replace(/_/g, " ") : "—";
+}
+
 export default function ElementDetailScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const router = useRouter();
+  const convertType = useMutation(api.cosplayNodes.convertType);
+  const removeNode = useMutation(api.cosplayNodes.remove);
   const raw = useLocalSearchParams<{ id: string | string[] }>().id;
   const param = Array.isArray(raw) ? raw[0] : raw;
   const id = param ? (param as Id<"cosplayNodes">) : undefined;
 
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-
   const node = useQuery(api.cosplayNodes.get, id ? { id } : "skip");
-  const imageUrl = useQuery(
-    api.files.getUrl,
-    node?.imageStorageId ? { storageId: node.imageStorageId } : "skip"
-  );
 
-  const loading =
-    identity === undefined || (id != null && node === undefined);
+  const loading = identity === undefined || (id != null && node === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
 
   let status: "loading" | "error" | "empty" | "ready";
@@ -132,7 +135,9 @@ export default function ElementDetailScreen() {
             onPress={() => router.push(APP_HREF.elementEdit(id as string))}
             className="mr-3"
           >
-            <Text className="text-base font-semibold text-neutral-900">{t("elements.editShort")}</Text>
+            <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+              {t("elements.editShort")}
+            </Text>
           </Pressable>
         ) : null,
     });
@@ -143,10 +148,32 @@ export default function ElementDetailScreen() {
       {(loaded) => (
         <ElementDetailBody
           loaded={loaded}
-          heroUri={imageUrl ?? null}
-          onLinkBuild={() =>
-            router.push(APP_HREF.elementLinkBuild(loaded.id as string))
-          }
+          onLinkBuild={() => router.push(APP_HREF.elementLinkBuild(loaded.id as string))}
+          onConvert={async () => {
+            try {
+              await convertType({
+                id: loaded.id,
+                userId: loaded.userId,
+                nodeType: loaded.node.nodeType === "element" ? "material" : "element",
+              });
+            } catch (error) {
+              Alert.alert(
+                t("common.errorTitle"),
+                String(error instanceof Error ? error.message : error)
+              );
+            }
+          }}
+          onDelete={async () => {
+            try {
+              await removeNode({ id: loaded.id, userId: loaded.userId });
+              router.replace("/(app)/(tabs)/elements");
+            } catch (error) {
+              Alert.alert(
+                t("common.errorTitle"),
+                String(error instanceof Error ? error.message : error)
+              );
+            }
+          }}
           t={t}
         />
       )}
@@ -156,18 +183,22 @@ export default function ElementDetailScreen() {
 
 function ElementDetailBody({
   loaded,
-  heroUri,
   onLinkBuild,
+  onConvert,
+  onDelete,
   t,
 }: {
   loaded: ElementDetailLoaded;
-  heroUri: string | null;
   onLinkBuild: () => void;
+  onConvert: () => Promise<void>;
+  onDelete: () => Promise<void>;
   t: TFunction;
 }) {
+  const { colors } = useDesignTheme();
   const update = useMutation(api.cosplayNodes.update);
   const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
   const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
+  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
   const createWorkflowTask = useMutation(api.workflow.create);
   const updateWorkflowTask = useMutation(api.workflow.update);
   const deleteWorkflowTask = useMutation(api.workflow.remove);
@@ -208,16 +239,10 @@ function ElementDetailBody({
     return flattenWorkflow(source as WorkflowTreeNode[]).filter((task) => {
       const isDone = task.status === "done";
       const matchesFilter =
-        workflowTaskFilter === "all" ||
-        (workflowTaskFilter === "open" ? !isDone : isDone);
+        workflowTaskFilter === "all" || (workflowTaskFilter === "open" ? !isDone : isDone);
       return matchesFilter;
     });
-  }, [
-    nodeWorkflow?.buildSpecific,
-    nodeWorkflow?.shared,
-    workflowScope,
-    workflowTaskFilter,
-  ]);
+  }, [nodeWorkflow?.buildSpecific, nodeWorkflow?.shared, workflowScope, workflowTaskFilter]);
 
   const workflowSummary = useMemo(() => {
     const source =
@@ -231,6 +256,8 @@ function ElementDetailBody({
 
   const statusLabel = useMemo(() => formatNodeStatus(node), [node]);
   const costLabel = useMemo(() => formatCostSummary(node), [node]);
+  const convertLabel =
+    node.nodeType === "element" ? t("elements.convertToMaterial") : t("elements.convertToElement");
 
   const applyUpdate = (patch: Parameters<typeof update>[0]) => {
     void update({ ...patch, id, userId });
@@ -364,6 +391,28 @@ function ElementDetailBody({
     [removeChildLink, t, userId]
   );
 
+  const confirmUnlinkBuild = useCallback(
+    (buildId: Id<"builds">, name: string) => {
+      Alert.alert(t("elements.unlinkConfirmTitle"), name, [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("elements.unlinkConfirmAction"),
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await removeNodeFromBuild({ userId, buildId, cosplayNodeId: id });
+              } catch (e) {
+                Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+              }
+            })();
+          },
+        },
+      ]);
+    },
+    [id, removeNodeFromBuild, t, userId]
+  );
+
   const onDragEnd = useCallback(
     async ({ data }: { data: ChildRow[] }) => {
       try {
@@ -382,443 +431,719 @@ function ElementDetailBody({
   const renderChild = useCallback(
     ({ item, drag, isActive }: RenderItemParams<ChildRow>) => (
       <ScaleDecorator>
-        <View
-          className={`flex-row items-stretch border-b border-neutral-100 ${isActive ? "opacity-80" : ""}`}
+        <Pressable
+          onPress={() => router.push(APP_HREF.element(item._id as string))}
+          onLongPress={drag}
+          delayLongPress={160}
+          className={`px-4 py-3 ${isActive ? "opacity-75" : ""}`}
         >
-          <Pressable
-            className="flex-1 py-4 pr-2"
-            onPress={() => router.push(APP_HREF.element(item._id as string))}
-          >
-            <Text className="text-base font-medium text-neutral-900">{item.name}</Text>
-            <Text className="mt-0.5 text-sm text-neutral-500">
-              {formatNodeTypeLabel(item.nodeType as CosplayNodeType)} · {formatNodeStatus(item)}
-            </Text>
-          </Pressable>
-          <Pressable
-            onLongPress={drag}
-            delayLongPress={120}
-            className="justify-center px-2"
-            accessibilityLabel={t("elements.dragToReorder")}
-          >
-            <Text className="text-lg text-neutral-400">☰</Text>
-          </Pressable>
-          <Pressable
-            className="justify-center px-2"
-            onPress={() => confirmRemoveLink(item.linkId, item.name)}
-            accessibilityLabel={t("elements.unlinkChild")}
-          >
-            <Text className="text-base font-semibold text-red-600">×</Text>
-          </Pressable>
-        </View>
+          <View className="flex-row items-center gap-3">
+            {item.imageStorageId || item.imageUrl ? (
+              <ConvexStorageImage
+                storageId={item.imageStorageId}
+                imageUrl={item.imageUrl}
+                className="h-16 w-16 rounded-2xl"
+                accessibilityLabel={item.name}
+              />
+            ) : (
+              <View className="h-16 w-16 items-center justify-center rounded-2xl bg-kyar-panel dark:bg-kyar-dark-panel">
+                <Text className="text-2xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                  {item.nodeType === "material" ? "◇" : "◆"}
+                </Text>
+              </View>
+            )}
+
+            <View className="min-w-0 flex-1">
+              <MetaLabel>
+                {formatNodeTypeLabel(item.nodeType as CosplayNodeType)} ·{" "}
+                {formatOverallBucket(item.overallBucket)}
+              </MetaLabel>
+              <Text
+                className="mt-1 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text"
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
+                numberOfLines={1}
+              >
+                {formatNodeStatus(item)}
+              </Text>
+            </View>
+
+            <View className="items-end gap-2">
+              <Ionicons name="reorder-three" size={18} color={colors.textTertiary} />
+              <Pressable
+                onPress={(event) => {
+                  event.stopPropagation();
+                  confirmRemoveLink(item.linkId, item.name);
+                }}
+                hitSlop={8}
+                accessibilityLabel={t("elements.unlinkChild")}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
       </ScaleDecorator>
     ),
-    [confirmRemoveLink, router, t]
+    [colors.textSecondary, colors.textTertiary, confirmRemoveLink, router, t]
   );
 
-  const uri = heroUri ?? node.imageUrl ?? null;
-
   const statusPickCurrent =
-    workflowStatusPickId &&
-    visibleWorkflowRows.find((r) => r._id === workflowStatusPickId)?.status;
+    workflowStatusPickId && visibleWorkflowRows.find((r) => r._id === workflowStatusPickId)?.status;
 
   return (
     <>
-    <ScrollView className="flex-1 bg-white">
-      <View className="aspect-[4/5] w-full bg-neutral-100">
-        {uri ? (
-          <Image source={{ uri }} className="h-full w-full" resizeMode="cover" />
-        ) : (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-5xl text-neutral-300">
-              {node.nodeType === "material" ? "◇" : "◆"}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View className="px-4 pb-10 pt-4">
-        <Text className="text-xs uppercase tracking-wide text-neutral-500">
-          {formatNodeTypeLabel(node.nodeType as CosplayNodeType)}
-          {node.category ? ` · ${node.category}` : ""}
-        </Text>
-        <Text className="mt-1 text-2xl font-semibold text-neutral-900">{node.name}</Text>
-
-        <View className="mt-4 flex-row flex-wrap gap-2">
-          <MetaChip label={t("elements.progressPercent", { pct: node.progressPercent ?? 0 })} />
-          <MetaChip label={formatOverallBucket(node.overallBucket)} />
-          <MetaChip label={statusLabel} />
-        </View>
-
-        <Text className="mt-3 text-sm text-neutral-600">{costLabel}</Text>
-
-        <Text className="mt-6 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          {t("elements.adjustStatus")}
-        </Text>
-        {node.nodeType === "element" ? (
-          <View className="mt-2 flex-row flex-wrap gap-2">
-            <Pressable
-              onPress={openPurchaseSheet}
-              className="rounded-full border border-neutral-200 px-4 py-2"
-            >
-              <Text className="text-sm text-neutral-800">{t("elements.statusPurchase")}</Text>
-            </Pressable>
-            <Pressable
-              onPress={openBuildSheet}
-              className="rounded-full border border-neutral-200 px-4 py-2"
-            >
-              <Text className="text-sm text-neutral-800">{t("elements.statusBuild")}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View className="mt-2 flex-row flex-wrap gap-2">
-            {MATERIAL_STATUSES.map((s) => (
-              <Pressable
-                key={s}
-                onPress={() =>
-                  applyUpdate({
-                    id,
-                    userId,
-                    materialStatus: s,
-                  })
-                }
-                className={`rounded-full border px-3 py-1.5 ${
-                  node.materialStatus === s ? "border-neutral-900 bg-neutral-900" : "border-neutral-200"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-medium ${
-                    node.materialStatus === s ? "text-white" : "text-neutral-800"
-                  }`}
-                >
-                  {s.replace("_", " ")}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        <Pressable
-          onPress={onLinkBuild}
-          className="mt-8 rounded-xl bg-neutral-900 py-4 active:opacity-90"
-        >
-          <Text className="text-center text-base font-semibold text-white">
-            {t("elements.linkToOutfit")}
-          </Text>
-        </Pressable>
-
-        <Text className="mt-10 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          {t("elements.workflowSection")}
-        </Text>
-        <View className="mt-3 flex-row rounded-xl border border-neutral-200 p-1">
-          <Pressable
-            onPress={() => setWorkflowScope("shared")}
-            className={`flex-1 rounded-lg py-2 ${workflowScope === "shared" ? "bg-neutral-900" : ""}`}
-          >
-            <Text
-              className={`text-center text-sm font-medium ${
-                workflowScope === "shared" ? "text-white" : "text-neutral-700"
-              }`}
-            >
-              {t("elements.workflowShared")}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setWorkflowScope("outfit")}
-            className={`flex-1 rounded-lg py-2 ${workflowScope === "outfit" ? "bg-neutral-900" : ""}`}
-          >
-            <Text
-              className={`text-center text-sm font-medium ${
-                workflowScope === "outfit" ? "text-white" : "text-neutral-700"
-              }`}
-            >
-              {t("elements.workflowOutfit")}
-            </Text>
-          </Pressable>
-        </View>
-
-        {workflowScope === "outfit" && buildsUsing.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mt-3 max-h-12"
-            contentContainerStyle={{ gap: 8, alignItems: "center", paddingVertical: 4 }}
-          >
-            {buildsUsing.map((b) => {
-              const selected = selectedWorkflowBuildId === b._id;
-              return (
-                <Pressable
-                  key={b._id}
-                  onPress={() =>
-                    setSelectedWorkflowBuildId(selected ? "" : (b._id as Id<"builds">))
-                  }
-                  className={`rounded-full border px-3 py-1.5 ${
-                    selected ? "border-neutral-900 bg-neutral-900" : "border-neutral-200 bg-neutral-50"
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-medium ${selected ? "text-white" : "text-neutral-800"}`}
-                    numberOfLines={1}
-                  >
-                    {b.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-
-        {workflowScope === "outfit" && buildsUsing.length === 0 ? (
-          <Text className="mt-2 text-sm text-neutral-500">{t("elements.workflowNoOutfits")}</Text>
-        ) : null}
-
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          {(["all", "open", "done"] as const).map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setWorkflowTaskFilter(f)}
-              className={`rounded-full border px-3 py-1.5 ${
-                workflowTaskFilter === f ? "border-neutral-900 bg-neutral-900" : "border-neutral-200"
-              }`}
-            >
-              <Text
-                className={`text-xs font-medium ${
-                  workflowTaskFilter === f ? "text-white" : "text-neutral-800"
-                }`}
-              >
-                {f === "all"
-                  ? t("elements.workflowFilterAll")
-                  : f === "open"
-                    ? t("elements.workflowFilterOpen")
-                    : t("elements.workflowFilterDone")}
+      <ScrollView
+        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 48,
+          gap: 20,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <SurfaceCard className="overflow-hidden">
+          {node.imageStorageId || node.imageUrl ? (
+            <ConvexStorageImage
+              storageId={node.imageStorageId}
+              imageUrl={node.imageUrl}
+              className="h-80 w-full"
+              accessibilityLabel={node.name}
+            />
+          ) : (
+            <View className="h-72 items-center justify-center bg-kyar-panel dark:bg-kyar-dark-panel">
+              <Text className="text-6xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {node.nodeType === "material" ? "◇" : "◆"}
               </Text>
-            </Pressable>
-          ))}
+            </View>
+          )}
+
+          <View className="px-5 py-5">
+            <MetaLabel>
+              {formatNodeTypeLabel(node.nodeType as CosplayNodeType)}
+              {node.category ? ` · ${node.category}` : ""}
+            </MetaLabel>
+            <Text className="mt-2 font-serif text-5xl italic leading-[56px] text-kyar-text dark:text-kyar-dark-text">
+              {node.name}
+            </Text>
+
+            <View className="mt-4 flex-row flex-wrap gap-2">
+              <DetailChip
+                label={t("elements.progressPercent", { pct: node.progressPercent ?? 0 })}
+              />
+              <DetailChip label={formatOverallBucket(node.overallBucket)} />
+              <DetailChip label={statusLabel} />
+            </View>
+
+            {node.notes ? (
+              <Text className="mt-5 text-base leading-7 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                {node.notes}
+              </Text>
+            ) : null}
+          </View>
+        </SurfaceCard>
+
+        <View className="flex-row gap-3">
+          <StatCard label={t("elements.adjustStatus")} value={statusLabel} />
+          <StatCard label={t("elements.pricingSection")} value={costLabel} />
         </View>
 
-        <Text className="mt-2 text-xs text-neutral-500">
-          {t("elements.workflowCount", {
-            count: workflowSummary.total,
-            done: workflowSummary.done,
-          })}
-        </Text>
+        <View className="flex-row gap-3">
+          <StatCard
+            label={t("elements.directCostLabel")}
+            value={formatCurrency(node.directCostCents)}
+          />
+          <StatCard label={t("elements.children")} value={String(node.childCount ?? 0)} />
+        </View>
 
-        {nodeWorkflow === undefined ? (
-          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowLoading")}</Text>
-        ) : workflowScope === "outfit" && buildsUsing.length > 0 && !selectedWorkflowBuildId ? (
-          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowPickOutfit")}</Text>
-        ) : visibleWorkflowRows.length === 0 ? (
-          <Text className="mt-3 text-sm text-neutral-500">{t("elements.workflowEmpty")}</Text>
-        ) : (
-          <View className="mt-3">
-            {visibleWorkflowRows.map((task) => {
-              const checked = task.status === "done";
-              return (
-                <View key={task._id} style={{ marginLeft: task.depth * 12 }}>
-                  <TaskSwipeRow checked={checked} onToggle={() => toggleWorkflowDone(task._id, !checked)}>
-                    <View className="flex-row items-center gap-2 px-3 py-3">
-                      <Pressable
-                        onPress={() => toggleWorkflowDone(task._id, !checked)}
-                        className="h-8 w-8 items-center justify-center rounded-full border border-neutral-300"
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked }}
-                      >
-                        <Text className="text-sm">{checked ? "✓" : ""}</Text>
-                      </Pressable>
+        <View>
+          <SectionHeading title={t("elements.managementSection")} />
+          <SurfaceCard className="mt-4 px-4 py-4">
+            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              {t("elements.managementSubtitle")}
+            </Text>
+            <View className="mt-4 flex-row flex-wrap gap-3">
+              <Button
+                title={convertLabel}
+                variant="secondary"
+                onPress={() =>
+                  Alert.alert(t("elements.convertTitle"), convertLabel, [
+                    { text: t("common.cancel"), style: "cancel" },
+                    {
+                      text: t("elements.convertAction"),
+                      onPress: () => {
+                        void onConvert();
+                      },
+                    },
+                  ])
+                }
+              />
+              <Button
+                title={t("elements.deleteNode")}
+                variant="secondary"
+                onPress={() =>
+                  Alert.alert(t("elements.deleteNodeTitle"), t("elements.deleteNodeBody"), [
+                    { text: t("common.cancel"), style: "cancel" },
+                    {
+                      text: t("elements.deleteNodeAction"),
+                      style: "destructive",
+                      onPress: () => {
+                        void onDelete();
+                      },
+                    },
+                  ])
+                }
+              />
+            </View>
+          </SurfaceCard>
+        </View>
+
+        <View>
+          <SectionHeading title={t("elements.adjustStatus")} />
+          <SurfaceCard className="mt-4 px-4 py-4">
+            {node.nodeType === "element" ? (
+              <View className="gap-3">
+                <StatusRow
+                  label={t("elements.statusPurchase")}
+                  value={prettyStatus(node.purchaseStatus)}
+                  onPress={openPurchaseSheet}
+                />
+                <StatusRow
+                  label={t("elements.statusBuild")}
+                  value={prettyStatus(node.buildStatus)}
+                  onPress={openBuildSheet}
+                />
+              </View>
+            ) : (
+              <View className="flex-row flex-wrap gap-2">
+                {MATERIAL_STATUSES.map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() =>
+                      applyUpdate({
+                        id,
+                        userId,
+                        materialStatus: s,
+                      })
+                    }
+                    className={`rounded-full border px-4 py-2 ${
+                      node.materialStatus === s
+                        ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                        : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-medium ${
+                        node.materialStatus === s
+                          ? "text-kyar-bg dark:text-kyar-dark-bg"
+                          : "text-kyar-text dark:text-kyar-dark-text"
+                      }`}
+                    >
+                      {s.replace("_", " ")}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </SurfaceCard>
+        </View>
+
+        <View>
+          <SectionHeading
+            title={t("elements.linkBuildTitle")}
+            action={<Button title={t("elements.linkToOutfit")} onPress={onLinkBuild} />}
+          />
+          <SurfaceCard className="mt-4 px-4 py-4">
+            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              {t("elements.linkBuildSubtitle")}
+            </Text>
+
+            {buildsUsingRaw === undefined ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.workflowLoading")}
+              </Text>
+            ) : buildsUsing.length === 0 ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.linkBuildEmpty")}
+              </Text>
+            ) : (
+              <View className="mt-4 gap-3">
+                {buildsUsing.map((build) => (
+                  <Pressable
+                    key={build._id}
+                    onPress={() => router.push(APP_HREF.build(build._id as string))}
+                    className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-4 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
+                  >
+                    <View className="flex-row items-start justify-between gap-3">
                       <View className="min-w-0 flex-1">
+                        <MetaLabel>{build.character || t("common.builds")}</MetaLabel>
                         <Text
-                          className={`text-base ${checked ? "text-neutral-400 line-through" : "text-neutral-900"}`}
+                          className="mt-1 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text"
+                          numberOfLines={1}
                         >
-                          {task.title}
-                        </Text>
-                        <Text className="mt-0.5 text-xs text-neutral-500">
-                          {task.kind} · {task.status.replace(/_/g, " ")} · {task.progressPercent}%
+                          {build.name}
                         </Text>
                       </View>
                       <Pressable
-                        onPress={() => setWorkflowStatusPickId(task._id)}
-                        className="px-2 py-1"
-                        accessibilityLabel={t("elements.workflowStatus")}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          confirmUnlinkBuild(build._id, build.name);
+                        }}
+                        hitSlop={8}
+                        accessibilityLabel={t("elements.unlinkConfirmAction")}
                       >
-                        <Text className="text-lg text-neutral-500">⋯</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => confirmRemoveWorkflowTask(task._id, task.title)}
-                        className="px-2 py-1"
-                        accessibilityLabel={t("elements.workflowRemoveAction")}
-                      >
-                        <Text className="text-base font-semibold text-red-600">×</Text>
+                        <Ionicons name="close" size={18} color={colors.textSecondary} />
                       </Pressable>
                     </View>
-                  </TaskSwipeRow>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        <View className="mt-4 flex-row items-end gap-2">
-          <TextInput
-            value={newWorkflowLabel}
-            onChangeText={setNewWorkflowLabel}
-            placeholder={
-              workflowScope === "outfit"
-                ? t("elements.workflowAddPlaceholderOutfit")
-                : t("elements.workflowAddPlaceholderShared")
-            }
-            placeholderTextColor="#a3a3a3"
-            className="min-h-[44px] flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-base text-neutral-900"
-            editable={
-              !!userId &&
-              !(
-                workflowScope === "outfit" &&
-                buildsUsing.length > 0 &&
-                !selectedWorkflowBuildId
-              )
-            }
-            onSubmitEditing={() => void handleAddWorkflowTask()}
-          />
-          <Pressable
-            onPress={() => void handleAddWorkflowTask()}
-            disabled={
-              !userId ||
-              !newWorkflowLabel.trim() ||
-              (workflowScope === "outfit" &&
-                buildsUsing.length > 0 &&
-                !selectedWorkflowBuildId)
-            }
-            className="rounded-xl bg-neutral-900 px-4 py-3 active:opacity-90 disabled:opacity-40"
-          >
-            <Text className="text-sm font-semibold text-white">{t("elements.workflowAdd")}</Text>
-          </Pressable>
-        </View>
-
-        <Text className="mt-10 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          {t("elements.graphLinks")}
-        </Text>
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          <Pressable
-            onPress={() =>
-              router.push(APP_HREF.elementLinkChild(id as string))
-            }
-            className="rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2"
-          >
-            <Text className="text-sm font-medium text-neutral-900">{t("elements.addChild")}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() =>
-              router.push(APP_HREF.elementLinkParent(id as string))
-            }
-            className="rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2"
-          >
-            <Text className="text-sm font-medium text-neutral-900">{t("elements.attachParent")}</Text>
-          </Pressable>
-        </View>
-
-        {node.parents.length > 0 ? (
-          <View className="mt-10">
-            <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              {t("elements.parents")}
-            </Text>
-            {node.parents.map((p: ParentRef) => (
-              <View
-                key={p._id}
-                className="mt-2 flex-row items-center border-b border-neutral-100 py-3"
-              >
-                <Pressable
-                  className="min-w-0 flex-1"
-                  onPress={() => router.push(APP_HREF.element(p._id as string))}
-                >
-                  <Text className="text-base font-medium text-neutral-900">{p.name}</Text>
-                  <Text className="mt-0.5 text-xs text-neutral-500">
-                    {formatNodeTypeLabel(p.nodeType as CosplayNodeType)}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="px-2 py-1"
-                  onPress={() => confirmRemoveLink(p.linkId, p.name)}
-                  accessibilityLabel={t("elements.unlinkParent")}
-                >
-                  <Text className="text-base font-semibold text-red-600">×</Text>
-                </Pressable>
+                  </Pressable>
+                ))}
               </View>
-            ))}
-          </View>
-        ) : null}
+            )}
+          </SurfaceCard>
+        </View>
 
-        {node.children.length > 0 ? (
-          <View className="mt-8">
-            <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              {t("elements.children")}
+        <View>
+          <SectionHeading title={t("elements.workflowSection")} />
+          <SurfaceCard className="mt-4 px-4 py-4">
+            <View className="flex-row rounded-full border border-kyar-borderSubtle bg-kyar-panel p-1 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
+              <SegmentedPill
+                active={workflowScope === "shared"}
+                label={t("elements.workflowShared")}
+                onPress={() => setWorkflowScope("shared")}
+              />
+              <SegmentedPill
+                active={workflowScope === "outfit"}
+                label={t("elements.workflowOutfit")}
+                onPress={() => setWorkflowScope("outfit")}
+              />
+            </View>
+
+            {workflowScope === "outfit" && buildsUsing.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mt-4"
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {buildsUsing.map((b) => {
+                  const selected = selectedWorkflowBuildId === b._id;
+                  return (
+                    <FilterPill
+                      key={b._id}
+                      active={selected}
+                      label={b.name}
+                      onPress={() =>
+                        setSelectedWorkflowBuildId(selected ? "" : (b._id as Id<"builds">))
+                      }
+                    />
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            {workflowScope === "outfit" && buildsUsing.length === 0 ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.workflowNoOutfits")}
+              </Text>
+            ) : null}
+
+            <View className="mt-4 flex-row flex-wrap gap-2">
+              {(["all", "open", "done"] as const).map((f) => (
+                <FilterPill
+                  key={f}
+                  active={workflowTaskFilter === f}
+                  label={
+                    f === "all"
+                      ? t("elements.workflowFilterAll")
+                      : f === "open"
+                        ? t("elements.workflowFilterOpen")
+                        : t("elements.workflowFilterDone")
+                  }
+                  onPress={() => setWorkflowTaskFilter(f)}
+                />
+              ))}
+            </View>
+
+            <Text className="mt-4 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              {t("elements.workflowCount", {
+                count: workflowSummary.total,
+                done: workflowSummary.done,
+              })}
             </Text>
-            <Text className="mt-1 text-xs text-neutral-500">{t("elements.childrenDragHint")}</Text>
-            <DraggableFlatList
-              className="mt-2"
-              data={node.children}
-              keyExtractor={(item) => item.linkId as string}
-              onDragEnd={onDragEnd}
-              renderItem={renderChild}
-              scrollEnabled={false}
-              style={{ flexGrow: 0 }}
-            />
-          </View>
-        ) : null}
-      </View>
-    </ScrollView>
 
-    <Modal
-      visible={workflowStatusPickId !== null}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setWorkflowStatusPickId(null)}
-    >
-      <Pressable
-        className="flex-1 justify-end bg-black/40"
-        onPress={() => setWorkflowStatusPickId(null)}
+            {nodeWorkflow === undefined ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.workflowLoading")}
+              </Text>
+            ) : workflowScope === "outfit" && buildsUsing.length > 0 && !selectedWorkflowBuildId ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.workflowPickOutfit")}
+              </Text>
+            ) : visibleWorkflowRows.length === 0 ? (
+              <Text className="mt-4 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                {t("elements.workflowEmpty")}
+              </Text>
+            ) : (
+              <View className="mt-4 gap-3">
+                {visibleWorkflowRows.map((task) => {
+                  const checked = task.status === "done";
+                  return (
+                    <View key={task._id} style={{ marginLeft: task.depth * 12 }}>
+                      <TaskSwipeRow
+                        checked={checked}
+                        onToggle={() => toggleWorkflowDone(task._id, !checked)}
+                      >
+                        <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
+                          <View className="flex-row items-center gap-3">
+                            <Pressable
+                              onPress={() => toggleWorkflowDone(task._id, !checked)}
+                              className="h-9 w-9 items-center justify-center rounded-full border border-kyar-border dark:border-kyar-dark-border"
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked }}
+                            >
+                              <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+                                {checked ? "✓" : ""}
+                              </Text>
+                            </Pressable>
+
+                            <View className="min-w-0 flex-1">
+                              <Text
+                                className={`text-base ${
+                                  checked
+                                    ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
+                                    : "text-kyar-text dark:text-kyar-dark-text"
+                                }`}
+                              >
+                                {task.title}
+                              </Text>
+                              <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+                                {task.kind} · {task.status.replace(/_/g, " ")} ·{" "}
+                                {task.progressPercent}%
+                              </Text>
+                            </View>
+
+                            <Pressable
+                              onPress={() => setWorkflowStatusPickId(task._id)}
+                              hitSlop={8}
+                              accessibilityLabel={t("elements.workflowStatus")}
+                            >
+                              <Ionicons
+                                name="ellipsis-horizontal"
+                                size={18}
+                                color={colors.textSecondary}
+                              />
+                            </Pressable>
+                            <Pressable
+                              onPress={() => confirmRemoveWorkflowTask(task._id, task.title)}
+                              hitSlop={8}
+                              accessibilityLabel={t("elements.workflowRemoveAction")}
+                            >
+                              <Ionicons name="close" size={18} color={colors.textSecondary} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      </TaskSwipeRow>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            <View className="mt-4 flex-row items-end gap-2">
+              <TextInput
+                value={newWorkflowLabel}
+                onChangeText={setNewWorkflowLabel}
+                placeholder={
+                  workflowScope === "outfit"
+                    ? t("elements.workflowAddPlaceholderOutfit")
+                    : t("elements.workflowAddPlaceholderShared")
+                }
+                placeholderTextColor={colors.textTertiary}
+                className="min-h-[46px] flex-1 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
+                editable={
+                  !!userId &&
+                  !(
+                    workflowScope === "outfit" &&
+                    buildsUsing.length > 0 &&
+                    !selectedWorkflowBuildId
+                  )
+                }
+                onSubmitEditing={() => void handleAddWorkflowTask()}
+              />
+              <Button
+                title={t("elements.workflowAdd")}
+                onPress={() => void handleAddWorkflowTask()}
+                disabled={
+                  !userId ||
+                  !newWorkflowLabel.trim() ||
+                  (workflowScope === "outfit" && buildsUsing.length > 0 && !selectedWorkflowBuildId)
+                }
+              />
+            </View>
+          </SurfaceCard>
+        </View>
+
+        <View>
+          <SectionHeading title={t("elements.graphLinks")} />
+          <SurfaceCard className="mt-4 px-4 py-4">
+            <View className="flex-row flex-wrap gap-2">
+              <Button
+                title={t("elements.addChild")}
+                variant="secondary"
+                onPress={() => router.push(APP_HREF.elementLinkChild(id as string))}
+              />
+              <Button
+                title={t("elements.attachParent")}
+                variant="secondary"
+                onPress={() => router.push(APP_HREF.elementLinkParent(id as string))}
+              />
+            </View>
+
+            {node.parents.length > 0 ? (
+              <View className="mt-6 gap-3">
+                <MetaLabel>{t("elements.parents")}</MetaLabel>
+                {node.parents.map((p) => (
+                  <HierarchyRow
+                    key={p._id}
+                    title={p.name}
+                    subtitle={formatNodeTypeLabel(p.nodeType as CosplayNodeType)}
+                    onPress={() => router.push(APP_HREF.element(p._id as string))}
+                    onRemove={() => confirmRemoveLink(p.linkId, p.name)}
+                  />
+                ))}
+              </View>
+            ) : null}
+
+            <View className="mt-6">
+              <MetaLabel>{t("elements.children")}</MetaLabel>
+              {node.children.length > 0 ? (
+                <>
+                  <Text className="mt-2 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                    {t("elements.childrenDragHint")}
+                  </Text>
+                  <DraggableFlatList
+                    className="mt-3"
+                    data={node.children}
+                    keyExtractor={(item) => item.linkId as string}
+                    onDragEnd={onDragEnd}
+                    renderItem={renderChild}
+                    scrollEnabled={false}
+                    ItemSeparatorComponent={() => (
+                      <View className="mx-4 border-t border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle" />
+                    )}
+                    style={{ flexGrow: 0 }}
+                  />
+                </>
+              ) : (
+                <Text className="mt-3 text-sm text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                  {t("elements.linkChildSubtitle")}
+                </Text>
+              )}
+            </View>
+          </SurfaceCard>
+        </View>
+      </ScrollView>
+
+      <Modal
+        visible={workflowStatusPickId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWorkflowStatusPickId(null)}
       >
         <Pressable
-          className="max-h-[70%] rounded-t-2xl bg-white px-4 pb-8 pt-4"
-          onPress={(e) => e.stopPropagation()}
+          className="flex-1 justify-end bg-black/40"
+          onPress={() => setWorkflowStatusPickId(null)}
         >
-          <Text className="mb-3 text-center text-sm font-semibold text-neutral-900">
-            {t("elements.workflowStatus")}
-          </Text>
-          <ScrollView>
-            {WORKFLOW_STATUSES.map((st) => (
-              <Pressable
-                key={st}
-                onPress={() => {
-                  if (workflowStatusPickId) {
-                    void updateWorkflowTask({
-                      id: workflowStatusPickId,
-                      userId,
-                      status: st,
-                    });
-                  }
-                  setWorkflowStatusPickId(null);
-                }}
-                className={`border-b border-neutral-100 py-3 ${statusPickCurrent === st ? "bg-neutral-50" : ""}`}
-              >
-                <Text className="text-base text-neutral-900">{st.replace(/_/g, " ")}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
           <Pressable
-            onPress={() => setWorkflowStatusPickId(null)}
-            className="mt-3 rounded-xl border border-neutral-200 py-3"
+            className="max-h-[70%] rounded-t-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 pb-8 pt-4 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+            onPress={(e) => e.stopPropagation()}
           >
-            <Text className="text-center text-base text-neutral-700">{t("common.cancel")}</Text>
+            <Text className="mb-3 text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+              {t("elements.workflowStatus")}
+            </Text>
+            <ScrollView>
+              {WORKFLOW_STATUSES.map((st) => (
+                <Pressable
+                  key={st}
+                  onPress={() => {
+                    if (workflowStatusPickId) {
+                      void updateWorkflowTask({
+                        id: workflowStatusPickId,
+                        userId,
+                        status: st,
+                      });
+                    }
+                    setWorkflowStatusPickId(null);
+                  }}
+                  className={`border-b border-kyar-borderSubtle py-3 dark:border-kyar-dark-borderSubtle ${
+                    statusPickCurrent === st ? "bg-kyar-panel dark:bg-kyar-dark-panel" : ""
+                  }`}
+                >
+                  <Text className="text-base text-kyar-text dark:text-kyar-dark-text">
+                    {st.replace(/_/g, " ")}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Button
+              title={t("common.cancel")}
+              variant="secondary"
+              onPress={() => setWorkflowStatusPickId(null)}
+              className="mt-4"
+            />
           </Pressable>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </Modal>
     </>
   );
 }
 
-function MetaChip({ label }: { label: string }) {
+function DetailChip({ label }: { label: string }) {
   return (
-    <View className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5">
-      <Text className="text-xs font-medium text-neutral-800">{label}</Text>
+    <View className="rounded-full border border-kyar-borderSubtle bg-kyar-panel px-3 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
+      <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">{label}</Text>
     </View>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <SurfaceCard className="flex-1 px-4 py-4">
+      <MetaLabel>{label}</MetaLabel>
+      <Text className="mt-3 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+        {value}
+      </Text>
+    </SurfaceCard>
+  );
+}
+
+function StatusRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
+  const { colors } = useDesignTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-4 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
+    >
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="min-w-0 flex-1">
+          <MetaLabel>{label}</MetaLabel>
+          <Text className="mt-1 text-base font-medium text-kyar-text dark:text-kyar-dark-text">
+            {value}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+      </View>
+    </Pressable>
+  );
+}
+
+function SegmentedPill({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={`flex-1 rounded-full px-4 py-3 ${
+        active ? "bg-kyar-text dark:bg-kyar-dark-text" : "bg-transparent"
+      }`}
+    >
+      <Text
+        className={`text-center text-sm font-medium ${
+          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
+        }`}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function FilterPill({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={`rounded-full border px-4 py-2 ${
+        active
+          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+      }`}
+    >
+      <Text
+        className={`text-xs font-medium ${
+          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
+        }`}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function HierarchyRow({
+  title,
+  subtitle,
+  onPress,
+  onRemove,
+}: {
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  onRemove: () => void;
+}) {
+  const { colors } = useDesignTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-4 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
+    >
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="min-w-0 flex-1">
+          <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+            {title}
+          </Text>
+          <Text className="mt-1 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
+            {subtitle}
+          </Text>
+        </View>
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+          hitSlop={8}
+        >
+          <Ionicons name="close" size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+    </Pressable>
   );
 }

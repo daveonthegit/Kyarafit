@@ -17,6 +17,7 @@
     "settings": "Ajustes",
     "addItem": "Añadir elemento",
     "addOutfit": "Añadir outfit",
+    "addBuild": "Añadir proyecto",
     "addEvent": "Añadir evento",
     "addGroup": "Añadir grupo"
   },
@@ -40,6 +41,7 @@
     "quickLinks": "Accesos rápidos",
     "quickActions": "Acciones rápidas",
     "addOutfit": "Añadir outfit",
+    "addBuild": "Añadir proyecto",
     "addClothingItem": "Añadir prenda",
     "addClosetItem": "Añadir elemento al armario",
     "planNewCosplay": "Planificar nuevo cosplay",

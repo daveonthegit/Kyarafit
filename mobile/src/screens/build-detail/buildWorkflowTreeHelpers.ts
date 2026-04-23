@@ -33,9 +33,7 @@ function cosplayNodeIdFromRootAttachments(
   return cosplay ? (cosplay.entityId as Id<"cosplayNodes">) : null;
 }
 
-export function flattenWorkflowWithElementGroup(
-  roots: WorkflowTreeNodeShape[]
-): WorkflowRowFlat[] {
+export function flattenWorkflowWithElementGroup(roots: WorkflowTreeNodeShape[]): WorkflowRowFlat[] {
   const acc: WorkflowRowFlat[] = [];
   for (const root of roots) {
     const cosplayId = cosplayNodeIdFromRootAttachments(root.attachments);
@@ -51,10 +49,7 @@ export function flattenWorkflowWithElementGroup(
 
 export function sortWorkflowGroupKeys(
   keys: string[],
-  visualById: Map<
-    string,
-    { sortOrder: number; depth: number; name: string; nodeType: string }
-  >
+  visualById: Map<string, { sortOrder: number; depth: number; name: string; nodeType: string }>
 ): string[] {
   return [...keys].sort((a, b) => {
     if (a === BUILD_WORKFLOW_GROUP_KEY && b !== BUILD_WORKFLOW_GROUP_KEY) return 1;

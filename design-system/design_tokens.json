@@ -1,16 +1,21 @@
 {
   "meta": {
     "name": "Kyarafit Design Tokens",
-    "version": "0.2.0",
-    "source": "2026 redesign foundation"
+    "version": "0.3.0",
+    "source": "web runtime source of truth"
   },
   "themes": {
     "light": {
       "color": {
         "background": {
           "base": "#F7F3EB",
+          "warm": "#EFE9DE",
           "surface": "#FFFDF8",
+          "surfaceWarm": "#F8F2E8",
           "muted": "#ECE7DE",
+          "mutedWarm": "#E4DDD2",
+          "panel": "#F5F1E8",
+          "panelRaised": "#FBF8F2",
           "overlay": "rgba(247,243,235,0.92)"
         },
         "text": {
@@ -23,6 +28,7 @@
         "border": {
           "default": "rgba(23,22,41,0.14)",
           "subtle": "rgba(23,22,41,0.08)",
+          "card": "rgba(23,22,41,0.16)",
           "strong": "#171629",
           "dashed": "rgba(23,22,41,0.16)"
         },
@@ -39,8 +45,13 @@
       "color": {
         "background": {
           "base": "#171726",
+          "warm": "#1D1E2C",
           "surface": "#202132",
+          "surfaceWarm": "#25263A",
           "muted": "#2A2C40",
+          "mutedWarm": "#313349",
+          "panel": "#232435",
+          "panelRaised": "#2B2D3E",
           "overlay": "rgba(23,23,38,0.92)"
         },
         "text": {
@@ -53,6 +64,7 @@
         "border": {
           "default": "rgba(245,240,232,0.14)",
           "subtle": "rgba(245,240,232,0.08)",
+          "card": "rgba(245,240,232,0.16)",
           "strong": "#F5F0E8",
           "dashed": "rgba(245,240,232,0.16)"
         },
@@ -139,7 +151,8 @@
   "radius": {
     "none": 0,
     "sm": 6,
-    "md": 10,
+    "base": 10,
+    "md": 14,
     "lg": 18,
     "xl": 28
   },

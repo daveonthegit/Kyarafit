@@ -25,8 +25,7 @@ export default function NewBuildScreen() {
   else status = "ready";
 
   type Ready = { userId: string };
-  const data: Ready | undefined =
-    status === "ready" && userId ? { userId } : undefined;
+  const data: Ready | undefined = status === "ready" && userId ? { userId } : undefined;
 
   return (
     <DataBoundary<Ready> status={status} data={data} error={error}>
@@ -35,13 +34,7 @@ export default function NewBuildScreen() {
   );
 }
 
-function NewBuildForm({
-  userId,
-  t,
-}: {
-  userId: string;
-  t: (key: string) => string;
-}) {
+function NewBuildForm({ userId, t }: { userId: string; t: (key: string) => string }) {
   const router = useRouter();
   const createBuild = useMutation(api.builds.create);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -93,7 +86,9 @@ function NewBuildForm({
       <Text className="text-2xl font-semibold text-neutral-900">{t("newBuild.title")}</Text>
       <Text className="mt-1 text-sm text-neutral-600">{t("newBuild.subtitle")}</Text>
 
-      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">{t("newBuild.nameLabel")}</Text>
+      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">
+        {t("newBuild.nameLabel")}
+      </Text>
       <TextInput
         value={name}
         onChangeText={setName}
@@ -111,7 +106,9 @@ function NewBuildForm({
         className="mt-1 rounded-xl border border-neutral-200 px-3 py-2.5 text-neutral-900"
       />
 
-      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">{t("newBuild.heroLabel")}</Text>
+      <Text className="mt-6 text-xs font-semibold uppercase text-neutral-500">
+        {t("newBuild.heroLabel")}
+      </Text>
       <Pressable
         onPress={() => void pickHero()}
         className="mt-2 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-neutral-400 bg-neutral-50 py-8 active:opacity-90"
@@ -128,7 +125,9 @@ function NewBuildForm({
         disabled={busy || !name.trim()}
         className={`mt-8 items-center rounded-xl py-3 ${busy || !name.trim() ? "bg-neutral-300" : "bg-neutral-900"} active:opacity-90`}
       >
-        <Text className="font-semibold text-white">{busy ? t("newBuild.creating") : t("newBuild.create")}</Text>
+        <Text className="font-semibold text-white">
+          {busy ? t("newBuild.creating") : t("newBuild.create")}
+        </Text>
       </Pressable>
     </ScrollView>
   );

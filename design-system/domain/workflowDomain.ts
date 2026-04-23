@@ -149,7 +149,9 @@ export function flattenWorkflowTree<
   Item extends WorkflowItemForTree,
   Attachment extends WorkflowAttachmentForTree,
   Dependency extends WorkflowDependencyForTree,
->(nodes: WorkflowTreeNode<Item, Attachment, Dependency>[]): WorkflowTreeNode<Item, Attachment, Dependency>[] {
+>(
+  nodes: WorkflowTreeNode<Item, Attachment, Dependency>[]
+): WorkflowTreeNode<Item, Attachment, Dependency>[] {
   const flattened: WorkflowTreeNode<Item, Attachment, Dependency>[] = [];
   const visit = (node: WorkflowTreeNode<Item, Attachment, Dependency>) => {
     flattened.push(node);

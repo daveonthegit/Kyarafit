@@ -1,12 +1,10 @@
 import { useCallback, useMemo, useState, type ComponentRef, type RefObject } from "react";
 import { Pressable, Text, View } from "react-native";
-import {
-  BottomSheetFlatList,
-  BottomSheetModal,
-  BottomSheetTextInput,
-} from "@gorhom/bottom-sheet";
+import { BottomSheetFlatList, BottomSheetModal, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 
 type ChooseFocusSheetRef = ComponentRef<typeof BottomSheetModal>;
 
@@ -35,6 +33,7 @@ export function ChooseFocusSheet({
   onSelectBuild,
 }: Props) {
   const { t } = useTranslation();
+  const { colors } = useDesignTheme();
   const [q, setQ] = useState("");
   const snapPoints = useMemo(() => ["50%", "88%"], []);
 
@@ -42,8 +41,7 @@ export function ChooseFocusSheet({
     const s = q.trim().toLowerCase();
     if (!s) return builds;
     return builds.filter(
-      (b) =>
-        b.name.toLowerCase().includes(s) || (b.character ?? "").toLowerCase().includes(s)
+      (b) => b.name.toLowerCase().includes(s) || (b.character ?? "").toLowerCase().includes(s)
     );
   }, [builds, q]);
 
@@ -53,14 +51,22 @@ export function ChooseFocusSheet({
       return (
         <Pressable
           onPress={() => onSelectBuild(item._id)}
-          className="border-b border-neutral-200 px-4 py-3 active:bg-neutral-100"
+          className="border-b border-kyar-borderSubtle px-4 py-3 active:bg-kyar-panel dark:border-kyar-dark-borderSubtle dark:active:bg-kyar-dark-panel"
           accessibilityRole="button"
           accessibilityState={{ selected }}
         >
           <View className="flex-row items-center justify-between gap-2">
             <View className="min-w-0 flex-1">
-              <Text className="font-semibold text-neutral-900">{item.name}</Text>
-              <Text className="mt-0.5 text-xs text-neutral-500" numberOfLines={1}>
+              <Text
+                style={{ fontFamily: APP_FONT_FAMILIES.sansSemiBold }}
+                className="text-kyar-text dark:text-kyar-dark-text"
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="mt-0.5 text-xs text-kyar-meta dark:text-kyar-dark-meta"
+                numberOfLines={1}
+              >
                 {t("home.itemsComplete", {
                   checked: item.tasksChecked,
                   total: item.tasksTotal,
@@ -69,7 +75,10 @@ export function ChooseFocusSheet({
               </Text>
             </View>
             {selected ? (
-              <Text className="shrink-0 text-base text-neutral-900" accessibilityLabel={t("home.focusSelected")}>
+              <Text
+                className="shrink-0 text-base text-kyar-text dark:text-kyar-dark-text"
+                accessibilityLabel={t("home.focusSelected")}
+              >
                 ✓
               </Text>
             ) : null}
@@ -87,19 +96,26 @@ export function ChooseFocusSheet({
       ref={sheetRef}
       snapPoints={snapPoints}
       enablePanDownToClose
+      backgroundStyle={{ backgroundColor: colors.surface }}
+      handleIndicatorStyle={{ backgroundColor: colors.border }}
       onDismiss={() => setQ("")}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View className="border-b border-neutral-200 px-4 pb-3 pt-1">
-        <Text className="text-lg font-semibold text-neutral-900">{t("home.selectFocus")}</Text>
+      <View className="border-b border-kyar-borderSubtle px-4 pb-3 pt-1 dark:border-kyar-dark-borderSubtle">
+        <Text
+          style={{ fontFamily: APP_FONT_FAMILIES.sansSemiBold }}
+          className="text-lg text-kyar-text dark:text-kyar-dark-text"
+        >
+          {t("home.selectFocus")}
+        </Text>
         <BottomSheetTextInput
           value={q}
           onChangeText={setQ}
           placeholder={t("home.searchBuildsFocus")}
-          placeholderTextColor="#a3a3a3"
-          className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-base text-neutral-900"
+          placeholderTextColor={colors.textTertiary}
+          className="mt-3 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-2.5 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
           autoCapitalize="none"
           autoCorrect={false}
           clearButtonMode="while-editing"
@@ -107,14 +123,19 @@ export function ChooseFocusSheet({
       </View>
       <Pressable
         onPress={onSelectMostRecent}
-        className="border-b border-neutral-200 px-4 py-3 active:bg-neutral-100"
+        className="border-b border-kyar-borderSubtle px-4 py-3 active:bg-kyar-panel dark:border-kyar-dark-borderSubtle dark:active:bg-kyar-dark-panel"
         accessibilityRole="button"
         accessibilityState={{ selected: focusedBuildId === null }}
       >
         <View className="flex-row items-center justify-between">
-          <Text className="text-base text-neutral-900">{t("home.defaultFocus")}</Text>
+          <Text className="text-base text-kyar-text dark:text-kyar-dark-text">
+            {t("home.defaultFocus")}
+          </Text>
           {focusedBuildId === null ? (
-            <Text className="text-base text-neutral-900" accessibilityLabel={t("home.focusSelected")}>
+            <Text
+              className="text-base text-kyar-text dark:text-kyar-dark-text"
+              accessibilityLabel={t("home.focusSelected")}
+            >
               ✓
             </Text>
           ) : null}
@@ -126,7 +147,9 @@ export function ChooseFocusSheet({
         renderItem={renderItem}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <Text className="px-4 py-8 text-center text-neutral-500">{t("home.noBuildsMatch")}</Text>
+          <Text className="px-4 py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
+            {t("home.noBuildsMatch")}
+          </Text>
         }
       />
     </BottomSheetModal>

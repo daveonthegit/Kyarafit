@@ -1,23 +1,18 @@
 import { useLayoutEffect, useMemo } from "react";
-import { Alert, FlatList, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { CosplayNodeType } from "@kyarafit/design-system/types";
-import { formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import { DataBoundary } from "@/ui";
 import { isAllowedCosplayLink } from "@/lib/canLinkCosplay";
+import { NodeLinkPicker, type NodeLinkCandidate } from "@/screens/elements/NodeLinkPicker";
 
 type Ready = {
   userId: string;
   parentNodeId: Id<"cosplayNodes">;
-  candidates: {
-    _id: Id<"cosplayNodes">;
-    name: string;
-    nodeType: CosplayNodeType;
-  }[];
+  candidates: NodeLinkCandidate[];
 };
 
 export default function ElementLinkChildScreen() {
@@ -35,7 +30,6 @@ export default function ElementLinkChildScreen() {
 
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-
   const parent = useQuery(api.cosplayNodes.get, parentNodeId ? { id: parentNodeId } : "skip");
   const catalog = useQuery(
     api.cosplayNodes.list,
@@ -56,7 +50,7 @@ export default function ElementLinkChildScreen() {
   const candidates = useMemo(() => {
     if (status !== "ready" || !parent || !catalog) return [];
     const parentType = parent.nodeType as CosplayNodeType;
-    const childIds = new Set(parent.children.map((c) => c._id as string));
+    const childIds = new Set(parent.children.map((child) => child._id as string));
     return catalog
       .filter((node) => {
         if ((node._id as string) === (parentNodeId as string)) return false;
@@ -67,68 +61,45 @@ export default function ElementLinkChildScreen() {
         _id: node._id,
         name: node.name,
         nodeType: node.nodeType as CosplayNodeType,
+        category: node.category,
+        imageStorageId: node.imageStorageId,
+        imageUrl: node.imageUrl,
+        overallBucket: node.overallBucket,
+        progressPercent: node.progressPercent,
+        childCount: node.childCount,
       }));
-  }, [status, parent, catalog, parentNodeId]);
+  }, [catalog, parent, parentNodeId, status]);
 
   const data: Ready | undefined =
     status === "ready" && parentNodeId && userId ? { userId, parentNodeId, candidates } : undefined;
 
   return (
     <DataBoundary<Ready> status={status} data={data} error={error}>
-      {(loaded) => (
-        <LinkChildBody loaded={loaded} onDone={() => router.back()} t={t} />
-      )}
+      {(loaded) => <LinkChildBody loaded={loaded} onDone={() => router.back()} />}
     </DataBoundary>
   );
 }
 
-function LinkChildBody({
-  loaded,
-  onDone,
-  t,
-}: {
-  loaded: Ready;
-  onDone: () => void;
-  t: (key: string, opts?: Record<string, string>) => string;
-}) {
+function LinkChildBody({ loaded, onDone }: { loaded: Ready; onDone: () => void }) {
+  const { t } = useTranslation();
   const addChildLink = useMutation(api.cosplayNodes.addChildLink);
 
   return (
-    <View className="flex-1 bg-white px-4 pt-2">
-      <Text className="text-sm text-neutral-500">{t("elements.linkChildSubtitle")}</Text>
-      <FlatList
-        className="mt-4"
-        data={loaded.candidates}
-        keyExtractor={(item) => item._id as string}
-        ItemSeparatorComponent={() => <View className="h-px bg-neutral-100" />}
-        renderItem={({ item }) => (
-          <Pressable
-            className="py-4"
-            onPress={() => {
-              void (async () => {
-                try {
-                  await addChildLink({
-                    userId: loaded.userId,
-                    parentNodeId: loaded.parentNodeId,
-                    childNodeId: item._id,
-                  });
-                  onDone();
-                } catch (e) {
-                  Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
-                }
-              })();
-            }}
-          >
-            <Text className="text-base font-medium text-neutral-900">{item.name}</Text>
-            <Text className="mt-0.5 text-sm text-neutral-500">
-              {formatNodeTypeLabel(item.nodeType)}
-            </Text>
-          </Pressable>
-        )}
-        ListEmptyComponent={
-          <Text className="py-8 text-center text-neutral-500">{t("elements.linkPickerEmpty")}</Text>
-        }
-      />
-    </View>
+    <NodeLinkPicker
+      title={t("elements.linkChildTitle")}
+      subtitle={t("elements.linkChildSubtitle")}
+      candidates={loaded.candidates}
+      emptyLabel={t("elements.linkPickerEmpty")}
+      searchPlaceholder={t("elements.linkNodeSearchPlaceholder")}
+      addLabel={t("elements.linkAddAction")}
+      onPick={async (childNodeId) => {
+        await addChildLink({
+          userId: loaded.userId,
+          parentNodeId: loaded.parentNodeId,
+          childNodeId,
+        });
+        onDone();
+      }}
+    />
   );
 }

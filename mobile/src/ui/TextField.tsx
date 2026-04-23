@@ -1,4 +1,5 @@
 import { Text, TextInput, View, type TextInputProps } from "react-native";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 
 type Props = TextInputProps & {
   label?: string;
@@ -6,21 +7,29 @@ type Props = TextInputProps & {
 };
 
 export function TextField({ label, error, className, ...rest }: Props) {
+  const { colors } = useDesignTheme();
+
   return (
     <View className="w-full">
-      {label ? <Text className="mb-1 text-sm font-medium text-neutral-700">{label}</Text> : null}
+      {label ? (
+        <Text className="mb-1 text-sm font-medium text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          {label}
+        </Text>
+      ) : null}
       <TextInput
         className={[
-          "rounded-xl border border-neutral-300 bg-white px-3 py-3 text-base text-neutral-900",
-          error ? "border-red-500" : "",
+          "rounded-xl border border-kyar-border bg-kyar-surface px-3 py-3 text-base text-kyar-text dark:border-kyar-dark-border dark:bg-kyar-dark-surface dark:text-kyar-dark-text",
+          error ? "border-kyar-danger dark:border-kyar-dark-danger" : "",
           className,
         ]
           .filter(Boolean)
           .join(" ")}
-        placeholderTextColor="#a3a3a3"
+        placeholderTextColor={colors.textTertiary}
         {...rest}
       />
-      {error ? <Text className="mt-1 text-sm text-red-600">{error}</Text> : null}
+      {error ? (
+        <Text className="mt-1 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+      ) : null}
     </View>
   );
 }

@@ -1,8 +1,4 @@
-import {
-  deleteDatabaseSync,
-  openDatabaseSync,
-  type SQLiteDatabase,
-} from "expo-sqlite";
+import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from "expo-sqlite";
 
 const DB_NAME = "kyarafit.db";
 const CURRENT_VERSION = 1;
@@ -60,9 +56,7 @@ function migrate(): void {
   );
   const v = row?.version ?? 0;
   if (v < CURRENT_VERSION) {
-    _db.execSync(
-      `UPDATE schema_version SET version = ${CURRENT_VERSION} WHERE id = 1`
-    );
+    _db.execSync(`UPDATE schema_version SET version = ${CURRENT_VERSION} WHERE id = 1`);
   }
 }
 

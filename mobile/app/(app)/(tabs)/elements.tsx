@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -8,7 +8,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Link, useNavigation, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "convex/react";
@@ -25,18 +26,20 @@ import {
   formatNodeTypeLabel,
   formatOverallBucket,
 } from "@kyarafit/design-system/domain";
-import { DataBoundary } from "@/ui";
+import { ElementPortfolioCard } from "@/components/elements/ElementPortfolioCard";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { DataBoundary, FloatingCreateMenu, MetaLabel } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
 
 type SortKey = "name" | "progress" | "bucket";
-
 type ViewMode = "all" | "tree";
-
 type TypeFilter = "all" | CosplayNodeType;
 type BucketFilter = "all" | (typeof COSPLAY_OVERALL_BUCKETS)[number];
 type CategoryFilter = "all" | (typeof COSPLAY_CATEGORIES)[number];
 
 type ElementListRow = CosplayExplorerItem & { _id: Id<"cosplayNodes"> };
+type ElementLayoutMode = "comfortable" | "compact" | "grid";
 
 type ListReady = {
   rows: ElementListRow[];
@@ -45,7 +48,7 @@ type ListReady = {
 
 export default function ElementsScreen() {
   const { t } = useTranslation();
-  const navigation = useNavigation();
+  const { colors } = useDesignTheme();
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -73,24 +76,9 @@ export default function ElementsScreen() {
       ...(bucketFilter !== "all" ? { overallBucket: bucketFilter } : {}),
       ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
     };
-  }, [userId, sortBy, order, search, viewMode, typeFilter, bucketFilter, categoryFilter]);
+  }, [bucketFilter, categoryFilter, order, search, sortBy, typeFilter, userId, viewMode]);
 
   const rows = useQuery(api.cosplayNodes.list, listArgs);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Link href={APP_HREF.elementNew} asChild>
-          <Pressable
-            accessibilityRole="button"
-            className="mr-2 rounded-lg bg-kyar-text px-3 py-2 active:opacity-80"
-          >
-            <Text className="text-sm font-semibold text-kyar-bg">{t("elements.newShort")}</Text>
-          </Pressable>
-        </Link>
-      ),
-    });
-  }, [navigation, t]);
 
   const loading = identity === undefined || (userId != null && rows === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -101,14 +89,12 @@ export default function ElementsScreen() {
   else status = "ready";
 
   const data: ListReady | undefined =
-    status === "ready" && userId
-      ? { rows: (rows ?? []) as ElementListRow[], userId }
-      : undefined;
+    status === "ready" && userId ? { rows: (rows ?? []) as ElementListRow[], userId } : undefined;
 
   const cycleSort = useCallback(() => {
     const orderList: SortKey[] = ["name", "progress", "bucket"];
-    const i = orderList.indexOf(sortBy);
-    setSortBy(orderList[(i + 1) % orderList.length]!);
+    const index = orderList.indexOf(sortBy);
+    setSortBy(orderList[(index + 1) % orderList.length]!);
   }, [sortBy]);
 
   const onRefresh = useCallback(() => {
@@ -126,7 +112,7 @@ export default function ElementsScreen() {
           sortBy={sortBy}
           order={order}
           cycleSort={cycleSort}
-          toggleOrder={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+          toggleOrder={() => setOrder((value) => (value === "asc" ? "desc" : "asc"))}
           viewMode={viewMode}
           setViewMode={setViewMode}
           typeFilter={typeFilter}
@@ -139,6 +125,7 @@ export default function ElementsScreen() {
           onRefresh={onRefresh}
           router={router}
           t={t}
+          placeholderColor={colors.textTertiary}
         />
       )}
     </DataBoundary>
@@ -165,6 +152,7 @@ function ElementsListBody({
   onRefresh,
   router,
   t,
+  placeholderColor,
 }: {
   loaded: ListReady;
   search: string;
@@ -185,8 +173,18 @@ function ElementsListBody({
   onRefresh: () => void;
   router: ReturnType<typeof useRouter>;
   t: TFunction;
+  placeholderColor: string;
 }) {
+  const { colors } = useDesignTheme();
   const { rows } = loaded;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [layout, setLayout] = useState<ElementLayoutMode>("comfortable");
+
+  const cycleLayout = useCallback(() => {
+    setLayout((mode) =>
+      mode === "comfortable" ? "compact" : mode === "compact" ? "grid" : "comfortable"
+    );
+  }, []);
 
   const sortLabel =
     sortBy === "name"
@@ -194,147 +192,284 @@ function ElementsListBody({
       : sortBy === "progress"
         ? t("elements.sortProgress")
         : t("elements.sortBucket");
+  const orderLabel = order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc");
+  const viewModeLabel = viewMode === "all" ? t("elements.tabAll") : t("elements.tabTree");
+  const layoutLabel =
+    layout === "comfortable"
+      ? t("builds.layoutComfortable")
+      : layout === "compact"
+        ? t("builds.layoutCompact")
+        : t("builds.layoutGrid");
+
+  const typeSummary =
+    typeFilter === "all"
+      ? null
+      : typeFilter === "element"
+        ? t("elements.typeElement")
+        : t("elements.typeMaterial");
+  const bucketSummary = bucketFilter === "all" ? null : formatOverallBucket(bucketFilter);
+  const categorySummary = categoryFilter === "all" ? null : categoryFilter;
+
+  const filterSummary = [
+    viewModeLabel,
+    typeSummary,
+    bucketSummary,
+    categorySummary,
+    sortLabel,
+    orderLabel,
+    layoutLabel,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
 
   return (
-    <View className="flex-1 bg-kyar-bg">
-      <View className="border-b border-kyar-borderSubtle bg-kyar-bg px-4 pb-3 pt-2">
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t("elements.searchPlaceholder")}
-          placeholderTextColor="rgba(23,22,41,0.52)"
-          className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-3 py-3 text-base text-kyar-text"
-        />
-        <View className="mt-3 flex-row flex-wrap items-center gap-2">
-          <Pressable
-            onPress={() => setViewMode("all")}
-            className={`rounded-full px-4 py-2 ${viewMode === "all" ? "bg-kyar-text" : "bg-kyar-muted"}`}
-          >
-            <Text className={`text-xs font-semibold uppercase ${viewMode === "all" ? "text-kyar-bg" : "text-kyar-text"}`}>
-              {t("elements.tabAll")}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode("tree")}
-            className={`rounded-full px-4 py-2 ${viewMode === "tree" ? "bg-kyar-text" : "bg-kyar-muted"}`}
-          >
-            <Text
-              className={`text-xs font-semibold uppercase ${viewMode === "tree" ? "text-kyar-bg" : "text-kyar-text"}`}
-            >
-              {t("elements.tabTree")}
-            </Text>
-          </Pressable>
-          <View className="flex-1" />
-          <Pressable onPress={cycleSort} className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2">
-            <Text className="text-xs font-medium text-kyar-text">{sortLabel}</Text>
-          </Pressable>
-          <Pressable onPress={toggleOrder} className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-3 py-2">
-            <Text className="text-xs font-medium text-kyar-text">
-              {order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc")}
-            </Text>
-          </Pressable>
+    <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
+      <View className="px-5 pb-3 pt-7">
+        <Text
+          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
+          className="text-[23px] leading-[1.08] tracking-tight text-kyar-text dark:text-kyar-dark-text"
+        >
+          {t("elements.pageTitle")}
+        </Text>
+
+        <View className="mt-5 w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
+          <Ionicons
+            name="search"
+            size={18}
+            color={colors.textTertiary}
+            importantForAccessibility="no"
+          />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t("elements.searchPlaceholder")}
+            placeholderTextColor={placeholderColor}
+            className="min-h-[38px] flex-1 py-2 text-[13px] text-kyar-text dark:text-kyar-dark-text"
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
         </View>
 
-        <Text className="mt-3 text-xs font-semibold uppercase tracking-wide text-kyar-meta">
-          {t("elements.filtersHeading")}
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-          <View className="flex-row flex-wrap gap-2 pb-1">
-            <FilterChip
-              active={typeFilter === "all"}
-              label={t("elements.filterAll")}
-              onPress={() => setTypeFilter("all")}
+        <Pressable
+          onPress={() => setFiltersOpen((value) => !value)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: filtersOpen }}
+          className="mt-3 flex min-h-[42px] w-full flex-row items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 shadow-soft active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+        >
+          <View className="shrink-0 flex-row items-center gap-2">
+            <Ionicons
+              name="options-outline"
+              size={16}
+              color={colors.text}
+              importantForAccessibility="no"
             />
-            <FilterChip
-              active={typeFilter === "element"}
-              label={t("elements.typeElement")}
-              onPress={() => setTypeFilter("element")}
-            />
-            <FilterChip
-              active={typeFilter === "material"}
-              label={t("elements.typeMaterial")}
-              onPress={() => setTypeFilter("material")}
+            <Text
+              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
+              className="text-[9px] uppercase tracking-[0.22em] text-kyar-text dark:text-kyar-dark-text"
+              numberOfLines={1}
+            >
+              {t("elements.refineElements")}
+            </Text>
+          </View>
+          <View className="min-w-0 flex-1 flex-row items-center justify-end gap-2">
+            <Text
+              className="flex-1 text-right text-[10px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
+              numberOfLines={2}
+            >
+              {filterSummary}
+            </Text>
+            <Ionicons
+              name={filtersOpen ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={colors.text}
             />
           </View>
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-          <View className="flex-row flex-wrap gap-2 pb-1">
-            <FilterChip
-              active={bucketFilter === "all"}
-              label={t("elements.filterAll")}
-              onPress={() => setBucketFilter("all")}
-            />
-            {COSPLAY_OVERALL_BUCKETS.map((b) => (
+        </Pressable>
+
+        {filtersOpen ? (
+          <View className="mt-3 rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
+            <MetaLabel>{t("elements.filtersViewLabel")}</MetaLabel>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-2"
+              contentContainerClassName="gap-2 pr-1"
+            >
               <FilterChip
-                key={b}
-                active={bucketFilter === b}
-                label={formatOverallBucket(b)}
-                onPress={() => setBucketFilter(b)}
+                active={viewMode === "all"}
+                label={t("elements.tabAll")}
+                onPress={() => setViewMode("all")}
               />
-            ))}
-          </View>
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-          <View className="flex-row flex-wrap gap-2 pb-1">
-            <FilterChip
-              active={categoryFilter === "all"}
-              label={t("elements.filterAll")}
-              onPress={() => setCategoryFilter("all")}
-            />
-            {COSPLAY_CATEGORIES.map((c) => (
               <FilterChip
-                key={c}
-                active={categoryFilter === c}
-                label={c}
-                onPress={() => setCategoryFilter(c)}
+                active={viewMode === "tree"}
+                label={t("elements.tabTree")}
+                onPress={() => setViewMode("tree")}
               />
-            ))}
+            </ScrollView>
+
+            <View className="mt-5">
+              <MetaLabel>{t("elements.filtersSortViewLabel")}</MetaLabel>
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                <ControlPill label={sortLabel} onPress={cycleSort} />
+                <ControlPill label={orderLabel} onPress={toggleOrder} />
+                <ControlPill label={layoutLabel} onPress={cycleLayout} />
+              </View>
+            </View>
+
+            <View className="mt-5">
+              <MetaLabel>{t("elements.typeLabel")}</MetaLabel>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+                <View className="flex-row gap-2">
+                  <FilterChip
+                    active={typeFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setTypeFilter("all")}
+                  />
+                  <FilterChip
+                    active={typeFilter === "element"}
+                    label={t("elements.typeElement")}
+                    onPress={() => setTypeFilter("element")}
+                  />
+                  <FilterChip
+                    active={typeFilter === "material"}
+                    label={t("elements.typeMaterial")}
+                    onPress={() => setTypeFilter("material")}
+                  />
+                </View>
+              </ScrollView>
+            </View>
+
+            <View className="mt-5">
+              <MetaLabel>{t("elements.sortBucket")}</MetaLabel>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+                <View className="flex-row gap-2">
+                  <FilterChip
+                    active={bucketFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setBucketFilter("all")}
+                  />
+                  {COSPLAY_OVERALL_BUCKETS.map((bucket) => (
+                    <FilterChip
+                      key={bucket}
+                      active={bucketFilter === bucket}
+                      label={formatOverallBucket(bucket)}
+                      onPress={() => setBucketFilter(bucket)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View className="mt-5">
+              <MetaLabel>{t("elements.categoryLabel")}</MetaLabel>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+                <View className="flex-row gap-2">
+                  <FilterChip
+                    active={categoryFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setCategoryFilter("all")}
+                  />
+                  {COSPLAY_CATEGORIES.map((category) => (
+                    <FilterChip
+                      key={category}
+                      active={categoryFilter === category}
+                      label={category}
+                      onPress={() => setCategoryFilter(category)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
           </View>
-        </ScrollView>
+        ) : null}
       </View>
 
       <FlatList
-        className="flex-1 bg-kyar-bg"
+        key={layout}
+        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
         data={rows}
+        numColumns={layout === "grid" ? 2 : 1}
         keyExtractor={(item) => item._id}
+        columnWrapperStyle={layout === "grid" ? { gap: 12, paddingHorizontal: 20 } : undefined}
+        contentContainerStyle={{
+          paddingHorizontal: layout === "grid" ? 0 : 20,
+          paddingTop: 8,
+          paddingBottom: 132,
+          gap: 12,
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={
+          <Text className="pb-3 text-[10px] uppercase tracking-widest text-kyar-meta opacity-60 dark:text-kyar-dark-meta">
+            {rows.length === 1
+              ? t("elements.countSingular", { count: rows.length })
+              : t("elements.countPlural", { count: rows.length })}
+          </Text>
+        }
         ListEmptyComponent={
-          <Text className="mt-12 px-6 text-center text-kyar-meta">
+          <Text className="mt-12 px-6 text-center text-kyar-meta dark:text-kyar-dark-meta">
             {search.trim() ? t("elements.emptySearch") : t("elements.empty")}
           </Text>
         }
-        renderItem={({ item }) => (
-          <Pressable
-            className="border-b border-kyar-borderSubtle px-4 py-4 active:bg-kyar-mutedWarm"
-            onPress={() => router.push(APP_HREF.element(item._id as string))}
-          >
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="min-w-0 flex-1">
-                <Text className="text-base font-semibold text-kyar-text">{item.name}</Text>
-                <Text className="mt-1 text-xs text-kyar-meta">
-                  {formatNodeTypeLabel(item.nodeType)}
-                  {item.category ? ` · ${item.category}` : ""}
-                </Text>
-              </View>
-              <View className="items-end">
-                <Text className="text-xs font-medium text-kyar-textSecondary">
-                  {item.progressPercent ?? 0}%
-                </Text>
-                <Text className="mt-0.5 text-[10px] uppercase text-kyar-textTertiary">
-                  {formatOverallBucket(item.overallBucket)}
-                </Text>
-              </View>
-            </View>
-            <Text className="mt-2 text-sm text-kyar-textSecondary">{formatNodeStatus(item)}</Text>
-            {item.childCount != null && item.childCount > 0 ? (
-              <Text className="mt-1 text-xs text-kyar-textTertiary">
-                {t("elements.childCount", { count: item.childCount })}
-              </Text>
-            ) : null}
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const pct = item.progressPercent ?? 0;
+          const childrenN = item.childCount ?? 0;
+          const progressLabel = t("elements.progressPercent", { pct });
+          const childrenLabel = t("elements.childrenShort", { count: childrenN });
+          return (
+            <Pressable
+              className={layout === "grid" ? "mb-3 flex-1" : "mb-3"}
+              onPress={() => router.push(APP_HREF.element(item._id as string))}
+            >
+              <ElementPortfolioCard
+                variant={layout}
+                item={{
+                  name: item.name,
+                  category: item.category,
+                  imageStorageId: item.imageStorageId,
+                  imageUrl: item.imageUrl,
+                  nodeType: item.nodeType,
+                  progressPercent: pct,
+                  childCount: childrenN,
+                  typeBadge: formatNodeTypeLabel(item.nodeType),
+                  statusBadge: formatNodeStatus(item),
+                }}
+                progressLabel={progressLabel.toUpperCase()}
+                childrenLabel={childrenLabel.toUpperCase()}
+              />
+            </Pressable>
+          );
+        }}
+      />
+
+      <FloatingCreateMenu
+        actions={[
+          {
+            key: "new-element",
+            label: t("elements.newShort"),
+            icon: "layers-outline",
+            onPress: () => router.push(APP_HREF.elementNew),
+          },
+          {
+            key: "new-build",
+            label: t("builds.createNew"),
+            icon: "shirt-outline",
+            onPress: () => router.push(APP_HREF.buildNew),
+          },
+        ]}
       />
     </View>
+  );
+}
+
+function ControlPill({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="min-h-[40px] justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+    >
+      <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">{label}</Text>
+    </Pressable>
   );
 }
 
@@ -350,9 +485,17 @@ function FilterChip({
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-full px-3 py-1.5 ${active ? "bg-kyar-text" : "bg-kyar-muted"}`}
+      className={`min-h-[38px] justify-center rounded-full border px-4 ${
+        active
+          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+      }`}
     >
-      <Text className={`text-xs font-medium ${active ? "text-kyar-bg" : "text-kyar-text"}`}>
+      <Text
+        className={`text-xs font-medium ${
+          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
+        }`}
+      >
         {label}
       </Text>
     </Pressable>

@@ -1,25 +1,28 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import {
+  AUTH_ON_PRIMARY,
+  AuthScreenShell,
+  authFieldInputCls,
+  authFooterTextCls,
+  authLabelCls,
+  authSubtitleCls,
+  authTitleCls,
+} from "@/components/auth/AuthScreenShell";
 
 function singleParam(v: string | string[] | undefined): string {
   if (v === undefined) return "";
-  return typeof v === "string" ? v : v[0] ?? "";
+  return typeof v === "string" ? v : (v[0] ?? "");
 }
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors } = useDesignTheme();
   const { token: tokenRaw } = useLocalSearchParams<{ token?: string | string[] }>();
   const token = singleParam(tokenRaw);
 
@@ -66,12 +69,18 @@ export default function ResetPasswordScreen() {
 
   if (!token) {
     return (
-      <View className="flex-1 justify-center bg-white px-6">
-        <Text className="text-center text-xl font-semibold text-neutral-900">{t("auth.invalidLinkTitle")}</Text>
-        <Text className="mt-3 text-center text-neutral-600">{t("auth.resetLinkInvalid")}</Text>
+      <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
+        <Text className="text-center text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
+          {t("auth.invalidLinkTitle")}
+        </Text>
+        <Text className="mt-3 text-center text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          {t("auth.resetLinkInvalid")}
+        </Text>
         <Link href="/(auth)/sign-in" asChild>
-          <Pressable className="mt-8 items-center rounded-xl border border-neutral-300 py-4">
-            <Text className="font-semibold text-neutral-900">{t("auth.backToSignIn")}</Text>
+          <Pressable className="mt-8 items-center rounded-xl border border-kyar-border py-4 dark:border-kyar-dark-border">
+            <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
+              {t("auth.backToSignIn")}
+            </Text>
           </Pressable>
         </Link>
       </View>
@@ -79,27 +88,30 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      className="flex-1 bg-white px-6 pt-4"
-    >
-      <Text className="text-2xl font-semibold text-neutral-900">{t("auth.newPasswordTitle")}</Text>
-      <Text className="mt-1 text-neutral-500">{t("auth.chooseNewPassword")}</Text>
+    <AuthScreenShell>
+      <Text className={authTitleCls}>{t("auth.newPasswordTitle")}</Text>
+      <Text className={authSubtitleCls}>{t("auth.chooseNewPassword")}</Text>
 
-      {error ? <Text className="mt-4 text-sm text-red-600">{error}</Text> : null}
+      {error ? (
+        <Text className="mt-4 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+      ) : null}
 
-      <Text className="mt-6 text-sm font-medium text-neutral-700">{t("auth.newPassword")}</Text>
+      <Text className="mt-6 text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
+        {t("auth.newPassword")}
+      </Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authFieldInputCls}
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         autoComplete="new-password"
       />
 
-      <Text className="mt-4 text-sm font-medium text-neutral-700">{t("auth.confirmPassword")}</Text>
+      <Text className={`mt-4 ${authLabelCls}`}>{t("auth.confirmPassword")}</Text>
       <TextInput
-        className="mt-1 rounded-lg border border-neutral-200 px-3 py-3 text-base text-neutral-900"
+        className={authFieldInputCls}
+        placeholderTextColor={colors.textTertiary}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
@@ -107,22 +119,24 @@ export default function ResetPasswordScreen() {
       />
 
       <Pressable
-        className="mt-8 items-center rounded-xl bg-neutral-900 py-4 active:opacity-90"
+        className="mt-8 items-center rounded-xl bg-kyar-text py-4 active:opacity-90 dark:bg-kyar-dark-text"
         onPress={onSubmit}
         disabled={submitting}
       >
         {submitting ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={AUTH_ON_PRIMARY} />
         ) : (
-          <Text className="text-base font-semibold text-white">{t("auth.setNewPassword")}</Text>
+          <Text className="text-base font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+            {t("auth.setNewPassword")}
+          </Text>
         )}
       </Pressable>
 
       <Link href="/(auth)/sign-in" asChild>
         <Pressable className="mt-6">
-          <Text className="text-center text-sm text-neutral-600">{t("auth.backToSignIn")}</Text>
+          <Text className={authFooterTextCls}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       </Link>
-    </KeyboardAvoidingView>
+    </AuthScreenShell>
   );
 }

@@ -1,5 +1,5 @@
-import { useLayoutEffect } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { useCallback, useLayoutEffect } from "react";
+import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
@@ -42,6 +42,7 @@ export default function BuildDetailScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const duplicateBuild = useMutation(api.builds.duplicate);
+  const removeBuild = useMutation(api.builds.remove);
   const raw = useLocalSearchParams<{ buildId: string | string[] }>().buildId;
   const buildIdParam = Array.isArray(raw) ? raw[0] : raw;
   const id = buildIdParam ? (buildIdParam as Id<"builds">) : undefined;
@@ -54,11 +55,11 @@ export default function BuildDetailScreen() {
     api.files.getUrl,
     build?.imageStorageId ? { storageId: build.imageStorageId } : "skip"
   );
-  const summary = useQuery(
-    api.builds.getSummary,
-    id && userId ? { buildId: id, userId } : "skip"
+  const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
+  const outlineNodes = useQuery(
+    api.cosplayNodes.listBuildVisualNodes,
+    id ? { buildId: id } : "skip"
   );
-  const outlineNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, id ? { buildId: id } : "skip");
   const refImages = useQuery(api.buildReferenceImages.listByBuild, id ? { buildId: id } : "skip");
   const processPics = useQuery(api.buildProcessPictures.listByBuild, id ? { buildId: id } : "skip");
 
@@ -87,9 +88,7 @@ export default function BuildDetailScreen() {
   else status = "ready";
 
   const heroUri: string | null =
-    build?.imageUrl ??
-    (build?.imageStorageId ? (heroStorageUrl ?? null) : null) ??
-    null;
+    build?.imageUrl ?? (build?.imageStorageId ? (heroStorageUrl ?? null) : null) ?? null;
 
   const data: DetailLoaded | undefined =
     status === "ready" && build && userId && id
@@ -97,46 +96,47 @@ export default function BuildDetailScreen() {
       : undefined;
 
   useLayoutEffect(() => {
-    const isOwner = !!(userId && build && build.userId === userId);
     navigation.setOptions({
       title: build?.name ?? t("common.builds"),
-      headerRight: isOwner
-        ? () => (
-            <Pressable
-              onPress={() =>
-                Alert.alert(t("buildDetail.menuTitle"), undefined, [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("buildDetail.duplicate"),
-                    onPress: () => {
-                      if (!userId || !build) return;
-                      void (async () => {
-                        try {
-                          const newId = await duplicateBuild({
-                            userId,
-                            sourceBuildId: build._id,
-                          });
-                          router.replace(APP_HREF.build(newId as string));
-                        } catch (e) {
-                          Alert.alert(
-                            t("common.errorTitle"),
-                            String(e instanceof Error ? e.message : e)
-                          );
-                        }
-                      })();
-                    },
-                  },
-                ])
-              }
-              accessibilityRole="button"
-              hitSlop={12}
-            >
-              <Text className="px-3 text-lg font-bold text-neutral-700">⋯</Text>
-            </Pressable>
-          )
-        : undefined,
+      headerRight: undefined,
     });
-  }, [build, duplicateBuild, navigation, router, t, userId]);
+  }, [build, navigation, t]);
+
+  const handleDuplicate = useCallback(() => {
+    if (!userId || !build) return;
+    void (async () => {
+      try {
+        const newId = await duplicateBuild({
+          userId,
+          sourceBuildId: build._id,
+        });
+        router.replace(APP_HREF.build(newId as string));
+      } catch (e) {
+        Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      }
+    })();
+  }, [build, duplicateBuild, router, t, userId]);
+
+  const handleDelete = useCallback(() => {
+    if (!userId || !build) return;
+    Alert.alert(t("buildDetail.deleteBuildTitle"), t("buildDetail.deleteBuildBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("buildDetail.deleteBuildAction"),
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              await removeBuild({ id: build._id, userId });
+              router.replace("/(app)/(tabs)/builds");
+            } catch (e) {
+              Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+            }
+          })();
+        },
+      },
+    ]);
+  }, [build, removeBuild, router, t, userId]);
 
   return (
     <DataBoundary<DetailLoaded>
@@ -144,8 +144,10 @@ export default function BuildDetailScreen() {
       data={data}
       error={error}
       empty={
-        <View className="flex-1 justify-center px-6">
-          <Text className="text-center text-neutral-600">{t("builds.notFound")}</Text>
+        <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
+          <Text className="text-center text-kyar-meta dark:text-kyar-dark-meta">
+            {t("builds.notFound")}
+          </Text>
         </View>
       }
     >
@@ -159,9 +161,9 @@ export default function BuildDetailScreen() {
           outlineNodes={outlineNodes}
           refImages={refImages}
           processPics={processPics}
-          collaborators={
-            loaded.build.userId === loaded.userId ? collaborators ?? [] : undefined
-          }
+          collaborators={loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined}
+          onDuplicate={loaded.build.userId === loaded.userId ? handleDuplicate : undefined}
+          onDelete={loaded.build.userId === loaded.userId ? handleDelete : undefined}
         />
       )}
     </DataBoundary>

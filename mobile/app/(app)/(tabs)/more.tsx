@@ -1,32 +1,31 @@
-import { useCallback, useState } from "react";
-import {
-  Alert,
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import { Link, useRouter } from "expo-router";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Link, type Href, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { NAV_SECTIONS_PRIMARY, type NavSection, type NavSectionId } from "@kyarafit/design-system";
-import { colors, spacing } from "@kyarafit/design-system/rn";
 import { signOut } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
-import { EXPO_PUBLIC_WEB_APP_URL } from "@/config/env";
-import { NAV_SECTION_IONICON } from "@/lib/navIconsMobile";
+import { NAV_SECTION_MATERIAL_ICON } from "@/lib/navIconsMobile";
+import { useDesignTheme } from "@/theme/useDesignTheme";
+import { MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
-/** Same primary destinations as bottom tabs — hidden in this screen (they have their own tab). */
 const IN_TAB_BAR = new Set<NavSectionId>(["home", "builds", "elements", "planner"]);
+const NATIVE_SECTION_HREF: Partial<Record<NavSectionId, Href>> = {
+  events: APP_HREF.conventions,
+  groups: APP_HREF.groups,
+  discover: APP_HREF.discover,
+  feed: APP_HREF.feed,
+};
 
 export default function MoreScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors, spacing } = useDesignTheme();
   const [signingOut, setSigningOut] = useState(false);
 
-  const overflowSections = NAV_SECTIONS_PRIMARY.filter((s) => !IN_TAB_BAR.has(s.id));
+  const overflowSections = NAV_SECTIONS_PRIMARY.filter((section) => !IN_TAB_BAR.has(section.id));
 
   async function onSignOut() {
     setSigningOut(true);
@@ -38,167 +37,149 @@ export default function MoreScreen() {
     }
   }
 
-  const openWebPath = useCallback(
-    async (path: string) => {
-      const base = EXPO_PUBLIC_WEB_APP_URL.trim().replace(/\/$/, "");
-      if (!base) {
-        Alert.alert(t("more.webUnavailableTitle"), t("more.webUnavailableBody"));
-        return;
-      }
-      try {
-        await WebBrowser.openBrowserAsync(`${base}${path}`);
-      } catch (e) {
-        Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
-      }
-    },
-    [t]
-  );
-
   return (
     <ScrollView
-      className="flex-1"
-      style={{ backgroundColor: colors.bg }}
+      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
       contentContainerStyle={{ paddingBottom: spacing[10] }}
     >
-      <View style={{ paddingHorizontal: spacing[5], paddingTop: spacing[6] }}>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: "600",
-            color: colors.text,
-          }}
-        >
-          {t("common.more")}
-        </Text>
-        <Text style={{ marginTop: spacing[2], color: colors.textSecondary, fontSize: 14 }}>
+      <View className="px-5 pb-2 pt-4">
+        <SectionHeading eyebrow={t("more.sectionExplore")} title={t("common.more")} />
+        <Text className="mt-3 max-w-[320px] text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
           {t("more.subtitle")}
         </Text>
       </View>
 
-      <Text
-        style={{
-          marginTop: spacing[6],
-          marginHorizontal: spacing[5],
-          fontSize: 10,
-          fontWeight: "700",
-          letterSpacing: 2.4,
-          color: colors.meta,
-          textTransform: "uppercase",
-        }}
-      >
-        {t("more.sectionExplore")}
-      </Text>
+      <View className="mt-4 gap-4 px-5">
+        <SurfaceCard className="overflow-hidden">
+          <View className="px-4 pb-2 pt-4">
+            <MetaLabel>{t("more.destinationsTitle")}</MetaLabel>
+          </View>
+          {overflowSections.map((section, index) => (
+            <NavRow
+              key={section.id}
+              section={section}
+              subtitle={
+                NATIVE_SECTION_HREF[section.id]
+                  ? t("more.nativeRouteSubtitle")
+                  : t("more.opensInBrowser")
+              }
+              href={NATIVE_SECTION_HREF[section.id]}
+              onPressWeb={() => undefined}
+              t={t}
+              iconColor={colors.text}
+              metaColor={colors.meta}
+              showBorder={index < overflowSections.length - 1}
+            />
+          ))}
+        </SurfaceCard>
 
-      <View style={{ marginTop: spacing[3] }}>
-        {overflowSections.map((section) => (
-          <NavRow key={section.id} section={section} onPressWeb={() => openWebPath(section.path)} t={t} />
-        ))}
+        <SurfaceCard className="overflow-hidden">
+          <View className="px-4 pb-2 pt-4">
+            <MetaLabel>{t("common.settings")}</MetaLabel>
+          </View>
+          <Link href={APP_HREF.settings} asChild>
+            <Pressable className="flex-row items-center gap-3 px-4 py-3 active:bg-kyar-muted/60 dark:active:bg-kyar-dark-muted/60">
+              <View className="h-11 w-11 items-center justify-center rounded-full bg-kyar-muted dark:bg-kyar-dark-muted">
+                <MaterialIcons name="settings" size={22} color={colors.text} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
+                  {t("common.settings")}
+                </Text>
+                <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                  {t("more.settingsSubtitle")}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.meta} />
+            </Pressable>
+          </Link>
+        </SurfaceCard>
+
+        <Pressable
+          style={{
+            minHeight: 52,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+          }}
+          onPress={() => void onSignOut()}
+          disabled={signingOut}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.signOut")}
+        >
+          {signingOut ? (
+            <ActivityIndicator color={colors.text} />
+          ) : (
+            <Text style={{ fontWeight: "600", color: colors.text }}>{t("common.signOut")}</Text>
+          )}
+        </Pressable>
       </View>
-
-      <View style={{ marginTop: spacing[6], marginHorizontal: spacing[5], height: 1, backgroundColor: colors.border }} />
-
-      <View style={{ marginTop: spacing[4] }}>
-        <SettingsRow t={t} />
-      </View>
-
-      <Pressable
-        style={{
-          marginHorizontal: spacing[5],
-          marginTop: spacing[6],
-          paddingVertical: spacing[4],
-          alignItems: "center",
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-        onPress={() => void onSignOut()}
-        disabled={signingOut}
-        accessibilityRole="button"
-        accessibilityLabel={t("common.signOut")}
-      >
-        {signingOut ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={{ fontWeight: "600", color: colors.text }}>{t("common.signOut")}</Text>
-        )}
-      </Pressable>
     </ScrollView>
   );
 }
 
 function NavRow({
   section,
+  subtitle,
   onPressWeb,
+  loading,
+  href,
   t,
+  showBorder,
+  iconColor,
+  metaColor,
 }: {
   section: NavSection;
+  subtitle: string;
   onPressWeb: () => void;
+  loading?: boolean;
+  href?: Href;
   t: (k: string) => string;
+  showBorder?: boolean;
+  iconColor: string;
+  metaColor: string;
 }) {
-  const iconName = (NAV_SECTION_IONICON[section.id] ?? "ellipse-outline") as keyof typeof Ionicons.glyphMap;
-  return (
+  const iconName = (NAV_SECTION_MATERIAL_ICON[section.id] ??
+    "circle") as keyof typeof MaterialIcons.glyphMap;
+
+  const row = (
     <Pressable
-      onPress={onPressWeb}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        minHeight: 48,
-        paddingHorizontal: spacing[5],
-        gap: spacing[4],
-        backgroundColor: pressed ? colors.muted : colors.bg,
-      })}
+      onPress={href ? undefined : onPressWeb}
+      className={`flex-row items-center gap-3 px-4 py-3 active:bg-kyar-muted/60 dark:active:bg-kyar-dark-muted/60 ${
+        showBorder ? "border-b border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle" : ""
+      }`}
       accessibilityRole="button"
       accessibilityLabel={t(`nav.${section.id}`)}
     >
-      <Ionicons name={iconName} size={22} color={colors.text} style={{ opacity: 0.85 }} />
-      <Text
-        style={{
-          flex: 1,
-          fontSize: 11,
-          fontWeight: "700",
-          letterSpacing: 2,
-          color: colors.text,
-          textTransform: "uppercase",
-        }}
-      >
-        {t(`nav.${section.id}`)}
-      </Text>
-      <Ionicons name="open-outline" size={18} color={colors.meta} />
+      <View className="h-11 w-11 items-center justify-center rounded-full bg-kyar-muted dark:bg-kyar-dark-muted">
+        <MaterialIcons name={iconName} size={22} color={iconColor} />
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
+          {t(`nav.${section.id}`)}
+        </Text>
+        <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          {subtitle}
+        </Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator color={iconColor} />
+      ) : (
+        <Ionicons name={href ? "chevron-forward" : "open-outline"} size={18} color={metaColor} />
+      )}
     </Pressable>
   );
-}
 
-function SettingsRow({ t }: { t: (k: string) => string }) {
-  const iconName = (NAV_SECTION_IONICON.settings ?? "settings-outline") as keyof typeof Ionicons.glyphMap;
+  if (!href) {
+    return row;
+  }
+
   return (
-    <Link href={APP_HREF.settings} asChild>
-      <Pressable
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          minHeight: 48,
-          paddingHorizontal: spacing[5],
-          gap: spacing[4],
-          backgroundColor: pressed ? colors.muted : colors.bg,
-        })}
-        accessibilityRole="button"
-        accessibilityLabel={t("nav.settings")}
-      >
-        <Ionicons name={iconName} size={22} color={colors.text} style={{ opacity: 0.85 }} />
-        <Text
-          style={{
-            flex: 1,
-            fontSize: 11,
-            fontWeight: "700",
-            letterSpacing: 2,
-            color: colors.text,
-            textTransform: "uppercase",
-          }}
-        >
-          {t("nav.settings")}
-        </Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.meta} />
-      </Pressable>
+    <Link href={href} asChild>
+      {row}
     </Link>
   );
 }

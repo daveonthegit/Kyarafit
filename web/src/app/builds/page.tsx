@@ -5,12 +5,17 @@ import { useQuery, useMutation } from "convex/react";
 import Link from "next/link";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ResponsiveGrid } from "@/components/layout/ResponsiveGrid";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { BuildPortfolioCardWeb } from "@/components/builds/BuildPortfolioCardWeb";
+import { ControlPill } from "@/components/ui/ControlPill";
+import {
+  PORTFOLIO_LAYOUT_LABELS,
+  cyclePortfolioLayout,
+  type PortfolioLayoutMode,
+} from "@/lib/portfolioLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
-import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   buildListArgs,
@@ -36,11 +41,27 @@ const SORT_LABELS: Record<SortBy, string> = {
   budget: "Budget",
 };
 
+const BUILD_SORT_CYCLE: SortBy[] = ["name", "targetDate", "progress", "budget"];
+
+function portfolioGridClass(layout: PortfolioLayoutMode): string {
+  switch (layout) {
+    case "comfortable":
+      return "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    case "compact":
+      return "grid w-full max-w-3xl grid-cols-1 gap-3 mx-auto";
+    case "grid":
+      return "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4";
+    default:
+      return "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+  }
+}
+
 export default function BuildsPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [order, setOrder] = useState<SortOrder>("asc");
+  const [layout, setLayout] = useState<PortfolioLayoutMode>("comfortable");
   const [selectedIds, setSelectedIds] = useState<Set<Id<"builds">>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionPending, setActionPending] = useState(false);
@@ -78,7 +99,19 @@ export default function BuildsPage() {
   const isLoading = builds === undefined;
   const hasSearch = search.trim().length > 0;
   const activeTabLabel = tabOptions.find((opt) => opt.value === activeTab)?.label ?? "All builds";
-  const controlsSummary = `${activeTabLabel} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"}`;
+  const layoutLabel = PORTFOLIO_LAYOUT_LABELS[layout];
+  const controlsSummary = `${activeTabLabel} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"} · ${layoutLabel}`;
+
+  const cycleSort = useCallback(() => {
+    setSortBy((prev) => {
+      const i = BUILD_SORT_CYCLE.indexOf(prev);
+      return BUILD_SORT_CYCLE[(i + 1) % BUILD_SORT_CYCLE.length]!;
+    });
+  }, []);
+
+  const cycleLayout = useCallback(() => {
+    setLayout((prev) => cyclePortfolioLayout(prev));
+  }, []);
 
   const toggleSelect = useCallback((id: Id<"builds">) => {
     setSelectedIds((prev) => {
@@ -232,7 +265,29 @@ export default function BuildsPage() {
             </button>
           ))}
         </div>
-        <div className="flex w-full flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:justify-end">
+        <div className="mt-5 sm:hidden">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-meta">
+            Sort &amp; view
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <ControlPill
+              label={SORT_LABELS[sortBy]}
+              onClick={cycleSort}
+              aria-label="Change sort field"
+            />
+            <ControlPill
+              label={order === "asc" ? "Ascending" : "Descending"}
+              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+            />
+            <ControlPill
+              label={layoutLabel}
+              onClick={cycleLayout}
+              aria-label="Change card layout"
+            />
+          </div>
+        </div>
+        <div className="hidden w-full flex-wrap items-center gap-3 sm:ml-auto sm:flex sm:w-auto sm:justify-end">
           <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
             Sort by
           </span>
@@ -256,6 +311,7 @@ export default function BuildsPage() {
           >
             {order === "asc" ? "Asc" : "Desc"}
           </button>
+          <ControlPill label={layoutLabel} onClick={cycleLayout} aria-label="Change card layout" />
         </div>
       </PageHeader>
 
@@ -294,13 +350,10 @@ export default function BuildsPage() {
             </button>
           </div>
         )}
-        <ResponsiveGrid>
+        <div className={portfolioGridClass(layout)}>
           {!isLoading &&
             builds.length > 0 &&
             builds.map((b, index) => {
-              const projectNumber = String(index + 1).padStart(3, "0");
-              const progress =
-                b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
               const isSelected = selectedIds.has(b._id);
 
               return (
@@ -310,89 +363,36 @@ export default function BuildsPage() {
                     checked={isSelected}
                     onChange={() => toggleSelect(b._id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute top-4 right-4 z-20 w-6 h-6 rounded-full border border-kyar-borderSubtle bg-kyar-text/25 checked:bg-kyar-text checked:border-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 transition-all active:scale-90 shadow-sm backdrop-blur-sm cursor-pointer"
+                    className={`absolute z-20 h-6 w-6 cursor-pointer rounded-full border border-kyar-borderSubtle bg-kyar-text/25 shadow-sm backdrop-blur-sm transition-all checked:border-kyar-text checked:bg-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 active:scale-90 ${
+                      layout === "compact" ? "right-3 top-3" : "right-4 top-4"
+                    }`}
                     aria-label={`Select ${b.name}`}
                   />
                   <Link
                     href={`/build-detail/${b._id}`}
-                    className={`block relative aspect-[3/4] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group ${isSelected ? "ring-2 ring-kyar-text border-kyar-text" : "border-kyar-borderSubtle bg-kyar-muted"}`}
+                    className={`group block w-full cursor-pointer overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 transition-all hover:-translate-y-1 hover:shadow-lg ${
+                      isSelected ? "ring-2 ring-kyar-text" : ""
+                    }`}
                     aria-label={`View details for ${b.name}`}
                   >
-                    {b.imageStorageId || b.imageUrl ? (
-                      <ResolvedImage
-                        imageStorageId={b.imageStorageId}
-                        imageUrl={b.imageUrl}
-                        alt={b.name}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
-                        <span className="material-symbols-outlined text-6xl">image</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
-
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
-                      <div className="flex justify-between items-end gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
-                            Project {projectNumber}
-                          </span>
-                          <h2 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none group-hover:text-kyar-accent transition-colors truncate">
-                            {b.name}
-                          </h2>
-                        </div>
-
-                        {/* Circular Progress SVG */}
-                        <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-                          <svg
-                            className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-md"
-                            viewBox="0 0 36 36"
-                          >
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              className="text-kyar-bg/20"
-                            />
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              className="text-kyar-bg"
-                              strokeLinecap="round"
-                              strokeDasharray={`${(progress / 100) * 100} 100`}
-                            />
-                          </svg>
-                          <span className="text-[9px] font-bold drop-shadow-md">{progress}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 pt-3">
-                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm">
-                          {b.status}
-                        </span>
-                        {b.character && (
-                          <>
-                            <span className="w-1 h-1 rounded-full bg-kyar-bg/50" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
-                              {b.character}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    <BuildPortfolioCardWeb
+                      variant={layout}
+                      projectIndex={index + 1}
+                      item={{
+                        name: b.name,
+                        character: b.character,
+                        status: b.status,
+                        imageStorageId: b.imageStorageId,
+                        imageUrl: b.imageUrl,
+                        tasksTotal: b.tasksTotal,
+                        tasksChecked: b.tasksChecked,
+                      }}
+                    />
                   </Link>
                 </div>
               );
             })}
-        </ResponsiveGrid>
+        </div>
 
         {sharedBuilds.length > 0 && (
           <section
@@ -402,55 +402,29 @@ export default function BuildsPage() {
             <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-4">
               Shared with you ({sharedBuilds.length})
             </h2>
-            <ResponsiveGrid>
-              {sharedBuilds.map((b) => {
-                const progress =
-                  b.tasksTotal > 0 ? Math.round((b.tasksChecked / b.tasksTotal) * 100) : 0;
-                return (
-                  <Link
-                    key={b._id}
-                    href={`/build-detail/${b._id}`}
-                    className="block relative aspect-[3/4] w-full rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 text-kyar-bg group"
-                  >
-                    {b.imageStorageId || b.imageUrl ? (
-                      <ResolvedImage
-                        imageStorageId={b.imageStorageId}
-                        imageUrl={b.imageUrl}
-                        alt={b.name}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
-                        <span className="material-symbols-outlined text-6xl">image</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-kyar-text/80 via-kyar-text/20 to-transparent transition-colors duration-300" />
-
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-bg">
-                      <h2 className="font-serif text-2xl font-bold italic tracking-tight drop-shadow-sm truncate">
-                        {b.name}
-                      </h2>
-                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm mt-1">
-                        <span>{b.status}</span>
-                        {b.myRole && <span className="text-kyar-accent">{b.myRole}</span>}
-                      </div>
-                      <div className="space-y-2 mt-3">
-                        <div className="flex justify-between items-end text-[9px] font-bold uppercase tracking-[0.2em] opacity-90 drop-shadow-sm">
-                          <span>Progress</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="h-[2px] bg-kyar-bg/30 w-full rounded-full overflow-hidden drop-shadow-sm">
-                          <div
-                            className="h-full bg-kyar-bg transition-all rounded-full"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </ResponsiveGrid>
+            <div className={portfolioGridClass(layout)}>
+              {sharedBuilds.map((b, index) => (
+                <Link
+                  key={b._id}
+                  href={`/build-detail/${b._id}`}
+                  className="group block w-full overflow-hidden rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                >
+                  <BuildPortfolioCardWeb
+                    variant={layout}
+                    projectIndex={index + 1}
+                    item={{
+                      name: b.name,
+                      character: b.character ?? (b.myRole ? String(b.myRole) : null),
+                      status: b.status,
+                      imageStorageId: b.imageStorageId,
+                      imageUrl: b.imageUrl,
+                      tasksTotal: b.tasksTotal,
+                      tasksChecked: b.tasksChecked,
+                    }}
+                  />
+                </Link>
+              ))}
+            </div>
           </section>
         )}
       </main>

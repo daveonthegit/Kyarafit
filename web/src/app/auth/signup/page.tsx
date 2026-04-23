@@ -123,7 +123,6 @@ export default function SignUpPage() {
             </svg>
             {oauthLoading === "apple" ? "Redirecting…" : "Sign up with Apple"}
           </button>
-
         </div>
 
         {/* Divider */}

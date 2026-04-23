@@ -7,7 +7,7 @@ export default function AppGroupLayout() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View className="flex-1 items-center justify-center bg-kyar-bg dark:bg-kyar-dark-bg">
         <ActivityIndicator />
       </View>
     );

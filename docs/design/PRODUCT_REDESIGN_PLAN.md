@@ -39,13 +39,13 @@ Derived from project context and critique:
 
 ## 4. Current-to-Target Shift
 
-| Current | Target | Why |
-| --- | --- | --- |
-| Polished prototype typography using familiar defaults | Distinctive branded type system with stronger hierarchy | Typography is the fastest way to remove generic feel |
-| Reusable rounded cards as the dominant layout unit | A smaller set of layout archetypes with selective surfaces | The product needs composition, not blanket boxing |
-| Repeated black image overlays and one-note art direction | Multiple image treatments based on use case | Images should feel intentional, not templated |
-| Operations-first chrome with weak brand signature | Productive shell with sharper identity | Kyarafit must feel useful and unmistakable |
-| Light-first foundation with dark mode implied | Shared token system with true dual-theme parity | Equal-quality theming must be designed, not inverted later |
+| Current                                                  | Target                                                     | Why                                                        |
+| -------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| Polished prototype typography using familiar defaults    | Distinctive branded type system with stronger hierarchy    | Typography is the fastest way to remove generic feel       |
+| Reusable rounded cards as the dominant layout unit       | A smaller set of layout archetypes with selective surfaces | The product needs composition, not blanket boxing          |
+| Repeated black image overlays and one-note art direction | Multiple image treatments based on use case                | Images should feel intentional, not templated              |
+| Operations-first chrome with weak brand signature        | Productive shell with sharper identity                     | Kyarafit must feel useful and unmistakable                 |
+| Light-first foundation with dark mode implied            | Shared token system with true dual-theme parity            | Equal-quality theming must be designed, not inverted later |
 
 ## 5. Redesign Principles
 
@@ -393,30 +393,30 @@ This order minimizes rework and keeps later screen work from drifting away from 
 
 ### Completed
 
-| Phase | Item | Status |
-| --- | --- | --- |
-| 1 | OKLCH `--kyar-*` token system in `globals.css` (light + dark) | Done |
-| 1 | Tailwind `kyar.*` color map wired to CSS variables | Done |
-| 1 | Font stack: Albert Sans (body) + Bodoni Moda (display) + JetBrains Mono | Done |
-| 1 | Root layout inline theme script (`kyar-theme` localStorage, `data-theme`, `html.dark`) | Done |
-| 1 | `design_tokens.json` v0.2 reference palette | Done |
-| 2 | `Button` — all variants on semantic tokens | Done |
-| 2 | `EmptyState` — semantic tokens | Done |
-| 2 | `UnderlineInput` — semantic tokens | Done |
-| 2 | `Surface` + `Panel` primitives created | Done |
-| 2 | `PageHeader` — typography + token refresh | Done |
-| 3 | `WebSidebar` — `bg-kyar-panel`, `kyar-meta`, wordmark, active states | Done |
-| 3 | `BottomNav` — same token pattern as sidebar | Done |
-| 3 | `GlobalFAB` — `bg-kyar-text text-kyar-bg`, menu on `kyar-surface` | Done |
-| 3 | Settings shell — theme/locale pills on `kyar-text`/`kyar-surface` | Done |
-| 4 | `LandingHeroSection` — asymmetric layout, motion, token-aware | Done |
-| 4 | `LandingSiteHeader` — theme toggle, mix-blend header | Done |
-| 4 | Landing mini previews — Builds/Elements/Conventions/Tasks on `kyar-*` | Done |
-| 4 | `LandingMiniAppFrame` — fully semantic shell | Done |
-| 4 | `ChecklistRow` — `kyar-text`/`kyar-bg` checkbox tokens | Done |
-| 5 | `home/page.tsx` — hero chip, cards, progress bars on `kyar-*` | Done |
-| 5 | `elements/page.tsx` — shared filter class, card tokens, select `color-scheme` | Done |
-| - | `ThemeContext` + `ThemeToggle` (sidebar + header variants) | Done |
+| Phase | Item                                                                                   | Status |
+| ----- | -------------------------------------------------------------------------------------- | ------ |
+| 1     | OKLCH `--kyar-*` token system in `globals.css` (light + dark)                          | Done   |
+| 1     | Tailwind `kyar.*` color map wired to CSS variables                                     | Done   |
+| 1     | Font stack: Albert Sans (body) + Bodoni Moda (display) + JetBrains Mono                | Done   |
+| 1     | Root layout inline theme script (`kyar-theme` localStorage, `data-theme`, `html.dark`) | Done   |
+| 1     | `design_tokens.json` v0.2 reference palette                                            | Done   |
+| 2     | `Button` — all variants on semantic tokens                                             | Done   |
+| 2     | `EmptyState` — semantic tokens                                                         | Done   |
+| 2     | `UnderlineInput` — semantic tokens                                                     | Done   |
+| 2     | `Surface` + `Panel` primitives created                                                 | Done   |
+| 2     | `PageHeader` — typography + token refresh                                              | Done   |
+| 3     | `WebSidebar` — `bg-kyar-panel`, `kyar-meta`, wordmark, active states                   | Done   |
+| 3     | `BottomNav` — same token pattern as sidebar                                            | Done   |
+| 3     | `GlobalFAB` — `bg-kyar-text text-kyar-bg`, menu on `kyar-surface`                      | Done   |
+| 3     | Settings shell — theme/locale pills on `kyar-text`/`kyar-surface`                      | Done   |
+| 4     | `LandingHeroSection` — asymmetric layout, motion, token-aware                          | Done   |
+| 4     | `LandingSiteHeader` — theme toggle, mix-blend header                                   | Done   |
+| 4     | Landing mini previews — Builds/Elements/Conventions/Tasks on `kyar-*`                  | Done   |
+| 4     | `LandingMiniAppFrame` — fully semantic shell                                           | Done   |
+| 4     | `ChecklistRow` — `kyar-text`/`kyar-bg` checkbox tokens                                 | Done   |
+| 5     | `home/page.tsx` — hero chip, cards, progress bars on `kyar-*`                          | Done   |
+| 5     | `elements/page.tsx` — shared filter class, card tokens, select `color-scheme`          | Done   |
+| -     | `ThemeContext` + `ThemeToggle` (sidebar + header variants)                             | Done   |
 
 ---
 
@@ -507,7 +507,8 @@ The foundation (Phase 1), core primitives (Phase 2), product shell (Phase 3), an
 1. **Tailwind shadow tokens** — Replace `rgba(23,22,41,…)` with CSS custom properties:
    ```css
    --kyar-shadow-color: 23 22 41;
-   /* dark: */ --kyar-shadow-color: 0 0 0;
+   /* dark: */
+   --kyar-shadow-color: 0 0 0;
    ```
    Then reference in Tailwind: `rgba(var(--kyar-shadow-color) / 0.04)` etc.
 2. **Settings page** — Map `hover:bg-red-500/10` to `hover:bg-kyar-danger/10` for consistency
@@ -547,13 +548,13 @@ The foundation (Phase 1), core primitives (Phase 2), product shell (Phase 3), an
 
 ## 14. Execution Priority Summary
 
-| Priority | Sprint | Est. scope | Key risk |
-| --- | --- | --- | --- |
-| **P0** | A — Modals & sheets | ~8 components | High impact: every workflow opens modals |
-| **P0** | B — Builds index + detail | ~10 files | Highest-traffic workflow |
-| **P1** | C — Conventions + packing | ~8 files | Second workflow; shares builds patterns |
-| **P1** | D — Mobile nav + responsive | ~3 files | Dark mode broken for mobile menu |
-| **P2** | E — Shadows, polish, calendar | ~5 files | Low risk, high polish value |
-| **P2** | F — Quality pass | Full audit | Catches regressions before declaring done |
+| Priority | Sprint                        | Est. scope    | Key risk                                  |
+| -------- | ----------------------------- | ------------- | ----------------------------------------- |
+| **P0**   | A — Modals & sheets           | ~8 components | High impact: every workflow opens modals  |
+| **P0**   | B — Builds index + detail     | ~10 files     | Highest-traffic workflow                  |
+| **P1**   | C — Conventions + packing     | ~8 files      | Second workflow; shares builds patterns   |
+| **P1**   | D — Mobile nav + responsive   | ~3 files      | Dark mode broken for mobile menu          |
+| **P2**   | E — Shadows, polish, calendar | ~5 files      | Low risk, high polish value               |
+| **P2**   | F — Quality pass              | Full audit    | Catches regressions before declaring done |
 
 **Dependency chain:** A → B → C (modals must be fixed before builds/conventions since they use them). D and E can run in parallel with B/C. F is the final gate.

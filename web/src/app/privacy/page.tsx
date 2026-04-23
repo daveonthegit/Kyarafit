@@ -21,8 +21,8 @@ export default function PrivacyPolicyPage() {
               <p className="mt-4 text-sm leading-6 text-kyar-textSecondary sm:text-[15px]">
                 Effective date: {EFFECTIVE_DATE}. Kyarafit (“we,” “us,” or “our”) operates a cosplay
                 wardrobe, build-tracking, and convention-planning service (“Service”). This Privacy
-                Policy describes how we collect, use, disclose, and safeguard information when you use
-                our websites, mobile apps, and related features.
+                Policy describes how we collect, use, disclose, and safeguard information when you
+                use our websites, mobile apps, and related features.
               </p>
             </div>
 
@@ -31,8 +31,8 @@ export default function PrivacyPolicyPage() {
                 Summary
               </p>
               <p className="mt-2 text-sm leading-6 text-kyar-textSecondary">
-                We collect data needed to run your account and sync your content. We do not sell your
-                personal information or use cross-app ad tracking for targeted ads.
+                We collect data needed to run your account and sync your content. We do not sell
+                your personal information or use cross-app ad tracking for targeted ads.
               </p>
             </div>
           </div>
@@ -42,8 +42,8 @@ export default function PrivacyPolicyPage() {
           <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
             <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Scope</h2>
             <p className="mt-3">
-              This policy applies to personal information processed in connection with the Service. If
-              you do not agree with this policy, please do not use the Service.
+              This policy applies to personal information processed in connection with the Service.
+              If you do not agree with this policy, please do not use the Service.
             </p>
           </section>
 
@@ -53,11 +53,11 @@ export default function PrivacyPolicyPage() {
             </h2>
             <ul className="mt-3 list-disc space-y-2 pl-5">
               <li>
-                <strong className="text-kyar-text">Account and authentication.</strong> Email address,
-                display name, username, password hash (stored securely by our auth provider), session
-                tokens, and similar identifiers needed to create and secure your account. If you use
-                Google or Apple sign-in, we receive profile identifiers from those providers according
-                to your permission choices.
+                <strong className="text-kyar-text">Account and authentication.</strong> Email
+                address, display name, username, password hash (stored securely by our auth
+                provider), session tokens, and similar identifiers needed to create and secure your
+                account. If you use Google or Apple sign-in, we receive profile identifiers from
+                those providers according to your permission choices.
               </li>
               <li>
                 <strong className="text-kyar-text">Content you create.</strong> Cosplay builds,
@@ -81,8 +81,8 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong className="text-kyar-text">Billing (if enabled).</strong> If paid features
-                are offered, payment status and subscription metadata may be processed by our payment
-                provider; we do not store full payment card numbers on our servers.
+                are offered, payment status and subscription metadata may be processed by our
+                payment provider; we do not store full payment card numbers on our servers.
               </li>
             </ul>
           </section>
@@ -128,8 +128,8 @@ export default function PrivacyPolicyPage() {
             <p className="mt-3">
               Where applicable, we rely on: (1) performance of a contract with you; (2) our
               legitimate interests in operating and securing the Service (balanced against your
-              rights); (3) consent where required (for example optional marketing, if offered); and (4)
-              legal obligations.
+              rights); (3) consent where required (for example optional marketing, if offered); and
+              (4) legal obligations.
             </p>
           </section>
 
@@ -145,8 +145,8 @@ export default function PrivacyPolicyPage() {
               email), Stripe (billing, if enabled), and hosting vendors for our web application.
             </p>
             <p className="mt-3">
-              We may disclose information if required by law, legal process, or governmental request,
-              or to protect the rights, safety, and security of users, Kyarafit, or others.
+              We may disclose information if required by law, legal process, or governmental
+              request, or to protect the rights, safety, and security of users, Kyarafit, or others.
             </p>
           </section>
 
@@ -186,10 +186,11 @@ export default function PrivacyPolicyPage() {
               California residents
             </h2>
             <p className="mt-3">
-              California residents may have additional rights under the CCPA/CPRA, including to know,
-              delete, and correct personal information, and to opt out of certain sharing (we do not
-              “sell” personal information or share it for cross-context behavioral advertising as
-              defined under California law). To submit a request, email us at the address below.
+              California residents may have additional rights under the CCPA/CPRA, including to
+              know, delete, and correct personal information, and to opt out of certain sharing (we
+              do not “sell” personal information or share it for cross-context behavioral
+              advertising as defined under California law). To submit a request, email us at the
+              address below.
             </p>
           </section>
 
@@ -209,8 +210,8 @@ export default function PrivacyPolicyPage() {
             <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Security</h2>
             <p className="mt-3">
               We implement technical and organizational measures designed to protect personal
-              information. No method of transmission or storage is completely secure; use the Service
-              at your own risk.
+              information. No method of transmission or storage is completely secure; use the
+              Service at your own risk.
             </p>
           </section>
 
@@ -219,8 +220,8 @@ export default function PrivacyPolicyPage() {
               Changes to this policy
             </h2>
             <p className="mt-3">
-              We may update this Privacy Policy from time to time. We will post the revised policy on
-              this page and update the effective date. Continued use of the Service after changes
+              We may update this Privacy Policy from time to time. We will post the revised policy
+              on this page and update the effective date. Continued use of the Service after changes
               become effective constitutes acceptance of the revised policy, where permitted by law.
             </p>
           </section>

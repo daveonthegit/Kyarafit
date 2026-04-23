@@ -489,9 +489,7 @@ export const getPublicViewerBundle = query({
           const displayLabel =
             username != null
               ? `@${username}`
-              : user?.displayName?.trim() ||
-                user?.name?.trim() ||
-                "Collaborator";
+              : user?.displayName?.trim() || user?.name?.trim() || "Collaborator";
           return {
             collaboratorId: r._id,
             role: r.role,
@@ -779,7 +777,9 @@ export const update = mutation({
           ...prev,
           ...(incoming.showExplorer !== undefined ? { showExplorer: incoming.showExplorer } : {}),
           ...(incoming.showTasks !== undefined ? { showTasks: incoming.showTasks } : {}),
-          ...(incoming.showVisualBoard !== undefined ? { showVisualBoard: incoming.showVisualBoard } : {}),
+          ...(incoming.showVisualBoard !== undefined
+            ? { showVisualBoard: incoming.showVisualBoard }
+            : {}),
           ...(incoming.showSummary !== undefined ? { showSummary: incoming.showSummary } : {}),
           ...(incoming.showNotes !== undefined ? { showNotes: incoming.showNotes } : {}),
           ...(incoming.showCollaborators !== undefined
@@ -1373,9 +1373,7 @@ export const duplicate = mutation({
       const itemAtts = scoped.attachments.filter((a) => a.workflowItemId === item._id);
       const buildPrimary = itemAtts.find(
         (a) =>
-          a.entityType === "build" &&
-          String(a.entityId) === sourceIdStr &&
-          a.role === "primary"
+          a.entityType === "build" && String(a.entityId) === sourceIdStr && a.role === "primary"
       );
       if (!buildPrimary) continue;
 

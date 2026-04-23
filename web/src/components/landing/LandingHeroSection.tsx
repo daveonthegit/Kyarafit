@@ -82,14 +82,20 @@ export function LandingHeroSection() {
             variants={fadeUp}
             className="mx-auto mb-8 max-w-[42rem] px-1 text-center text-[clamp(1rem,2.5vw,1.125rem)] leading-relaxed text-kyar-textSecondary sm:mb-10"
           >
-            Purpose-built for planning, building, and packing for conventions. Designed for meticulous
-            creators who want to drop the spreadsheets.
+            Purpose-built for planning, building, and packing for conventions. Designed for
+            meticulous creators who want to drop the spreadsheets.
           </motion.p>
-          <motion.div variants={fadeUp} className="mb-10 flex w-full justify-center sm:mb-12 lg:mb-14">
+          <motion.div
+            variants={fadeUp}
+            className="mb-10 flex w-full justify-center sm:mb-12 lg:mb-14"
+          >
             <LandingAuthCta variant="hero" />
           </motion.div>
 
-          <motion.div variants={fadeUp} className="relative z-0 w-full min-w-0 max-w-[min(100%,82rem)] shrink-0">
+          <motion.div
+            variants={fadeUp}
+            className="relative z-0 w-full min-w-0 max-w-[min(100%,82rem)] shrink-0"
+          >
             <div className="relative w-full">
               <motion.div
                 className="relative mx-auto w-full [transform:translateZ(0)]"

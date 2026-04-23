@@ -12,16 +12,8 @@ type Props = {
 };
 
 /** Resolves Convex `imageStorageId` to a signed URL on the client. */
-export function ConvexStorageImage({
-  storageId,
-  imageUrl,
-  className,
-  accessibilityLabel,
-}: Props) {
-  const fromStorage = useQuery(
-    api.files.getUrl,
-    !imageUrl && storageId ? { storageId } : "skip"
-  );
+export function ConvexStorageImage({ storageId, imageUrl, className, accessibilityLabel }: Props) {
+  const fromStorage = useQuery(api.files.getUrl, !imageUrl && storageId ? { storageId } : "skip");
 
   if (imageUrl) {
     return (
@@ -35,19 +27,21 @@ export function ConvexStorageImage({
   }
 
   if (!storageId) {
-    return <View className={`bg-neutral-200 ${className ?? ""}`} />;
+    return <View className={`bg-kyar-muted dark:bg-kyar-dark-muted ${className ?? ""}`} />;
   }
 
   if (fromStorage === undefined) {
     return (
-      <View className={`items-center justify-center bg-neutral-200 ${className ?? ""}`}>
+      <View
+        className={`items-center justify-center bg-kyar-muted dark:bg-kyar-dark-muted ${className ?? ""}`}
+      >
         <ActivityIndicator />
       </View>
     );
   }
 
   if (!fromStorage) {
-    return <View className={`bg-neutral-200 ${className ?? ""}`} />;
+    return <View className={`bg-kyar-muted dark:bg-kyar-dark-muted ${className ?? ""}`} />;
   }
 
   return (

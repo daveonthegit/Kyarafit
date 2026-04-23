@@ -422,7 +422,9 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
               className={`text-sm break-all ${user.email && !emailRevealed ? "select-none text-kyar-textSecondary" : ""}`}
               data-testid="account-email"
               aria-label={
-                user.email && !emailRevealed ? "Email address hidden. Use Show to reveal." : undefined
+                user.email && !emailRevealed
+                  ? "Email address hidden. Use Show to reveal."
+                  : undefined
               }
             >
               {!user.email ? "—" : emailRevealed ? user.email : EMAIL_HIDDEN_PLACEHOLDER}
@@ -590,8 +592,8 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
               Sign-in methods
             </p>
             <p className="text-[11px] text-kyar-textTertiary leading-relaxed max-w-xl">
-              Link Google or Apple to sign in faster. Add email & password if you started
-              with OAuth only—or connect social accounts to an email/password profile.
+              Link Google or Apple to sign in faster. Add email & password if you started with OAuth
+              only—or connect social accounts to an email/password profile.
             </p>
           </div>
         </div>
@@ -610,9 +612,13 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
                 className="flex flex-wrap items-center justify-between gap-2 border border-kyar-borderSubtle rounded-xl px-4 py-3"
               >
                 <div>
-                  <p className="text-sm font-medium text-kyar-text">{labelForProvider(acc.providerId)}</p>
+                  <p className="text-sm font-medium text-kyar-text">
+                    {labelForProvider(acc.providerId)}
+                  </p>
                   <p className="text-[11px] text-kyar-textTertiary font-mono truncate max-w-[220px] sm:max-w-md">
-                    {acc.providerId === "credential" ? "Password on file" : `Connected · ${acc.accountId}`}
+                    {acc.providerId === "credential"
+                      ? "Password on file"
+                      : `Connected · ${acc.accountId}`}
                   </p>
                 </div>
                 {acc.providerId !== "credential" && (
@@ -645,7 +651,11 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
                     onClick={() => void handleLinkSocial(p.id)}
                     className="inline-flex min-h-[40px] items-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors disabled:opacity-40"
                   >
-                    {linkBusy === p.id ? "Redirecting…" : linked ? `${p.label} linked` : `Link ${p.label}`}
+                    {linkBusy === p.id
+                      ? "Redirecting…"
+                      : linked
+                        ? `${p.label} linked`
+                        : `Link ${p.label}`}
                   </button>
                 );
               })}
@@ -654,8 +664,8 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
         )}
         {!accountsLoading && !hasCredentialAccount && (
           <p className="mt-3 text-[11px] text-kyar-textTertiary">
-            Disconnect is disabled when this is your only sign-in method. Add email & password below,
-            or link another provider first.
+            Disconnect is disabled when this is your only sign-in method. Add email & password
+            below, or link another provider first.
           </p>
         )}
       </div>

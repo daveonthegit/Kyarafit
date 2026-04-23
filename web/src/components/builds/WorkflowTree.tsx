@@ -61,10 +61,7 @@ function flattenWithElementGroup(roots: WorkflowNode[]): WorkflowRow[] {
 
 function sortGroupKeys(
   keys: string[],
-  visualById: Map<
-    string,
-    { sortOrder: number; depth: number; name: string; nodeType: string }
-  >
+  visualById: Map<string, { sortOrder: number; depth: number; name: string; nodeType: string }>
 ): string[] {
   return [...keys].sort((a, b) => {
     if (a === BUILD_GROUP_KEY && b !== BUILD_GROUP_KEY) return 1;
@@ -82,13 +79,7 @@ function sortGroupKeys(
   });
 }
 
-function WorkflowTaskGroup({
-  summary,
-  children,
-}: {
-  summary: ReactNode;
-  children: ReactNode;
-}) {
+function WorkflowTaskGroup({ summary, children }: { summary: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(true);
   return (
     <details
@@ -141,7 +132,9 @@ function WorkflowItemRow({
         }
       />
       <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
-        <PlannerWorkflowTaskTitle done={node.status === "done"}>{node.title}</PlannerWorkflowTaskTitle>
+        <PlannerWorkflowTaskTitle done={node.status === "done"}>
+          {node.title}
+        </PlannerWorkflowTaskTitle>
         <PlannerWorkflowMetaLine>
           <PlannerWorkflowMetaMuted>
             {node.kind === "group" ? "Group" : "Task"} · {node.progressPercent}% progress
@@ -202,15 +195,9 @@ export function WorkflowTree({
   /** Hide “add step” / subtask composers (public viewer). */
   hideComposer?: boolean;
 }) {
-  const listTreeArgs =
-    shareToken !== undefined
-      ? { buildId, shareToken }
-      : { buildId };
+  const listTreeArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
   const tree = useQuery(api.workflow.listBuildTree, listTreeArgs);
-  const listVisualArgs =
-    shareToken !== undefined
-      ? { buildId, shareToken }
-      : { buildId };
+  const listVisualArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
   const visualNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, listVisualArgs) ?? [];
   const createWorkflow = useMutation(api.workflow.create);
   const updateWorkflow = useMutation(api.workflow.update);
@@ -224,7 +211,10 @@ export function WorkflowTree({
   const rows = useMemo(() => flattenWithElementGroup(roots), [roots]);
 
   const visualById = useMemo(() => {
-    const m = new Map<string, { sortOrder: number; depth: number; name: string; nodeType: string }>();
+    const m = new Map<
+      string,
+      { sortOrder: number; depth: number; name: string; nodeType: string }
+    >();
     for (const n of visualNodes) {
       m.set(n._id, {
         sortOrder: n.sortOrder,

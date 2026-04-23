@@ -321,7 +321,10 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
               e.preventDefault();
               setDropZoneActive(false);
               // #region agent log
-              console.log('[DBG-c17634] Drop received on zone', { types: Array.from(e.dataTransfer.types), textData: e.dataTransfer.getData('text/plain') });
+              console.log("[DBG-c17634] Drop received on zone", {
+                types: Array.from(e.dataTransfer.types),
+                textData: e.dataTransfer.getData("text/plain"),
+              });
               // #endregion
               const id =
                 e.dataTransfer.getData("text/plain") ||
@@ -394,7 +397,10 @@ function DraggableClosetRow({
           draggable
           onDragStart={(e) => {
             // #region agent log
-            console.log('[DBG-c17634] LinkCloset onDragStart', { itemId: item._id, itemName: item.name });
+            console.log("[DBG-c17634] LinkCloset onDragStart", {
+              itemId: item._id,
+              itemName: item.name,
+            });
             // #endregion
             const id = item._id as string;
             e.dataTransfer.setData("text/plain", id);
@@ -405,7 +411,7 @@ function DraggableClosetRow({
           }}
           onDragEnd={() => {
             // #region agent log
-            console.log('[DBG-c17634] LinkCloset onDragEnd', { itemId: item._id });
+            console.log("[DBG-c17634] LinkCloset onDragEnd", { itemId: item._id });
             // #endregion
             setIsDragging(false);
             onDragEndRow?.();

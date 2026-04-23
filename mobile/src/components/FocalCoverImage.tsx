@@ -15,13 +15,7 @@ type Props = {
 /**
  * Cover crop with focal anchoring — mirrors web `object-position` on `ResolvedImage`.
  */
-export function FocalCoverImage({
-  uri,
-  focalX,
-  focalY,
-  className,
-  accessibilityLabel,
-}: Props) {
+export function FocalCoverImage({ uri, focalX, focalY, className, accessibilityLabel }: Props) {
   const [layout, setLayout] = useState<{ w: number; h: number } | null>(null);
 
   const useFocal = focalX != null && focalY != null;

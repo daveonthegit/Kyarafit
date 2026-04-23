@@ -19,13 +19,7 @@ const STATUS_TONE_CLASSES = {
   success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
 } as const;
 
-function NodeThumbnail({
-  node,
-  size = "md",
-}: {
-  node: ExplorerLinkedNode;
-  size?: "sm" | "md";
-}) {
+function NodeThumbnail({ node, size = "md" }: { node: ExplorerLinkedNode; size?: "sm" | "md" }) {
   const px = size === "sm" ? "h-8 w-8" : "h-10 w-10";
   const hasImage = Boolean(node.imageStorageId || node.imageUrl);
   return (
@@ -115,9 +109,7 @@ export function BuildExplorerRow({
       onPointerCancel={longPress.onPointerCancel}
       className={[
         "group relative flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors",
-        isSelected
-          ? "bg-kyar-bg ring-1 ring-kyar-text/10"
-          : "hover:bg-kyar-text/[0.03]",
+        isSelected ? "bg-kyar-bg ring-1 ring-kyar-text/10" : "hover:bg-kyar-text/[0.03]",
         activeDropZone === "before"
           ? "before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-kyar-text"
           : activeDropZone === "after"
@@ -161,21 +153,13 @@ export function BuildExplorerRow({
           aria-label={hasChildren ? (expanded ? "Collapse" : "Expand") : "Leaf node"}
         >
           <span className="material-symbols-outlined text-[18px]">
-            {hasChildren
-              ? expanded
-                ? "expand_more"
-                : "chevron_right"
-              : ""}
+            {hasChildren ? (expanded ? "expand_more" : "chevron_right") : ""}
           </span>
         </button>
       ) : null}
 
       {/* Tappable content area */}
-      <button
-        type="button"
-        onClick={onTap}
-        className="flex min-w-0 flex-1 items-center gap-3"
-      >
+      <button type="button" onClick={onTap} className="flex min-w-0 flex-1 items-center gap-3">
         <NodeThumbnail node={node} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium leading-snug text-kyar-text">
@@ -223,13 +207,7 @@ export function BuildExplorerRow({
   );
 }
 
-export function DragPreviewRow({
-  node,
-  label,
-}: {
-  node: ExplorerLinkedNode;
-  label: string;
-}) {
+export function DragPreviewRow({ node, label }: { node: ExplorerLinkedNode; label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-kyar-borderSubtle bg-kyar-surface/95 px-3 py-2 shadow-card backdrop-blur-[2px]">
       <span className="material-symbols-outlined text-base text-kyar-textTertiary" aria-hidden>

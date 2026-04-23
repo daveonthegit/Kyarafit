@@ -72,8 +72,7 @@ export function BuildVisualBoard({
         : { buildId };
   const refsFetched = useQuery(api.buildReferenceImages.listByBuild, refsQueryArgs);
   const progressFetched = useQuery(api.buildProcessPictures.listByBuild, progressQueryArgs);
-  const refs =
-    prefetchedReferenceImages !== undefined ? prefetchedReferenceImages : refsFetched;
+  const refs = prefetchedReferenceImages !== undefined ? prefetchedReferenceImages : refsFetched;
   const progressPhotos =
     prefetchedProcessPictures !== undefined ? prefetchedProcessPictures : progressFetched;
 
@@ -317,9 +316,7 @@ export function BuildVisualBoard({
           <div className="w-full pb-12">
             {itemsNodes.length === 0 ? (
               <div className="text-center py-8 border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
-                <p className="text-sm text-kyar-textTertiary mb-3">
-                  No elements linked yet.
-                </p>
+                <p className="text-sm text-kyar-textTertiary mb-3">No elements linked yet.</p>
                 {!readOnly && _userId ? (
                   <button
                     type="button"

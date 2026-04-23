@@ -84,26 +84,22 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
     setPersistStatus("saved");
   }, [selected?.nodeId, selectedDetail]);
 
-  const formMatchesDetail = useCallback(
-    (form: InspectorForm, detail: DetailedLinkedNode) => {
-      const directParsed = form.directCostDollars.trim()
-        ? Math.round(Number(form.directCostDollars) * 100)
-        : null;
-      const directOk =
-        form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
-      const directCents = directOk ? directParsed : detail.directCostCents;
-      return (
-        form.name.trim() === detail.name &&
-        (form.notes.trim() || null) === (detail.notes ?? null) &&
-        directCents === (detail.directCostCents ?? null) &&
-        (detail.nodeType === "element"
-          ? form.elementCombinedStatus ===
-            elementCombinedFromDb(detail.purchaseStatus, detail.buildStatus)
-          : form.materialStatus === (detail.materialStatus ?? "to_buy"))
-      );
-    },
-    []
-  );
+  const formMatchesDetail = useCallback((form: InspectorForm, detail: DetailedLinkedNode) => {
+    const directParsed = form.directCostDollars.trim()
+      ? Math.round(Number(form.directCostDollars) * 100)
+      : null;
+    const directOk = form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
+    const directCents = directOk ? directParsed : detail.directCostCents;
+    return (
+      form.name.trim() === detail.name &&
+      (form.notes.trim() || null) === (detail.notes ?? null) &&
+      directCents === (detail.directCostCents ?? null) &&
+      (detail.nodeType === "element"
+        ? form.elementCombinedStatus ===
+          elementCombinedFromDb(detail.purchaseStatus, detail.buildStatus)
+        : form.materialStatus === (detail.materialStatus ?? "to_buy"))
+    );
+  }, []);
 
   const flushSave = useCallback(async (): Promise<void> => {
     const detail = selectedDetailRef.current;
@@ -143,18 +139,15 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
   const flushSaveRef = useRef(flushSave);
   flushSaveRef.current = flushSave;
 
-  const commitSelection = useCallback(
-    async (meta: NodeSelectionMeta, path: PathSegment[]) => {
-      if (persistDebounceRef.current) {
-        clearTimeout(persistDebounceRef.current);
-        persistDebounceRef.current = null;
-      }
-      await flushSaveRef.current();
-      setSelected(meta);
-      setSelectedPath(path);
-    },
-    []
-  );
+  const commitSelection = useCallback(async (meta: NodeSelectionMeta, path: PathSegment[]) => {
+    if (persistDebounceRef.current) {
+      clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = null;
+    }
+    await flushSaveRef.current();
+    setSelected(meta);
+    setSelectedPath(path);
+  }, []);
 
   // Cleanup debounce on unmount
   useEffect(() => {

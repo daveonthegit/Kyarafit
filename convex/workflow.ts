@@ -464,6 +464,33 @@ async function assertWorkflowEditable(
   throw new Error("Not authorized");
 }
 
+async function canEditWorkflowItem(
+  ctx: QueryCtx | MutationCtx,
+  item: Doc<"workflowItems">,
+  userId: string
+) {
+  if (item.userId === userId) return true;
+  const attachments = await ctx.db
+    .query("workflowAttachments")
+    .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", item._id))
+    .collect();
+  for (const attachment of attachments) {
+    if (attachment.entityType !== "build" || !attachment.entityId) continue;
+    const buildId = attachment.entityId as Id<"builds">;
+    const build = await ctx.db.get(buildId);
+    if (!build) continue;
+    if (build.userId === userId) return true;
+    const collaborators = await ctx.db
+      .query("buildCollaborators")
+      .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+      .collect();
+    if (collaborators.some((row) => row.userId === userId && row.role === "editor")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function buildExternalProgress(ctx: QueryCtx, userId: string, items: WorkflowItemDoc[]) {
   const attachments = await getWorkflowAttachmentsForUser(ctx, userId);
   const itemIdSet = new Set(items.map((item) => item._id));
@@ -968,6 +995,7 @@ export const listPlanner = query({
     const dependencies = await getWorkflowDependenciesForUser(ctx, args.userId);
     const itemMap = new Map(items.map((item) => [item._id, item]));
     const blockedByMap = new Map<string, number>();
+    const blockedByTitlesMap = new Map<string, string[]>();
     for (const dependency of dependencies) {
       const predecessor = itemMap.get(dependency.predecessorWorkflowItemId);
       if (!predecessor || predecessor.status === "done") continue;
@@ -975,6 +1003,11 @@ export const listPlanner = query({
         dependency.successorWorkflowItemId,
         (blockedByMap.get(dependency.successorWorkflowItemId) ?? 0) + 1
       );
+      const preview = blockedByTitlesMap.get(dependency.successorWorkflowItemId) ?? [];
+      if (!preview.includes(predecessor.title)) {
+        preview.push(predecessor.title);
+      }
+      blockedByTitlesMap.set(dependency.successorWorkflowItemId, preview);
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -1002,6 +1035,9 @@ export const listPlanner = query({
           kind: item.kind,
           category: item.category,
           status: item.status,
+          parentId: item.parentId,
+          ancestorIds: item.ancestorIds,
+          sortOrder: item.sortOrder,
           priority: item.priority ?? 0,
           dueDate: item.dueDate,
           targetDate: item.targetDate,
@@ -1012,6 +1048,7 @@ export const listPlanner = query({
           }),
           overdue: isOverdueStatus({ dueDate: item.dueDate, status: item.status as any, today }),
           blockedByCount: blockedByMap.get(item._id) ?? 0,
+          blockedByTitles: blockedByTitlesMap.get(item._id) ?? [],
           buildId: buildAttachment?.entityId as Id<"builds"> | undefined,
           buildName: buildAttachment
             ? (buildById.get(buildAttachment.entityId)?.name ?? null)
@@ -1032,6 +1069,39 @@ export const listPlanner = query({
         if (a.blockedByCount !== b.blockedByCount) return a.blockedByCount - b.blockedByCount;
         return a.title.localeCompare(b.title);
       });
+  },
+});
+
+export const getItemEditorState = query({
+  args: { id: v.id("workflowItems"), userId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const item = await ctx.db.get(args.id);
+    if (!item) return null;
+    const allowed = await canEditWorkflowItem(ctx, item, args.userId);
+    if (!allowed) {
+      throw new Error("Not authorized");
+    }
+
+    const dependencies = await ctx.db
+      .query("workflowDependencies")
+      .withIndex("by_successorWorkflowItemId", (q) => q.eq("successorWorkflowItemId", args.id))
+      .collect();
+
+    return {
+      _id: item._id,
+      title: item.title,
+      notes: item.notes ?? "",
+      status: item.status,
+      kind: item.kind,
+      category: item.category,
+      dueDate: item.dueDate ?? "",
+      predecessorIds: dependencies.map((dependency) => dependency.predecessorWorkflowItemId),
+    };
   },
 });
 

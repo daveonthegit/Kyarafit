@@ -17,6 +17,7 @@
     "settings": "Settings",
     "addItem": "Add item",
     "addOutfit": "Add outfit",
+    "addBuild": "Add build",
     "addEvent": "Add event",
     "addGroup": "Add group"
   },
@@ -40,6 +41,7 @@
     "quickLinks": "Quick links",
     "quickActions": "Quick actions",
     "addOutfit": "Add Outfit",
+    "addBuild": "Add Build",
     "addClothingItem": "Add Clothing Item",
     "addClosetItem": "Add closet item",
     "planNewCosplay": "Plan New Cosplay",

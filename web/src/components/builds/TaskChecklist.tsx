@@ -425,7 +425,7 @@ function DraggableTaskRow({
     <div
       ref={setNodeRef}
       role="listitem"
-          className={`flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-kyar-text/50 transition group ${
+      className={`flex flex-col gap-2 py-2 px-3 border border-kyar-border hover:border-kyar-text/50 transition group ${
         isDragging ? "opacity-50 cursor-grabbing" : ""
       }`}
     >

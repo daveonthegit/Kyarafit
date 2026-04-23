@@ -118,7 +118,9 @@ export function ImageGallery({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {title && <h2 className="font-serif text-xl italic border-b border-kyar-text pb-2">{title}</h2>}
+      {title && (
+        <h2 className="font-serif text-xl italic border-b border-kyar-text pb-2">{title}</h2>
+      )}
 
       {/* Inline: clickable thumbnails or placeholder */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

@@ -115,8 +115,7 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
     const directParsed = form.directCostDollars.trim()
       ? Math.round(Number(form.directCostDollars) * 100)
       : null;
-    const directOk =
-      form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
+    const directOk = form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
     const directCents = directOk ? directParsed : detail.directCostCents;
     return (
       form.name.trim() === detail.name &&

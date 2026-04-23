@@ -26,15 +26,21 @@ export class ErrorBoundary extends React.Component<Props, State> {
   override render(): ReactNode {
     if (this.state.error) {
       return (
-        <View className="flex-1 justify-center px-6" style={{ backgroundColor: "#fef2f2" }}>
-          <Text className="text-lg font-semibold text-red-900">Something went wrong</Text>
-          <Text className="mt-2 text-red-800">{this.state.error.message}</Text>
+        <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
+          <Text className="text-lg font-semibold text-kyar-danger dark:text-kyar-dark-danger">
+            Something went wrong
+          </Text>
+          <Text className="mt-2 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            {this.state.error.message}
+          </Text>
           <Pressable
-            className="mt-6 rounded-xl bg-red-700 px-4 py-3 active:opacity-90"
+            className="mt-6 rounded-xl bg-kyar-text px-4 py-3 active:opacity-90 dark:bg-kyar-dark-text"
             onPress={this.clear}
             accessibilityRole="button"
           >
-            <Text className="text-center font-semibold text-white">Try again</Text>
+            <Text className="text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+              Try again
+            </Text>
           </Pressable>
         </View>
       );

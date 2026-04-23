@@ -10,7 +10,8 @@ import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
   title: "Kyarafit - Cosplay Studio Planner",
-  description: "Organize wardrobe pieces, track builds, and plan conventions with studio-grade clarity.",
+  description:
+    "Organize wardrobe pieces, track builds, and plan conventions with studio-grade clarity.",
 };
 
 const body = Albert_Sans({

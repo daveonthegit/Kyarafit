@@ -100,189 +100,180 @@ export function BuildNodeDetailSheet({
         ) : null}
       </div>
 
-        <div className="space-y-5 px-5 pb-8">
-          {/* Header: thumbnail + editable name */}
-          <div className="flex items-start gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-muted">
-              {detail.imageStorageId || detail.imageUrl ? (
-                <ResolvedImage
-                  imageStorageId={detail.imageStorageId ?? null}
-                  imageUrl={detail.imageUrl ?? null}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
-                    {detail.nodeType === "material" ? "inventory_2" : "checkroom"}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <input
-                value={inspectorForm.name}
-                onChange={(e) =>
-                  onFormChange((prev) => ({ ...prev, name: e.target.value }))
-                }
-                onBlur={onFlushSave}
-                aria-invalid={!inspectorForm.name.trim()}
-                aria-label="Node name"
-                className={[
-                  "w-full border-b border-transparent bg-transparent font-serif text-xl font-semibold text-kyar-text",
-                  "focus:border-kyar-text focus:outline-none",
-                  !inspectorForm.name.trim() ? "border-red-500 text-red-700" : "",
-                ].join(" ")}
+      <div className="space-y-5 px-5 pb-8">
+        {/* Header: thumbnail + editable name */}
+        <div className="flex items-start gap-3">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-muted">
+            {detail.imageStorageId || detail.imageUrl ? (
+              <ResolvedImage
+                imageStorageId={detail.imageStorageId ?? null}
+                imageUrl={detail.imageUrl ?? null}
+                alt=""
+                className="h-full w-full object-cover"
               />
-              {!inspectorForm.name.trim() && (
-                <p className="mt-1 text-xs text-red-600">Name is required</p>
-              )}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                  {formatNodeTypeLabel(detail.nodeType)}
-                </span>
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[chip.tone]}`} />
-                <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                  {detail.progressPercent ?? 0}%
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
+                  {detail.nodeType === "material" ? "inventory_2" : "checkroom"}
                 </span>
               </div>
-            </div>
+            )}
           </div>
-
-          {/* Status selector (segmented control) */}
-          <div>
-            <p className="mb-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-              Status
-            </p>
-            <div className="flex gap-1 rounded-xl bg-kyar-muted p-1">
-              {(detail.nodeType === "element"
-                ? ELEMENT_COMBINED_OPTIONS
-                : MATERIAL_STATUS_OPTIONS
-              ).map((opt) => {
-                const isActive =
-                  detail.nodeType === "element"
-                    ? inspectorForm.elementCombinedStatus === opt.value
-                    : inspectorForm.materialStatus === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      if (detail.nodeType === "element") {
-                        onFormChange((prev) => ({
-                          ...prev,
-                          elementCombinedStatus: opt.value as ElementCombinedStatus,
-                        }));
-                      } else {
-                        onFormChange((prev) => ({
-                          ...prev,
-                          materialStatus: opt.value,
-                        }));
-                      }
-                    }}
-                    className={[
-                      "flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors",
-                      isActive
-                        ? "bg-kyar-surface text-kyar-text shadow-sm"
-                        : "text-kyar-textSecondary hover:text-kyar-text",
-                    ].join(" ")}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Cost inputs */}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="space-y-1.5">
+          <div className="min-w-0 flex-1">
+            <input
+              value={inspectorForm.name}
+              onChange={(e) => onFormChange((prev) => ({ ...prev, name: e.target.value }))}
+              onBlur={onFlushSave}
+              aria-invalid={!inspectorForm.name.trim()}
+              aria-label="Node name"
+              className={[
+                "w-full border-b border-transparent bg-transparent font-serif text-xl font-semibold text-kyar-text",
+                "focus:border-kyar-text focus:outline-none",
+                !inspectorForm.name.trim() ? "border-red-500 text-red-700" : "",
+              ].join(" ")}
+            />
+            {!inspectorForm.name.trim() && (
+              <p className="mt-1 text-xs text-red-600">Name is required</p>
+            )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                Direct cost
+                {formatNodeTypeLabel(detail.nodeType)}
               </span>
-              <input
-                value={inspectorForm.directCostDollars}
-                onChange={(e) =>
-                  onFormChange((prev) => ({
-                    ...prev,
-                    directCostDollars: e.target.value,
-                  }))
-                }
-                placeholder="0.00"
-                inputMode="decimal"
-                className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
-              />
-            </label>
-            <div className="space-y-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[chip.tone]}`} />
               <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                Rollup cost
+                {detail.progressPercent ?? 0}%
               </span>
-              <div className="flex items-center rounded-xl border border-kyar-borderSubtle px-3 py-2.5">
-                <span className="text-sm font-medium tabular-nums text-kyar-text">
-                  {detail.totalCostCents != null
-                    ? formatCents(detail.totalCostCents)
-                    : "—"}
-                </span>
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Notes */}
-          <label className="block space-y-1.5">
+        {/* Status selector (segmented control) */}
+        <div>
+          <p className="mb-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+            Status
+          </p>
+          <div className="flex gap-1 rounded-xl bg-kyar-muted p-1">
+            {(detail.nodeType === "element"
+              ? ELEMENT_COMBINED_OPTIONS
+              : MATERIAL_STATUS_OPTIONS
+            ).map((opt) => {
+              const isActive =
+                detail.nodeType === "element"
+                  ? inspectorForm.elementCombinedStatus === opt.value
+                  : inspectorForm.materialStatus === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    if (detail.nodeType === "element") {
+                      onFormChange((prev) => ({
+                        ...prev,
+                        elementCombinedStatus: opt.value as ElementCombinedStatus,
+                      }));
+                    } else {
+                      onFormChange((prev) => ({
+                        ...prev,
+                        materialStatus: opt.value,
+                      }));
+                    }
+                  }}
+                  className={[
+                    "flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors",
+                    isActive
+                      ? "bg-kyar-surface text-kyar-text shadow-sm"
+                      : "text-kyar-textSecondary hover:text-kyar-text",
+                  ].join(" ")}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Cost inputs */}
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-1.5">
             <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-              Notes
+              Direct cost
             </span>
-            <textarea
-              value={inspectorForm.notes}
+            <input
+              value={inspectorForm.directCostDollars}
               onChange={(e) =>
-                onFormChange((prev) => ({ ...prev, notes: e.target.value }))
+                onFormChange((prev) => ({
+                  ...prev,
+                  directCostDollars: e.target.value,
+                }))
               }
-              rows={3}
-              className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
+              placeholder="0.00"
+              inputMode="decimal"
+              className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
             />
           </label>
-
-          {/* Actions */}
-          <div className="grid gap-2 sm:grid-cols-3">
-            <button
-              type="button"
-              onClick={() =>
-                onCreateChild(
-                  detail._id,
-                  detail.nodeType === "material" ? "material" : "element"
-                )
-              }
-              className="rounded-xl border border-kyar-text px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-text transition-colors hover:bg-kyar-text hover:text-kyar-bg"
-            >
-              New child
-            </button>
-            <button
-              type="button"
-              onClick={onUnlink}
-              className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-red-300 hover:text-red-600"
-            >
-              {selected?.isRoot ? "Unlink root" : "Unlink child"}
-            </button>
-            {onMoveNode && selected ? (
-              <button
-                type="button"
-                onClick={() => onMoveNode(selected)}
-                className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text"
-              >
-                Move
-              </button>
-            ) : null}
+          <div className="space-y-1.5">
+            <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+              Rollup cost
+            </span>
+            <div className="flex items-center rounded-xl border border-kyar-borderSubtle px-3 py-2.5">
+              <span className="text-sm font-medium tabular-nums text-kyar-text">
+                {detail.totalCostCents != null ? formatCents(detail.totalCostCents) : "—"}
+              </span>
+            </div>
           </div>
-
-          {/* Open full page link */}
-          <Link
-            href={`/elements/${detail._id}`}
-            className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-kyar-textSecondary transition-colors hover:text-kyar-text"
-          >
-            <span className="material-symbols-outlined text-base">open_in_new</span>
-            Open full page
-          </Link>
         </div>
+
+        {/* Notes */}
+        <label className="block space-y-1.5">
+          <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+            Notes
+          </span>
+          <textarea
+            value={inspectorForm.notes}
+            onChange={(e) => onFormChange((prev) => ({ ...prev, notes: e.target.value }))}
+            rows={3}
+            className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
+          />
+        </label>
+
+        {/* Actions */}
+        <div className="grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() =>
+              onCreateChild(detail._id, detail.nodeType === "material" ? "material" : "element")
+            }
+            className="rounded-xl border border-kyar-text px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-text transition-colors hover:bg-kyar-text hover:text-kyar-bg"
+          >
+            New child
+          </button>
+          <button
+            type="button"
+            onClick={onUnlink}
+            className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-red-300 hover:text-red-600"
+          >
+            {selected?.isRoot ? "Unlink root" : "Unlink child"}
+          </button>
+          {onMoveNode && selected ? (
+            <button
+              type="button"
+              onClick={() => onMoveNode(selected)}
+              className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text"
+            >
+              Move
+            </button>
+          ) : null}
+        </div>
+
+        {/* Open full page link */}
+        <Link
+          href={`/elements/${detail._id}`}
+          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-kyar-textSecondary transition-colors hover:text-kyar-text"
+        >
+          <span className="material-symbols-outlined text-base">open_in_new</span>
+          Open full page
+        </Link>
+      </div>
     </>
   );
 

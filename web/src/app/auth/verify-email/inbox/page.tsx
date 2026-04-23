@@ -43,8 +43,8 @@ export default function VerifyEmailInboxPage() {
           <h1 className="font-serif text-3xl italic tracking-tight mb-3">Check your inbox</h1>
           <p className="text-sm text-kyar-textSecondary leading-relaxed">
             We sent a verification link to{" "}
-            {email ? <strong className="text-kyar-text">{email}</strong> : "your email address"}. Click
-            the link to activate your account.
+            {email ? <strong className="text-kyar-text">{email}</strong> : "your email address"}.
+            Click the link to activate your account.
           </p>
         </div>
 

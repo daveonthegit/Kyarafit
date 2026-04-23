@@ -118,8 +118,9 @@ export function pointInsideRect(clientX: number, clientY: number, rect: DOMRect)
 
 export const formatCents = sharedFormatCents;
 
-export function statusChipInfo(
-  node: ExplorerLinkedNode
-): { label: string; tone: "neutral" | "warning" | "active" | "success" } {
+export function statusChipInfo(node: ExplorerLinkedNode): {
+  label: string;
+  tone: "neutral" | "warning" | "active" | "success";
+} {
   return sharedStatusChipInfo(node);
 }

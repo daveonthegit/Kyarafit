@@ -68,7 +68,11 @@ export function PageHeader({
           <h1 className="font-serif-elegant text-[23px] sm:text-[38px] font-normal italic tracking-tight text-kyar-text leading-[1.08]">
             {title}
           </h1>
-          {subtitle && <p className="mt-0.5 text-[10px] sm:mt-1 sm:text-[11px] text-kyar-textSecondary">{subtitle}</p>}
+          {subtitle && (
+            <p className="mt-0.5 text-[10px] sm:mt-1 sm:text-[11px] text-kyar-textSecondary">
+              {subtitle}
+            </p>
+          )}
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[min(100%,20rem)] sm:max-w-md sm:items-end sm:gap-4">

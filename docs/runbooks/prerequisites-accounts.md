@@ -2,7 +2,6 @@
 
 Checklist for Kyarafit mobile rebuild and store submission. Each row should have an **owner** and **target date** in your tracker; blockers here gate **Phase 7** (subscriptions, push, admin) per the mobile blueprint.
 
-
 | Area       | Item                                                 | Owner | Target | Status | Notes                                                                                                                                                |
 | ---------- | ---------------------------------------------------- | ----- | ------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Apple      | Apple Developer Program enrollment                   |       |        |        | Required for iOS builds and App Store                                                                                                                |
@@ -19,10 +18,9 @@ Checklist for Kyarafit mobile rebuild and store submission. Each row should have
 | Expo       | EAS project + `EXPO_TOKEN` for CI                    |       |        |        | Secrets: `RC_*`, `SENTRY_AUTH_TOKEN`, etc.                                                                                                           |
 | Convex     | Production + dev deployments                         |       |        |        | `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`                                                                                              |
 
-
 ## Environment placement
 
-- **Client-readable:** only `EXPO_PUBLIC_*` in `mobile/src/`** (CI enforces via `npm run check:env` in `mobile`).
+- **Client-readable:** only `EXPO_PUBLIC_*` in `mobile/src/`\*\* (CI enforces via `npm run check:env` in `mobile`).
 - **Secrets:** EAS secrets, Convex dashboard, never committed.
 
 ## Gate

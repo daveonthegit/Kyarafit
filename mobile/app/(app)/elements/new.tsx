@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
@@ -24,8 +24,7 @@ export default function NewElementScreen() {
   else status = "ready";
 
   type Ready = { userId: string };
-  const data: Ready | undefined =
-    status === "ready" && userId ? { userId } : undefined;
+  const data: Ready | undefined = status === "ready" && userId ? { userId } : undefined;
 
   return (
     <DataBoundary<Ready> status={status} data={data} error={error}>
@@ -37,15 +36,21 @@ export default function NewElementScreen() {
 function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
   const navigation = useNavigation();
   const router = useRouter();
+  const rawNodeType = useLocalSearchParams<{ nodeType?: string | string[] }>().nodeType;
+  const initialNodeType = Array.isArray(rawNodeType) ? rawNodeType[0] : rawNodeType;
   const create = useMutation(api.cosplayNodes.create);
 
   const [name, setName] = useState("");
-  const [nodeType, setNodeType] = useState<CosplayNodeType>("element");
+  const [nodeType, setNodeType] = useState<CosplayNodeType>(
+    initialNodeType === "material" ? "material" : "element"
+  );
   const [pending, setPending] = useState(false);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: t("elements.newTitle") });
-  }, [navigation, t]);
+    navigation.setOptions({
+      title: t(nodeType === "material" ? "elements.newMaterialTitle" : "elements.newTitle"),
+    });
+  }, [navigation, nodeType, t]);
 
   const onSubmit = () => {
     const trimmed = name.trim();
@@ -92,7 +97,9 @@ function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
             key={type}
             onPress={() => setNodeType(type)}
             className={`flex-1 rounded-xl border px-3 py-3 ${
-              nodeType === type ? "border-neutral-900 bg-neutral-900" : "border-neutral-200 bg-white"
+              nodeType === type
+                ? "border-neutral-900 bg-neutral-900"
+                : "border-neutral-200 bg-white"
             }`}
           >
             <Text

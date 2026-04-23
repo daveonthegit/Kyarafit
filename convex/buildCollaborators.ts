@@ -18,8 +18,7 @@ export const listByBuild = query({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
 
-    const allowed =
-      build.userId === args.userId || rows.some((r) => r.userId === args.userId);
+    const allowed = build.userId === args.userId || rows.some((r) => r.userId === args.userId);
     if (!allowed) return [];
 
     const withUser = await Promise.all(

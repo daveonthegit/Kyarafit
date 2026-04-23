@@ -92,10 +92,7 @@ function TreeNode({
 
   const children = detail?.children ?? [];
   const displayName = detail?.name ?? node.name;
-  const nodePath: PathSegment[] = [
-    ...pathPrefix,
-    { meta: selectionMeta, label: displayName },
-  ];
+  const nodePath: PathSegment[] = [...pathPrefix, { meta: selectionMeta, label: displayName }];
   const hasChildren = children.length > 0;
 
   return (
