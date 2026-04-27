@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -116,6 +126,13 @@ export function BuildDetailBody(props: Props) {
   const [quickCreateParentId, setQuickCreateParentId] = useState<Id<"cosplayNodes"> | null>(null);
   const [quickCreateBusy, setQuickCreateBusy] = useState(false);
 
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"viewer" | "editor">("viewer");
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+
   const detailSheetRef = useRef<NodeDetailSheetRef>(null);
   const rootViewRef = useRef<View>(null);
   const inspector = useNodeInspector({ buildId, userId });
@@ -149,6 +166,8 @@ export function BuildDetailBody(props: Props) {
   const createNode = useOfflineMutation(api.cosplayNodes.create);
   const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
   const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+  const addCollaboratorByEmail = useOfflineMutation(api.buildCollaborators.addByEmail);
+  const removeCollaborator = useOfflineMutation(api.buildCollaborators.remove);
 
   const roots = useMemo(() => (outlineNodes ?? []).filter((node) => node.isRoot), [outlineNodes]);
   const boardRootElements = useMemo(
@@ -517,6 +536,56 @@ export function BuildDetailBody(props: Props) {
     userId,
   ]);
 
+  useEffect(() => {
+    if (!inviteModalOpen) return;
+    setInviteEmail("");
+    setInviteRole("viewer");
+    setInviteError(null);
+    setInviteFeedback(null);
+  }, [inviteModalOpen]);
+
+  const handleSendCollaboratorInvite = useCallback(async () => {
+    const email = inviteEmail.trim();
+    if (!email || invitePending) return;
+    setInvitePending(true);
+    setInviteError(null);
+    setInviteFeedback(null);
+    try {
+      await addCollaboratorByEmail({
+        buildId,
+        ownerId: userId,
+        email,
+        role: inviteRole,
+      });
+      setInviteEmail("");
+      setInviteFeedback(t("buildDetail.inviteSuccess"));
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : t("buildDetail.inviteErrorGeneric"));
+    } finally {
+      setInvitePending(false);
+    }
+  }, [addCollaboratorByEmail, buildId, inviteEmail, invitePending, inviteRole, t, userId]);
+
+  const confirmRemoveCollaborator = useCallback(
+    (collaboratorUserId: string) => {
+      Alert.alert(t("buildDetail.inviteRemoveTitle"), t("buildDetail.inviteRemoveBody"), [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("buildDetail.inviteRemove"),
+          style: "destructive",
+          onPress: () => {
+            void removeCollaborator({
+              buildId,
+              ownerId: userId,
+              userId: collaboratorUserId,
+            });
+          },
+        },
+      ]);
+    },
+    [buildId, removeCollaborator, t, userId]
+  );
+
   const updateRootFrame = useCallback(() => {
     rootViewRef.current?.measureInWindow?.((x, y) => {
       setRootFrame({ x, y });
@@ -603,43 +672,67 @@ export function BuildDetailBody(props: Props) {
       </SurfaceCard>
     ) : null;
 
-  const collaboratorsBlock =
-    collaborators && collaborators.length > 0 ? (
+  const collaboratorsOwnerPanel =
+    collaborators !== undefined ? (
       <SurfaceCard className="px-4 py-4">
-        <View className="flex-row items-center justify-between">
-          <View>
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="min-w-0 flex-1">
             <MetaLabel>{t("buildDetail.collaborators")}</MetaLabel>
             <Text
               style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
               className="mt-2 text-[30px] italic text-kyar-text dark:text-kyar-dark-text"
             >
-              Team
+              {t("buildDetail.teamHeading")}
             </Text>
           </View>
+          <Pressable
+            onPress={() => setInviteModalOpen(true)}
+            className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
+          >
+            <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+              {t("buildDetail.inviteCollaborator")}
+            </Text>
+          </Pressable>
         </View>
 
-        <View className="mt-4 gap-3">
-          {collaborators.map((collaborator) => (
-            <View
-              key={collaborator.userId}
-              className="flex-row items-center justify-between rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
-            >
-              <Text className="flex-1 text-sm text-kyar-text dark:text-kyar-dark-text">
-                {collaborator.name ??
-                  collaborator.username ??
-                  collaborator.email ??
-                  collaborator.userId}
-              </Text>
-              <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                {collaborator.role === "editor"
-                  ? t("buildDetail.roleEditor")
-                  : collaborator.role === "viewer"
-                    ? t("buildDetail.roleViewer")
-                    : collaborator.role}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {collaborators.length === 0 ? (
+          <Text className="mt-4 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            {t("buildDetail.collaboratorsEmpty")}
+          </Text>
+        ) : (
+          <View className="mt-4 gap-3">
+            {collaborators.map((collaborator) => (
+              <View
+                key={collaborator.userId}
+                className="flex-row items-center justify-between gap-3 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
+              >
+                <Text className="min-w-0 flex-1 text-sm text-kyar-text dark:text-kyar-dark-text">
+                  {collaborator.name ??
+                    collaborator.username ??
+                    collaborator.email ??
+                    collaborator.userId}
+                </Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                    {collaborator.role === "editor"
+                      ? t("buildDetail.roleEditor")
+                      : collaborator.role === "viewer"
+                        ? t("buildDetail.roleViewer")
+                        : collaborator.role}
+                  </Text>
+                  <Pressable
+                    onPress={() => confirmRemoveCollaborator(collaborator.userId)}
+                    className="rounded-full border border-kyar-borderSubtle px-3 py-1.5 dark:border-kyar-dark-borderSubtle"
+                  >
+                    <Text className="text-[10px] uppercase tracking-widest text-kyar-danger dark:text-kyar-dark-danger">
+                      {t("buildDetail.inviteRemove")}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </SurfaceCard>
     ) : null;
 
@@ -720,12 +813,14 @@ export function BuildDetailBody(props: Props) {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-2">
-          {([
-            { id: "all", label: "All" },
-            { id: "references", label: "References" },
-            { id: "progress", label: "Progress" },
-            { id: "nodes", label: "Elements" },
-          ] as { id: BoardView; label: string }[]).map((item) => (
+          {(
+            [
+              { id: "all", label: "All" },
+              { id: "references", label: "References" },
+              { id: "progress", label: "Progress" },
+              { id: "nodes", label: "Elements" },
+            ] as { id: BoardView; label: string }[]
+          ).map((item) => (
             <Pressable
               key={item.id}
               onPress={() => setBoardView(item.id)}
@@ -795,7 +890,9 @@ export function BuildDetailBody(props: Props) {
                         childrenLabel={t("elements.childCount", {
                           count: node.childCount ?? 0,
                           defaultValue:
-                            (node.childCount ?? 0) === 1 ? "1 child" : `${node.childCount ?? 0} children`,
+                            (node.childCount ?? 0) === 1
+                              ? "1 child"
+                              : `${node.childCount ?? 0} children`,
                         })}
                       />
                     </Pressable>
@@ -1007,7 +1104,7 @@ export function BuildDetailBody(props: Props) {
               )}
             </SurfaceCard>
 
-            {collaboratorsBlock}
+            {collaboratorsOwnerPanel}
           </ScrollView>
         ) : null}
 
@@ -1443,6 +1540,116 @@ export function BuildDetailBody(props: Props) {
               </Pressable>
             </View>
           </Pressable>
+        ) : null}
+      </Pressable>
+
+      <Pressable
+        className={inviteModalOpen ? "absolute inset-0 z-[60] flex-1 bg-black/40" : "hidden"}
+        onPress={() => {
+          if (!invitePending) setInviteModalOpen(false);
+        }}
+      >
+        {inviteModalOpen ? (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            className="flex-1 justify-end"
+          >
+            <Pressable
+              className="border-t border-kyar-borderSubtle bg-kyar-surface px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+              onPress={(event) => event.stopPropagation()}
+            >
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+                  {t("buildDetail.inviteModalTitle")}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    if (!invitePending) setInviteModalOpen(false);
+                  }}
+                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+                >
+                  <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                    {t("buildDetail.inviteDone")}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                {t("buildDetail.inviteModalBody")}
+              </Text>
+              {inviteFeedback ? (
+                <Text className="mt-3 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-2 text-sm text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text">
+                  {inviteFeedback}
+                </Text>
+              ) : null}
+              {inviteError ? (
+                <Text className="mt-3 text-sm text-kyar-danger dark:text-kyar-dark-danger">
+                  {inviteError}
+                </Text>
+              ) : null}
+              <MetaLabel className="mt-4">{t("buildDetail.inviteEmailLabel")}</MetaLabel>
+              <TextInput
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                placeholder={t("buildDetail.inviteEmailPlaceholder")}
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!invitePending}
+                className="mt-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
+              />
+              <MetaLabel className="mt-4">{t("buildDetail.inviteRoleLabel")}</MetaLabel>
+              <View className="mt-2 flex-row gap-3">
+                <Pressable
+                  onPress={() => setInviteRole("viewer")}
+                  className={`flex-1 rounded-full border px-4 py-3 ${
+                    inviteRole === "viewer"
+                      ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                      : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                  }`}
+                  disabled={invitePending}
+                >
+                  <Text
+                    className={`text-center text-xs font-semibold uppercase tracking-wide ${
+                      inviteRole === "viewer"
+                        ? "text-kyar-bg dark:text-kyar-dark-bg"
+                        : "text-kyar-text dark:text-kyar-dark-text"
+                    }`}
+                  >
+                    {t("buildDetail.roleViewer")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setInviteRole("editor")}
+                  className={`flex-1 rounded-full border px-4 py-3 ${
+                    inviteRole === "editor"
+                      ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                      : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                  }`}
+                  disabled={invitePending}
+                >
+                  <Text
+                    className={`text-center text-xs font-semibold uppercase tracking-wide ${
+                      inviteRole === "editor"
+                        ? "text-kyar-bg dark:text-kyar-dark-bg"
+                        : "text-kyar-text dark:text-kyar-dark-text"
+                    }`}
+                  >
+                    {t("buildDetail.roleEditor")}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={() => void handleSendCollaboratorInvite()}
+                disabled={invitePending || !inviteEmail.trim()}
+                className="mt-6 rounded-full bg-kyar-text py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
+              >
+                <Text className="text-center text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+                  {invitePending ? t("buildDetail.inviteSending") : t("buildDetail.inviteSend")}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
         ) : null}
       </Pressable>
     </View>

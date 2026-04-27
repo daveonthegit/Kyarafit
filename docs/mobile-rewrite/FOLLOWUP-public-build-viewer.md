@@ -15,12 +15,14 @@ Implementation today: [`web/src/app/b/s/[shareToken]/page.tsx`](../../web/src/ap
 
 ---
 
-## Mobile rewrite scope (deferred)
+## Mobile rewrite scope (remaining after in-app routes)
 
-Execute **after** the web + Convex pieces land (`getPublicViewerBundle` or equivalent, `publicViewerSettings`, hardened list queries).
+**Update (2026-04-23):** In-app read-only routes already ship in [`mobile/app/(public)/public-builds/[buildId].tsx`](../../mobile/app/(public)/public-builds/[buildId].tsx) and [`mobile/app/(public)/b/s/[shareToken].tsx`](../../mobile/app/(public)/b/s/[shareToken].tsx) (see blueprint KFM-110). The backlog below is **association + parity**, not “add the screen.”
+
+Execute **after** the web + Convex **bundle contract** is stable (`getPublicViewerBundle` or equivalent, `publicViewerSettings`, hardened list queries) so mobile does not drift from the shared viewer API.
 
 1. **Universal links / app links** — Open `https://<app-domain>/b/<buildId>` and `https://<app-domain>/b/s/<shareToken>` in the app when installed (or fall back to in-app WebView / system browser per product choice).
-2. **Read-only screens** — Mirror the web public viewer (sections gated by owner toggles); no edit affordances. Reuse strings/layout patterns from authenticated [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx) only where it stays read-only; do not require sign-in to _view_ public/unlisted links.
+2. **Read-only parity** — Keep mirroring the web public viewer (sections gated by owner toggles); no edit affordances. Reuse strings/layout patterns from authenticated [`DetailBody`](../../mobile/src/screens/build-detail/DetailBody.tsx) only where it stays read-only; do not require sign-in to _view_ public/unlisted links.
 3. **Auth optional** — Likes/comments if the API requires a user: show CTAs to sign in, same as web.
 4. **Parity rule** — Track against [`rules/mobile-parity.mdc`](../../.cursor/rules/mobile-parity.mdc) once routes exist.
 

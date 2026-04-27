@@ -95,6 +95,8 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
   const { colors } = useDesignTheme();
   const replacePlan = useOfflineMutation(api.conventions.replacePlan);
   const regeneratePacking = useOfflineMutation(api.conventions.regeneratePacking);
+  const updateConvention = useOfflineMutation(api.conventions.update);
+  const removeConvention = useOfflineMutation(api.conventions.remove);
   const days = useMemo(
     () => enumerateConventionDays(convention.startDate, convention.endDate),
     [convention.endDate, convention.startDate]
@@ -145,6 +147,60 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
     );
   }, [buildSearch, builds]);
 
+  const runArchive = useCallback(async () => {
+    try {
+      await updateConvention({
+        id: convention._id,
+        userId,
+        archived: true,
+      });
+    } catch (error) {
+      Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
+    }
+  }, [convention._id, t, updateConvention, userId]);
+
+  const runUnarchive = useCallback(async () => {
+    try {
+      await updateConvention({
+        id: convention._id,
+        userId,
+        archived: false,
+      });
+    } catch (error) {
+      Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
+    }
+  }, [convention._id, t, updateConvention, userId]);
+
+  const confirmArchive = useCallback(() => {
+    Alert.alert(t("conventions.archiveConfirmTitle"), t("conventions.archiveConfirmBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("conventions.archiveAction"), style: "default", onPress: () => void runArchive() },
+    ]);
+  }, [runArchive, t]);
+
+  const confirmDelete = useCallback(() => {
+    Alert.alert(t("conventions.deleteConfirmTitle"), t("conventions.deleteConfirmBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("conventions.deleteAction"),
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              await removeConvention({ id: convention._id, userId });
+              router.replace(APP_HREF.conventions);
+            } catch (error) {
+              Alert.alert(
+                t("common.errorTitle"),
+                String(error instanceof Error ? error.message : error)
+              );
+            }
+          })();
+        },
+      },
+    ]);
+  }, [convention._id, removeConvention, router, t, userId]);
+
   return (
     <>
       <ScrollView
@@ -176,10 +232,47 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
               hitSlop={10}
               className="active:opacity-80"
             >
-              <Text className="text-sm font-semibold text-kyar-bg">{t("conventions.editAction")}</Text>
+              <Text className="text-sm font-semibold text-kyar-bg">
+                {t("conventions.editAction")}
+              </Text>
             </Pressable>
           }
         />
+
+        <SurfaceCard className="gap-3 px-4 py-4">
+          <MetaLabel>{t("conventions.manageTitle")}</MetaLabel>
+          {convention.archived === true ? (
+            <View className="self-start rounded-full bg-kyar-panel px-3 py-1.5 dark:bg-kyar-dark-panel">
+              <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                {t("conventions.archivedBadge")}
+              </Text>
+            </View>
+          ) : null}
+          <View className="gap-2">
+            {convention.archived !== true ? (
+              <Button
+                title={t("conventions.archiveAction")}
+                variant="secondary"
+                onPress={confirmArchive}
+              />
+            ) : (
+              <Button
+                title={t("conventions.unarchiveAction")}
+                variant="secondary"
+                onPress={() => void runUnarchive()}
+              />
+            )}
+            <Pressable
+              onPress={confirmDelete}
+              accessibilityRole="button"
+              className="rounded-xl border border-kyar-danger/35 bg-kyar-surface px-4 py-3 active:opacity-90 dark:border-kyar-dark-danger/40 dark:bg-kyar-dark-surface"
+            >
+              <Text className="text-center font-semibold text-kyar-danger dark:text-kyar-dark-danger">
+                {t("conventions.deleteAction")}
+              </Text>
+            </Pressable>
+          </View>
+        </SurfaceCard>
 
         {/* Cosplay timeline — structure aligned with web `/conventions/[id]` (vertical spine + nodes + cards) */}
         <View className="mb-4">
@@ -248,9 +341,7 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
 
                     <Pressable
                       onPress={() =>
-                        build
-                          ? router.push(APP_HREF.build(build._id))
-                          : setAssigningDay(date)
+                        build ? router.push(APP_HREF.build(build._id)) : setAssigningDay(date)
                       }
                       onLongPress={build ? () => setAssigningDay(date) : undefined}
                       delayLongPress={400}
@@ -300,9 +391,7 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
           <View className="flex-row items-center justify-between">
             <MetaLabel>{t("conventions.dayPackingTitle")}</MetaLabel>
             <Pressable
-              onPress={() =>
-                router.push(APP_HREF.conventionPacking(convention._id, primaryDay))
-              }
+              onPress={() => router.push(APP_HREF.conventionPacking(convention._id, primaryDay))}
             >
               <Text className="text-xs font-semibold text-kyar-text underline dark:text-kyar-dark-text">
                 {t("conventions.openPackingAction")}
@@ -435,4 +524,3 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
     </>
   );
 }
-
