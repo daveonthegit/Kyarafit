@@ -1,3 +1,4 @@
+/// <reference types="expo/types" />
 /// <reference types="nativewind/types" />
 
 // Stub declarations for optional deps (auth/API not in this slice)
