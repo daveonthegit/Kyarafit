@@ -82,19 +82,18 @@ type OfflineBytesRow = {
 };
 
 function estimateOfflineStorageBytes(db: SQLiteDatabase): number {
-  const row =
-    db.getFirstSync<OfflineBytesRow>(`
+  const row = db.getFirstSync<OfflineBytesRow>(`
       SELECT
         COALESCE((SELECT SUM(LENGTH(query_key) + LENGTH(payload_json)) FROM query_cache), 0) AS query_cache_bytes,
         COALESCE((SELECT SUM(LENGTH(idempotency_key) + LENGTH(op) + LENGTH(fn) + LENGTH(args_json)) FROM mutation_queue), 0) AS mutation_queue_bytes,
         COALESCE((SELECT SUM(LENGTH(table_name) + LENGTH(id) + LENGTH(user_id) + LENGTH(json)) FROM entity_rows), 0) AS entity_rows_bytes,
         COALESCE((SELECT SUM(LENGTH(client_id) + LENGTH(server_id)) FROM id_map), 0) AS id_map_bytes
     `) ?? {
-      query_cache_bytes: 0,
-      mutation_queue_bytes: 0,
-      entity_rows_bytes: 0,
-      id_map_bytes: 0,
-    };
+    query_cache_bytes: 0,
+    mutation_queue_bytes: 0,
+    entity_rows_bytes: 0,
+    id_map_bytes: 0,
+  };
   return (
     (row.query_cache_bytes ?? 0) +
     (row.mutation_queue_bytes ?? 0) +
@@ -104,9 +103,7 @@ function estimateOfflineStorageBytes(db: SQLiteDatabase): number {
 }
 
 function pruneMutationQueueRows(db: SQLiteDatabase): void {
-  const queueCountRow = db.getFirstSync<{ c: number }>(
-    "SELECT COUNT(*) AS c FROM mutation_queue"
-  );
+  const queueCountRow = db.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM mutation_queue");
   const queueCount = queueCountRow?.c ?? 0;
   const overflow = queueCount - OFFLINE_MUTATION_QUEUE_MAX_ROWS;
   if (overflow <= 0) return;
@@ -172,7 +169,9 @@ function evictStorageUntilUnderCap(db: SQLiteDatabase): void {
   }
 }
 
-export function pruneOfflineTombstones(cutoffMs = Date.now() - OFFLINE_TOMBSTONE_RETENTION_MS): void {
+export function pruneOfflineTombstones(
+  cutoffMs = Date.now() - OFFLINE_TOMBSTONE_RETENTION_MS
+): void {
   const db = getOfflineDb();
   db.execSync(`
     DELETE FROM entity_rows
@@ -191,12 +190,7 @@ export function enforceOfflineStorageCaps(): void {
 async function wipeKnownImageCaches(): Promise<void> {
   const cacheRoot = FileSystem.cacheDirectory;
   if (!cacheRoot) return;
-  const candidates = [
-    "ImageCache",
-    "expo-image",
-    "expo-image-cache",
-    "react-native-image-cache",
-  ];
+  const candidates = ["ImageCache", "expo-image", "expo-image-cache", "react-native-image-cache"];
   await Promise.all(
     candidates.map(async (name) => {
       try {

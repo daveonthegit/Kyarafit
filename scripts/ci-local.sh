@@ -93,7 +93,7 @@ echo "========================================"
 echo "🏗️  Building"
 echo "========================================"
 
-run_check "Web build" bash -c "npm run build:web 2>&1 | tee /tmp/web-build.log; if grep -q '✓ Generating static pages' /tmp/web-build.log; then exit 0; else exit 1; fi"
+run_check "Web build" npm run build -w web -- --webpack
 
 # Go backend is archived — skip backend build
 echo -e "${YELLOW}⚠️  Go backend archived, skipping backend build${NC}"

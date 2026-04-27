@@ -42,6 +42,7 @@ type FollowingFeedRow = BuildListRow & {
 };
 
 type HomeLoaded = {
+  userId: string;
   recentBuild: FocusedBuildRow | null;
   upcoming: { convention: Doc<"conventions">; outfitCount: number }[];
   eventForBuild: { name: string; startDate: string } | null;
@@ -149,6 +150,7 @@ export default function HomeScreen() {
   const data: HomeLoaded | undefined =
     status === "ready" && userId
       ? {
+          userId,
           recentBuild: recentBuild ?? null,
           upcoming: upcoming ?? [],
           eventForBuild: eventForBuild ?? null,
@@ -187,6 +189,7 @@ function HomeDashboardBody({
     allBuilds,
     focusedBuildId,
     followingFeed,
+    userId,
   } = loaded;
 
   const focusSheetRef = useRef<FocusSheetRef>(null);
@@ -225,7 +228,7 @@ function HomeDashboardBody({
         router.push(APP_HREF.element(item.cosplayNodeId));
         return;
       }
-      router.push("/(app)/(tabs)/planner");
+      router.push(APP_HREF.planner);
     },
     [router]
   );
@@ -237,7 +240,7 @@ function HomeDashboardBody({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View className="mt-3 px-5 pt-4">
-        <Link href={recentBuild ? APP_HREF.build(recentBuild._id) : "/(app)/(tabs)/builds"} asChild>
+        <Link href={recentBuild ? APP_HREF.build(recentBuild._id) : APP_HREF.builds} asChild>
           <Pressable className="active:opacity-90">
             <BuildPortfolioCard
               variant="comfortable"
@@ -268,10 +271,7 @@ function HomeDashboardBody({
             {recentBuild ? t("home.focusMetaHasBuild") : t("home.focusMetaNoBuild")}
           </MetaLabel>
           <View className="flex-row gap-3">
-            <Link
-              href={recentBuild ? APP_HREF.build(recentBuild._id) : "/(app)/(tabs)/builds"}
-              asChild
-            >
+            <Link href={recentBuild ? APP_HREF.build(recentBuild._id) : APP_HREF.builds} asChild>
               <Pressable className="min-h-[52px] flex-1 items-center justify-center rounded-full bg-kyar-text px-5 active:opacity-90 dark:bg-kyar-dark-text">
                 <Text className="text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
                   {recentBuild ? t("home.openOutfitHint") : t("home.browseOutfits")}
@@ -348,7 +348,7 @@ function HomeDashboardBody({
                 {t("home.currentProjects")}
               </Text>
             </View>
-            <Link href="/(app)/(tabs)/builds" asChild>
+            <Link href={APP_HREF.builds} asChild>
               <Pressable>
                 <Text className="text-[11px] font-semibold uppercase tracking-wide text-kyar-text underline dark:text-kyar-dark-text">
                   {t("home.viewAllBuilds")}
@@ -402,8 +402,8 @@ function HomeDashboardBody({
               <View key={build._id} className="w-[292px]">
                 <PublicBuildCard
                   build={build}
-                  currentUserId={null}
-                  onPress={() => router.push(APP_HREF.build(build._id))}
+                  currentUserId={userId}
+                  onPress={() => router.push(APP_HREF.publicBuild(build._id))}
                   projectIndex={index + 1}
                 />
               </View>
@@ -420,7 +420,7 @@ function HomeDashboardBody({
               {t("home.nextSteps")}
             </Text>
           </View>
-          <Link href="/(app)/(tabs)/planner" asChild>
+          <Link href={APP_HREF.planner} asChild>
             <Pressable>
               <Text className="text-[11px] font-semibold uppercase tracking-wide text-kyar-text underline dark:text-kyar-dark-text">
                 {t("home.openPlanner")}

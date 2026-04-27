@@ -24,8 +24,7 @@ export function plannerTaskScopeKey(task: {
   const conventionId = task.conventionId as string | undefined;
   const buildId = task.buildId as string | undefined;
   if (conventionId) {
-    const packingTask =
-      task.category === "pack" || Boolean(task.packingListItemId) || !buildId;
+    const packingTask = task.category === "pack" || Boolean(task.packingListItemId) || !buildId;
     if (packingTask) return `c:${conventionId}:pack`;
     return `c:${conventionId}:b:${buildId ?? ""}`;
   }

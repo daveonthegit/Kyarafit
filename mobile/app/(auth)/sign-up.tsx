@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
+import { APP_HREF } from "@/lib/appRoutes";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   AUTH_ON_PRIMARY,
@@ -42,7 +43,7 @@ export default function SignUpScreen() {
     try {
       const result = await startSocialSignIn(provider);
       if (result === "signed_in") {
-        router.replace("/(app)/(tabs)");
+        router.replace(APP_HREF.home);
       }
       setOauthLoading(null);
     } catch (e: unknown) {
@@ -78,10 +79,7 @@ export default function SignUpScreen() {
         setError(authError.message ?? "Sign up failed.");
         return;
       }
-      router.replace({
-        pathname: "/(auth)/verify-email",
-        params: { email: email.trim() },
-      });
+      router.replace(APP_HREF.verifyEmail(email.trim()));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Sign up failed");
     } finally {
@@ -196,7 +194,7 @@ export default function SignUpScreen() {
         )}
       </Pressable>
 
-      <Link href="/(auth)/sign-in" asChild>
+      <Link href={APP_HREF.signIn} asChild>
         <Pressable className="mt-6">
           <Text className={authFooterTextCls}>
             {t("auth.haveAccount")} <Text className={authFooterEmCls}>{t("common.signIn")}</Text>

@@ -16,7 +16,9 @@ type SocialRedirectResult = {
 };
 
 function parseOAuthUrl(data: unknown): string | undefined {
-  return data && typeof data === "object" && "url" in data ? (data as { url?: string }).url : undefined;
+  return data && typeof data === "object" && "url" in data
+    ? (data as { url?: string }).url
+    : undefined;
 }
 
 /**

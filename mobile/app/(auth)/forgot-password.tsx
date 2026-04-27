@@ -4,6 +4,7 @@ import { Link } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
 import { mobileResetPasswordRedirectUrl } from "@/lib/auth/callback-url";
+import { APP_HREF } from "@/lib/appRoutes";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   AUTH_ON_PRIMARY,
@@ -81,7 +82,7 @@ export default function ForgotPasswordScreen() {
         )}
       </Pressable>
 
-      <Link href="/(auth)/sign-in" asChild>
+      <Link href={APP_HREF.signIn} asChild>
         <Pressable className="mt-6">
           <Text className={authFooterTextCls}>{t("auth.backToSignIn")}</Text>
         </Pressable>

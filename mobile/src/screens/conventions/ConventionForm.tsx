@@ -160,9 +160,7 @@ export function ConventionForm({
                 value={endDate}
                 placeholder={t("conventions.fieldDatePlaceholder")}
                 minimumDate={parseIsoDateOnly(startDate) ?? undefined}
-                onChange={(iso) =>
-                  setEndDate(startDate && iso < startDate ? startDate : iso)
-                }
+                onChange={(iso) => setEndDate(startDate && iso < startDate ? startDate : iso)}
               />
             </View>
           </View>

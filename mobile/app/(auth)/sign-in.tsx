@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { authClient, setStoredBearerToken } from "@/lib/auth/client";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
+import { APP_HREF } from "@/lib/appRoutes";
 import { openWebAppPath } from "@/lib/openWebAppPath";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
@@ -47,7 +48,7 @@ export default function SignInScreen() {
     try {
       const result = await startSocialSignIn(provider);
       if (result === "signed_in") {
-        router.replace("/(app)/(tabs)");
+        router.replace(APP_HREF.home);
       }
       setOauthLoading(null);
     } catch (e: unknown) {
@@ -107,7 +108,7 @@ export default function SignInScreen() {
           });
         }
       }
-      router.replace("/(app)/(tabs)");
+      router.replace(APP_HREF.home);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Sign in failed";
       noteUnverifiedFromMessage(msg);
@@ -240,7 +241,7 @@ export default function SignInScreen() {
 
       <View className="mt-4 w-full flex-row items-center justify-between">
         <Text className={authMetaLabelCls}>{t("common.password")}</Text>
-        <Link href="/(auth)/forgot-password" asChild>
+        <Link href={APP_HREF.forgotPassword} asChild>
           <Pressable className="py-1">
             <Text className="text-xs text-kyar-textTertiary underline">
               {t("auth.forgotPassword")}
@@ -311,7 +312,7 @@ export default function SignInScreen() {
       <View className="mt-6 w-full items-center">
         <Text className="text-center text-xs text-kyar-textTertiary">
           {t("auth.dontHaveAccount")}{" "}
-          <Link href="/(auth)/sign-up" asChild>
+          <Link href={APP_HREF.signUp} asChild>
             <Pressable className="active:opacity-80">
               <Text className="text-xs text-kyar-textTertiary underline">
                 {t("auth.createOne")}

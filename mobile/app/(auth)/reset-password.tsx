@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-nativ
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
+import { APP_HREF } from "@/lib/appRoutes";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   AUTH_ON_PRIMARY,
@@ -55,10 +56,7 @@ export default function ResetPasswordScreen() {
       if (authError) {
         setError(authError.message ?? t("auth.resetFailed"));
       } else {
-        router.replace({
-          pathname: "/(auth)/sign-in",
-          params: { reset: "success" },
-        });
+        router.replace(APP_HREF.signInResetSuccess);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("auth.resetFailed"));
@@ -76,7 +74,7 @@ export default function ResetPasswordScreen() {
         <Text className="mt-3 text-center text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
           {t("auth.resetLinkInvalid")}
         </Text>
-        <Link href="/(auth)/sign-in" asChild>
+        <Link href={APP_HREF.signIn} asChild>
           <Pressable className="mt-8 items-center rounded-xl border border-kyar-border py-4 dark:border-kyar-dark-border">
             <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
               {t("auth.backToSignIn")}
@@ -132,7 +130,7 @@ export default function ResetPasswordScreen() {
         )}
       </Pressable>
 
-      <Link href="/(auth)/sign-in" asChild>
+      <Link href={APP_HREF.signIn} asChild>
         <Pressable className="mt-6">
           <Text className={authFooterTextCls}>{t("auth.backToSignIn")}</Text>
         </Pressable>

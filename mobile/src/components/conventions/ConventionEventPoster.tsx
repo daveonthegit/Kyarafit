@@ -55,8 +55,7 @@ export function ConventionEventPoster({
   const stops = gradientStops(scheme);
 
   const hasImage = imageStorageId != null || imageUrl != null;
-  const dateLine =
-    startDate === endDate ? startDate : `${startDate} – ${endDate}`;
+  const dateLine = startDate === endDate ? startDate : `${startDate} – ${endDate}`;
   const countdownLabel = overlayCountdownLabel(startDate, endDate);
 
   const locationUpper = (location?.trim() || "No location").toUpperCase();
@@ -87,9 +86,7 @@ export function ConventionEventPoster({
           style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
         />
 
-        {topAccessory ? (
-          <View className="absolute right-4 top-4 z-10">{topAccessory}</View>
-        ) : null}
+        {topAccessory ? <View className="absolute right-4 top-4 z-10">{topAccessory}</View> : null}
 
         <View className="absolute inset-0 justify-end p-5">
           <View className="min-w-0">

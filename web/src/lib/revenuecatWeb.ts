@@ -1,7 +1,6 @@
 "use client";
 
 import { Purchases } from "@revenuecat/purchases-js";
-import "@revenuecat/purchases-js/styles";
 
 /**
  * Public SDK key for RevenueCat **Web Billing** (dashboard → Web app → API keys).

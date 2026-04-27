@@ -9,13 +9,7 @@ import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
-import {
-  Button,
-  DataBoundary,
-  FloatingCreateMenu,
-  MetaLabel,
-  SurfaceCard,
-} from "@/ui";
+import { Button, DataBoundary, FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
 
 export default function GroupsIndexScreen() {
   const { t } = useTranslation();
@@ -25,10 +19,7 @@ export default function GroupsIndexScreen() {
   const groups = useQuery(api.groups.listForUser, userId ? { userId } : "skip") ?? [];
   const status = identity === undefined ? "loading" : "ready";
 
-  const createActions = useMemo(
-    () => buildGlobalAddMenuActions("groups", t, router),
-    [router, t]
-  );
+  const createActions = useMemo(() => buildGlobalAddMenuActions("groups", t, router), [router, t]);
 
   return (
     <>

@@ -177,7 +177,7 @@ export default function ElementDetailScreen() {
           onDelete={async () => {
             try {
               await removeNode({ id: loaded.id, userId: loaded.userId });
-              router.replace("/(app)/(tabs)/elements");
+              router.replace(APP_HREF.elements);
             } catch (error) {
               Alert.alert(
                 t("common.errorTitle"),
@@ -246,9 +246,7 @@ function ElementDetailBody({
   const fullWorkflowFlat = useMemo(() => {
     if (nodeWorkflow == null) return [];
     const source =
-      workflowScope === "shared"
-        ? (nodeWorkflow.shared ?? [])
-        : (nodeWorkflow.buildSpecific ?? []);
+      workflowScope === "shared" ? (nodeWorkflow.shared ?? []) : (nodeWorkflow.buildSpecific ?? []);
     return flattenWorkflow(source as WorkflowTreeNode[]);
   }, [nodeWorkflow, workflowScope]);
 
@@ -1121,16 +1119,20 @@ function ElementWorkflowTaskRow({
         </Pressable>
 
         {dragEnabled ? (
-          <WorkflowTaskDragHandle
-            taskId={task._id}
-            dragMeta={dragMeta}
-            taskMove={taskMove}
-          />
+          <WorkflowTaskDragHandle taskId={task._id} dragMeta={dragMeta} taskMove={taskMove} />
         ) : null}
-        <Pressable onPress={onOpenStatus} hitSlop={8} accessibilityLabel={t("elements.workflowStatus")}>
+        <Pressable
+          onPress={onOpenStatus}
+          hitSlop={8}
+          accessibilityLabel={t("elements.workflowStatus")}
+        >
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.textSecondary} />
         </Pressable>
-        <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel={t("elements.workflowRemoveAction")}>
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityLabel={t("elements.workflowRemoveAction")}
+        >
           <Ionicons name="close" size={18} color={colors.textSecondary} />
         </Pressable>
       </View>

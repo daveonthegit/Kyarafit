@@ -4,13 +4,11 @@ Kyarafit uses **RevenueCat** for mobile in-app purchases. Convex stores the cano
 
 ## Tiers and entitlements
 
-
 | Convex `users.tier` | RevenueCat entitlement id (recommended) | Legacy RC ids (still supported) |
 | ------------------- | --------------------------------------- | ------------------------------- |
-| `FREE`              | *(none)*                                | —                               |
+| `FREE`              | _(none)_                                | —                               |
 | `PRO`               | `pro`                                   | `premium_basic`                 |
 | `STUDIO`            | `studio`                                | `premium_pro`                   |
-
 
 Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single source for Convex, web, and mobile).
 
@@ -19,7 +17,7 @@ Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single so
 ## RevenueCat dashboard
 
 1. Create a project and add **iOS** and **Android** apps with the correct bundle IDs.
-2. Under **Entitlements**, create `**pro`** and `**studio`** (or keep legacy `premium_basic` / `premium_pro` and map them as above).
+2. Under **Entitlements**, create `**pro`** and `**studio`** (or keep legacy `premium_basic`/`premium_pro` and map them as above).
 3. In **App Store Connect** / **Google Play Console**, create subscription products (e.g. `com.kyarafit.pro.monthly`, `com.kyarafit.studio.annual`). Attach them to the matching entitlements in RevenueCat.
 4. Create an **Offering** (e.g. `default`) with packages pointing at those products so `Purchases.getOfferings()` returns packages in the app.
 
@@ -35,12 +33,10 @@ The mobile app should call `Purchases.logIn(appUserId)` with the same id Convex 
 
 ### Convex environment variables
 
-
 | Variable                           | Purpose                                                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------ |
 | `REVENUECAT_SECRET_API_KEY`        | Secret API key; used to call `GET /v1/subscribers/{app_user_id}` after each webhook. |
 | `REVENUECAT_WEBHOOK_AUTHORIZATION` | Optional. If set, `Authorization` must be `Bearer <value>` or exactly `<value>`.     |
-
 
 If `REVENUECAT_SECRET_API_KEY` is missing, the handler returns 200 and skips tier sync (logged).
 
@@ -55,7 +51,7 @@ These are read in `mobile/src/lib/revenuecat.ts`.
 
 ## Web: RevenueCat Web Billing (Stripe as processor)
 
-On **web**, Kyarafit uses `**@revenuecat/purchases-js`** (RevenueCat Web Billing). You connect a **Stripe** account inside the RevenueCat dashboard (Web Billing / payment gateway). The browser never loads the Stripe.js SDK from Kyarafit code—checkout is RevenueCat-hosted; Stripe is only the processor behind RC.
+On **web**, Kyarafit uses `**@revenuecat/purchases-js`** (RevenueCat Web Billing). You connect a **Stripe\*\* account inside the RevenueCat dashboard (Web Billing / payment gateway). The browser never loads the Stripe.js SDK from Kyarafit code—checkout is RevenueCat-hosted; Stripe is only the processor behind RC.
 
 ### Dashboard steps
 
@@ -68,13 +64,11 @@ On **web**, Kyarafit uses `**@revenuecat/purchases-js`** (RevenueCat Web Billing
 
 Set in `web/.env.local`:
 
-
 | Variable                                     | Purpose                                                                 |
 | -------------------------------------------- | ----------------------------------------------------------------------- |
 | `NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY` | Public Web Billing SDK key from RevenueCat (safe in the client bundle). |
 
-
-Implementation: `web/src/lib/revenuecatWeb.ts` and `WebSubscriptionRevenueCat` on **Settings → Subscription**. The SDK identifies the subscriber with `**app_user_id` = Convex `users.externalId`** (Better Auth subject), matching mobile `Purchases.logIn`.
+Implementation: `web/src/lib/revenuecatWeb.ts` and `WebSubscriptionRevenueCat` on **Settings → Subscription**. The SDK identifies the subscriber with `**app_user_id` = Convex `users.externalId`\*\* (Better Auth subject), matching mobile `Purchases.logIn`.
 
 ### Manage / cancel
 

@@ -6,6 +6,16 @@ function href(path: string): Href {
 }
 
 export const APP_HREF = {
+  home: href("/(app)/(tabs)"),
+  builds: href("/(app)/(tabs)/builds"),
+  elements: href("/(app)/(tabs)/elements"),
+  planner: href("/(app)/(tabs)/planner"),
+  signIn: href("/(auth)/sign-in"),
+  signInResetSuccess: href("/(auth)/sign-in?reset=success"),
+  signUp: href("/(auth)/sign-up"),
+  forgotPassword: href("/(auth)/forgot-password"),
+  resetPassword: href("/(auth)/reset-password"),
+  verifyEmail: (email: string) => href(`/(auth)/verify-email?email=${encodeURIComponent(email)}`),
   settings: href("/settings"),
   settingsAppearance: href("/settings/appearance"),
   settingsAccount: href("/settings/account"),

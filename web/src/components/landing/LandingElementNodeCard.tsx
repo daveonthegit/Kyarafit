@@ -51,7 +51,9 @@ export function LandingElementNodeCard({
           </div>
           <div className="absolute bottom-0 left-0 right-0 p-4 text-kyar-media-fg">
             <p className="mb-1 text-[9px] uppercase tracking-[0.2em] opacity-80">{node.category}</p>
-            <h3 className="truncate font-serif text-3xl italic leading-none drop-shadow-md">{node.name}</h3>
+            <h3 className="truncate font-serif text-3xl italic leading-none drop-shadow-md">
+              {node.name}
+            </h3>
             <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-kyar-media-fg-muted">
               <span>{node.progressPercent}% progress</span>
               <span>

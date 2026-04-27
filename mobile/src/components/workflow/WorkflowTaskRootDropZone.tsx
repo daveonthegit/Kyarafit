@@ -9,12 +9,7 @@ type Props = {
   className?: string;
 };
 
-export function WorkflowTaskRootDropZone({
-  scopeKey,
-  taskMove,
-  label,
-  className = "",
-}: Props) {
+export function WorkflowTaskRootDropZone({ scopeKey, taskMove, label, className = "" }: Props) {
   const zoneRef = useRef<View>(null);
 
   // Ref callback so the zone is registered synchronously when the View mounts.

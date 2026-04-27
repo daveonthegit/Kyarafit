@@ -57,10 +57,7 @@ export function WorkflowTaskDragShell({
 
   return (
     <View style={{ marginLeft: depthMargin }} className={`relative mb-2 ${className}`}>
-      <View
-        ref={rowRef}
-        className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
-      >
+      <View ref={rowRef} className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}>
         {dropBefore ? (
           <View className="absolute inset-x-2 top-0 z-10 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
         ) : null}

@@ -92,7 +92,7 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
   const router = useRouter();
   const { colors } = useDesignTheme();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ConventionFilter>("upcoming");
+  const [filter, setFilter] = useState<ConventionFilter>("all");
   const [sortBy, setSortBy] = useState<ConventionSortBy>("startDate");
   const [order, setOrder] = useState<SortOrder>("asc");
   const [filtersOpen, setFiltersOpen] = useState(false);

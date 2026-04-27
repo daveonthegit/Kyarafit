@@ -138,7 +138,9 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
           moveTask: moveWorkflow,
           updateTask: updateWorkflow,
         },
-        (task) => `wf:build:${buildId as string}:${taskElementGroupById.get(task._id as string)}` === scopeKey
+        (task) =>
+          `wf:build:${buildId as string}:${taskElementGroupById.get(task._id as string)}` ===
+          scopeKey
       );
     },
     [buildId, flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
@@ -514,8 +516,7 @@ function BuildWorkflowTaskRow({
               {node.title}
             </Text>
             <Text className="mt-0.5 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-              {node.kind} · {node.progressPercent}%
-              {node.dueDate ? ` · ${node.dueDate}` : ""}
+              {node.kind} · {node.progressPercent}%{node.dueDate ? ` · ${node.dueDate}` : ""}
             </Text>
           </Pressable>
           <WorkflowTaskDragHandle

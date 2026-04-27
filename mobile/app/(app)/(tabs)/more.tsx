@@ -22,17 +22,17 @@ import { DataBoundary } from "@/ui";
 function hrefForMenuSection(id: NavSectionId): Href {
   switch (id) {
     case "home":
-      return "/(app)/(tabs)" as Href;
+      return APP_HREF.home;
     case "builds":
-      return "/(app)/(tabs)/builds" as Href;
+      return APP_HREF.builds;
     case "elements":
-      return "/(app)/(tabs)/elements" as Href;
+      return APP_HREF.elements;
     case "events":
       return APP_HREF.conventions;
     case "groups":
       return APP_HREF.groups;
     case "planner":
-      return "/(app)/(tabs)/planner" as Href;
+      return APP_HREF.planner;
     case "discover":
       return APP_HREF.discover;
     case "feed":
@@ -40,7 +40,7 @@ function hrefForMenuSection(id: NavSectionId): Href {
     case "settings":
       return APP_HREF.settings;
     default:
-      return "/(app)/(tabs)" as Href;
+      return APP_HREF.home;
   }
 }
 
@@ -56,7 +56,7 @@ export default function MoreScreen() {
     setSigningOut(true);
     try {
       await signOut();
-      router.replace("/(auth)/sign-in");
+      router.replace(APP_HREF.signIn);
     } finally {
       setSigningOut(false);
     }
@@ -172,7 +172,12 @@ function MenuProfileFooter() {
   const { session } = useSession();
   const { colors } = useDesignTheme();
   const user = session?.user as
-    | { name?: string | null; email?: string | null; image?: string | null; username?: string | null }
+    | {
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+        username?: string | null;
+      }
     | undefined;
   if (!user) return null;
 
@@ -183,7 +188,12 @@ function MenuProfileFooterWithData({
   user,
   colors,
 }: {
-  user: { name?: string | null; email?: string | null; image?: string | null; username?: string | null };
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    username?: string | null;
+  };
   colors: { text: string };
 }) {
   const { t } = useTranslation();

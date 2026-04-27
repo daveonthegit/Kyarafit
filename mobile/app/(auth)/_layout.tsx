@@ -1,6 +1,7 @@
 import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useSession } from "@/lib/auth/client";
+import { APP_HREF } from "@/lib/appRoutes";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 
 export default function AuthGroupLayout() {
@@ -16,7 +17,7 @@ export default function AuthGroupLayout() {
   }
 
   if (session?.user) {
-    return <Redirect href="/(app)/(tabs)" />;
+    return <Redirect href={APP_HREF.home} />;
   }
 
   return (

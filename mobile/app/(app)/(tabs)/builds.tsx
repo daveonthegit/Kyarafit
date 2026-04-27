@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -32,6 +33,7 @@ import {
 type BuildListRow = Doc<"builds"> & {
   tasksTotal: number;
   tasksChecked: number;
+  myRole?: string | null;
 };
 
 /** Long labels for status chips + refine-bar summary (parity with web). */
@@ -50,8 +52,11 @@ const SORT_I18N: Record<SortBy, string> = {
   budget: "builds.sortBudget",
 };
 
-type ListReady = { rows: BuildListRow[]; userId: string };
+type ListReady = { rows: BuildListRow[]; sharedRows: BuildListRow[]; userId: string };
 type LayoutMode = "comfortable" | "compact" | "grid";
+type BuildStatusAction = "idea" | "wip" | "ready" | "archived";
+
+const STATUS_ACTIONS: BuildStatusAction[] = ["idea", "wip", "ready", "archived"];
 
 export default function BuildsScreen() {
   const { t } = useTranslation();
@@ -77,8 +82,10 @@ export default function BuildsScreen() {
   );
 
   const rows = useOfflineQuery(api.builds.list, listArgs);
+  const sharedRows = useOfflineQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip");
 
-  const loading = identity === undefined || (userId != null && rows === undefined);
+  const loading =
+    identity === undefined || (userId != null && (rows === undefined || sharedRows === undefined));
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
 
   let status: "loading" | "error" | "ready";
@@ -87,7 +94,9 @@ export default function BuildsScreen() {
   else status = "ready";
 
   const data: ListReady | undefined =
-    status === "ready" && userId ? { rows: rows ?? [], userId } : undefined;
+    status === "ready" && userId
+      ? { rows: rows ?? [], sharedRows: (sharedRows ?? []) as BuildListRow[], userId }
+      : undefined;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -154,14 +163,35 @@ function BuildsListBody({
   onRefresh: () => void;
 }) {
   const { colors } = useDesignTheme();
-  const { rows, userId } = loaded;
+  const { rows, sharedRows, userId } = loaded;
   const [layout, setLayout] = useState<LayoutMode>("comfortable");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
+  const [deletedForUndo, setDeletedForUndo] = useState<{
+    count: number;
+    payloads: Array<{
+      userId: string;
+      name: string;
+      character?: string;
+      status: string;
+      notes?: string;
+      imageUrl?: string;
+      imageStorageId?: Doc<"builds">["imageStorageId"];
+      budgetCents?: number;
+      targetDate?: string;
+    }>;
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setFocusedBuild = useOfflineMutation(api.users.setFocusedBuild);
   const updateBuild = useOfflineMutation(api.builds.update);
   const duplicateBuild = useOfflineMutation(api.builds.duplicate);
+  const updateStatusMany = useOfflineMutation(api.builds.updateStatusMany);
+  const removeMany = useOfflineMutation(api.builds.removeMany);
+  const createBuild = useOfflineMutation(api.builds.create);
 
   const cycleLayout = useCallback(() => {
     setLayout((mode) =>
@@ -174,10 +204,131 @@ function BuildsListBody({
     [hiddenIds, rows]
   );
 
-  const addMenuActions = useMemo(
-    () => buildGlobalAddMenuActions("builds", t, router),
-    [t]
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllInModal = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (visibleRows.length === 0) return prev;
+      if (prev.size === visibleRows.length) return new Set();
+      return new Set(visibleRows.map((build) => String(build._id)));
+    });
+  }, [visibleRows]);
+
+  useEffect(
+    () => () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    },
+    []
   );
+
+  const handleBulkStatus = useCallback(
+    async (status: BuildStatusAction) => {
+      if (selectedIds.size === 0) return;
+      setBulkPending(true);
+      try {
+        await updateStatusMany({
+          ids: Array.from(selectedIds) as Id<"builds">[],
+          userId,
+          status,
+        });
+        clearSelection();
+        setBulkOpen(false);
+      } catch (error) {
+        Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
+      } finally {
+        setBulkPending(false);
+      }
+    },
+    [clearSelection, selectedIds, t, updateStatusMany, userId]
+  );
+
+  const runBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const toDelete = rows.filter((row) => selectedIds.has(String(row._id)));
+    const payloads = toDelete.map((row) => ({
+      userId: row.userId,
+      name: row.name,
+      character: row.character,
+      status: row.status,
+      notes: row.notes,
+      imageUrl: row.imageUrl,
+      imageStorageId: row.imageStorageId,
+      budgetCents: row.budgetCents,
+      targetDate: row.targetDate,
+    }));
+    setBulkPending(true);
+    try {
+      await removeMany({ ids: Array.from(selectedIds) as Id<"builds">[], userId });
+      clearSelection();
+      setBulkOpen(false);
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setDeletedForUndo({ count: payloads.length, payloads });
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedForUndo(null);
+        undoTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
+    } finally {
+      setBulkPending(false);
+    }
+  }, [clearSelection, removeMany, rows, selectedIds, t, userId]);
+
+  const confirmBulkDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    Alert.alert(
+      t("builds.bulkDeleteTitle", { count: selectedIds.size }),
+      t("builds.bulkDeleteBody"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("builds.bulkDelete"),
+          style: "destructive",
+          onPress: () => void runBulkDelete(),
+        },
+      ]
+    );
+  }, [runBulkDelete, selectedIds.size, t]);
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!deletedForUndo) return;
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setBulkPending(true);
+    try {
+      for (const payload of deletedForUndo.payloads) {
+        await createBuild({
+          userId,
+          name: payload.name,
+          character: payload.character,
+          status: payload.status,
+          notes: payload.notes,
+          imageUrl: payload.imageUrl,
+          imageStorageId: payload.imageStorageId,
+          budgetCents: payload.budgetCents,
+          targetDate: payload.targetDate,
+        });
+      }
+      setDeletedForUndo(null);
+    } catch (error) {
+      Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
+    } finally {
+      setBulkPending(false);
+    }
+  }, [createBuild, deletedForUndo, t, userId]);
+
+  const addMenuActions = useMemo(() => buildGlobalAddMenuActions("builds", t, router), [t]);
 
   const showActions = useCallback(
     (item: BuildListRow) => {
@@ -363,9 +514,23 @@ function BuildsListBody({
         }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
-          <Text className="pb-3 text-[10px] uppercase tracking-widest text-kyar-meta opacity-60 dark:text-kyar-dark-meta">
-            {visibleRows.length} {visibleRows.length === 1 ? "build" : "builds"}
-          </Text>
+          <View className="pb-3">
+            <View className="flex-row items-center justify-between gap-3">
+              <Text className="min-w-0 flex-1 text-[10px] uppercase tracking-widest text-kyar-meta opacity-60 dark:text-kyar-dark-meta">
+                {visibleRows.length} {visibleRows.length === 1 ? "build" : "builds"}
+              </Text>
+              {visibleRows.length > 0 ? (
+                <Pressable
+                  onPress={() => setBulkOpen(true)}
+                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+                >
+                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                    {t("builds.bulkSelectAction")}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
         }
         ListEmptyComponent={
           <Text className="py-12 text-center text-kyar-meta dark:text-kyar-dark-meta">
@@ -393,9 +558,169 @@ function BuildsListBody({
             />
           </Pressable>
         )}
+        ListFooterComponent={
+          sharedRows.length > 0 ? (
+            <View className="mt-8 border-t border-kyar-borderSubtle pt-6 dark:border-kyar-dark-borderSubtle">
+              <MetaLabel>{t("builds.sharedWithYou", { count: sharedRows.length })}</MetaLabel>
+              <View className="mt-4 gap-3">
+                {sharedRows.map((item, index) => (
+                  <Pressable
+                    key={item._id}
+                    className={layout === "grid" ? "mb-3 flex-1" : "mb-3"}
+                    onPress={() => router.push(APP_HREF.build(item._id))}
+                  >
+                    <BuildPortfolioCard
+                      variant={layout === "grid" ? "compact" : layout}
+                      projectIndex={index + 1}
+                      item={{
+                        name: item.name,
+                        character: item.character ?? item.myRole ?? null,
+                        status: item.status,
+                        imageStorageId: item.imageStorageId,
+                        imageUrl: item.imageUrl,
+                        tasksTotal: item.tasksTotal,
+                        tasksChecked: item.tasksChecked,
+                      }}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null
+        }
       />
 
       <FloatingCreateMenu actions={addMenuActions} />
+
+      <Modal
+        visible={bulkOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBulkOpen(false)}
+      >
+        <View className="flex-1">
+          <Pressable
+            className="flex-1 justify-end bg-kyar-text/25"
+            onPress={() => setBulkOpen(false)}
+          >
+            <Pressable
+              className="max-h-[88%] rounded-t-[28px] border border-kyar-borderSubtle bg-kyar-bg px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-bg"
+              onPress={(event) => event.stopPropagation()}
+            >
+              <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+                {t("builds.bulkModalTitle")}
+              </Text>
+              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                {t("builds.bulkModalBody")}
+              </Text>
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                <Pressable
+                  onPress={selectAllInModal}
+                  className="rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                >
+                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
+                    {selectedIds.size === visibleRows.length && visibleRows.length > 0
+                      ? t("builds.bulkDeselectAll")
+                      : t("builds.bulkSelectAll")}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={clearSelection} className="rounded-full px-4 py-2">
+                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                    {t("builds.bulkClear")}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <ScrollView
+                className="mt-4 max-h-[42%] rounded-2xl border border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
+                nestedScrollEnabled
+              >
+                {visibleRows.map((item) => {
+                  const selected = selectedIds.has(String(item._id));
+                  return (
+                    <Pressable
+                      key={item._id}
+                      onPress={() => toggleSelected(String(item._id))}
+                      className="flex-row items-center gap-3 border-b border-kyar-borderSubtle px-3 py-3 dark:border-kyar-dark-borderSubtle"
+                    >
+                      <Ionicons
+                        name={selected ? "checkbox" : "square-outline"}
+                        size={22}
+                        color={selected ? colors.text : colors.textTertiary}
+                      />
+                      <View className="min-w-0 flex-1">
+                        <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+                          {item.name}
+                        </Text>
+                        <Text className="mt-1 text-[10px] uppercase tracking-wide text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                          {item.character ? `${item.character} · ` : ""}
+                          {item.status}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <Text className="mt-3 text-xs text-kyar-meta dark:text-kyar-dark-meta">
+                {t("builds.bulkSelectedCount", { count: selectedIds.size })}
+              </Text>
+
+              {selectedIds.size > 0 ? (
+                <View className="mt-4 flex-row flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+                  {STATUS_ACTIONS.map((status) => (
+                    <Pressable
+                      key={status}
+                      onPress={() => void handleBulkStatus(status)}
+                      disabled={bulkPending}
+                      className="rounded-xl border border-kyar-borderSubtle px-4 py-3 disabled:opacity-40 dark:border-kyar-dark-borderSubtle"
+                    >
+                      <Text className="text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+                        {t(`builds.status.${status}`)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    onPress={confirmBulkDelete}
+                    disabled={bulkPending}
+                    className="rounded-xl border border-kyar-danger/40 px-4 py-3 disabled:opacity-40"
+                  >
+                    <Text className="text-center text-sm font-semibold text-kyar-danger dark:text-kyar-dark-danger">
+                      {t("builds.bulkDelete")}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <Pressable
+                onPress={() => setBulkOpen(false)}
+                className="mt-6 rounded-full bg-kyar-text px-4 py-3 dark:bg-kyar-dark-text"
+              >
+                <Text className="text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+                  {t("builds.bulkDone")}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </View>
+      </Modal>
+
+      {deletedForUndo ? (
+        <View className="absolute bottom-28 left-4 right-4 z-20 flex-row items-center justify-between gap-3 rounded-2xl border border-kyar-border bg-kyar-text px-4 py-3 dark:border-kyar-dark-border dark:bg-kyar-dark-text">
+          <Text className="min-w-0 flex-1 text-sm font-medium text-kyar-bg dark:text-kyar-dark-bg">
+            {t("builds.bulkUndoDeleted", { count: deletedForUndo.count })}
+          </Text>
+          <Pressable
+            onPress={() => void handleUndoDelete()}
+            disabled={bulkPending}
+            className="rounded-full border border-kyar-bg/40 px-3 py-2 dark:border-kyar-dark-bg/40"
+          >
+            <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
+              {bulkPending ? t("builds.bulkUndoing") : t("builds.bulkUndoAction")}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }

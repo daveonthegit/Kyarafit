@@ -90,7 +90,9 @@ export function LandingMiniElementsPreviewContent({ nodes }: { nodes: MockElemen
                   <p className="mb-0.5 text-[7px] uppercase tracking-wider opacity-80">
                     {node.category}
                   </p>
-                  <p className="truncate font-serif text-sm italic leading-tight drop-shadow-sm">{node.name}</p>
+                  <p className="truncate font-serif text-sm italic leading-tight drop-shadow-sm">
+                    {node.name}
+                  </p>
                 </div>
               </div>
             </div>

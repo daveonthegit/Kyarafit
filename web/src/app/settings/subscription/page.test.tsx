@@ -7,7 +7,12 @@ vi.mock("@/lib/api/useTier", () => ({
 }));
 
 vi.mock("@/hooks/useCurrentUser", () => ({
-  useCurrentUser: () => ({ userId: "test-user-id", isLoading: false, isAuthenticated: true, identity: { subject: "test-user-id" } }),
+  useCurrentUser: () => ({
+    userId: "test-user-id",
+    isLoading: false,
+    isAuthenticated: true,
+    identity: { subject: "test-user-id" },
+  }),
 }));
 
 vi.mock("@/components/settings/WebSubscriptionRevenueCat", () => ({

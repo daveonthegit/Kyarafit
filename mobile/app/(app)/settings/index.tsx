@@ -22,7 +22,9 @@ const SETTINGS_LINKS = [
   { key: "notificationStyle", href: APP_HREF.settingsNotifications, icon: "notifications-outline" },
 ] as const;
 
-const DEV_LINKS = [{ key: "devGallery", path: "/(app)/settings/dev/gallery", icon: "color-wand-outline" }] as const;
+const DEV_LINKS = [
+  { key: "devGallery", href: APP_HREF.settingsDevGallery, icon: "color-wand-outline" },
+] as const;
 
 export default function SettingsIndexScreen() {
   const { t, i18n } = useTranslation();
@@ -246,12 +248,12 @@ export default function SettingsIndexScreen() {
                 </View>
                 {DEV_LINKS.map((item, index) => (
                   <SettingsRow
-                    key={item.path}
+                    key={item.key}
                     icon={item.icon}
                     title={t(`settings.${item.key}`)}
                     subtitle={t(`settings.${item.key}Subtitle`)}
                     onPress={() => undefined}
-                    href={item.path}
+                    href={item.href}
                     iconColor={colors.text}
                     metaColor={colors.meta}
                     showBorder={index < DEV_LINKS.length - 1}

@@ -128,7 +128,7 @@ export default function BuildDetailScreen() {
           void (async () => {
             try {
               await removeBuild({ id: build._id, userId });
-              router.replace("/(app)/(tabs)/builds");
+              router.replace(APP_HREF.builds);
             } catch (e) {
               Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
             }

@@ -68,7 +68,10 @@ export async function applyWorkflowTreeDrop(
     await resequenceTasks(fns, [...existingIds, dragId]);
 
     if (oldParent !== targetId) {
-      await resequenceTasks(fns, siblingIdsForParent(oldParent).filter((id) => id !== dragId));
+      await resequenceTasks(
+        fns,
+        siblingIdsForParent(oldParent).filter((id) => id !== dragId)
+      );
     }
     return;
   }
@@ -92,7 +95,10 @@ export async function applyWorkflowTreeDrop(
   await resequenceTasks(fns, ordered);
 
   if ((oldParent ?? null) !== (newParent ?? null)) {
-    await resequenceTasks(fns, siblingIdsForParent(oldParent).filter((id) => id !== dragId));
+    await resequenceTasks(
+      fns,
+      siblingIdsForParent(oldParent).filter((id) => id !== dragId)
+    );
   }
 }
 

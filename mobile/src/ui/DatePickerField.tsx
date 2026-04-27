@@ -137,7 +137,9 @@ export function DatePickerField({
                   </Text>
                 </Pressable>
                 <Pressable onPress={commitIos} hitSlop={12}>
-                  <Text className="text-base font-semibold text-kyar-accent">{t("common.done")}</Text>
+                  <Text className="text-base font-semibold text-kyar-accent">
+                    {t("common.done")}
+                  </Text>
                 </Pressable>
               </View>
               <DateTimePicker

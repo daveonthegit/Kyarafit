@@ -781,7 +781,10 @@ export async function removeWorkflowItemCascade(
 
   const userItems = await getWorkflowItemsForUser(ctx, item.userId);
   const subtreeIds = userItems
-    .filter((candidate) => candidate._id === workflowItemId || candidate.ancestorIds.includes(workflowItemId))
+    .filter(
+      (candidate) =>
+        candidate._id === workflowItemId || candidate.ancestorIds.includes(workflowItemId)
+    )
     .map((candidate) => candidate._id);
   const idSet = new Set(subtreeIds);
 

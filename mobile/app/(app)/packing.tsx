@@ -18,7 +18,10 @@ export default function PackingOverviewScreen() {
   const { t } = useTranslation();
   const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const conventions = useOfflineQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(
+    api.conventions.listWithDetails,
+    userId ? { userId } : "skip"
+  );
 
   const loading = identity === undefined || (userId != null && conventions === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;

@@ -71,7 +71,9 @@ export function LandingBuildCard({
                   strokeDasharray={`${(progress / 100) * 100} 100`}
                 />
               </svg>
-              <span className="text-[9px] font-bold text-kyar-media-fg drop-shadow-md">{progress}</span>
+              <span className="text-[9px] font-bold text-kyar-media-fg drop-shadow-md">
+                {progress}
+              </span>
             </div>
           </div>
 

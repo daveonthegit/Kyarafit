@@ -18,13 +18,8 @@ type Props = {
  * so `onTouchMove`/`onTouchEnd` continue to flow here even when the finger
  * moves over sibling rows or other interactive controls inside the row.
  */
-export function WorkflowTaskDragHandle({
-  taskId,
-  dragMeta,
-  taskMove,
-  className = "",
-}: Props) {
-  const { colors = {} } = useDesignTheme();
+export function WorkflowTaskDragHandle({ taskId, dragMeta, taskMove, className = "" }: Props) {
+  const { colors } = useDesignTheme();
   const dragging = taskMove.dragVisualState.draggingTaskId === taskId;
 
   return (

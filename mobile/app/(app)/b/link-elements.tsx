@@ -18,13 +18,7 @@ import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import {
-  Button,
-  DataBoundary,
-  FloatingCreateMenu,
-  MetaLabel,
-  SurfaceCard,
-} from "@/ui";
+import { Button, DataBoundary, FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
 
 type SortKey = "name" | "progress" | "bucket";
 type TypeFilter = "all" | CosplayNodeType;
@@ -181,6 +175,7 @@ function LinkElementsBody({
   toggleOrder: () => void;
   t: TFunction;
 }) {
+  const { colors } = useDesignTheme();
   const { rows } = loaded;
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(loaded.initialLinked.map((id) => id as string))
@@ -356,7 +351,7 @@ function LinkElementsBody({
                         <Ionicons
                           name={item.nodeType === "material" ? "cube-outline" : "layers-outline"}
                           size={28}
-                          color="#76737d"
+                          color={colors.meta}
                         />
                       </View>
                     )}

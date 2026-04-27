@@ -112,7 +112,11 @@ function LinkText({
   disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} className="min-h-[44px] justify-center active:opacity-80">
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className="min-h-[44px] justify-center active:opacity-80"
+    >
       <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
         {children}
       </Text>
@@ -138,7 +142,12 @@ export default function SettingsAccountScreen() {
       : "ready";
 
   const sessionUser = session?.user as
-    | { name?: string | null; email?: string | null; image?: string | null; username?: string | null }
+    | {
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+        username?: string | null;
+      }
     | undefined;
 
   const [emailRevealed, setEmailRevealed] = useState(false);
@@ -226,8 +235,7 @@ export default function SettingsAccountScreen() {
   useEffect(() => {
     const err = typeof params.error === "string" ? params.error : undefined;
     if (!err) return;
-    const desc =
-      typeof params.error_description === "string" ? params.error_description : null;
+    const desc = typeof params.error_description === "string" ? params.error_description : null;
     setAccountsActionError(oauthLinkErrorMessage(t, err, desc));
     router.replace(APP_HREF.settingsAccount);
   }, [params.error, params.error_description, router, t]);
@@ -346,7 +354,9 @@ export default function SettingsAccountScreen() {
       setUsernameEdit(null);
       await getSession();
     } catch (e) {
-      setUsernameError(e instanceof Error ? e.message : t("settings.accountPage.usernameUpdateError"));
+      setUsernameError(
+        e instanceof Error ? e.message : t("settings.accountPage.usernameUpdateError")
+      );
     } finally {
       setUsernameLoading(false);
     }
@@ -378,7 +388,9 @@ export default function SettingsAccountScreen() {
       await loadLinkedAccounts();
       await getSession();
     } catch (e) {
-      setAccountsActionError(e instanceof Error ? e.message : t("settings.accountPage.unlinkError"));
+      setAccountsActionError(
+        e instanceof Error ? e.message : t("settings.accountPage.unlinkError")
+      );
     } finally {
       setUnlinkBusy(null);
     }
@@ -448,12 +460,10 @@ export default function SettingsAccountScreen() {
       if (error) {
         setDeleteError(error.message ?? t("settings.accountDeleteError"));
       } else {
-        router.replace("/(auth)/sign-in");
+        router.replace(APP_HREF.signIn);
       }
     } catch (error) {
-      setDeleteError(
-        error instanceof Error ? error.message : t("settings.accountDeleteError")
-      );
+      setDeleteError(error instanceof Error ? error.message : t("settings.accountDeleteError"));
     } finally {
       setDeleteLoading(false);
     }
@@ -498,7 +508,10 @@ export default function SettingsAccountScreen() {
               <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionProfilePicture")}</SectionLabel>
                 <View className="mt-2 flex-row items-center gap-4">
-                  <Pressable onPress={() => void handlePickProfileImage()} className="active:opacity-90">
+                  <Pressable
+                    onPress={() => void handlePickProfileImage()}
+                    className="active:opacity-90"
+                  >
                     <ProfileAvatar
                       imageStorageId={profile?.imageStorageId}
                       imageUrl={profile?.image ?? sessionUser?.image}
@@ -546,14 +559,19 @@ export default function SettingsAccountScreen() {
                       onPress={() => {
                         setEmailRevealed((prev) => {
                           const next = !prev;
-                          void AsyncStorage.setItem(SESSION_EMAIL_VISIBLE_KEY, next ? "true" : "false");
+                          void AsyncStorage.setItem(
+                            SESSION_EMAIL_VISIBLE_KEY,
+                            next ? "true" : "false"
+                          );
                           return next;
                         });
                       }}
                       className="shrink-0 justify-center pt-1 active:opacity-80"
                     >
                       <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                        {emailRevealed ? t("settings.accountPage.hide") : t("settings.accountPage.show")}
+                        {emailRevealed
+                          ? t("settings.accountPage.hide")
+                          : t("settings.accountPage.show")}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -619,7 +637,9 @@ export default function SettingsAccountScreen() {
                 {usernameEdit === null ? (
                   <View className="mt-1 flex-row flex-wrap items-center gap-2">
                     <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                      {usernameForDisplay ? `@${usernameForDisplay}` : t("settings.accountPage.dash")}
+                      {usernameForDisplay
+                        ? `@${usernameForDisplay}`
+                        : t("settings.accountPage.dash")}
                     </Text>
                     <LinkText onPress={() => setUsernameEdit(profile?.username ?? "")}>
                       {t("settings.accountPage.edit")}
@@ -899,7 +919,7 @@ export default function SettingsAccountScreen() {
                   </Text>
                 ) : hasCredentialAccount ? (
                   <View className="mt-2">
-                    <LinkText onPress={() => router.push("/(auth)/reset-password")}>
+                    <LinkText onPress={() => router.push(APP_HREF.resetPassword)}>
                       {t("settings.accountPage.changePassword")}
                     </LinkText>
                     <Text className="mt-1 text-[11px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
@@ -940,13 +960,15 @@ export default function SettingsAccountScreen() {
                       onPress={() => void handleCreatePassword()}
                       disabled={passwordSetupLoading}
                     >
-                      {passwordSetupLoading ? t("settings.savingAction") : t("settings.accountPage.savePassword")}
+                      {passwordSetupLoading
+                        ? t("settings.savingAction")
+                        : t("settings.accountPage.savePassword")}
                     </LinkText>
                     <View className="mt-1 flex-row flex-wrap items-center gap-x-1">
                       <Text className="text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
                         {t("settings.accountPage.forgotPasswordPart1")}
                       </Text>
-                      <Pressable onPress={() => router.push("/(auth)/reset-password")}>
+                      <Pressable onPress={() => router.push(APP_HREF.resetPassword)}>
                         <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
                           {t("settings.accountPage.forgotPasswordLink")}
                         </Text>
@@ -967,12 +989,18 @@ export default function SettingsAccountScreen() {
                   {t("settings.accountPage.dataPrivacyBody")}
                 </Text>
                 <View className="mt-3 flex-row flex-wrap gap-4">
-                  <Pressable onPress={() => void openWebAppPath("/terms", t)} className="active:opacity-80">
+                  <Pressable
+                    onPress={() => void openWebAppPath("/terms", t)}
+                    className="active:opacity-80"
+                  >
                     <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
                       {t("settings.accountPage.termsOfService")}
                     </Text>
                   </Pressable>
-                  <Pressable onPress={() => void openWebAppPath("/privacy", t)} className="active:opacity-80">
+                  <Pressable
+                    onPress={() => void openWebAppPath("/privacy", t)}
+                    className="active:opacity-80"
+                  >
                     <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
                       {t("settings.accountPage.privacyPolicy")}
                     </Text>
@@ -1045,7 +1073,9 @@ export default function SettingsAccountScreen() {
                       <View className="flex-row flex-wrap gap-3">
                         <Button
                           title={
-                            deleteLoading ? t("settings.accountDeleting") : t("settings.accountPage.confirmDelete")
+                            deleteLoading
+                              ? t("settings.accountDeleting")
+                              : t("settings.accountPage.confirmDelete")
                           }
                           onPress={() => void handleDeleteAccount()}
                           loading={deleteLoading}

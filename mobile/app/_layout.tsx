@@ -14,6 +14,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as Sentry from "@sentry/react-native";
 import { authClient, hydrateBearerFromSecureStore } from "@/lib/auth/client";
+import { APP_HREF } from "@/lib/appRoutes";
 import { verifyOneTimeTokenFromUrl } from "@/lib/auth/verifyOtt";
 import { initI18n } from "@/i18n";
 import {
@@ -84,7 +85,7 @@ function RootLayoutNav() {
       try {
         const ok = await verifyOneTimeTokenFromUrl(incomingUrl);
         if (ok) {
-          router.replace("/(app)/(tabs)");
+          router.replace(APP_HREF.home);
         }
       } catch (err) {
         console.error("[auth] OTT exchange failed:", err);

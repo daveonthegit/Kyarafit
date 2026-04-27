@@ -17,7 +17,7 @@ Implementation today: [`web/src/app/b/s/[shareToken]/page.tsx`](../../web/src/ap
 
 ## Mobile rewrite scope (remaining after in-app routes)
 
-**Update (2026-04-23):** In-app read-only routes already ship in [`mobile/app/(public)/public-builds/[buildId].tsx`](../../mobile/app/(public)/public-builds/[buildId].tsx) and [`mobile/app/(public)/b/s/[shareToken].tsx`](../../mobile/app/(public)/b/s/[shareToken].tsx) (see blueprint KFM-110). The backlog below is **association + parity**, not “add the screen.”
+**Update (2026-04-23):** In-app read-only routes already ship in [`mobile/app/(public)/public-builds/[buildId].tsx`](<../../mobile/app/(public)/public-builds/[buildId].tsx>) and [`mobile/app/(public)/b/s/[shareToken].tsx`](<../../mobile/app/(public)/b/s/[shareToken].tsx>) (see blueprint KFM-110). The backlog below is **association + parity**, not “add the screen.”
 
 Execute **after** the web + Convex **bundle contract** is stable (`getPublicViewerBundle` or equivalent, `publicViewerSettings`, hardened list queries) so mobile does not drift from the shared viewer API.
 

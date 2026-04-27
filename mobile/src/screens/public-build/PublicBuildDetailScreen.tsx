@@ -16,6 +16,7 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { FocalCoverImage } from "@/components/FocalCoverImage";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
 import {
   BUILD_WORKFLOW_GROUP_KEY,
@@ -214,11 +215,7 @@ export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
   const { t } = useTranslation();
   const identity = useQuery(api.auth.getCurrentUser);
   const currentUserId = identity?.subject ?? null;
-  const bundleArgs = buildId
-    ? { buildId }
-    : shareToken
-      ? { shareToken }
-      : "skip";
+  const bundleArgs = buildId ? { buildId } : shareToken ? { shareToken } : "skip";
   const bundle = useQuery(api.builds.getPublicViewerBundle, bundleArgs) as
     | PublicViewerBundle
     | null
@@ -287,6 +284,7 @@ function PublicBuildDetailBody({
   shareToken?: string;
 }) {
   const { t } = useTranslation();
+  const { colors } = useDesignTheme();
   const build = bundle.build;
   const toggles = bundle.togglesResolved;
   const likeCount = useQuery(
@@ -470,14 +468,14 @@ function PublicBuildDetailBody({
               <Ionicons
                 name={isLiked ? "heart" : "heart-outline"}
                 size={16}
-                color={isLiked ? "#c35563" : "#6d675f"}
+                color={isLiked ? colors.danger : colors.meta}
               />
               <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
                 {likeCount ?? 0}
               </Text>
             </Pressable>
             <View className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle">
-              <Ionicons name="chatbubble-outline" size={16} color="#6d675f" />
+              <Ionicons name="chatbubble-outline" size={16} color={colors.meta} />
               <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
                 {comments.length}
               </Text>
@@ -601,14 +599,16 @@ function PublicBuildDetailBody({
                       >
                         <View className="flex-row items-start gap-3">
                           <View
-                            className={`mt-0.5 h-7 w-7 items-center justify-center rounded-full border ${
-                              row.status === "done"
-                                ? "border-emerald-600 bg-emerald-600"
-                                : "border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
-                            }`}
+                            className="mt-0.5 h-7 w-7 items-center justify-center rounded-full border"
+                            style={{
+                              borderColor:
+                                row.status === "done" ? colors.accent : colors.borderSubtle,
+                              backgroundColor:
+                                row.status === "done" ? colors.accent : "transparent",
+                            }}
                           >
                             {row.status === "done" ? (
-                              <Ionicons name="checkmark" size={16} color="#fff8ef" />
+                              <Ionicons name="checkmark" size={16} color={colors.bg} />
                             ) : null}
                           </View>
                           <View className="min-w-0 flex-1">

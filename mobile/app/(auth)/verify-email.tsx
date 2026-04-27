@@ -6,6 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
+import { APP_HREF } from "@/lib/appRoutes";
 import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { AUTH_ON_PRIMARY, AuthScreenShell } from "@/components/auth/AuthScreenShell";
@@ -135,7 +136,7 @@ export default function VerifyEmailScreen() {
         </Pressable>
       ) : null}
 
-      <Link href="/(auth)/sign-in" asChild>
+      <Link href={APP_HREF.signIn} asChild>
         <Pressable className="mt-8 self-start">
           <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
             {t("auth.backToSignIn")}

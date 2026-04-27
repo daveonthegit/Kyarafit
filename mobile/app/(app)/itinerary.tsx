@@ -28,7 +28,10 @@ export default function ItineraryScreen() {
   const { t } = useTranslation();
   const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const conventions = useOfflineQuery(api.conventions.listWithDetails, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(
+    api.conventions.listWithDetails,
+    userId ? { userId } : "skip"
+  );
   const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
   const loading =

@@ -21,7 +21,7 @@ export function FloatingCreateMenu({
 }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { colors, scheme } = useDesignTheme();
+  const { colors } = useDesignTheme();
 
   const menuActions = useMemo(() => actions.filter(Boolean), [actions]);
 
@@ -74,11 +74,7 @@ export function FloatingCreateMenu({
           accessibilityRole="button"
           accessibilityLabel={open ? "Close create menu" : "Open create menu"}
         >
-          <Ionicons
-            name={open ? "close" : "add"}
-            size={30}
-            color={scheme === "dark" ? "#171726" : "#F7F3EB"}
-          />
+          <Ionicons name={open ? "close" : "add"} size={30} color={colors.bg} />
         </Pressable>
       </View>
     </View>

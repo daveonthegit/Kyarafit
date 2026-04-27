@@ -231,7 +231,7 @@ user completes the reset in their browser. A native reset-password screen can be
 1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (**Web application** — not iOS/Android only; those clients cannot use the Convex callback below)
 2. **Authorized redirect URIs** (must match character-for-character; no trailing slash):
    - `https://<deployment>.convex.site/auth/callback/google`  
-   Use the same host as **Convex Dashboard → your deployment → Settings → URL & Deploy Key** → HTTP Actions / “.convex.site” site URL (not the `.convex.cloud` data URL). Add **both** dev and prod URLs if you use two deployments.
+     Use the same host as **Convex Dashboard → your deployment → Settings → URL & Deploy Key** → HTTP Actions / “.convex.site” site URL (not the `.convex.cloud` data URL). Add **both** dev and prod URLs if you use two deployments.
 3. **Authorized JavaScript origins** (recommended): `https://<deployment>.convex.site` (and `http://localhost:3000` for local Next.js UI — the OAuth **redirect** still hits `*.convex.site`, so the Convex URI in step 2 is required even when developing on localhost)
 4. Copy Client ID + Secret → Convex environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (same Web client for dev/prod unless you use separate clients)
 
@@ -250,11 +250,11 @@ Apple does **not** allow `http://localhost` as a return URL. Use your real Conve
 3. **Domains and Subdomains**: add the hostname only for your HTTP deployment, e.g. `happy-animal-123.convex.site` (no `https://`, no path).
 4. **Return URLs** (must match exactly, no trailing slash):
    - `https://<deployment>.convex.site/auth/callback/apple`  
-   Same `<deployment>` as `NEXT_PUBLIC_CONVEX_SITE_URL` / `EXPO_PUBLIC_CONVEX_SITE_URL` (the `*.convex.site` host).
+     Same `<deployment>` as `NEXT_PUBLIC_CONVEX_SITE_URL` / `EXPO_PUBLIC_CONVEX_SITE_URL` (the `*.convex.site` host).
 5. **Keys**: create a Sign in with Apple key, download the `.p8`, note **Key ID** and **Team ID**.
 6. **Convex env** (Dashboard → Environment Variables):
-   - `APPLE_CLIENT_ID` — Service ID string  
-   - `APPLE_CLIENT_SECRET` — JWT client secret (max **6 months**; regenerate with `npm run apple:client-secret` from repo root when it expires)  
+   - `APPLE_CLIENT_ID` — Service ID string
+   - `APPLE_CLIENT_SECRET` — JWT client secret (max **6 months**; regenerate with `npm run apple:client-secret` from repo root when it expires)
    - Optional: `APPLE_APP_BUNDLE_IDENTIFIER` — e.g. `com.kyarafit.mobile` (helps id-token audience checks; only set if it matches your App ID)
 
 ---

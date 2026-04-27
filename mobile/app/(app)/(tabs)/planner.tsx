@@ -525,7 +525,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                 onPress={() => setTimeframe("week")}
               />
               <Pressable
-                onPress={() => router.push("/(app)/(tabs)/builds")}
+                onPress={() => router.push(APP_HREF.builds)}
                 className="min-h-[36px] justify-center rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
               >
                 <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
@@ -584,11 +584,11 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                   onToggleTask={toggleTask}
                   onEditTask={setEditorTaskId}
                   taskMove={plannerTaskMove}
-                    onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                    onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                    onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                    openingPath={openingPath}
-                  />
+                  onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                  onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                  onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
+                  openingPath={openingPath}
+                />
               </>
             )}
           </>
@@ -644,7 +644,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
               title={t("planner.agendaEmptyTitle")}
               body={t("planner.agendaEmptyBody")}
               actionLabel={t("planner.openBuilds")}
-              onPress={() => router.push("/(app)/(tabs)/builds")}
+              onPress={() => router.push(APP_HREF.builds)}
             />
           ) : (
             <View className="gap-4">
@@ -1077,10 +1077,9 @@ function PlannerTaskExplorerRow({
 
   const rowDepth = Math.min(56, depth * 14);
 
-  const cardClass =
-    dropInto
-      ? "rounded-2xl border border-kyar-text bg-kyar-panelRaised px-2 py-2.5 shadow-sm dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised dark:shadow-none"
-      : "rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-2 py-2.5 shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none";
+  const cardClass = dropInto
+    ? "rounded-2xl border border-kyar-text bg-kyar-panelRaised px-2 py-2.5 shadow-sm dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised dark:shadow-none"
+    : "rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-2 py-2.5 shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none";
 
   const rowBody = (
     <>
@@ -1190,11 +1189,7 @@ function PlannerTaskExplorerRow({
 
         <View className="shrink-0 flex-row items-center gap-0.5">
           {dragEnabled && taskMove && dragMeta ? (
-            <WorkflowTaskDragHandle
-              taskId={task._id}
-              dragMeta={dragMeta}
-              taskMove={taskMove}
-            />
+            <WorkflowTaskDragHandle taskId={task._id} dragMeta={dragMeta} taskMove={taskMove} />
           ) : null}
           <Pressable
             onPress={onEdit}
