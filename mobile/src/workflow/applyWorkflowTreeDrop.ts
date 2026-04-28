@@ -1,5 +1,4 @@
-import type { DropZone } from "@kyarafit/design-system/domain";
-import type { PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
+import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import type { Id } from "convex/_generated/dataModel";
 
 /** Minimal task fields for sibling reorder / reparent (matches planner logic). */
@@ -7,6 +6,8 @@ export type WorkflowDropTask = {
   _id: Id<"workflowItems">;
   parentId?: Id<"workflowItems"> | null;
   sortOrder?: number;
+  /** Optional visual/planner bucket; when present, resequencing stays inside it. */
+  scopeKey?: string;
 };
 
 export type WorkflowTreeMoveFns = {
@@ -22,7 +23,48 @@ export type WorkflowTreeMoveFns = {
     userId: string;
     sortOrder: number;
   }) => Promise<unknown>;
+  moveAndResequence?: (args: {
+    userId: string;
+    move: {
+      id: Id<"workflowItems">;
+      parentId?: Id<"workflowItems"> | null;
+      sortOrder?: number;
+    };
+    resequence: { id: Id<"workflowItems">; sortOrder: number }[];
+  }) => Promise<unknown>;
 };
+
+async function commitMoveAndResequence(
+  fns: WorkflowTreeMoveFns,
+  move: {
+    id: Id<"workflowItems">;
+    parentId?: Id<"workflowItems"> | null;
+    sortOrder?: number;
+  },
+  orderedSiblingIds: Id<"workflowItems">[],
+  extraOrderedSiblingIds: Id<"workflowItems">[] = []
+) {
+  if (fns.moveAndResequence) {
+    await fns.moveAndResequence({
+      userId: fns.userId,
+      move,
+      resequence: [
+        ...orderedSiblingIds.map((id, sortOrder) => ({ id, sortOrder })),
+        ...extraOrderedSiblingIds.map((id, sortOrder) => ({ id, sortOrder })),
+      ],
+    });
+    return;
+  }
+
+  await fns.moveTask({
+    ...move,
+    userId: fns.userId,
+  });
+  await resequenceTasks(fns, orderedSiblingIds);
+  if (extraOrderedSiblingIds.length > 0) {
+    await resequenceTasks(fns, extraOrderedSiblingIds);
+  }
+}
 
 /**
  * Reorder or reparent workflow items (same rules as planner drag-and-drop).
@@ -43,36 +85,41 @@ export async function applyWorkflowTreeDrop(
   const T = tasks.find((task) => task._id === targetId);
   if (!D || !T) return;
   if (canDragBetween && !canDragBetween(D, T)) return;
+  if (D.scopeKey != null && T.scopeKey != null && D.scopeKey !== T.scopeKey) return;
+
+  const sameDragScope = (task: WorkflowDropTask) =>
+    task.scopeKey == null || task.scopeKey === (D.scopeKey ?? dragged.scopeKey);
 
   const siblingIdsForParent = (parentId: Id<"workflowItems"> | null) =>
     tasks
-      .filter((task) => (task.parentId ?? null) === parentId)
+      .filter((task) => sameDragScope(task) && (task.parentId ?? null) === parentId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       .map((task) => task._id);
 
   if (zone === "into") {
     const existingIds = tasks
-      .filter((task) => task.parentId === targetId && task._id !== dragId)
+      .filter(
+        (task) => sameDragScope(task) && task.parentId === targetId && task._id !== dragId
+      )
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       .map((task) => task._id);
 
     const oldParent = D.parentId ?? null;
+    const oldParentSiblingIds =
+      oldParent !== targetId
+        ? siblingIdsForParent(oldParent).filter((id) => id !== dragId)
+        : [];
 
-    await fns.moveTask({
-      id: dragId,
-      userId: fns.userId,
-      parentId: targetId,
-      sortOrder: existingIds.length,
-    });
-
-    await resequenceTasks(fns, [...existingIds, dragId]);
-
-    if (oldParent !== targetId) {
-      await resequenceTasks(
-        fns,
-        siblingIdsForParent(oldParent).filter((id) => id !== dragId)
-      );
-    }
+    await commitMoveAndResequence(
+      fns,
+      {
+        id: dragId,
+        parentId: targetId,
+        sortOrder: existingIds.length,
+      },
+      [...existingIds, dragId],
+      oldParentSiblingIds
+    );
     return;
   }
 
@@ -84,22 +131,21 @@ export async function applyWorkflowTreeDrop(
   ordered.splice(insertAt, 0, dragId);
 
   const oldParent = D.parentId ?? null;
+  const oldParentSiblingIds =
+    (oldParent ?? null) !== (newParent ?? null)
+      ? siblingIdsForParent(oldParent).filter((id) => id !== dragId)
+      : [];
 
-  await fns.moveTask({
-    id: dragId,
-    userId: fns.userId,
-    parentId: newParent,
-    sortOrder: insertAt,
-  });
-
-  await resequenceTasks(fns, ordered);
-
-  if ((oldParent ?? null) !== (newParent ?? null)) {
-    await resequenceTasks(
-      fns,
-      siblingIdsForParent(oldParent).filter((id) => id !== dragId)
-    );
-  }
+  await commitMoveAndResequence(
+    fns,
+    {
+      id: dragId,
+      parentId: newParent,
+      sortOrder: insertAt,
+    },
+    ordered,
+    oldParentSiblingIds
+  );
 }
 
 export async function promoteWorkflowTaskToRoot(
@@ -113,33 +159,38 @@ export async function promoteWorkflowTaskToRoot(
   if (!draggedTask) return;
 
   const oldParent = draggedTask.parentId ?? null;
+  const sameDragScope = (task: WorkflowDropTask) =>
+    task.scopeKey == null || task.scopeKey === (draggedTask.scopeKey ?? dragged.scopeKey);
   if (oldParent == null) return;
 
   const rootIds = tasks
     .filter(
       (task) =>
         task._id !== dragId &&
+        sameDragScope(task) &&
         (task.parentId ?? null) === null &&
         (canPromoteIntoRootGroup ? canPromoteIntoRootGroup(task) : true)
     )
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     .map((task) => task._id);
 
-  await fns.moveTask({
-    id: dragId,
-    userId: fns.userId,
-    parentId: null,
-    sortOrder: rootIds.length,
-  });
-
-  await resequenceTasks(fns, [...rootIds, dragId]);
-
   const oldParentSiblingIds = tasks
-    .filter((task) => (task.parentId ?? null) === oldParent && task._id !== dragId)
+    .filter(
+      (task) => sameDragScope(task) && (task.parentId ?? null) === oldParent && task._id !== dragId
+    )
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     .map((task) => task._id);
 
-  await resequenceTasks(fns, oldParentSiblingIds);
+  await commitMoveAndResequence(
+    fns,
+    {
+      id: dragId,
+      parentId: null,
+      sortOrder: rootIds.length,
+    },
+    [...rootIds, dragId],
+    oldParentSiblingIds
+  );
 }
 
 async function resequenceTasks(fns: WorkflowTreeMoveFns, ids: Id<"workflowItems">[]) {

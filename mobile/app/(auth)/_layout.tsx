@@ -23,12 +23,10 @@ export default function AuthGroupLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        headerTitle: "",
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
-        headerStyle: { backgroundColor: colors.bg },
+        headerShown: false,
         contentStyle: { backgroundColor: colors.bg },
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
       }}
     />
   );

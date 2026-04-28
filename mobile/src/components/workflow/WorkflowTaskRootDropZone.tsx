@@ -11,6 +11,7 @@ type Props = {
 
 export function WorkflowTaskRootDropZone({ scopeKey, taskMove, label, className = "" }: Props) {
   const zoneRef = useRef<View>(null);
+  const { registerRootDropZone, unregisterRootDropZone } = taskMove;
 
   // Ref callback so the zone is registered synchronously when the View mounts.
   // `startDrag` schedules its measurement pass with rAF; an effect-based
@@ -19,12 +20,12 @@ export function WorkflowTaskRootDropZone({ scopeKey, taskMove, label, className 
     (node: View | null) => {
       zoneRef.current = node;
       if (node) {
-        taskMove.registerRootDropZone(scopeKey, node);
+        registerRootDropZone(scopeKey, node);
       } else {
-        taskMove.unregisterRootDropZone(scopeKey);
+        unregisterRootDropZone(scopeKey);
       }
     },
-    [scopeKey, taskMove]
+    [registerRootDropZone, scopeKey, unregisterRootDropZone]
   );
 
   const activeScope = taskMove.dragMeta?.scopeKey;
@@ -35,6 +36,7 @@ export function WorkflowTaskRootDropZone({ scopeKey, taskMove, label, className 
   return (
     <View
       ref={setZoneRef}
+      collapsable={false}
       className={`mb-2 rounded-2xl border border-dashed px-3 py-3 ${
         highlighted
           ? "border-kyar-text bg-kyar-panelRaised dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised"

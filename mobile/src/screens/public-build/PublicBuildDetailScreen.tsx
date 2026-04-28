@@ -15,6 +15,8 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { FocalCoverImage } from "@/components/FocalCoverImage";
+import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
@@ -247,6 +249,13 @@ export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
           title: bundle?.build.name ?? t("publicBuild.title"),
           headerLargeTitle: false,
         }}
+      />
+      <MobilePageHeader
+        eyebrow={t("publicBuild.title")}
+        title={bundle?.build.name ?? t("publicBuild.title")}
+        subtitle={bundle?.build.character ?? undefined}
+        fallbackHref={APP_HREF.home}
+        containerClassName="px-4 pt-4"
       />
       <DataBoundary
         status={status}

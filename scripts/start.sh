@@ -38,6 +38,27 @@ kill_port() {
 # Ports used by the stack (kill anything on these before starting)
 NEEDED_PORTS="3000 8081 8082 19000 19001 19002"
 
+open_terminal() {
+  local title="$1"
+  local shell_cmd="$2"
+
+  if command -v osascript >/dev/null 2>&1; then
+    local escaped_cmd="${shell_cmd//\\/\\\\}"
+    escaped_cmd="${escaped_cmd//\"/\\\"}"
+    log "Starting ${title} in a new Terminal window..."
+    osascript >/dev/null <<EOF
+tell application "Terminal"
+  activate
+  do script "$escaped_cmd"
+end tell
+EOF
+    return 0
+  fi
+
+  warn "osascript not found; running ${title} in the current terminal instead."
+  (cd "$ROOT" && eval "$shell_cmd")
+}
+
 # Parse flags
 NO_WEB=false; NO_MOBILE=false; NO_CONVEX=false; SINGLE_TERMINAL=false
 for arg in "$@"; do
@@ -82,19 +103,17 @@ fi
 if [ "$NO_WEB" = false ]; then
   log "Freeing port 3000 before web..."
   kill_port 3000
-  log "Starting web (Next.js) in background..."
-  (cd "$ROOT" && nohup npm run dev:web >> /tmp/kyarafit-web.log 2>&1 &)
+  open_terminal "web (Next.js)" "cd \"$ROOT\" && npm run dev:web"
   sleep 2
-  ok "Web: http://localhost:3000 (log: /tmp/kyarafit-web.log)"
+  ok "Web: http://localhost:3000"
 fi
 
 # ── 6. Mobile (Expo on :8081 / :19000) ───────────────────────────────────────
 if [ "$NO_MOBILE" = false ]; then
   log "Freeing Expo ports (8081, 8082, 19000, 19001, 19002)..."
   for port in 8081 8082 19000 19001 19002; do kill_port "$port"; done
-  log "Starting mobile (Expo) in background..."
-  (cd "$ROOT" && nohup npm run start -w mobile -- --clear >> /tmp/kyarafit-mobile.log 2>&1 &)
-  ok "Mobile: tail -f /tmp/kyarafit-mobile.log for QR / URL"
+  open_terminal "mobile (Expo)" "cd \"$ROOT\" && npm run start -w mobile -- --clear"
+  ok "Mobile: check the Expo Terminal window for QR / URL"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

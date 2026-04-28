@@ -4,7 +4,16 @@ import { plannerTaskScopeKey } from "@kyarafit/design-system/domain";
 import { usePlannerTaskMove, type PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
 import { promoteWorkflowTaskToRoot, type WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  type GestureResponderEvent,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -13,6 +22,7 @@ import { api } from "convex/_generated/api";
 import { WorkflowTaskDragHandle } from "@/components/workflow/WorkflowTaskDragHandle";
 import { WorkflowTaskDragOverlay } from "@/components/workflow/WorkflowTaskDragOverlay";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
+import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
 import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRootDropZone";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
@@ -59,18 +69,19 @@ type PlannerTaskNode = PlannerTask & { children: PlannerTaskNode[] };
 
 type PlannerTaskExplorerMenuMode = "full" | "editOnly";
 
-type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
+type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTaskNode[] };
+type RawBuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
 type ConventionGroup = {
   conventionId: Id<"conventions">;
   conventionName: string;
   builds: BuildGroup[];
-  packingTasks: PlannerTask[];
+  packingTasks: PlannerTaskNode[];
 };
 
 type PlannerTree = {
   conventionGroups: ConventionGroup[];
   standaloneBuilds: BuildGroup[];
-  unassignedTasks: PlannerTask[];
+  unassignedTasks: PlannerTaskNode[];
 };
 
 type UpcomingConventionRow = {
@@ -146,9 +157,13 @@ function buildTaskTree(
 ): PlannerTree {
   const conventionMap = new Map<
     Id<"conventions">,
-    { conventionName: string; builds: Map<Id<"builds">, BuildGroup>; packingTasks: PlannerTask[] }
+    {
+      conventionName: string;
+      builds: Map<Id<"builds">, RawBuildGroup>;
+      packingTasks: PlannerTask[];
+    }
   >();
-  const standaloneMap = new Map<Id<"builds">, BuildGroup>();
+  const standaloneMap = new Map<Id<"builds">, RawBuildGroup>();
   const unassignedTasks: PlannerTask[] = [];
 
   const getConventionName = (conventionId: Id<"conventions">) =>
@@ -194,16 +209,16 @@ function buildTaskTree(
       .map(([conventionId, group]) => ({
         conventionId,
         conventionName: group.conventionName,
-        builds: Array.from(group.builds.values()).sort((a, b) =>
-          a.buildName.localeCompare(b.buildName)
-        ),
-        packingTasks: group.packingTasks,
+        builds: Array.from(group.builds.values())
+          .sort((a, b) => a.buildName.localeCompare(b.buildName))
+          .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) })),
+        packingTasks: buildTaskHierarchy(group.packingTasks),
       }))
       .sort((a, b) => a.conventionName.localeCompare(b.conventionName)),
-    standaloneBuilds: Array.from(standaloneMap.values()).sort((a, b) =>
-      a.buildName.localeCompare(b.buildName)
-    ),
-    unassignedTasks,
+    standaloneBuilds: Array.from(standaloneMap.values())
+      .sort((a, b) => a.buildName.localeCompare(b.buildName))
+      .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) })),
+    unassignedTasks: buildTaskHierarchy(unassignedTasks),
   };
 }
 
@@ -286,6 +301,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const createTask = useOfflineMutation(api.workflow.create);
   const updateTask = useOfflineMutation(api.workflow.update);
   const moveTask = useOfflineMutation(api.workflow.move);
+  const moveAndResequenceTask = useOfflineMutation(api.workflow.moveAndResequence);
   const [view, setView] = useState<PlannerView>("tasks");
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -374,6 +390,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         _id: task._id,
         parentId: task.parentId ?? null,
         sortOrder: task.sortOrder ?? 0,
+        scopeKey: plannerTaskScopeKey(task),
       })),
     [loaded.tasks]
   );
@@ -389,6 +406,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
           userId: loaded.userId,
           moveTask,
           updateTask,
+          moveAndResequence: moveAndResequenceTask,
         },
         (D, T) => {
           const d = loaded.tasks.find((x) => x._id === D._id);
@@ -397,7 +415,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         }
       );
     },
-    [loaded.tasks, loaded.userId, moveTask, plannerFlatDropTasks, updateTask]
+    [loaded.tasks, loaded.userId, moveAndResequenceTask, moveTask, plannerFlatDropTasks, updateTask]
   );
 
   const promotePlannerTaskToRoot = useCallback(
@@ -409,6 +427,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
           userId: loaded.userId,
           moveTask,
           updateTask,
+          moveAndResequence: moveAndResequenceTask,
         },
         (task) => {
           const candidate = loaded.tasks.find((item) => item._id === task._id);
@@ -416,7 +435,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         }
       );
     },
-    [loaded.tasks, loaded.userId, moveTask, plannerFlatDropTasks, updateTask]
+    [loaded.tasks, loaded.userId, moveAndResequenceTask, moveTask, plannerFlatDropTasks, updateTask]
   );
 
   const plannerTaskMove = usePlannerTaskMove({
@@ -812,7 +831,7 @@ function PlannerTreeSection({
                 <View key={build.buildId}>
                   <MetaLabel>{build.buildName}</MetaLabel>
                   <PlannerTaskTreeList
-                    nodes={buildTaskHierarchy(build.tasks)}
+                    nodes={build.tasks}
                     onToggleTask={onToggleTask}
                     onEditTask={onEditTask}
                     taskMove={taskMove}
@@ -827,7 +846,7 @@ function PlannerTreeSection({
                 <View>
                   <MetaLabel>{t("planner.packingSection")}</MetaLabel>
                   <PlannerTaskTreeList
-                    nodes={buildTaskHierarchy(group.packingTasks)}
+                    nodes={group.packingTasks}
                     onToggleTask={onToggleTask}
                     onEditTask={onEditTask}
                     taskMove={taskMove}
@@ -857,7 +876,7 @@ function PlannerTreeSection({
               />
             </View>
             <PlannerTaskTreeList
-              nodes={buildTaskHierarchy(build.tasks)}
+              nodes={build.tasks}
               onToggleTask={onToggleTask}
               onEditTask={onEditTask}
               taskMove={taskMove}
@@ -872,7 +891,7 @@ function PlannerTreeSection({
           <SurfaceCard className="px-4 py-4">
             <MetaLabel>{t("planner.otherTaskGroup")}</MetaLabel>
             <PlannerTaskTreeList
-              nodes={buildTaskHierarchy(tree.unassignedTasks)}
+              nodes={tree.unassignedTasks}
               onToggleTask={onToggleTask}
               onEditTask={onEditTask}
               taskMove={taskMove}
@@ -914,7 +933,7 @@ function PlannerTaskTreeList({
 
   return (
     <View className="mt-2">
-      {menuMode === "full" && scopeKey ? (
+      {menuMode === "full" && scopeKey && parent == null ? (
         <WorkflowTaskRootDropZone
           scopeKey={scopeKey}
           taskMove={taskMove}
@@ -967,17 +986,19 @@ function PlannerTaskBranch({
 }) {
   const [childrenExpanded, setChildrenExpanded] = useState(true);
   const hasChildren = task.children.length > 0;
+  const scopeKey = plannerTaskScopeKey(task);
+  const ancestorKey = task.ancestorIds.map((id) => id as string).join("\0");
 
   const dragMeta = useMemo<PlannerTaskDragMeta>(
     () => ({
       taskId: task._id as string,
-      scopeKey: plannerTaskScopeKey(task),
+      scopeKey,
       parentId: parent?._id as string | undefined,
       siblingIndex: index,
-      ancestorIds: task.ancestorIds.map((id) => id as string),
+      ancestorIds: ancestorKey ? ancestorKey.split("\0") : [],
       title: task.title,
     }),
-    [index, parent?._id, task]
+    [ancestorKey, index, parent?._id, scopeKey, task._id, task.title]
   );
 
   return (
@@ -1047,25 +1068,37 @@ function PlannerTaskExplorerRow({
   const { t } = useTranslation();
   const { colors } = useDesignTheme();
   const blockingPreview = dependencyPreview(task.blockedByTitles);
-  const rowRef = useRef<View>(null);
 
   const dragEnabled = menuMode === "full" && taskMove != null && dragMeta != null;
-  const { draggingTaskId, dragOverTaskId, dragOverZone } = taskMove?.dragVisualState ?? {
-    draggingTaskId: null,
-    dragOverTaskId: null,
-    dragOverZone: null,
-  };
 
-  const dragging = dragEnabled && draggingTaskId === task._id;
-  const dropBefore = dragEnabled && dragOverTaskId === task._id && dragOverZone === "before";
-  const dropAfter = dragEnabled && dragOverTaskId === task._id && dragOverZone === "after";
-  const dropInto = dragEnabled && dragOverTaskId === task._id && dragOverZone === "into";
-
-  useEffect(() => {
-    if (!dragEnabled || !taskMove || !dragMeta) return;
-    taskMove.registerRow(task._id, rowRef.current, dragMeta);
-    return () => taskMove.unregisterRow(task._id);
-  }, [dragEnabled, dragMeta, task._id, taskMove]);
+  const dragTouchProps =
+    dragEnabled && taskMove && dragMeta
+      ? {
+          delayLongPress: 220,
+          onLongPress: (event: GestureResponderEvent) => {
+            event.stopPropagation?.();
+            void taskMove.startDrag(dragMeta, {
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            });
+          },
+          onTouchMove: (event: GestureResponderEvent) => {
+            taskMove.updateDragPoint({
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            });
+          },
+          onTouchEnd: (event: GestureResponderEvent) => {
+            taskMove.finishDrag({
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            });
+          },
+          onTouchCancel: () => {
+            taskMove.finishDrag();
+          },
+        }
+      : {};
 
   const openContext = () => {
     if (task.buildId) onOpenBuild(task.buildId);
@@ -1077,19 +1110,8 @@ function PlannerTaskExplorerRow({
 
   const rowDepth = Math.min(56, depth * 14);
 
-  const cardClass = dropInto
-    ? "rounded-2xl border border-kyar-text bg-kyar-panelRaised px-2 py-2.5 shadow-sm dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised dark:shadow-none"
-    : "rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-2 py-2.5 shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none";
-
   const rowBody = (
-    <>
-      {dropBefore ? (
-        <View className="absolute inset-x-4 top-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
-      ) : null}
-      {dropAfter ? (
-        <View className="absolute inset-x-4 bottom-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
-      ) : null}
-
+    <View className="px-2 py-2.5">
       <View className="flex-row items-start gap-1">
         {hasChildren ? (
           <Pressable
@@ -1133,8 +1155,11 @@ function PlannerTaskExplorerRow({
         </Pressable>
 
         <Pressable
-          onPress={openContext}
-          disabled={!hasContextTarget}
+          {...dragTouchProps}
+          onPress={() => {
+            if (hasContextTarget) openContext();
+          }}
+          disabled={!hasContextTarget && !dragEnabled}
           className="min-w-0 flex-1 py-0.5 active:opacity-80"
           accessibilityRole={hasContextTarget ? "button" : "text"}
         >
@@ -1151,11 +1176,6 @@ function PlannerTaskExplorerRow({
             {toPrettyStatus(task.status)} · {task.category}
             {task.dueDate ? ` · ${formatDateLabel(task.dueDate)}` : ""}
           </Text>
-          {dropInto ? (
-            <Text className="mt-2 text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-              {t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
-            </Text>
-          ) : null}
           {task.blockedByCount ? (
             <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
               {t("planner.blockedLabel", { count: task.blockedByCount })}
@@ -1207,43 +1227,29 @@ function PlannerTaskExplorerRow({
           )}
         </View>
       </View>
-    </>
+    </View>
   );
+
+  if (dragEnabled && taskMove && dragMeta) {
+    return (
+      <WorkflowTaskDragShell
+        taskId={task._id}
+        dragMeta={dragMeta}
+        taskMove={taskMove}
+        depthMargin={rowDepth}
+        dropIntoLabel={t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
+        rowLongPressDrag
+      >
+        {rowBody}
+      </WorkflowTaskDragShell>
+    );
+  }
 
   return (
     <View style={{ marginLeft: rowDepth }} className="mb-2">
-      <Pressable
-        ref={dragEnabled ? rowRef : undefined}
-        delayLongPress={220}
-        onLongPress={(event) => {
-          if (!dragEnabled || !taskMove || !dragMeta) return;
-          void taskMove.startDrag(dragMeta, {
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          });
-        }}
-        onTouchMove={(event) => {
-          if (!dragging || !taskMove) return;
-          taskMove.updateDragPoint({
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          });
-        }}
-        onTouchEnd={(event) => {
-          if (!dragging || !taskMove) return;
-          taskMove.finishDrag({
-            x: event.nativeEvent.pageX,
-            y: event.nativeEvent.pageY,
-          });
-        }}
-        onTouchCancel={() => {
-          if (!dragging || !taskMove) return;
-          taskMove.finishDrag();
-        }}
-        className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
-      >
+      <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none">
         {rowBody}
-      </Pressable>
+      </View>
     </View>
   );
 }

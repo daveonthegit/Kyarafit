@@ -45,10 +45,12 @@ export function computePlannerTaskDropZone(
   if (dragged.scopeKey !== target.scopeKey) return null;
 
   const targetUnderDrag = target.ancestorIds.includes(dragged.taskId);
+  if (targetUnderDrag) return null;
+
   const ratio = (clientY - rect.top) / Math.max(rect.height, 1);
 
   const sameParent = (dragged.parentId ?? "") === (target.parentId ?? "");
-  const canNestInto = !targetUnderDrag;
+  const canNestInto = true;
 
   if (sameParent && canNestInto) {
     if (ratio < 0.22) return "before";

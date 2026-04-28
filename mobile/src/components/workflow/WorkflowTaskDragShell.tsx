@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { Id } from "convex/_generated/dataModel";
 import type { PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
@@ -13,17 +13,12 @@ type Props = {
   className?: string;
   /** Shown when the dragged task targets the middle "nest" zone of this row. */
   dropIntoLabel?: string;
+  /** Start moving from a long press anywhere on the row, matching build explorer. */
+  rowLongPressDrag?: boolean;
   children: React.ReactNode;
 };
 
-/**
- * Drop surface for a workflow task row. Registers the row with the planner
- * controller so it can be measured as a drop target, and renders the
- * before/after/into drop indicators. Does NOT own the drag gesture — that
- * belongs to <WorkflowTaskDragHandle> inside the row. Wrapping the whole row
- * in a Pressable here would have its long-press eaten by the many interactive
- * controls inside (checkbox, title, edit, etc).
- */
+/** Drop surface for a workflow task row. Registers the row as a measured target. */
 export function WorkflowTaskDragShell({
   taskId,
   dragMeta,
@@ -31,6 +26,7 @@ export function WorkflowTaskDragShell({
   depthMargin = 0,
   className = "",
   dropIntoLabel,
+  rowLongPressDrag = false,
   children,
 }: Props) {
   const rowRef = useRef<View>(null);
@@ -41,11 +37,15 @@ export function WorkflowTaskDragShell({
   const dropBefore = dragOverTaskId === taskId && dragOverZone === "before";
   const dropAfter = dragOverTaskId === taskId && dragOverZone === "after";
   const dropInto = dragOverTaskId === taskId && dragOverZone === "into";
+  const { registerRow, unregisterRow } = taskMove;
 
   useEffect(() => {
-    taskMove.registerRow(taskId, rowRef.current, dragMeta);
-    return () => taskMove.unregisterRow(taskId);
-  }, [dragMeta, taskId, taskMove]);
+    registerRow(taskId, rowRef.current, dragMeta);
+  }, [dragMeta, registerRow, taskId]);
+
+  useEffect(() => {
+    return () => unregisterRow(taskId);
+  }, [taskId, unregisterRow]);
 
   const cardClass = useMemo(
     () =>
@@ -56,8 +56,52 @@ export function WorkflowTaskDragShell({
   );
 
   return (
-    <View style={{ marginLeft: depthMargin }} className={`relative mb-2 ${className}`}>
-      <View ref={rowRef} className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}>
+    <View
+      ref={rowRef}
+      collapsable={false}
+      style={{ marginLeft: depthMargin }}
+      className={`relative mb-2 ${className}`}
+    >
+      <Pressable
+        delayLongPress={220}
+        onLongPress={
+          rowLongPressDrag
+            ? (event) =>
+                void taskMove.startDrag(dragMeta, {
+                  x: event.nativeEvent.pageX,
+                  y: event.nativeEvent.pageY,
+                })
+            : undefined
+        }
+        onTouchMove={
+          rowLongPressDrag
+            ? (event) => {
+                taskMove.updateDragPoint({
+                  x: event.nativeEvent.pageX,
+                  y: event.nativeEvent.pageY,
+                });
+              }
+            : undefined
+        }
+        onTouchEnd={
+          rowLongPressDrag
+            ? (event) => {
+                taskMove.finishDrag({
+                  x: event.nativeEvent.pageX,
+                  y: event.nativeEvent.pageY,
+                });
+              }
+            : undefined
+        }
+        onTouchCancel={
+          rowLongPressDrag
+            ? () => {
+                taskMove.finishDrag();
+              }
+            : undefined
+        }
+        className={`relative ${cardClass} ${dragging ? "opacity-55" : ""}`}
+      >
         {dropBefore ? (
           <View className="absolute inset-x-2 top-0 z-10 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
         ) : null}
@@ -70,7 +114,7 @@ export function WorkflowTaskDragShell({
             {dropIntoLabel}
           </Text>
         ) : null}
-      </View>
+      </Pressable>
     </View>
   );
 }

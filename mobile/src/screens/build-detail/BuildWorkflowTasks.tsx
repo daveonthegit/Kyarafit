@@ -36,6 +36,7 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
   const updateWorkflow = useOfflineMutation(api.workflow.update);
   const removeWorkflow = useOfflineMutation(api.workflow.remove);
   const moveWorkflow = useOfflineMutation(api.workflow.move);
+  const moveAndResequenceWorkflow = useOfflineMutation(api.workflow.moveAndResequence);
 
   const [newRootTitle, setNewRootTitle] = useState("");
   const [newChildParentId, setNewChildParentId] = useState<Id<"workflowItems"> | null>(null);
@@ -83,8 +84,9 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         _id: r._id,
         parentId: r.parentId ?? null,
         sortOrder: r.sortOrder ?? 0,
+        scopeKey: `wf:build:${buildId as string}:${r.elementGroupKey}`,
       })),
-    [rows]
+    [buildId, rows]
   );
 
   const taskElementGroupById = useMemo(() => {
@@ -120,12 +122,20 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
           userId,
           moveTask: moveWorkflow,
           updateTask: updateWorkflow,
+          moveAndResequence: moveAndResequenceWorkflow,
         },
         (D, T) =>
           taskElementGroupById.get(D._id as string) === taskElementGroupById.get(T._id as string)
       );
     },
-    [flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
+    [
+      flatDropTasks,
+      moveAndResequenceWorkflow,
+      moveWorkflow,
+      taskElementGroupById,
+      updateWorkflow,
+      userId,
+    ]
   );
 
   const promoteTaskToRoot = useCallback(
@@ -137,13 +147,22 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
           userId,
           moveTask: moveWorkflow,
           updateTask: updateWorkflow,
+          moveAndResequence: moveAndResequenceWorkflow,
         },
         (task) =>
           `wf:build:${buildId as string}:${taskElementGroupById.get(task._id as string)}` ===
           scopeKey
       );
     },
-    [buildId, flatDropTasks, moveWorkflow, taskElementGroupById, updateWorkflow, userId]
+    [
+      buildId,
+      flatDropTasks,
+      moveAndResequenceWorkflow,
+      moveWorkflow,
+      taskElementGroupById,
+      updateWorkflow,
+      userId,
+    ]
   );
 
   const plannerTaskMove = usePlannerTaskMove({
@@ -492,6 +511,7 @@ function BuildWorkflowTaskRow({
       taskMove={plannerTaskMove}
       depthMargin={node.depth * 14}
       dropIntoLabel={t("buildDetail.dropIntoLabel")}
+      rowLongPressDrag
     >
       <View className="p-3">
         <View className="flex-row items-start gap-2">

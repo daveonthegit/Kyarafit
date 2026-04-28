@@ -18,9 +18,8 @@ type Props = {
  * so `onTouchMove`/`onTouchEnd` continue to flow here even when the finger
  * moves over sibling rows or other interactive controls inside the row.
  */
-export function WorkflowTaskDragHandle({ taskId, dragMeta, taskMove, className = "" }: Props) {
+export function WorkflowTaskDragHandle({ dragMeta, taskMove, className = "" }: Props) {
   const { colors } = useDesignTheme();
-  const dragging = taskMove.dragVisualState.draggingTaskId === taskId;
 
   return (
     <Pressable
@@ -35,21 +34,18 @@ export function WorkflowTaskDragHandle({ taskId, dragMeta, taskMove, className =
         })
       }
       onTouchMove={(event) => {
-        if (!dragging) return;
         taskMove.updateDragPoint({
           x: event.nativeEvent.pageX,
           y: event.nativeEvent.pageY,
         });
       }}
       onTouchEnd={(event) => {
-        if (!dragging) return;
         taskMove.finishDrag({
           x: event.nativeEvent.pageX,
           y: event.nativeEvent.pageY,
         });
       }}
       onTouchCancel={() => {
-        if (!dragging) return;
         taskMove.finishDrag();
       }}
       className={`h-9 w-9 items-center justify-center rounded-full ${className}`}

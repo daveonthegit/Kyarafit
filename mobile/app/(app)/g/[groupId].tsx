@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -130,6 +131,13 @@ export default function GroupDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: group?.name ?? t("nav.groups"), headerLargeTitle: false }} />
+      <MobilePageHeader
+        eyebrow={t("nav.groups")}
+        title={group?.name ?? t("nav.groups")}
+        subtitle={group?.description || t("groups.detailSubtitle")}
+        fallbackHref={APP_HREF.more}
+        containerClassName="px-5 pt-4"
+      />
       <DataBoundary status={status} data={{ ready: true }}>
         {() => (
           <ScrollView
@@ -144,10 +152,6 @@ export default function GroupDetailScreen() {
               </SurfaceCard>
             ) : (
               <>
-                <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {group.description || t("groups.detailSubtitle")}
-                </Text>
-
                 <SurfaceCard className="mt-5 overflow-hidden">
                   <View className="aspect-[16/10] bg-kyar-muted dark:bg-kyar-dark-muted">
                     {group.imageStorageId || group.imageUrl ? (

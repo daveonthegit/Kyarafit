@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
+import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
 import { APP_HREF } from "@/lib/appRoutes";
 import { Button, DataBoundary, SurfaceCard } from "@/ui";
 
@@ -25,16 +26,19 @@ export default function FeedScreen() {
           headerLargeTitle: false,
         }}
       />
+      <MobilePageHeader
+        eyebrow={t("nav.feed")}
+        title={t("feed.title")}
+        subtitle={t("feed.subtitle")}
+        fallbackHref={APP_HREF.home}
+        containerClassName="px-5 pt-4"
+      />
       <DataBoundary status={status} data={{ builds }}>
         {() => (
           <ScrollView
             className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
             contentContainerClassName="px-5 pb-12 pt-4"
           >
-            <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("feed.subtitle")}
-            </Text>
-
             {!userId ? (
               <SurfaceCard className="mt-5 px-4 py-5">
                 <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">

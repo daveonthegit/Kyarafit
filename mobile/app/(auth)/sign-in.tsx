@@ -13,12 +13,12 @@ import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import {
   AUTH_ON_PRIMARY,
   AuthScreenShell,
+  GoogleLogo,
   authFieldInputCls,
   authMetaLabelCls,
-  authOAuthAppleBtnCls,
-  authOAuthGoogleBtnCls,
   authOAuthLabelCls,
   authPrimaryBtnWebCls,
+  authSocialBtnCls,
 } from "@/components/auth/AuthScreenShell";
 
 export default function SignInScreen() {
@@ -64,6 +64,7 @@ export default function SignInScreen() {
   }
 
   async function onSubmit() {
+    if (submitting || oauthLoading !== null) return;
     setError(null);
     setInfo(null);
     setShowResendVerification(false);
@@ -172,26 +173,18 @@ export default function SignInScreen() {
       )}
 
       <View className="mb-6 w-full gap-3">
-        <Pressable
-          className={authOAuthGoogleBtnCls}
-          onPress={() => onOAuth("google")}
-          disabled={busy}
-        >
+        <Pressable className={authSocialBtnCls} onPress={() => onOAuth("google")} disabled={busy}>
           {oauthLoading === "google" ? (
             <ActivityIndicator />
           ) : (
             <>
-              <MaterialCommunityIcons name="google" size={16} color="#4285F4" />
+              <GoogleLogo />
               <Text className={authOAuthLabelCls}>{t("auth.continueWithGoogle")}</Text>
             </>
           )}
         </Pressable>
 
-        <Pressable
-          className={authOAuthAppleBtnCls}
-          onPress={() => onOAuth("apple")}
-          disabled={busy}
-        >
+        <Pressable className={authSocialBtnCls} onPress={() => onOAuth("apple")} disabled={busy}>
           {oauthLoading === "apple" ? (
             <ActivityIndicator />
           ) : (
@@ -256,6 +249,9 @@ export default function SignInScreen() {
         value={password}
         onChangeText={setPassword}
         autoComplete="password"
+        returnKeyType="go"
+        blurOnSubmit
+        onSubmitEditing={() => void onSubmit()}
         placeholder="••••••••"
       />
 

@@ -18,5 +18,13 @@ export default function AppGroupLayout() {
     return <Redirect href={APP_HREF.signIn} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
+      }}
+    />
+  );
 }

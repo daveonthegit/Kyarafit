@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
@@ -13,14 +14,25 @@ import type { Id } from "convex/_generated/dataModel";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
 import type { CalendarDayData, CalendarEvent } from "@/components/ui/fullscreen-calendar";
 import { PlannerTaskRow } from "@/components/planner/PlannerWorkflowTaskUi";
+import {
+  computePlannerTaskDropZone,
+  plannerTaskScopeKey,
+  pointInsideRect,
+  type DropZone,
+  type PlannerTaskDragMeta,
+} from "@kyarafit/design-system/domain";
 
 type TodoView = "daily" | "events" | "calendar";
 
 type PlannerTask = {
   _id: Id<"workflowItems">;
   title: string;
+  kind: string;
   status: string;
   category: string;
+  parentId?: Id<"workflowItems">;
+  ancestorIds: Id<"workflowItems">[];
+  sortOrder: number;
   progressPercent: number;
   buildId?: Id<"builds">;
   buildName: string | null;
@@ -32,15 +44,49 @@ type PlannerTask = {
   priority?: number;
   blockedByCount?: number;
   overdue?: boolean;
+  blockedByTitles?: string[];
 };
 
-type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
+type PlannerTaskNode = PlannerTask & { children: PlannerTaskNode[] };
+type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTaskNode[] };
+type RawBuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
 type ConventionGroup = {
   conventionId: Id<"conventions">;
   conventionName: string;
   builds: BuildGroup[];
-  packingTasks: PlannerTask[];
+  packingTasks: PlannerTaskNode[];
 };
+
+function comparePlannerTasks(a: PlannerTask, b: PlannerTask) {
+  if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  const dateA = a.dueDate ?? "9999-12-31";
+  const dateB = b.dueDate ?? "9999-12-31";
+  if (dateA !== dateB) return dateA.localeCompare(dateB);
+  return a.title.localeCompare(b.title);
+}
+
+function buildTaskHierarchy(tasks: PlannerTask[]): PlannerTaskNode[] {
+  const nodeMap = new Map<string, PlannerTaskNode>();
+  for (const task of tasks) {
+    nodeMap.set(task._id as string, { ...task, children: [] });
+  }
+
+  const roots: PlannerTaskNode[] = [];
+  for (const task of tasks) {
+    const node = nodeMap.get(task._id as string);
+    if (!node) continue;
+    const parent = task.parentId != null ? nodeMap.get(task.parentId as string) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+
+  const sortTree = (nodes: PlannerTaskNode[]) => {
+    nodes.sort(comparePlannerTasks);
+    for (const node of nodes) sortTree(node.children);
+  };
+  sortTree(roots);
+  return roots;
+}
 
 function buildTaskTree(
   tasks: PlannerTask[],
@@ -49,13 +95,17 @@ function buildTaskTree(
   conventionGroups: ConventionGroup[];
   standaloneBuilds: BuildGroup[];
   /** Tasks with no build or convention attachment (e.g. cosplay-node-only workflow items). */
-  unassignedTasks: PlannerTask[];
+  unassignedTasks: PlannerTaskNode[];
 } {
   const conventionMap = new Map<
     Id<"conventions">,
-    { conventionName: string; builds: Map<Id<"builds">, BuildGroup>; packingTasks: PlannerTask[] }
+    {
+      conventionName: string;
+      builds: Map<Id<"builds">, RawBuildGroup>;
+      packingTasks: PlannerTask[];
+    }
   >();
-  const standaloneMap = new Map<Id<"builds">, BuildGroup>();
+  const standaloneMap = new Map<Id<"builds">, RawBuildGroup>();
   const unassignedTasks: PlannerTask[] = [];
 
   const getConventionName = (conventionId: Id<"conventions">) =>
@@ -100,20 +150,40 @@ function buildTaskTree(
     ([conventionId, g]) => ({
       conventionId,
       conventionName: g.conventionName,
-      builds: Array.from(g.builds.values()).sort((a, b) => a.buildName.localeCompare(b.buildName)),
-      packingTasks: g.packingTasks,
+      builds: Array.from(g.builds.values())
+        .sort((a, b) => a.buildName.localeCompare(b.buildName))
+        .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) })),
+      packingTasks: buildTaskHierarchy(g.packingTasks),
     })
   );
   conventionGroups.sort((a, b) => a.conventionName.localeCompare(b.conventionName));
 
-  const standaloneBuilds = Array.from(standaloneMap.values()).sort((a, b) =>
-    a.buildName.localeCompare(b.buildName)
-  );
+  const standaloneBuilds = Array.from(standaloneMap.values())
+    .sort((a, b) => a.buildName.localeCompare(b.buildName))
+    .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) }));
 
-  return { conventionGroups, standaloneBuilds, unassignedTasks };
+  return {
+    conventionGroups,
+    standaloneBuilds,
+    unassignedTasks: buildTaskHierarchy(unassignedTasks),
+  };
 }
 
 type Timeframe = "all" | "today" | "week";
+
+type PlannerDragState = {
+  draggingMeta: PlannerTaskDragMeta | null;
+  dragOverTaskId: string | null;
+  dragOverZone: DropZone | null;
+  dragOverRootScopeKey: string | null;
+  pointerX: number | null;
+  pointerY: number | null;
+};
+
+type PlannerDragController = {
+  state: PlannerDragState;
+  startDrag: (meta: PlannerTaskDragMeta, event: ReactPointerEvent<HTMLElement>) => void;
+};
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -139,6 +209,149 @@ function filterByTimeframe<T extends { dueDate?: string }>(tasks: T[], timeframe
   if (timeframe === "today") return tasks.filter((t) => isDueToday(t.dueDate));
   const weekEnd = addDays(TODAY, 7);
   return tasks.filter((t) => t.dueDate && t.dueDate >= TODAY && t.dueDate <= weekEnd) as T[];
+}
+
+type WorkflowDropTask = Pick<PlannerTask, "_id" | "sortOrder"> & {
+  parentId?: Id<"workflowItems"> | null;
+  scopeKey: string;
+};
+
+async function resequencePlannerTasks(
+  updateTask: (args: {
+    id: Id<"workflowItems">;
+    userId: string;
+    sortOrder: number;
+  }) => Promise<unknown>,
+  userId: string,
+  ids: Id<"workflowItems">[]
+) {
+  for (let index = 0; index < ids.length; index += 1) {
+    await updateTask({ id: ids[index], userId, sortOrder: index });
+  }
+}
+
+async function applyPlannerTreeDrop({
+  dragged,
+  target,
+  zone,
+  tasks,
+  userId,
+  moveTask,
+  updateTask,
+}: {
+  dragged: PlannerTaskDragMeta;
+  target: PlannerTaskDragMeta;
+  zone: DropZone;
+  tasks: WorkflowDropTask[];
+  userId: string;
+  moveTask: (args: {
+    id: Id<"workflowItems">;
+    userId: string;
+    parentId?: Id<"workflowItems"> | null;
+    sortOrder?: number;
+  }) => Promise<unknown>;
+  updateTask: (args: {
+    id: Id<"workflowItems">;
+    userId: string;
+    sortOrder: number;
+  }) => Promise<unknown>;
+}) {
+  const dragId = dragged.taskId as Id<"workflowItems">;
+  const targetId = target.taskId as Id<"workflowItems">;
+  const D = tasks.find((task) => task._id === dragId);
+  const T = tasks.find((task) => task._id === targetId);
+  if (!D || !T) return;
+  if (D.scopeKey !== T.scopeKey) return;
+
+  const siblingIdsForParent = (parentId: Id<"workflowItems"> | null, scopeKey: string) =>
+    tasks
+      .filter((task) => task.scopeKey === scopeKey && (task.parentId ?? null) === parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((task) => task._id);
+
+  if (zone === "into") {
+    const oldParent = D.parentId ?? null;
+    const existingIds = siblingIdsForParent(targetId, D.scopeKey).filter((id) => id !== dragId);
+    await moveTask({ id: dragId, userId, parentId: targetId, sortOrder: existingIds.length });
+    await resequencePlannerTasks(updateTask, userId, [...existingIds, dragId]);
+    if (oldParent !== targetId) {
+      await resequencePlannerTasks(
+        updateTask,
+        userId,
+        siblingIdsForParent(oldParent, D.scopeKey).filter((id) => id !== dragId)
+      );
+    }
+    return;
+  }
+
+  const newParent = T.parentId ?? null;
+  const oldParent = D.parentId ?? null;
+  const ordered = siblingIdsForParent(newParent, D.scopeKey).filter((id) => id !== dragId);
+  const targetIndex = ordered.indexOf(targetId);
+  if (targetIndex < 0) return;
+  ordered.splice(zone === "before" ? targetIndex : targetIndex + 1, 0, dragId);
+  await moveTask({
+    id: dragId,
+    userId,
+    parentId: newParent,
+    sortOrder: ordered.indexOf(dragId),
+  });
+  await resequencePlannerTasks(updateTask, userId, ordered);
+  if (oldParent !== newParent) {
+    await resequencePlannerTasks(
+      updateTask,
+      userId,
+      siblingIdsForParent(oldParent, D.scopeKey).filter((id) => id !== dragId)
+    );
+  }
+}
+
+async function promotePlannerTreeTaskToRoot({
+  dragged,
+  tasks,
+  userId,
+  moveTask,
+  updateTask,
+}: {
+  dragged: PlannerTaskDragMeta;
+  tasks: WorkflowDropTask[];
+  userId: string;
+  moveTask: (args: {
+    id: Id<"workflowItems">;
+    userId: string;
+    parentId?: Id<"workflowItems"> | null;
+    sortOrder?: number;
+  }) => Promise<unknown>;
+  updateTask: (args: {
+    id: Id<"workflowItems">;
+    userId: string;
+    sortOrder: number;
+  }) => Promise<unknown>;
+}) {
+  const dragId = dragged.taskId as Id<"workflowItems">;
+  const draggedTask = tasks.find((task) => task._id === dragId);
+  if (!draggedTask || draggedTask.parentId == null) return;
+  const oldParent = draggedTask.parentId;
+  const rootIds = tasks
+    .filter(
+      (task) =>
+        task._id !== dragId &&
+        task.scopeKey === dragged.scopeKey &&
+        (task.parentId ?? null) === null
+    )
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((task) => task._id);
+  await moveTask({ id: dragId, userId, parentId: null, sortOrder: rootIds.length });
+  await resequencePlannerTasks(updateTask, userId, [...rootIds, dragId]);
+  await resequencePlannerTasks(
+    updateTask,
+    userId,
+    tasks
+      .filter((task) => (task.parentId ?? null) === oldParent && task._id !== dragId)
+      .filter((task) => task.scopeKey === dragged.scopeKey)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((task) => task._id)
+  );
 }
 
 export default function Planner() {
@@ -250,6 +463,199 @@ export default function Planner() {
   const progressPct = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
   const updateTask = useMutation(api.workflow.update);
+  const moveTask = useMutation(api.workflow.move);
+  const dragStateRef = useRef<PlannerDragState>({
+    draggingMeta: null,
+    dragOverTaskId: null,
+    dragOverZone: null,
+    dragOverRootScopeKey: null,
+    pointerX: null,
+    pointerY: null,
+  });
+  const [dragState, setDragState] = useState<PlannerDragState>(dragStateRef.current);
+
+  const setPlannerDragState = useCallback((patch: Partial<PlannerDragState>) => {
+    dragStateRef.current = { ...dragStateRef.current, ...patch };
+    setDragState(dragStateRef.current);
+  }, []);
+
+  const clearPlannerDragState = useCallback(() => {
+    setPlannerDragState({
+      draggingMeta: null,
+      dragOverTaskId: null,
+      dragOverZone: null,
+      dragOverRootScopeKey: null,
+      pointerX: null,
+      pointerY: null,
+    });
+  }, [setPlannerDragState]);
+
+  const flatDropTasks = useMemo(
+    () =>
+      (plannerTasks ?? []).map((task) => ({
+        _id: task._id,
+        parentId: task.parentId ?? null,
+        sortOrder: task.sortOrder ?? 0,
+        scopeKey: plannerTaskScopeKey(task),
+      })),
+    [plannerTasks]
+  );
+
+  const resolvePlannerDropTarget = useCallback(
+    (clientX: number, clientY: number, dragMeta: PlannerTaskDragMeta) => {
+      const rootZone = document.querySelector(
+        `[data-planner-root-drop-zone="${dragMeta.scopeKey}"]`
+      ) as HTMLElement | null;
+      if (rootZone && pointInsideRect(clientX, clientY, rootZone.getBoundingClientRect())) {
+        return {
+          rootScopeKey: dragMeta.scopeKey,
+          taskId: null,
+          zone: null,
+          targetMeta: null,
+        };
+      }
+
+      const rows = Array.from(document.querySelectorAll("[data-planner-task-drop-id]")).filter(
+        (node): node is HTMLElement => node instanceof HTMLElement
+      );
+      let row: HTMLElement | null = null;
+      let fallbackRow: HTMLElement | null = null;
+      let fallbackDistance = Number.POSITIVE_INFINITY;
+
+      for (const candidate of rows) {
+        const rect = candidate.getBoundingClientRect();
+        if (pointInsideRect(clientX, clientY, rect)) {
+          row = candidate;
+          break;
+        }
+        const withinHorizontalReach = clientX >= rect.left - 40 && clientX <= rect.right + 40;
+        if (!withinHorizontalReach) continue;
+        const verticalDistance =
+          clientY < rect.top
+            ? rect.top - clientY
+            : clientY > rect.bottom
+              ? clientY - rect.bottom
+              : 0;
+        if (verticalDistance < fallbackDistance) {
+          fallbackDistance = verticalDistance;
+          fallbackRow = candidate;
+        }
+      }
+
+      if (!row && fallbackDistance <= 20) row = fallbackRow;
+      if (!row) return { rootScopeKey: null, taskId: null, zone: null, targetMeta: null };
+
+      const metaJson = row.dataset.plannerTaskDropMeta;
+      if (!metaJson) return { rootScopeKey: null, taskId: null, zone: null, targetMeta: null };
+      const targetMeta = JSON.parse(metaJson) as PlannerTaskDragMeta;
+      const zone = computePlannerTaskDropZone(
+        clientY,
+        row.getBoundingClientRect(),
+        dragMeta,
+        targetMeta
+      );
+      return {
+        rootScopeKey: null,
+        taskId: zone ? targetMeta.taskId : null,
+        zone,
+        targetMeta: zone ? targetMeta : null,
+      };
+    },
+    []
+  );
+
+  const dragController = useMemo<PlannerDragController>(
+    () => ({
+      state: dragState,
+      startDrag: (meta, event) => {
+        if (!userId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setPlannerDragState({
+          draggingMeta: meta,
+          dragOverTaskId: null,
+          dragOverZone: null,
+          dragOverRootScopeKey: null,
+          pointerX: event.clientX,
+          pointerY: event.clientY,
+        });
+      },
+    }),
+    [dragState, setPlannerDragState, userId]
+  );
+
+  useEffect(() => {
+    const activeMeta = dragState.draggingMeta;
+    if (!activeMeta || !userId) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      event.preventDefault();
+      const target = resolvePlannerDropTarget(event.clientX, event.clientY, activeMeta);
+      setPlannerDragState({
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        dragOverTaskId: target.taskId,
+        dragOverZone: target.zone,
+        dragOverRootScopeKey: target.rootScopeKey,
+      });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const currentMeta = dragStateRef.current.draggingMeta;
+      if (!currentMeta) {
+        clearPlannerDragState();
+        return;
+      }
+      const target = resolvePlannerDropTarget(event.clientX, event.clientY, currentMeta);
+      clearPlannerDragState();
+      if (target.rootScopeKey) {
+        void promotePlannerTreeTaskToRoot({
+          dragged: currentMeta,
+          tasks: flatDropTasks,
+          userId,
+          moveTask,
+          updateTask,
+        });
+        return;
+      }
+      if (target.targetMeta && target.zone) {
+        void applyPlannerTreeDrop({
+          dragged: currentMeta,
+          target: target.targetMeta,
+          zone: target.zone,
+          tasks: flatDropTasks,
+          userId,
+          moveTask,
+          updateTask,
+        });
+      }
+    };
+
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp, { passive: true, once: true });
+    window.addEventListener("pointercancel", clearPlannerDragState, { passive: true, once: true });
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", clearPlannerDragState);
+    };
+  }, [
+    clearPlannerDragState,
+    dragState.draggingMeta,
+    flatDropTasks,
+    moveTask,
+    resolvePlannerDropTarget,
+    setPlannerDragState,
+    updateTask,
+    userId,
+  ]);
 
   const handleToggle = async (taskId: Id<"workflowItems">, checked: boolean) => {
     if (!userId) return;
@@ -400,6 +806,7 @@ export default function Planner() {
                           tree={treeApproaching}
                           userId={userId}
                           onToggle={handleToggle}
+                          dragController={dragController}
                         />
                       </SectionCard>
                     )}
@@ -409,6 +816,7 @@ export default function Planner() {
                         tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
                         userId={userId}
                         onToggle={handleToggle}
+                        dragController={dragController}
                       />
                     </SectionCard>
                   </>
@@ -467,7 +875,159 @@ export default function Planner() {
           </div>
         ) : null}
       </main>
+      {dragState.draggingMeta && dragState.pointerX != null && dragState.pointerY != null ? (
+        <div
+          className="pointer-events-none fixed z-[10000] max-w-[260px] rounded-full bg-kyar-text px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-kyar-bg shadow-lg"
+          style={{
+            left: Math.max(12, Math.min(dragState.pointerX + 14, window.innerWidth - 280)),
+            top: Math.max(12, Math.min(dragState.pointerY + 14, window.innerHeight - 80)),
+          }}
+        >
+          <span className="block truncate">{dragState.draggingMeta.title ?? "Task"}</span>
+        </div>
+      ) : null}
     </WebAppShell>
+  );
+}
+
+function taskContextHref(task: PlannerTask) {
+  if (task.conventionId) return `/conventions/${task.conventionId}/packing`;
+  if (task.buildId) return `/build-detail/${task.buildId}`;
+  if (task.cosplayNodeId) return `/elements/${task.cosplayNodeId}`;
+  return "/planner";
+}
+
+function PlannerTaskNodeList({
+  tasks,
+  userId,
+  onToggle,
+  dragController,
+  parent,
+}: {
+  tasks: PlannerTaskNode[];
+  userId: string | null;
+  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
+  dragController: PlannerDragController;
+  parent?: PlannerTaskNode;
+}) {
+  if (!tasks.length) return null;
+  const scopeKey = plannerTaskScopeKey(tasks[0]);
+
+  return (
+    <ul className="space-y-2">
+      {parent == null &&
+      dragController.state.draggingMeta?.scopeKey === scopeKey &&
+      dragController.state.draggingMeta.parentId != null ? (
+        <li
+          data-planner-root-drop-zone={scopeKey}
+          className={`rounded-xl border border-dashed px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest ${
+            dragController.state.dragOverRootScopeKey === scopeKey
+              ? "border-kyar-text bg-kyar-muted text-kyar-text"
+              : "border-kyar-borderSubtle bg-kyar-surface text-kyar-meta"
+          }`}
+        >
+          Drop here to make it top level
+        </li>
+      ) : null}
+      {tasks.map((task, index) => (
+        <PlannerTaskNodeItem
+          key={task._id}
+          task={task}
+          index={index}
+          parent={parent}
+          userId={userId}
+          onToggle={onToggle}
+          dragController={dragController}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function PlannerTaskNodeItem({
+  task,
+  index,
+  parent,
+  userId,
+  onToggle,
+  dragController,
+}: {
+  task: PlannerTaskNode;
+  index: number;
+  parent?: PlannerTaskNode;
+  userId: string | null;
+  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
+  dragController: PlannerDragController;
+}) {
+  const [childrenOpen, setChildrenOpen] = useState(true);
+  const dragMeta = useMemo<PlannerTaskDragMeta>(
+    () => ({
+      taskId: task._id as string,
+      scopeKey: plannerTaskScopeKey(task),
+      parentId: parent?._id as string | undefined,
+      siblingIndex: index,
+      ancestorIds: (task.ancestorIds ?? []).map((id) => id as string),
+      title: task.title,
+    }),
+    [index, parent?._id, task]
+  );
+
+  const active = dragController.state.draggingMeta?.taskId === task._id;
+  const dropBefore =
+    dragController.state.dragOverTaskId === task._id &&
+    dragController.state.dragOverZone === "before";
+  const dropAfter =
+    dragController.state.dragOverTaskId === task._id &&
+    dragController.state.dragOverZone === "after";
+  const dropInto =
+    dragController.state.dragOverTaskId === task._id &&
+    dragController.state.dragOverZone === "into";
+
+  return (
+    <li>
+      <div
+        data-planner-task-drop-id={task._id}
+        data-planner-task-drop-meta={JSON.stringify(dragMeta)}
+        className={`relative ${active ? "opacity-55" : ""}`}
+      >
+        {dropBefore ? (
+          <div className="absolute inset-x-3 top-0 z-10 h-1 rounded-full bg-kyar-text" />
+        ) : null}
+        {dropAfter ? (
+          <div className="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-kyar-text" />
+        ) : null}
+        <PlannerTaskRow
+          title={task.title}
+          done={task.status === "done"}
+          userId={userId}
+          onToggle={() => onToggle(task._id, task.status !== "done")}
+          contextHref={taskContextHref(task)}
+          contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
+          status={task.status}
+          progressPercent={task.progressPercent}
+          dueDate={task.dueDate}
+          blockedByCount={task.blockedByCount}
+          dragHandleProps={{
+            hasChildren: task.children.length > 0,
+            childrenOpen,
+            onToggleChildren: () => setChildrenOpen((value) => !value),
+            onPointerDown: (event) => dragController.startDrag(dragMeta, event),
+          }}
+          dropIntoLabel={dropInto ? "Drop to nest inside" : undefined}
+        />
+      </div>
+      {childrenOpen && task.children.length > 0 ? (
+        <div className="mt-2 pl-4 sm:pl-6">
+          <PlannerTaskNodeList
+            tasks={task.children}
+            parent={task}
+            userId={userId}
+            onToggle={onToggle}
+            dragController={dragController}
+          />
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -475,14 +1035,16 @@ function PlannerTaskTree({
   tree,
   userId,
   onToggle,
+  dragController,
 }: {
   tree: {
     conventionGroups: ConventionGroup[];
     standaloneBuilds: BuildGroup[];
-    unassignedTasks: PlannerTask[];
+    unassignedTasks: PlannerTaskNode[];
   };
   userId: string | null;
   onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
+  dragController: PlannerDragController;
 }) {
   const { conventionGroups, standaloneBuilds, unassignedTasks } = tree;
   const hasConventions = conventionGroups.length > 0;
@@ -522,32 +1084,14 @@ function PlannerTaskTree({
                   </span>
                   <span className="flex-1 font-light">{build.buildName}</span>
                 </summary>
-                <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
-                  {build.tasks.map((task) => (
-                    <li key={task._id}>
-                      <PlannerTaskRow
-                        title={task.title}
-                        done={task.status === "done"}
-                        userId={userId}
-                        onToggle={() => onToggle(task._id, task.status !== "done")}
-                        contextHref={
-                          task.conventionId
-                            ? `/conventions/${task.conventionId}/packing`
-                            : task.buildId
-                              ? `/build-detail/${task.buildId}`
-                              : task.cosplayNodeId
-                                ? `/elements/${task.cosplayNodeId}`
-                                : "/planner"
-                        }
-                        contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
-                        status={task.status}
-                        progressPercent={task.progressPercent}
-                        dueDate={task.dueDate}
-                        blockedByCount={task.blockedByCount}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <div className="pl-4 pr-2 pb-2 pt-1 border-t border-kyar-cardBorder">
+                  <PlannerTaskNodeList
+                    tasks={build.tasks}
+                    userId={userId}
+                    onToggle={onToggle}
+                    dragController={dragController}
+                  />
+                </div>
               </details>
             ))}
             {convention.packingTasks.length > 0 && (
@@ -561,32 +1105,14 @@ function PlannerTaskTree({
                   </span>
                   <span className="flex-1 font-light">Packing</span>
                 </summary>
-                <ul className="pl-4 pr-2 pb-2 pt-1 space-y-2 border-t border-kyar-cardBorder">
-                  {convention.packingTasks.map((task) => (
-                    <li key={task._id}>
-                      <PlannerTaskRow
-                        title={task.title}
-                        done={task.status === "done"}
-                        userId={userId}
-                        onToggle={() => onToggle(task._id, task.status !== "done")}
-                        contextHref={
-                          task.conventionId
-                            ? `/conventions/${task.conventionId}/packing`
-                            : task.buildId
-                              ? `/build-detail/${task.buildId}`
-                              : task.cosplayNodeId
-                                ? `/elements/${task.cosplayNodeId}`
-                                : "/planner"
-                        }
-                        contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
-                        status={task.status}
-                        progressPercent={task.progressPercent}
-                        dueDate={task.dueDate}
-                        blockedByCount={task.blockedByCount}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <div className="pl-4 pr-2 pb-2 pt-1 border-t border-kyar-cardBorder">
+                  <PlannerTaskNodeList
+                    tasks={convention.packingTasks}
+                    userId={userId}
+                    onToggle={onToggle}
+                    dragController={dragController}
+                  />
+                </div>
               </details>
             )}
           </div>
@@ -610,32 +1136,14 @@ function PlannerTaskTree({
               Open
             </Link>
           </summary>
-          <ul className="pl-4 pr-2 pb-2 pt-2 space-y-2 border-t border-kyar-cardBorder">
-            {build.tasks.map((task) => (
-              <li key={task._id}>
-                <PlannerTaskRow
-                  title={task.title}
-                  done={task.status === "done"}
-                  userId={userId}
-                  onToggle={() => onToggle(task._id, task.status !== "done")}
-                  contextHref={
-                    task.conventionId
-                      ? `/conventions/${task.conventionId}/packing`
-                      : task.buildId
-                        ? `/build-detail/${task.buildId}`
-                        : task.cosplayNodeId
-                          ? `/elements/${task.cosplayNodeId}`
-                          : "/planner"
-                  }
-                  contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
-                  status={task.status}
-                  progressPercent={task.progressPercent}
-                  dueDate={task.dueDate}
-                  blockedByCount={task.blockedByCount}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="pl-4 pr-2 pb-2 pt-2 border-t border-kyar-cardBorder">
+            <PlannerTaskNodeList
+              tasks={build.tasks}
+              userId={userId}
+              onToggle={onToggle}
+              dragController={dragController}
+            />
+          </div>
         </details>
       ))}
       {hasUnassigned && (
@@ -646,24 +1154,14 @@ function PlannerTaskTree({
             </span>
             <span className="flex-1">Elements and other tasks</span>
           </summary>
-          <ul className="pl-4 pr-2 pb-2 pt-2 space-y-2 border-t border-kyar-cardBorder">
-            {unassignedTasks.map((task) => (
-              <li key={task._id}>
-                <PlannerTaskRow
-                  title={task.title}
-                  done={task.status === "done"}
-                  userId={userId}
-                  onToggle={() => onToggle(task._id, task.status !== "done")}
-                  contextHref={task.cosplayNodeId ? `/elements/${task.cosplayNodeId}` : "/elements"}
-                  contextLabel={task.cosplayNodeId ? "Element" : "Workflow"}
-                  status={task.status}
-                  progressPercent={task.progressPercent}
-                  dueDate={task.dueDate}
-                  blockedByCount={task.blockedByCount}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="pl-4 pr-2 pb-2 pt-2 border-t border-kyar-cardBorder">
+            <PlannerTaskNodeList
+              tasks={unassignedTasks}
+              userId={userId}
+              onToggle={onToggle}
+              dragController={dragController}
+            />
+          </div>
         </details>
       )}
     </div>

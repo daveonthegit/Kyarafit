@@ -160,41 +160,36 @@ export function usePlannerTaskMove({
   const resolveTarget = useCallback(
     (x: number, y: number, dragMeta: PlannerTaskDragMeta): DropTarget => {
       const rootRect = rootDropRectsRef.current.get(dragMeta.scopeKey);
-      if (rootRect && pointInsideRect(x, y, rootRect)) {
+      if (dragMeta.parentId != null && rootRect && pointInsideRect(x, y, rootRect)) {
         return { kind: "root", scopeKey: dragMeta.scopeKey };
       }
 
-      const candidates = Array.from(rowRectsRef.current.entries());
-      let match: [string, RectLike] | null = null;
-      let fallback: [string, RectLike] | null = null;
-      let bestDistance = Number.POSITIVE_INFINITY;
+      const candidates: { key: string; rect: RectLike; distance: number; inside: boolean }[] = [];
 
-      for (const entry of candidates) {
-        const [, rect] = entry;
-        if (pointInsideRect(x, y, rect)) {
-          match = entry;
-          break;
-        }
+      for (const [key, rect] of rowRectsRef.current.entries()) {
+        const inside = pointInsideRect(x, y, rect);
         const withinHorizontalReach = x >= rect.left - 36 && x <= rect.right + 36;
-        if (!withinHorizontalReach) continue;
+        if (!inside && !withinHorizontalReach) continue;
         const verticalDistance =
           y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
-        if (verticalDistance < bestDistance) {
-          bestDistance = verticalDistance;
-          fallback = entry;
-        }
+        if (!inside && verticalDistance > 18) continue;
+        candidates.push({ key, rect, distance: verticalDistance, inside });
       }
 
-      const chosen = match ?? (bestDistance <= 18 ? fallback : null);
-      if (!chosen) return null;
+      candidates.sort((a, b) => {
+        if (a.inside !== b.inside) return a.inside ? -1 : 1;
+        return a.distance - b.distance;
+      });
 
-      const [nodeId, rect] = chosen;
-      const targetRow = rowRegistryRef.current.get(nodeId);
-      if (!targetRow) return null;
+      for (const candidate of candidates) {
+        const targetRow = rowRegistryRef.current.get(candidate.key);
+        if (!targetRow) continue;
+        const zone = computePlannerTaskDropZone(y, candidate.rect, dragMeta, targetRow.meta);
+        if (!zone) continue;
+        return { kind: "row", taskId: targetRow.meta.taskId as Id<"workflowItems">, zone };
+      }
 
-      const zone = computePlannerTaskDropZone(y, rect, dragMeta, targetRow.meta);
-      if (!zone) return null;
-      return { kind: "row", taskId: targetRow.meta.taskId as Id<"workflowItems">, zone };
+      return null;
     },
     []
   );
@@ -233,9 +228,10 @@ export function usePlannerTaskMove({
           await measureTargets();
           setDragging((current) => {
             if (!current.meta || current.meta.taskId !== meta.taskId) return current;
+            const latestPoint = current.point ?? point;
             return {
               ...current,
-              target: resolveTarget(point.x, point.y, meta),
+              target: resolveTarget(latestPoint.x, latestPoint.y, meta),
             };
           });
         })();

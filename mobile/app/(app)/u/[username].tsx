@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
+import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
 import { APP_HREF } from "@/lib/appRoutes";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
@@ -49,6 +50,13 @@ export default function PublicProfileScreen() {
   return (
     <>
       <Stack.Screen options={{ title: displayName, headerLargeTitle: false }} />
+      <MobilePageHeader
+        eyebrow={profile?.username ? `@${profile.username}` : t("common.profile")}
+        title={displayName}
+        subtitle={profile?.bio ?? undefined}
+        fallbackHref={APP_HREF.home}
+        containerClassName="px-5 pt-4"
+      />
       <DataBoundary status={status} data={{ profile }}>
         {() => (
           <ScrollView
@@ -71,12 +79,6 @@ export default function PublicProfileScreen() {
                     size={92}
                   />
                   <View className="min-w-0 flex-1">
-                    {profile.username ? <MetaLabel>@{profile.username}</MetaLabel> : null}
-                    {profile.bio ? (
-                      <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {profile.bio}
-                      </Text>
-                    ) : null}
                     {currentUserId && profile.userId !== currentUserId ? (
                       <Button
                         title={

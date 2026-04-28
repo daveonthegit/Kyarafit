@@ -51,5 +51,11 @@
     "react-native": {
       "hermes-compiler": "250829098.0.4"
     }
+  },
+  "resolutions": {
+    "hermes-compiler": "250829098.0.4"
+  },
+  "optionalDependencies": {
+    "lightningcss-darwin-arm64": "^1.27.0"
   }
 }

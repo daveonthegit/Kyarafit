@@ -1379,6 +1379,68 @@ export const move = mutation({
   },
 });
 
+export const moveAndResequence = mutation({
+  args: {
+    userId: v.string(),
+    move: v.object({
+      id: v.id("workflowItems"),
+      parentId: v.optional(v.union(v.id("workflowItems"), v.null())),
+      sortOrder: v.optional(v.number()),
+    }),
+    resequence: v.array(
+      v.object({
+        id: v.id("workflowItems"),
+        sortOrder: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.move.id);
+    if (!item) throw new Error("Workflow item not found");
+    await assertWorkflowEditable(ctx, item, args.userId);
+
+    const parentId = args.move.parentId ?? undefined;
+    if (parentId && parentId === args.move.id) {
+      throw new Error("Workflow items cannot parent themselves");
+    }
+    if (parentId && item.ancestorIds.includes(parentId)) {
+      throw new Error("Workflow items cannot move under a descendant");
+    }
+
+    const parent = parentId ? await ctx.db.get(parentId) : null;
+    if (parentId && !parent) throw new Error("Parent not found");
+    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+
+    const resequenceItems = new Map<string, Doc<"workflowItems">>();
+    for (const row of args.resequence) {
+      if (resequenceItems.has(row.id)) continue;
+      const rowItem = row.id === item._id ? item : await ctx.db.get(row.id);
+      if (!rowItem) throw new Error("Workflow item not found");
+      await assertWorkflowEditable(ctx, rowItem, args.userId);
+      resequenceItems.set(row.id, rowItem);
+    }
+
+    const ancestorIds = parentAncestorIds(parent);
+    await ctx.db.patch(args.move.id, {
+      parentId,
+      ancestorIds,
+      sortOrder: args.move.sortOrder ?? item.sortOrder,
+    });
+    await patchDescendantAncestors(ctx, args.userId, args.move.id, ancestorIds);
+
+    for (const row of args.resequence) {
+      const rowItem = resequenceItems.get(row.id);
+      if (!rowItem) continue;
+      const movedRowAlreadyPatched =
+        row.id === args.move.id && row.sortOrder === (args.move.sortOrder ?? item.sortOrder);
+      if (movedRowAlreadyPatched || rowItem.sortOrder === row.sortOrder) continue;
+      await ctx.db.patch(row.id, { sortOrder: row.sortOrder });
+    }
+
+    return await ctx.db.get(args.move.id);
+  },
+});
+
 export const setDependencies = mutation({
   args: {
     userId: v.string(),

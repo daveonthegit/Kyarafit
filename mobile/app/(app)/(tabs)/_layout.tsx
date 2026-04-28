@@ -2,7 +2,9 @@ import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { type NavSectionId } from "@kyarafit/design-system";
+import { APP_HREF } from "@/lib/appRoutes";
 import { NAV_SECTION_MATERIAL_ICON } from "@/lib/navIconsMobile";
+import { MobileBackButton } from "@/components/navigation/MobileBackButton";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { APP_FONT_FAMILIES, navHeaderTitleStyle } from "@/theme/appFonts";
 
@@ -29,6 +31,11 @@ export default function TabsLayout() {
     return {
       title: navTitle,
       headerTitle,
+      headerBackVisible: false,
+      headerLeft:
+        route === "index"
+          ? undefined
+          : () => <MobileBackButton fallbackHref={APP_HREF.home} />,
       tabBarIcon: ({ color, size }: { color: string; size: number }) => (
         <MaterialIcons name={iconName} size={size} color={color} />
       ),

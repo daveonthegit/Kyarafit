@@ -2,6 +2,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
 import { APP_HREF } from "@/lib/appRoutes";
 import { useOfflineQuery } from "@/offline";
 import {
@@ -40,6 +41,13 @@ export default function PackingOverviewScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("conventions.crossPackingTitle"), headerShown: true }} />
+      <MobilePageHeader
+        eyebrow={t("nav.events")}
+        title={t("conventions.crossPackingTitle")}
+        subtitle={t("conventions.crossPackingSubtitle")}
+        fallbackHref={APP_HREF.home}
+        containerClassName="px-5 pt-4"
+      />
       <DataBoundary status={status} data={data} error={error}>
         {(loaded) => <PackingOverviewBody conventions={loaded.conventions} />}
       </DataBoundary>
@@ -57,10 +65,6 @@ function PackingOverviewBody({ conventions }: Ready) {
       className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 }}
     >
-      <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-        {t("conventions.crossPackingSubtitle")}
-      </Text>
-
       {activeConventions.map((convention) => {
         const progress = countPackingProgress(convention.packing);
         const plannedBuilds = countPlannedBuilds(convention.plans);

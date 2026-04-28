@@ -1,4 +1,6 @@
 import { Stack } from "expo-router";
+import { APP_HREF } from "@/lib/appRoutes";
+import { MobileBackButton } from "@/components/navigation/MobileBackButton";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { navHeaderTitleStyle } from "@/theme/appFonts";
 
@@ -9,6 +11,9 @@ export default function GroupsLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
+        headerBackVisible: false,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
         headerTintColor: colors.text,
         headerShadowVisible: false,
         headerStyle: {
@@ -18,7 +23,15 @@ export default function GroupsLayout() {
         contentStyle: {
           backgroundColor: colors.bg,
         },
+        headerLeft: () => <MobileBackButton fallbackHref={APP_HREF.groups} />,
       }}
-    />
+    >
+      <Stack.Screen
+        name="index"
+        options={{
+          headerLeft: () => <MobileBackButton fallbackHref={APP_HREF.more} />,
+        }}
+      />
+    </Stack>
   );
 }

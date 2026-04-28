@@ -10,6 +10,7 @@ export const APP_HREF = {
   builds: href("/(app)/(tabs)/builds"),
   elements: href("/(app)/(tabs)/elements"),
   planner: href("/(app)/(tabs)/planner"),
+  more: href("/(app)/(tabs)/more"),
   signIn: href("/(auth)/sign-in"),
   signInResetSuccess: href("/(auth)/sign-in?reset=success"),
   signUp: href("/(auth)/sign-up"),

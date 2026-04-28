@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 /** Matches build Tasks tab / planner task row treatment */
 export const plannerWorkflowRowClassName =
@@ -125,6 +125,8 @@ export function PlannerTaskRow({
   progressPercent,
   dueDate,
   blockedByCount,
+  dragHandleProps,
+  dropIntoLabel,
 }: {
   title: string;
   done: boolean;
@@ -136,9 +138,45 @@ export function PlannerTaskRow({
   progressPercent: number;
   dueDate?: string;
   blockedByCount?: number;
+  dragHandleProps?: {
+    hasChildren: boolean;
+    childrenOpen: boolean;
+    onToggleChildren: () => void;
+    onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  };
+  dropIntoLabel?: string;
 }) {
   return (
-    <div className={plannerWorkflowRowClassName}>
+    <div
+      className={`${plannerWorkflowRowClassName} ${
+        dropIntoLabel ? "border-kyar-text bg-kyar-muted" : ""
+      }`}
+    >
+      <div className="flex min-h-[32px] items-center gap-1">
+        {dragHandleProps?.hasChildren ? (
+          <button
+            type="button"
+            onClick={dragHandleProps.onToggleChildren}
+            className="min-h-[32px] min-w-[32px] rounded-full text-xs text-kyar-meta hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+            aria-label={dragHandleProps.childrenOpen ? "Collapse task" : "Expand task"}
+          >
+            {dragHandleProps.childrenOpen ? "▾" : "▸"}
+          </button>
+        ) : (
+          <span className="min-h-[32px] min-w-[32px]" aria-hidden="true" />
+        )}
+        {dragHandleProps ? (
+          <button
+            type="button"
+            onPointerDown={dragHandleProps.onPointerDown}
+            className="touch-none min-h-[32px] min-w-[32px] cursor-grab rounded-full text-lg leading-none text-kyar-meta hover:bg-kyar-mutedWarm active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+            aria-label={`Drag "${title}"`}
+            title="Drag to reorder, nest, or promote"
+          >
+            ≡
+          </button>
+        ) : null}
+      </div>
       <PlannerWorkflowCheckbox
         checked={done}
         disabled={!userId}
@@ -160,6 +198,11 @@ export function PlannerTaskRow({
             <span className="text-[11px] text-kyar-danger">· blocked by {blockedByCount}</span>
           ) : null}
         </PlannerWorkflowMetaLine>
+        {dropIntoLabel ? (
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-kyar-meta">
+            {dropIntoLabel}
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -82,5 +82,8 @@
     "eslint-config-expo": "55.0.0",
     "typescript": "5.9.2"
   },
+  "resolutions": {
+    "hermes-compiler": "250829098.0.4"
+  },
   "private": true
 }
