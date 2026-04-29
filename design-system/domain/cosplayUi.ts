@@ -64,7 +64,7 @@ export function formatNodeStatus(item: {
   }
 
   if (item.buildStatus === "built") return "Built";
-  if (item.buildStatus === "wip") return "WIP";
+  if (item.buildStatus === "wip") return "In progress";
   if (item.purchaseStatus === "bought") return "Bought";
   return formatOverallBucket(item.overallBucket);
 }

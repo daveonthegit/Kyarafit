@@ -194,7 +194,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, category, or tag…"
             className="w-full rounded-lg border border-kyar-border bg-kyar-muted/20 py-2.5 pl-10 pr-3 text-sm placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none focus:ring-2 focus:ring-kyar-accent/20"
-            aria-label="Search cosplay nodes"
+            aria-label="Search elements"
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -260,7 +260,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
                 ? allowCreate
                   ? "No elements or materials yet. Create one above."
                   : "No elements or materials yet."
-                : "No nodes match your filters. Try another search or category."}
+                : "No elements match your filters. Try another search or category."}
             </li>
           )}
           {visibleRows.map((item) => (
@@ -291,7 +291,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
       <div>
         <p className="text-sm text-kyar-textSecondary leading-relaxed">
           Select elements and materials for this build. Use search and filters when you have many
-          pieces. Changes apply when you save.
+          elements. Changes apply when you save.
         </p>
         {allowCreate && (
           <button
@@ -342,7 +342,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
                 move_down
               </span>
               <div>
-                <p className="font-medium text-sm text-kyar-text">Drop nodes here to add</p>
+                <p className="font-medium text-sm text-kyar-text">Drop elements here to add</p>
                 <p className="text-xs text-kyar-textTertiary">{selectedIds.size} selected</p>
               </div>
             </div>
@@ -350,7 +350,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
         )}
         {!enableDragDrop && (
           <p className="mt-3 text-xs text-kyar-textTertiary">
-            {selectedIds.size} node{selectedIds.size !== 1 ? "s" : ""} selected
+            {selectedIds.size} element{selectedIds.size !== 1 ? "s" : ""} selected
           </p>
         )}
         <div className="mt-3">{list}</div>
@@ -446,7 +446,7 @@ function DraggableClosetRow({
           <span className="block truncate text-sm font-medium text-kyar-text">{item.name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-kyar-textTertiary">
             <span>
-              {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}
+              {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Element"}
             </span>
             {item.nodeType && <span>{formatNodeStatus(item)}</span>}
             {typeof item.progressPercent === "number" && (
@@ -454,10 +454,10 @@ function DraggableClosetRow({
             )}
             {typeof item.childCount === "number" && item.childCount > 0 && (
               <span>
-                {item.childCount} child{item.childCount === 1 ? "" : "ren"}
+                {item.childCount} sub-element{item.childCount === 1 ? "" : "s"}
               </span>
             )}
-            {item.hasIncompleteDescendants && <span>has incomplete descendants</span>}
+            {item.hasIncompleteDescendants && <span>has unfinished sub-elements</span>}
           </span>
         </span>
       </button>

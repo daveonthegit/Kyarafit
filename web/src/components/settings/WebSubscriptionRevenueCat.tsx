@@ -65,7 +65,7 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
         await p.purchase({ rcPackage: pkg });
         setNotice({
           tone: "ok",
-          text: "Purchase completed. Your plan will update in a moment after the server syncs.",
+          text: "Purchase completed. Your plan will update in a moment.",
         });
         onPurchaseComplete?.();
         const info = await p.getCustomerInfo();
@@ -88,13 +88,7 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
   if (!isRevenueCatWebBillingConfigured()) {
     return (
       <p className="mt-1 text-[11px] text-kyar-textSecondary">
-        Web checkout: add{" "}
-        <code className="rounded bg-gray-100 px-1 py-0.5 text-[10px]">
-          NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY
-        </code>{" "}
-        (RevenueCat Web Billing public key) to enable in-browser subscriptions. Payments run through
-        Stripe inside RevenueCat—you do not add Stripe keys to this app. You can still subscribe
-        from the iOS or Android app.
+        Web checkout is not available yet. You can still subscribe from the iOS or Android app.
       </p>
     );
   }
@@ -102,8 +96,7 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
   return (
     <div className="mt-4 space-y-3">
       <p className="text-[11px] text-kyar-textSecondary">
-        Subscribe on the web with RevenueCat Web Billing (Stripe processes the card inside
-        RevenueCat&apos;s checkout).
+        Choose a plan below. Payments are handled securely in checkout.
       </p>
       {notice ? (
         <p
@@ -117,10 +110,8 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
         <p className="text-sm text-kyar-textSecondary">Loading subscription offers…</p>
       ) : packages.length === 0 ? (
         <p className="text-sm text-kyar-textSecondary">
-          No web packages yet. In RevenueCat, connect Stripe for Web Billing, add Web products to
-          entitlements <code className="rounded bg-gray-100 px-1 py-0.5 text-[10px]">pro</code> /{" "}
-          <code className="rounded bg-gray-100 px-1 py-0.5 text-[10px]">studio</code>, and attach
-          them to the current offering.
+          No subscription plans are available right now. You can still subscribe from the iOS or
+          Android app.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

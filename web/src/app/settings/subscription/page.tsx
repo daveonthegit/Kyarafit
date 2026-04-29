@@ -86,8 +86,7 @@ export default function SettingsSubscriptionPage() {
                 </Link>
               )}
               <p className="mt-1 text-[11px] text-kyar-textSecondary">
-                Your tier is synced from RevenueCat (including Web Billing via Stripe when enabled).
-                This page reads your plan from the server.
+                Your plan updates automatically after a purchase or restore.
               </p>
               {userId ? <WebSubscriptionRevenueCat appUserId={userId} /> : null}
             </div>

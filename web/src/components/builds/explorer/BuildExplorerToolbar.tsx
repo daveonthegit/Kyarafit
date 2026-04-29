@@ -32,9 +32,9 @@ export function BuildExplorerToolbar({
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filter nodes…"
+          placeholder="Search linked elements…"
           className="w-full rounded-lg border border-kyar-borderSubtle bg-transparent py-2 pl-9 pr-3 text-[13px] placeholder:text-kyar-textTertiary focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
-          aria-label="Filter linked nodes"
+          aria-label="Search linked elements"
         />
         {isFiltered ? (
           <button
@@ -56,7 +56,7 @@ export function BuildExplorerToolbar({
           className="inline-flex items-center gap-1.5 rounded-lg bg-kyar-text px-3 py-2 text-[11px] font-medium uppercase tracking-widest text-kyar-bg transition-opacity hover:opacity-90"
         >
           <span className="material-symbols-outlined text-base">add</span>
-          New root
+          New main element
         </button>
         <button
           type="button"
@@ -73,7 +73,7 @@ export function BuildExplorerToolbar({
         <div className="text-[10px] tabular-nums text-kyar-textTertiary sm:hidden">
           {isFiltered
             ? `${matchCount ?? rootCount} match${(matchCount ?? rootCount) === 1 ? "" : "es"}`
-            : `${rootCount} root${rootCount === 1 ? "" : "s"}`}
+            : `${rootCount} main element${rootCount === 1 ? "" : "s"}`}
         </div>
       ) : null}
     </div>

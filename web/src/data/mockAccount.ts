@@ -85,7 +85,7 @@ export const MOCK_ACCOUNT = {
       name: "Maka scythe",
       category: "prop",
       nodeType: "element" as const,
-      statusLabel: "WIP",
+      statusLabel: "In progress",
       progressPercent: 65,
       childCount: 0,
       imageSrc: mockAssetUrl("mock", "elements", "Maka Scythe.jpg"),

@@ -29,7 +29,7 @@ import type { Doc, Id } from "convex/_generated/dataModel";
 
 const STATUS_OPTIONS: { value: BuildStatus; label: string }[] = [
   { value: "idea", label: "Idea" },
-  { value: "wip", label: "WIP" },
+  { value: "wip", label: "In progress" },
   { value: "ready", label: "Ready" },
   { value: "archived", label: "Archive" },
 ];
@@ -216,7 +216,7 @@ export default function BuildsPage() {
     <WebAppShell>
       <PageHeader
         title="My Builds"
-        subtitle="Portfolio"
+        subtitle="Build library"
         search={{
           value: search,
           onChange: setSearch,
@@ -476,7 +476,7 @@ export default function BuildsPage() {
             Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
           </h2>
           <p className="text-sm text-kyar-meta mb-6">
-            This cannot be undone. Tasks and build links will be removed.
+            This cannot be undone. Tasks and element links will be removed.
           </p>
           <div className="flex gap-3">
             <button

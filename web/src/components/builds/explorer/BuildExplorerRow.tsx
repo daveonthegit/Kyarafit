@@ -150,7 +150,7 @@ export function BuildExplorerRow({
           }}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-kyar-textTertiary transition-colors hover:text-kyar-textSecondary"
           aria-expanded={hasChildren ? expanded : undefined}
-          aria-label={hasChildren ? (expanded ? "Collapse" : "Expand") : "Leaf node"}
+          aria-label={hasChildren ? (expanded ? "Collapse" : "Expand") : "Element with no sub-elements"}
         >
           <span className="material-symbols-outlined text-[18px]">
             {hasChildren ? (expanded ? "expand_more" : "chevron_right") : ""}

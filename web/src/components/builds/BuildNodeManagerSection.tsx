@@ -158,7 +158,7 @@ export function BuildNodeManagerSection({
             account_tree
           </span>
           <p className="text-sm text-kyar-textSecondary">
-            No linked nodes yet. Create a root node or link an existing element to start building.
+            No linked elements yet. Add a main element or link an existing element to start building.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button
@@ -167,7 +167,7 @@ export function BuildNodeManagerSection({
               className="inline-flex items-center gap-1.5 rounded-lg bg-kyar-text px-4 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-bg"
             >
               <span className="material-symbols-outlined text-base">add</span>
-              New root
+              New main element
             </button>
             <button
               type="button"
@@ -222,8 +222,8 @@ export function BuildNodeManagerSection({
                   ].join(" ")}
                 >
                   {drag.dragOverNodeId === "__root__"
-                    ? "Release to promote to root"
-                    : "Drop to promote to root"}
+                    ? "Release to make main element"
+                    : "Drop here to make this a main element"}
                 </button>
               </div>
             ) : null}
@@ -272,7 +272,7 @@ export function BuildNodeManagerSection({
               </div>
             ) : (
               <div className="flex min-h-[320px] items-center justify-center p-5 text-center text-sm text-kyar-textTertiary">
-                Tap a node to view details
+                Select an element to view details
               </div>
             )}
           </div>
@@ -314,14 +314,14 @@ export function BuildNodeManagerSection({
             node={allNodes.find((n) => n._id === drag.draggingMeta!.nodeId) ?? linkedNodes[0]}
             label={
               drag.dragOverNodeId === "__root__"
-                ? "Promote to root"
+                ? "Make main element"
                 : drag.dragOverZone === "before"
-                  ? "Reorder before"
+                  ? "Move before"
                   : drag.dragOverZone === "after"
-                    ? "Reorder after"
+                    ? "Move after"
                     : drag.dragOverZone === "into"
-                      ? "Nest inside"
-                      : "Move node"
+                      ? "Place inside"
+                      : "Move element"
             }
           />
         </div>

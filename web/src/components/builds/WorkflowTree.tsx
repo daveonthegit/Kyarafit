@@ -271,7 +271,7 @@ export function WorkflowTree({
     <div className="space-y-5">
       <div className="space-y-2">
         <div className="flex items-end justify-between text-sm">
-          <span className="font-medium text-kyar-text">Workflow progress</span>
+          <span className="font-medium text-kyar-text">Task progress</span>
           <span className="text-kyar-textTertiary">{progressPercent}%</span>
         </div>
         <div className="h-2 w-full border border-kyar-borderSubtle bg-kyar-surface">
@@ -281,7 +281,7 @@ export function WorkflowTree({
           />
         </div>
         <p className="text-xs text-kyar-textTertiary">
-          {stats?.tasksDone ?? 0} of {stats?.tasksTotal ?? 0} task items done
+          {stats?.tasksDone ?? 0} of {stats?.tasksTotal ?? 0} tasks done
         </p>
       </div>
 
@@ -289,8 +289,8 @@ export function WorkflowTree({
         {rows.length === 0 ? (
           <div className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-6 text-sm text-kyar-textTertiary shadow-sm">
             {hideComposer
-              ? "No workflow items yet."
-              : "No workflow items yet. Add the first step below."}
+              ? "No tasks yet."
+              : "No tasks yet. Add the first task below."}
           </div>
         ) : (
           sortedGroupKeys.map((groupKey) => {
@@ -400,7 +400,7 @@ export function WorkflowTree({
             onKeyDown={(event) => {
               if (event.key === "Enter") void handleCreateRoot();
             }}
-            placeholder="Add a workflow step"
+            placeholder="Add a task"
             className="flex-1 border border-kyar-borderSubtle px-3 py-2 text-sm"
           />
           <button
@@ -409,7 +409,7 @@ export function WorkflowTree({
             disabled={!userId || !newRootTitle.trim()}
             className="bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
           >
-            Add step
+            Add task
           </button>
         </div>
       )}

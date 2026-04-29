@@ -127,8 +127,8 @@ export default function ConventionDetailPage() {
         location: editLocation.trim() || undefined,
         startDate: editStartDate,
         endDate: editEndDate,
-        imageUrl: editImageUrl.trim() || undefined,
-        imageStorageId: editImageStorageId ?? undefined,
+        imageUrl: editImageUrl.trim() || null,
+        imageStorageId: editImageStorageId,
       });
       setEditing(false);
     } finally {

@@ -210,7 +210,7 @@ export function statusChipInfo(node: {
     }
   }
   if (node.buildStatus === "built") return { label: "Built", tone: "success" };
-  if (node.buildStatus === "wip") return { label: "WIP", tone: "active" };
+  if (node.buildStatus === "wip") return { label: "In progress", tone: "active" };
   if (node.purchaseStatus === "bought") return { label: "Bought", tone: "warning" };
   return { label: "To buy", tone: "neutral" };
 }

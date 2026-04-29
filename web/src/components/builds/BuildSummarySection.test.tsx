@@ -28,7 +28,7 @@ describe("BuildSummarySection", () => {
 
   it("renders status and progress", () => {
     render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
-    expect(screen.getByText("wip")).toBeInTheDocument();
+    expect(screen.getByText("In progress")).toBeInTheDocument();
     expect(screen.getAllByText("60%").length).toBeGreaterThan(0);
     expect(screen.getByText("3 of 5 tasks complete")).toBeInTheDocument();
   });
@@ -44,7 +44,7 @@ describe("BuildSummarySection", () => {
   it("renders linked items count", () => {
     render(<BuildSummarySection summary={mockSummary} formatCents={formatCents} />);
     expect(screen.getByText("2 / 4")).toBeInTheDocument();
-    expect(screen.getByText("Complete in this build")).toBeInTheDocument();
+    expect(screen.getByText("Elements complete in this build")).toBeInTheDocument();
   });
 
   it("renders budget, spend, and difference", () => {
@@ -66,7 +66,7 @@ describe("BuildSummarySection", () => {
   it("shows linked items cost when no budget but items are linked", () => {
     const noBudget = { ...mockSummary, budgetCents: null, budgetDifferenceCents: null };
     render(<BuildSummarySection summary={noBudget} formatCents={formatCents} />);
-    expect(screen.getByText(/linked items cost/i)).toBeInTheDocument();
+    expect(screen.getByText(/linked elements cost/i)).toBeInTheDocument();
     expect(screen.getByText(/^total$/i)).toBeInTheDocument();
     expect(screen.getByText("$120.00")).toBeInTheDocument();
     expect(screen.queryByText(/total spend/i)).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("BuildSummarySection", () => {
       totalCostCents: 0,
     };
     render(<BuildSummarySection summary={empty} formatCents={formatCents} />);
-    expect(screen.queryByText(/linked items cost/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/linked elements cost/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/total spend/i)).not.toBeInTheDocument();
   });
 });

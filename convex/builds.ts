@@ -705,8 +705,8 @@ export const update = mutation({
     character: v.optional(v.string()),
     status: v.optional(v.string()),
     notes: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.union(v.string(), v.null())),
+    imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     imageFocalX: v.optional(v.number()),
     imageFocalY: v.optional(v.number()),
     budgetCents: v.optional(v.number()),
@@ -731,7 +731,7 @@ export const update = mutation({
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, id, userId);
     if (!canEdit) throw new Error("Not authorized to update this build");
-    const newStorageId = fields.imageStorageId;
+    const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
       await subtractUsageForStorageId(ctx, userId, oldStorageId);
@@ -753,6 +753,13 @@ export const update = mutation({
         }
       } else if (k === "targetDate")
         patch.targetDate = validateDateString(val as string, "Target date");
+      else if (k === "imageUrl")
+        patch.imageUrl = sanitizeOptional(
+          val as string | undefined,
+          MAX_LENGTH.url,
+          "Image URL"
+        );
+      else if (k === "imageStorageId") patch.imageStorageId = val === null ? undefined : val;
       else if (k === "imageFocalX" && typeof val === "number")
         patch.imageFocalX = Math.max(0, Math.min(1, val));
       else if (k === "imageFocalY" && typeof val === "number")

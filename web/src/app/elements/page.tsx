@@ -46,7 +46,7 @@ const SORT_LABELS: Record<SortBy, string> = {
   category: "Category",
   cost: "Cost",
   progress: "Progress",
-  bucket: "Bucket",
+  bucket: "Stage",
 };
 
 const ELEMENT_SORT_MOBILE_CYCLE: Array<"name" | "progress" | "bucket"> = [
@@ -72,7 +72,7 @@ const SUBSTATE_OPTIONS = [
   { value: "", label: "All states" },
   { value: "to_buy", label: "To buy" },
   { value: "bought", label: "Bought" },
-  { value: "wip", label: "WIP" },
+  { value: "wip", label: "In progress" },
   { value: "built", label: "Built" },
   { value: "in_use", label: "In use" },
   { value: "complete", label: "Complete" },
@@ -144,7 +144,7 @@ export default function ElementsPage() {
   };
 
   const selectedCount = selectedIds.size;
-  const viewModeLabel = viewMode === "all" ? "All nodes" : "Tree view";
+  const viewModeLabel = viewMode === "all" ? "All elements" : "Grouped view";
   const typeSummary = nodeType ? formatNodeTypeLabel(nodeType as CosplayNodeType) : null;
   const bucketSummary = bucket ? formatOverallBucket(bucket) : null;
   const categorySummary = category || null;
@@ -202,7 +202,7 @@ export default function ElementsPage() {
       <PageHeader
         title="Elements"
         subtitle={
-          filtered.length > 0 ? `${filtered.length} nodes in your cosplay graph` : undefined
+          filtered.length > 0 ? `${filtered.length} elements in your build plan` : undefined
         }
         search={{
           value: search,
@@ -219,13 +219,13 @@ export default function ElementsPage() {
               onClick={() => open("newCloset")}
               className="hidden sm:inline-flex min-h-[44px] items-center rounded-full border border-kyar-text bg-kyar-text px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-bg transition-colors hover:bg-kyar-textSecondary"
             >
-              New node
+              New element
             </button>
             <Link
               href="/elements/new"
               className="hidden sm:flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
             >
-              Full create flow
+              More details
             </Link>
           </>
         }
@@ -236,12 +236,12 @@ export default function ElementsPage() {
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               <ElementsFilterChip
                 active={viewMode === "all"}
-                label="All nodes"
+                label="All elements"
                 onClick={() => setViewMode("all")}
               />
               <ElementsFilterChip
                 active={viewMode === "tree"}
-                label="Tree view"
+                label="Grouped view"
                 onClick={() => setViewMode("tree")}
               />
             </div>
@@ -287,11 +287,11 @@ export default function ElementsPage() {
             </div>
           </div>
           <div>
-            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">Bucket</span>
+            <span className="text-[10px] uppercase tracking-widest text-kyar-meta">Stage</span>
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               <ElementsFilterChip
                 active={bucket === ""}
-                label="All buckets"
+                label="All stages"
                 onClick={() => setBucket("")}
               />
               {COSPLAY_OVERALL_BUCKETS.map((value) => (
@@ -329,7 +329,7 @@ export default function ElementsPage() {
             value={nodeType}
             onChange={(e) => setNodeType(e.target.value)}
             className={FILTER_SELECT_CLASS}
-            aria-label="Filter by node type"
+            aria-label="Filter by element type"
           >
             <option value="">All types</option>
             {COSPLAY_NODE_TYPES.map((value) => (
@@ -355,9 +355,9 @@ export default function ElementsPage() {
             value={bucket}
             onChange={(e) => setBucket(e.target.value)}
             className={FILTER_SELECT_CLASS}
-            aria-label="Filter by progress bucket"
+            aria-label="Filter by progress stage"
           >
-            <option value="">All buckets</option>
+            <option value="">All stages</option>
             {COSPLAY_OVERALL_BUCKETS.map((value) => (
               <option key={value} value={value}>
                 {value}
@@ -382,21 +382,21 @@ export default function ElementsPage() {
             className={FILTER_SELECT_CLASS}
             aria-label="Filter by hierarchy state"
           >
-            <option value="all">All structures</option>
-            <option value="hasChildren">Has children</option>
-            <option value="hasIncomplete">Incomplete descendants</option>
+            <option value="all">All groups</option>
+            <option value="hasChildren">Has sub-elements</option>
+            <option value="hasIncomplete">Has unfinished sub-elements</option>
           </select>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
             className={FILTER_SELECT_CLASS}
-            aria-label="Sort nodes by"
+            aria-label="Sort elements by"
           >
             <option value="name">Name</option>
             <option value="category">Category</option>
             <option value="cost">Cost</option>
             <option value="progress">Progress</option>
-            <option value="bucket">Bucket</option>
+            <option value="bucket">Stage</option>
           </select>
           <button
             type="button"
@@ -413,14 +413,14 @@ export default function ElementsPage() {
         {filtered.length === 0 ? (
           <EmptyState
             icon="account_tree"
-            message="No nodes match this view yet."
-            secondary="Create elements and materials, then link them into reusable structures."
+            message="No elements match this view yet."
+            secondary="Create elements and materials, then group them in a way that matches your build."
           />
         ) : (
           <>
             <div className="mb-3 sm:mb-4 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-widest opacity-50">
-                {filtered.length} node{filtered.length !== 1 ? "s" : ""}
+                {filtered.length} element{filtered.length !== 1 ? "s" : ""}
               </p>
               <button
                 type="button"

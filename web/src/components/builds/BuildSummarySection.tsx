@@ -31,6 +31,15 @@ function formatDate(isoDate: string): string {
   });
 }
 
+function formatBuildStatus(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "wip") return "In progress";
+  if (normalized === "idea") return "Idea";
+  if (normalized === "ready") return "Ready";
+  if (normalized === "archived") return "Archived";
+  return status;
+}
+
 export function BuildSummarySection({ summary, formatCents }: BuildSummarySectionProps) {
   if (!summary) return null;
 
@@ -47,7 +56,9 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
               Status
             </p>
-            <p className="mt-3 font-serif text-3xl capitalize text-kyar-text">{summary.status}</p>
+            <p className="mt-3 font-serif text-3xl text-kyar-text">
+              {formatBuildStatus(summary.status)}
+            </p>
           </div>
           <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
@@ -103,12 +114,12 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           </div>
           <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
-              Linked items
+              Linked elements
             </p>
             <p className="mt-3 text-2xl font-semibold text-kyar-text">
               {summary.linkedItemsCompleteCount} / {summary.linkedItemCount}
             </p>
-            <p className="mt-2 text-sm text-kyar-textSecondary">Complete in this build</p>
+            <p className="mt-2 text-sm text-kyar-textSecondary">Elements complete in this build</p>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -167,7 +178,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
       ) : summary.linkedItemCount > 0 ? (
         <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-5">
           <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
-            Linked items cost
+            Linked elements cost
           </span>
           <div className="flex justify-between text-sm">
             <span>Total</span>

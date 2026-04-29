@@ -132,8 +132,8 @@ export const update = mutation({
     userId: v.string(),
     name: v.optional(v.string()),
     location: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.union(v.string(), v.null())),
+    imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
     archived: v.optional(v.boolean()),
@@ -144,7 +144,7 @@ export const update = mutation({
     if (!convention || convention.userId !== userId) {
       throw new Error("Not found or not authorized");
     }
-    const newStorageId = fields.imageStorageId;
+    const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = convention.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
       await subtractUsageForStorageId(ctx, userId, oldStorageId);
@@ -160,6 +160,13 @@ export const update = mutation({
         patch.location = sanitizeOptional(val as string, MAX_LENGTH.location, "Location");
       else if (k === "startDate") patch.startDate = validateDateString(val as string, "Start date");
       else if (k === "endDate") patch.endDate = validateDateString(val as string, "End date");
+      else if (k === "imageUrl")
+        patch.imageUrl = sanitizeOptional(
+          val as string | undefined,
+          MAX_LENGTH.url,
+          "Image URL"
+        );
+      else if (k === "imageStorageId") patch.imageStorageId = val === null ? undefined : val;
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {

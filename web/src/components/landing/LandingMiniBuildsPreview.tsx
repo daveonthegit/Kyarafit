@@ -9,7 +9,7 @@ type BuildTab = "all" | "idea" | "wip" | "ready";
 const TABS: { id: BuildTab; label: string }[] = [
   { id: "all", label: "All" },
   { id: "idea", label: "Idea" },
-  { id: "wip", label: "WIP" },
+  { id: "wip", label: "In progress" },
   { id: "ready", label: "Ready" },
 ];
 

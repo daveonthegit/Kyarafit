@@ -214,8 +214,8 @@ export default function BuildDetailPage() {
           ? Math.round(parseFloat(editBudgetCents) * 100)
           : undefined,
         targetDate: editTargetDate.trim() || undefined,
-        imageUrl: editImageUrl.trim() || undefined,
-        imageStorageId: editImageStorageId ?? undefined,
+        imageUrl: editImageUrl.trim() || null,
+        imageStorageId: editImageStorageId,
         visibility: editVisibility,
         publicViewerSettings:
           editVisibility === "public" || editVisibility === "unlisted"
@@ -363,7 +363,7 @@ export default function BuildDetailPage() {
         )}
       </header>
 
-      <main className="mx-auto mb-16 mt-6 max-w-[1600px] px-4 sm:px-6 lg:px-8">
+      <main className="mx-auto mb-16 mt-6 w-full max-w-[1600px] px-4 sm:px-6 lg:px-8">
         {isEditing ? (
           <div className="mx-auto max-w-3xl space-y-12">
             <div className="border-b border-kyar-borderSubtle pb-8 text-center">
@@ -552,7 +552,7 @@ export default function BuildDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="mx-auto w-full max-w-3xl space-y-8">
             <div>
               <div className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-kyar-textTertiary">
                 <span>Kyarafit</span>
