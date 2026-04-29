@@ -49,7 +49,7 @@ type ElementLayoutMode = "comfortable" | "compact" | "grid";
 
 type ListReady = {
   rows: ElementListRow[];
-  builds: Array<Doc<"builds"> & { tasksTotal: number; tasksChecked: number }>;
+  builds: (Doc<"builds"> & { tasksTotal: number; tasksChecked: number })[];
   userId: string;
 };
 
@@ -814,7 +814,7 @@ function BuildPickerModal({
   visible: boolean;
   title: string;
   actionLabel: string;
-  builds: Array<Doc<"builds"> & { tasksTotal: number; tasksChecked: number }>;
+  builds: (Doc<"builds"> & { tasksTotal: number; tasksChecked: number })[];
   onClose: () => void;
   onSelect: (buildId: Id<"builds">) => void;
 }) {

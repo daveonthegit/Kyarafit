@@ -4,6 +4,8 @@
 
 **Canonical tiers:** `FREE` | `PRO` | `STUDIO` (see `design-system/domain/subscriptionTierPolicy.ts`). Legacy DB values `PREMIUM_BASIC` / `PREMIUM_PRO` normalize to `PRO` / `STUDIO`.
 
+**Commercial plans:** Free ($0), Pro ($3/mo or $30/yr), Studio ($9.99/mo or $79.99/yr). The product catalog is in `design-system/domain/subscriptionPlans.ts`; the operator-facing summary is in [SUBSCRIPTION_PLANS.md](../billing/SUBSCRIPTION_PLANS.md).
+
 **Current state:**
 
 - **Convex:** [convex/users.ts](../../convex/users.ts) — `getMe` returns normalized tier and `storageLimitMb` from policy; `setTier` internal mutation normalizes before patch. [convex/revenuecat.ts](../../convex/revenuecat.ts) — HTTP webhook fetches subscriber from RevenueCat API and calls `setTier`. [convex/storageUsage.ts](../../convex/storageUsage.ts) — upload limits use `convexTierStorageLimitMb`.

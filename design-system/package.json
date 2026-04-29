@@ -15,7 +15,9 @@
     "./domain/workflowDomain": "./domain/workflowDomain.ts",
     "./domain/cosplayUi": "./domain/cosplayUi.ts",
     "./domain/entitlements": "./domain/entitlements.ts",
-    "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts"
+    "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts",
+    "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
+    "./domain/adPolicy": "./domain/adPolicy.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",

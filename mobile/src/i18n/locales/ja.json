@@ -420,6 +420,8 @@
       "STUDIO": "Studio"
     },
     "subscriptionPlan": "サブスクリプション",
+    "subscriptionPlansLabel": "プラン",
+    "subscriptionCurrent": "現在",
     "notificationStyle": "通知設定",
     "opensInApp": "アプリ画面を開きます",
     "opensOnWeb": "現在の Web 設定画面を開きます",

@@ -420,6 +420,8 @@
       "STUDIO": "Studio"
     },
     "subscriptionPlan": "Subscription plan",
+    "subscriptionPlansLabel": "Plans",
+    "subscriptionCurrent": "Current",
     "notificationStyle": "Notification style",
     "opensInApp": "Opens the app screen",
     "opensOnWeb": "Opens the settings page in your browser",

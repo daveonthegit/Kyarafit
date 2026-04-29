@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { Albert_Sans, Bodoni_Moda, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -6,6 +7,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { getAdsenseClient } from "@/lib/adsense";
 import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
@@ -41,6 +43,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = await getToken();
+  const adsenseClient = getAdsenseClient();
 
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
@@ -61,6 +64,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         className={`${body.variable} ${display.variable} ${jetbrainsMono.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
         suppressHydrationWarning
       >
+        {adsenseClient ? (
+          <Script
+            id="google-adsense"
+            async
+            strategy="afterInteractive"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(
+              adsenseClient
+            )}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
         <ConvexClientProvider initialToken={token}>
           <LocaleProvider>
             <AppProviders>

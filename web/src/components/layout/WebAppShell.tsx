@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { WebContentContainer } from "@/components/layout/WebContentContainer";
 import { WebSidebar } from "@/components/layout/WebSidebar";
 import { GlobalFAB } from "@/components/layout/GlobalFAB";
+import { SponsoredAdRail } from "@/components/ads/SponsoredAdRail";
 
 /**
  * Web-only app shell: sidebar (desktop/tablet), content container, bottom nav (mobile).
@@ -29,6 +30,7 @@ export function WebAppShell({ children }: { children: React.ReactNode }) {
         <BottomNav active={active} className="lg:hidden" />
         {!hideFAB && <GlobalFAB />}
       </div>
+      <SponsoredAdRail />
     </div>
   );
 }

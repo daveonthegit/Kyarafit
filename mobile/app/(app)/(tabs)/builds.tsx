@@ -172,7 +172,7 @@ function BuildsListBody({
   const [bulkPending, setBulkPending] = useState(false);
   const [deletedForUndo, setDeletedForUndo] = useState<{
     count: number;
-    payloads: Array<{
+    payloads: {
       userId: string;
       name: string;
       character?: string;
@@ -182,7 +182,7 @@ function BuildsListBody({
       imageStorageId?: Doc<"builds">["imageStorageId"];
       budgetCents?: number;
       targetDate?: string;
-    }>;
+    }[];
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

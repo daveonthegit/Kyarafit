@@ -420,6 +420,8 @@
       "STUDIO": "Studio"
     },
     "subscriptionPlan": "Plan de suscripción",
+    "subscriptionPlansLabel": "Planes",
+    "subscriptionCurrent": "Actual",
     "notificationStyle": "Estilo de notificaciones",
     "opensInApp": "Abre la pantalla nativa",
     "opensOnWeb": "Abre la página actual de ajustes web",

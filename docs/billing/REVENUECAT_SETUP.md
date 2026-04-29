@@ -6,20 +6,20 @@ Kyarafit uses **RevenueCat** for mobile in-app purchases. Convex stores the cano
 
 | Convex `users.tier` | RevenueCat entitlement id (recommended) | Legacy RC ids (still supported) |
 | ------------------- | --------------------------------------- | ------------------------------- |
-| `FREE`              | _(none)_                                | —                               |
+| `FREE`              | _(none)_                                | -                               |
 | `PRO`               | `pro`                                   | `premium_basic`                 |
 | `STUDIO`            | `studio`                                | `premium_pro`                   |
 
-Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single source for Convex, web, and mobile).
+Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single source for Convex, web, and mobile). Commercial plan packaging, prices, product IDs, and customer-facing copy are defined in `design-system/domain/subscriptionPlans.ts` and summarized in [SUBSCRIPTION_PLANS.md](./SUBSCRIPTION_PLANS.md).
 
-**Storage enforcement (MB):** Free 50, Pro 500, Studio unlimited (`-1` in API responses).
+**Storage enforcement (MB):** Free 50, Pro 500, Studio unlimited (`-1` in API responses). Build limits are Free 25, Pro 200, Studio unlimited.
 
 ## RevenueCat dashboard
 
 1. Create a project and add **iOS** and **Android** apps with the correct bundle IDs.
-2. Under **Entitlements**, create `**pro`** and `**studio`** (or keep legacy `premium_basic`/`premium_pro` and map them as above).
-3. In **App Store Connect** / **Google Play Console**, create subscription products (e.g. `com.kyarafit.pro.monthly`, `com.kyarafit.studio.annual`). Attach them to the matching entitlements in RevenueCat.
-4. Create an **Offering** (e.g. `default`) with packages pointing at those products so `Purchases.getOfferings()` returns packages in the app.
+2. Under **Entitlements**, create `pro` and `studio` (or keep legacy `premium_basic`/`premium_pro` and map them as above).
+3. In **App Store Connect** / **Google Play Console**, create subscription products (`com.kyarafit.pro.monthly`, `com.kyarafit.pro.annual`, `com.kyarafit.studio.monthly`, `com.kyarafit.studio.annual`). Attach them to the matching entitlements in RevenueCat.
+4. Create an **Offering** (e.g. `default`) with packages pointing at those products so `Purchases.getOfferings()` returns packages in the app. Use unique package identifiers such as `pro_monthly`, `pro_annual`, `studio_monthly`, and `studio_annual`.
 
 ## App user ID
 
@@ -29,7 +29,7 @@ The mobile app should call `Purchases.logIn(appUserId)` with the same id Convex 
 
 - **Path:** `POST /webhooks/revenuecat` (see `convex/http.ts`).
 - **Full URL:** `https://<your-deployment>.convex.site/webhooks/revenuecat`
-- Register it under RevenueCat → **Project settings** → **Integrations** → **Webhooks**.
+- Register it under RevenueCat -> **Project settings** -> **Integrations** -> **Webhooks**.
 
 ### Convex environment variables
 
@@ -51,7 +51,7 @@ These are read in `mobile/src/lib/revenuecat.ts`.
 
 ## Web: RevenueCat Web Billing (Stripe as processor)
 
-On **web**, Kyarafit uses `**@revenuecat/purchases-js`** (RevenueCat Web Billing). You connect a **Stripe\*\* account inside the RevenueCat dashboard (Web Billing / payment gateway). The browser never loads the Stripe.js SDK from Kyarafit code—checkout is RevenueCat-hosted; Stripe is only the processor behind RC.
+On **web**, Kyarafit uses `@revenuecat/purchases-js` (RevenueCat Web Billing). You connect a **Stripe** account inside the RevenueCat dashboard (Web Billing / payment gateway). The browser never loads the Stripe.js SDK from Kyarafit code; checkout is RevenueCat-hosted, and Stripe is only the processor behind RC.
 
 ### Dashboard steps
 
@@ -68,7 +68,7 @@ Set in `web/.env.local`:
 | -------------------------------------------- | ----------------------------------------------------------------------- |
 | `NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY` | Public Web Billing SDK key from RevenueCat (safe in the client bundle). |
 
-Implementation: `web/src/lib/revenuecatWeb.ts` and `WebSubscriptionRevenueCat` on **Settings → Subscription**. The SDK identifies the subscriber with `**app_user_id` = Convex `users.externalId`\*\* (Better Auth subject), matching mobile `Purchases.logIn`.
+Implementation: `web/src/lib/revenuecatWeb.ts` and `WebSubscriptionRevenueCat` on **Settings -> Subscription**. The SDK identifies the subscriber with `app_user_id` = Convex `users.externalId` (Better Auth subject), matching mobile `Purchases.logIn`.
 
 ### Manage / cancel
 

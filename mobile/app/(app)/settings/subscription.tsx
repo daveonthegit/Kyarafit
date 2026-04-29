@@ -5,6 +5,14 @@ import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import Purchases, { PURCHASES_ERROR_CODE, type PurchasesPackage } from "react-native-purchases";
 import { api } from "convex/_generated/api";
+import {
+  SUBSCRIPTION_PLANS,
+  formatPlanBuildLimit,
+  formatPlanStorage,
+  formatUsdPrice,
+  type SubscriptionBillingInterval,
+  type SubscriptionPlan,
+} from "@kyarafit/design-system/domain/subscriptionPlans";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { formatStorageMb } from "@/lib/formatStorageMb";
 import { useTier } from "@/lib/useTier";
@@ -13,11 +21,27 @@ import { openWebAppPath } from "@/lib/openWebAppPath";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
-function formatPackageLabel(pkg: PurchasesPackage): string {
-  const product = pkg.product;
-  const title = product.title ?? pkg.identifier;
-  const price = product.priceString;
-  return price ? `${title} — ${price}` : title;
+function packageForPlanInterval(
+  packages: PurchasesPackage[],
+  plan: SubscriptionPlan,
+  interval: SubscriptionBillingInterval
+): PurchasesPackage | null {
+  const productId = plan.productIds[interval];
+  if (!productId) return null;
+  return packages.find((pkg) => pkg.product.identifier === productId) ?? null;
+}
+
+function checkoutLabel(
+  plan: SubscriptionPlan,
+  interval: SubscriptionBillingInterval,
+  pkg: PurchasesPackage | null
+): string {
+  const fallback =
+    interval === "annual"
+      ? formatUsdPrice(plan.annualPriceUsd)
+      : formatUsdPrice(plan.monthlyPriceUsd);
+  const price = pkg?.product.priceString || fallback;
+  return interval === "annual" ? `${price} / year` : `${price} / month`;
 }
 
 export default function SettingsSubscriptionScreen() {
@@ -31,7 +55,7 @@ export default function SettingsSubscriptionScreen() {
 
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [offeringsLoading, setOfferingsLoading] = useState(nativeIap);
-  const [working, setWorking] = useState(false);
+  const [workingPackageId, setWorkingPackageId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
@@ -68,7 +92,7 @@ export default function SettingsSubscriptionScreen() {
   const onPurchase = useCallback(
     async (pkg: PurchasesPackage) => {
       setNotice(null);
-      setWorking(true);
+      setWorkingPackageId(pkg.identifier);
       try {
         ensureRevenueCatConfigured();
         await Purchases.purchasePackage(pkg);
@@ -78,7 +102,7 @@ export default function SettingsSubscriptionScreen() {
         if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) return;
         setNotice({ tone: "err", text: t("settings.subscriptionError") });
       } finally {
-        setWorking(false);
+        setWorkingPackageId(null);
       }
     },
     [t]
@@ -86,7 +110,7 @@ export default function SettingsSubscriptionScreen() {
 
   const onRestore = useCallback(async () => {
     setNotice(null);
-    setWorking(true);
+    setWorkingPackageId("restore");
     try {
       ensureRevenueCatConfigured();
       await Purchases.restorePurchases();
@@ -94,7 +118,7 @@ export default function SettingsSubscriptionScreen() {
     } catch {
       setNotice({ tone: "err", text: t("settings.subscriptionRestoreError") });
     } finally {
-      setWorking(false);
+      setWorkingPackageId(null);
     }
   }, [t]);
 
@@ -153,12 +177,98 @@ export default function SettingsSubscriptionScreen() {
                 ) : null}
               </SurfaceCard>
 
+              <View className="mt-5">
+                <MetaLabel>{t("settings.subscriptionPlansLabel")}</MetaLabel>
+                <View className="mt-3 gap-3">
+                  {SUBSCRIPTION_PLANS.map((plan) => {
+                    const active = plan.tier === tierCode;
+                    const isPaid = plan.id !== "free";
+                    const monthly = packageForPlanInterval(packages, plan, "monthly");
+                    const annual = packageForPlanInterval(packages, plan, "annual");
+                    return (
+                      <SurfaceCard
+                        key={plan.id}
+                        className={[
+                          "px-4 py-4",
+                          active ? "border-kyar-text dark:border-kyar-dark-text" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <View className="flex-row items-start justify-between gap-3">
+                          <View className="min-w-0 flex-1">
+                            <Text className="font-serif text-2xl text-kyar-text dark:text-kyar-dark-text">
+                              {plan.name}
+                            </Text>
+                            <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                              {plan.tagline}
+                            </Text>
+                          </View>
+                          {active ? (
+                            <Text
+                              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
+                              className="text-[10px] uppercase tracking-meta text-kyar-text dark:text-kyar-dark-text"
+                            >
+                              {t("settings.subscriptionCurrent")}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text className="mt-4 text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+                          {formatUsdPrice(plan.monthlyPriceUsd)} / mo
+                        </Text>
+                        <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                          {formatPlanStorage(plan.storageLimitMb)} storage -{" "}
+                          {formatPlanBuildLimit(plan.maxBuilds)} builds
+                        </Text>
+                        {isPaid && nativeIap && offeringsLoading ? (
+                          <View className="mt-4 flex-row items-center gap-3">
+                            <ActivityIndicator />
+                            <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                              {t("settings.subscriptionOfferingsLoading")}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {isPaid && nativeIap && !offeringsLoading ? (
+                          <View className="mt-4 flex-row gap-2">
+                            {(["monthly", "annual"] as const).map((interval) => {
+                              const pkg = interval === "monthly" ? monthly : annual;
+                              const disabled =
+                                active ||
+                                pkg == null ||
+                                workingPackageId != null ||
+                                !identity?.subject;
+                              return (
+                                <Button
+                                  key={interval}
+                                  title={
+                                    pkg == null
+                                      ? "Not configured"
+                                      : workingPackageId === pkg.identifier
+                                        ? "Opening..."
+                                        : checkoutLabel(plan, interval, pkg)
+                                  }
+                                  variant={interval === "annual" ? "primary" : "secondary"}
+                                  className="flex-1"
+                                  disabled={disabled}
+                                  onPress={() => {
+                                    if (pkg) void onPurchase(pkg);
+                                  }}
+                                />
+                              );
+                            })}
+                          </View>
+                        ) : null}
+                      </SurfaceCard>
+                    );
+                  })}
+                </View>
+              </View>
+
               <SurfaceCard className="mt-4 px-4 py-4">
                 <MetaLabel>{t("settings.subscriptionStatus")}</MetaLabel>
                 <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                   {subscriptionBody}
                 </Text>
-
                 {notice ? (
                   <Text
                     className={`mt-3 text-sm leading-6 ${
@@ -180,28 +290,16 @@ export default function SettingsSubscriptionScreen() {
                           {t("settings.subscriptionOfferingsLoading")}
                         </Text>
                       </View>
-                    ) : packages.length === 0 ? (
+                    ) : nativeIap && packages.length === 0 ? (
                       <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                         {t("settings.subscriptionNoOfferings")}
                       </Text>
-                    ) : (
-                      <View className="mt-4 gap-3">
-                        {packages.map((pkg) => (
-                          <Button
-                            key={pkg.identifier}
-                            title={formatPackageLabel(pkg)}
-                            variant="secondary"
-                            disabled={working || !identity?.subject}
-                            onPress={() => void onPurchase(pkg)}
-                          />
-                        ))}
-                      </View>
-                    )}
+                    ) : null}
                     <Button
                       title={t("settings.subscriptionRestore")}
                       variant="secondary"
                       className="mt-4"
-                      disabled={working || !identity?.subject}
+                      disabled={workingPackageId != null || !identity?.subject}
                       onPress={() => void onRestore()}
                     />
                     <View className="mt-6 border-t border-kyar-borderSubtle pt-5 dark:border-kyar-dark-borderSubtle">
