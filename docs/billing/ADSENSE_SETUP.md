@@ -40,3 +40,11 @@ Restart the web server after adding or changing these values.
 Review Google’s [AdSense ad placement policies](https://support.google.com/adsense/answer/1346295) before adding more surfaces.
 
 If the AdSense script is blocked, the site should continue working normally. If Google returns no fill, the ad unit is hidden by AdSense’s `data-ad-status="unfilled"` state.
+
+## If ads are verified but not filling
+
+- Confirm the deployed app includes the ad slot `6551071878`, not just `ads.txt`.
+- Check on a desktop viewport while signed in as a Free user. The web sidebar rail is hidden on smaller mobile/tablet widths, and Pro/Studio users do not see ads.
+- AdSense may return no fill while the new site or new ad unit warms up.
+- Because Kyarafit app pages are login-protected, configure AdSense crawler access for authenticated pages in AdSense: Account → Access and authorization → Crawler access.
+- `web/public/robots.txt` explicitly allows `Mediapartners-Google` and `Google-Display-Ads-Bot`.

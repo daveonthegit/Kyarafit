@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "
 import { Stack } from "expo-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
-import Purchases, { PURCHASES_ERROR_CODE, type PurchasesPackage } from "react-native-purchases";
+import Purchases, { type CustomerInfo, type PurchasesPackage } from "react-native-purchases";
 import { api } from "convex/_generated/api";
 import {
   SUBSCRIPTION_PLANS,
@@ -16,9 +16,22 @@ import {
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { formatStorageMb } from "@/lib/formatStorageMb";
 import { useTier } from "@/lib/useTier";
-import { ensureRevenueCatConfigured, isRevenueCatSupportedPlatform } from "@/lib/revenuecat";
+import {
+  addRevenueCatCustomerInfoUpdateListener,
+  customerHasProEntitlement,
+  didRevenueCatPaywallUnlockEntitlement,
+  ensureRevenueCatConfigured,
+  getRevenueCatCustomerInfo,
+  isRevenueCatPurchaseCancelled,
+  isRevenueCatSupportedPlatform,
+  presentProPaywallIfNeeded,
+  presentRevenueCatCustomerCenter,
+  purchaseRevenueCatPackage,
+  restoreRevenueCatPurchases,
+} from "@/lib/revenuecat";
 import { openWebAppPath } from "@/lib/openWebAppPath";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
 function packageForPlanInterval(
@@ -44,8 +57,50 @@ function checkoutLabel(
   return interval === "annual" ? `${price} / year` : `${price} / month`;
 }
 
+function PlanMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-1">
+      <Text className="text-[10px] uppercase tracking-meta text-kyar-meta dark:text-kyar-dark-meta">
+        {label}
+      </Text>
+      <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function PlanBullet({
+  children,
+  iconColor,
+  muted = false,
+}: {
+  children: string;
+  iconColor: string;
+  muted?: boolean;
+}) {
+  return (
+    <View className="flex-row items-start gap-3">
+      <Text className="mt-0.5 w-5 text-base text-kyar-text dark:text-kyar-dark-text">
+        {muted ? "-" : "✓"}
+      </Text>
+      <Text
+        style={{ color: muted ? undefined : iconColor }}
+        className={`min-w-0 flex-1 text-sm leading-6 ${
+          muted
+            ? "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
+            : "text-kyar-text dark:text-kyar-dark-text"
+        }`}
+      >
+        {children}
+      </Text>
+    </View>
+  );
+}
+
 export default function SettingsSubscriptionScreen() {
   const { t } = useTranslation();
+  const { colors } = useDesignTheme();
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tier, isLoading } = useTier(userId);
@@ -54,9 +109,11 @@ export default function SettingsSubscriptionScreen() {
   const nativeIap = isRevenueCatSupportedPlatform();
 
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(nativeIap);
   const [workingPackageId, setWorkingPackageId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const hasProEntitlement = customerHasProEntitlement(customerInfo);
 
   useEffect(() => {
     if (!nativeIap) {
@@ -80,7 +137,27 @@ export default function SettingsSubscriptionScreen() {
     return () => {
       cancelled = true;
     };
-  }, [nativeIap]);
+  }, [nativeIap, userId]);
+
+  useEffect(() => {
+    if (!nativeIap) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const info = await getRevenueCatCustomerInfo();
+        if (!cancelled) setCustomerInfo(info);
+      } catch (e) {
+        console.warn("[subscription] customer info", e);
+      }
+    })();
+    const removeListener = addRevenueCatCustomerInfoUpdateListener((info) => {
+      setCustomerInfo(info);
+    });
+    return () => {
+      cancelled = true;
+      removeListener();
+    };
+  }, [nativeIap, userId]);
 
   const subscriptionBody = useMemo(() => {
     if (!nativeIap || Platform.OS === "web") {
@@ -94,12 +171,11 @@ export default function SettingsSubscriptionScreen() {
       setNotice(null);
       setWorkingPackageId(pkg.identifier);
       try {
-        ensureRevenueCatConfigured();
-        await Purchases.purchasePackage(pkg);
+        const result = await purchaseRevenueCatPackage(pkg);
+        setCustomerInfo(result.customerInfo);
         setNotice({ tone: "ok", text: t("settings.subscriptionPurchaseSuccess") });
       } catch (e: unknown) {
-        const code = (e as { code?: PURCHASES_ERROR_CODE })?.code;
-        if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) return;
+        if (isRevenueCatPurchaseCancelled(e)) return;
         setNotice({ tone: "err", text: t("settings.subscriptionError") });
       } finally {
         setWorkingPackageId(null);
@@ -112,11 +188,53 @@ export default function SettingsSubscriptionScreen() {
     setNotice(null);
     setWorkingPackageId("restore");
     try {
-      ensureRevenueCatConfigured();
-      await Purchases.restorePurchases();
+      const info = await restoreRevenueCatPurchases();
+      setCustomerInfo(info);
       setNotice({ tone: "ok", text: t("settings.subscriptionRestoreSuccess") });
     } catch {
       setNotice({ tone: "err", text: t("settings.subscriptionRestoreError") });
+    } finally {
+      setWorkingPackageId(null);
+    }
+  }, [t]);
+
+  const onPresentPaywall = useCallback(async () => {
+    setNotice(null);
+    setWorkingPackageId("paywall");
+    try {
+      const result = await presentProPaywallIfNeeded();
+      const info = await getRevenueCatCustomerInfo();
+      setCustomerInfo(info);
+      setNotice({
+        tone: "ok",
+        text: didRevenueCatPaywallUnlockEntitlement(result)
+          ? "RevenueCat paywall finished. Your Pro access is active or already unlocked."
+          : "RevenueCat paywall closed without a purchase.",
+      });
+    } catch (e) {
+      console.warn("[subscription] paywall", e);
+      setNotice({ tone: "err", text: t("settings.subscriptionError") });
+    } finally {
+      setWorkingPackageId(null);
+    }
+  }, [t]);
+
+  const onPresentCustomerCenter = useCallback(async () => {
+    setNotice(null);
+    setWorkingPackageId("customer-center");
+    try {
+      await presentRevenueCatCustomerCenter({
+        onRestoreCompleted: ({ customerInfo: restoredInfo }) => {
+          setCustomerInfo(restoredInfo);
+          setNotice({ tone: "ok", text: t("settings.subscriptionRestoreSuccess") });
+        },
+        onRestoreFailed: () => {
+          setNotice({ tone: "err", text: t("settings.subscriptionRestoreError") });
+        },
+      });
+    } catch (e) {
+      console.warn("[subscription] customer center", e);
+      setNotice({ tone: "err", text: t("settings.subscriptionError") });
     } finally {
       setWorkingPackageId(null);
     }
@@ -217,9 +335,57 @@ export default function SettingsSubscriptionScreen() {
                           {formatUsdPrice(plan.monthlyPriceUsd)} / mo
                         </Text>
                         <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {formatPlanStorage(plan.storageLimitMb)} storage -{" "}
-                          {formatPlanBuildLimit(plan.maxBuilds)} builds
+                          {isPaid
+                            ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
+                                plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
+                              }`
+                            : "No payment required"}
                         </Text>
+
+                        <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                          {plan.audience}
+                        </Text>
+
+                        <View className="mt-5 flex-row gap-4 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+                          <PlanMetric
+                            label="Storage"
+                            value={formatPlanStorage(plan.storageLimitMb)}
+                          />
+                          <PlanMetric label="Builds" value={formatPlanBuildLimit(plan.maxBuilds)} />
+                        </View>
+
+                        <View className="mt-5 gap-3">
+                          {plan.highlights.map((highlight) => (
+                            <PlanBullet key={highlight} iconColor={colors.text}>
+                              {highlight}
+                            </PlanBullet>
+                          ))}
+                        </View>
+
+                        <View className="mt-5 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+                          <MetaLabel>Included</MetaLabel>
+                          <View className="mt-3 gap-2">
+                            {plan.features.map((feature) => (
+                              <PlanBullet key={feature} iconColor={colors.text}>
+                                {feature}
+                              </PlanBullet>
+                            ))}
+                          </View>
+                        </View>
+
+                        {plan.notIncluded?.length ? (
+                          <View className="mt-5 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+                            <MetaLabel>Upgrade unlocks</MetaLabel>
+                            <View className="mt-3 gap-2">
+                              {plan.notIncluded.map((feature) => (
+                                <PlanBullet key={feature} iconColor={colors.text} muted>
+                                  {feature}
+                                </PlanBullet>
+                              ))}
+                            </View>
+                          </View>
+                        ) : null}
+
                         {isPaid && nativeIap && offeringsLoading ? (
                           <View className="mt-4 flex-row items-center gap-3">
                             <ActivityIndicator />
@@ -269,6 +435,9 @@ export default function SettingsSubscriptionScreen() {
                 <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
                   {subscriptionBody}
                 </Text>
+                <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                  RevenueCat `pro` entitlement: {hasProEntitlement ? "active" : "not active"}
+                </Text>
                 {notice ? (
                   <Text
                     className={`mt-3 text-sm leading-6 ${
@@ -296,11 +465,27 @@ export default function SettingsSubscriptionScreen() {
                       </Text>
                     ) : null}
                     <Button
+                      title="Open Paywall"
+                      variant="primary"
+                      className="mt-4"
+                      loading={workingPackageId === "paywall"}
+                      disabled={workingPackageId != null || !identity?.subject}
+                      onPress={() => void onPresentPaywall()}
+                    />
+                    <Button
                       title={t("settings.subscriptionRestore")}
                       variant="secondary"
                       className="mt-4"
                       disabled={workingPackageId != null || !identity?.subject}
                       onPress={() => void onRestore()}
+                    />
+                    <Button
+                      title="Customer Center"
+                      variant="secondary"
+                      className="mt-3"
+                      loading={workingPackageId === "customer-center"}
+                      disabled={workingPackageId != null || !identity?.subject}
+                      onPress={() => void onPresentCustomerCenter()}
                     />
                     <View className="mt-6 border-t border-kyar-borderSubtle pt-5 dark:border-kyar-dark-borderSubtle">
                       <MetaLabel>{t("settings.subscriptionLegalSection")}</MetaLabel>

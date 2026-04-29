@@ -1,8 +1,10 @@
 import { Tabs } from "expo-router";
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { View } from "react-native";
+import { type LayoutChangeEvent, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type NavSectionId } from "@kyarafit/design-system";
 import { api } from "convex/_generated/api";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -20,11 +22,23 @@ const TAB_SECTION_BY_ROUTE = {
   more: "menu",
 } as const satisfies Record<string, NavSectionId>;
 
+const TAB_BAR_BASE_HEIGHT = 56;
+
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
+  const [adStripHeight, setAdStripHeight] = useState(0);
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
+
+  const handleAdStripLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+    setAdStripHeight((currentHeight) =>
+      Math.abs(currentHeight - nextHeight) > 1 ? nextHeight : currentHeight
+    );
+  };
 
   const getTabOptions = (route: keyof typeof TAB_SECTION_BY_ROUTE) => {
     const sectionId = TAB_SECTION_BY_ROUTE[route];
@@ -59,6 +73,7 @@ export default function TabsLayout() {
           headerTitleStyle: navHeaderTitleStyle(colors.text),
           sceneStyle: {
             backgroundColor: colors.bg,
+            paddingBottom: adStripHeight,
           },
           tabBarActiveTintColor: colors.text,
           tabBarInactiveTintColor: colors.meta,
@@ -69,6 +84,9 @@ export default function TabsLayout() {
           tabBarStyle: {
             borderTopColor: colors.border,
             backgroundColor: colors.bg,
+            height: tabBarHeight,
+            paddingBottom: Math.max(insets.bottom, 4),
+            paddingTop: 4,
           },
         }}
       >
@@ -78,7 +96,12 @@ export default function TabsLayout() {
         <Tabs.Screen name="planner" options={getTabOptions("planner")} />
         <Tabs.Screen name="more" options={getTabOptions("more")} />
       </Tabs>
-      <View className="absolute bottom-[49px] left-0 right-0">
+      <View
+        pointerEvents="box-none"
+        className="absolute left-0 right-0"
+        style={{ bottom: tabBarHeight }}
+        onLayout={handleAdStripLayout}
+      >
         <MobileSponsoredAdStrip userId={userId} />
       </View>
     </View>

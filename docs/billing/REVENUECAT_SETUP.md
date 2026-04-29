@@ -57,8 +57,32 @@ On **web**, Kyarafit uses `@revenuecat/purchases-js` (RevenueCat Web Billing). Y
 
 1. In RevenueCat, add a **Web** app (or use the Web Billing app) and copy the **Web Billing SDK API key** (often prefixed `rcb_`).
 2. **Connect Stripe** under RevenueCat’s Web Billing / payment settings (exact menu varies; see [RevenueCat Web Billing docs](https://www.revenuecat.com/docs/web/web-billing)).
-3. Create **Web** subscription products in RevenueCat (linked to Stripe prices), attach them to entitlements `**pro`** and `**studio`**, and add them to the same **Offering** you use on mobile (e.g. `default`) so `getOfferings()` returns packages.
-4. Ensure the **Convex webhook** (above) is registered so web purchases update `users.tier` the same way as iOS/Android.
+3. Create the four **Web Billing** subscription products below.
+4. Attach each product to the matching entitlement (`pro` or `studio`).
+5. Add each product to the same **Offering** the app fetches with `getOfferings()` (for example, the offering marked `default`).
+6. Ensure the **Convex webhook** (above) is registered so web purchases update `users.tier` the same way as iOS/Android.
+
+### Required web products
+
+Use these exact RevenueCat Web Billing product identifiers. `WebSubscriptionRevenueCat` matches packages by `package.webBillingProduct.identifier`, so any mismatch will show `Not configured` in the web checkout UI.
+
+| Plan   | Interval | RevenueCat Web Billing product identifier | Price    |
+| ------ | -------- | ----------------------------------------- | -------- |
+| Pro    | Monthly  | `com.kyarafit.pro.monthly`                | `$3`     |
+| Pro    | Annual   | `com.kyarafit.pro.annual`                 | `$30`    |
+| Studio | Monthly  | `com.kyarafit.studio.monthly`             | `$9.99`  |
+| Studio | Annual   | `com.kyarafit.studio.annual`              | `$79.99` |
+
+Recommended package identifiers inside the offering:
+
+| Package identifier | Product identifier            |
+| ------------------ | ----------------------------- |
+| `pro_monthly`      | `com.kyarafit.pro.monthly`    |
+| `pro_annual`       | `com.kyarafit.pro.annual`     |
+| `studio_monthly`   | `com.kyarafit.studio.monthly` |
+| `studio_annual`    | `com.kyarafit.studio.annual`  |
+
+RevenueCat recommends one price per Stripe product when using Stripe Billing imports, because a RevenueCat product maps directly to a Stripe product. If you create products directly in RevenueCat Web Billing, set one base price per currency for each product.
 
 ### Next.js env
 
