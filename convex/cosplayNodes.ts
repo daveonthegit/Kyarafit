@@ -613,7 +613,7 @@ export const update = mutation({
     tags: v.optional(v.array(v.string())),
     notes: v.optional(v.union(v.string(), v.null())),
     imageUrl: v.optional(v.union(v.string(), v.null())),
-    imageStorageId: v.optional(v.id("_storage")),
+    imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     sourceUrl: v.optional(v.union(v.string(), v.null())),
     pricingMode: v.optional(v.union(v.string(), v.null())),
     directCostCents: v.optional(v.union(v.number(), v.null())),
@@ -636,7 +636,7 @@ export const update = mutation({
     }
 
     const oldStorageId = existing.imageStorageId;
-    const newStorageId = args.imageStorageId;
+    const newStorageId = args.imageStorageId ?? undefined;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
       await subtractUsageForStorageId(ctx, userId, oldStorageId);
     }
@@ -669,8 +669,10 @@ export const update = mutation({
     });
     Object.assign(patch, sanitized);
 
-    if (fields.imageUrl !== undefined) patch.imageUrl = fields.imageUrl ?? undefined;
-    if (fields.imageStorageId !== undefined) patch.imageStorageId = fields.imageStorageId;
+    if (fields.imageUrl !== undefined)
+      patch.imageUrl = sanitizeOptionalUrl(fields.imageUrl ?? undefined);
+    if (fields.imageStorageId !== undefined)
+      patch.imageStorageId = fields.imageStorageId === null ? undefined : fields.imageStorageId;
     if (tags !== undefined) {
       patch.tags = tags
         .map((tag, index) => sanitizeAndLimit(tag, MAX_LENGTH.tag, `Tag ${index + 1}`))

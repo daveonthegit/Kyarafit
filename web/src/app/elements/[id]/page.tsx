@@ -330,7 +330,7 @@ export default function ElementDetailPage() {
           : null,
       unit: form.pricingMode === "per_unit" && form.unit.trim() ? form.unit.trim() : null,
       imageUrl: form.imageStorageId ? null : form.imageUrl || null,
-      imageStorageId: form.imageStorageId ?? undefined,
+      imageStorageId: form.imageStorageId,
       purchaseStatus: node.nodeType === "element" ? form.purchaseStatus : null,
       buildStatus: node.nodeType === "element" ? form.buildStatus : null,
       materialStatus: node.nodeType === "material" ? form.materialStatus : null,

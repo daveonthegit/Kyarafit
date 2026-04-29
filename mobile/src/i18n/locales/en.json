@@ -275,7 +275,7 @@
     "workflowEmpty": "No tasks match your filters.",
     "workflowLoading": "Loading tasks…",
     "workflowAddPlaceholderShared": "Add a shared task…",
-    "workflowAddPlaceholderOutfit": "Add a build-specific task?",
+    "workflowAddPlaceholderOutfit": "Add a build-specific task…",
     "workflowAdd": "Add",
     "workflowRemoveTitle": "Remove this task?",
     "workflowRemoveAction": "Remove",
