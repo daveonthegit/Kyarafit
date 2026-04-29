@@ -20,7 +20,7 @@ describe("cosplayUi", () => {
         buildStatus: "wip",
         overallBucket: "in_progress",
       })
-    ).toBe("WIP");
+    ).toBe("In progress");
     expect(
       formatNodeStatus({
         nodeType: "material",

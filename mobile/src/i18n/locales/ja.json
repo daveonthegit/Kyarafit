@@ -540,7 +540,7 @@
     "subscriptionWebHint": "アプリ内サブスクリプションは iOS / Android アプリで利用できます。この画面ではアカウントの現在のティアを表示します。",
     "subscriptionRestore": "購入を復元",
     "subscriptionOfferingsLoading": "オファーを読み込み中…",
-    "subscriptionNoOfferings": "まだストアからオファーが返されていません。RevenueCat と App Store Connect / Play Console の商品・オファーを確認してください。",
+    "subscriptionNoOfferings": "現在利用できるサブスクリプションプランはありません。あとでもう一度お試しください。",
     "subscriptionError": "購入を完了できませんでした。再試行するか、すでに契約している場合は復元してください。",
     "subscriptionPurchaseSuccess": "購入が完了しました。ティアはまもなく更新されます。",
     "subscriptionRestoreSuccess": "購入を復元しました。ティアはまもなく更新されます。",

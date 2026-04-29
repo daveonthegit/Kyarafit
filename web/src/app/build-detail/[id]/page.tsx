@@ -315,6 +315,7 @@ export default function BuildDetailPage() {
   };
 
   const daysRemaining = getDaysRemaining(build.targetDate);
+  const detailFrameClass = "mx-auto w-full max-w-3xl xl:max-w-5xl 2xl:max-w-6xl";
 
   return (
     <WebAppShell>
@@ -552,8 +553,8 @@ export default function BuildDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-3xl space-y-8">
-            <div>
+          <div className="w-full space-y-8">
+            <div className={detailFrameClass}>
               <div className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-kyar-textTertiary">
                 <span>Kyarafit</span>
                 {build.character && (
@@ -642,7 +643,9 @@ export default function BuildDetailPage() {
               )}
             </div>
 
-            <nav className="flex flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4">
+            <nav
+              className={`${detailFrameClass} flex flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4`}
+            >
               {(
                 [
                   ["explorer", "Explorer"],
@@ -667,7 +670,7 @@ export default function BuildDetailPage() {
             </nav>
 
             {activeTab === "explorer" && (
-              <div className="space-y-8">
+              <div className={`${detailFrameClass} space-y-8`}>
                 {build.notes && (
                   <section className="border-l-2 border-kyar-text/20 pl-5">
                     <p className="mb-3 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
@@ -721,14 +724,17 @@ export default function BuildDetailPage() {
             )}
 
             {activeTab === "tasks" && (
-              <section id="build-tasks" className="border-t border-kyar-borderSubtle pt-4">
+              <section
+                id="build-tasks"
+                className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}
+              >
                 <h2 className="mb-6 font-serif text-2xl text-kyar-text">Tasks &amp; Timeline</h2>
                 <WorkflowTree buildId={id} userId={userId} />
               </section>
             )}
 
             {activeTab === "board" && (
-              <section className="border-t border-kyar-borderSubtle pt-4">
+              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
                 <DndContext onDragEnd={handleDragEnd}>
                   <BuildVisualBoard
                     buildId={id}
@@ -758,7 +764,7 @@ export default function BuildDetailPage() {
             )}
 
             {activeTab === "summary" && (
-              <section className="border-t border-kyar-borderSubtle pt-4">
+              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                   <div>
                     <BuildSummarySection summary={summary ?? null} formatCents={formatCents} />
