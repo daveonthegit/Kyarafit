@@ -451,19 +451,11 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
               className={`text-sm break-all ${user.email && !emailRevealed ? "select-none text-kyar-textSecondary" : ""}`}
               data-testid="account-email"
               aria-label={
-                user.email && !emailRevealed
-                  ? "Email address hidden. Use Show to reveal."
-                  : undefined
+                user.email && !emailRevealed ? "Email address hidden." : undefined
               }
             >
               {!user.email ? "—" : emailRevealed ? user.email : EMAIL_HIDDEN_PLACEHOLDER}
             </p>
-            {user.email && (
-              <p className="mt-1 text-[11px] text-kyar-textTertiary leading-relaxed">
-                Hidden by default so shoulder-surfers or screen shares don’t see your address. Use
-                Show when you need to confirm it.
-              </p>
-            )}
           </div>
           {user.email ? (
             <button
@@ -619,10 +611,6 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
           <div>
             <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
               Sign-in methods
-            </p>
-            <p className="text-[11px] text-kyar-textTertiary leading-relaxed max-w-xl">
-              Link Google or Apple to sign in faster. Add email & password if you started with OAuth
-              only—or connect social accounts to an email/password profile.
             </p>
           </div>
         </div>
@@ -806,9 +794,6 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
             {profileVisibilityError}
           </p>
         )}
-        <p className="text-[11px] text-kyar-textTertiary mt-1">
-          Public: others can see your profile and public builds. Private: only you.
-        </p>
       </div>
       <div className="pt-4 space-y-6">
         <div>
@@ -825,16 +810,9 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
               >
                 Change password
               </Link>
-              <p className="mt-1 text-[11px] text-kyar-textSecondary">
-                We’ll send you a link to set a new password.
-              </p>
             </>
           ) : (
             <>
-              <p className="text-[11px] text-kyar-textSecondary mb-3">
-                You’re signed in with a social provider only. Create a password to enable email and
-                username sign-in with the same account.
-              </p>
               <div className="space-y-2 max-w-md">
                 <label className="sr-only" htmlFor="create-password">
                   New password
@@ -882,13 +860,6 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
                   {passwordSetupLoading ? "Saving…" : "Save password"}
                 </button>
               </div>
-              <p className="mt-4 text-[11px] text-kyar-textTertiary">
-                Prefer email? Use{" "}
-                <Link href="/auth/reset-password" className="text-kyar-accent hover:underline">
-                  forgot password
-                </Link>{" "}
-                and we’ll send a link to {user.email ?? "your address"}.
-              </p>
             </>
           )}
         </div>
