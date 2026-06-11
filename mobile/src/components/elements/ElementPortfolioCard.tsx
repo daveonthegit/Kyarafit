@@ -164,7 +164,6 @@ export function ElementPortfolioCard({
         style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
       />
       <View className="absolute left-3 top-3 z-10 flex-row flex-wrap gap-2">
-        <Badge>{item.typeBadge.toUpperCase()}</Badge>
         <Badge>{item.statusBadge.toUpperCase()}</Badge>
       </View>
       <View
@@ -243,28 +242,6 @@ export function ElementPortfolioCard({
               end={{ x: 0.5, y: 1 }}
               style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
             />
-            <View className="absolute left-2 top-2 flex-col gap-1">
-              <View
-                className="rounded-full px-2 py-0.5"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 253, 248, 0.22)",
-                  backgroundColor: "rgba(0, 0, 0, 0.4)",
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: APP_FONT_FAMILIES.sansBold,
-                    color: mediaOverlay.primary,
-                    fontSize: 8,
-                    letterSpacing: 0.8,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {item.typeBadge.toUpperCase()}
-                </Text>
-              </View>
-            </View>
           </View>
           <View className="h-[148px] min-w-0 flex-1 justify-between bg-kyar-surface py-3 pl-3 pr-3 dark:bg-kyar-dark-surface">
             <View className="min-w-0">

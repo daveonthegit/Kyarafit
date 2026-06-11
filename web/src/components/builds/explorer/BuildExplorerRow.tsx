@@ -1,14 +1,7 @@
 "use client";
 
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
-import type {
-  CosplayNodeId,
-  DragState,
-  DropZone,
-  ExplorerLinkedNode,
-  NodeSelectionMeta,
-  PathSegment,
-} from "./types";
+import type { DropZone, ExplorerLinkedNode, NodeSelectionMeta } from "./types";
 import { formatCents, statusChipInfo } from "./types";
 import { useLongPressDrag } from "./useLongPressDrag";
 
@@ -159,7 +152,11 @@ export function BuildExplorerRow({
       ) : null}
 
       {/* Tappable content area */}
-      <button type="button" onClick={onTap} className="flex min-w-0 flex-1 items-center gap-3">
+      <button
+        type="button"
+        onClick={onTap}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
         <NodeThumbnail node={node} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium leading-snug text-kyar-text">
