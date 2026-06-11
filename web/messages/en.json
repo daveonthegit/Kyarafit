@@ -81,15 +81,26 @@
     "accountDetails": "Account Details",
     "subscriptionPlan": "Subscription Plan",
     "notificationStyle": "Notification Style",
+    "notificationsSubtitle": "Choose which notifications you want once notification settings are ready.",
+    "notificationsSoonTitle": "Notification settings are on deck",
+    "notificationsSoonBody": "Notification controls are coming soon. For now, important account messages will still appear in the app.",
+    "notificationsRoadmap": "Planned controls: account alerts, optional updates, and reminders for builds and tasks.",
+    "legalAndPolicies": "Legal & policies",
+    "legalAndPoliciesSubtitle": "Terms of Service, Privacy Policy, and how to contact us about data requests.",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy policy",
+    "securitySupport": "Security & support",
     "language": "Language",
     "signOut": "Sign Out",
-    "backToHome": "Back to home"
+    "backToHome": "Back to home",
+    "backToSettings": "Back to settings"
   },
   "Theme": {
     "switchToDark": "Switch to dark mode",
     "switchToLight": "Switch to light mode",
     "appearance": "Appearance",
     "label": "Theme",
+    "system": "Match system",
     "light": "Light",
     "dark": "Dark"
   },

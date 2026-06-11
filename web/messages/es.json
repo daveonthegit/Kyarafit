@@ -81,15 +81,26 @@
     "accountDetails": "Detalles de la cuenta",
     "subscriptionPlan": "Plan de suscripción",
     "notificationStyle": "Estilo de notificaciones",
+    "notificationsSubtitle": "Elige qué notificaciones quieres recibir cuando la configuración esté lista.",
+    "notificationsSoonTitle": "Las notificaciones vienen después",
+    "notificationsSoonBody": "Los controles de notificaciones llegarán pronto. Por ahora, los mensajes importantes seguirán apareciendo en la app.",
+    "notificationsRoadmap": "Controles planeados: alertas de cuenta, actualizaciones opcionales y recordatorios de builds y tareas.",
+    "legalAndPolicies": "Legal y políticas",
+    "legalAndPoliciesSubtitle": "Términos del servicio, política de privacidad y cómo contactarnos sobre datos.",
+    "termsOfService": "Términos del servicio",
+    "privacyPolicy": "Política de privacidad",
+    "securitySupport": "Seguridad y soporte",
     "language": "Idioma",
     "signOut": "Cerrar sesión",
-    "backToHome": "Volver al inicio"
+    "backToHome": "Volver al inicio",
+    "backToSettings": "Volver a ajustes"
   },
   "Theme": {
     "switchToDark": "Cambiar a modo oscuro",
     "switchToLight": "Cambiar a modo claro",
     "appearance": "Apariencia",
     "label": "Tema",
+    "system": "Seguir el sistema",
     "light": "Claro",
     "dark": "Oscuro"
   },

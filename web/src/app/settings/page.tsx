@@ -26,7 +26,7 @@ export default function Settings() {
   const t = useTranslations("Settings");
   const tLang = useTranslations("Language");
   const tTheme = useTranslations("Theme");
-  const { theme, setTheme } = useTheme();
+  const { preference, setPreference } = useTheme();
   const { data: tier, isLoading } = useTier();
   const { canUseCloudSync } = useFeatureAccess();
   const { locale, setLocale } = useLocaleContext();
@@ -98,17 +98,17 @@ export default function Settings() {
               {tTheme("appearance")}
             </p>
             <div className="flex gap-2 flex-wrap">
-              {(["light", "dark"] as const).map((mode) => (
+              {(["system", "light", "dark"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setTheme(mode)}
+                  onClick={() => setPreference(mode)}
                   className={`min-h-[44px] px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-                    theme === mode
+                    preference === mode
                       ? "bg-kyar-text text-kyar-bg border-kyar-text shadow-md"
                       : "bg-kyar-surface text-kyar-text border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted"
                   }`}
-                  aria-pressed={theme === mode}
+                  aria-pressed={preference === mode}
                 >
                   {tTheme(mode)}
                 </button>
@@ -156,6 +156,35 @@ export default function Settings() {
                 </Link>
               </li>
             ))}
+          </ul>
+        </SectionCard>
+        <SectionCard title={t("legalAndPolicies")}>
+          <p className="text-xs text-kyar-textSecondary mb-4">{t("legalAndPoliciesSubtitle")}</p>
+          <ul className="space-y-1" role="list">
+            <li>
+              <Link
+                href="/terms"
+                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+              >
+                {t("termsOfService")}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/privacy"
+                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+              >
+                {t("privacyPolicy")}
+              </Link>
+            </li>
+            <li>
+              <a
+                href="mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
+                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+              >
+                {t("securitySupport")}
+              </a>
+            </li>
           </ul>
         </SectionCard>
         <button

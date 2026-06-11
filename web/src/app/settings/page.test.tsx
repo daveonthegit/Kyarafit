@@ -23,7 +23,14 @@ vi.mock("@/lib/i18n/context", () => ({
 }));
 
 vi.mock("@/contexts/ThemeContext", () => ({
-  useTheme: () => ({ theme: "light", setTheme: vi.fn(), toggleTheme: vi.fn(), mounted: true }),
+  useTheme: () => ({
+    theme: "light",
+    preference: "system",
+    setPreference: vi.fn(),
+    setTheme: vi.fn(),
+    toggleTheme: vi.fn(),
+    mounted: true,
+  }),
 }));
 
 vi.mock("next-intl", () => ({
@@ -59,6 +66,7 @@ vi.mock("next-intl", () => ({
       }
       if (ns === "Theme") {
         if (key === "appearance") return "Appearance";
+        if (key === "system") return "Match system";
         if (key === "light") return "Light";
         if (key === "dark") return "Dark";
       }
