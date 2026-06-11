@@ -914,7 +914,7 @@ function PlannerTaskNodeList({
   const scopeKey = plannerTaskScopeKey(tasks[0]);
 
   return (
-    <ul className="space-y-2">
+    <ul className="divide-y divide-kyar-borderSubtle/60">
       {parent == null &&
       dragController.state.draggingMeta?.scopeKey === scopeKey &&
       dragController.state.draggingMeta.parentId != null ? (
@@ -1017,7 +1017,7 @@ function PlannerTaskNodeItem({
         />
       </div>
       {childrenOpen && task.children.length > 0 ? (
-        <div className="mt-2 pl-4 sm:pl-6">
+        <div className="mb-1 ml-[15px] border-l border-kyar-borderSubtle pl-3 sm:pl-4">
           <PlannerTaskNodeList
             tasks={task.children}
             parent={task}
@@ -1053,13 +1053,10 @@ function PlannerTaskTree({
   if (!hasConventions && !hasStandalone && !hasUnassigned) return null;
 
   return (
-    <div className="space-y-1">
+    <div className="divide-y divide-kyar-borderSubtle">
       {conventionGroups.map((convention) => (
-        <details
-          key={convention.conventionId}
-          className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm"
-        >
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+        <details key={convention.conventionId} className="group py-1">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
             <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
               ▶
             </span>
@@ -1072,19 +1069,16 @@ function PlannerTaskTree({
               Open
             </Link>
           </summary>
-          <div className="pl-4 pr-2 pb-2 pt-0 border-t border-kyar-cardBorder space-y-1">
+          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
             {convention.builds.map((build) => (
-              <details
-                key={build.buildId}
-                className="group/build border border-kyar-borderSubtle rounded-xl overflow-hidden bg-kyar-muted"
-              >
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+              <details key={build.buildId} className="group/build">
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
                   <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/build:rotate-90 transition-transform">
                     ▶
                   </span>
                   <span className="flex-1 font-light">{build.buildName}</span>
                 </summary>
-                <div className="pl-4 pr-2 pb-2 pt-1 border-t border-kyar-cardBorder">
+                <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
                   <PlannerTaskNodeList
                     tasks={build.tasks}
                     userId={userId}
@@ -1095,17 +1089,14 @@ function PlannerTaskTree({
               </details>
             ))}
             {convention.packingTasks.length > 0 && (
-              <details
-                key={`packing-${convention.conventionId}`}
-                className="group/pack border border-kyar-borderSubtle rounded-xl overflow-hidden bg-kyar-muted"
-              >
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] px-3 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+              <details key={`packing-${convention.conventionId}`} className="group/pack">
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
                   <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/pack:rotate-90 transition-transform">
                     ▶
                   </span>
                   <span className="flex-1 font-light">Packing</span>
                 </summary>
-                <div className="pl-4 pr-2 pb-2 pt-1 border-t border-kyar-cardBorder">
+                <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
                   <PlannerTaskNodeList
                     tasks={convention.packingTasks}
                     userId={userId}
@@ -1119,11 +1110,8 @@ function PlannerTaskTree({
         </details>
       ))}
       {standaloneBuilds.map((build) => (
-        <details
-          key={build.buildId}
-          className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm"
-        >
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+        <details key={build.buildId} className="group py-1">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
             <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
               ▶
             </span>
@@ -1136,7 +1124,7 @@ function PlannerTaskTree({
               Open
             </Link>
           </summary>
-          <div className="pl-4 pr-2 pb-2 pt-2 border-t border-kyar-cardBorder">
+          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
             <PlannerTaskNodeList
               tasks={build.tasks}
               userId={userId}
@@ -1147,14 +1135,14 @@ function PlannerTaskTree({
         </details>
       ))}
       {hasUnassigned && (
-        <details className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+        <details className="group py-1">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
             <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
               ▶
             </span>
             <span className="flex-1">Elements and other tasks</span>
           </summary>
-          <div className="pl-4 pr-2 pb-2 pt-2 border-t border-kyar-cardBorder">
+          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
             <PlannerTaskNodeList
               tasks={unassignedTasks}
               userId={userId}

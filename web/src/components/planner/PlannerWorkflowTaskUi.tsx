@@ -3,17 +3,21 @@
 import Link from "next/link";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
-/** Matches build Tasks tab / planner task row treatment */
+/**
+ * Matches build Tasks tab / planner task row treatment.
+ * Flat list row — no per-row card chrome; siblings separate with hairline
+ * dividers and nesting reads through the left rail, not stacked borders.
+ */
 export const plannerWorkflowRowClassName =
-  "flex flex-wrap items-start gap-3 border border-kyar-borderSubtle rounded-xl p-4 bg-kyar-surface shadow-sm min-h-[44px] hover:border-kyar-text transition-colors";
+  "flex flex-wrap items-start gap-2 rounded-lg px-2 py-3 min-h-[44px] hover:bg-kyar-mutedWarm/70 transition-colors";
 
 export const plannerWorkflowCheckboxClassName =
   "mt-1 rounded-full border-2 border-kyar-border bg-kyar-surface w-6 h-6 min-w-[24px] min-h-[24px] accent-kyar-accent focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-transform active:scale-90 cursor-pointer checked:bg-kyar-text checked:border-kyar-text disabled:opacity-50 disabled:cursor-not-allowed";
 
 const metaLinkClassName =
-  "text-[11px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded";
+  "text-[11px] uppercase tracking-wide text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded";
 
-const metaMutedClassName = "text-[11px] uppercase tracking-widest text-kyar-textTertiary";
+const metaMutedClassName = "text-[11px] uppercase tracking-wide text-kyar-textTertiary";
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -149,7 +153,7 @@ export function PlannerTaskRow({
   return (
     <div
       className={`${plannerWorkflowRowClassName} ${
-        dropIntoLabel ? "border-kyar-text bg-kyar-muted" : ""
+        dropIntoLabel ? "bg-kyar-muted ring-1 ring-inset ring-kyar-text" : ""
       }`}
     >
       <div className="flex min-h-[32px] items-center gap-1">
