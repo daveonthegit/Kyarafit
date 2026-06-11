@@ -7,9 +7,11 @@ import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
+import { formatEventDateRange } from "@kyarafit/design-system/domain";
 
 type ConventionFilter = "all" | "upcoming" | "past" | "archived";
 type ConventionSortBy = "name" | "startDate" | "location";
@@ -93,12 +95,13 @@ export default function ConventionsPage() {
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { userId } = useCurrentUser();
-  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip") ?? [];
+  const { userId, isLoading: authLoading } = useCurrentUser();
+  const conventionsQuery = useQuery(api.conventions.list, userId ? { userId } : "skip");
+  const conventions = conventionsQuery ?? [];
   const archiveMany = useMutation(api.conventions.archiveMany);
   const removeMany = useMutation(api.conventions.removeMany);
   const createConvention = useMutation(api.conventions.create);
-  const isLoading = conventions === undefined;
+  const isLoading = authLoading || (userId !== null && conventionsQuery === undefined);
   const activeFilterLabel = FILTER_OPTIONS.find((opt) => opt.value === filter)?.label ?? "All";
   const activeSortLabel = SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label ?? "Start date";
   const controlsSummary = `${activeFilterLabel} · ${activeSortLabel} · ${order === "asc" ? "Ascending" : "Descending"}`;
@@ -207,13 +210,13 @@ export default function ConventionsPage() {
   return (
     <WebAppShell>
       <PageHeader
-        title="Conventions"
+        title="Events"
         subtitle="Circuit"
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: "Search conventions...",
-          "aria-label": "Search conventions by name or location",
+          placeholder: "Search events...",
+          "aria-label": "Search events by name or location",
         }}
         mobileControlsLabel="Refine circuit"
         mobileControlsSummary={controlsSummary}
@@ -246,7 +249,7 @@ export default function ConventionsPage() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
             className="min-h-[44px] min-w-[11rem] flex-1 border-b border-kyar-border bg-transparent py-1.5 text-[11px] uppercase tracking-wider text-kyar-text focus:border-kyar-text focus:outline-none transition-colors sm:min-w-0 sm:flex-none"
-            aria-label="Sort conventions by"
+            aria-label="Sort events by"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -266,22 +269,30 @@ export default function ConventionsPage() {
       </PageHeader>
 
       <main className="flex-1 pt-3 pb-24 sm:py-6">
-        {isLoading && <p className="meta-label text-kyar-meta">Loading...</p>}
+        {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
         {!isLoading && conventions.length === 0 && (
-          <p className="text-sm text-kyar-meta">
-            No conventions yet. Create one to plan days and generate packing lists.
-          </p>
+          <EmptyState
+            icon="event"
+            message="No events yet."
+            secondary="Create your first event to map builds onto specific days and generate a packing plan."
+            action={
+              <Link
+                href="/conventions/new"
+                className="min-h-[44px] inline-flex items-center rounded border border-kyar-text px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors hover:bg-kyar-text hover:text-kyar-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              >
+                New event
+              </Link>
+            }
+          />
         )}
         {!isLoading && conventions.length > 0 && filteredAndSorted.length === 0 && (
-          <p className="text-sm text-kyar-textTertiary">
-            No conventions match your search or filter.
-          </p>
+          <EmptyState icon="search_off" message="No events match your search or filter." />
         )}
         {!isLoading && filteredAndSorted.length > 0 && (
           <>
             <div className="mb-3 sm:mb-4 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
-                {filteredAndSorted.length} convention{filteredAndSorted.length !== 1 ? "s" : ""}
+                {filteredAndSorted.length} event{filteredAndSorted.length !== 1 ? "s" : ""}
               </p>
               <button
                 type="button"
@@ -325,10 +336,8 @@ export default function ConventionsPage() {
                     <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-media-fg pointer-events-none">
                       <div className="flex justify-between items-end gap-2">
                         <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
-                            {c.startDate === c.endDate
-                              ? c.startDate
-                              : `${c.startDate} – ${c.endDate}`}
+                          <span className="text-[9px] font-bold tracking-[0.2em] uppercase block mb-1 drop-shadow-sm">
+                            {formatEventDateRange(c.startDate, c.endDate)}
                           </span>
                           <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate text-kyar-media-fg drop-shadow-md transition-opacity group-hover:opacity-90">
                             {c.name}

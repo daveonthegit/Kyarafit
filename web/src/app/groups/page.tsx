@@ -12,15 +12,19 @@ import { api } from "convex/_generated/api";
 import type { Doc } from "convex/_generated/dataModel";
 
 export default function GroupsPage() {
-  const { userId } = useCurrentUser();
+  const { userId, isLoading: authLoading } = useCurrentUser();
   const { open: openCreationModal } = useCreationModals();
-  const groups = useQuery(api.groups.listForUser, userId ? { userId } : "skip") ?? [];
+  const groupsQuery = useQuery(api.groups.listForUser, userId ? { userId } : "skip");
+  const groups = groupsQuery ?? [];
+  const isLoading = authLoading || (userId !== null && groupsQuery === undefined);
 
   return (
     <WebAppShell>
       <PageHeader title="Groups" subtitle="Coordinate with others" />
       <main className="flex-1 py-6">
-        {groups.length === 0 ? (
+        {isLoading ? (
+          <EmptyState icon="hourglass_empty" message="Loading…" />
+        ) : groups.length === 0 ? (
           <EmptyState
             icon="group"
             message="No groups yet."

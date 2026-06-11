@@ -80,7 +80,7 @@ export default function BuildsPage() {
     }>;
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { userId } = useCurrentUser();
+  const { userId, isLoading: authLoading } = useCurrentUser();
   const { open: openCreationModal } = useCreationModals();
   const removeMany = useMutation(api.builds.removeMany);
   const createBuild = useMutation(api.builds.create);
@@ -94,9 +94,10 @@ export default function BuildsPage() {
     sortBy,
     order,
   });
-  const builds = useQuery(api.builds.list, listArgs) ?? [];
+  const buildsQuery = useQuery(api.builds.list, listArgs);
+  const builds = buildsQuery ?? [];
   const sharedBuilds = useQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip") ?? [];
-  const isLoading = builds === undefined;
+  const isLoading = authLoading || (userId !== null && buildsQuery === undefined);
   const hasSearch = search.trim().length > 0;
   const activeTabLabel = tabOptions.find((opt) => opt.value === activeTab)?.label ?? "All builds";
   const layoutLabel = PORTFOLIO_LAYOUT_LABELS[layout];
@@ -357,15 +358,15 @@ export default function BuildsPage() {
               const isSelected = selectedIds.has(b._id);
 
               return (
-                <div key={b._id} className="relative">
+                <div key={b._id} className="group relative">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(b._id)}
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute z-20 h-6 w-6 cursor-pointer rounded-full border border-kyar-borderSubtle bg-kyar-text/25 shadow-sm backdrop-blur-sm transition-all checked:border-kyar-text checked:bg-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 active:scale-90 ${
-                      layout === "compact" ? "right-3 top-3" : "right-4 top-4"
-                    }`}
+                    className={`absolute z-20 h-6 w-6 cursor-pointer rounded-full border border-kyar-borderSubtle bg-kyar-text/25 shadow-sm backdrop-blur-sm transition-all checked:border-kyar-text checked:bg-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 active:scale-90 focus-visible:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 ${
+                      selectedIds.size > 0 ? "opacity-100" : "opacity-0"
+                    } ${layout === "compact" ? "right-3 top-3" : "right-4 top-4"}`}
                     aria-label={`Select ${b.name}`}
                   />
                   <Link

@@ -79,7 +79,7 @@ const SUBSTATE_OPTIONS = [
 ] as const;
 
 export default function ElementsPage() {
-  const { userId } = useCurrentUser();
+  const { userId, isLoading: authLoading } = useCurrentUser();
   const { open } = useCreationModals();
   const removeMany = useMutation(api.cosplayNodes.removeMany);
   const addNodesToBuild = useMutation(api.builds.addNodesToBuild);
@@ -102,7 +102,7 @@ export default function ElementsPage() {
   const [showUnassignPanel, setShowUnassignPanel] = useState(false);
 
   const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
-  const nodes = (useQuery(
+  const nodesQuery = useQuery(
     api.cosplayNodes.list,
     userId
       ? {
@@ -115,7 +115,9 @@ export default function ElementsPage() {
           rootsOnly: viewMode === "tree",
         }
       : "skip"
-  ) ?? []) as Array<CosplayExplorerItem & { _id: CosplayNodeId }>;
+  );
+  const nodes = (nodesQuery ?? []) as Array<CosplayExplorerItem & { _id: CosplayNodeId }>;
+  const isLoading = authLoading || (userId !== null && nodesQuery === undefined);
 
   const filtered = useMemo(() => {
     let rows = [...nodes];
@@ -410,7 +412,9 @@ export default function ElementsPage() {
       </PageHeader>
 
       <main className="flex-1 pt-3 pb-24 sm:py-6">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <EmptyState icon="hourglass_empty" message="Loading…" />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon="account_tree"
             message="No elements match this view yet."
@@ -443,9 +447,9 @@ export default function ElementsPage() {
                       type="checkbox"
                       checked={selectedIds.has(item._id)}
                       onChange={() => toggleSelected(item._id)}
-                      className={`absolute z-20 rounded-full border border-kyar-borderSubtle bg-kyar-bg/80 shadow-sm ${
-                        layout === "compact" ? "right-2 top-2 h-5 w-5" : "right-3 top-3 h-5 w-5"
-                      }`}
+                      className={`absolute z-20 rounded-full border border-kyar-borderSubtle bg-kyar-bg/80 shadow-sm transition-opacity focus-visible:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 ${
+                        selectedIds.size > 0 ? "opacity-100" : "opacity-0"
+                      } ${layout === "compact" ? "right-2 top-2 h-5 w-5" : "right-3 top-3 h-5 w-5"}`}
                       aria-label={`Select ${item.name}`}
                     />
                     <Link
