@@ -11,9 +11,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { MagicCard } from "@/components/ui/magic-card";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
+import { formatEventDateRange } from "@kyarafit/design-system/domain";
 
 /** Build shape returned by getFocusedOrMostRecentForUser (hero display). */
 type FocusedBuild = {
@@ -176,7 +176,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 flex-1 lg:min-h-0 lg:h-full">
             {/* 1. Featured build hero (2x2) */}
             <section className="lg:col-span-2 lg:row-span-2 flex flex-col min-h-[400px] lg:h-full lg:min-h-0">
-              <MagicCard className="flex-1 overflow-hidden border border-kyar-borderSubtle rounded-2xl shadow-soft flex flex-col min-h-0">
+              <div className="flex-1 overflow-hidden border border-kyar-borderSubtle rounded-2xl bg-kyar-surface shadow-soft flex flex-col min-h-0">
                 <Link
                   href={recentBuild ? `/build-detail/${recentBuild._id}` : "/builds"}
                   className="flex-1 block group flex flex-col min-h-0"
@@ -252,7 +252,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-              </MagicCard>
+              </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
@@ -465,9 +465,7 @@ export default function HomePage() {
                         <div className="p-4 flex-1 flex flex-col justify-between">
                           <div>
                             <p className="text-[10px] uppercase tracking-widest text-kyar-meta">
-                              {convention.startDate === convention.endDate
-                                ? convention.startDate
-                                : `${convention.startDate} – ${convention.endDate}`}
+                              {formatEventDateRange(convention.startDate, convention.endDate)}
                             </p>
                             <p className="font-serif text-lg italic mt-1 text-kyar-text line-clamp-1">
                               {convention.name}

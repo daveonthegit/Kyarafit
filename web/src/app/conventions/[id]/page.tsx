@@ -13,6 +13,7 @@ import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ConventionOutlineTree } from "@/components/conventions/ConventionOutlineTree";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { formatEventDate } from "@kyarafit/design-system/domain";
 import { PackingItemRow } from "@/components/conventions/PackingItemRow";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
@@ -442,7 +443,7 @@ export default function ConventionDetailPage() {
                   Cosplay Timeline
                 </h2>
 
-                <div className="relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-[2px] before:bg-kyar-borderSubtle space-y-12">
+                <div className="relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px before:h-full before:w-[2px] before:bg-kyar-borderSubtle space-y-12">
                   {dates.map((date, idx) => {
                     const entry = planByDate.get(date);
                     const build = entry?.buildId
@@ -467,33 +468,18 @@ export default function ConventionDetailPage() {
                       }
                     }
 
-                    const isEven = idx % 2 === 0;
-
                     return (
                       <div
                         key={date}
                         id={`day-${date}`}
-                        className={`relative flex items-center justify-between md:justify-normal ${isEven ? "md:flex-row-reverse" : ""} group scroll-mt-24`}
+                        className="relative flex items-start group scroll-mt-24"
                       >
-                        <div
-                          className={`hidden md:block w-[calc(50%-2rem)] ${isEven ? "text-left" : "text-right"}`}
-                        >
-                          <h3 className="font-serif text-2xl italic font-bold">{dayLabel}</h3>
-                          <p className="text-[9px] text-kyar-textTertiary uppercase tracking-wider mt-1">
-                            {new Date(date).toLocaleDateString("en-US", {
-                              weekday: "long",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </p>
-                        </div>
-
-                        <div className="absolute left-0 md:left-1/2 flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-kyar-bg bg-kyar-text text-kyar-bg md:-translate-x-1/2 shadow-sm z-10">
+                        <div className="absolute left-0 top-1 flex items-center justify-center w-6 h-6 rounded-full border-[3px] border-kyar-bg bg-kyar-text text-kyar-bg shadow-sm z-10">
                           <span className="text-[8px] font-bold">{idx + 1}</span>
                         </div>
 
-                        <div className="ml-10 md:ml-0 w-[calc(100%-3rem)] md:w-[calc(50%-2rem)]">
-                          <div className="md:hidden mb-3">
+                        <div className="ml-10 w-[calc(100%-3rem)]">
+                          <div className="mb-3">
                             <h3 className="font-serif text-xl italic font-bold">{dayLabel}</h3>
                             <p className="text-[9px] text-kyar-textTertiary uppercase tracking-wider">
                               {new Date(date).toLocaleDateString("en-US", {
@@ -582,7 +568,7 @@ export default function ConventionDetailPage() {
                       <div className="space-y-1">
                         <p className="font-serif text-xl italic">{convention.location}</p>
                         <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary mt-2">
-                          Check-in: {convention.startDate}
+                          Check-in: {formatEventDate(convention.startDate)}
                         </p>
                       </div>
                     ) : (
