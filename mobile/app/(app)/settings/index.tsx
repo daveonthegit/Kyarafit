@@ -86,7 +86,7 @@ export default function SettingsIndexScreen() {
                   <View className="mt-4 flex-row items-center gap-3">
                     <ActivityIndicator color={colors.text} />
                     <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      Loading…
+                      {t("common.loading")}
                     </Text>
                   </View>
                 ) : tier ? (
@@ -242,24 +242,26 @@ export default function SettingsIndexScreen() {
                 />
               </SurfaceCard>
 
-              <SurfaceCard className="overflow-hidden">
-                <View className="px-4 pb-2 pt-4">
-                  <MetaLabel>{t("settings.devLabs")}</MetaLabel>
-                </View>
-                {DEV_LINKS.map((item, index) => (
-                  <SettingsRow
-                    key={item.key}
-                    icon={item.icon}
-                    title={t(`settings.${item.key}`)}
-                    subtitle={t(`settings.${item.key}Subtitle`)}
-                    onPress={() => undefined}
-                    href={item.href}
-                    iconColor={colors.text}
-                    metaColor={colors.meta}
-                    showBorder={index < DEV_LINKS.length - 1}
-                  />
-                ))}
-              </SurfaceCard>
+              {__DEV__ && (
+                <SurfaceCard className="overflow-hidden">
+                  <View className="px-4 pb-2 pt-4">
+                    <MetaLabel>{t("settings.devLabs")}</MetaLabel>
+                  </View>
+                  {DEV_LINKS.map((item, index) => (
+                    <SettingsRow
+                      key={item.key}
+                      icon={item.icon}
+                      title={t(`settings.${item.key}`)}
+                      subtitle={t(`settings.${item.key}Subtitle`)}
+                      onPress={() => undefined}
+                      href={item.href}
+                      iconColor={colors.text}
+                      metaColor={colors.meta}
+                      showBorder={index < DEV_LINKS.length - 1}
+                    />
+                  ))}
+                </SurfaceCard>
+              )}
 
               <Pressable
                 className="min-h-[52px] items-center justify-center rounded-full border border-kyar-danger/30 bg-kyar-surface px-5 active:opacity-90 dark:bg-kyar-dark-surface"

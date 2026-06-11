@@ -1,10 +1,15 @@
 import { View, Text } from "react-native";
-import { Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { APP_HREF } from "@/lib/appRoutes";
 
 /** KFM-025 — expand with live tokens and primitive previews as UI ships. */
 export default function DevGalleryScreen() {
   const { t } = useTranslation();
+
+  if (!__DEV__) {
+    return <Redirect href={APP_HREF.settings} />;
+  }
 
   return (
     <>

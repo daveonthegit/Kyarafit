@@ -18,7 +18,6 @@ export const APP_HREF = {
   resetPassword: href("/(auth)/reset-password"),
   verifyEmail: (email: string) => href(`/(auth)/verify-email?email=${encodeURIComponent(email)}`),
   settings: href("/settings"),
-  settingsAppearance: href("/settings/appearance"),
   settingsAccount: href("/settings/account"),
   settingsSubscription: href("/settings/subscription"),
   settingsNotifications: href("/settings/notifications"),
