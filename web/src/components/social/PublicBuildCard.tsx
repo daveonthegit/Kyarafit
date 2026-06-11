@@ -54,7 +54,10 @@ export function PublicBuildCard({ build, showOwner = false }: PublicBuildCardPro
           </span>
         </div>
       )}
-      <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" aria-hidden />
+      <div
+        className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300"
+        aria-hidden
+      />
 
       <div className="absolute inset-0 flex flex-col justify-end p-5 text-kyar-media-fg">
         {build.character && (

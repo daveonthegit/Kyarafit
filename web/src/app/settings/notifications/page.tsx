@@ -30,16 +30,17 @@ export default function SettingsNotificationsPage() {
       <main className="flex-1 space-y-6 pb-24 lg:pb-8">
         <p className="text-sm text-kyar-textSecondary">{t("notificationsSubtitle")}</p>
         <SectionCard title={t("notificationStyle")}>
-          <p className="text-lg font-semibold text-kyar-text" data-testid="notifications-placeholder">
+          <p
+            className="text-lg font-semibold text-kyar-text"
+            data-testid="notifications-placeholder"
+          >
             {t("notificationsSoonTitle")}
           </p>
           <p className="mt-3 text-sm leading-6 text-kyar-textSecondary">
             {t("notificationsSoonBody")}
           </p>
           <div className="mt-4 rounded-2xl bg-kyar-panel px-4 py-4">
-            <p className="text-sm leading-6 text-kyar-textSecondary">
-              {t("notificationsRoadmap")}
-            </p>
+            <p className="text-sm leading-6 text-kyar-textSecondary">{t("notificationsRoadmap")}</p>
           </div>
         </SectionCard>
       </main>

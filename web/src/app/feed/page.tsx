@@ -11,7 +11,10 @@ import { api } from "convex/_generated/api";
 
 export default function FeedPage() {
   const { userId, isLoading: authLoading } = useCurrentUser();
-  const builds = useQuery(api.builds.listFeedFromFollowing, userId ? { userId, limit: 50 } : "skip");
+  const builds = useQuery(
+    api.builds.listFeedFromFollowing,
+    userId ? { userId, limit: 50 } : "skip"
+  );
   const isLoading = authLoading || (userId !== null && builds === undefined);
 
   return (
