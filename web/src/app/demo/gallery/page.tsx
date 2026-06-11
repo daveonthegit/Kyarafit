@@ -1,5 +1,6 @@
 "use client";
 
+import { notFound } from "next/navigation";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ImageGallery } from "@/components/ui/image-gallery";
 import type { ImageGalleryItem } from "@/components/ui/image-gallery";
@@ -44,6 +45,9 @@ const DEMO_IMAGES: ImageGalleryItem[] = [
 ];
 
 export default function DemoGalleryPage() {
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
   return (
     <WebAppShell>
       <main className="max-w-4xl mx-auto py-8 px-4">
