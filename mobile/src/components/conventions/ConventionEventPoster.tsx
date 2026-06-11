@@ -3,6 +3,8 @@ import { Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Id } from "convex/_generated/dataModel";
+import { useTranslation } from "react-i18next";
+import { formatEventDateRange } from "@kyarafit/design-system/domain";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { overlayCountdownLabel } from "@/screens/conventions/utils";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
@@ -51,11 +53,12 @@ export function ConventionEventPoster({
   topAccessory,
 }: ConventionEventPosterProps) {
   const { scheme, colors } = useDesignTheme();
+  const { i18n } = useTranslation();
   const overlayText = mediaOverlay.primary;
   const stops = gradientStops(scheme);
 
   const hasImage = imageStorageId != null || imageUrl != null;
-  const dateLine = startDate === endDate ? startDate : `${startDate} – ${endDate}`;
+  const dateLine = formatEventDateRange(startDate, endDate, i18n.language);
   const countdownLabel = overlayCountdownLabel(startDate, endDate);
 
   const locationUpper = (location?.trim() || "No location").toUpperCase();

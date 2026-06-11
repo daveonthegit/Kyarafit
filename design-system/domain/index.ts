@@ -1,6 +1,7 @@
 export * from "./workflowProgress";
 export * from "./workflowDomain";
 export * from "./cosplayUi";
+export * from "./eventDates";
 export * from "./cosplayExplorer";
 export * from "./plannerTaskExplorer";
 export * from "./entitlements";
