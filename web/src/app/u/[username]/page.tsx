@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function PublicProfilePage() {
@@ -161,52 +162,7 @@ export default function PublicProfilePage() {
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {builds.map((b) => (
                 <li key={b._id}>
-                  <Link
-                    href={`/b/${b._id}`}
-                    className="block relative aspect-[4/3] w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group"
-                  >
-                    {b.imageStorageId ? (
-                      <ResolvedImage
-                        imageStorageId={b.imageStorageId}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    ) : b.imageUrl ? (
-                      <img
-                        src={b.imageUrl}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
-                        <span className="material-symbols-outlined text-6xl">palette</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
-
-                    <div className="absolute inset-0 p-5 flex flex-col justify-end text-kyar-media-fg">
-                      <div className="flex justify-between items-end gap-2">
-                        <div className="flex-1 min-w-0">
-                          {b.character && (
-                            <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
-                              {b.character}
-                            </span>
-                          )}
-                          <h3 className="font-serif text-2xl lg:text-3xl font-normal italic tracking-tight leading-none truncate text-kyar-media-fg drop-shadow-md transition-opacity group-hover:opacity-90">
-                            {b.name}
-                          </h3>
-                        </div>
-                      </div>
-
-                      {typeof b.tasksTotal === "number" && b.tasksTotal > 0 && (
-                        <div className="flex items-center gap-3 pt-3">
-                          <span className="text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm truncate">
-                            {b.tasksChecked}/{b.tasksTotal} tasks
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </Link>
+                  <PublicBuildCard build={b} />
                 </li>
               ))}
             </ul>

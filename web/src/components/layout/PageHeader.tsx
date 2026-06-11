@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
-export interface BreadcrumbItem {
-  label: string;
-  href?: string;
-}
-
 export interface PageHeaderProps {
-  /** Optional breadcrumb items; last item is current page (no href). */
-  breadcrumb?: BreadcrumbItem[];
   /** Main page title (serif, italic). */
   title: string;
   /** Optional subtitle or meta line. */
@@ -39,7 +32,6 @@ export interface PageHeaderProps {
 }
 
 export function PageHeader({
-  breadcrumb: _breadcrumb,
   title,
   subtitle,
   trailing,

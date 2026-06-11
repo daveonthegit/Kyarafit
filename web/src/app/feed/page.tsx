@@ -3,75 +3,56 @@
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
-import { ResolvedImage } from "@/components/ui/ResolvedImage";
 
 export default function FeedPage() {
-  const { userId } = useCurrentUser();
-  const builds =
-    useQuery(api.builds.listFeedFromFollowing, userId ? { userId, limit: 50 } : "skip") ?? [];
+  const { userId, isLoading: authLoading } = useCurrentUser();
+  const builds = useQuery(api.builds.listFeedFromFollowing, userId ? { userId, limit: 50 } : "skip");
+  const isLoading = authLoading || (userId !== null && builds === undefined);
 
   return (
     <WebAppShell>
-      <header className="pt-16 pb-6">
-        <h1 className="font-serif text-4xl tracking-tight">Feed</h1>
-        <p className="text-sm text-kyar-textSecondary mt-2">
-          Public builds from people you follow.{" "}
-          <Link href="/discover" className="text-kyar-accent hover:underline">
-            Discover all
-          </Link>
-        </p>
-      </header>
+      <PageHeader title="Feed" subtitle="Public builds from people you follow" />
 
-      <main className="mt-6">
-        {!userId ? (
-          <p className="text-sm text-kyar-textSecondary">
-            <Link href="/auth/signin" className="text-kyar-accent hover:underline">
-              Sign in
-            </Link>{" "}
-            to see builds from people you follow.
-          </p>
-        ) : builds.length === 0 ? (
-          <p className="text-sm text-kyar-textSecondary">
-            No builds yet from people you follow.{" "}
-            <Link href="/discover" className="text-kyar-accent hover:underline">
-              Discover
-            </Link>{" "}
-            public builds and follow creators.
-          </p>
+      <main className="mt-6 flex-1 pb-24 lg:pb-8">
+        {isLoading ? (
+          <EmptyState icon="hourglass_empty" message="Loading…" />
+        ) : !userId ? (
+          <EmptyState
+            icon="group"
+            message="Sign in to see builds from people you follow."
+            action={
+              <Link
+                href="/auth/signin"
+                className="min-h-[44px] inline-flex items-center rounded border border-kyar-text px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors hover:bg-kyar-text hover:text-kyar-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              >
+                Sign in
+              </Link>
+            }
+          />
+        ) : !builds || builds.length === 0 ? (
+          <EmptyState
+            icon="rss_feed"
+            message="No builds yet from people you follow."
+            secondary="Discover public builds and follow creators to fill your feed."
+            action={
+              <Link
+                href="/discover"
+                className="min-h-[44px] inline-flex items-center rounded border border-kyar-text px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors hover:bg-kyar-text hover:text-kyar-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              >
+                Discover builds
+              </Link>
+            }
+          />
         ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {builds.map((b) => (
               <li key={b._id}>
-                <Link
-                  href={`/b/${b._id}`}
-                  className="block border border-kyar-cardBorder rounded-lg overflow-hidden bg-kyar-card hover:border-kyar-accent/50 transition-colors"
-                >
-                  <div className="aspect-[4/3] bg-kyar-mutedWarm relative">
-                    {b.imageStorageId ? (
-                      <ResolvedImage
-                        imageStorageId={b.imageStorageId}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : b.imageUrl ? (
-                      <img src={b.imageUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary material-symbols-outlined text-4xl">
-                        palette
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <p className="font-medium truncate">{b.name}</p>
-                    {(b.ownerUsername || b.ownerName) && (
-                      <p className="text-xs text-kyar-textTertiary mt-1">
-                        {b.ownerUsername ? `@${b.ownerUsername}` : b.ownerName}
-                      </p>
-                    )}
-                  </div>
-                </Link>
+                <PublicBuildCard build={b} showOwner />
               </li>
             ))}
           </ul>
