@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { normalizeTier } from "@kyarafit/design-system/domain/entitlements";
+import { normalizeTier, isPaidTier } from "@kyarafit/design-system/domain/entitlements";
 
 export interface MeResponse {
   tier: string;
@@ -41,21 +41,29 @@ export function useTier(): { data: MeResponse | null; isLoading: boolean } {
   };
 }
 
-/** Returns feature access based on user's tier */
+/**
+ * Returns feature access based on user's tier.
+ *
+ * Single source of truth for gating. Paid features are gated by `isPaid` (PRO or SUPPORTER —
+ * identical access), not by a specific tier. Export/import is FREE for everyone; automatic
+ * cloud sync is the paid lever. There are no build/convention count limits.
+ */
 export function useFeatureAccess() {
   const { data: me } = useTier();
   const tier = normalizeTier(me?.tier ?? "ANON");
+  const isPaid = isPaidTier(tier);
 
   return {
     tier,
+    isPaid,
     canUseWeb: true,
-    canUseCloudSync: tier === "pro" || tier === "studio",
-    canExport: tier === "pro" || tier === "studio",
-    canImport: tier === "pro" || tier === "studio",
-    canExportCSV: tier === "studio",
-    canExportPDF: tier === "studio",
-    hasUnlimitedStorage: tier === "studio",
-    hasUnlimitedBuilds: tier === "studio",
-    hasUnlimitedConventions: tier === "studio",
+    // Paid lever: continuous cloud sync + multi-device.
+    canUseCloudSync: isPaid,
+    canCollaborate: isPaid,
+    canUseAdvancedPlanner: isPaid,
+    hasPrioritySupport: isPaid,
+    // Free for everyone — manual portability that paid sync replaces.
+    canExport: true,
+    canImport: true,
   };
 }

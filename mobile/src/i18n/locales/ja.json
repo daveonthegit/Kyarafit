@@ -418,7 +418,7 @@
     "tierName": {
       "FREE": "無料",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "サポーター"
     },
     "subscriptionPlan": "サブスクリプション",
     "subscriptionPlansLabel": "プラン",

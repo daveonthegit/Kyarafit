@@ -6,6 +6,9 @@ A mobile-first cosplay wardrobe and outfit planning app for cosplayers, fashion 
 
 Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan conventions, and generate packing lists automatically. The app uses a funnel-based architecture where users progress from inventory management through outfit organization to event planning.
 
+> **Working on the project?** Start with **[CURRENT_PLAN.md](CURRENT_PLAN.md)** — the canonical
+> snapshot of current direction, what's implemented, what's in progress, conventions, and known gaps.
+
 ## Core Features
 
 - **Closet Management**: Organize costume pieces with photos
@@ -19,8 +22,8 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 
 - **Backend**: [Convex](https://convex.dev) — database, real-time queries, mutations, file storage
 - **Auth**: [Better Auth](https://better-auth.com) — Google OAuth (GitHub optional), running as a Convex component
-- **Web**: Next.js 15 (App Router) with TailwindCSS
-- **Mobile**: React Native with Expo, local SQLite for offline-first storage
+- **Web**: Next.js 16 (App Router) with TailwindCSS
+- **Mobile**: React Native with Expo, local SQLite for offline-first storage (`mobile/src/offline/`)
 - **Image Service**: Python service for background removal (optional)
 - **Design System**: Shared TypeScript types and tokens
 
@@ -181,7 +184,7 @@ make test          # Run all tests
 
 - **Backend**: [Convex](https://convex.dev) (database, real-time, file storage)
 - **Auth**: [Better Auth](https://better-auth.com) (Google/GitHub OAuth)
-- **Web**: React, Next.js 15, TailwindCSS
+- **Web**: React 19, Next.js 16, TailwindCSS
 - **Mobile**: React Native, Expo, SQLite (offline-first)
 - **Image Processing**: Python, rembg (optional)
 - **Design System**: Shared TypeScript types and tokens
@@ -201,9 +204,12 @@ Run `make validate` before pushing. See [CI_LOCAL.md](CI_LOCAL.md) for details.
 
 ## Deployment
 
-- **Convex**: Auto-deploys via `npx convex deploy` or GitHub Actions
-- **Web**: GCP Cloud Run (automated via GitHub Actions)
-- **Image Service**: GCP Cloud Run (optional, automated via GitHub Actions)
+- **Convex**: `npx convex deploy`
+- **Web**: `web/fly.toml` present (Fly.io)
+- **Image Service**: `image-service/fly.toml` present (Fly.io, optional)
+
+> Deploy automation is `Needs verification`: `fly.toml` files indicate Fly.io, GitHub Actions run
+> CI (lint/typecheck/test), and older docs reference GCP/Vercel. Confirm the live target before relying on this.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the Supabase → Convex migration summary.
 

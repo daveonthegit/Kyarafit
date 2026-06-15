@@ -3,8 +3,8 @@ import { internal } from "./_generated/api";
 import { bestConvexTierFromSubscriberEntitlements } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 
 /**
- * RevenueCat entitlement ids → Convex `users.tier` (`FREE` | `PRO` | `STUDIO`) are defined in
- * `design-system/domain/subscriptionTierPolicy.ts` (`pro`, `studio`, legacy `premium_*`).
+ * RevenueCat entitlement ids → Convex `users.tier` (`FREE` | `PRO` | `SUPPORTER`) are defined in
+ * `design-system/domain/subscriptionTierPolicy.ts` (`pro`, `supporter`, legacy `studio`/`premium_*`).
  */
 function tierFromSubscriberJson(data: {
   subscriber?: {

@@ -1,5 +1,18 @@
 {
   "permissions": {
-    "allow": ["Bash(grep -E \"\\\\.tsx$\")", "Bash(npm run *)"]
+    "allow": [
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(npm run *)",
+      "Bash(cd /c/Users/darkf/Documents/Kyarafit/mobile && grep -rln \"#[0-9a-fA-F]\\\\{6\\\\}\" --include=\"*.tsx\" app src | head -20; echo ---GRAD---; grep -rln \"LinearGradient\" --include=\"*.tsx\" app src | head)",
+      "Bash(cd /c/Users/darkf/Documents/Kyarafit/web/src && grep -rln \"useTranslations\" --include=\"*.tsx\" app components | wc -l && grep -rln \"\" --include=\"*.tsx\" app | wc -l)",
+      "Bash(git rm *)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import json;[json.load\\(open\\(f'src/i18n/locales/{l}.json', encoding='utf-8'\\)\\) for l in \\('en','es','ja'\\)];print\\('valid json'\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(npx eslint *)",
+      "Read(//c/Users/darkf/.claude/projects/C--Users-darkf-Documents-Kyarafit/memory/**)",
+      "Bash(echo \"- [Kyarafit design language & audit gaps]\\(kyarafit-design-language.md\\) — editorial token system, primitives, and known consistency gaps\")"
+    ]
   }
 }

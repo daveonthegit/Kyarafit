@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   SUBSCRIPTION_PLANS,
-  formatPlanBuildLimit,
   formatPlanStorage,
   formatUsdPrice,
   getSubscriptionPlanByTier,
@@ -49,15 +48,17 @@ function PlanCard({ plan, currentTier }: { plan: SubscriptionPlan; currentTier: 
 
       <div className="mt-5 border-t border-kyar-borderSubtle pt-5">
         <p className="font-serif text-4xl tracking-tight text-kyar-text">
-          {formatUsdPrice(plan.monthlyPriceUsd)}
+          {plan.payWhatYouWant ? `From ${formatUsdPrice(plan.monthlyPriceUsd)}` : formatUsdPrice(plan.monthlyPriceUsd)}
           <span className="ml-1 font-sans text-sm text-kyar-textSecondary">/ mo</span>
         </p>
         <p className="mt-1 text-xs text-kyar-textSecondary">
-          {isPaid
-            ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
-                plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
-              }`
-            : "No payment required"}
+          {plan.payWhatYouWant
+            ? "Pay what you want, billed monthly"
+            : isPaid
+              ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
+                  plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
+                }`
+              : "No payment required"}
         </p>
       </div>
 
@@ -69,9 +70,9 @@ function PlanCard({ plan, currentTier }: { plan: SubscriptionPlan; currentTier: 
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] uppercase tracking-widest text-kyar-textSecondary">Builds</dt>
+          <dt className="text-[10px] uppercase tracking-widest text-kyar-textSecondary">Sync</dt>
           <dd className="mt-1 text-sm font-medium text-kyar-text">
-            {formatPlanBuildLimit(plan.maxBuilds)}
+            {plan.id === "free" ? "Local only" : "All devices"}
           </dd>
         </div>
       </dl>
@@ -170,17 +171,17 @@ export default function SettingsSubscriptionPage() {
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <h3 className="text-sm font-semibold text-kyar-text">Pro unlocks momentum</h3>
+                  <h3 className="text-sm font-semibold text-kyar-text">Pro stops the busywork</h3>
                   <p className="mt-2 text-sm leading-6 text-kyar-textSecondary">
-                    More builds, more image storage, collaboration invites, import/export, and
-                    advanced planning for deadlines and nested build tasks.
+                    Automatic cloud backup and sync across every device, collaboration invites,
+                    advanced planning, and 2 GB of image storage — no manual exports to manage.
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-kyar-text">Studio removes ceilings</h3>
+                  <h3 className="text-sm font-semibold text-kyar-text">Supporter gives back</h3>
                   <p className="mt-2 text-sm leading-6 text-kyar-textSecondary">
-                    Unlimited storage and builds, CSV/PDF exports, and priority support for creators
-                    running many looks or a small cosplay team.
+                    Exactly the same features as Pro at a contribution amount you choose, for people
+                    who want to help fund Kyarafit&rsquo;s ongoing development.
                   </p>
                 </div>
               </div>

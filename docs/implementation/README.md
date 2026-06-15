@@ -2,22 +2,25 @@
 
 Planning and status docs for the Kyarafit app. **Convex + Better Auth** is the active stack; Supabase and Go backend are archived.
 
+> **For the current, concise project snapshot, see [CURRENT_PLAN.md](../../CURRENT_PLAN.md).** The
+> docs in this folder are the detailed/historical planning record and may lag the snapshot.
+
 ---
 
 ## Stack Summary
 
-| Layer                 | Technology                                                                                                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Backend**           | Convex (database, queries, mutations, file storage). Go backend is **archived** (`backend-archived/`); not used by web or mobile.                                                                            |
-| **Frontend (web)**    | Next.js 16 (App Router), React 19, TailwindCSS, Convex React hooks (`useQuery`/`useMutation`) only—no Go API, no IndexedDB.                                                                                  |
-| **Frontend (mobile)** | Expo (React Native), Convex when signed in; local SQLite + `useConvexSync` / `convexSync.ts` for offline/sync.                                                                                               |
-| **DB**                | Convex (document DB). No Supabase/Prisma/migrations in active use.                                                                                                                                           |
-| **Auth**              | Better Auth (Google/GitHub OAuth, email+password) as Convex HTTP component (`convex/betterAuth/`). Session via bearer token (localStorage/AsyncStorage).                                                     |
-| **Validation/types**  | Convex validators (`v.*` in `convex/*.ts`); design-system types in `design-system/types/`. No OpenAPI; legacy Go API doc in `docs/api/`.                                                                     |
-| **Monorepo**          | npm workspaces: `web`, `mobile`, `design-system`. No pnpm/turborepo/Nx.                                                                                                                                      |
-| **Testing**           | Web: `npm run test` (placeholder); mobile: same; image-service: pytest; Go tests skipped in CI (backend archived).                                                                                           |
-| **Lint/format**       | Prettier (root + workspaces), ESLint (web, mobile). Local CI: `scripts/ci-local.ps1` and `scripts/ci-local.sh`. Use **`npm run validate`** or **`npm run ci`** / **`npm run ci:win`** (no Makefile in repo). |
-| **Deployment**        | Web: Vercel; Convex: `npx convex deploy`; image-service: Fly (fly.toml).                                                                                                                                     |
+| Layer                 | Technology                                                                                                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend**           | Convex (database, queries, mutations, file storage). Go backend is **archived** (`backend-archived/`); not used by web or mobile.                                                                                                                             |
+| **Frontend (web)**    | Next.js 16 (App Router), React 19, TailwindCSS, Convex React hooks (`useQuery`/`useMutation`) only—no Go API, no IndexedDB.                                                                                                                                   |
+| **Frontend (mobile)** | Expo (React Native), Convex when signed in; local SQLite offline layer in `mobile/src/offline/` (`useOfflineQuery`/`useOfflineMutation` bridge, mutation queue, sync worker).                                                                                 |
+| **DB**                | Convex (document DB). No Supabase/Prisma/migrations in active use.                                                                                                                                                                                            |
+| **Auth**              | Better Auth (Google/GitHub OAuth, email+password) as Convex HTTP component (`convex/betterAuth/`). Session via bearer token (localStorage/AsyncStorage).                                                                                                      |
+| **Validation/types**  | Convex validators (`v.*` in `convex/*.ts`); design-system types in `design-system/types/`. No OpenAPI; legacy Go API doc in `docs/api/`.                                                                                                                      |
+| **Monorepo**          | npm workspaces: `web`, `mobile`, `design-system`. No pnpm/turborepo/Nx.                                                                                                                                                                                       |
+| **Testing**           | Web: `npm run test` (placeholder); mobile: same; image-service: pytest; Go tests skipped in CI (backend archived).                                                                                                                                            |
+| **Lint/format**       | Prettier (root + workspaces), ESLint (web, mobile). Use **`npm run validate`** / **`npm run ci`** / **`npm run ci:win`**. A root `Makefile` exists but is partly stale (references the archived Go backend + docker postgres/redis) — prefer the npm scripts. |
+| **Deployment**        | Convex: `npx convex deploy`; web + image-service: `fly.toml` present (Fly.io). Exact deploy automation is `Needs verification` (older docs claim GCP/Vercel).                                                                                                 |
 
 Evidence: [package.json](../../package.json), [web/package.json](../../web/package.json), [convex/schema.ts](../../convex/schema.ts), [docs/MIGRATION.md](../MIGRATION.md), [.github/workflows/ci.yml](../../.github/workflows/ci.yml), [scripts/ci-local.ps1](../../scripts/ci-local.ps1).
 

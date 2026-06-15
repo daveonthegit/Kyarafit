@@ -1,31 +1,65 @@
 import { type ReactNode, useEffect } from "react";
-import NetInfo from "@react-native-community/netinfo";
+import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
+import { useConvex } from "convex/react";
 import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
+import { setOfflineConnectivity } from "./connectivity";
+import { drainMutationQueue } from "./syncWorker";
+
+function isOnlineFromState(state: NetInfoState): boolean {
+  return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+function runMaintenance(): void {
+  try {
+    enforceOfflineStorageCaps();
+    pruneOfflineTombstones();
+  } catch (e) {
+    console.warn("[offline] maintenance failed", e);
+  }
+}
 
 /**
- * Initializes SQLite and subscribes to connectivity (Phase 2 shell).
- * Full FIFO flush + Convex replay lands with feature screens (§3.13.3).
+ * Initializes SQLite, tracks connectivity, and drains the offline mutation queue on reconnect.
+ * Full SQLite SWR + per-entity reconciliation continues to land incrementally (§3.13).
  */
 export function SyncWorkerProvider({ children }: { children: ReactNode }) {
+  const convex = useConvex();
+
   useEffect(() => {
     try {
       getOfflineDb();
-      pruneOfflineTombstones();
-      enforceOfflineStorageCaps();
     } catch (e) {
       console.warn("[offline] db init failed", e);
     }
+    runMaintenance();
   }, []);
 
   useEffect(() => {
-    const unsub = NetInfo.addEventListener(() => {
-      // Keep queue/cache bounded on connectivity transitions.
-      enforceOfflineStorageCaps();
-      pruneOfflineTombstones();
-      /* Future: drain mutation_queue when online */
-    });
-    return () => unsub();
-  }, []);
+    let cancelled = false;
+
+    // Apply the latest connectivity, run bounded maintenance, and drain only when confirmed online.
+    const apply = (isOnline: boolean) => {
+      if (cancelled) return;
+      setOfflineConnectivity(isOnline);
+      runMaintenance();
+      if (isOnline) {
+        void drainMutationQueue(convex);
+      }
+    };
+
+    // Establish the real initial state before any drain — never drain on the optimistic default.
+    void NetInfo.fetch()
+      .then((state) => apply(isOnlineFromState(state)))
+      .catch(() => {
+        /* leave connectivity at its current value; the listener will correct it */
+      });
+
+    const unsub = NetInfo.addEventListener((state) => apply(isOnlineFromState(state)));
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [convex]);
 
   return <>{children}</>;
 }

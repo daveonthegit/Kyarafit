@@ -418,7 +418,7 @@
     "tierName": {
       "FREE": "Free",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "Supporter"
     },
     "subscriptionPlan": "Subscription plan",
     "subscriptionPlansLabel": "Plans",

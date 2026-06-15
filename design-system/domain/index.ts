@@ -5,6 +5,8 @@ export * from "./eventDates";
 export * from "./cosplayExplorer";
 export * from "./plannerTaskExplorer";
 export * from "./entitlements";
+export * from "./offlineQueryCache";
+export * from "./offlineMutationQueue";
 export * from "./subscriptionTierPolicy";
 export * from "./subscriptionPlans";
 export * from "./adPolicy";

@@ -172,19 +172,27 @@ function evictStorageUntilUnderCap(db: SQLiteDatabase): void {
 export function pruneOfflineTombstones(
   cutoffMs = Date.now() - OFFLINE_TOMBSTONE_RETENTION_MS
 ): void {
-  const db = getOfflineDb();
-  db.execSync(`
-    DELETE FROM entity_rows
-    WHERE deleted = 1
-      AND synced_at IS NOT NULL
-      AND synced_at <= ${Math.floor(cutoffMs)}
-  `);
+  try {
+    const db = getOfflineDb();
+    db.execSync(`
+      DELETE FROM entity_rows
+      WHERE deleted = 1
+        AND synced_at IS NOT NULL
+        AND synced_at <= ${Math.floor(cutoffMs)}
+    `);
+  } catch {
+    // Best-effort maintenance; never throw (e.g. SQLite/RN-web failure).
+  }
 }
 
 export function enforceOfflineStorageCaps(): void {
-  const db = getOfflineDb();
-  pruneMutationQueueRows(db);
-  evictStorageUntilUnderCap(db);
+  try {
+    const db = getOfflineDb();
+    pruneMutationQueueRows(db);
+    evictStorageUntilUnderCap(db);
+  } catch {
+    // Best-effort maintenance; never throw.
+  }
 }
 
 async function wipeKnownImageCaches(): Promise<void> {

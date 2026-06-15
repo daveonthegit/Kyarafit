@@ -418,7 +418,7 @@
     "tierName": {
       "FREE": "Gratis",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "Mecenas"
     },
     "subscriptionPlan": "Plan de suscripción",
     "subscriptionPlansLabel": "Planes",

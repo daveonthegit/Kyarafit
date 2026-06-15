@@ -7,7 +7,6 @@ import Purchases, { type CustomerInfo, type PurchasesPackage } from "react-nativ
 import { api } from "convex/_generated/api";
 import {
   SUBSCRIPTION_PLANS,
-  formatPlanBuildLimit,
   formatPlanStorage,
   formatUsdPrice,
   type SubscriptionBillingInterval,
@@ -18,7 +17,7 @@ import { formatStorageMb } from "@/lib/formatStorageMb";
 import { useTier } from "@/lib/useTier";
 import {
   addRevenueCatCustomerInfoUpdateListener,
-  customerHasProEntitlement,
+  customerHasPaidEntitlement,
   didRevenueCatPaywallUnlockEntitlement,
   ensureRevenueCatConfigured,
   getRevenueCatCustomerInfo,
@@ -113,7 +112,7 @@ export default function SettingsSubscriptionScreen() {
   const [offeringsLoading, setOfferingsLoading] = useState(nativeIap);
   const [workingPackageId, setWorkingPackageId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
-  const hasProEntitlement = customerHasProEntitlement(customerInfo);
+  const hasPaidEntitlement = customerHasPaidEntitlement(customerInfo);
 
   useEffect(() => {
     if (!nativeIap) {
@@ -200,6 +199,11 @@ export default function SettingsSubscriptionScreen() {
 
   const onPresentPaywall = useCallback(async () => {
     setNotice(null);
+    // Supporter and Pro are paid-equivalent; don't prompt an already-paid customer for Pro.
+    if (hasPaidEntitlement) {
+      setNotice({ tone: "ok", text: "Your subscription is already active." });
+      return;
+    }
     setWorkingPackageId("paywall");
     try {
       const result = await presentProPaywallIfNeeded();
@@ -217,7 +221,7 @@ export default function SettingsSubscriptionScreen() {
     } finally {
       setWorkingPackageId(null);
     }
-  }, [t]);
+  }, [hasPaidEntitlement, t]);
 
   const onPresentCustomerCenter = useCallback(async () => {
     setNotice(null);
@@ -332,14 +336,18 @@ export default function SettingsSubscriptionScreen() {
                           ) : null}
                         </View>
                         <Text className="mt-4 text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                          {formatUsdPrice(plan.monthlyPriceUsd)} / mo
+                          {plan.payWhatYouWant
+                            ? `From ${formatUsdPrice(plan.monthlyPriceUsd)} / mo`
+                            : `${formatUsdPrice(plan.monthlyPriceUsd)} / mo`}
                         </Text>
                         <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {isPaid
-                            ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
-                                plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
-                              }`
-                            : "No payment required"}
+                          {plan.payWhatYouWant
+                            ? "Pay what you want, billed monthly"
+                            : isPaid
+                              ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
+                                  plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
+                                }`
+                              : "No payment required"}
                         </Text>
 
                         <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
@@ -351,7 +359,10 @@ export default function SettingsSubscriptionScreen() {
                             label="Storage"
                             value={formatPlanStorage(plan.storageLimitMb)}
                           />
-                          <PlanMetric label="Builds" value={formatPlanBuildLimit(plan.maxBuilds)} />
+                          <PlanMetric
+                            label="Sync"
+                            value={plan.id === "free" ? "Local only" : "All devices"}
+                          />
                         </View>
 
                         <View className="mt-5 gap-3">
@@ -394,7 +405,38 @@ export default function SettingsSubscriptionScreen() {
                             </Text>
                           </View>
                         ) : null}
-                        {isPaid && nativeIap && !offeringsLoading ? (
+                        {isPaid && nativeIap && !offeringsLoading && plan.payWhatYouWant ? (
+                          <View className="mt-4 flex-row flex-wrap gap-2">
+                            {(plan.presets ?? []).map((preset) => {
+                              const pkg =
+                                packages.find((p) => p.product.identifier === preset.productId) ??
+                                null;
+                              const disabled =
+                                active ||
+                                pkg == null ||
+                                workingPackageId != null ||
+                                !identity?.subject;
+                              return (
+                                <Button
+                                  key={preset.id}
+                                  title={
+                                    pkg == null
+                                      ? "Not configured"
+                                      : workingPackageId === pkg.identifier
+                                        ? "Opening..."
+                                        : pkg.product.priceString || preset.label
+                                  }
+                                  variant="secondary"
+                                  className="flex-1"
+                                  disabled={disabled}
+                                  onPress={() => {
+                                    if (pkg) void onPurchase(pkg);
+                                  }}
+                                />
+                              );
+                            })}
+                          </View>
+                        ) : isPaid && nativeIap && !offeringsLoading ? (
                           <View className="mt-4 flex-row gap-2">
                             {(["monthly", "annual"] as const).map((interval) => {
                               const pkg = interval === "monthly" ? monthly : annual;
@@ -436,7 +478,7 @@ export default function SettingsSubscriptionScreen() {
                   {subscriptionBody}
                 </Text>
                 <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  RevenueCat `pro` entitlement: {hasProEntitlement ? "active" : "not active"}
+                  Subscription: {hasPaidEntitlement ? "active" : "not active"}
                 </Text>
                 {notice ? (
                   <Text

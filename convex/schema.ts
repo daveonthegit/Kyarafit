@@ -456,7 +456,7 @@ export default defineSchema({
     audience: v.union(
       v.literal("all"),
       v.literal("tier:pro"),
-      v.literal("tier:studio"),
+      v.literal("tier:supporter"),
       v.literal("userIds")
     ),
     audienceArgs: v.optional(v.any()),
