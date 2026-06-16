@@ -3,7 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
-import { runIdempotent } from "./lib/idempotency";
+import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -141,9 +141,12 @@ export const update = mutation({
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
     archived: v.optional(v.boolean()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
+    const { id, userId, idempotencyKey, ...fields } = args;
+    const replay = await idempotentReplay(ctx, idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"conventions"> | null;
     const convention = await ctx.db.get(id);
     if (!convention || convention.userId !== userId) {
       throw new Error("Not found or not authorized");
@@ -172,7 +175,7 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
-    return await ctx.db.get(id);
+    return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
   },
 });
 
@@ -181,13 +184,17 @@ export const archiveMany = mutation({
     ids: v.array(v.id("conventions")),
     userId: v.string(),
     archived: v.boolean(),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return;
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
       if (!convention || convention.userId !== args.userId) continue;
       await ctx.db.patch(id, { archived: args.archived });
     }
+    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
   },
 });
 
@@ -265,8 +272,11 @@ export const replacePlan = mutation({
         notes: v.optional(v.string()),
       })
     ),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as (Doc<"conventionDayPlans"> | null)[];
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== args.userId) {
       throw new Error("Not found or not authorized");
@@ -293,7 +303,7 @@ export const replacePlan = mutation({
       });
       results.push(await ctx.db.get(id));
     }
-    return results;
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, results);
   },
 });
 
@@ -377,8 +387,11 @@ export const addManualPackingItem = mutation({
     date: v.optional(v.string()),
     notes: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"packingListItems"> | null;
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== args.userId) {
       throw new Error("Not found or not authorized");
@@ -409,7 +422,7 @@ export const addManualPackingItem = mutation({
       checked: false,
       manual: true,
     });
-    return await ctx.db.get(id);
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(id));
   },
 });
 

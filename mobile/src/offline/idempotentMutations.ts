@@ -17,6 +17,10 @@ const IDEMPOTENT_MUTATIONS = new Set<string>([
   "builds:duplicate",
   "builds:addNodesToBuild",
   "conventions:create",
+  "conventions:update",
+  "conventions:archiveMany",
+  "conventions:replacePlan",
+  "conventions:addManualPackingItem",
 ]);
 
 export function isIdempotentMutation(functionName: string): boolean {
