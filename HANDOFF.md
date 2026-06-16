@@ -1,57 +1,93 @@
 # Session Handoff — `feat/local-first-and-tiers`
 
-_Created 2026-06-15. Read [CURRENT_PLAN.md](CURRENT_PLAN.md) first (canonical snapshot), then this
+_Updated 2026-06-15. Read [CURRENT_PLAN.md](CURRENT_PLAN.md) first (canonical snapshot), then this
 for session-specific state and the immediate next step._
 
-## TL;DR of what landed this session
+## What's landed on this branch
 
-1. **Monetization refactor (code complete).** Collapsed PRO/STUDIO → one paid level. Tiers are now
-   **FREE + PRO + SUPPORTER** (Supporter = identical features to Pro, pay-what-you-want via preset
-   price points). Build/convention limits removed. **All export is free; cloud sync is the only paid
-   lever.** Gate paid features with `isPaidTier`/`isPaid`. Premium cloud cap = 2 GB.
-   Sources: `design-system/domain/{subscriptionTierPolicy,entitlements,subscriptionPlans}.ts`.
-2. **Local-first mobile slices (additive, non-regressing).**
-   - `useOfflineQuery` — SWR over SQLite `query_cache` (`mobile/src/offline/useOfflineQuery.ts`).
+1. **Monetization refactor (code complete).** Tiers are now **FREE + PRO + SUPPORTER** (Supporter =
+   identical features to Pro, pay-what-you-want via preset price points). Build/convention limits
+   removed. **All export is free; cloud sync is the only paid lever.** Gate paid features with
+   `isPaidTier`/`isPaid`. Premium cloud cap = 2 GB. Sources:
+   `design-system/domain/{subscriptionTierPolicy,entitlements,subscriptionPlans}.ts`.
+2. **Local-first mobile foundation (additive, non-regressing).**
+   - `useOfflineQuery` — SWR over SQLite `query_cache`.
    - `useOfflineMutation` + sync worker — online passthrough / offline enqueue / FIFO drain on
-     reconnect, connectivity-guarded (`mobile/src/offline/{useOfflineMutation,syncWorker,mutationQueue,connectivity}.ts`).
-   - Shared pure logic + tests in `design-system/domain/offline*.ts` and `web/src/lib/offline/*.test.ts`.
-3. **CODEX review fixes applied** (offline drain never burns retries while offline; `generateUploadUrl`
-   stays online-only; SQLite maintenance fail-closed; mobile subscription recognizes Supporter as paid;
-   `getSubscriptionPlanByTier` normalizes input). Removed the legacy `tier:studio` schema literal
-   (no subscribers/data exist).
-4. **Docs refreshed:** `CURRENT_PLAN.md` (new), `README.md`, `docs/implementation/README.md`.
+     reconnect, connectivity-guarded (`mobile/src/offline/`).
+   - Shared pure logic + tests in `design-system/domain/offline*.ts`, `web/src/lib/offline/*.test.ts`.
+3. **Server idempotency for offline replay (in progress).** `convex/lib/idempotency.ts` +
+   `idempotencyLedger` (pruned daily by `convex/idempotencyLedger.ts` cron). The sync worker injects
+   the queued key for mutations registered in `mobile/src/offline/idempotentMutations.ts`.
+   **Covered:** builds (`create`, `update`, `updateStatusMany`, `duplicate`, `addNodesToBuild`),
+   conventions (`create`, `update`, `archiveMany`, `replacePlan`, `addManualPackingItem`).
+4. **buildTasks investigated (not pruned).** `api.buildTasks.*` is already a **workflowItems shim**;
+   the table is vestigial (empty on prod). Pruning **deferred** by choice — see CURRENT_PLAN gap entry
+   for the staged-removal recipe.
+5. **CODEX review fixes applied** earlier (offline drain never burns retries while offline;
+   `generateUploadUrl` stays online-only; SQLite maintenance fail-closed; mobile subscription
+   recognizes Supporter as paid; `getSubscriptionPlanByTier` normalizes input).
+6. **Docs:** `CURRENT_PLAN.md`, `README.md`, `docs/implementation/README.md` refreshed.
 
-## Immediate next step (highest priority)
+Recent commits: `abab72a` (docs buildTasks) · `dc1c6a8` (conventions idem) · `9971a65` (builds idem) ·
+`546874b` (ledger cron) · `053a280` (builds/conventions create idem) · `29fbc3c` (handoff) ·
+`1854dff` (tier + offline foundation).
 
-**Server idempotency** — make offline mutation replay dedupe-safe. The write path is at-least-once
-today; a lost-response retry can duplicate a create. Plan:
+## Immediate next step — finish idempotency coverage
 
-- Add a shared `withIdempotency` helper in Convex using the existing `idempotencyLedger` table.
-- Wire it into the core offline-capable mutations (builds/closet/cosplayNodes/buildTasks/conventions create+update).
-- Have the sync worker pass the queued `idempotency_key` (already stored on each `mutation_queue` row).
+Apply the same pattern to the remaining offline-capable mutations:
 
-After that, in order: `clientId`/`id_map` for offline-created ids → optimistic visibility
+- **`convex/workflow.ts`**: `create`, `update`, `move`, `moveAndResequence` (the reorders are the
+  genuinely non-idempotent ones — highest value here).
+- **`convex/users.ts` `setFocusedBuild`** — ⚠️ this reads the user from `ctx.auth.getUserIdentity()`,
+  **not** an `args.userId`. Pass `identity.subject` as the ledger `userId` (the helpers take it as a
+  param), not `args.userId`.
+
+**N/A / intentionally skipped:** `buildTasks` (web-only workflow shim, never offline-enqueued);
+`closetItems`/`cosplayNodes` create (not enqueued via the offline bridge — only
+`cosplayNodes.removeMany` is, and deletes are naturally idempotent); `conventions.updatePackingItem`
+(naturally-idempotent `checked` toggle, multi-return — skipped to avoid risk for no benefit).
+
+### How to wrap a mutation (the established pattern)
+
+1. Add `idempotencyKey: v.optional(v.string())` to the mutation's `args`.
+2. Wrap the handler using `convex/lib/idempotency.ts`:
+   - **Simple, single trailing `return`** → `runIdempotent(ctx, args.idempotencyKey, userId, async () => { ...body... })`.
+   - **`...fields` / large / void / multi-return** → top-guard: `const replay = await idempotentReplay(ctx, key); if (replay.hit) return replay.result as <T>;` … then at the **single** trailing return `return idempotentRecord(ctx, key, userId, <result>);` (record must run at most once per call).
+   - For `...fields` handlers, **destructure `idempotencyKey` out** so it doesn't leak into the patch loop: `const { id, userId, idempotencyKey, ...fields } = args;`.
+3. Register the Convex function name in `mobile/src/offline/idempotentMutations.ts` (e.g.
+   `"workflow:create"`). The worker only injects the key for registered names, so an unregistered
+   mutation never receives an arg its validator rejects.
+
+After idempotency: `clientId`/`id_map` for offline-created ids → optimistic visibility
 (`entity_rows` read-through) → free-local-only gating → web OPFS port → images → export/import →
 upgrade/downgrade. Full detail: [docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md](docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md).
 
 ## Verify (all green as of this session)
 
 ```bash
+npx tsc --noEmit -p convex/tsconfig.json     # Convex backend — NOT covered by the npm scripts
 npm run typecheck -w design-system && npm run typecheck:web && npm run typecheck:mobile
 npm test -w web            # 96 passing (incl. 16 offline)
 npm run lint:mobile        # 0 errors (4 pre-existing warnings)
 npm run i18n:check
 ```
 
-## Caveats for whoever picks this up
+## Workflow notes
 
-- **The commit on this branch bundles more than this session's work.** The working tree also carried
-  **pre-existing uncommitted** design/settings/editorial edits (web pages, ElementPortfolioCard,
-  PageHeader, ThemeContext, planner UI, i18n, etc.) that were modified before the session. They
-  compile and pass tests but were not authored or reviewed here.
-- **Not authored this session:** `docs/implementation/AUTH_OPTIMIZATION_DEFERRED.md` appeared mid-session
-  from another source — review before relying on it.
+- **Commit + push per verified slice** (the chosen cadence). Each slice: edit → verify (above) →
+  `prettier --write` touched files → commit → `git push`.
+- **Convex codegen:** `npx convex codegen` regenerates `convex/_generated` **and pushes to the dev
+  deployment** (normal dev flow). Needed when you add a **new internal-function reference** (e.g. a
+  cron). Plain arg additions to existing mutations don't need it to compile, but run it to keep
+  `_generated` in sync and commit the result.
+
+## Caveats
+
+- **The branch bundles pre-existing uncommitted work** (design/settings/editorial edits — web pages,
+  ElementPortfolioCard, PageHeader, ThemeContext, planner UI, i18n) that predated this work; not
+  authored/reviewed here. `docs/implementation/AUTH_OPTIMIZATION_DEFERRED.md` also appeared from
+  another source — review before relying on it.
 - **External config still needed:** Supporter preset products must be created in RevenueCat + App
-  Store/Play before they're purchasable (buttons show "Not configured" until then).
-- **`Needs verification`:** deploy automation target (Fly vs GCP vs Vercel); canonical task system
-  (`buildTasks` vs `workflowItems`); group-create paid gate is decided but not yet enforced in code.
+  Store/Play before purchasable (buttons show "Not configured" until then).
+- **`Needs verification`:** deploy automation target (Fly vs GCP vs Vercel); group-create paid gate is
+  decided but not yet enforced in code.
