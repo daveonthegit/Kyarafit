@@ -10,7 +10,14 @@
  *
  * Keys are Convex function names (`getFunctionName(api.x.y)`), e.g. `"builds:create"`.
  */
-const IDEMPOTENT_MUTATIONS = new Set<string>(["builds:create", "conventions:create"]);
+const IDEMPOTENT_MUTATIONS = new Set<string>([
+  "builds:create",
+  "builds:update",
+  "builds:updateStatusMany",
+  "builds:duplicate",
+  "builds:addNodesToBuild",
+  "conventions:create",
+]);
 
 export function isIdempotentMutation(functionName: string): boolean {
   return IDEMPOTENT_MUTATIONS.has(functionName);

@@ -37,3 +37,38 @@ export async function runIdempotent<T>(
   });
   return result;
 }
+
+/**
+ * Two-part variant of {@link runIdempotent} for handlers whose body is awkward to wrap in a closure
+ * (e.g. those that destructure `...fields` or are large). Call {@link idempotentReplay} at the top
+ * and return its stored result on a hit; call {@link idempotentRecord} exactly once at the single
+ * trailing return. Record must run at most once per execution (one ledger row per key).
+ */
+export async function idempotentReplay(
+  ctx: MutationCtx,
+  key: string | undefined
+): Promise<{ hit: true; result: unknown } | { hit: false }> {
+  if (!key) return { hit: false };
+  const existing = await ctx.db
+    .query("idempotencyLedger")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .unique();
+  return existing ? { hit: true, result: existing.result } : { hit: false };
+}
+
+export async function idempotentRecord<T>(
+  ctx: MutationCtx,
+  key: string | undefined,
+  userId: string,
+  result: T
+): Promise<T> {
+  if (key) {
+    await ctx.db.insert("idempotencyLedger", {
+      key,
+      userId,
+      createdAt: Date.now(),
+      result: result as unknown,
+    });
+  }
+  return result;
+}

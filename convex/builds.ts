@@ -9,7 +9,7 @@ import { workflowTasksForBuildOwner } from "./buildTasks";
 import { computeBuildVisualNodesList, deriveNodeSummary } from "./cosplayNodes";
 import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
 import { getBuildScopedWorkflow } from "./workflow";
-import { runIdempotent } from "./lib/idempotency";
+import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -728,9 +728,12 @@ export const update = mutation({
         showCollaborators: v.optional(v.boolean()),
       })
     ),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
+    const { id, userId, idempotencyKey, ...fields } = args;
+    const replay = await idempotentReplay(ctx, idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"builds"> | null;
     const build = await ctx.db.get(id);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, id, userId);
@@ -798,7 +801,7 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch);
     }
-    return await ctx.db.get(id);
+    return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
   },
 });
 
@@ -965,8 +968,11 @@ export const updateStatusMany = mutation({
     ids: v.array(v.id("builds")),
     userId: v.string(),
     status: v.string(),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return;
     if (!VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])) {
       throw new Error("Invalid status");
     }
@@ -975,6 +981,7 @@ export const updateStatusMany = mutation({
       if (!build || build.userId !== args.userId) continue;
       await ctx.db.patch(id, { status: args.status });
     }
+    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
   },
 });
 
@@ -1274,8 +1281,11 @@ export const duplicate = mutation({
   args: {
     userId: v.string(),
     sourceBuildId: v.id("builds"),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Id<"builds">;
     const source = await ctx.db.get(args.sourceBuildId);
     if (!source) throw new Error("Build not found");
     if (source.userId !== args.userId) {
@@ -1433,7 +1443,7 @@ export const duplicate = mutation({
       }
     }
 
-    return newBuildId;
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, newBuildId);
   },
 });
 
@@ -1458,14 +1468,18 @@ export const addNodesToBuild = mutation({
     userId: v.string(),
     buildId: v.id("builds"),
     cosplayNodeIds: v.array(v.id("cosplayNodes")),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return;
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
     if (!canEdit) throw new Error("Not authorized");
 
     await addBuildRootLinks(ctx, args.userId, args.buildId, args.cosplayNodeIds);
+    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
   },
 });
 
