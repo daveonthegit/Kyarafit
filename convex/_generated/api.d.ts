@@ -34,6 +34,7 @@ import type * as lib_accountDeletion from "../lib/accountDeletion.js";
 import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_buildPublicViewer from "../lib/buildPublicViewer.js";
 import type * as lib_cosplayGraph from "../lib/cosplayGraph.js";
+import type * as lib_idempotency from "../lib/idempotency.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as lib_workflowDomain from "../lib/workflowDomain.js";
 import type * as lib_workflowProgress from "../lib/workflowProgress.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/buildAccess": typeof lib_buildAccess;
   "lib/buildPublicViewer": typeof lib_buildPublicViewer;
   "lib/cosplayGraph": typeof lib_cosplayGraph;
+  "lib/idempotency": typeof lib_idempotency;
   "lib/validation": typeof lib_validation;
   "lib/workflowDomain": typeof lib_workflowDomain;
   "lib/workflowProgress": typeof lib_workflowProgress;

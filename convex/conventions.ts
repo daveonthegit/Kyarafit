@@ -3,6 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
+import { runIdempotent } from "./lib/idempotency";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -104,26 +105,29 @@ export const create = mutation({
     imageStorageId: v.optional(v.id("_storage")),
     startDate: v.string(),
     endDate: v.string(),
+    /** Offline replay dedupe key (optional); see convex/lib/idempotency.ts. */
+    idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
-    }
-    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
-    const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
-    const startDate = validateDateString(args.startDate, "Start date");
-    const endDate = validateDateString(args.endDate, "End date");
-    const id = await ctx.db.insert("conventions", {
-      userId: args.userId,
-      name,
-      location,
-      imageUrl: args.imageUrl,
-      imageStorageId: args.imageStorageId,
-      startDate,
-      endDate,
-    });
-    return await ctx.db.get(id);
-  },
+  handler: async (ctx, args) =>
+    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+      if (args.imageStorageId) {
+        await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      }
+      const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+      const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
+      const startDate = validateDateString(args.startDate, "Start date");
+      const endDate = validateDateString(args.endDate, "End date");
+      const id = await ctx.db.insert("conventions", {
+        userId: args.userId,
+        name,
+        location,
+        imageUrl: args.imageUrl,
+        imageStorageId: args.imageStorageId,
+        startDate,
+        endDate,
+      });
+      return await ctx.db.get(id);
+    }),
 });
 
 export const update = mutation({
@@ -161,11 +165,7 @@ export const update = mutation({
       else if (k === "startDate") patch.startDate = validateDateString(val as string, "Start date");
       else if (k === "endDate") patch.endDate = validateDateString(val as string, "End date");
       else if (k === "imageUrl")
-        patch.imageUrl = sanitizeOptional(
-          val as string | undefined,
-          MAX_LENGTH.url,
-          "Image URL"
-        );
+        patch.imageUrl = sanitizeOptional(val as string | undefined, MAX_LENGTH.url, "Image URL");
       else if (k === "imageStorageId") patch.imageStorageId = val === null ? undefined : val;
       else patch[k] = val;
     }

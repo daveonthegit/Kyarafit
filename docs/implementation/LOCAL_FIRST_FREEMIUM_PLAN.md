@@ -70,7 +70,12 @@ Each phase is independently shippable and verifiable. Phases 1–3 finish the mo
 - ✅ **Read-path slice landed (2026-06-15):** `useOfflineQuery` is now a real stale-while-revalidate drop-in (`mobile/src/offline/useOfflineQuery.ts`) backed by the `query_cache` table (`mobile/src/offline/queryCache.ts`). Online behaviour is unchanged (live Convex result, written through to cache); while loading/offline it serves the last cached snapshot instead of `undefined`. Pure key logic is shared + unit-tested (`design-system/domain/offlineQueryCache.ts`, `web/src/lib/offline/offlineQueryCache.test.ts`). Best-effort/never-throws, so it is a safe additive replacement. **Mutations still pass through** (`useOfflineMutation` → Convex).
 - ✅ **Write-path slice landed (2026-06-15):** `useOfflineMutation` is now connectivity-aware (`mobile/src/offline/useOfflineMutation.ts`) — online it calls Convex directly and returns the real result (unchanged); offline it appends to the `mutation_queue` (`mobile/src/offline/mutationQueue.ts`) and resolves optimistically. The **Sync Worker** (`mobile/src/offline/syncWorker.ts`) drains the queue FIFO on reconnect/mount with retry+backoff, single-flight, rebuilding the Convex `FunctionReference` from the stored name. Connectivity tracked in `SyncWorkerProvider` via NetInfo (`connectivity.ts`). Retry/backoff policy is shared + tested (`design-system/domain/offlineMutationQueue.ts`, `web/src/lib/offline/offlineMutationQueue.test.ts`).
 - ⏭️ **Known gaps for follow-up slices (in priority order):**
-  - **Server idempotency** — wire `idempotencyLedger` into offline-capable mutations so replay is dedupe-safe (today replay is at-least-once; lost-response retry can dup a create).
+  - **Server idempotency** — ✅ _started 2026-06-15._ `convex/lib/idempotency.ts` `runIdempotent` +
+    `idempotencyLedger`; applied to `builds.create` + `conventions.create`; the sync worker injects
+    the queued key for mutations in `mobile/src/offline/idempotentMutations.ts`. **Remaining:** extend
+    to the other creates/non-idempotent ops (`closetItems.create`, `buildTasks.create`,
+    `cosplayNodes.create`, `workflow.create`, `builds.duplicate`, `addManualPackingItem`,
+    `addNodesToBuild`) by adding the `idempotencyKey` arg + `runIdempotent` and registering each.
   - **`clientId`/`id_map`** — so offline-created entities get stable ids and dependent offline ops can reference them.
   - **Optimistic visibility** — entity-level read-through (`entity_rows`) so offline writes show in the UI before sync (today they're durable but not visible until reconnect).
   - **`convex/sync.ts` `listChangedSince`** — incremental pull for cold-start warm-up (add with the consumer, not as dead code).

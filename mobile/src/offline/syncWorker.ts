@@ -2,12 +2,21 @@ import type { ConvexReactClient } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { shouldRetryMutation } from "@kyarafit/design-system/domain/offlineMutationQueue";
 import { getIsOnline } from "./connectivity";
+import { isIdempotentMutation } from "./idempotentMutations";
 import {
   bumpMutationRetry,
   deleteMutation,
   failMutation,
   listPendingMutations,
 } from "./mutationQueue";
+
+/** Inject the queued idempotency key into the args of mutations that dedupe replays server-side. */
+function argsForReplay(fn: string, args: unknown, idempotencyKey: string): unknown {
+  if (isIdempotentMutation(fn) && args !== null && typeof args === "object") {
+    return { ...(args as Record<string, unknown>), idempotencyKey };
+  }
+  return args;
+}
 
 let draining = false;
 
@@ -21,8 +30,9 @@ export type DrainResult = { processed: number; failed: number };
  * order. Successful rows are deleted; transient failures bump the retry counter (and stop the
  * pass for backoff); rows past the retry ceiling are marked `failed` so they stop blocking.
  *
- * Replay is at-least-once: server-side idempotency (via the `idempotencyLedger`) is the follow-up
- * that makes a lost-response retry fully dedupe-safe.
+ * Replay is at-least-once. Mutations listed in `idempotentMutations` carry the queued idempotency
+ * key so the server dedupes a re-sent write (via the `idempotencyLedger`); others remain
+ * at-least-once until they adopt `runIdempotent`.
  *
  * Connectivity-guarded: never runs while offline, and a failure that coincides with having gone
  * offline is treated as transient (not counted against the retry ceiling), so launching/operating
@@ -46,7 +56,8 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
       }
 
       try {
-        await client.mutation(makeFunctionReference<"mutation">(row.fn), args as never);
+        const callArgs = argsForReplay(row.fn, args, row.idempotency_key);
+        await client.mutation(makeFunctionReference<"mutation">(row.fn), callArgs as never);
         deleteMutation(row.id);
         processed += 1;
       } catch {

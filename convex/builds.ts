@@ -9,6 +9,7 @@ import { workflowTasksForBuildOwner } from "./buildTasks";
 import { computeBuildVisualNodesList, deriveNodeSummary } from "./cosplayNodes";
 import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
 import { getBuildScopedWorkflow } from "./workflow";
+import { runIdempotent } from "./lib/idempotency";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -660,41 +661,44 @@ export const create = mutation({
     budgetCents: v.optional(v.number()),
     targetDate: v.optional(v.string()),
     visibility: v.optional(v.string()),
+    /** Offline replay dedupe key (optional); see convex/lib/idempotency.ts. */
+    idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
-    }
-    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
-    const character = sanitizeOptional(args.character, MAX_LENGTH.character, "Character");
-    const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
-    const status = VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])
-      ? sanitizeString(args.status)
-      : "idea";
-    const targetDate = args.targetDate
-      ? validateDateString(args.targetDate, "Target date")
-      : undefined;
-    const visibility = VALID_VISIBILITIES.includes(
-      args.visibility as (typeof VALID_VISIBILITIES)[number]
-    )
-      ? args.visibility
-      : "private";
-    const shareToken = visibility === "unlisted" ? generateShareToken() : undefined;
-    const id = await ctx.db.insert("builds", {
-      userId: args.userId,
-      name,
-      character,
-      status,
-      notes,
-      imageUrl: args.imageUrl,
-      imageStorageId: args.imageStorageId,
-      budgetCents: args.budgetCents,
-      targetDate,
-      visibility,
-      shareToken,
-    });
-    return await ctx.db.get(id);
-  },
+  handler: async (ctx, args) =>
+    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+      if (args.imageStorageId) {
+        await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      }
+      const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+      const character = sanitizeOptional(args.character, MAX_LENGTH.character, "Character");
+      const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
+      const status = VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])
+        ? sanitizeString(args.status)
+        : "idea";
+      const targetDate = args.targetDate
+        ? validateDateString(args.targetDate, "Target date")
+        : undefined;
+      const visibility = VALID_VISIBILITIES.includes(
+        args.visibility as (typeof VALID_VISIBILITIES)[number]
+      )
+        ? args.visibility
+        : "private";
+      const shareToken = visibility === "unlisted" ? generateShareToken() : undefined;
+      const id = await ctx.db.insert("builds", {
+        userId: args.userId,
+        name,
+        character,
+        status,
+        notes,
+        imageUrl: args.imageUrl,
+        imageStorageId: args.imageStorageId,
+        budgetCents: args.budgetCents,
+        targetDate,
+        visibility,
+        shareToken,
+      });
+      return await ctx.db.get(id);
+    }),
 });
 
 export const update = mutation({
@@ -754,11 +758,7 @@ export const update = mutation({
       } else if (k === "targetDate")
         patch.targetDate = validateDateString(val as string, "Target date");
       else if (k === "imageUrl")
-        patch.imageUrl = sanitizeOptional(
-          val as string | undefined,
-          MAX_LENGTH.url,
-          "Image URL"
-        );
+        patch.imageUrl = sanitizeOptional(val as string | undefined, MAX_LENGTH.url, "Image URL");
       else if (k === "imageStorageId") patch.imageStorageId = val === null ? undefined : val;
       else if (k === "imageFocalX" && typeof val === "number")
         patch.imageFocalX = Math.max(0, Math.min(1, val));

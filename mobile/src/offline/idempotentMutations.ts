@@ -1,0 +1,17 @@
+/**
+ * Convex mutations whose server handler accepts an `idempotencyKey` arg and dedupes replays via the
+ * `idempotencyLedger` (see `convex/lib/idempotency.ts`). The sync worker injects the queued row's
+ * idempotency key into the args of these mutations on replay, so a re-sent create can't insert a
+ * duplicate row.
+ *
+ * Only list mutations that actually declare `idempotencyKey` in their validator — passing it to a
+ * mutation that doesn't would be rejected by Convex arg validation. Grow this set as more
+ * offline-capable mutations adopt `runIdempotent`.
+ *
+ * Keys are Convex function names (`getFunctionName(api.x.y)`), e.g. `"builds:create"`.
+ */
+const IDEMPOTENT_MUTATIONS = new Set<string>(["builds:create", "conventions:create"]);
+
+export function isIdempotentMutation(functionName: string): boolean {
+  return IDEMPOTENT_MUTATIONS.has(functionName);
+}
