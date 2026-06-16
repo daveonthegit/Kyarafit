@@ -25,6 +25,7 @@ for session-specific state and the immediate next step._
 
 **Server idempotency** — make offline mutation replay dedupe-safe. The write path is at-least-once
 today; a lost-response retry can duplicate a create. Plan:
+
 - Add a shared `withIdempotency` helper in Convex using the existing `idempotencyLedger` table.
 - Wire it into the core offline-capable mutations (builds/closet/cosplayNodes/buildTasks/conventions create+update).
 - Have the sync worker pass the queued `idempotency_key` (already stored on each `mutation_queue` row).
