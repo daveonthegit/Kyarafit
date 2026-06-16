@@ -57,6 +57,11 @@ function migrate(): void {
       deleted INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (table_name, id)
     );
+
+    CREATE TABLE IF NOT EXISTS sync_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   const row = _db.getFirstSync<{ version: number }>(

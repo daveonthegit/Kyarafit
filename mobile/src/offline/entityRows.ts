@@ -91,3 +91,56 @@ export function clearEntityOverlay(table: string, id: string): void {
     // Best-effort; ignore.
   }
 }
+
+/**
+ * Write a server document into the local store as a **synced** row (sync-worker warm-up via
+ * `sync.listChangedSince`). Never clobbers a row that has a pending local write (synced_at IS NULL):
+ * unsynced local edits win until they themselves sync.
+ */
+export function upsertSyncedEntityRow(
+  table: string,
+  id: string,
+  userId: string,
+  doc: Record<string, unknown>
+): void {
+  try {
+    const json = JSON.stringify(doc) ?? "{}";
+    const now = Date.now();
+    getOfflineDb().runSync(
+      `INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
+       VALUES (?, ?, ?, ?, ?, ?, 0)
+       ON CONFLICT(table_name, id) DO UPDATE SET
+         json = excluded.json,
+         updated_at = excluded.updated_at,
+         synced_at = excluded.synced_at,
+         deleted = 0
+       WHERE entity_rows.synced_at IS NOT NULL`,
+      [table, id, userId, json, now, now]
+    );
+  } catch {
+    // Best-effort; ignore.
+  }
+}
+
+/** Non-deleted synced rows for a table, as the read-path base when there is no live/cached result. */
+export function listSyncedEntityRows(table: string): Record<string, unknown>[] {
+  try {
+    const rows = getOfflineDb().getAllSync<{ json: string }>(
+      `SELECT json FROM entity_rows
+       WHERE table_name = ? AND synced_at IS NOT NULL AND deleted = 0
+       ORDER BY updated_at DESC`,
+      [table]
+    );
+    const docs: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      try {
+        docs.push(JSON.parse(row.json) as Record<string, unknown>);
+      } catch {
+        // Skip a corrupt row.
+      }
+    }
+    return docs;
+  } catch {
+    return [];
+  }
+}

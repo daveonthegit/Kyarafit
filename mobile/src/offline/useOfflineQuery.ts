@@ -7,9 +7,10 @@ import {
   applyListOverlay,
 } from "@kyarafit/design-system/domain/offlineEntityOverlay";
 import { readOfflineQueryCache, writeOfflineQueryCache } from "./queryCache";
-import { listPendingEntityRows } from "./entityRows";
+import { listPendingEntityRows, listSyncedEntityRows } from "./entityRows";
 import { offlineEntityQuery } from "./offlineEntityQueries";
 import { getOverlayVersion, subscribeOverlay } from "./entityOverlayStore";
+import { getIsOnline } from "./connectivity";
 
 /**
  * Offline-aware drop-in for Convex `useQuery` (stale-while-revalidate + optimistic overlay).
@@ -71,16 +72,33 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     const overlay = fnName != null ? offlineEntityQuery(fnName) : null;
     if (overlay == null) return base;
     const pending = listPendingEntityRows(overlay.table);
-    if (pending.length === 0) return base;
+
+    // Fall back to the synced local store only when offline with no live/cached result (cold
+    // start); while online an `undefined` base is a genuine loading state and must be preserved.
+    const useLocalBase = base === undefined && !getIsOnline();
 
     if (overlay.kind === "list") {
-      const list = Array.isArray(base) ? base : [];
+      const localBase = useLocalBase
+        ? (listSyncedEntityRows(overlay.table) as { _id: string }[])
+        : undefined;
+      if (pending.length === 0) {
+        return (localBase ?? base) as FunctionReturnType<Query>;
+      }
+      const list = Array.isArray(base) ? base : (localBase ?? []);
       return applyListOverlay(list as { _id: string }[], pending) as FunctionReturnType<Query>;
     }
 
     const viewedId = (args[0] as Record<string, unknown> | undefined)?.[overlay.idArg];
+    let docBase = base as { _id: string } | null | undefined;
+    if (useLocalBase && typeof viewedId === "string") {
+      const local = listSyncedEntityRows(overlay.table).find((row) => row._id === viewedId);
+      if (local) docBase = local as { _id: string };
+    }
+    if (pending.length === 0) {
+      return (docBase ?? base) as FunctionReturnType<Query>;
+    }
     return applyDocOverlay(
-      base as { _id: string } | null | undefined,
+      docBase,
       pending,
       typeof viewedId === "string" ? viewedId : undefined
     ) as FunctionReturnType<Query>;

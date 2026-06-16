@@ -3,7 +3,7 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useConvex } from "convex/react";
 import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue } from "./syncWorker";
+import { drainMutationQueue, warmEntityRows } from "./syncWorker";
 
 function isOnlineFromState(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
@@ -43,7 +43,8 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       setOfflineConnectivity(isOnline);
       runMaintenance();
       if (isOnline) {
-        void drainMutationQueue(convex);
+        // Drain queued offline writes first, then top up the local store from the server.
+        void drainMutationQueue(convex).then(() => warmEntityRows(convex));
       }
     };
 

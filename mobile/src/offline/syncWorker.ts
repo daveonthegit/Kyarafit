@@ -5,8 +5,9 @@ import { rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
 import { getIsOnline } from "./connectivity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
-import { clearEntityOverlay } from "./entityRows";
+import { clearEntityOverlay, upsertSyncedEntityRow } from "./entityRows";
 import { overlayWritesFor } from "./offlineEntityWrites";
+import { getSyncCursor, setSyncCursor } from "./syncCursor";
 import {
   bumpMutationRetry,
   deleteMutation,
@@ -112,4 +113,55 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
     draining = false;
   }
   return { processed, failed };
+}
+
+type ChangedDoc = { _id: string; userId?: string } & Record<string, unknown>;
+type ChangedSince = { builds: ChangedDoc[]; conventions: ChangedDoc[]; cursor: number };
+
+const WARMUP_PAGE_LIMIT = 500;
+const WARMUP_MAX_PAGES = 20;
+let warming = false;
+
+/**
+ * Cold-start / reconnect warm-up: pull the signed-in user's documents changed since the persisted
+ * cursor (`sync.listChangedSince`) into the local store as synced `entity_rows`, so registered
+ * queries paint from local data even before they have ever been fetched online. Single-flight,
+ * connectivity-guarded, paged (bounded), and best-effort — any failure leaves the cursor untouched
+ * so the next trigger retries.
+ */
+export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
+  if (warming || !getIsOnline()) return;
+  warming = true;
+  try {
+    let cursor = getSyncCursor();
+    for (let page = 0; page < WARMUP_MAX_PAGES; page += 1) {
+      if (!getIsOnline()) break;
+      const res = (await client.query(makeFunctionReference<"query">("sync:listChangedSince"), {
+        since: cursor,
+        limit: WARMUP_PAGE_LIMIT,
+      } as never)) as ChangedSince | null;
+      if (!res) break;
+
+      for (const doc of res.builds) {
+        upsertSyncedEntityRow("builds", doc._id, String(doc.userId ?? ""), doc);
+      }
+      for (const doc of res.conventions) {
+        upsertSyncedEntityRow("conventions", doc._id, String(doc.userId ?? ""), doc);
+      }
+
+      if (typeof res.cursor === "number" && res.cursor > cursor) {
+        cursor = res.cursor;
+        setSyncCursor(cursor);
+      }
+
+      // A short page on both tables means we've caught up.
+      if (res.builds.length < WARMUP_PAGE_LIMIT && res.conventions.length < WARMUP_PAGE_LIMIT) {
+        break;
+      }
+    }
+  } catch {
+    // Best-effort; leave the cursor for the next trigger.
+  } finally {
+    warming = false;
+  }
 }
