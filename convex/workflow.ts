@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 import {
   buildWorkflowTree,
   deriveDoneCounts,
@@ -1202,60 +1203,62 @@ export const create = mutation({
     legacyBuildTaskId: v.optional(v.id("buildTasks")),
     dedupeKey: v.optional(v.string()),
     attachments: v.optional(v.array(attachmentValidator)),
+    idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
-    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
-    if (args.attachments) {
-      for (const attachment of args.attachments) {
-        if (attachment.entityType === "build") {
-          const allowed = await canUserEditBuild(
-            ctx,
-            attachment.entityId as Id<"builds">,
-            args.userId
-          );
-          if (!allowed) throw new Error("Not authorized");
+  handler: async (ctx, args) =>
+    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+      const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
+      if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+      if (args.attachments) {
+        for (const attachment of args.attachments) {
+          if (attachment.entityType === "build") {
+            const allowed = await canUserEditBuild(
+              ctx,
+              attachment.entityId as Id<"builds">,
+              args.userId
+            );
+            if (!allowed) throw new Error("Not authorized");
+          }
         }
       }
-    }
 
-    const sanitized = sanitizeWorkflowInput(args);
-    const workflowItemId = await ctx.db.insert("workflowItems", {
-      userId: args.userId,
-      title: sanitized.title ?? "",
-      notes: sanitized.notes,
-      kind: sanitized.kind ?? "task",
-      category: sanitized.category ?? "craft",
-      status: sanitized.status ?? "not_started",
-      parentId: args.parentId,
-      ancestorIds: parentAncestorIds(parent),
-      sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, args.userId, args.parentId)),
-      scopeKind: sanitized.scopeKind ?? "build_specific",
-      sourceKind: sanitized.sourceKind ?? "manual",
-      priority: args.priority,
-      startDate: sanitized.startDate,
-      targetDate: sanitized.targetDate,
-      dueDate: sanitized.dueDate,
-      reminders: sanitized.reminders,
-      weight: args.weight,
-      manualProgressPercent: args.manualProgressPercent,
-      estimatedMinutes: args.estimatedMinutes,
-      actualMinutes: args.actualMinutes,
-      estimatedCostCents: args.estimatedCostCents,
-      actualCostCents: args.actualCostCents,
-      creatorUserId: args.creatorUserId ?? args.userId,
-      ownerUserId: args.ownerUserId ?? args.userId,
-      assigneeUserId: args.assigneeUserId,
-      templateId: args.templateId,
-      recurrenceRule: sanitized.recurrenceRule,
-      legacyBuildTaskId: args.legacyBuildTaskId,
-      dedupeKey: sanitized.dedupeKey,
-    });
-    if (args.attachments?.length) {
-      await replaceAttachments(ctx, args.userId, workflowItemId, args.attachments);
-    }
-    return await ctx.db.get(workflowItemId);
-  },
+      const sanitized = sanitizeWorkflowInput(args);
+      const workflowItemId = await ctx.db.insert("workflowItems", {
+        userId: args.userId,
+        title: sanitized.title ?? "",
+        notes: sanitized.notes,
+        kind: sanitized.kind ?? "task",
+        category: sanitized.category ?? "craft",
+        status: sanitized.status ?? "not_started",
+        parentId: args.parentId,
+        ancestorIds: parentAncestorIds(parent),
+        sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, args.userId, args.parentId)),
+        scopeKind: sanitized.scopeKind ?? "build_specific",
+        sourceKind: sanitized.sourceKind ?? "manual",
+        priority: args.priority,
+        startDate: sanitized.startDate,
+        targetDate: sanitized.targetDate,
+        dueDate: sanitized.dueDate,
+        reminders: sanitized.reminders,
+        weight: args.weight,
+        manualProgressPercent: args.manualProgressPercent,
+        estimatedMinutes: args.estimatedMinutes,
+        actualMinutes: args.actualMinutes,
+        estimatedCostCents: args.estimatedCostCents,
+        actualCostCents: args.actualCostCents,
+        creatorUserId: args.creatorUserId ?? args.userId,
+        ownerUserId: args.ownerUserId ?? args.userId,
+        assigneeUserId: args.assigneeUserId,
+        templateId: args.templateId,
+        recurrenceRule: sanitized.recurrenceRule,
+        legacyBuildTaskId: args.legacyBuildTaskId,
+        dedupeKey: sanitized.dedupeKey,
+      });
+      if (args.attachments?.length) {
+        await replaceAttachments(ctx, args.userId, workflowItemId, args.attachments);
+      }
+      return await ctx.db.get(workflowItemId);
+    }),
 });
 
 export const update = mutation({
@@ -1285,8 +1288,11 @@ export const update = mutation({
     assigneeUserId: v.optional(v.union(v.string(), v.null())),
     recurrenceRule: v.optional(v.union(v.string(), v.null())),
     attachments: v.optional(v.array(attachmentValidator)),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
     await assertWorkflowEditable(ctx, item, args.userId);
@@ -1344,7 +1350,7 @@ export const update = mutation({
     if (updated) {
       await syncPackingItemsFromWorkflowItem(ctx, updated);
     }
-    return updated;
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, updated);
   },
 });
 
@@ -1354,29 +1360,31 @@ export const move = mutation({
     userId: v.string(),
     parentId: v.optional(v.union(v.id("workflowItems"), v.null())),
     sortOrder: v.optional(v.number()),
+    idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const item = await ctx.db.get(args.id);
-    if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+  handler: async (ctx, args) =>
+    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+      const item = await ctx.db.get(args.id);
+      if (!item) throw new Error("Workflow item not found");
+      await assertWorkflowEditable(ctx, item, args.userId);
 
-    const parentId = args.parentId ?? undefined;
-    if (parentId && parentId === args.id)
-      throw new Error("Workflow items cannot parent themselves");
-    if (parentId && item.ancestorIds.includes(parentId)) {
-      throw new Error("Workflow items cannot move under a descendant");
-    }
-    const parent = parentId ? await ctx.db.get(parentId) : null;
-    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
-    const ancestorIds = parentAncestorIds(parent);
-    await ctx.db.patch(args.id, {
-      parentId,
-      ancestorIds,
-      sortOrder: args.sortOrder ?? item.sortOrder,
-    });
-    await patchDescendantAncestors(ctx, args.userId, args.id, ancestorIds);
-    return await ctx.db.get(args.id);
-  },
+      const parentId = args.parentId ?? undefined;
+      if (parentId && parentId === args.id)
+        throw new Error("Workflow items cannot parent themselves");
+      if (parentId && item.ancestorIds.includes(parentId)) {
+        throw new Error("Workflow items cannot move under a descendant");
+      }
+      const parent = parentId ? await ctx.db.get(parentId) : null;
+      if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+      const ancestorIds = parentAncestorIds(parent);
+      await ctx.db.patch(args.id, {
+        parentId,
+        ancestorIds,
+        sortOrder: args.sortOrder ?? item.sortOrder,
+      });
+      await patchDescendantAncestors(ctx, args.userId, args.id, ancestorIds);
+      return await ctx.db.get(args.id);
+    }),
 });
 
 export const moveAndResequence = mutation({
@@ -1393,8 +1401,11 @@ export const moveAndResequence = mutation({
         sortOrder: v.number(),
       })
     ),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.move.id);
     if (!item) throw new Error("Workflow item not found");
     await assertWorkflowEditable(ctx, item, args.userId);
@@ -1437,7 +1448,7 @@ export const moveAndResequence = mutation({
       await ctx.db.patch(row.id, { sortOrder: row.sortOrder });
     }
 
-    return await ctx.db.get(args.move.id);
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(args.move.id));
   },
 });
 

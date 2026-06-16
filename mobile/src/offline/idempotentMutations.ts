@@ -21,6 +21,11 @@ const IDEMPOTENT_MUTATIONS = new Set<string>([
   "conventions:archiveMany",
   "conventions:replacePlan",
   "conventions:addManualPackingItem",
+  "workflow:create",
+  "workflow:update",
+  "workflow:move",
+  "workflow:moveAndResequence",
+  "users:setFocusedBuild",
 ]);
 
 export function isIdempotentMutation(functionName: string): boolean {

@@ -8,6 +8,7 @@ import {
   normalizeConvexTier,
 } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
+import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -305,11 +306,13 @@ export const updateProfileImage = mutation({
  * Auth required; build must belong to the current user.
  */
 export const setFocusedBuild = mutation({
-  args: { buildId: v.optional(v.id("builds")) },
+  args: { buildId: v.optional(v.id("builds")), idempotencyKey: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity?.subject) return null;
     const externalId = identity.subject;
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Id<"users"> | null;
     const user = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
@@ -322,7 +325,7 @@ export const setFocusedBuild = mutation({
     }
 
     await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
-    return user._id;
+    return idempotentRecord(ctx, args.idempotencyKey, externalId, user._id);
   },
 });
 
