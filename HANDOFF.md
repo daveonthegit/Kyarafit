@@ -10,16 +10,21 @@ for session-specific state and the immediate next step._
    removed. **All export is free; cloud sync is the only paid lever.** Gate paid features with
    `isPaidTier`/`isPaid`. Premium cloud cap = 2 GB. Sources:
    `design-system/domain/{subscriptionTierPolicy,entitlements,subscriptionPlans}.ts`.
-2. **Local-first mobile foundation (additive, non-regressing).**
-   - `useOfflineQuery` — SWR over SQLite `query_cache`.
+2. **Local-first mobile foundation — Phase 1 complete (additive, non-regressing).**
+   - `useOfflineQuery` — SWR over SQLite `query_cache`, **+ `entity_rows` optimistic overlay and a
+     synced-local-store read-through fallback** (builds + conventions).
    - `useOfflineMutation` + sync worker — online passthrough / offline enqueue / FIFO drain on
-     reconnect, connectivity-guarded (`mobile/src/offline/`).
-   - Shared pure logic + tests in `design-system/domain/offline*.ts`, `web/src/lib/offline/*.test.ts`.
-3. **Server idempotency for offline replay (in progress).** `convex/lib/idempotency.ts` +
+     reconnect, connectivity-guarded; offline creates mint a `clientId` and write optimistic
+     overlays; the worker maps ids, rewrites dependent ops, clears overlays, and runs the
+     `listChangedSince` warm-up (`mobile/src/offline/`).
+   - Shared pure logic + tests in `design-system/domain/offline*.ts`, `web/src/lib/offline/*.test.ts`
+     (115 web tests).
+3. **Server idempotency for offline replay (complete).** `convex/lib/idempotency.ts` +
    `idempotencyLedger` (pruned daily by `convex/idempotencyLedger.ts` cron). The sync worker injects
    the queued key for mutations registered in `mobile/src/offline/idempotentMutations.ts`.
    **Covered:** builds (`create`, `update`, `updateStatusMany`, `duplicate`, `addNodesToBuild`),
-   conventions (`create`, `update`, `archiveMany`, `replacePlan`, `addManualPackingItem`).
+   conventions (`create`, `update`, `archiveMany`, `replacePlan`, `addManualPackingItem`), workflow
+   (`create`, `update`, `move`, `moveAndResequence`), `users.setFocusedBuild`.
 4. **buildTasks investigated (not pruned).** `api.buildTasks.*` is already a **workflowItems shim**;
    the table is vestigial (empty on prod). Pruning **deferred** by choice — see CURRENT_PLAN gap entry
    for the staged-removal recipe.
@@ -28,26 +33,42 @@ for session-specific state and the immediate next step._
    recognizes Supporter as paid; `getSubscriptionPlanByTier` normalizes input).
 6. **Docs:** `CURRENT_PLAN.md`, `README.md`, `docs/implementation/README.md` refreshed.
 
-Recent commits: `abab72a` (docs buildTasks) · `dc1c6a8` (conventions idem) · `9971a65` (builds idem) ·
-`546874b` (ledger cron) · `053a280` (builds/conventions create idem) · `29fbc3c` (handoff) ·
-`1854dff` (tier + offline foundation).
+Recent commits: `4ad4c23` (sync warm-up) · `301ebc8` (optimistic visibility) · `5e9c6f1`
+(clientId/id_map) · `6830b28` (workflow + setFocusedBuild idem) · `e900cf0` (handoff) ·
+`abab72a` (docs buildTasks) · `dc1c6a8` (conventions idem) · `9971a65` (builds idem) ·
+`546874b` (ledger cron) · `053a280` (builds/conventions create idem) · `1854dff` (tier + offline foundation).
 
-## Immediate next step — finish idempotency coverage
+## Phase 1 (mobile local-first) — complete as of 2026-06-16
 
-Apply the same pattern to the remaining offline-capable mutations:
+All four Phase 1 follow-up slices landed (read-path + write-path were already done):
 
-- **`convex/workflow.ts`**: `create`, `update`, `move`, `moveAndResequence` (the reorders are the
-  genuinely non-idempotent ones — highest value here).
-- **`convex/users.ts` `setFocusedBuild`** — ⚠️ this reads the user from `ctx.auth.getUserIdentity()`,
-  **not** an `args.userId`. Pass `identity.subject` as the ledger `userId` (the helpers take it as a
-  param), not `args.userId`.
+1. **Idempotency coverage finished** — `workflow.{create,update,move,moveAndResequence}` +
+   `users.setFocusedBuild` (keyed on `identity.subject`, not `args.userId`). Registered in
+   `mobile/src/offline/idempotentMutations.ts`.
+2. **`clientId`/`id_map`** — offline creates mint a `local:` client id + optimistic stub; the worker
+   records `clientId → serverId` and rewrites later queued ops. `mutation_queue` v2 `client_id` col.
+3. **Optimistic visibility** — `entity_rows` overlay in `useOfflineQuery` for **builds + conventions**
+   (plain-doc lists + convention detail), reactive via `entityOverlayStore`.
+4. **`sync.listChangedSince` + warm-up** — `warmEntityRows` seeds synced `entity_rows`;
+   `useOfflineQuery` reads through to them when offline with no live/cached result.
 
-**N/A / intentionally skipped:** `buildTasks` (web-only workflow shim, never offline-enqueued);
-`closetItems`/`cosplayNodes` create (not enqueued via the offline bridge — only
+### Immediate next step — close the Phase 1 task-visibility gap, then Phase 2
+
+- **Deferred from Phase 1 (highest priority):** offline **task** writes are queue-correct but **not
+  optimistically visible** because the planner/build-tree queries (`workflow:listPlanner`,
+  `listBuildTree`) return derived/projected shapes, not plain docs. Overlaying raw docs there would
+  be wrong — it needs on-device re-derivation of those projections. Same for enriched `builds:get`.
+- **Edit deltas:** `listChangedSince` captures creates incrementally + full state at `since=0`;
+  field-level edits need a maintained `updatedAt`/`version` (scaffolding exists, not bumped on write).
+- **Then Phase 2:** entitlement-gate the sync worker (`drainMutationQueue` **and** `warmEntityRows`)
+  on `canUseCloudSync`; verify free users make zero Convex data calls; gate group-create to paid.
+
+**Idempotency — N/A / intentionally skipped:** `buildTasks` (web-only workflow shim, never
+offline-enqueued); `closetItems`/`cosplayNodes` create (not enqueued via the offline bridge — only
 `cosplayNodes.removeMany` is, and deletes are naturally idempotent); `conventions.updatePackingItem`
 (naturally-idempotent `checked` toggle, multi-return — skipped to avoid risk for no benefit).
 
-### How to wrap a mutation (the established pattern)
+### How to wrap a mutation (the established idempotency pattern)
 
 1. Add `idempotencyKey: v.optional(v.string())` to the mutation's `args`.
 2. Wrap the handler using `convex/lib/idempotency.ts`:
@@ -58,16 +79,16 @@ Apply the same pattern to the remaining offline-capable mutations:
    `"workflow:create"`). The worker only injects the key for registered names, so an unregistered
    mutation never receives an arg its validator rejects.
 
-After idempotency: `clientId`/`id_map` for offline-created ids → optimistic visibility
-(`entity_rows` read-through) → free-local-only gating → web OPFS port → images → export/import →
-upgrade/downgrade. Full detail: [docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md](docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md).
+Remaining roadmap: task-visibility gap (above) → Phase 2 free-local-only gating → Phase 3 images →
+Phase 4 web OPFS port (largest) → export/import → upgrade/downgrade. Full detail:
+[docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md](docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md).
 
 ## Verify (all green as of this session)
 
 ```bash
 npx tsc --noEmit -p convex/tsconfig.json     # Convex backend — NOT covered by the npm scripts
 npm run typecheck -w design-system && npm run typecheck:web && npm run typecheck:mobile
-npm test -w web            # 96 passing (incl. 16 offline)
+npm test -w web            # 115 passing (incl. offline query/mutation/idMap/overlay)
 npm run lint:mobile        # 0 errors (4 pre-existing warnings)
 npm run i18n:check
 ```
