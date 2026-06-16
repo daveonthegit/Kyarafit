@@ -441,13 +441,15 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_createdAt", ["userId", "createdAt"]),
 
-  /** Dedupe retries from offline/sync clients (Phase 2 / §3.13.5). */
+  /** Dedupe retries from offline/sync clients (Phase 2 / §3.13.5). Pruned by age via cron. */
   idempotencyLedger: defineTable({
     key: v.string(),
     userId: v.string(),
     createdAt: v.number(),
     result: v.optional(v.any()),
-  }).index("by_key", ["key"]),
+  })
+    .index("by_key", ["key"])
+    .index("by_createdAt", ["createdAt"]),
 
   broadcasts: defineTable({
     title: v.string(),

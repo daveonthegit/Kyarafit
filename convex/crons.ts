@@ -20,4 +20,7 @@ crons.interval(
   {}
 );
 
+// Bound the offline replay dedupe ledger by age (see convex/idempotencyLedger.ts).
+crons.interval("idempotency-ledger-prune", { hours: 24 }, internal.idempotencyLedger.prune, {});
+
 export default crons;
