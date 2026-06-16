@@ -9,6 +9,8 @@ import {
 import { getIsOnline } from "./connectivity";
 import { enqueueMutation } from "./mutationQueue";
 import { newIdempotencyKey } from "./idempotencyKey";
+import { newClientId } from "./clientId";
+import { isCreateMutation } from "./offlineCreateMutations";
 import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
 
 /**
@@ -16,10 +18,11 @@ import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
  *
  * - **Online:** behaviour is identical to `useMutation` — the Convex mutation is awaited and its
  *   real result is returned.
- * - **Offline:** the call is appended to the SQLite mutation queue and resolves optimistically
- *   (`undefined`); the Sync Worker replays it on reconnect. Note the offline result has no server
- *   id yet, so offline create-then-reference flows are limited until the `clientId`/`id_map` slice
- *   lands — but the online path (the common case) is unchanged.
+ * - **Offline:** the call is appended to the SQLite mutation queue; the Sync Worker replays it on
+ *   reconnect. **Create** mutations (`offlineCreateMutations`) resolve to an optimistic stub
+ *   `{ _id: <clientId>, ...args }` so callers immediately have a stable id to reference; the worker
+ *   maps that client id to the real server id on replay (`./idMap`) and rewrites later queued ops
+ *   that referenced it. Other mutations resolve to `undefined`.
  * - **Online-only mutations** (e.g. `files.generateUploadUrl`, which mints a one-time URL that only
  *   makes sense against a live server) are never queued: they always call Convex directly, so
  *   offline they fail exactly like a plain Convex call rather than resolving to `undefined`.
@@ -43,6 +46,12 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
 
       if (name != null) {
         try {
+          if (isCreateMutation(name)) {
+            const clientId = newClientId();
+            enqueueMutation(name, args[0], newIdempotencyKey(), clientId);
+            const input = (args[0] ?? {}) as Record<string, unknown>;
+            return { ...input, _id: clientId } as FunctionReturnType<Mutation>;
+          }
           enqueueMutation(name, args[0], newIdempotencyKey());
         } catch {
           // Best-effort enqueue; ignore.

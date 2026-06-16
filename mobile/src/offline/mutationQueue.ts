@@ -12,17 +12,28 @@ export type PendingMutation = {
   fn: string;
   args_json: string;
   retry_count: number;
+  /** Optimistic client id minted for an offline create (see `./clientId`); null otherwise. */
+  client_id: string | null;
 };
 
-/** Append a mutation for later replay. Idempotency key is UNIQUE, so re-enqueues are ignored. */
-export function enqueueMutation(fn: string, args: unknown, idempotencyKey: string): void {
+/**
+ * Append a mutation for later replay. Idempotency key is UNIQUE, so re-enqueues are ignored.
+ * `clientId` is set only for offline creates, so the worker can map it to the server `_id` on
+ * replay (see `./idMap`).
+ */
+export function enqueueMutation(
+  fn: string,
+  args: unknown,
+  idempotencyKey: string,
+  clientId?: string
+): void {
   try {
     const argsJson = JSON.stringify(args ?? {}) ?? "{}";
     const db = getOfflineDb();
     db.runSync(
-      `INSERT OR IGNORE INTO mutation_queue (idempotency_key, op, fn, args_json, created_at, status)
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
-      [idempotencyKey, "mutation", fn, argsJson, Date.now()]
+      `INSERT OR IGNORE INTO mutation_queue (idempotency_key, op, fn, args_json, client_id, created_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      [idempotencyKey, "mutation", fn, argsJson, clientId ?? null, Date.now()]
     );
   } catch {
     // Best-effort; ignore.
@@ -34,7 +45,7 @@ export function listPendingMutations(limit = 100): PendingMutation[] {
   try {
     const db = getOfflineDb();
     return db.getAllSync<PendingMutation>(
-      `SELECT id, idempotency_key, fn, args_json, retry_count
+      `SELECT id, idempotency_key, fn, args_json, retry_count, client_id
        FROM mutation_queue WHERE status = 'pending' ORDER BY id ASC LIMIT ?`,
       [limit]
     );

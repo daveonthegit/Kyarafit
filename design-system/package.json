@@ -17,6 +17,7 @@
     "./domain/entitlements": "./domain/entitlements.ts",
     "./domain/offlineQueryCache": "./domain/offlineQueryCache.ts",
     "./domain/offlineMutationQueue": "./domain/offlineMutationQueue.ts",
+    "./domain/offlineIdMap": "./domain/offlineIdMap.ts",
     "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts",
     "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
     "./domain/adPolicy": "./domain/adPolicy.ts"

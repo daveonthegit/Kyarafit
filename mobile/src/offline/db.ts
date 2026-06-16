@@ -2,7 +2,7 @@ import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from "expo-
 import * as FileSystem from "expo-file-system/legacy";
 
 const DB_NAME = "kyarafit.db";
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 const MB = 1024 * 1024;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -41,6 +41,7 @@ function migrate(): void {
       fn TEXT NOT NULL,
       args_json TEXT NOT NULL,
       base_version INTEGER,
+      client_id TEXT,
       retry_count INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending'
@@ -62,6 +63,16 @@ function migrate(): void {
     "SELECT version FROM schema_version WHERE id = 1"
   );
   const v = row?.version ?? 0;
+
+  // v2: add mutation_queue.client_id (fresh DBs already have it via CREATE TABLE above; only
+  // pre-existing v1 DBs need the column added). Guard on PRAGMA so re-runs are safe.
+  if (v < 2) {
+    const columns = _db.getAllSync<{ name: string }>("PRAGMA table_info(mutation_queue)");
+    if (!columns.some((column) => column.name === "client_id")) {
+      _db.execSync("ALTER TABLE mutation_queue ADD COLUMN client_id TEXT");
+    }
+  }
+
   if (v < CURRENT_VERSION) {
     _db.execSync(`UPDATE schema_version SET version = ${CURRENT_VERSION} WHERE id = 1`);
   }

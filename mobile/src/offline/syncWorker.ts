@@ -1,8 +1,10 @@
 import type { ConvexReactClient } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { shouldRetryMutation } from "@kyarafit/design-system/domain/offlineMutationQueue";
+import { rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
 import { getIsOnline } from "./connectivity";
 import { isIdempotentMutation } from "./idempotentMutations";
+import { loadIdMap, setServerId } from "./idMap";
 import {
   bumpMutationRetry,
   deleteMutation,
@@ -16,6 +18,15 @@ function argsForReplay(fn: string, args: unknown, idempotencyKey: string): unkno
     return { ...(args as Record<string, unknown>), idempotencyKey };
   }
   return args;
+}
+
+/** Pull a server document id out of a create mutation's result, if it returned a doc. */
+function serverIdFromResult(result: unknown): string | null {
+  if (result !== null && typeof result === "object" && "_id" in result) {
+    const id = (result as { _id: unknown })._id;
+    return typeof id === "string" ? id : null;
+  }
+  return null;
 }
 
 let draining = false;
@@ -45,6 +56,9 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
   let failed = 0;
   try {
     const pending = listPendingMutations();
+    // Resolve optimistic client ids to their synced server ids as the pass progresses, so a queued
+    // op that referenced an offline-created entity is rewritten before it is sent.
+    const idMap = loadIdMap();
     for (const row of pending) {
       let args: unknown;
       try {
@@ -56,8 +70,21 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
       }
 
       try {
-        const callArgs = argsForReplay(row.fn, args, row.idempotency_key);
-        await client.mutation(makeFunctionReference<"mutation">(row.fn), callArgs as never);
+        const rewritten = rewriteIdsDeep(args, idMap);
+        const callArgs = argsForReplay(row.fn, rewritten, row.idempotency_key);
+        const result = await client.mutation(
+          makeFunctionReference<"mutation">(row.fn),
+          callArgs as never
+        );
+        // Map an offline-created entity's client id to the server id it just received, so later
+        // rows in this pass (and future passes) can reference it.
+        if (row.client_id) {
+          const serverId = serverIdFromResult(result);
+          if (serverId) {
+            setServerId(row.client_id, serverId);
+            idMap[row.client_id] = serverId;
+          }
+        }
         deleteMutation(row.id);
         processed += 1;
       } catch {
