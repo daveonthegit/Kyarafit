@@ -118,9 +118,15 @@ npm run validate        # format:check + i18n:check + lint + typecheck + build:w
   `by_userId_clientId` index; `idempotencyLedger` table for replay dedupe.
 - **Auth** — Better Auth (`convex/betterAuth/`); bearer token in `localStorage` (web) / SecureStore
   (mobile); `getCurrentUser` in `convex/auth.ts`.
-- **Tasks** — Two systems coexist: `buildTasks` (per-build checklist) and the newer `workflowItems`
-  tree (planner: parent/ancestor, scheduling, attachments, dependencies). `workflowItems` is the
-  richer/active system. _Which is canonical long-term: Needs verification._
+- **Tasks** — `workflowItems` (planner tree: parent/ancestor, scheduling, attachments, dependencies)
+  is the **canonical and only real task store**. `api.buildTasks.*` is a thin **compatibility shim
+  over `workflowItems`**: every query and mutation reads/writes `workflowItems` (+ `workflowAttachments`)
+  and maps to the legacy task shape — its `create`/`update`/`remove` even take `id: v.id("workflowItems")`,
+  so the ids it returns are `workflowItems` ids. The web build-detail task checklist
+  (`web/src/components/builds/TaskChecklist.tsx`, `BuildAddTaskModal.tsx`,
+  `web/src/app/build-detail/[id]/page.tsx`) uses this shim, so it already runs on `workflowItems` — no
+  migration needed. The physical `buildTasks` **table is vestigial** (empty on prod; nothing reads/writes
+  it as real data). See known gaps for cleanup status.
 - **Groups** — `groups` + `groupMembers` (with `role`) + `groupConventionDays` + `buildCollaborators`.
   Shared group data is inherently online. Decision: **creating a group is a paid feature**; joining /
   participating is free but online-only (planned gate, not yet enforced — Needs verification).
@@ -130,10 +136,19 @@ npm run validate        # format:check + i18n:check + lint + typecheck + build:w
 ## Known gaps, unfinished features, tech debt
 
 - **Local-first incomplete:** mobile offline writes are durable but **not visible until reconnect**;
-  replay is **at-least-once** (no server idempotency yet); free users still hit Convex online (free
-  local-only source-of-truth not built); **web is not local-first** yet.
+  offline replay is now **dedupe-safe for registered create/update mutations** via the idempotency
+  ledger (builds + conventions done; `workflow`/`users` pending), but unregistered mutations remain
+  at-least-once; free users still hit Convex online (free local-only source-of-truth not built);
+  **web is not local-first** yet.
 - **Images** are online-only; no local image store or export/import yet.
-- **Two task systems** (`buildTasks` vs `workflowItems`) overlap — needs consolidation.
+- **Vestigial `buildTasks` table** — `api.buildTasks` is already a `workflowItems` shim and the table
+  holds no real data (empty on prod), but it's still in the schema (the table + `closetItems.completionTaskId`
+  - `workflowItems.legacyBuildTaskId` `v.id("buildTasks")` fields + 2 indexes) and a few legacy code
+    paths (seed insert, account-deletion cleanup, `migrations.ts` legacy→workflow migration, and
+    always-empty fallback reads in `builds.ts`/`cosplayNodes.ts`/`closetItems.ts`). _Investigated
+    2026-06-15; pruning **deferred** by choice._ When done it's a staged schema migration: unset any
+    lingering cross-ref field values → drop the fields/table/indexes → retire the migration. (Other
+    envs: treat as disposable — no migration data to preserve.)
 - **Web i18n partial** (en/es only, not all pages); web icon set mixes lucide + Material Symbols.
 - **Itinerary web view** is basic/stub.
 - **Makefile** references the archived Go backend + docker postgres/redis — stale.
