@@ -11,6 +11,8 @@ import { enqueueMutation } from "./mutationQueue";
 import { newIdempotencyKey } from "./idempotencyKey";
 import { newClientId } from "./clientId";
 import { isCreateMutation } from "./offlineCreateMutations";
+import { overlayWritesFor } from "./offlineEntityWrites";
+import { writeEntityOverlay } from "./entityRows";
 import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
 
 /**
@@ -46,13 +48,24 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
 
       if (name != null) {
         try {
-          if (isCreateMutation(name)) {
-            const clientId = newClientId();
-            enqueueMutation(name, args[0], newIdempotencyKey(), clientId);
+          const isCreate = isCreateMutation(name);
+          const clientId = isCreate ? newClientId() : undefined;
+          enqueueMutation(name, args[0], newIdempotencyKey(), clientId);
+
+          // Optimistic visibility: mirror the write into entity_rows so registered list/detail
+          // queries reflect it immediately (cleared by the sync worker once it replays).
+          const writes = overlayWritesFor(name, args[0], clientId);
+          if (writes.length) {
+            const userId = String((args[0] as Record<string, unknown> | undefined)?.userId ?? "");
+            for (const write of writes) {
+              writeEntityOverlay(write.table, write.id, userId, write.doc, write.deleted);
+            }
+          }
+
+          if (isCreate && clientId) {
             const input = (args[0] ?? {}) as Record<string, unknown>;
             return { ...input, _id: clientId } as FunctionReturnType<Mutation>;
           }
-          enqueueMutation(name, args[0], newIdempotencyKey());
         } catch {
           // Best-effort enqueue; ignore.
         }

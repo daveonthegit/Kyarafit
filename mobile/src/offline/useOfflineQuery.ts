@@ -1,20 +1,27 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQuery, type OptionalRestArgsOrSkip } from "convex/react";
 import { getFunctionName, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { offlineQueryKey } from "@kyarafit/design-system/domain/offlineQueryCache";
+import {
+  applyDocOverlay,
+  applyListOverlay,
+} from "@kyarafit/design-system/domain/offlineEntityOverlay";
 import { readOfflineQueryCache, writeOfflineQueryCache } from "./queryCache";
+import { listPendingEntityRows } from "./entityRows";
+import { offlineEntityQuery } from "./offlineEntityQueries";
+import { getOverlayVersion, subscribeOverlay } from "./entityOverlayStore";
 
 /**
- * Offline-aware drop-in for Convex `useQuery` (stale-while-revalidate).
+ * Offline-aware drop-in for Convex `useQuery` (stale-while-revalidate + optimistic overlay).
  *
- * - **Online / signed-in:** behaviour is identical to `useQuery` — the live Convex result is
- *   returned and additionally written through to the SQLite query cache.
- * - **Loading / offline:** while the live result is still `undefined`, the last cached snapshot
- *   for the same query+args is returned instead, so screens paint immediately and keep working
- *   offline. When there is no cached snapshot it returns `undefined`, exactly like `useQuery`.
- *
- * Cache access is best-effort and never throws, so this is a safe, additive replacement: with no
- * cached data it is indistinguishable from a plain `useQuery`.
+ * - **Online / signed-in:** behaviour matches `useQuery` — the live Convex result is returned and
+ *   written through to the SQLite query cache.
+ * - **Loading / offline:** while the live result is still `undefined`, the last cached snapshot for
+ *   the same query+args is returned instead, so screens paint immediately and keep working offline.
+ * - **Optimistic overlay:** for registered plain-document queries (`offlineEntityQuery` — builds /
+ *   conventions lists + detail), pending offline writes from `entity_rows` are merged onto the
+ *   result so create/edit/delete show before they sync. With no pending writes the result is
+ *   returned unchanged, so this stays a safe, additive replacement.
  */
 export function useOfflineQuery<Query extends FunctionReference<"query">>(
   query: Query,
@@ -22,16 +29,21 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
 ): FunctionReturnType<Query> | undefined {
   const live = useQuery(query, ...args);
 
-  const key = useMemo(() => {
+  const fnName = useMemo(() => {
     try {
-      return offlineQueryKey(getFunctionName(query), args[0]);
+      return getFunctionName(query);
     } catch {
       return null;
     }
+  }, [query]);
+
+  const key = useMemo(() => {
+    if (fnName == null) return null;
+    return offlineQueryKey(fnName, args[0]);
     // `args` is a fresh array each render but its contents are the cache inputs; re-deriving the
     // key is cheap and the resulting string is stable by value across renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, args[0]]);
+  }, [fnName, args[0]]);
 
   useEffect(() => {
     if (key != null && live !== undefined) {
@@ -46,5 +58,32 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     return undefined;
   }, [key, live]);
 
-  return live !== undefined ? live : cached;
+  const base = live !== undefined ? live : cached;
+
+  // Re-read pending overlays whenever an offline write (or a drain that clears one) bumps the store.
+  const overlayVersion = useSyncExternalStore(
+    subscribeOverlay,
+    getOverlayVersion,
+    getOverlayVersion
+  );
+
+  return useMemo(() => {
+    const overlay = fnName != null ? offlineEntityQuery(fnName) : null;
+    if (overlay == null) return base;
+    const pending = listPendingEntityRows(overlay.table);
+    if (pending.length === 0) return base;
+
+    if (overlay.kind === "list") {
+      const list = Array.isArray(base) ? base : [];
+      return applyListOverlay(list as { _id: string }[], pending) as FunctionReturnType<Query>;
+    }
+
+    const viewedId = (args[0] as Record<string, unknown> | undefined)?.[overlay.idArg];
+    return applyDocOverlay(
+      base as { _id: string } | null | undefined,
+      pending,
+      typeof viewedId === "string" ? viewedId : undefined
+    ) as FunctionReturnType<Query>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, fnName, overlayVersion, args[0]]);
 }

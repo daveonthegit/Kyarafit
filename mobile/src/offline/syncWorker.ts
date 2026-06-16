@@ -5,6 +5,8 @@ import { rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
 import { getIsOnline } from "./connectivity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
+import { clearEntityOverlay } from "./entityRows";
+import { overlayWritesFor } from "./offlineEntityWrites";
 import {
   bumpMutationRetry,
   deleteMutation,
@@ -84,6 +86,10 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
             setServerId(row.client_id, serverId);
             idMap[row.client_id] = serverId;
           }
+        }
+        // Drop the optimistic overlay now that the live/cached server data is authoritative.
+        for (const write of overlayWritesFor(row.fn, args, row.client_id ?? undefined)) {
+          clearEntityOverlay(write.table, write.id);
         }
         deleteMutation(row.id);
         processed += 1;
