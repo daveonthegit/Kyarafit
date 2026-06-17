@@ -10,6 +10,10 @@ import {
   applyPlannerOverlay,
   type PlannerOverlayItem,
 } from "@kyarafit/design-system/domain/offlinePlannerOverlay";
+import {
+  applyBuildTreeOverlay,
+  type BuildTreeResult,
+} from "@kyarafit/design-system/domain/offlineBuildTreeOverlay";
 import { readOfflineQueryCache, writeOfflineQueryCache } from "./queryCache";
 import { listPendingEntityRows, listSyncedEntityRows } from "./entityRows";
 import { offlineEntityQuery } from "./offlineEntityQueries";
@@ -82,6 +86,17 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
       const list = Array.isArray(base) ? (base as PlannerOverlayItem[]) : [];
       const today = new Date().toISOString().slice(0, 10);
       return applyPlannerOverlay(list, pending, today) as FunctionReturnType<Query>;
+    }
+
+    if (overlay.kind === "buildTree") {
+      if (pending.length === 0 || base == null) return base;
+      const buildId = (args[0] as Record<string, unknown> | undefined)?.[overlay.idArg];
+      if (typeof buildId !== "string") return base;
+      return applyBuildTreeOverlay(
+        base as unknown as BuildTreeResult,
+        pending,
+        buildId
+      ) as FunctionReturnType<Query>;
     }
 
     // Fall back to the synced local store only when offline with no live/cached result (cold

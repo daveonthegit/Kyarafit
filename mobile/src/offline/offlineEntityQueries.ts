@@ -12,13 +12,15 @@
 export type EntityQueryOverlay =
   | { table: string; kind: "list" }
   | { table: string; kind: "doc"; idArg: string }
-  | { table: string; kind: "planner" };
+  | { table: string; kind: "planner" }
+  | { table: string; kind: "buildTree"; idArg: string };
 
 const QUERY_OVERLAYS: Record<string, EntityQueryOverlay> = {
   "builds:list": { table: "builds", kind: "list" },
   "conventions:list": { table: "conventions", kind: "list" },
   "conventions:get": { table: "conventions", kind: "doc", idArg: "id" },
   "workflow:listPlanner": { table: "workflowItems", kind: "planner" },
+  "workflow:listBuildTree": { table: "workflowItems", kind: "buildTree", idArg: "buildId" },
 };
 
 export function offlineEntityQuery(functionName: string): EntityQueryOverlay | null {
