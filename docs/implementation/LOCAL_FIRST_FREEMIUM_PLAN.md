@@ -87,16 +87,23 @@ Each phase is independently shippable and verifiable. Phases 1–3 finish the mo
     column.
   - **Optimistic visibility** — ✅ _2026-06-16._ `entity_rows` overlay merged onto the last server
     snapshot in `useOfflineQuery` (`design-system/domain/offlineEntityOverlay.ts`,
-    `mobile/src/offline/entityRows.ts`), reactive via `entityOverlayStore`. **Scope: plain-document
-    builds + conventions** (lists + convention detail). ⏭️ **Deferred:** derived/projected views
-    (`workflow:listPlanner`, `listBuildTree`, enriched `builds:get`) are not overlaid — overlaying
-    raw docs onto a computed shape would be incorrect; needs on-device re-derivation (Phase 4-scale).
+    `mobile/src/offline/entityRows.ts`), reactive via `entityOverlayStore`. **Plain-document scope:**
+    builds + conventions (lists + convention detail).
+  - **Task visibility in derived views** — ✅ _2026-06-16._ Offline task writes now show in the two
+    projected task surfaces. **Planner** (`workflow:listPlanner`) uses a projection overlay
+    (`design-system/domain/offlinePlannerOverlay.ts`) that reuses the server's
+    `deriveStatusProgress`/`isOverdueStatus` and pulls build/convention context from create
+    attachments (joins it can't resolve locally default to null/0). **Build tree**
+    (`workflow:listBuildTree`) uses re-derivation (`offlineBuildTreeOverlay.ts`): flatten the server
+    tree back to items+attachments+dependencies, apply the queued mutations scoped to the build, and
+    re-run the shared `buildWorkflowTree` + stats math. External (packing/cosplay) progress falls back
+    to status-derived until next sync. ⏭️ **Deferred:** enriched `builds:get` is still not overlaid.
   - **`convex/sync.ts` `listChangedSince`** — ✅ _2026-06-16._ Auth-scoped, `_creationTime` cursor;
     consumer is the sync-worker warm-up (`warmEntityRows`) that seeds synced `entity_rows`, and
     `useOfflineQuery` falls back to that local store when offline with no live/cached result. ⚠️
     Captures **creates incrementally + full state at `since=0`**; field-level edit deltas need a
     maintained `updatedAt`/`version` (scaffolding exists, not yet bumped on write).
-- DoD (full Phase 1): airplane-mode create/edit/delete across builds+tasks+conventions, relaunch online (paid), zero loss, no dupes (blueprint Phase 9 DoD subset). **Builds + conventions: met** (queue replay is dedupe-safe + id-stable; offline writes are optimistically visible). **Tasks:** queue replay is correct, but offline task writes are **not yet optimistically visible** in the planner/build-tree views (derived-query gap above).
+- DoD (full Phase 1): airplane-mode create/edit/delete across builds+tasks+conventions, relaunch online (paid), zero loss, no dupes (blueprint Phase 9 DoD subset). **Met for builds, conventions, and tasks** — queue replay is dedupe-safe + id-stable, and offline writes are optimistically visible across plain-document views (builds/conventions) and the projected task views (planner + build tree).
 
 ### Phase 2 — Entitlement-gated sync + free local-only semantics
 

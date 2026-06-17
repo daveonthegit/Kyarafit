@@ -33,8 +33,9 @@ for session-specific state and the immediate next step._
    recognizes Supporter as paid; `getSubscriptionPlanByTier` normalizes input).
 6. **Docs:** `CURRENT_PLAN.md`, `README.md`, `docs/implementation/README.md` refreshed.
 
-Recent commits: `4ad4c23` (sync warm-up) · `301ebc8` (optimistic visibility) · `5e9c6f1`
-(clientId/id_map) · `6830b28` (workflow + setFocusedBuild idem) · `e900cf0` (handoff) ·
+Recent commits: `148018a` (build-tree task visibility) · `a7c02b7` (planner task visibility) ·
+`4ad4c23` (sync warm-up) · `301ebc8` (optimistic visibility) · `5e9c6f1` (clientId/id_map) ·
+`6830b28` (workflow + setFocusedBuild idem) · `e900cf0` (handoff) ·
 `abab72a` (docs buildTasks) · `dc1c6a8` (conventions idem) · `9971a65` (builds idem) ·
 `546874b` (ledger cron) · `053a280` (builds/conventions create idem) · `1854dff` (tier + offline foundation).
 
@@ -48,16 +49,22 @@ All four Phase 1 follow-up slices landed (read-path + write-path were already do
 2. **`clientId`/`id_map`** — offline creates mint a `local:` client id + optimistic stub; the worker
    records `clientId → serverId` and rewrites later queued ops. `mutation_queue` v2 `client_id` col.
 3. **Optimistic visibility** — `entity_rows` overlay in `useOfflineQuery` for **builds + conventions**
-   (plain-doc lists + convention detail), reactive via `entityOverlayStore`.
+   (plain-doc lists + convention detail) and **tasks** (planner projection + build-tree
+   re-derivation), reactive via `entityOverlayStore`.
 4. **`sync.listChangedSince` + warm-up** — `warmEntityRows` seeds synced `entity_rows`;
    `useOfflineQuery` reads through to them when offline with no live/cached result.
 
-### Immediate next step — close the Phase 1 task-visibility gap, then Phase 2
+### Immediate next step — Phase 2 (entitlement-gated sync)
 
-- **Deferred from Phase 1 (highest priority):** offline **task** writes are queue-correct but **not
-  optimistically visible** because the planner/build-tree queries (`workflow:listPlanner`,
-  `listBuildTree`) return derived/projected shapes, not plain docs. Overlaying raw docs there would
-  be wrong — it needs on-device re-derivation of those projections. Same for enriched `builds:get`.
+- **Task-visibility gap — ✅ closed (2026-06-16).** Offline task writes now show in both projected
+  task surfaces. **Planner** (`workflow:listPlanner`) uses a projection overlay
+  (`design-system/domain/offlinePlannerOverlay.ts`) reusing the server's
+  `deriveStatusProgress`/`isOverdueStatus`, with build/convention context pulled from create
+  attachments. **Build tree** (`workflow:listBuildTree`) re-derives
+  (`offlineBuildTreeOverlay.ts`): flatten the server tree → items+attachments+dependencies, apply
+  queued mutations scoped to the build, re-run the shared `buildWorkflowTree` + stats math. Wired via
+  `offlineEntityQueries.ts` (`planner`/`buildTree` overlay kinds) + `useOfflineQuery`. ⏭️ Still
+  deferred: enriched `builds:get`.
 - **Edit deltas:** `listChangedSince` captures creates incrementally + full state at `since=0`;
   field-level edits need a maintained `updatedAt`/`version` (scaffolding exists, not bumped on write).
 - **Then Phase 2:** entitlement-gate the sync worker (`drainMutationQueue` **and** `warmEntityRows`)
@@ -79,7 +86,7 @@ offline-enqueued); `closetItems`/`cosplayNodes` create (not enqueued via the off
    `"workflow:create"`). The worker only injects the key for registered names, so an unregistered
    mutation never receives an arg its validator rejects.
 
-Remaining roadmap: task-visibility gap (above) → Phase 2 free-local-only gating → Phase 3 images →
+Remaining roadmap: Phase 2 free-local-only gating → Phase 3 images →
 Phase 4 web OPFS port (largest) → export/import → upgrade/downgrade. Full detail:
 [docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md](docs/implementation/LOCAL_FIRST_FREEMIUM_PLAN.md).
 
@@ -88,7 +95,7 @@ Phase 4 web OPFS port (largest) → export/import → upgrade/downgrade. Full de
 ```bash
 npx tsc --noEmit -p convex/tsconfig.json     # Convex backend — NOT covered by the npm scripts
 npm run typecheck -w design-system && npm run typecheck:web && npm run typecheck:mobile
-npm test -w web            # 115 passing (incl. offline query/mutation/idMap/overlay)
+npm test -w web            # 127 passing (incl. offline query/mutation/idMap/overlay/planner/tree)
 npm run lint:mobile        # 0 errors (4 pre-existing warnings)
 npm run i18n:check
 ```
