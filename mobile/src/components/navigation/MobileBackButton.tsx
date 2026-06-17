@@ -8,12 +8,7 @@ type Props = Omit<PressableProps, "onPress"> & {
   label?: string;
 };
 
-export function MobileBackButton({
-  fallbackHref,
-  label = "Back",
-  className,
-  ...rest
-}: Props) {
+export function MobileBackButton({ fallbackHref, label = "Back", className, ...rest }: Props) {
   const navigation = useNavigation();
   const { colors } = useDesignTheme();
 

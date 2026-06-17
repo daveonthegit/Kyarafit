@@ -48,7 +48,9 @@ function PlanCard({ plan, currentTier }: { plan: SubscriptionPlan; currentTier: 
 
       <div className="mt-5 border-t border-kyar-borderSubtle pt-5">
         <p className="font-serif text-4xl tracking-tight text-kyar-text">
-          {plan.payWhatYouWant ? `From ${formatUsdPrice(plan.monthlyPriceUsd)}` : formatUsdPrice(plan.monthlyPriceUsd)}
+          {plan.payWhatYouWant
+            ? `From ${formatUsdPrice(plan.monthlyPriceUsd)}`
+            : formatUsdPrice(plan.monthlyPriceUsd)}
           <span className="ml-1 font-sans text-sm text-kyar-textSecondary">/ mo</span>
         </p>
         <p className="mt-1 text-xs text-kyar-textSecondary">

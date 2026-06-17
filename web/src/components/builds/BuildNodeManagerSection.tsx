@@ -158,7 +158,8 @@ export function BuildNodeManagerSection({
             account_tree
           </span>
           <p className="text-sm text-kyar-textSecondary">
-            No linked elements yet. Add a main element or link an existing element to start building.
+            No linked elements yet. Add a main element or link an existing element to start
+            building.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button

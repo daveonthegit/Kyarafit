@@ -69,11 +69,7 @@ export function limit(tier: Tier, feature: Feature): number | boolean {
 }
 
 /** Whether the tier may use a boolean feature, or store under the soft storage cap. */
-export function can(
-  tier: Tier,
-  feature: Feature,
-  ctx?: { currentUsageMb?: number }
-): boolean {
+export function can(tier: Tier, feature: Feature, ctx?: { currentUsageMb?: number }): boolean {
   if (feature === "storage_mb_soft_cap") {
     const cap = STORAGE_CAP_MB[tier];
     const usage = ctx?.currentUsageMb ?? 0;
