@@ -6,6 +6,10 @@ import {
   applyDocOverlay,
   applyListOverlay,
 } from "@kyarafit/design-system/domain/offlineEntityOverlay";
+import {
+  applyPlannerOverlay,
+  type PlannerOverlayItem,
+} from "@kyarafit/design-system/domain/offlinePlannerOverlay";
 import { readOfflineQueryCache, writeOfflineQueryCache } from "./queryCache";
 import { listPendingEntityRows, listSyncedEntityRows } from "./entityRows";
 import { offlineEntityQuery } from "./offlineEntityQueries";
@@ -72,6 +76,13 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     const overlay = fnName != null ? offlineEntityQuery(fnName) : null;
     if (overlay == null) return base;
     const pending = listPendingEntityRows(overlay.table);
+
+    if (overlay.kind === "planner") {
+      if (pending.length === 0) return base;
+      const list = Array.isArray(base) ? (base as PlannerOverlayItem[]) : [];
+      const today = new Date().toISOString().slice(0, 10);
+      return applyPlannerOverlay(list, pending, today) as FunctionReturnType<Query>;
+    }
 
     // Fall back to the synced local store only when offline with no live/cached result (cold
     // start); while online an `undefined` base is a genuine loading state and must be preserved.

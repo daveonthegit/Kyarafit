@@ -4,9 +4,10 @@
  * shared by the bridge (which writes overlays when a mutation is enqueued offline) and the sync
  * worker (which clears the same overlays once the mutation replays).
  *
- * Scope: the plain-document create/edit/delete surfaces in the Phase 1 DoD — **builds** and
- * **conventions**. Derived/projected queries (planner, build tree) are not overlaid here. Mutations
- * not listed return no writes, so they are simply not shown optimistically.
+ * Scope: the create/edit/delete surfaces in the Phase 1 DoD — **builds**, **conventions**, and
+ * **workflow items** (tasks; overlaid into the projected planner + build-tree views via
+ * `offlinePlannerOverlay` / `offlineBuildTreeOverlay`). Mutations not listed return no writes, so
+ * they are simply not shown optimistically.
  */
 
 export type EntityOverlayWrite = {
@@ -81,6 +82,58 @@ export function overlayWritesFor(
         doc: null,
         deleted: true,
       }));
+
+    case "workflow:create":
+      if (!clientId) return [];
+      return [
+        { table: "workflowItems", id: clientId, doc: { ...args, _id: clientId }, deleted: false },
+      ];
+    case "workflow:update": {
+      const id = typeof args.id === "string" ? args.id : null;
+      return id ? [{ table: "workflowItems", id, doc: editFields(args, id), deleted: false }] : [];
+    }
+    case "workflow:remove": {
+      const id = typeof args.id === "string" ? args.id : null;
+      return id ? [{ table: "workflowItems", id, doc: null, deleted: true }] : [];
+    }
+    case "workflow:move": {
+      const id = typeof args.id === "string" ? args.id : null;
+      return id
+        ? [
+            {
+              table: "workflowItems",
+              id,
+              doc: { _id: id, parentId: args.parentId ?? undefined, sortOrder: args.sortOrder },
+              deleted: false,
+            },
+          ]
+        : [];
+    }
+    case "workflow:moveAndResequence": {
+      const move = asRecord(args.move);
+      const writes: EntityOverlayWrite[] = [];
+      if (typeof move.id === "string") {
+        writes.push({
+          table: "workflowItems",
+          id: move.id,
+          doc: { _id: move.id, parentId: move.parentId ?? undefined, sortOrder: move.sortOrder },
+          deleted: false,
+        });
+      }
+      const resequence = Array.isArray(args.resequence) ? args.resequence : [];
+      for (const entry of resequence) {
+        const row = asRecord(entry);
+        if (typeof row.id === "string") {
+          writes.push({
+            table: "workflowItems",
+            id: row.id,
+            doc: { _id: row.id, sortOrder: row.sortOrder },
+            deleted: false,
+          });
+        }
+      }
+      return writes;
+    }
 
     default:
       return [];

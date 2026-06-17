@@ -19,6 +19,7 @@
     "./domain/offlineMutationQueue": "./domain/offlineMutationQueue.ts",
     "./domain/offlineIdMap": "./domain/offlineIdMap.ts",
     "./domain/offlineEntityOverlay": "./domain/offlineEntityOverlay.ts",
+    "./domain/offlinePlannerOverlay": "./domain/offlinePlannerOverlay.ts",
     "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts",
     "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
     "./domain/adPolicy": "./domain/adPolicy.ts"
