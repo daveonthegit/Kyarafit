@@ -13,7 +13,7 @@ import {
   type ConvexTier,
 } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { useTier } from "@/lib/api/useTier";
-import { formatStorageMb } from "@/lib/utils";
+import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { WebSubscriptionRevenueCat } from "@/components/settings/WebSubscriptionRevenueCat";
 import { useCurrentUser } from "@/hooks/useCurrentUser";

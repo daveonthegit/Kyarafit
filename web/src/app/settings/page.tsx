@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTier } from "@/lib/api/useTier";
 import { useFeatureAccess } from "@/lib/api/useTier";
-import { formatStorageMb } from "@/lib/utils";
+import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";

@@ -9,7 +9,7 @@ import { api } from "convex/_generated/api";
 import { setAppLocale, SUPPORTED_LOCALES, type AppLocale } from "@/i18n";
 import { APP_HREF } from "@/lib/appRoutes";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { formatStorageMb } from "@/lib/formatStorageMb";
+import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { signOut } from "@/lib/auth/client";
 import { useTier } from "@/lib/useTier";
 import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";

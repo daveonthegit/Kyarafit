@@ -13,7 +13,7 @@ import {
   type SubscriptionPlan,
 } from "@kyarafit/design-system/domain/subscriptionPlans";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
-import { formatStorageMb } from "@/lib/formatStorageMb";
+import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { useTier } from "@/lib/useTier";
 import {
   addRevenueCatCustomerInfoUpdateListener,
