@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, G } from "react-native-svg";
+import { progressRingGeometry } from "@kyarafit/design-system/domain/progressRing";
 import type { Id } from "convex/_generated/dataModel";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
@@ -34,12 +35,10 @@ function CircularProgressRing({
   size: number;
   strokeColor: string;
 }) {
-  const clamped = Math.min(100, Math.max(0, pct));
   const r = 16;
   const cx = 18;
   const cy = 18;
-  const circumference = 2 * Math.PI * r;
-  const dashOffset = circumference * (1 - clamped / 100);
+  const { clampedPercent, dashArray, dashOffset } = progressRingGeometry(pct, r);
 
   return (
     <View className="items-center justify-center" style={{ width: size, height: size }}>
@@ -62,7 +61,7 @@ function CircularProgressRing({
             strokeWidth={2}
             fill="none"
             strokeLinecap="round"
-            strokeDasharray={`${circumference}, ${circumference}`}
+            strokeDasharray={dashArray}
             strokeDashoffset={dashOffset}
           />
         </G>
@@ -75,7 +74,7 @@ function CircularProgressRing({
           color: strokeColor,
         }}
       >
-        {clamped}
+        {clampedPercent}
       </Text>
     </View>
   );

@@ -33,7 +33,8 @@
     "./domain/tierTransition": "./domain/tierTransition.ts",
     "./domain/importExport": "./domain/importExport.ts",
     "./domain/imageRef": "./domain/imageRef.ts",
-    "./domain/closetItems": "./domain/closetItems.ts"
+    "./domain/closetItems": "./domain/closetItems.ts",
+    "./domain/progressRing": "./domain/progressRing.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",

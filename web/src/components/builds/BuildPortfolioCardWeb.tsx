@@ -2,6 +2,7 @@
 
 import type { PortfolioLayoutMode } from "@/lib/portfolioLayout";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { progressRingGeometry } from "@kyarafit/design-system/domain/progressRing";
 import type { Id } from "convex/_generated/dataModel";
 
 export type BuildPortfolioCardWebModel = {
@@ -25,6 +26,7 @@ function ProgressRing({
   textClass: string;
   trackClass: string;
 }) {
+  const { dashArray, dashOffset } = progressRingGeometry(progress, 16);
   return (
     <div className={`relative flex shrink-0 items-center justify-center ${sizeClass}`}>
       <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden>
@@ -45,7 +47,8 @@ function ProgressRing({
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
-          strokeDasharray={`${(progress / 100) * 100} 100`}
+          strokeDasharray={dashArray}
+          strokeDashoffset={dashOffset}
           className={textClass}
         />
       </svg>
