@@ -18,11 +18,11 @@ import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
-  getTabFilterOptions,
-  type TabFilter,
-  type SortBy,
+  BUILD_TABS,
+  type BuildTab,
+  type BuildSortBy,
   type SortOrder,
-} from "@/lib/buildsListArgs";
+} from "@kyarafit/design-system/domain/buildsList";
 import { useBuildsList } from "@/lib/builds/useBuildsList";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import type { Doc, Id } from "convex/_generated/dataModel";
@@ -34,14 +34,22 @@ const STATUS_OPTIONS: { value: BuildStatus; label: string }[] = [
   { value: "archived", label: "Archive" },
 ];
 
-const SORT_LABELS: Record<SortBy, string> = {
+const SORT_LABELS: Record<BuildSortBy, string> = {
   name: "Name",
   progress: "Progress",
   targetDate: "Target date",
   budget: "Budget",
 };
 
-const BUILD_SORT_CYCLE: SortBy[] = ["name", "targetDate", "progress", "budget"];
+const BUILD_SORT_CYCLE: BuildSortBy[] = ["name", "targetDate", "progress", "budget"];
+
+const BUILD_TAB_LABELS: Record<BuildTab, string> = {
+  all: "All builds",
+  current: "Current (in progress)",
+  planning: "Planning / idea",
+  completed: "Completed",
+  archived: "Archived",
+};
 
 function portfolioGridClass(layout: PortfolioLayoutMode): string {
   switch (layout) {
@@ -57,9 +65,9 @@ function portfolioGridClass(layout: PortfolioLayoutMode): string {
 }
 
 export default function BuildsPage() {
-  const [activeTab, setActiveTab] = useState<TabFilter>("all");
+  const [activeTab, setActiveTab] = useState<BuildTab>("all");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [sortBy, setSortBy] = useState<BuildSortBy>("name");
   const [order, setOrder] = useState<SortOrder>("asc");
   const [layout, setLayout] = useState<PortfolioLayoutMode>("comfortable");
   const [selectedIds, setSelectedIds] = useState<Set<Id<"builds">>>(new Set());
@@ -82,7 +90,7 @@ export default function BuildsPage() {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { userId, isLoading: authLoading } = useCurrentUser();
   const { open: openCreationModal } = useCreationModals();
-  const tabOptions = getTabFilterOptions();
+  const tabOptions = BUILD_TABS.map((value) => ({ value, label: BUILD_TAB_LABELS[value] }));
 
   // Builds list is the Wave 3 local-first slice: data + writes flow through the offline bridge,
   // and filtering/sorting happen locally (see `useBuildsList`). Other screens stay on convex/react.
@@ -255,7 +263,7 @@ export default function BuildsPage() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setActiveTab(opt.value as TabFilter)}
+              onClick={() => setActiveTab(opt.value as BuildTab)}
               className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 activeTab === opt.value
                   ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
@@ -295,7 +303,7 @@ export default function BuildsPage() {
           </span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            onChange={(e) => setSortBy(e.target.value as BuildSortBy)}
             className="min-h-[44px] min-w-[11rem] flex-1 border-b border-kyar-border bg-transparent py-1.5 text-[11px] uppercase tracking-wider text-kyar-text focus:border-kyar-text focus:outline-none transition-colors sm:min-w-0 sm:flex-none"
             aria-label="Sort builds by"
           >

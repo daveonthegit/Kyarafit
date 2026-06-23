@@ -10,6 +10,15 @@ export type BuildTab = "all" | "current" | "planning" | "completed" | "archived"
 export type BuildSortBy = "name" | "progress" | "targetDate" | "budget";
 export type SortOrder = "asc" | "desc";
 
+/** Canonical ordered set of build tabs for the builds list UI. Labels are presentation (platform-side). */
+export const BUILD_TABS: readonly BuildTab[] = [
+  "all",
+  "current",
+  "planning",
+  "completed",
+  "archived",
+];
+
 export interface BuildListItem {
   _id: string;
   name: string;
