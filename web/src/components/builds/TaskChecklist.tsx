@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { useDraggable } from "@dnd-kit/core";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -52,9 +52,9 @@ export function TaskChecklist({
   const [dueDateEditTaskId, setDueDateEditTaskId] = useState<Id<"workflowItems"> | null>(null);
   const { userId } = useCurrentUser();
 
-  const createTask = useMutation(api.buildTasks.create);
-  const updateTask = useMutation(api.buildTasks.update);
-  const deleteTask = useMutation(api.buildTasks.remove);
+  const createTask = useOfflineMutation(api.buildTasks.create);
+  const updateTask = useOfflineMutation(api.buildTasks.update);
+  const deleteTask = useOfflineMutation(api.buildTasks.remove);
 
   const completedCount = tasks.filter((t) => t.checked).length;
   const totalCount = tasks.length;

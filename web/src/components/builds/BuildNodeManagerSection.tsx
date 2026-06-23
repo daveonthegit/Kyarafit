@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
@@ -43,8 +43,10 @@ export function BuildNodeManagerSection({
   onCreateRoot,
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
-  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ??
-    []) as ExplorerLinkedNode[];
+  const allNodes = (useOfflineQuery(
+    api.cosplayNodes.list,
+    userId ? { userId, sortBy: "name" } : "skip"
+  ) ?? []) as ExplorerLinkedNode[];
 
   const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
+import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "convex/_generated/dataModel";
@@ -40,26 +41,28 @@ export default function HomePage() {
   const { userId } = useCurrentUser();
   const t = useTranslations("Home");
   const tCommon = useTranslations("Common");
+  // users + file-storage reads/writes are online-only (no sync metadata) — stay on convex/react.
   const focusedBuildId = useQuery(
     api.users.getFocusedBuildId,
     userId ? { externalId: userId } : "skip"
   );
-  const focusedOrRecent = useQuery(
+  // builds + conventions carry ...syncMetaFields — read/write through the local-first bridge.
+  const focusedOrRecent = useOfflineQuery(
     api.builds.getFocusedOrMostRecentForUser,
     userId ? { userId } : "skip"
   );
   const recentBuild = focusedOrRecent as FocusedBuild | null | undefined;
   const setFocusedBuild = useMutation(api.users.setFocusedBuild);
-  const eventForBuild = useQuery(
+  const eventForBuild = useOfflineQuery(
     api.conventions.getEventForBuild,
     userId && recentBuild ? { buildId: recentBuild._id, userId } : "skip"
   );
-  const upcomingWithCounts = useQuery(
+  const upcomingWithCounts = useOfflineQuery(
     api.conventions.listUpcomingWithPlanCounts,
     userId ? { userId, limit: 10 } : "skip"
   );
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
-  const updateBuild = useMutation(api.builds.update);
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+  const updateBuild = useOfflineMutation(api.builds.update);
 
   const recentProjectsList = useMemo(() => {
     const excluded = recentBuild ? builds.filter((b) => b._id !== recentBuild._id) : [...builds];

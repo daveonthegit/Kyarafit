@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useOfflineQuery } from "@/lib/offline";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import {
   LinkClosetItemsForm,
@@ -28,7 +28,7 @@ export default function BuildLinkItemsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const closetItems = (useQuery(
+  const closetItems = (useOfflineQuery(
     api.cosplayNodes.list,
     userId ? { userId, sortBy: "name" } : "skip"
   ) ?? []) as Array<{
@@ -47,7 +47,7 @@ export default function BuildLinkItemsPage() {
     materialStatus?: string | null;
     totalCostCents?: number | null;
   }>;
-  const linkedIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
+  const linkedIds = (useOfflineQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
     []) as Id<"cosplayNodes">[];
 
   const closetRows = closetItems.map((c) => ({

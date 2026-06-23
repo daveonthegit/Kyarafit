@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { Sheet } from "@/components/ui/sheet";
@@ -22,7 +22,7 @@ export function BuildAddTaskModal({
   userId,
   taskCount,
 }: BuildAddTaskModalProps) {
-  const createTask = useMutation(api.buildTasks.create);
+  const createTask = useOfflineMutation(api.buildTasks.create);
   const [label, setLabel] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

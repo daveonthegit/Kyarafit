@@ -238,6 +238,16 @@ export default function SettingsIndexScreen() {
                   href={APP_HREF.settingsOffline}
                   iconColor={colors.text}
                   metaColor={colors.meta}
+                  showBorder
+                />
+                <SettingsRow
+                  icon="download-outline"
+                  title={t("settings.dataPortability")}
+                  subtitle={t("settings.dataPortabilitySubtitle")}
+                  onPress={() => undefined}
+                  href={APP_HREF.settingsData}
+                  iconColor={colors.text}
+                  metaColor={colors.meta}
                   showBorder={false}
                 />
               </SurfaceCard>

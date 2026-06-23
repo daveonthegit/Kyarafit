@@ -1,5 +1,23 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { imageRefValidator } from "./lib/imageRef";
+
+/**
+ * Sync metadata carried by every local-first, user-owned row (DATA_AND_SYNC.md §4, REQ-D40).
+ * All optional so the migration is non-breaking for rows written before the fields existed:
+ * - `clientId`     stable client-minted id for offline-created rows.
+ * - `version`      monotonically bumped on each write (optimistic concurrency / LWW tiebreak).
+ * - `updatedAt`    ms timestamp bumped on every field write; basis for per-field LWW + pull deltas.
+ * - `fieldUpdatedAt` per-field ms timestamps for field-level last-write-wins (REQ-D40/D65).
+ * - `deletedAt`    soft-delete tombstone.
+ */
+const syncMetaFields = {
+  clientId: v.optional(v.string()),
+  version: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+  fieldUpdatedAt: v.optional(v.record(v.string(), v.number())),
+  deletedAt: v.optional(v.number()),
+};
 
 export default defineSchema({
   users: defineTable({
@@ -40,11 +58,13 @@ export default defineSchema({
     status: v.optional(v.string()),
     completionTaskId: v.optional(v.id("buildTasks")),
     parentItemId: v.optional(v.id("closetItems")),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_category", ["userId", "category"])
     .index("by_completionTaskId", ["completionTaskId"])
-    .index("by_parentItemId", ["parentItemId"]),
+    .index("by_parentItemId", ["parentItemId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   cosplayNodes: defineTable({
     userId: v.string(),
@@ -69,14 +89,14 @@ export default defineSchema({
     buildInstructions: v.optional(v.string()),
     finishedPhotoUrls: v.optional(v.array(v.string())),
     consumable: v.optional(v.boolean()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_nodeType", ["userId", "nodeType"])
     .index("by_userId_category", ["userId", "category"])
     .index("by_legacyClosetItemId", ["legacyClosetItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),
@@ -149,17 +169,15 @@ export default defineSchema({
       })
     ),
     groupId: v.optional(v.id("groups")),
-    /** Offline-first client-generated id for dedupe (optional). */
-    clientId: v.optional(v.string()),
-    /** Optimistic concurrency / LWW (optional). */
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
     .index("by_shareToken", ["shareToken"])
     .index("by_groupId", ["groupId"])
     .index("by_visibility", ["visibility"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   buildItemLinks: defineTable({
     userId: v.string(),
@@ -179,15 +197,15 @@ export default defineSchema({
     sortOrder: v.number(),
     checked: v.boolean(),
     dueDate: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_closetItemId", ["closetItemId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_packingListItemId", ["packingListItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowItems: defineTable({
     userId: v.string(),
@@ -226,8 +244,7 @@ export default defineSchema({
     recurrenceRule: v.optional(v.string()),
     legacyBuildTaskId: v.optional(v.id("buildTasks")),
     dedupeKey: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_parentId", ["parentId"])
@@ -235,7 +252,8 @@ export default defineSchema({
     .index("by_legacyBuildTaskId", ["legacyBuildTaskId"])
     .index("by_templateId", ["templateId"])
     .index("by_dedupeKey", ["dedupeKey"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowAttachments: defineTable({
     userId: v.string(),
@@ -246,21 +264,25 @@ export default defineSchema({
     role: v.string(),
     buildContextId: v.optional(v.id("builds")),
     progressWeight: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_workflowItemId", ["workflowItemId"])
     .index("by_entityKey", ["entityKey"])
-    .index("by_entityKey_buildContextId", ["entityKey", "buildContextId"]),
+    .index("by_entityKey_buildContextId", ["entityKey", "buildContextId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowDependencies: defineTable({
     userId: v.string(),
     predecessorWorkflowItemId: v.id("workflowItems"),
     successorWorkflowItemId: v.id("workflowItems"),
     relationKind: v.string(),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_predecessorWorkflowItemId", ["predecessorWorkflowItemId"])
-    .index("by_successorWorkflowItemId", ["successorWorkflowItemId"]),
+    .index("by_successorWorkflowItemId", ["successorWorkflowItemId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowTemplates: defineTable({
     userId: v.optional(v.string()),
@@ -301,11 +323,11 @@ export default defineSchema({
     startDate: v.string(),
     endDate: v.string(),
     archived: v.optional(v.boolean()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   conventionDayPlans: defineTable({
     userId: v.string(),
@@ -313,11 +335,12 @@ export default defineSchema({
     date: v.string(),
     buildId: v.optional(v.id("builds")),
     notes: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_conventionId", ["conventionId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   packingListItems: defineTable({
     userId: v.string(),
@@ -333,14 +356,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
     checked: v.boolean(),
     sortOrder: v.optional(v.number()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_conventionId", ["conventionId"])
     .index("by_userId", ["userId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_workflowItemId", ["workflowItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   buildReferenceImages: defineTable({
     userId: v.string(),
@@ -348,12 +371,12 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   buildProcessPictures: defineTable({
     userId: v.string(),
@@ -361,12 +384,64 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
+  /**
+   * Canonical Element model (DATA_AND_SYNC.md §3.1, REQ-040/041/042). Build-scoped (`buildId`)
+   * tree of elements via `parentElementId`; replaces the legacy `cosplayNodes` graph + `closetItems`.
+   * Cross-build reuse is duplicate-to-build (REQ-042), not a shared per-build state graph.
+   */
+  elements: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    parentElementId: v.optional(v.id("elements")),
+    name: v.string(),
+    category: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+    sourceUrl: v.optional(v.string()),
+    imageRef: v.optional(imageRefValidator),
+    pricingMode: v.optional(v.string()),
+    directCostCents: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    purchaseStatus: v.optional(v.string()),
+    buildStatus: v.optional(v.string()),
+    materialStatus: v.optional(v.string()),
+    manualOverallBucket: v.optional(v.string()),
+    sortOrder: v.optional(v.number()),
+    ...syncMetaFields,
+  })
+    .index("by_userId", ["userId"])
+    .index("by_buildId", ["buildId"])
+    .index("by_parentElementId", ["parentElementId"])
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
+  /**
+   * Dated build progress-update timeline (DATA_AND_SYNC.md §3.3, REQ-049). `publishedToFeed` is the
+   * paid-only flag that surfaces an update on the social feed; the gate is enforced at the mutation.
+   */
+  buildProgressUpdates: defineTable({
+    buildId: v.id("builds"),
+    userId: v.string(),
+    createdAt: v.number(),
+    note: v.optional(v.string()),
+    imageRefs: v.array(imageRefValidator),
+    progressPercent: v.optional(v.number()),
+    publishedToFeed: v.boolean(),
+    ...syncMetaFields,
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   groups: defineTable({
     name: v.string(),

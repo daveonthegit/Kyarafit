@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -117,15 +118,18 @@ export const create = mutation({
       const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
       const startDate = validateDateString(args.startDate, "Start date");
       const endDate = validateDateString(args.endDate, "End date");
-      const id = await ctx.db.insert("conventions", {
-        userId: args.userId,
-        name,
-        location,
-        imageUrl: args.imageUrl,
-        imageStorageId: args.imageStorageId,
-        startDate,
-        endDate,
-      });
+      const id = await ctx.db.insert(
+        "conventions",
+        withCreateMeta({
+          userId: args.userId,
+          name,
+          location,
+          imageUrl: args.imageUrl,
+          imageStorageId: args.imageStorageId,
+          startDate,
+          endDate,
+        })
+      );
       return await ctx.db.get(id);
     }),
 });
@@ -173,7 +177,7 @@ export const update = mutation({
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
+      await ctx.db.patch(id, withUpdateMeta(convention, patch));
     }
     return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
   },
@@ -192,7 +196,7 @@ export const archiveMany = mutation({
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
       if (!convention || convention.userId !== args.userId) continue;
-      await ctx.db.patch(id, { archived: args.archived });
+      await ctx.db.patch(id, withUpdateMeta(convention, { archived: args.archived }));
     }
     await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
   },
@@ -294,13 +298,16 @@ export const replacePlan = mutation({
       const entry = args.plan[i];
       const date = validateDateString(entry.date, `Plan ${i + 1} date`);
       const notes = sanitizeOptional(entry.notes, MAX_LENGTH.notes, `Plan ${i + 1} notes`);
-      const id = await ctx.db.insert("conventionDayPlans", {
-        userId: args.userId,
-        conventionId: args.conventionId,
-        date,
-        buildId: entry.buildId,
-        notes,
-      });
+      const id = await ctx.db.insert(
+        "conventionDayPlans",
+        withCreateMeta({
+          userId: args.userId,
+          conventionId: args.conventionId,
+          date,
+          buildId: entry.buildId,
+          notes,
+        })
+      );
       results.push(await ctx.db.get(id));
     }
     return idempotentRecord(ctx, args.idempotencyKey, args.userId, results);
@@ -349,7 +356,7 @@ export const updatePackingItem = mutation({
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
+      await ctx.db.patch(id, withUpdateMeta(item, patch));
     }
     const updated = await ctx.db.get(id);
     if (updated) {
@@ -399,18 +406,21 @@ export const addManualPackingItem = mutation({
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const date = args.date ? validateDateString(args.date, "Date") : undefined;
     const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
-    const id = await ctx.db.insert("packingListItems", {
-      userId: args.userId,
-      conventionId: args.conventionId,
-      label,
-      date,
-      notes,
-      buildId: args.buildId,
-      checked: false,
-      entryKind: "manual",
-      sourceKind: "manual",
-      sortOrder: 0,
-    });
+    const id = await ctx.db.insert(
+      "packingListItems",
+      withCreateMeta({
+        userId: args.userId,
+        conventionId: args.conventionId,
+        label,
+        date,
+        notes,
+        buildId: args.buildId,
+        checked: false,
+        entryKind: "manual",
+        sourceKind: "manual",
+        sortOrder: 0,
+      })
+    );
     await ensurePackingWorkflowItem(ctx, {
       userId: args.userId,
       packingListItemId: id,
@@ -528,7 +538,7 @@ export const regeneratePacking = mutation({
         if (!node) continue;
         const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert(
           "packingListItems",
-          {
+          withCreateMeta({
             userId: args.userId,
             conventionId: args.conventionId,
             date: plan.date,
@@ -539,7 +549,7 @@ export const regeneratePacking = mutation({
             entryKind: "generated",
             sourceKind: "workflow",
             sortOrder: newItems.length,
-          }
+          })
         );
         await ensurePackingWorkflowItem(ctx, {
           userId: args.userId,

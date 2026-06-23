@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -22,7 +22,7 @@ type NewConventionModalProps = {
 export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventionModalProps) {
   const router = useRouter();
   const { userId } = useCurrentUser();
-  const createConvention = useMutation(api.conventions.create);
+  const createConvention = useOfflineMutation(api.conventions.create);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);

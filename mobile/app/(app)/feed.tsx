@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { APP_HREF } from "@/lib/appRoutes";
 import { Button, DataBoundary, SurfaceCard } from "@/ui";
 
@@ -26,6 +27,7 @@ export default function FeedScreen() {
           headerLargeTitle: false,
         }}
       />
+      <OfflineBanner />
       <MobilePageHeader
         eyebrow={t("nav.feed")}
         title={t("feed.title")}

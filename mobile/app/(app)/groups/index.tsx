@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Doc } from "convex/_generated/dataModel";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
@@ -30,6 +31,7 @@ export default function GroupsIndexScreen() {
           headerLargeTitle: false,
         }}
       />
+      <OfflineBanner />
       <DataBoundary status={status} data={{ groups }}>
         {() => (
           <ScrollView

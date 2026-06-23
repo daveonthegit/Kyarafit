@@ -42,7 +42,8 @@
     "remotion": "^4.0.441",
     "swiper": "11.1.15",
     "tailwind-merge": "^3.5.0",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "wa-sqlite": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",

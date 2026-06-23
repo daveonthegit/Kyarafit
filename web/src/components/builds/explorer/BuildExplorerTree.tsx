@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildExplorerRow } from "./BuildExplorerRow";
@@ -85,7 +85,7 @@ function TreeNode({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const detail = useQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
+  const detail = useOfflineQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
     | DetailedLinkedNode
     | null
     | undefined;

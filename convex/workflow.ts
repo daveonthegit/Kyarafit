@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   buildWorkflowTree,
   deriveDoneCounts,
@@ -409,11 +410,14 @@ async function replaceAttachments(
   for (const row of existing) await ctx.db.delete(row._id);
   for (const attachment of attachments) {
     const normalized = validateAttachment(attachment);
-    await ctx.db.insert("workflowAttachments", {
-      userId,
-      workflowItemId,
-      ...normalized,
-    });
+    await ctx.db.insert(
+      "workflowAttachments",
+      withCreateMeta({
+        userId,
+        workflowItemId,
+        ...normalized,
+      })
+    );
   }
 }
 
@@ -440,9 +444,12 @@ async function patchDescendantAncestors(
   for (const descendant of descendants) {
     const movedIndex = descendant.ancestorIds.indexOf(rootId);
     const tail = descendant.ancestorIds.slice(movedIndex);
-    await ctx.db.patch(descendant._id, {
-      ancestorIds: [...newAncestorIds, ...tail],
-    });
+    await ctx.db.patch(
+      descendant._id,
+      withUpdateMeta(descendant, {
+        ancestorIds: [...newAncestorIds, ...tail],
+      })
+    );
   }
 }
 
@@ -593,33 +600,39 @@ async function ensureWorkflowItem(
 
   const normalizedStatus = coerceStatus(input.status);
   if (existing) {
-    await ctx.db.patch(existing._id, {
-      title: input.title,
-      notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
-      category: coerceCategory(input.category),
-      status: normalizedStatus,
-      dueDate: input.dueDate,
-      scopeKind: coerceScopeKind(input.scopeKind),
-      sourceKind: coerceSourceKind(input.sourceKind),
-    });
+    await ctx.db.patch(
+      existing._id,
+      withUpdateMeta(existing, {
+        title: input.title,
+        notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
+        category: coerceCategory(input.category),
+        status: normalizedStatus,
+        dueDate: input.dueDate,
+        scopeKind: coerceScopeKind(input.scopeKind),
+        sourceKind: coerceSourceKind(input.sourceKind),
+      })
+    );
     await replaceAttachments(ctx, input.userId, existing._id, input.attachments);
     return existing._id;
   }
 
-  const id = await ctx.db.insert("workflowItems", {
-    userId: input.userId,
-    title: sanitizeAndLimit(input.title, MAX_LENGTH.label, "Workflow title"),
-    notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
-    kind: "task",
-    category: coerceCategory(input.category),
-    status: normalizedStatus,
-    ancestorIds: [],
-    sortOrder: 0,
-    scopeKind: coerceScopeKind(input.scopeKind),
-    sourceKind: coerceSourceKind(input.sourceKind),
-    dueDate: input.dueDate,
-    dedupeKey: input.dedupeKey,
-  });
+  const id = await ctx.db.insert(
+    "workflowItems",
+    withCreateMeta({
+      userId: input.userId,
+      title: sanitizeAndLimit(input.title, MAX_LENGTH.label, "Workflow title"),
+      notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
+      kind: "task",
+      category: coerceCategory(input.category),
+      status: normalizedStatus,
+      ancestorIds: [],
+      sortOrder: 0,
+      scopeKind: coerceScopeKind(input.scopeKind),
+      sourceKind: coerceSourceKind(input.sourceKind),
+      dueDate: input.dueDate,
+      dedupeKey: input.dedupeKey,
+    })
+  );
   await replaceAttachments(ctx, input.userId, id, input.attachments);
   return id;
 }
@@ -744,11 +757,15 @@ export async function ensurePackingWorkflowItem(
     dueDate: input.dueDate,
     attachments,
   });
-  await ctx.db.patch(input.packingListItemId, {
-    workflowItemId,
-    entryKind: input.manual ? "manual" : "generated",
-    sourceKind: input.manual ? "manual" : "workflow",
-  });
+  const packingItem = await ctx.db.get(input.packingListItemId);
+  await ctx.db.patch(
+    input.packingListItemId,
+    withUpdateMeta(packingItem ?? {}, {
+      workflowItemId,
+      entryKind: input.manual ? "manual" : "generated",
+      sourceKind: input.manual ? "manual" : "workflow",
+    })
+  );
   return workflowItemId;
 }
 
@@ -763,13 +780,18 @@ async function syncPackingItemsFromWorkflowItem(
 
   for (const attachment of attachments) {
     if (attachment.entityType !== "packingItem") continue;
-    await ctx.db.patch(attachment.entityId as Id<"packingListItems">, {
-      workflowItemId: workflowItem._id,
-      label: workflowItem.title,
-      notes: workflowItem.notes,
-      date: workflowItem.dueDate,
-      checked: workflowItem.status === "done",
-    });
+    const packingId = attachment.entityId as Id<"packingListItems">;
+    const packingItem = await ctx.db.get(packingId);
+    await ctx.db.patch(
+      packingId,
+      withUpdateMeta(packingItem ?? {}, {
+        workflowItemId: workflowItem._id,
+        label: workflowItem.title,
+        notes: workflowItem.notes,
+        date: workflowItem.dueDate,
+        checked: workflowItem.status === "done",
+      })
+    );
   }
 }
 
@@ -921,20 +943,23 @@ export const applyTemplate = mutation({
         ? createdByKey.get(templateItem.parentTemplateItemKey)
         : undefined;
       const parent = parentId ? await ctx.db.get(parentId) : null;
-      const workflowItemId = await ctx.db.insert("workflowItems", {
-        userId: args.userId,
-        title: templateItem.title,
-        notes: templateItem.notes,
-        kind: templateItem.kind,
-        category: templateItem.category,
-        status: templateItem.status,
-        parentId,
-        ancestorIds: parentAncestorIds(parent),
-        sortOrder: templateItem.sortOrder,
-        scopeKind: coerceScopeKind(args.scopeKind ?? templateItem.scopeKind),
-        sourceKind: "template",
-        templateId: args.templateId,
-      });
+      const workflowItemId = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: args.userId,
+          title: templateItem.title,
+          notes: templateItem.notes,
+          kind: templateItem.kind,
+          category: templateItem.category,
+          status: templateItem.status,
+          parentId,
+          ancestorIds: parentAncestorIds(parent),
+          sortOrder: templateItem.sortOrder,
+          scopeKind: coerceScopeKind(args.scopeKind ?? templateItem.scopeKind),
+          sourceKind: "template",
+          templateId: args.templateId,
+        })
+      );
       createdByKey.set(templateItem.templateItemKey, workflowItemId);
       createdIds.push(workflowItemId);
       if (!parentId) {
@@ -1223,37 +1248,40 @@ export const create = mutation({
       }
 
       const sanitized = sanitizeWorkflowInput(args);
-      const workflowItemId = await ctx.db.insert("workflowItems", {
-        userId: args.userId,
-        title: sanitized.title ?? "",
-        notes: sanitized.notes,
-        kind: sanitized.kind ?? "task",
-        category: sanitized.category ?? "craft",
-        status: sanitized.status ?? "not_started",
-        parentId: args.parentId,
-        ancestorIds: parentAncestorIds(parent),
-        sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, args.userId, args.parentId)),
-        scopeKind: sanitized.scopeKind ?? "build_specific",
-        sourceKind: sanitized.sourceKind ?? "manual",
-        priority: args.priority,
-        startDate: sanitized.startDate,
-        targetDate: sanitized.targetDate,
-        dueDate: sanitized.dueDate,
-        reminders: sanitized.reminders,
-        weight: args.weight,
-        manualProgressPercent: args.manualProgressPercent,
-        estimatedMinutes: args.estimatedMinutes,
-        actualMinutes: args.actualMinutes,
-        estimatedCostCents: args.estimatedCostCents,
-        actualCostCents: args.actualCostCents,
-        creatorUserId: args.creatorUserId ?? args.userId,
-        ownerUserId: args.ownerUserId ?? args.userId,
-        assigneeUserId: args.assigneeUserId,
-        templateId: args.templateId,
-        recurrenceRule: sanitized.recurrenceRule,
-        legacyBuildTaskId: args.legacyBuildTaskId,
-        dedupeKey: sanitized.dedupeKey,
-      });
+      const workflowItemId = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: args.userId,
+          title: sanitized.title ?? "",
+          notes: sanitized.notes,
+          kind: sanitized.kind ?? "task",
+          category: sanitized.category ?? "craft",
+          status: sanitized.status ?? "not_started",
+          parentId: args.parentId,
+          ancestorIds: parentAncestorIds(parent),
+          sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, args.userId, args.parentId)),
+          scopeKind: sanitized.scopeKind ?? "build_specific",
+          sourceKind: sanitized.sourceKind ?? "manual",
+          priority: args.priority,
+          startDate: sanitized.startDate,
+          targetDate: sanitized.targetDate,
+          dueDate: sanitized.dueDate,
+          reminders: sanitized.reminders,
+          weight: args.weight,
+          manualProgressPercent: args.manualProgressPercent,
+          estimatedMinutes: args.estimatedMinutes,
+          actualMinutes: args.actualMinutes,
+          estimatedCostCents: args.estimatedCostCents,
+          actualCostCents: args.actualCostCents,
+          creatorUserId: args.creatorUserId ?? args.userId,
+          ownerUserId: args.ownerUserId ?? args.userId,
+          assigneeUserId: args.assigneeUserId,
+          templateId: args.templateId,
+          recurrenceRule: sanitized.recurrenceRule,
+          legacyBuildTaskId: args.legacyBuildTaskId,
+          dedupeKey: sanitized.dedupeKey,
+        })
+      );
       if (args.attachments?.length) {
         await replaceAttachments(ctx, args.userId, workflowItemId, args.attachments);
       }
@@ -1342,7 +1370,7 @@ export const update = mutation({
     if (args.assigneeUserId !== undefined) {
       patch.assigneeUserId = args.assigneeUserId === null ? undefined : args.assigneeUserId;
     }
-    await ctx.db.patch(args.id, patch);
+    await ctx.db.patch(args.id, withUpdateMeta(item, patch));
     if (args.attachments) {
       await replaceAttachments(ctx, args.userId, args.id, args.attachments);
     }
@@ -1377,11 +1405,14 @@ export const move = mutation({
       const parent = parentId ? await ctx.db.get(parentId) : null;
       if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
       const ancestorIds = parentAncestorIds(parent);
-      await ctx.db.patch(args.id, {
-        parentId,
-        ancestorIds,
-        sortOrder: args.sortOrder ?? item.sortOrder,
-      });
+      await ctx.db.patch(
+        args.id,
+        withUpdateMeta(item, {
+          parentId,
+          ancestorIds,
+          sortOrder: args.sortOrder ?? item.sortOrder,
+        })
+      );
       await patchDescendantAncestors(ctx, args.userId, args.id, ancestorIds);
       return await ctx.db.get(args.id);
     }),
@@ -1432,11 +1463,14 @@ export const moveAndResequence = mutation({
     }
 
     const ancestorIds = parentAncestorIds(parent);
-    await ctx.db.patch(args.move.id, {
-      parentId,
-      ancestorIds,
-      sortOrder: args.move.sortOrder ?? item.sortOrder,
-    });
+    await ctx.db.patch(
+      args.move.id,
+      withUpdateMeta(item, {
+        parentId,
+        ancestorIds,
+        sortOrder: args.move.sortOrder ?? item.sortOrder,
+      })
+    );
     await patchDescendantAncestors(ctx, args.userId, args.move.id, ancestorIds);
 
     for (const row of args.resequence) {
@@ -1445,7 +1479,7 @@ export const moveAndResequence = mutation({
       const movedRowAlreadyPatched =
         row.id === args.move.id && row.sortOrder === (args.move.sortOrder ?? item.sortOrder);
       if (movedRowAlreadyPatched || rowItem.sortOrder === row.sortOrder) continue;
-      await ctx.db.patch(row.id, { sortOrder: row.sortOrder });
+      await ctx.db.patch(row.id, withUpdateMeta(rowItem, { sortOrder: row.sortOrder }));
     }
 
     return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(args.move.id));
@@ -1485,12 +1519,15 @@ export const setDependencies = mutation({
       if (dependency.predecessorWorkflowItemId === args.workflowItemId) {
         throw new Error("Workflow item cannot depend on itself");
       }
-      await ctx.db.insert("workflowDependencies", {
-        userId: args.userId,
-        predecessorWorkflowItemId: dependency.predecessorWorkflowItemId,
-        successorWorkflowItemId: args.workflowItemId,
-        relationKind: dependency.relationKind,
-      });
+      await ctx.db.insert(
+        "workflowDependencies",
+        withCreateMeta({
+          userId: args.userId,
+          predecessorWorkflowItemId: dependency.predecessorWorkflowItemId,
+          successorWorkflowItemId: args.workflowItemId,
+          relationKind: dependency.relationKind,
+        })
+      );
     }
     return await ctx.db
       .query("workflowDependencies")

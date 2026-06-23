@@ -1,17 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import Settings from "./page";
+import { authClient } from "@/lib/auth/auth-client";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+// Spec (PRODUCT_SPEC.md §3): export/import are FREE; cloud sync is the only paid lever. The prior
+// test mocked `canExport: false` and asserted an "upgrade for backup and export" prompt — that baked
+// in overturned gating. Free users have export available; the upsell is sync-only.
 vi.mock("@/lib/api/useTier", () => ({
   useTier: () => ({
-    data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 50 },
+    // Free = unlimited local / 0 cloud (DATA_AND_SYNC.md §9).
+    data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 0 },
     isLoading: false,
   }),
-  useFeatureAccess: () => ({ canUseCloudSync: false, canExport: false }),
+  useFeatureAccess: () => ({
+    tier: "free",
+    isPaid: false,
+    canUseCloudSync: false,
+    canExport: true,
+    canImport: true,
+  }),
 }));
 
 vi.mock("@/lib/auth/auth-client", () => ({
@@ -131,10 +142,20 @@ describe("Settings page", () => {
     expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
   });
 
-  it("shows upgrade prompt with link to subscription when cloud sync is not available", () => {
+  it("should_not_gate_export_behind_an_upgrade_prompt_for_free_user", () => {
+    // REQ-012: export is free. The free-user upsell must NOT advertise export as a paid feature.
     render(<Settings />);
-    expect(screen.getByText(/upgrade for backup and export/i)).toBeInTheDocument();
-    const planLink = screen.getByRole("link", { name: /view plan/i });
-    expect(planLink).toHaveAttribute("href", "/settings/subscription");
+    expect(screen.queryByText(/upgrade for backup and export/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/export.*(requires|upgrade|pro|paid)/i)).not.toBeInTheDocument();
+  });
+
+  it("should_warn_free_user_to_export_before_sign_out", () => {
+    // REQ-031: signing out on a (potentially shared) device warns free users to export first and
+    // requires confirmation before the session is cleared.
+    const signOut = vi.mocked(authClient.signOut);
+    render(<Settings />);
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+    expect(screen.getByText(/export/i)).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,14 @@
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
+import type { BetterAuthClientPlugin } from "better-auth";
 import { bearerStoragePlugin } from "./bearer-storage-plugin";
+
+// `crossDomainClient` ships client-action generics that don't satisfy `BetterAuthClientPlugin`
+// under our pinned better-auth version; widening just this entry keeps the tuple well-typed so the
+// other plugins' actions (username sign-in, etc.) still infer. Its own extra actions (updateSession)
+// are accessed via explicit casts where used.
+const crossDomain = crossDomainClient() as unknown as BetterAuthClientPlugin;
 
 const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
 
@@ -12,7 +19,7 @@ export const authClient = createAuthClient({
   // It also exposes updateSession() used by ConvexBetterAuthProvider after OTT exchange.
   // bearerStoragePlugin handles credential sign-in Bearer tokens (the two coexist safely).
   // usernameClient adds signIn.username() for username-based login.
-  plugins: [convexClient(), crossDomainClient(), usernameClient(), bearerStoragePlugin()],
+  plugins: [convexClient(), crossDomain, usernameClient(), bearerStoragePlugin()],
 });
 
 type DeleteUserArgs = {

@@ -23,6 +23,31 @@ function getStoredBearerToken(): string | null {
   return window.localStorage.getItem(BEARER_TOKEN_KEY);
 }
 
+/**
+ * Normalize the loosely-typed better-auth request headers (which may be a `Headers`, a tuple array,
+ * or a record whose values can be `undefined`) into a `Headers` instance, dropping undefined values.
+ */
+function toHeaders(input: unknown): Headers {
+  const headers = new Headers();
+  if (!input) return headers;
+  if (input instanceof Headers) {
+    input.forEach((value, key) => headers.set(key, value));
+  } else if (Array.isArray(input)) {
+    for (const entry of input) {
+      if (Array.isArray(entry) && typeof entry[0] === "string" && typeof entry[1] === "string") {
+        headers.set(entry[0], entry[1]);
+      }
+    }
+  } else if (typeof input === "object") {
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      if (typeof value === "string") {
+        headers.set(key, value);
+      }
+    }
+  }
+  return headers;
+}
+
 export const bearerStoragePlugin = (): BetterAuthClientPlugin => ({
   id: "bearer-storage",
   fetchPlugins: [
@@ -34,7 +59,7 @@ export const bearerStoragePlugin = (): BetterAuthClientPlugin => ({
           setStoredBearerToken(null);
         }
         const token = getStoredBearerToken();
-        const headers = new Headers(options?.headers);
+        const headers = toHeaders(options?.headers);
         if (token) {
           headers.set("Authorization", `Bearer ${token}`);
         }

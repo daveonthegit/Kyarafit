@@ -1,6 +1,9 @@
 import { type ReactNode, useEffect } from "react";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { useConvex } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
+import { useTier } from "@/lib/useTier";
 import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
 import { drainMutationQueue, warmEntityRows } from "./syncWorker";
@@ -21,9 +24,21 @@ function runMaintenance(): void {
 /**
  * Initializes SQLite, tracks connectivity, and drains the offline mutation queue on reconnect.
  * Full SQLite SWR + per-entity reconciliation continues to land incrementally (§3.13).
+ *
+ * The Convex-facing sync worker (queue drain **and** warm-up pull) is a paid, cloud feature: it
+ * runs only when the user is signed in **and** on a paid tier (DATA_AND_SYNC.md §6, REQ-D60). The
+ * single decision point is the pure `shouldRunSyncWorker(tier, signedIn)` predicate shared with
+ * web. A free, signed-in (or signed-out) user therefore makes ZERO Convex personal-data calls —
+ * the worker never drains the queue and never performs the warm-up pull (REQ-D10). Local SQLite
+ * init, connectivity tracking, and maintenance are device-only and keep running for everyone.
  */
 export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const convex = useConvex();
+  const identity = useQuery(api.auth.getCurrentUser);
+  const userId = identity?.subject ?? null;
+  const signedIn = userId !== null;
+  const { data: tierInfo } = useTier(userId);
+  const syncEnabled = shouldRunSyncWorker(tierInfo?.tier ?? null, signedIn);
 
   useEffect(() => {
     try {
@@ -42,7 +57,10 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setOfflineConnectivity(isOnline);
       runMaintenance();
-      if (isOnline) {
+      // REQ-D60 gate: only a paid, signed-in user drains the queue or pulls from Convex. Free /
+      // signed-out users still track connectivity and run local maintenance, but the worker never
+      // touches Convex personal data (REQ-D10).
+      if (syncEnabled && isOnline) {
         // Drain queued offline writes first, then top up the local store from the server.
         void drainMutationQueue(convex).then(() => warmEntityRows(convex));
       }
@@ -60,7 +78,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       unsub();
     };
-  }, [convex]);
+  }, [convex, syncEnabled]);
 
   return <>{children}</>;
 }

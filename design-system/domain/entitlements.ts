@@ -17,7 +17,18 @@ export type Feature =
   | "collab_invites"
   | "public_share"
   | "advanced_planner"
-  | "priority_support";
+  | "priority_support"
+  // Local productivity — free for everyone (REQ-012).
+  | "export"
+  | "import"
+  // Social: posting/publishing is paid (expensive cloud), interactions are free (REQ-018).
+  | "social_post"
+  | "like"
+  | "comment"
+  | "follow"
+  // Groups: creating is paid, joining is free (REQ-019).
+  | "group_create"
+  | "join_group";
 
 /** Soft caps aligned with Convex enforcement (`convexTierStorageLimitMb`). Paid tiers share one cap. */
 const STORAGE_CAP_MB: Record<Tier, number> = {
@@ -34,15 +45,36 @@ const PAID_FLAGS: Record<BooleanFeature, boolean> = {
   public_share: true,
   advanced_planner: true,
   priority_support: true,
+  export: true,
+  import: true,
+  social_post: true,
+  like: true,
+  comment: true,
+  follow: true,
+  group_create: true,
+  join_group: true,
 };
 
 const FLAGS: Record<Tier, Record<BooleanFeature, boolean>> = {
   free: {
     cloud_sync: false,
     collab_invites: false,
-    public_share: true,
-    advanced_planner: false,
+    // REQ-017: publishing/sharing publicly is a paid (expensive cloud) action.
+    public_share: false,
+    // REQ-013: advanced planner is free for everyone (cloud sync is the paid lever).
+    advanced_planner: true,
     priority_support: false,
+    // REQ-012: export/import are always free (local productivity, no cloud cost).
+    export: true,
+    import: true,
+    // REQ-018: posting to the feed is paid; cheap interactions are free.
+    social_post: false,
+    like: true,
+    comment: true,
+    follow: true,
+    // REQ-019: creating a group is paid; joining one is free.
+    group_create: false,
+    join_group: true,
   },
   // Supporter == Pro feature-wise.
   pro: PAID_FLAGS,

@@ -10,6 +10,9 @@ import { computeBuildVisualNodesList, deriveNodeSummary } from "./cosplayNodes";
 import { deriveBuildBlendedProgress, deriveStatusProgress } from "./lib/workflowProgress";
 import { getBuildScopedWorkflow } from "./workflow";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
+import { getUserTier, requireFeature } from "./lib/entitlements";
+import { can } from "@kyarafit/design-system/domain/entitlements";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -27,6 +30,35 @@ function generateShareToken(): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Both `public` and `unlisted` host the build in the cloud, so both are gated by REQ-017. */
+function isPublicVisibility(visibility: string | undefined): boolean {
+  return visibility === "public" || visibility === "unlisted";
+}
+
+/**
+ * REQ-017: publishing a build (visibility public/unlisted = cloud share) requires a paid tier,
+ * EXCEPT the REQ-021 group-cosplay exception: a FREE user may cloud-host a build only when it is
+ * linked to a group they are a *current* member of. We verify membership server-side against the
+ * build's effective `groupId` at publish time, so the exception can't be used to publish arbitrary
+ * builds (no group link → no exception) and it self-revokes once the user leaves the group.
+ */
+async function enforcePublicShareForBuild(
+  ctx: MutationCtx,
+  userId: string,
+  effectiveGroupId: Id<"groups"> | undefined
+): Promise<void> {
+  const tier = await getUserTier(ctx, userId);
+  if (can(tier, "public_share")) return;
+  if (effectiveGroupId) {
+    const membership = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", effectiveGroupId).eq("userId", userId))
+      .unique();
+    if (membership) return;
+  }
+  throw new Error("This action requires an upgrade.");
 }
 
 /** Public viewer payload: no owner/collaborator identifiers, secrets, or sync-only fields. */
@@ -666,6 +698,16 @@ export const create = mutation({
   },
   handler: async (ctx, args) =>
     runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+      const visibility = VALID_VISIBILITIES.includes(
+        args.visibility as (typeof VALID_VISIBILITIES)[number]
+      )
+        ? args.visibility
+        : "private";
+      // REQ-017: new builds can't carry a groupId yet, so the REQ-021 exception can't apply here —
+      // publishing publicly/unlisted on create always requires a paid tier.
+      if (isPublicVisibility(visibility)) {
+        await requireFeature(ctx, args.userId, "public_share");
+      }
       if (args.imageStorageId) {
         await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
       }
@@ -678,25 +720,23 @@ export const create = mutation({
       const targetDate = args.targetDate
         ? validateDateString(args.targetDate, "Target date")
         : undefined;
-      const visibility = VALID_VISIBILITIES.includes(
-        args.visibility as (typeof VALID_VISIBILITIES)[number]
-      )
-        ? args.visibility
-        : "private";
       const shareToken = visibility === "unlisted" ? generateShareToken() : undefined;
-      const id = await ctx.db.insert("builds", {
-        userId: args.userId,
-        name,
-        character,
-        status,
-        notes,
-        imageUrl: args.imageUrl,
-        imageStorageId: args.imageStorageId,
-        budgetCents: args.budgetCents,
-        targetDate,
-        visibility,
-        shareToken,
-      });
+      const id = await ctx.db.insert(
+        "builds",
+        withCreateMeta({
+          userId: args.userId,
+          name,
+          character,
+          status,
+          notes,
+          imageUrl: args.imageUrl,
+          imageStorageId: args.imageStorageId,
+          budgetCents: args.budgetCents,
+          targetDate,
+          visibility,
+          shareToken,
+        })
+      );
       return await ctx.db.get(id);
     }),
 });
@@ -738,6 +778,13 @@ export const update = mutation({
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, id, userId);
     if (!canEdit) throw new Error("Not authorized to update this build");
+    // REQ-017/REQ-021: gate transitions to public/unlisted against the build's *effective* group
+    // link (an explicit groupId in this update wins, otherwise the build's current groupId).
+    if (isPublicVisibility(fields.visibility)) {
+      const effectiveGroupId =
+        fields.groupId !== undefined ? (fields.groupId ?? undefined) : build.groupId;
+      await enforcePublicShareForBuild(ctx, userId, effectiveGroupId);
+    }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
@@ -799,7 +846,7 @@ export const update = mutation({
       } else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
+      await ctx.db.patch(id, withUpdateMeta(build, patch));
     }
     return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
   },
@@ -828,7 +875,7 @@ export const setGroupId = mutation({
         .unique();
       if (!membership) throw new Error("You must be a member of the group to add this build");
     }
-    await ctx.db.patch(args.buildId, { groupId: newGroupId });
+    await ctx.db.patch(args.buildId, withUpdateMeta(build, { groupId: newGroupId }));
     return await ctx.db.get(args.buildId);
   },
 });
@@ -979,7 +1026,7 @@ export const updateStatusMany = mutation({
     for (const id of args.ids) {
       const build = await ctx.db.get(id);
       if (!build || build.userId !== args.userId) continue;
-      await ctx.db.patch(id, { status: args.status });
+      await ctx.db.patch(id, withUpdateMeta(build, { status: args.status }));
     }
     await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
   },
@@ -1294,22 +1341,25 @@ export const duplicate = mutation({
 
     const dupName = sanitizeAndLimit(`${source.name} (copy)`, MAX_LENGTH.name, "Name");
 
-    const newBuildId = await ctx.db.insert("builds", {
-      userId: args.userId,
-      name: dupName,
-      character: source.character,
-      status: "idea",
-      notes: source.notes,
-      imageUrl: source.imageUrl,
-      imageStorageId: source.imageStorageId,
-      imageFocalX: source.imageFocalX,
-      imageFocalY: source.imageFocalY,
-      budgetCents: source.budgetCents,
-      targetDate: source.targetDate,
-      visibility: "private",
-      manualProgressPercent: undefined,
-      shareToken: undefined,
-    });
+    const newBuildId = await ctx.db.insert(
+      "builds",
+      withCreateMeta({
+        userId: args.userId,
+        name: dupName,
+        character: source.character,
+        status: "idea",
+        notes: source.notes,
+        imageUrl: source.imageUrl,
+        imageStorageId: source.imageStorageId,
+        imageFocalX: source.imageFocalX,
+        imageFocalY: source.imageFocalY,
+        budgetCents: source.budgetCents,
+        targetDate: source.targetDate,
+        visibility: "private",
+        manualProgressPercent: undefined,
+        shareToken: undefined,
+      })
+    );
 
     const links = await ctx.db
       .query("buildCosplayLinks")
@@ -1353,13 +1403,16 @@ export const duplicate = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
       .collect();
     for (const r of [...refImgs].sort((a, b) => a.sortOrder - b.sortOrder)) {
-      await ctx.db.insert("buildReferenceImages", {
-        userId: args.userId,
-        buildId: newBuildId,
-        imageStorageId: r.imageStorageId,
-        imageUrl: r.imageUrl,
-        sortOrder: r.sortOrder,
-      });
+      await ctx.db.insert(
+        "buildReferenceImages",
+        withCreateMeta({
+          userId: args.userId,
+          buildId: newBuildId,
+          imageStorageId: r.imageStorageId,
+          imageUrl: r.imageUrl,
+          sortOrder: r.sortOrder,
+        })
+      );
     }
 
     const proc = await ctx.db
@@ -1367,13 +1420,16 @@ export const duplicate = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
       .collect();
     for (const p of [...proc].sort((a, b) => a.sortOrder - b.sortOrder)) {
-      await ctx.db.insert("buildProcessPictures", {
-        userId: args.userId,
-        buildId: newBuildId,
-        imageStorageId: p.imageStorageId,
-        imageUrl: p.imageUrl,
-        sortOrder: p.sortOrder,
-      });
+      await ctx.db.insert(
+        "buildProcessPictures",
+        withCreateMeta({
+          userId: args.userId,
+          buildId: newBuildId,
+          imageStorageId: p.imageStorageId,
+          imageUrl: p.imageUrl,
+          sortOrder: p.sortOrder,
+        })
+      );
     }
 
     const scoped = await getWorkflowItemsByAttachmentKey(
@@ -1396,50 +1452,59 @@ export const duplicate = mutation({
 
       const nodeAtt = itemAtts.find((a) => a.entityType === "cosplayNode");
 
-      const newItemId = await ctx.db.insert("workflowItems", {
-        userId: args.userId,
-        title: item.title,
-        notes: item.notes,
-        kind: "task",
-        category: item.category,
-        status: "not_started",
-        parentId: undefined,
-        ancestorIds: [],
-        sortOrder: item.sortOrder,
-        scopeKind: "build_specific",
-        sourceKind: item.sourceKind,
-        priority: item.priority,
-        startDate: item.startDate,
-        targetDate: item.targetDate,
-        dueDate: item.dueDate,
-        reminders: item.reminders,
-        weight: item.weight,
-        manualProgressPercent: undefined,
-        estimatedMinutes: item.estimatedMinutes,
-        actualMinutes: undefined,
-        estimatedCostCents: item.estimatedCostCents,
-        actualCostCents: undefined,
-      });
+      const newItemId = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: args.userId,
+          title: item.title,
+          notes: item.notes,
+          kind: "task",
+          category: item.category,
+          status: "not_started",
+          parentId: undefined,
+          ancestorIds: [],
+          sortOrder: item.sortOrder,
+          scopeKind: "build_specific",
+          sourceKind: item.sourceKind,
+          priority: item.priority,
+          startDate: item.startDate,
+          targetDate: item.targetDate,
+          dueDate: item.dueDate,
+          reminders: item.reminders,
+          weight: item.weight,
+          manualProgressPercent: undefined,
+          estimatedMinutes: item.estimatedMinutes,
+          actualMinutes: undefined,
+          estimatedCostCents: item.estimatedCostCents,
+          actualCostCents: undefined,
+        })
+      );
 
-      await ctx.db.insert("workflowAttachments", {
-        userId: args.userId,
-        workflowItemId: newItemId,
-        entityType: "build",
-        entityId: newBuildId as string,
-        entityKey: entityKey("build", newBuildId),
-        role: "primary",
-      });
-
-      if (nodeAtt) {
-        await ctx.db.insert("workflowAttachments", {
+      await ctx.db.insert(
+        "workflowAttachments",
+        withCreateMeta({
           userId: args.userId,
           workflowItemId: newItemId,
-          entityType: "cosplayNode",
-          entityId: nodeAtt.entityId,
-          entityKey: entityKey("cosplayNode", nodeAtt.entityId as Id<"cosplayNodes">),
-          role: "progress_source",
-          buildContextId: newBuildId,
-        });
+          entityType: "build",
+          entityId: newBuildId as string,
+          entityKey: entityKey("build", newBuildId),
+          role: "primary",
+        })
+      );
+
+      if (nodeAtt) {
+        await ctx.db.insert(
+          "workflowAttachments",
+          withCreateMeta({
+            userId: args.userId,
+            workflowItemId: newItemId,
+            entityType: "cosplayNode",
+            entityId: nodeAtt.entityId,
+            entityKey: entityKey("cosplayNode", nodeAtt.entityId as Id<"cosplayNodes">),
+            role: "progress_source",
+            buildContextId: newBuildId,
+          })
+        );
       }
     }
 

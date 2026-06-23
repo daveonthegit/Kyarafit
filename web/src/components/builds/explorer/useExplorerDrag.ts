@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type {
@@ -37,11 +37,11 @@ export function useExplorerDrag({
   allNodes,
   commitSelection,
 }: UseExplorerDragOpts) {
-  const linkNodes = useMutation(api.builds.linkNodes);
-  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
-  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
-  const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
+  const linkNodes = useOfflineMutation(api.builds.linkNodes);
+  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
+  const reorderChildren = useOfflineMutation(api.cosplayNodes.reorderChildren);
 
   const [drag, setDrag] = useState<DragState>({
     draggingNodeId: null,

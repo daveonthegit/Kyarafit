@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { ImageGallery } from "@/components/ui/image-gallery";
@@ -39,10 +40,10 @@ export function BuildProcessPicturesSection({
   buildId: Id<"builds">;
   userId: string;
 }) {
-  const list = useQuery(api.buildProcessPictures.listByBuild, { buildId });
-  const addMutation = useMutation(api.buildProcessPictures.add);
-  const removeMutation = useMutation(api.buildProcessPictures.remove);
-  const reorderMutation = useMutation(api.buildProcessPictures.reorder);
+  const list = useOfflineQuery(api.buildProcessPictures.listByBuild, { buildId });
+  const addMutation = useOfflineMutation(api.buildProcessPictures.add);
+  const removeMutation = useOfflineMutation(api.buildProcessPictures.remove);
+  const reorderMutation = useOfflineMutation(api.buildProcessPictures.reorder);
 
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
   const [addError, setAddError] = useState<string | null>(null);

@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import type { Doc } from "convex/_generated/dataModel";
@@ -21,6 +22,7 @@ export default function GroupsPage() {
   return (
     <WebAppShell>
       <PageHeader title="Groups" subtitle="Coordinate with others" />
+      <OnlineOnlyBanner className="mt-4" />
       <main className="flex-1 py-6">
         {isLoading ? (
           <EmptyState icon="hourglass_empty" message="Loading…" />

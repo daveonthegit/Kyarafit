@@ -19,9 +19,9 @@ function Run-Check {
         [string]$Name,
         [scriptblock]$Command
     )
-    
+
     Write-Host "▶ $Name" -ForegroundColor Blue
-    
+
     try {
         & $Command
         if ($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE) {
@@ -48,30 +48,16 @@ Run-Check "Prettier format check" {
     npm run format:check
 }
 
-# Go backend is archived - skip Go format check
-Write-Host "⚠️  Go backend archived, skipping Go format check" -ForegroundColor Yellow
+# 2. i18n key parity
+Write-Host "========================================"
+Write-Host "🌐 i18n"
+Write-Host "========================================"
 
-if (Get-Command black -ErrorAction SilentlyContinue) {
-    Run-Check "Python format check (black)" {
-        Push-Location image-service
-        black --check .
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  black not installed, skipping Python format check" -ForegroundColor Yellow
+Run-Check "i18n key parity" {
+    npm run i18n:check
 }
 
-if (Get-Command isort -ErrorAction SilentlyContinue) {
-    Run-Check "Python import sorting (isort)" {
-        Push-Location image-service
-        isort --check-only .
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  isort not installed, skipping Python import check" -ForegroundColor Yellow
-}
-
-# 2. Linting
+# 3. Linting
 Write-Host "========================================"
 Write-Host "🔍 Linting"
 Write-Host "========================================"
@@ -84,20 +70,7 @@ Run-Check "Mobile linting" {
     npm run lint:mobile
 }
 
-# Go backend is archived - skip Go lint checks
-Write-Host "⚠️  Go backend archived, skipping Go vet and golangci-lint" -ForegroundColor Yellow
-
-if (Get-Command flake8 -ErrorAction SilentlyContinue) {
-    Run-Check "Python linting (flake8)" {
-        Push-Location image-service
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  flake8 not installed, skipping Python linting" -ForegroundColor Yellow
-}
-
-# 3. Type Checking
+# 4. Type Checking
 Write-Host "========================================"
 Write-Host "🔎 Type Checking"
 Write-Host "========================================"
@@ -110,59 +83,30 @@ Run-Check "Mobile type checking" {
     npm run typecheck:mobile
 }
 
-# 4. Building
+# 5. Building
 Write-Host "========================================"
 Write-Host "🏗️  Building"
 Write-Host "========================================"
 
 Run-Check "Web build" {
-    $output = npm run build:web 2>&1 | Out-String
-    Write-Host $output
-    if ($output -match "✓ Generating static pages") {
-        # Build succeeded even if error pages failed
-        Write-Host "Build completed successfully" -ForegroundColor Green
-    } elseif ($LASTEXITCODE -eq 1 -and $output -match "/_error") {
-        # Known issue with error pages
-        Write-Host "Build completed (error pages skipped - known issue)" -ForegroundColor Yellow
-    } else {
-        throw "Build failed"
-    }
+    npm run build:web
 }
 
-# Go backend is archived - skip backend build
-Write-Host "⚠️  Go backend archived, skipping backend build" -ForegroundColor Yellow
-
-if (Get-Command python -ErrorAction SilentlyContinue) {
-    Run-Check "Image service compile check" {
-        Push-Location image-service
-        python -m compileall .
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  python not found, skipping image service compile check" -ForegroundColor Yellow
-}
-
-# 5. Testing
+# 6. Testing
 Write-Host "========================================"
 Write-Host "🧪 Testing"
 Write-Host "========================================"
 
-# Check if Docker is running
-# Go backend is archived - skip backend tests
-Write-Host "⚠️  Go backend archived, skipping backend tests" -ForegroundColor Yellow
-
 Run-Check "Web tests" {
     npm run test -w web
-} -ErrorAction Continue
+}
 
-if (Get-Command pytest -ErrorAction SilentlyContinue) {
-    Run-Check "Image service tests" {
-        Push-Location image-service
-        pytest -v
-        Pop-Location
-    }
-} else {
-    Write-Host "⚠️  pytest not installed, skipping image service tests" -ForegroundColor Yellow
+Run-Check "Mobile tests" {
+    npm run test -w mobile
+}
+
+Run-Check "Convex tests" {
+    npm run test:convex
 }
 
 # Summary

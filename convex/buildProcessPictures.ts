@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
@@ -47,13 +48,16 @@ export const add = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
     const maxOrder = existing.length ? Math.max(...existing.map((r) => r.sortOrder), -1) : -1;
-    const id = await ctx.db.insert("buildProcessPictures", {
-      userId: args.userId,
-      buildId: args.buildId,
-      imageStorageId: args.imageStorageId,
-      imageUrl: args.imageUrl,
-      sortOrder: maxOrder + 1,
-    });
+    const id = await ctx.db.insert(
+      "buildProcessPictures",
+      withCreateMeta({
+        userId: args.userId,
+        buildId: args.buildId,
+        imageStorageId: args.imageStorageId,
+        imageUrl: args.imageUrl,
+        sortOrder: maxOrder + 1,
+      })
+    );
     return await ctx.db.get(id);
   },
 });
@@ -90,6 +94,7 @@ export const reorder = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
     const existingIds = new Set(existing.map((r) => r._id));
+    const rowsById = new Map(existing.map((r) => [r._id, r]));
     const orderedSet = new Set(args.orderedIds);
     const appended = existing.filter((r) => !orderedSet.has(r._id));
     const fullOrder = [
@@ -97,7 +102,8 @@ export const reorder = mutation({
       ...appended.map((r) => r._id),
     ];
     for (let i = 0; i < fullOrder.length; i++) {
-      await ctx.db.patch(fullOrder[i], { sortOrder: i });
+      const row = rowsById.get(fullOrder[i]);
+      await ctx.db.patch(fullOrder[i], withUpdateMeta(row ?? {}, { sortOrder: i }));
     }
   },
 });

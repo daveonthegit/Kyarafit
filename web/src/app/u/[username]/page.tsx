@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { api } from "convex/_generated/api";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -84,6 +85,7 @@ export default function PublicProfilePage() {
   if (profile === undefined) {
     return (
       <WebAppShell>
+        <OnlineOnlyBanner className="mt-4" />
         <div className="pt-16 flex items-center justify-center min-h-[50vh]">
           <p className="text-kyar-textSecondary">Loading…</p>
         </div>
@@ -99,6 +101,7 @@ export default function PublicProfilePage() {
 
   return (
     <WebAppShell>
+      <OnlineOnlyBanner className="mt-4" />
       <header className="pt-16 pb-6">
         <Link
           href="/discover"

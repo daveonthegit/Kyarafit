@@ -23,7 +23,16 @@
     "./domain/offlineBuildTreeOverlay": "./domain/offlineBuildTreeOverlay.ts",
     "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts",
     "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
-    "./domain/adPolicy": "./domain/adPolicy.ts"
+    "./domain/syncPolicy": "./domain/syncPolicy.ts",
+    "./domain/cloudStoragePolicy": "./domain/cloudStoragePolicy.ts",
+    "./domain/offlineConflict": "./domain/offlineConflict.ts",
+    "./domain/mediaGallery": "./domain/mediaGallery.ts",
+    "./domain/buildsList": "./domain/buildsList.ts",
+    "./domain/elements": "./domain/elements.ts",
+    "./domain/packingList": "./domain/packingList.ts",
+    "./domain/tierTransition": "./domain/tierTransition.ts",
+    "./domain/importExport": "./domain/importExport.ts",
+    "./domain/imageRef": "./domain/imageRef.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",

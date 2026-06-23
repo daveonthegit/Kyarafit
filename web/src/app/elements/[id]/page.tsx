@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
@@ -93,27 +93,27 @@ export default function ElementDetailPage() {
   const { open: openCreationModal } = useCreationModals();
   const id = params.id as CosplayNodeId;
 
-  const node = useQuery(api.cosplayNodes.get, id ? { id } : "skip");
-  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId } : "skip") ?? []) as {
+  const node = useOfflineQuery(api.cosplayNodes.get, id ? { id } : "skip");
+  const allNodes = (useOfflineQuery(api.cosplayNodes.list, userId ? { userId } : "skip") ?? []) as {
     _id: CosplayNodeId;
     name: string;
     nodeType: NodeKind;
   }[];
   const buildsUsing =
-    useQuery(api.builds.getBuildsUsingNode, id ? { cosplayNodeId: id } : "skip") ?? [];
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+    useOfflineQuery(api.builds.getBuildsUsingNode, id ? { cosplayNodeId: id } : "skip") ?? [];
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
 
-  const updateNode = useMutation(api.cosplayNodes.update);
-  const removeNode = useMutation(api.cosplayNodes.remove);
-  const convertType = useMutation(api.cosplayNodes.convertType);
-  const addNodesToBuild = useMutation(api.builds.addNodesToBuild);
-  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
-  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
-  const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
-  const createTask = useMutation(api.workflow.create);
-  const updateTask = useMutation(api.workflow.update);
-  const deleteTask = useMutation(api.workflow.remove);
+  const updateNode = useOfflineMutation(api.cosplayNodes.update);
+  const removeNode = useOfflineMutation(api.cosplayNodes.remove);
+  const convertType = useOfflineMutation(api.cosplayNodes.convertType);
+  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
+  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
+  const reorderChildren = useOfflineMutation(api.cosplayNodes.reorderChildren);
+  const createTask = useOfflineMutation(api.workflow.create);
+  const updateTask = useOfflineMutation(api.workflow.update);
+  const deleteTask = useOfflineMutation(api.workflow.remove);
 
   const [activeTab, setActiveTab] = useState<WorkbenchTab>("overview");
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -125,7 +125,7 @@ export default function ElementDetailPage() {
   const [workflowView, setWorkflowView] = useState<"shared" | "build_specific">("shared");
   const [selectedWorkflowBuildId, setSelectedWorkflowBuildId] = useState<Id<"builds"> | "">("");
   const workflow =
-    useQuery(
+    useOfflineQuery(
       api.workflow.listNodeWorkflow,
       id
         ? {

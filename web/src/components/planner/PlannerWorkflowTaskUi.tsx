@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useId, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 /**
@@ -117,7 +118,13 @@ export function PlannerWorkflowMetaMuted({ children }: { children: ReactNode }) 
   return <span className="text-[11px] text-kyar-textTertiary">{children}</span>;
 }
 
-/** Planner list row: checkbox, title, context link, status, due date, progress */
+/**
+ * Planner list row with progressive disclosure (REQ-063 / DESIGN_SYSTEM.md §6).
+ *
+ * Default (collapsed) shows only the essentials: checkbox, title, context link,
+ * due date and progress. Advanced fields (status, priority, dependencies) stay
+ * hidden until the per-row "Details" disclosure is expanded.
+ */
 export function PlannerTaskRow({
   title,
   done,
@@ -129,6 +136,8 @@ export function PlannerTaskRow({
   progressPercent,
   dueDate,
   blockedByCount,
+  priority,
+  blockedByTitles,
   dragHandleProps,
   dropIntoLabel,
 }: {
@@ -142,6 +151,8 @@ export function PlannerTaskRow({
   progressPercent: number;
   dueDate?: string;
   blockedByCount?: number;
+  priority?: number;
+  blockedByTitles?: string[];
   dragHandleProps?: {
     hasChildren: boolean;
     childrenOpen: boolean;
@@ -150,6 +161,12 @@ export function PlannerTaskRow({
   };
   dropIntoLabel?: string;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
+  const statusLabel = status.split("_").join(" ");
+  const hasPriority = typeof priority === "number" && priority > 0;
+  const hasDependencies = Boolean(blockedByCount && blockedByCount > 0);
+
   return (
     <div
       className={`${plannerWorkflowRowClassName} ${
@@ -191,17 +208,57 @@ export function PlannerTaskRow({
         <PlannerWorkflowTaskTitle done={done}>{title}</PlannerWorkflowTaskTitle>
         <PlannerWorkflowMetaLine>
           <PlannerWorkflowMetaLink href={contextHref}>{contextLabel}</PlannerWorkflowMetaLink>
-          <PlannerWorkflowMetaText>{status.split("_").join(" ")}</PlannerWorkflowMetaText>
           {dueDate ? (
             <PlannerWorkflowMetaMuted>
               · {formatPlannerWorkflowDueDate(dueDate)}
             </PlannerWorkflowMetaMuted>
           ) : null}
           <PlannerWorkflowMetaMuted>· {progressPercent}%</PlannerWorkflowMetaMuted>
-          {blockedByCount ? (
-            <span className="text-[11px] text-kyar-danger">· blocked by {blockedByCount}</span>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            aria-expanded={detailsOpen}
+            aria-controls={detailsId}
+            aria-label={detailsOpen ? `Hide details for "${title}"` : `Show details for "${title}"`}
+            className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-[10px] font-bold uppercase tracking-widest text-kyar-meta hover:bg-kyar-mutedWarm hover:text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+          >
+            <span aria-hidden="true" className="transition-transform">
+              {detailsOpen ? "▾" : "▸"}
+            </span>
+            {detailsOpen ? "Less" : "Details"}
+          </button>
         </PlannerWorkflowMetaLine>
+        {detailsOpen ? (
+          <dl
+            id={detailsId}
+            className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kyar-borderSubtle/60 pt-2"
+          >
+            <div className="flex items-baseline gap-1.5">
+              <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">Status</dt>
+              <dd className="text-[11px] uppercase tracking-wide text-kyar-meta">{statusLabel}</dd>
+            </div>
+            {hasPriority ? (
+              <div className="flex items-baseline gap-1.5">
+                <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                  Priority
+                </dt>
+                <dd className="text-[11px] uppercase tracking-wide text-kyar-meta">{priority}</dd>
+              </div>
+            ) : null}
+            {hasDependencies ? (
+              <div className="flex items-baseline gap-1.5">
+                <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                  Dependencies
+                </dt>
+                <dd className="text-[11px] text-kyar-danger">
+                  {blockedByTitles && blockedByTitles.length > 0
+                    ? `blocked by ${blockedByTitles.join(", ")}`
+                    : `blocked by ${blockedByCount}`}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
         {dropIntoLabel ? (
           <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-kyar-meta">
             {dropIntoLabel}

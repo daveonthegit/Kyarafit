@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { requireFeature } from "./lib/entitlements";
 import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation";
 
 const VALID_VISIBILITIES = ["private", "public"] as const;
@@ -17,6 +18,8 @@ export const create = mutation({
     visibility: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // REQ-019: creating a group is a paid (cloud-hosted) action; joining stays free.
+    await requireFeature(ctx, args.userId, "group_create");
     if (args.imageStorageId) {
       await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
     }

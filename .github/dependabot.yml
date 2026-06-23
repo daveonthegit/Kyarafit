@@ -1,14 +1,5 @@
 version: 2
 updates:
-  # Backend Go dependencies
-  - package-ecosystem: "gomod"
-    directory: "/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
   # Web Node.js dependencies
   - package-ecosystem: "npm"
     directory: "/web"
@@ -26,24 +17,6 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
-
-  # Image service Python dependencies
-  - package-ecosystem: "pip"
-    directory: "/image-service"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
-  # Docker dependencies
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

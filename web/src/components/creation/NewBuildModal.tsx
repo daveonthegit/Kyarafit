@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import { Sheet } from "@/components/ui/sheet";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -20,7 +20,7 @@ type NewBuildModalProps = {
 export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalProps) {
   const router = useRouter();
   const { userId } = useCurrentUser();
-  const createBuild = useMutation(api.builds.create);
+  const createBuild = useOfflineMutation(api.builds.create);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);

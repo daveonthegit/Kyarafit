@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
@@ -121,6 +122,7 @@ export default function GroupDetailPage() {
   if (data === undefined) {
     return (
       <WebAppShell>
+        <OnlineOnlyBanner className="mt-4" />
         <p className="meta-label pt-12">Loading…</p>
       </WebAppShell>
     );
@@ -139,6 +141,7 @@ export default function GroupDetailPage() {
 
   return (
     <WebAppShell>
+      <OnlineOnlyBanner className="mt-4" />
       <header className="sticky top-0 z-40 bg-kyar-bg/95 backdrop-blur-sm pt-4 sm:pt-6 pb-4 border-b border-kyar-borderSubtle flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link

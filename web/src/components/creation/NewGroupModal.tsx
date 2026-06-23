@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useMutation } from "convex/react";
+import { can } from "@kyarafit/design-system/domain/entitlements";
 import { Sheet } from "@/components/ui/sheet";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useFeatureAccess } from "@/lib/api/useTier";
 import { api } from "convex/_generated/api";
 
 type NewGroupModalProps = {
@@ -15,6 +19,10 @@ type NewGroupModalProps = {
 export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalProps) {
   const router = useRouter();
   const { userId } = useCurrentUser();
+  const { tier } = useFeatureAccess();
+  const t = useTranslations("Social");
+  // REQ-019: creating a group is paid (joining/participating stays free).
+  const canCreateGroup = can(tier, "group_create");
   const createGroup = useMutation(api.groups.create);
 
   const [name, setName] = useState("");
@@ -25,7 +33,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !name.trim()) return;
+    if (!userId || !name.trim() || !canCreateGroup) return;
     setError(null);
     setPending(true);
     try {
@@ -45,6 +53,14 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
       setPending(false);
     }
   };
+
+  if (!canCreateGroup) {
+    return (
+      <Sheet open onClose={onDismiss} title="New group" titleId="global-new-group-modal-title">
+        <UpgradePrompt message={t("groupCreatePaidMessage")} linkText={t("viewPlan")} />
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet

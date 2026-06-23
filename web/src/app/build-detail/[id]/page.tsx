@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
+import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { WorkflowTree } from "@/components/builds/WorkflowTree";
@@ -12,6 +13,7 @@ import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ClosetCarouselCardContent } from "@/components/ui/closet-items-carousel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
@@ -23,7 +25,10 @@ import { BuildAddTaskModal } from "@/components/builds/BuildAddTaskModal";
 import { BuildInviteCollaboratorModal } from "@/components/builds/BuildInviteCollaboratorModal";
 import { BuildNodeManagerSection } from "@/components/builds/BuildNodeManagerSection";
 import { BuildSummarySection } from "@/components/builds/BuildSummarySection";
-import { useCreationModals } from "@/contexts/CreationModalsContext";
+import { BuildProgressTimeline } from "@/components/builds/BuildProgressTimeline";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { useFeatureAccess } from "@/lib/api/useTier";
+import { can } from "@kyarafit/design-system/domain/entitlements";
 
 const STATUSES: BuildStatus[] = ["idea", "wip", "ready", "archived"];
 type CosplayNodeId = Id<"cosplayNodes">;
@@ -61,31 +66,52 @@ export default function BuildDetailPage() {
         : null;
   const { userId } = useCurrentUser();
   const { open: openCreationModal } = useCreationModals();
+  const { tier } = useFeatureAccess();
+  // REQ-017: publishing a build (unlisted/public + share token) is a paid action.
+  const canPublish = can(tier, "public_share");
 
-  const build = useQuery(api.builds.get, id ? { id } : "skip");
-  const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
-  const linkedNodeIds = (useQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
+  // Local-first reads (builds/buildTasks/cosplayNodes are sync-backed per DATA_AND_SYNC): they go
+  // through the offline bridge so the screen paints from cache + works offline.
+  const build = useOfflineQuery(api.builds.get, id ? { id } : "skip");
+  const summary = useOfflineQuery(
+    api.builds.getSummary,
+    id && userId ? { buildId: id, userId } : "skip"
+  );
+  const linkedNodeIds = (useOfflineQuery(api.builds.getNodes, id ? { buildId: id } : "skip") ??
     []) as CosplayNodeId[];
-  const nodeCatalog = (useQuery(
+  const nodeCatalog = (useOfflineQuery(
     api.cosplayNodes.list,
     userId && id ? { userId, buildId: id, sortBy: "name" } : "skip"
   ) ?? []) as LinkedNode[];
-  const visualBoardNodes = (useQuery(
+  const visualBoardNodes = (useOfflineQuery(
     api.cosplayNodes.listBuildVisualNodes,
     id ? { buildId: id } : "skip"
   ) ?? []) as BuildVisualBoardNode[];
-  const tasks = useQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
+  const tasks = useOfflineQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
-  const updateTask = useMutation(api.buildTasks.update);
-  const updateBuild = useMutation(api.builds.update);
-  const linkNodes = useMutation(api.builds.linkNodes);
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
+  // Linked node objects for this build, resolved from the catalog by their linked ids (hierarchy +
+  // drag/drop linking live in BuildNodeManagerSection).
+  const linkedNodes = useMemo(() => {
+    const byId = new Map(nodeCatalog.map((node) => [node._id, node]));
+    return linkedNodeIds
+      .map((nodeId) => byId.get(nodeId))
+      .filter((node): node is LinkedNode => Boolean(node));
+  }, [linkedNodeIds, nodeCatalog]);
+
+  // Local-first writes go through the offline bridge (queued + optimistic when offline).
+  const updateTask = useOfflineMutation(api.buildTasks.update);
+  const updateBuild = useOfflineMutation(api.builds.update);
+  const addReferenceImage = useOfflineMutation(api.buildReferenceImages.add);
+  const addProgressPhoto = useOfflineMutation(api.buildProcessPictures.add);
+  // Node hierarchy/link writes stay local-first (cosplayNodes/builds carry sync metadata).
+  const linkNodes = useOfflineMutation(api.builds.linkNodes);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+
+  // Collaborators are an online-only feature (no sync metadata) — keep on convex/react.
   const collaborators =
     useQuery(api.buildCollaborators.listByBuild, id && userId ? { buildId: id, userId } : "skip") ??
     [];
   const removeCollaborator = useMutation(api.buildCollaborators.remove);
-  const addReferenceImage = useMutation(api.buildReferenceImages.add);
-  const addProgressPhoto = useMutation(api.buildProcessPictures.add);
   const justDroppedRef = useRef(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -122,9 +148,9 @@ export default function BuildDetailPage() {
   const [publicViewerToggles, setPublicViewerToggles] =
     useState<PublicViewerToggleState>(defaultPublicViewer);
   const [fabModal, setFabModal] = useState<BuildDetailFabModal | null>(null);
-  const [activeTab, setActiveTab] = useState<"explorer" | "tasks" | "board" | "summary">(
-    "explorer"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "explorer" | "tasks" | "board" | "progress" | "summary"
+  >("explorer");
 
   useEffect(() => {
     if (build && isEditing) {
@@ -154,13 +180,6 @@ export default function BuildDetailPage() {
       setNotesError(null);
     }
   }, [notesModalOpen, build]);
-
-  const linkedNodes = useMemo(() => {
-    const byId = new Map(nodeCatalog.map((node) => [node._id, node]));
-    return linkedNodeIds
-      .map((nodeId) => byId.get(nodeId))
-      .filter((node): node is LinkedNode => Boolean(node));
-  }, [linkedNodeIds, nodeCatalog]);
 
   const nodeRowsForLink = useMemo(
     () =>
@@ -203,6 +222,9 @@ export default function BuildDetailPage() {
   const handleSaveEdit = async () => {
     if (!id || !userId || !build) return;
     setSavePending(true);
+    // REQ-017: free users cannot publish; clamp visibility to private regardless of UI state.
+    const effectiveVisibility = canPublish ? editVisibility : "private";
+    const isPublished = effectiveVisibility === "public" || effectiveVisibility === "unlisted";
     try {
       await updateBuild({
         id,
@@ -216,11 +238,8 @@ export default function BuildDetailPage() {
         targetDate: editTargetDate.trim() || undefined,
         imageUrl: editImageUrl.trim() || null,
         imageStorageId: editImageStorageId,
-        visibility: editVisibility,
-        publicViewerSettings:
-          editVisibility === "public" || editVisibility === "unlisted"
-            ? publicViewerToggles
-            : undefined,
+        visibility: effectiveVisibility,
+        publicViewerSettings: isPublished ? publicViewerToggles : undefined,
       });
       setIsEditing(false);
     } finally {
@@ -472,24 +491,38 @@ export default function BuildDetailPage() {
                     Visibility
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(["private", "unlisted", "public"] as const).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setEditVisibility(v)}
-                        className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
-                          editVisibility === v
-                            ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                            : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
+                    {(["private", "unlisted", "public"] as const).map((v) => {
+                      // REQ-017: unlisted/public require a paid tier; private stays free.
+                      const gated = !canPublish && v !== "private";
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setEditVisibility(v)}
+                          disabled={gated}
+                          aria-disabled={gated}
+                          title={gated ? "Publishing is a paid feature" : undefined}
+                          className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            editVisibility === v
+                              ? "border-kyar-text bg-kyar-text text-kyar-bg"
+                              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="mt-3 text-xs leading-relaxed text-kyar-textTertiary">
                     Private: only you. Unlisted: anyone with link. Public: on your profile.
                   </p>
+                  {!canPublish && (
+                    <UpgradePrompt
+                      className="mt-4"
+                      message="Publishing a build publicly is a paid feature. Your build stays private and on your device until you upgrade."
+                      linkText="View plan"
+                    />
+                  )}
                   {(editVisibility === "public" || editVisibility === "unlisted") && (
                     <div className="mt-8 space-y-3 border-t border-kyar-borderSubtle pt-6">
                       <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
@@ -651,6 +684,7 @@ export default function BuildDetailPage() {
                   ["explorer", "Explorer"],
                   ["tasks", "Tasks"],
                   ["board", "Visual board"],
+                  ["progress", "Progress"],
                   ["summary", "Summary"],
                 ] as const
               ).map(([value, label]) => (
@@ -760,6 +794,12 @@ export default function BuildDetailPage() {
                     }}
                   />
                 </DndContext>
+              </section>
+            )}
+
+            {activeTab === "progress" && (
+              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
+                <BuildProgressTimeline buildId={id} userId={userId} />
               </section>
             )}
 

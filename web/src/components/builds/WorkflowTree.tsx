@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import {
@@ -196,12 +196,12 @@ export function WorkflowTree({
   hideComposer?: boolean;
 }) {
   const listTreeArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
-  const tree = useQuery(api.workflow.listBuildTree, listTreeArgs);
+  const tree = useOfflineQuery(api.workflow.listBuildTree, listTreeArgs);
   const listVisualArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
-  const visualNodes = useQuery(api.cosplayNodes.listBuildVisualNodes, listVisualArgs) ?? [];
-  const createWorkflow = useMutation(api.workflow.create);
-  const updateWorkflow = useMutation(api.workflow.update);
-  const removeWorkflow = useMutation(api.workflow.remove);
+  const visualNodes = useOfflineQuery(api.cosplayNodes.listBuildVisualNodes, listVisualArgs) ?? [];
+  const createWorkflow = useOfflineMutation(api.workflow.create);
+  const updateWorkflow = useOfflineMutation(api.workflow.update);
+  const removeWorkflow = useOfflineMutation(api.workflow.remove);
 
   const [newRootTitle, setNewRootTitle] = useState("");
   const [newChildParentId, setNewChildParentId] = useState<Id<"workflowItems"> | null>(null);

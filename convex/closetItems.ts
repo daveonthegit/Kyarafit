@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { deriveNodeSummary } from "./cosplayNodes";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -308,20 +309,23 @@ export const create = mutation({
     const nodeType = category === "material" ? "material" : "element";
     const statusPatch = legacyStatusPatch(args.status, nodeType);
 
-    const id = await ctx.db.insert("cosplayNodes", {
-      userId: args.userId,
-      nodeType,
-      name,
-      category,
-      tags,
-      notes,
-      imageUrl: args.imageUrl,
-      imageStorageId: args.imageStorageId,
-      sourceUrl: itemLink,
-      pricingMode: "total",
-      directCostCents: args.costCents,
-      ...statusPatch,
-    });
+    const id = await ctx.db.insert(
+      "cosplayNodes",
+      withCreateMeta({
+        userId: args.userId,
+        nodeType,
+        name,
+        category,
+        tags,
+        notes,
+        imageUrl: args.imageUrl,
+        imageStorageId: args.imageStorageId,
+        sourceUrl: itemLink,
+        pricingMode: "total",
+        directCostCents: args.costCents,
+        ...statusPatch,
+      })
+    );
 
     const node = await ctx.db.get(id);
     if (!node) return null;
@@ -404,7 +408,7 @@ export const update = mutation({
       );
     }
 
-    await ctx.db.patch(node._id, patch);
+    await ctx.db.patch(node._id, withUpdateMeta(node, patch));
     const updated = await ctx.db.get(node._id);
     if (!updated) return null;
     return await mapNodeToLegacy(ctx, updated);

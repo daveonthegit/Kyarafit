@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
@@ -70,8 +70,8 @@ export function BuildVisualBoard({
       : shareToken
         ? { buildId, shareToken }
         : { buildId };
-  const refsFetched = useQuery(api.buildReferenceImages.listByBuild, refsQueryArgs);
-  const progressFetched = useQuery(api.buildProcessPictures.listByBuild, progressQueryArgs);
+  const refsFetched = useOfflineQuery(api.buildReferenceImages.listByBuild, refsQueryArgs);
+  const progressFetched = useOfflineQuery(api.buildProcessPictures.listByBuild, progressQueryArgs);
   const refs = prefetchedReferenceImages !== undefined ? prefetchedReferenceImages : refsFetched;
   const progressPhotos =
     prefetchedProcessPictures !== undefined ? prefetchedProcessPictures : progressFetched;

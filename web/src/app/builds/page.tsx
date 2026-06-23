@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import Link from "next/link";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -18,12 +18,12 @@ import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
-  buildListArgs,
   getTabFilterOptions,
   type TabFilter,
   type SortBy,
   type SortOrder,
 } from "@/lib/buildsListArgs";
+import { useBuildsList } from "@/lib/builds/useBuildsList";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import type { Doc, Id } from "convex/_generated/dataModel";
 
@@ -82,22 +82,23 @@ export default function BuildsPage() {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { userId, isLoading: authLoading } = useCurrentUser();
   const { open: openCreationModal } = useCreationModals();
-  const removeMany = useMutation(api.builds.removeMany);
-  const createBuild = useMutation(api.builds.create);
-  const updateStatusMany = useMutation(api.builds.updateStatusMany);
   const tabOptions = getTabFilterOptions();
 
-  const listArgs = buildListArgs({
+  // Builds list is the Wave 3 local-first slice: data + writes flow through the offline bridge,
+  // and filtering/sorting happen locally (see `useBuildsList`). Other screens stay on convex/react.
+  const {
+    builds,
+    isLoading: buildsLoading,
+    createBuild,
+    removeMany,
+    updateStatusMany,
+  } = useBuildsList({
     userId: userId ?? null,
-    activeTab,
-    search,
-    sortBy,
-    order,
+    view: { tab: activeTab, search, sortBy, order },
   });
-  const buildsQuery = useQuery(api.builds.list, listArgs);
-  const builds = buildsQuery ?? [];
+  // "Shared with me" is collaboration data (online-only, paid) — intentionally direct convex/react.
   const sharedBuilds = useQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip") ?? [];
-  const isLoading = authLoading || (userId !== null && buildsQuery === undefined);
+  const isLoading = authLoading || buildsLoading;
   const hasSearch = search.trim().length > 0;
   const activeTabLabel = tabOptions.find((opt) => opt.value === activeTab)?.label ?? "All builds";
   const layoutLabel = PORTFOLIO_LAYOUT_LABELS[layout];

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import {
   COSPLAY_CATEGORIES,
   COSPLAY_NODE_TYPES,
@@ -30,7 +30,7 @@ export function NewClosetItemModal({
 }: NewClosetItemModalProps) {
   const router = useRouter();
   const { userId } = useCurrentUser();
-  const createNode = useMutation(api.cosplayNodes.create);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
   const [nodeType, setNodeType] = useState<CosplayNodeType>(options?.initialNodeType ?? "element");
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CosplayCategory>(

@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { api } from "convex/_generated/api";
 
@@ -14,6 +15,7 @@ export default function DiscoverPage() {
   return (
     <WebAppShell>
       <PageHeader title="Discover" subtitle="Public builds from the community" />
+      <OnlineOnlyBanner className="mt-4" />
 
       <main className="mt-6 flex-1 pb-24 lg:pb-8">
         {isLoading ? (

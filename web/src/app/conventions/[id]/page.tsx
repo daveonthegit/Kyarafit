@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -48,21 +49,24 @@ export default function ConventionDetailPage() {
   const [savePending, setSavePending] = useState(false);
   const processedEditQuery = useRef(false);
 
-  const convention = useQuery(api.conventions.get, id ? { id } : "skip");
-  const plan = useQuery(api.conventions.getPlan, id ? { conventionId: id } : "skip") ?? [];
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+  // conventions, conventionDayPlans, packingListItems and builds are all sync-backed
+  // (`...syncMetaFields` in convex/schema.ts) — route them through the offline bridge.
+  const convention = useOfflineQuery(api.conventions.get, id ? { id } : "skip");
+  const plan = useOfflineQuery(api.conventions.getPlan, id ? { conventionId: id } : "skip") ?? [];
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
   const packingItems =
-    useQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
+    useOfflineQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
+  // groupConventionDays has no sync metadata (group features are online-only) — stay on convex/react.
   const groupsAtCon =
     useQuery(api.groupConventionDays.listGroupsForConvention, id ? { conventionId: id } : "skip") ??
     [];
 
-  const replacePlanMut = useMutation(api.conventions.replacePlan);
-  const updateConventionMut = useMutation(api.conventions.update);
-  const regeneratePackingMut = useMutation(api.conventions.regeneratePacking);
-  const updatePackingItemMut = useMutation(api.conventions.updatePackingItem);
-  const addManualPackingItemMut = useMutation(api.conventions.addManualPackingItem);
-  const deletePackingItemMut = useMutation(api.conventions.deletePackingItem);
+  const replacePlanMut = useOfflineMutation(api.conventions.replacePlan);
+  const updateConventionMut = useOfflineMutation(api.conventions.update);
+  const regeneratePackingMut = useOfflineMutation(api.conventions.regeneratePacking);
+  const updatePackingItemMut = useOfflineMutation(api.conventions.updatePackingItem);
+  const addManualPackingItemMut = useOfflineMutation(api.conventions.addManualPackingItem);
+  const deletePackingItemMut = useOfflineMutation(api.conventions.deletePackingItem);
 
   const dates = useMemo(
     () => (convention ? dateRange(convention.startDate, convention.endDate) : []),

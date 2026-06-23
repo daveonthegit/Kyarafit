@@ -24,7 +24,6 @@ Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan c
 - **Auth**: [Better Auth](https://better-auth.com) — Google OAuth (GitHub optional), running as a Convex component
 - **Web**: Next.js 16 (App Router) with TailwindCSS
 - **Mobile**: React Native with Expo, local SQLite for offline-first storage (`mobile/src/offline/`)
-- **Image Service**: Python service for background removal (optional)
 - **Design System**: Shared TypeScript types and tokens
 
 ## Quick Start
@@ -123,9 +122,7 @@ kyarafit/
 ├── mobile/                   # React Native mobile app (Expo)
 │   ├── app/                  # Expo Router screens
 │   └── src/                  # Storage, auth, components
-├── image-service/            # Python background removal service (optional)
 ├── design-system/            # Shared TypeScript types and design tokens
-├── backend-archived/         # Archived Go Fiber backend (no longer used)
 └── docs/                     # Documentation
 ```
 
@@ -142,7 +139,6 @@ make dev
 # Individual services
 make dev-web       # Next.js dev server
 make dev-mobile    # Expo dev server
-make dev-convex    # Convex dev server
 
 # Code quality
 make format        # Auto-format all code
@@ -186,7 +182,6 @@ make test          # Run all tests
 - **Auth**: [Better Auth](https://better-auth.com) (Google/GitHub OAuth)
 - **Web**: React 19, Next.js 16, TailwindCSS
 - **Mobile**: React Native, Expo, SQLite (offline-first)
-- **Image Processing**: Python, rembg (optional)
 - **Design System**: Shared TypeScript types and tokens
 
 ## Testing & CI
@@ -196,8 +191,9 @@ make test          # Run all tests
 make validate
 
 # Individual test suites
-make test-web          # Web tests
-make test-image-service # Python tests
+make test-web      # Web tests
+make test-mobile   # Mobile tests
+make test-convex   # Convex backend tests
 ```
 
 Run `make validate` before pushing. See [CI_LOCAL.md](CI_LOCAL.md) for details.
@@ -206,7 +202,6 @@ Run `make validate` before pushing. See [CI_LOCAL.md](CI_LOCAL.md) for details.
 
 - **Convex**: `npx convex deploy`
 - **Web**: `web/fly.toml` present (Fly.io)
-- **Image Service**: `image-service/fly.toml` present (Fly.io, optional)
 
 > Deploy automation is `Needs verification`: `fly.toml` files indicate Fly.io, GitHub Actions run
 > CI (lint/typecheck/test), and older docs reference GCP/Vercel. Confirm the live target before relying on this.
@@ -244,7 +239,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Image processing powered by [rembg](https://github.com/danielgatis/rembg)
 - Authentication by [Better Auth](https://better-auth.com)
 - Database and backend by [Convex](https://convex.dev)
 

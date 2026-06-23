@@ -6,6 +6,7 @@ import { api } from "convex/_generated/api";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { APP_HREF } from "@/lib/appRoutes";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
@@ -50,6 +51,7 @@ export default function PublicProfileScreen() {
   return (
     <>
       <Stack.Screen options={{ title: displayName, headerLargeTitle: false }} />
+      <OfflineBanner />
       <MobilePageHeader
         eyebrow={profile?.username ? `@${profile.username}` : t("common.profile")}
         title={displayName}

@@ -10,7 +10,7 @@ import {
   forwardRef,
 } from "react";
 import type { CSSProperties, DragEvent } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { Plus, Search } from "lucide-react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -78,7 +78,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     },
     ref
   ) {
-    const linkNodesMut = useMutation(api.builds.linkNodes);
+    const linkNodesMut = useOfflineMutation(api.builds.linkNodes);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const prevActive = useRef(false);
     const [search, setSearch] = useState("");

@@ -29,6 +29,7 @@ import { BuildWorkflowTasks } from "./BuildWorkflowTasks";
 import { NodeDetailSheet, type NodeDetailSheetRef } from "./NodeDetailSheet";
 import { useNodeInspector, type NodeSelectionMeta } from "./useNodeInspector";
 import { useExplorerMove } from "./useExplorerMove";
+import { BuildProgressTimeline } from "./BuildProgressTimeline";
 import { useOfflineMutation } from "@/offline";
 
 type BuildRow = Doc<"builds"> & {
@@ -58,7 +59,7 @@ type CollaboratorRow = {
   username: string | null;
 };
 
-type TabId = "summary" | "explorer" | "tasks" | "board";
+type TabId = "summary" | "explorer" | "tasks" | "board" | "updates";
 type BoardView = "all" | "references" | "progress" | "nodes";
 
 type Props = {
@@ -298,6 +299,7 @@ export function BuildDetailBody(props: Props) {
         { id: "explorer", label: t("buildDetail.tabExplorer") },
         { id: "tasks", label: t("buildDetail.tabTasks") },
         { id: "board", label: t("buildDetail.tabBoard") },
+        { id: "updates", label: t("buildDetail.tabUpdates", { defaultValue: "Updates" }) },
       ] as { id: TabId; label: string }[],
     [t]
   );
@@ -1328,6 +1330,12 @@ export function BuildDetailBody(props: Props) {
         {tab === "board" ? (
           <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
             {boardPanel(false)}
+          </ScrollView>
+        ) : null}
+
+        {tab === "updates" ? (
+          <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
+            <BuildProgressTimeline buildId={buildId} userId={userId} />
           </ScrollView>
         ) : null}
       </View>

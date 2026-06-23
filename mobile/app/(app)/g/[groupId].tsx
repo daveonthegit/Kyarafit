@@ -7,6 +7,7 @@ import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -131,6 +132,7 @@ export default function GroupDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: group?.name ?? t("nav.groups"), headerLargeTitle: false }} />
+      <OfflineBanner />
       <MobilePageHeader
         eyebrow={t("nav.groups")}
         title={group?.name ?? t("nav.groups")}

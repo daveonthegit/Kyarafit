@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -10,6 +11,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { SignOutConfirmDialog } from "@/components/settings/SignOutConfirmDialog";
 import { authClient } from "@/lib/auth/auth-client";
 import { useLocaleContext } from "@/lib/i18n/context";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/i18n/locale";
@@ -19,6 +21,7 @@ const menuItems: { labelKey: string; href: string }[] = [
   { labelKey: "accountDetails", href: "/settings/account" },
   { labelKey: "subscriptionPlan", href: "/settings/subscription" },
   { labelKey: "notificationStyle", href: "/settings/notifications" },
+  { labelKey: "dataManagement", href: "/settings/data" },
 ];
 
 export default function Settings() {
@@ -31,10 +34,22 @@ export default function Settings() {
   const { canUseCloudSync } = useFeatureAccess();
   const { locale, setLocale } = useLocaleContext();
   const showUpgradePrompt = !canUseCloudSync;
+  const [showSignOutWarning, setShowSignOutWarning] = useState(false);
 
-  const handleSignOut = async () => {
+  const performSignOut = async () => {
+    setShowSignOutWarning(false);
     await authClient.signOut();
     router.push("/home");
+  };
+
+  // REQ-031: free users keep their data locally, so warn them to export a backup before the session
+  // is cleared. Paid users have cloud sync and can sign out directly.
+  const handleSignOut = () => {
+    if (!canUseCloudSync) {
+      setShowSignOutWarning(true);
+      return;
+    }
+    void performSignOut();
   };
 
   return (
@@ -85,7 +100,7 @@ export default function Settings() {
             )}
             {showUpgradePrompt && (
               <UpgradePrompt
-                message={t("upgradeForBackup")}
+                message={t("upgradeForSync")}
                 linkText={t("viewPlan")}
                 className="mt-4"
               />
@@ -195,6 +210,16 @@ export default function Settings() {
           {t("signOut")}
         </button>
       </main>
+      {showSignOutWarning && (
+        <SignOutConfirmDialog
+          title={t("signOutConfirmTitle")}
+          description={t("signOutExportWarning")}
+          confirmLabel={t("signOutConfirm")}
+          cancelLabel={t("signOutCancel")}
+          onConfirm={() => void performSignOut()}
+          onCancel={() => setShowSignOutWarning(false)}
+        />
+      )}
     </WebAppShell>
   );
 }

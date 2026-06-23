@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation } from "convex/react";
+import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -366,8 +366,8 @@ export default function Planner() {
     else if (tab === "calendar") setView("calendar");
   }, [searchParams]);
 
-  const plannerTasks = useQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
-  const conventions = useQuery(api.conventions.list, userId ? { userId } : "skip");
+  const plannerTasks = useOfflineQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
+  const conventions = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
 
   const filteredTasks = useMemo(() => {
     const list = plannerTasks ?? [];
@@ -462,8 +462,8 @@ export default function Planner() {
   const totalCount = filteredTasks.length;
   const progressPct = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
-  const updateTask = useMutation(api.workflow.update);
-  const moveTask = useMutation(api.workflow.move);
+  const updateTask = useOfflineMutation(api.workflow.update);
+  const moveTask = useOfflineMutation(api.workflow.move);
   const dragStateRef = useRef<PlannerDragState>({
     draggingMeta: null,
     dragOverTaskId: null,
@@ -1007,6 +1007,8 @@ function PlannerTaskNodeItem({
           progressPercent={task.progressPercent}
           dueDate={task.dueDate}
           blockedByCount={task.blockedByCount}
+          priority={task.priority}
+          blockedByTitles={task.blockedByTitles}
           dragHandleProps={{
             hasChildren: task.children.length > 0,
             childrenOpen,

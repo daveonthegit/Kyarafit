@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -20,6 +21,7 @@ export default function FeedPage() {
   return (
     <WebAppShell>
       <PageHeader title="Feed" subtitle="Public builds from people you follow" />
+      <OnlineOnlyBanner className="mt-4" />
 
       <main className="mt-6 flex-1 pb-24 lg:pb-8">
         {isLoading ? (

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -81,9 +81,9 @@ const SUBSTATE_OPTIONS = [
 export default function ElementsPage() {
   const { userId, isLoading: authLoading } = useCurrentUser();
   const { open } = useCreationModals();
-  const removeMany = useMutation(api.cosplayNodes.removeMany);
-  const addNodesToBuild = useMutation(api.builds.addNodesToBuild);
-  const removeNodesFromBuild = useMutation(api.builds.removeNodesFromBuild);
+  const removeMany = useOfflineMutation(api.cosplayNodes.removeMany);
+  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
+  const removeNodesFromBuild = useOfflineMutation(api.builds.removeNodesFromBuild);
 
   const [search, setSearch] = useState("");
   const [nodeType, setNodeType] = useState<string>("");
@@ -101,8 +101,8 @@ export default function ElementsPage() {
   const [showAssignPanel, setShowAssignPanel] = useState(false);
   const [showUnassignPanel, setShowUnassignPanel] = useState(false);
 
-  const builds = useQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
-  const nodesQuery = useQuery(
+  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip") ?? [];
+  const nodesQuery = useOfflineQuery(
     api.cosplayNodes.list,
     userId
       ? {

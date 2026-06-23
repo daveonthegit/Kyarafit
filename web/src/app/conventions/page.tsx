@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import Link from "next/link";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -96,11 +96,13 @@ export default function ConventionsPage() {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { userId, isLoading: authLoading } = useCurrentUser();
-  const conventionsQuery = useQuery(api.conventions.list, userId ? { userId } : "skip");
+  // conventions are sync-backed (`...syncMetaFields` in convex/schema.ts) — read/write through the
+  // offline bridge so the list paints from cache and edits queue while offline.
+  const conventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const conventions = conventionsQuery ?? [];
-  const archiveMany = useMutation(api.conventions.archiveMany);
-  const removeMany = useMutation(api.conventions.removeMany);
-  const createConvention = useMutation(api.conventions.create);
+  const archiveMany = useOfflineMutation(api.conventions.archiveMany);
+  const removeMany = useOfflineMutation(api.conventions.removeMany);
+  const createConvention = useOfflineMutation(api.conventions.create);
   const isLoading = authLoading || (userId !== null && conventionsQuery === undefined);
   const activeFilterLabel = FILTER_OPTIONS.find((opt) => opt.value === filter)?.label ?? "All";
   const activeSortLabel = SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label ?? "Start date";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation } from "convex/react";
+import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -16,12 +16,15 @@ export default function ConventionPackingPage() {
   const { userId } = useCurrentUser();
   const [newLabel, setNewLabel] = useState("");
 
-  const convention = useQuery(api.conventions.get, id ? { id } : "skip");
-  const items = useQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
-  const updateItem = useMutation(api.conventions.updatePackingItem);
-  const regenerate = useMutation(api.conventions.regeneratePacking);
-  const addManual = useMutation(api.conventions.addManualPackingItem);
-  const deleteItem = useMutation(api.conventions.deletePackingItem);
+  // conventions + packingListItems are sync-backed (`...syncMetaFields` in convex/schema.ts) —
+  // read/write through the offline bridge so the packing list works offline.
+  const convention = useOfflineQuery(api.conventions.get, id ? { id } : "skip");
+  const items =
+    useOfflineQuery(api.conventions.getPacking, id ? { conventionId: id } : "skip") ?? [];
+  const updateItem = useOfflineMutation(api.conventions.updatePackingItem);
+  const regenerate = useOfflineMutation(api.conventions.regeneratePacking);
+  const addManual = useOfflineMutation(api.conventions.addManualPackingItem);
+  const deleteItem = useOfflineMutation(api.conventions.deletePackingItem);
 
   const handleRegenerate = async () => {
     if (!userId) return;

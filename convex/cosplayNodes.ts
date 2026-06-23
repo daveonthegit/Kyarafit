@@ -12,6 +12,7 @@ import {
   wouldCreateCycle,
 } from "./lib/cosplayGraph";
 import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { syncGeneratedWorkflowForNode } from "./workflow";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import {
@@ -564,29 +565,32 @@ export const create = mutation({
     const tags = args.tags
       .map((tag, index) => sanitizeAndLimit(tag, MAX_LENGTH.tag, `Tag ${index + 1}`))
       .filter(Boolean);
-    const id = await ctx.db.insert("cosplayNodes", {
-      userId: args.userId,
-      nodeType: args.nodeType,
-      name: sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name"),
-      category: sanitized.category,
-      tags,
-      notes: sanitized.notes,
-      imageUrl: args.imageUrl,
-      imageStorageId: args.imageStorageId,
-      sourceUrl: sanitized.sourceUrl,
-      pricingMode: sanitized.pricingMode,
-      directCostCents: sanitized.directCostCents,
-      unitCostCents: sanitized.unitCostCents,
-      quantity: sanitized.quantity,
-      unit: sanitized.unit,
-      purchaseStatus: sanitized.purchaseStatus,
-      buildStatus: sanitized.buildStatus,
-      materialStatus: sanitized.materialStatus,
-      manualOverallBucket: sanitized.manualOverallBucket,
-      buildInstructions: sanitized.buildInstructions,
-      finishedPhotoUrls: sanitized.finishedPhotoUrls,
-      consumable: sanitized.consumable,
-    });
+    const id = await ctx.db.insert(
+      "cosplayNodes",
+      withCreateMeta({
+        userId: args.userId,
+        nodeType: args.nodeType,
+        name: sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name"),
+        category: sanitized.category,
+        tags,
+        notes: sanitized.notes,
+        imageUrl: args.imageUrl,
+        imageStorageId: args.imageStorageId,
+        sourceUrl: sanitized.sourceUrl,
+        pricingMode: sanitized.pricingMode,
+        directCostCents: sanitized.directCostCents,
+        unitCostCents: sanitized.unitCostCents,
+        quantity: sanitized.quantity,
+        unit: sanitized.unit,
+        purchaseStatus: sanitized.purchaseStatus,
+        buildStatus: sanitized.buildStatus,
+        materialStatus: sanitized.materialStatus,
+        manualOverallBucket: sanitized.manualOverallBucket,
+        buildInstructions: sanitized.buildInstructions,
+        finishedPhotoUrls: sanitized.finishedPhotoUrls,
+        consumable: sanitized.consumable,
+      })
+    );
     const created = await ctx.db.get(id);
     if (created) {
       await syncGeneratedWorkflowForNode(ctx, {
@@ -679,7 +683,7 @@ export const update = mutation({
         .filter(Boolean);
     }
 
-    await ctx.db.patch(id, patch);
+    await ctx.db.patch(id, withUpdateMeta(existing, patch));
     const updated = await ctx.db.get(id);
     if (updated) {
       await syncGeneratedWorkflowForNode(ctx, {
@@ -839,12 +843,15 @@ export const convertType = mutation({
       }
     }
 
-    await ctx.db.patch(args.id, {
-      nodeType: args.nodeType,
-      purchaseStatus: args.nodeType === "material" ? undefined : node.purchaseStatus,
-      buildStatus: args.nodeType === "material" ? undefined : node.buildStatus,
-      materialStatus: args.nodeType === "element" ? undefined : node.materialStatus,
-    });
+    await ctx.db.patch(
+      args.id,
+      withUpdateMeta(node, {
+        nodeType: args.nodeType,
+        purchaseStatus: args.nodeType === "material" ? undefined : node.purchaseStatus,
+        buildStatus: args.nodeType === "material" ? undefined : node.buildStatus,
+        materialStatus: args.nodeType === "element" ? undefined : node.materialStatus,
+      })
+    );
     return await ctx.db.get(args.id);
   },
 });

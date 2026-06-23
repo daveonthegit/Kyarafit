@@ -22,6 +22,7 @@ export const APP_HREF = {
   settingsSubscription: href("/settings/subscription"),
   settingsNotifications: href("/settings/notifications"),
   settingsOffline: href("/settings/offline"),
+  settingsData: href("/settings/data"),
   settingsDevGallery: href("/settings/dev/gallery"),
   groups: href("/groups"),
   groupNew: href("/groups/new"),

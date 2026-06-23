@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import {
   COSPLAY_CATEGORIES,
   COSPLAY_NODE_TYPES,
@@ -27,7 +27,7 @@ export function LinkClosetQuickCreateModal({
   onCreated,
 }: LinkClosetQuickCreateModalProps) {
   const { userId } = useCurrentUser();
-  const createNode = useMutation(api.cosplayNodes.create);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
   const [nodeType, setNodeType] = useState<CosplayNodeType>("element");
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CosplayCategory>("other");

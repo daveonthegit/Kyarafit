@@ -112,15 +112,8 @@ dist
 dist/
 web-build/
 
-# Go
-backend/main
 *.exe
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
 .env.local
 .env.development.local
 .env.test.local

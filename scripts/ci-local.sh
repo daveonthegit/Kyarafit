@@ -46,22 +46,14 @@ echo "========================================"
 
 run_check "Prettier format check" npm run format:check
 
-# Go backend is archived — skip Go format check
-echo -e "${YELLOW}⚠️  Go backend archived, skipping Go format check${NC}"
+# 2. i18n key parity
+echo "========================================"
+echo "🌐 i18n"
+echo "========================================"
 
-if command -v black &> /dev/null; then
-    run_check "Python format check (black)" bash -c "cd image-service && black --check ."
-else
-    echo -e "${YELLOW}⚠️  black not installed, skipping Python format check${NC}"
-fi
+run_check "i18n key parity" npm run i18n:check
 
-if command -v isort &> /dev/null; then
-    run_check "Python import sorting (isort)" bash -c "cd image-service && isort --check-only ."
-else
-    echo -e "${YELLOW}⚠️  isort not installed, skipping Python import check${NC}"
-fi
-
-# 2. Linting
+# 3. Linting
 echo "========================================"
 echo "🔍 Linting"
 echo "========================================"
@@ -70,16 +62,7 @@ run_check "Web linting" npm run lint:web
 
 run_check "Mobile linting" npm run lint:mobile
 
-# Go backend is archived — skip Go lint checks
-echo -e "${YELLOW}⚠️  Go backend archived, skipping Go vet and golangci-lint${NC}"
-
-if command -v flake8 &> /dev/null; then
-    run_check "Python linting (flake8)" bash -c "cd image-service && flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics"
-else
-    echo -e "${YELLOW}⚠️  flake8 not installed, skipping Python linting${NC}"
-fi
-
-# 3. Type Checking
+# 4. Type Checking
 echo "========================================"
 echo "🔎 Type Checking"
 echo "========================================"
@@ -88,37 +71,23 @@ run_check "Web type checking" npm run typecheck:web
 
 run_check "Mobile type checking" npm run typecheck:mobile
 
-# 4. Building
+# 5. Building
 echo "========================================"
 echo "🏗️  Building"
 echo "========================================"
 
-run_check "Web build" npm run build -w web -- --webpack
+run_check "Web build" npm run build:web
 
-# Go backend is archived — skip backend build
-echo -e "${YELLOW}⚠️  Go backend archived, skipping backend build${NC}"
-
-if command -v python3 &> /dev/null; then
-    run_check "Image service compile check" bash -c "cd image-service && python3 -m compileall ."
-else
-    echo -e "${YELLOW}⚠️  python3 not found, skipping image service compile check${NC}"
-fi
-
-# 5. Testing
+# 6. Testing
 echo "========================================"
 echo "🧪 Testing"
 echo "========================================"
 
-# Go backend is archived — skip backend tests
-echo -e "${YELLOW}⚠️  Go backend archived, skipping backend tests${NC}"
+run_check "Web tests" npm run test -w web
 
-run_check "Web tests" npm run test -w web || echo -e "${YELLOW}⚠️  No web tests configured yet${NC}"
+run_check "Mobile tests" npm run test -w mobile
 
-if command -v pytest &> /dev/null; then
-    run_check "Image service tests" bash -c "cd image-service && pytest -v"
-else
-    echo -e "${YELLOW}⚠️  pytest not installed, skipping image service tests${NC}"
-fi
+run_check "Convex tests" npm run test:convex
 
 # Summary
 echo ""

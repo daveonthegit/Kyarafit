@@ -41,19 +41,30 @@ describe("Settings Subscription page", () => {
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
 
-  it("shows tier and storage when data is loaded", () => {
+  it("shows the current tier when data is loaded", () => {
+    // Spec (DATA_AND_SYNC.md §9): free = 0 cloud / unlimited local. The page must not assume a 50MB
+    // free cloud cap.
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 50 },
+      data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 0 },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
     expect(screen.getByTestId("subscription-tier")).toHaveTextContent("Free");
-    expect(screen.getByTestId("subscription-storage")).toBeInTheDocument();
+  });
+
+  it("should_present_cloud_sync_as_the_paid_upgrade", () => {
+    // REQ-015 / REQ-091: cloud sync (work on any device, never lose data) is the paid value prop.
+    vi.mocked(useTier).mockReturnValue({
+      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0 },
+      isLoading: false,
+    });
+    render(<SettingsSubscriptionPage />);
+    expect(screen.getAllByText(/sync/i).length).toBeGreaterThan(0);
   });
 
   it("renders back to settings link", () => {
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 50 },
+      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0 },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
