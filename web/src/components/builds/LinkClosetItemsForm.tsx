@@ -16,6 +16,10 @@ import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
 import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
+import {
+  filterAndSortClosetItems,
+  closetCategories,
+} from "@kyarafit/design-system/domain/closetItems";
 import { setNativeDragLabelPreview } from "@/lib/nativeDragPreview";
 
 type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
@@ -103,42 +107,13 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
       setVisibleCount(PAGE_SIZE);
     }, [search, categoryFilter, sortMode, closetItems.length]);
 
-    const categories = useMemo(() => {
-      const s = new Set<string>();
-      closetItems.forEach((c) => {
-        if (c.category?.trim()) s.add(c.category.trim());
-      });
-      return Array.from(s).sort((a, b) => a.localeCompare(b));
-    }, [closetItems]);
+    const categories = useMemo(() => closetCategories(closetItems), [closetItems]);
 
-    const filtered = useMemo(() => {
-      let rows = [...closetItems];
-      if (categoryFilter !== "all") {
-        rows = rows.filter((r) => (r.category ?? "").trim() === categoryFilter);
-      }
-      const q = search.trim().toLowerCase();
-      if (q) {
-        rows = rows.filter((r) => {
-          if (r.name.toLowerCase().includes(q)) return true;
-          if ((r.category ?? "").toLowerCase().includes(q)) return true;
-          if (r.tags?.some((t) => t.toLowerCase().includes(q))) return true;
-          return false;
-        });
-      }
-      if (sortMode === "name") {
-        rows.sort((a, b) => a.name.localeCompare(b.name));
-      } else if (sortMode === "recent") {
-        rows.sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
-      } else {
-        rows.sort((a, b) => {
-          const sa = selectedIds.has(a._id) ? 1 : 0;
-          const sb = selectedIds.has(b._id) ? 1 : 0;
-          if (sa !== sb) return sb - sa;
-          return a.name.localeCompare(b.name);
-        });
-      }
-      return rows;
-    }, [closetItems, categoryFilter, search, sortMode, selectedIds]);
+    const filtered = useMemo(
+      () =>
+        filterAndSortClosetItems(closetItems, { categoryFilter, search, sortMode, selectedIds }),
+      [closetItems, categoryFilter, search, sortMode, selectedIds]
+    );
 
     const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
