@@ -14,7 +14,13 @@ const items: ClosetItemFields[] = [
 ];
 
 function view(overrides: Partial<ClosetItemsView> = {}): ClosetItemsView {
-  return { categoryFilter: "all", search: "", sortMode: "name", selectedIds: new Set(), ...overrides };
+  return {
+    categoryFilter: "all",
+    search: "",
+    sortMode: "name",
+    selectedIds: new Set(),
+    ...overrides,
+  };
 }
 
 describe("filterAndSortClosetItems", () => {
@@ -23,9 +29,9 @@ describe("filterAndSortClosetItems", () => {
   });
 
   it("should_filter_by_trimmed_category", () => {
-    expect(filterAndSortClosetItems(items, view({ categoryFilter: "Wigs" })).map((r) => r._id)).toEqual(
-      ["4", "1"]
-    );
+    expect(
+      filterAndSortClosetItems(items, view({ categoryFilter: "Wigs" })).map((r) => r._id)
+    ).toEqual(["4", "1"]);
   });
 
   it("should_match_search_on_name_category_and_tags_case_insensitively_and_trimmed", () => {
@@ -33,16 +39,15 @@ describe("filterAndSortClosetItems", () => {
       "4",
       "1",
     ]);
-    expect(filterAndSortClosetItems(items, view({ search: "red" })).map((r) => r._id)).toEqual(["2"]);
+    expect(filterAndSortClosetItems(items, view({ search: "red" })).map((r) => r._id)).toEqual([
+      "2",
+    ]);
   });
 
   it("should_sort_by_recency_descending", () => {
-    expect(filterAndSortClosetItems(items, view({ sortMode: "recent" })).map((r) => r._id)).toEqual([
-      "3",
-      "4",
-      "1",
-      "2",
-    ]);
+    expect(filterAndSortClosetItems(items, view({ sortMode: "recent" })).map((r) => r._id)).toEqual(
+      ["3", "4", "1", "2"]
+    );
   });
 
   it("should_put_selected_items_first_then_by_name", () => {

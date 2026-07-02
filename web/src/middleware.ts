@@ -21,9 +21,7 @@ const LANDING_PREFIXES = ["/privacy", "/terms", "/b/", "/g/", "/u/"];
 
 function isLandingPath(pathname: string): boolean {
   if (pathname === "/") return true;
-  return LANDING_PREFIXES.some(
-    (p) => pathname === p.replace(/\/$/, "") || pathname.startsWith(p),
-  );
+  return LANDING_PREFIXES.some((p) => pathname === p.replace(/\/$/, "") || pathname.startsWith(p));
 }
 
 export function middleware(req: NextRequest) {
@@ -43,10 +41,7 @@ export function middleware(req: NextRequest) {
   if (LANDING_HOSTS.has(host)) {
     // App routes requested on the landing domain are sent to the app subdomain.
     if (!isLandingPath(pathname)) {
-      return NextResponse.redirect(
-        new URL(`${pathname}${search}`, `https://${APP_HOST}`),
-        308,
-      );
+      return NextResponse.redirect(new URL(`${pathname}${search}`, `https://${APP_HOST}`), 308);
     }
     return NextResponse.next();
   }
