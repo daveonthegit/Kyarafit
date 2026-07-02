@@ -60,12 +60,12 @@ function depsWith(
   };
 }
 
-const elementRow = {
-  elements: [
+const progressUpdateRow = {
+  buildProgressUpdates: [
     {
-      _id: "el_1",
+      _id: "pu_1",
       userId: "user_1",
-      imageRef: { kind: "local", uri: "file:///local/local_a", imageKey: "local_a" },
+      imageRefs: [{ kind: "local", uri: "file:///local/local_a", imageKey: "local_a" }],
     },
   ],
 };
@@ -74,28 +74,29 @@ describe("uploadLocalImages (mobile, REQ-D71)", () => {
   it("should_upload_local_image_and_convert_to_cloud_on_sync_for_paid", async () => {
     const { client, calls } = fakeUploadClient();
     const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];
-    const deps = depsWith(elementRow, async () => "storage_1", written);
+    const deps = depsWith(progressUpdateRow, async () => "storage_1", written);
 
     const result = await uploadLocalImages(client, "PRO", deps);
 
     expect(result).toEqual({ uploaded: 1, failed: 0 });
-    expect(calls.map((c) => c.fn)).toEqual(["files:generateUploadUrl", "elements:update"]);
+    expect(calls.map((c) => c.fn)).toEqual([
+      "files:generateUploadUrl",
+      "buildProgressUpdates:update",
+    ]);
     expect(calls[1].args).toEqual({
-      id: "el_1",
+      id: "pu_1",
       userId: "user_1",
-      imageRef: { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
+      imageRefs: [{ kind: "cloud", storageId: "storage_1", imageKey: "local_a" }],
     });
-    expect(written[0].doc.imageRef).toEqual({
-      kind: "cloud",
-      storageId: "storage_1",
-      imageKey: "local_a",
-    });
+    expect(written[0].doc.imageRefs).toEqual([
+      { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
+    ]);
   });
 
   it("should_not_attempt_any_upload_or_convex_call_for_free_users", async () => {
     const { client, calls } = fakeUploadClient();
     const uploadBytes = vi.fn(async () => "storage_1");
-    const deps = depsWith(elementRow, uploadBytes, []);
+    const deps = depsWith(progressUpdateRow, uploadBytes, []);
 
     const result = await uploadLocalImages(client, "FREE", deps);
 
@@ -108,7 +109,7 @@ describe("uploadLocalImages (mobile, REQ-D71)", () => {
   it("should_preserve_local_ref_and_retry_next_sync_on_upload_failure", async () => {
     const { client } = fakeUploadClient();
     const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];
-    const deps = depsWith(elementRow, async () => null, written);
+    const deps = depsWith(progressUpdateRow, async () => null, written);
 
     const result = await uploadLocalImages(client, "PRO", deps);
 
@@ -116,14 +117,12 @@ describe("uploadLocalImages (mobile, REQ-D71)", () => {
     expect(written).toHaveLength(0); // local ref intact, no flip
 
     const written2: { table: string; id: string; doc: Record<string, unknown> }[] = [];
-    const deps2 = depsWith(elementRow, async () => "storage_9", written2);
+    const deps2 = depsWith(progressUpdateRow, async () => "storage_9", written2);
     const retry = await uploadLocalImages(client, "PRO", deps2);
 
     expect(retry).toEqual({ uploaded: 1, failed: 0 });
-    expect(written2[0].doc.imageRef).toEqual({
-      kind: "cloud",
-      storageId: "storage_9",
-      imageKey: "local_a",
-    });
+    expect(written2[0].doc.imageRefs).toEqual([
+      { kind: "cloud", storageId: "storage_9", imageKey: "local_a" },
+    ]);
   });
 });

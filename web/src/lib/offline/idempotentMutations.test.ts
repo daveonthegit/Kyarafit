@@ -22,9 +22,6 @@ const IDEMPOTENT = [
   "workflow:move",
   "workflow:moveAndResequence",
   "users:setFocusedBuild",
-  "elements:create",
-  "elements:update",
-  "elements:duplicateToBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
 ] as const;
@@ -34,7 +31,6 @@ const OFFLINE_CREATES = [
   "builds:create",
   "conventions:create",
   "workflow:create",
-  "elements:create",
   "buildProgressUpdates:add",
 ] as const;
 
@@ -45,10 +41,7 @@ describe("idempotent mutation registry (REQ-D62)", () => {
     }
   });
 
-  it("newly-added elements and progress-update mutations are idempotent", () => {
-    expect(isIdempotentMutation("elements:create")).toBe(true);
-    expect(isIdempotentMutation("elements:update")).toBe(true);
-    expect(isIdempotentMutation("elements:duplicateToBuild")).toBe(true);
+  it("newly-added progress-update mutations are idempotent", () => {
     expect(isIdempotentMutation("buildProgressUpdates:add")).toBe(true);
     expect(isIdempotentMutation("buildProgressUpdates:update")).toBe(true);
   });
@@ -63,7 +56,7 @@ describe("idempotent mutation registry (REQ-D62)", () => {
 });
 
 describe("offline create registry (REQ-D62)", () => {
-  it("enqueues elements and build progress-update creates offline", () => {
+  it("enqueues build progress-update creates offline", () => {
     for (const name of OFFLINE_CREATES) {
       expect(isCreateMutation(name), `${name} should be an offline create`).toBe(true);
     }

@@ -14,25 +14,6 @@ import {
  */
 
 describe("collectLocalImageRefs (REQ-D71)", () => {
-  it("should_collect_single_local_ref_from_an_element", () => {
-    const doc = {
-      _id: "el_1",
-      userId: "user_1",
-      imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
-    };
-
-    const sites = collectLocalImageRefs("elements", doc);
-
-    expect(sites).toHaveLength(1);
-    expect(sites[0]).toMatchObject({
-      table: "elements",
-      entityId: "el_1",
-      userId: "user_1",
-      imageKey: "local_a",
-      index: null,
-    });
-  });
-
   it("should_collect_each_local_ref_from_a_progress_update_array", () => {
     const doc = {
       _id: "pu_1",
@@ -54,26 +35,26 @@ describe("collectLocalImageRefs (REQ-D71)", () => {
 
   it("should_ignore_cloud_and_url_and_deleted_and_unknown_tables", () => {
     expect(
-      collectLocalImageRefs("elements", {
-        _id: "el_1",
+      collectLocalImageRefs("buildProgressUpdates", {
+        _id: "pu_1",
         userId: "u",
-        imageRef: { kind: "cloud", storageId: "s1", imageKey: "k" },
+        imageRefs: [{ kind: "cloud", storageId: "s1", imageKey: "k" }],
       })
     ).toEqual([]);
     expect(
-      collectLocalImageRefs("elements", {
-        _id: "el_1",
+      collectLocalImageRefs("buildProgressUpdates", {
+        _id: "pu_1",
         userId: "u",
-        imageRef: { kind: "url", url: "https://ex/x.png" },
+        imageRefs: [{ kind: "url", url: "https://ex/x.png" }],
       })
     ).toEqual([]);
     // Soft-deleted rows are never uploaded.
     expect(
-      collectLocalImageRefs("elements", {
-        _id: "el_1",
+      collectLocalImageRefs("buildProgressUpdates", {
+        _id: "pu_1",
         userId: "u",
         deletedAt: 123,
-        imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
+        imageRefs: [{ kind: "local", uri: "blob:1", imageKey: "local_a" }],
       })
     ).toEqual([]);
     // Non-mirroring table.
@@ -86,39 +67,14 @@ describe("collectLocalImageRefs (REQ-D71)", () => {
     ).toEqual([]);
   });
 
-  it("marks only elements and buildProgressUpdates as mirroring tables", () => {
-    expect([...IMAGE_REF_TABLES]).toEqual(["elements", "buildProgressUpdates"]);
-    expect(isImageRefTable("elements")).toBe(true);
+  it("marks only buildProgressUpdates as a mirroring table", () => {
+    expect([...IMAGE_REF_TABLES]).toEqual(["buildProgressUpdates"]);
     expect(isImageRefTable("buildProgressUpdates")).toBe(true);
     expect(isImageRefTable("builds")).toBe(false);
   });
 });
 
 describe("planCloudMirror (REQ-D71)", () => {
-  it("should_plan_idempotent_flip_for_a_single_image_ref", () => {
-    const doc = {
-      _id: "el_1",
-      userId: "user_1",
-      name: "Wig",
-      imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
-    };
-    const [site] = collectLocalImageRefs("elements", doc);
-
-    const plan = planCloudMirror(site, doc, "storage_1");
-
-    expect(plan.fn).toBe("elements:update");
-    expect(plan.args).toEqual({
-      id: "el_1",
-      userId: "user_1",
-      imageRef: { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
-    });
-    // Other fields preserved; local ref flipped to cloud (local binary stays as cache).
-    expect(plan.nextDoc).toMatchObject({
-      name: "Wig",
-      imageRef: { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
-    });
-  });
-
   it("should_flip_one_array_entry_and_preserve_the_rest", () => {
     const doc = {
       _id: "pu_1",

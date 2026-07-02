@@ -20,9 +20,6 @@ const IDEMPOTENT = [
   "workflow:move",
   "workflow:moveAndResequence",
   "users:setFocusedBuild",
-  "elements:create",
-  "elements:update",
-  "elements:duplicateToBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
 ] as const;
@@ -31,7 +28,6 @@ const OFFLINE_CREATES = [
   "builds:create",
   "conventions:create",
   "workflow:create",
-  "elements:create",
   "buildProgressUpdates:add",
 ] as const;
 

@@ -14,7 +14,6 @@ import { setOfflineConnectivity } from "./connectivity";
 const ALL_TABLES = [
   "closetItems",
   "cosplayNodes",
-  "elements",
   "builds",
   "buildTasks",
   "workflowItems",
@@ -159,11 +158,11 @@ describe("uploadLocalImages (REQ-D71)", () => {
     const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];
     const deps = depsWith(
       {
-        elements: [
+        buildProgressUpdates: [
           {
-            _id: "el_1",
+            _id: "pu_1",
             userId: "user_1",
-            imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
+            imageRefs: [{ kind: "local", uri: "blob:1", imageKey: "local_a" }],
           },
         ],
       },
@@ -174,20 +173,21 @@ describe("uploadLocalImages (REQ-D71)", () => {
     const result = await uploadLocalImages(client, "PRO", deps);
 
     expect(result).toEqual({ uploaded: 1, failed: 0 });
-    // Requested an upload URL, then flipped the ref via the idempotent element update.
-    expect(calls.map((c) => c.fn)).toEqual(["files:generateUploadUrl", "elements:update"]);
+    // Requested an upload URL, then flipped the ref via the idempotent progress-update mutation.
+    expect(calls.map((c) => c.fn)).toEqual([
+      "files:generateUploadUrl",
+      "buildProgressUpdates:update",
+    ]);
     expect(calls[1].args).toEqual({
-      id: "el_1",
+      id: "pu_1",
       userId: "user_1",
-      imageRef: { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
+      imageRefs: [{ kind: "cloud", storageId: "storage_1", imageKey: "local_a" }],
     });
     // The local mirror is flipped to cloud so a later sync does not re-upload the same image.
     expect(written).toHaveLength(1);
-    expect(written[0].doc.imageRef).toEqual({
-      kind: "cloud",
-      storageId: "storage_1",
-      imageKey: "local_a",
-    });
+    expect(written[0].doc.imageRefs).toEqual([
+      { kind: "cloud", storageId: "storage_1", imageKey: "local_a" },
+    ]);
   });
 
   it("should_not_attempt_any_upload_or_convex_call_for_free_users", async () => {
@@ -195,11 +195,11 @@ describe("uploadLocalImages (REQ-D71)", () => {
     const uploadBytes = vi.fn(async () => "storage_1");
     const deps = depsWith(
       {
-        elements: [
+        buildProgressUpdates: [
           {
-            _id: "el_1",
+            _id: "pu_1",
             userId: "user_1",
-            imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
+            imageRefs: [{ kind: "local", uri: "blob:1", imageKey: "local_a" }],
           },
         ],
       },
@@ -220,11 +220,11 @@ describe("uploadLocalImages (REQ-D71)", () => {
     const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];
     const deps = depsWith(
       {
-        elements: [
+        buildProgressUpdates: [
           {
-            _id: "el_1",
+            _id: "pu_1",
             userId: "user_1",
-            imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
+            imageRefs: [{ kind: "local", uri: "blob:1", imageKey: "local_a" }],
           },
         ],
       },
@@ -241,11 +241,11 @@ describe("uploadLocalImages (REQ-D71)", () => {
     const written2: { table: string; id: string; doc: Record<string, unknown> }[] = [];
     const deps2 = depsWith(
       {
-        elements: [
+        buildProgressUpdates: [
           {
-            _id: "el_1",
+            _id: "pu_1",
             userId: "user_1",
-            imageRef: { kind: "local", uri: "blob:1", imageKey: "local_a" },
+            imageRefs: [{ kind: "local", uri: "blob:1", imageKey: "local_a" }],
           },
         ],
       },
@@ -254,10 +254,8 @@ describe("uploadLocalImages (REQ-D71)", () => {
     );
     const retry = await uploadLocalImages(client, "PRO", deps2);
     expect(retry).toEqual({ uploaded: 1, failed: 0 });
-    expect(written2[0].doc.imageRef).toEqual({
-      kind: "cloud",
-      storageId: "storage_9",
-      imageKey: "local_a",
-    });
+    expect(written2[0].doc.imageRefs).toEqual([
+      { kind: "cloud", storageId: "storage_9", imageKey: "local_a" },
+    ]);
   });
 });
