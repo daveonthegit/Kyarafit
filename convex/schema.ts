@@ -69,6 +69,13 @@ export default defineSchema({
   cosplayNodes: defineTable({
     userId: v.string(),
     legacyClosetItemId: v.optional(v.id("closetItems")),
+    // Build-scoping migration (additive, backfilled by migrations:backfillCosplayNodeBuildScope).
+    // Optional during transition: existing rows have no buildId until the backfill runs in each
+    // deployment. Once backfill + rewiring land, buildId becomes the primary build link
+    // (replacing buildCosplayLinks) and parentNodeId replaces cosplayNodeLinks nesting.
+    buildId: v.optional(v.id("builds")),
+    parentNodeId: v.optional(v.id("cosplayNodes")),
+    sortOrder: v.optional(v.number()),
     nodeType: v.string(),
     name: v.string(),
     category: v.optional(v.string()),
@@ -96,7 +103,9 @@ export default defineSchema({
     .index("by_userId_category", ["userId", "category"])
     .index("by_legacyClosetItemId", ["legacyClosetItemId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_buildId", ["buildId"])
+    .index("by_parentNodeId", ["parentNodeId"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),

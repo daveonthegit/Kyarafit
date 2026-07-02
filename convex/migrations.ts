@@ -1,7 +1,7 @@
 import { Migrations } from "@convex-dev/migrations";
 import { components, internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 export const COSPLAY_ELEMENTS_MIGRATION_SEQUENCE = [
   "backfillCosplayNodesFromClosetItems",
@@ -358,5 +358,59 @@ export const backfillWorkflowCompletionAnchors = migrations.define({
         role: "completion_anchor",
       });
     }
+  },
+});
+
+/**
+ * READ-ONLY dry-run for the cosplayNodes build-scoping migration. Run in a deployment with:
+ *   npx convex run migrations:reportCosplayNodeScoping
+ * It writes nothing. Use it to decide the backfill strategy (duplicate-per-build vs one-build-per-node)
+ * and how many library-only nodes exist, before running the destructive backfill.
+ */
+export const reportCosplayNodeScoping = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const nodes = await ctx.db.query("cosplayNodes").collect();
+    const buildLinks = await ctx.db.query("buildCosplayLinks").collect();
+    const nodeStates = await ctx.db.query("buildNodeStates").collect();
+    const nodeLinks = await ctx.db.query("cosplayNodeLinks").collect();
+    const itemLinks = await ctx.db.query("buildItemLinks").collect();
+
+    // Distinct builds each node is attached to (many-to-many via buildCosplayLinks).
+    const buildsPerNode = new Map<string, Set<string>>();
+    for (const link of buildLinks) {
+      const key = link.cosplayNodeId as string;
+      const set = buildsPerNode.get(key) ?? new Set<string>();
+      set.add(link.buildId as string);
+      buildsPerNode.set(key, set);
+    }
+
+    let nodesInOneBuild = 0;
+    let nodesSharedAcrossBuilds = 0;
+    let maxBuildsForAnyNode = 0;
+    for (const set of buildsPerNode.values()) {
+      if (set.size === 1) nodesInOneBuild += 1;
+      else if (set.size > 1) nodesSharedAcrossBuilds += 1;
+      if (set.size > maxBuildsForAnyNode) maxBuildsForAnyNode = set.size;
+    }
+    const nodesWithZeroBuilds = nodes.filter((n) => !buildsPerNode.has(n._id as string)).length;
+
+    // Nodes that already carry a direct buildId (i.e. backfill already ran, at least partially).
+    const nodesAlreadyBuildScoped = nodes.filter((n) => n.buildId !== undefined).length;
+
+    return {
+      totalNodes: nodes.length,
+      nodesInOneBuild,
+      nodesSharedAcrossBuilds, // >0 means "duplicate-per-build" is needed to avoid data loss
+      maxBuildsForAnyNode,
+      nodesLibraryOnly: nodesWithZeroBuilds, // attached to no build
+      nodesAlreadyBuildScoped,
+      counts: {
+        buildCosplayLinks: buildLinks.length,
+        buildNodeStates: nodeStates.length, // per-build overrides to merge into scoped nodes
+        cosplayNodeLinks: nodeLinks.length, // nesting to convert to parentNodeId
+        buildItemLinks: itemLinks.length, // legacy closetItems links (closetItems being removed)
+      },
+    };
   },
 });
