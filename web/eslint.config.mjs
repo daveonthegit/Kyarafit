@@ -5,10 +5,13 @@ import typescriptParser from '@typescript-eslint/parser';
 import nextPlugin from '@next/eslint-plugin-next';
 import globals from 'globals';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const noDirectConvexInOfflineCore = require('./eslint-rules/no-direct-convex-in-offline-core.cjs');
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
@@ -96,6 +99,26 @@ export default [
     files: ['**/*.js', '**/*.jsx'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+
+  // Local-first Offline Core guard (web port of mobile's KFM-114 rule). These surfaces must use
+  // the offline bridge (@/lib/offline), not convex/react hooks, for local-first data.
+  // Scope is expanded route-by-route as each surface is migrated onto the bridge; routes still on
+  // the legacy cosplayNodes/buildTasks model (build-detail/[id], conventions/[id], builds) are
+  // intentionally NOT listed yet — they are cleaned by the Phase 1/2 data-model migration.
+  {
+    files: [
+      'src/app/elements/**/*.tsx',
+      'src/app/planner/**/*.tsx',
+      'src/app/packing/**/*.tsx',
+      'src/app/itinerary/**/*.tsx',
+    ],
+    plugins: {
+      kyarafit: { rules: { 'no-direct-convex-in-offline-core': noDirectConvexInOfflineCore } },
+    },
+    rules: {
+      'kyarafit/no-direct-convex-in-offline-core': 'error',
     },
   },
 ];
