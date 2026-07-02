@@ -5,8 +5,10 @@
  * duplicate row.
  *
  * Only list mutations that actually declare `idempotencyKey` in their validator — passing it to a
- * mutation that doesn't would be rejected by Convex arg validation. Grow this set as more
- * offline-capable mutations adopt `runIdempotent`.
+ * mutation that doesn't would be rejected by Convex arg validation. This set MUST match every
+ * handler that accepts `idempotencyKey` server-side (grep `convex/**` for `idempotencyKey`) and is
+ * kept in parity with web's registry. No mutation may be enqueued offline unless it is listed here
+ * (REQ-D62).
  *
  * Keys are Convex function names (`getFunctionName(api.x.y)`), e.g. `"builds:create"`.
  */
@@ -26,6 +28,11 @@ const IDEMPOTENT_MUTATIONS = new Set<string>([
   "workflow:move",
   "workflow:moveAndResequence",
   "users:setFocusedBuild",
+  "elements:create",
+  "elements:update",
+  "elements:duplicateToBuild",
+  "buildProgressUpdates:add",
+  "buildProgressUpdates:update",
 ]);
 
 export function isIdempotentMutation(functionName: string): boolean {

@@ -26,6 +26,7 @@ const MUTATION_QUEUE = "mutation_queue";
 const ID_MAP = "id_map";
 const SYNC_META = "sync_meta";
 const CURSOR_KEY = "listChangedSince:cursor";
+const LAST_SYNCED_KEY = "sync:lastSyncedAt";
 
 interface MutationQueueRecord {
   id?: number;
@@ -165,6 +166,35 @@ export class IndexedDbLocalStore implements LocalStore {
     await tx.done;
   }
 
+  async countPendingMutations(): Promise<number> {
+    const db = await this.db();
+    const all = (await db.getAll(MUTATION_QUEUE)) as MutationQueueRecord[];
+    return all.filter((row) => row.status === "pending").length;
+  }
+
+  async countFailedMutations(): Promise<number> {
+    const db = await this.db();
+    const all = (await db.getAll(MUTATION_QUEUE)) as MutationQueueRecord[];
+    return all.filter((row) => row.status === "failed").length;
+  }
+
+  async requeueFailedMutations(): Promise<number> {
+    const db = await this.db();
+    const tx = db.transaction(MUTATION_QUEUE, "readwrite");
+    const all = (await tx.store.getAll()) as MutationQueueRecord[];
+    let n = 0;
+    for (const row of all) {
+      if (row.status === "failed") {
+        row.status = "pending";
+        row.retry_count = 0;
+        await tx.store.put(row);
+        n += 1;
+      }
+    }
+    await tx.done;
+    return n;
+  }
+
   async setServerId(clientId: string, serverId: string): Promise<void> {
     const db = await this.db();
     await db.put(ID_MAP, { client_id: clientId, server_id: serverId, synced_at: Date.now() });
@@ -188,6 +218,18 @@ export class IndexedDbLocalStore implements LocalStore {
   async setSyncCursor(cursor: number): Promise<void> {
     const db = await this.db();
     await db.put(SYNC_META, { key: CURSOR_KEY, value: String(cursor) });
+  }
+
+  async getLastSyncedAt(): Promise<number | null> {
+    const db = await this.db();
+    const row = (await db.get(SYNC_META, LAST_SYNCED_KEY)) as { value: string } | undefined;
+    const parsed = row ? Number(row.value) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async setLastSyncedAt(ts: number): Promise<void> {
+    const db = await this.db();
+    await db.put(SYNC_META, { key: LAST_SYNCED_KEY, value: String(ts) });
   }
 
   async clearAll(): Promise<void> {

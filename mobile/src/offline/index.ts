@@ -5,6 +5,7 @@ export {
   resetOfflineDatabaseForAccountSwitch,
   resetOfflineStateForAccountSwitch,
 } from "./db";
-export { usePendingQueueCount } from "./usePendingQueueCount";
+export { usePendingQueueCount, useSyncStatus, type SyncStatus } from "./usePendingQueueCount";
 export { SyncWorkerProvider } from "./SyncWorkerProvider";
 export { useOfflineQuery, useOfflineMutation } from "./convex-bridge";
+export { syncNow } from "./syncWorker";

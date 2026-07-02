@@ -182,5 +182,14 @@
     "imageSaveFailed": "Could not save the image on this device.",
     "imageRemove": "Remove image",
     "imagePreviewAlt": "Element image preview"
+  },
+  "Sync": {
+    "offline": "You are offline — changes sync when you reconnect.",
+    "pending": "{count} pending changes waiting to sync",
+    "failed": "{count} change(s) failed to sync",
+    "syncNow": "Sync now",
+    "syncing": "Syncing…",
+    "lastSynced": "Last synced {time}",
+    "neverSynced": "Not synced yet"
   }
 }

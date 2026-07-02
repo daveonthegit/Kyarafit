@@ -7,12 +7,13 @@ import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
 import { clearEntityOverlay, upsertSyncedEntityRow } from "./entityRows";
 import { overlayWritesFor } from "./offlineEntityWrites";
-import { getSyncCursor, setSyncCursor } from "./syncCursor";
+import { getSyncCursor, setLastSyncedAt, setSyncCursor } from "./syncCursor";
 import {
   bumpMutationRetry,
   deleteMutation,
   failMutation,
   listPendingMutations,
+  requeueFailedMutations,
 } from "./mutationQueue";
 
 /** Inject the queued idempotency key into the args of mutations that dedupe replays server-side. */
@@ -116,7 +117,30 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
 }
 
 type ChangedDoc = { _id: string; userId?: string } & Record<string, unknown>;
-type ChangedSince = { builds: ChangedDoc[]; conventions: ChangedDoc[]; cursor: number };
+
+/**
+ * Every local-first table returned by `sync.listChangedSince` (see `convex/sync.ts`). Warm-up must
+ * hydrate ALL of them, not just builds/conventions (REQ-D63). Keep in exact parity with the query's
+ * payload keys and with web's `WARMUP_TABLES`.
+ */
+const WARMUP_TABLES = [
+  "closetItems",
+  "cosplayNodes",
+  "elements",
+  "builds",
+  "buildTasks",
+  "workflowItems",
+  "workflowAttachments",
+  "workflowDependencies",
+  "conventions",
+  "conventionDayPlans",
+  "packingListItems",
+  "buildReferenceImages",
+  "buildProcessPictures",
+  "buildProgressUpdates",
+] as const;
+type WarmupTable = (typeof WARMUP_TABLES)[number];
+type ChangedSince = { cursor: number } & Partial<Record<WarmupTable, ChangedDoc[]>>;
 
 const WARMUP_PAGE_LIMIT = 500;
 const WARMUP_MAX_PAGES = 20;
@@ -125,9 +149,9 @@ let warming = false;
 /**
  * Cold-start / reconnect warm-up: pull the signed-in user's documents changed since the persisted
  * cursor (`sync.listChangedSince`) into the local store as synced `entity_rows`, so registered
- * queries paint from local data even before they have ever been fetched online. Single-flight,
- * connectivity-guarded, paged (bounded), and best-effort — any failure leaves the cursor untouched
- * so the next trigger retries.
+ * queries paint from local data even before they have ever been fetched online. Hydrates EVERY
+ * local-first table the query returns (REQ-D63). Single-flight, connectivity-guarded, paged
+ * (bounded), and best-effort — any failure leaves the cursor untouched so the next trigger retries.
  */
 export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
   if (warming || !getIsOnline()) return;
@@ -142,11 +166,13 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
       } as never)) as ChangedSince | null;
       if (!res) break;
 
-      for (const doc of res.builds) {
-        upsertSyncedEntityRow("builds", doc._id, String(doc.userId ?? ""), doc);
-      }
-      for (const doc of res.conventions) {
-        upsertSyncedEntityRow("conventions", doc._id, String(doc.userId ?? ""), doc);
+      let maxPageLen = 0;
+      for (const table of WARMUP_TABLES) {
+        const docs = res[table] ?? [];
+        for (const doc of docs) {
+          upsertSyncedEntityRow(table, doc._id, String(doc.userId ?? ""), doc);
+        }
+        if (docs.length > maxPageLen) maxPageLen = docs.length;
       }
 
       if (typeof res.cursor === "number" && res.cursor > cursor) {
@@ -154,14 +180,26 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
         setSyncCursor(cursor);
       }
 
-      // A short page on both tables means we've caught up.
-      if (res.builds.length < WARMUP_PAGE_LIMIT && res.conventions.length < WARMUP_PAGE_LIMIT) {
-        break;
-      }
+      // A short page across every table means we've caught up.
+      if (maxPageLen < WARMUP_PAGE_LIMIT) break;
     }
+    setLastSyncedAt(Date.now());
   } catch {
     // Best-effort; leave the cursor for the next trigger.
   } finally {
     warming = false;
   }
+}
+
+/**
+ * Manual "sync now" (REQ-D64): drain the queue then warm-up, in the same order as the reconnect
+ * path. Connectivity-guarded by the drain/warm helpers; `warmEntityRows` records the last-synced
+ * timestamp on success. Failed rows are requeued first so an explicit retry can clear the error
+ * state (REQ-D64). Returns the drain result so callers can surface progress.
+ */
+export async function syncNow(client: ConvexReactClient): Promise<DrainResult> {
+  if (getIsOnline()) requeueFailedMutations();
+  const result = await drainMutationQueue(client);
+  await warmEntityRows(client);
+  return result;
 }

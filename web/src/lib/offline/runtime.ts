@@ -214,6 +214,18 @@ class OfflineRuntime {
     await this.persist(() => this.store.failMutation(id));
   }
 
+  async countPendingMutations(): Promise<number> {
+    return (await this.safe(() => this.store.countPendingMutations())) ?? 0;
+  }
+
+  async countFailedMutations(): Promise<number> {
+    return (await this.safe(() => this.store.countFailedMutations())) ?? 0;
+  }
+
+  async requeueFailedMutations(): Promise<number> {
+    return (await this.safe(() => this.store.requeueFailedMutations())) ?? 0;
+  }
+
   // --- id map ---
 
   async setServerId(clientId: string, serverId: string): Promise<void> {
@@ -234,6 +246,16 @@ class OfflineRuntime {
 
   async setSyncCursor(cursor: number): Promise<void> {
     await this.persist(() => this.store.setSyncCursor(cursor));
+  }
+
+  // --- last-synced timestamp (sync-status, REQ-D64) ---
+
+  async getLastSyncedAt(): Promise<number | null> {
+    return (await this.safe(() => this.store.getLastSyncedAt())) ?? null;
+  }
+
+  async setLastSyncedAt(ts: number): Promise<void> {
+    await this.persist(() => this.store.setLastSyncedAt(ts));
   }
 
   // --- lifecycle ---

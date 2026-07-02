@@ -182,5 +182,14 @@
     "imageSaveFailed": "No se pudo guardar la imagen en este dispositivo.",
     "imageRemove": "Quitar imagen",
     "imagePreviewAlt": "Vista previa de la imagen del elemento"
+  },
+  "Sync": {
+    "offline": "Sin conexión — los cambios se sincronizarán al volver online.",
+    "pending": "{count} cambios pendientes de sincronizar",
+    "failed": "{count} cambio(s) no se pudieron sincronizar",
+    "syncNow": "Sincronizar ahora",
+    "syncing": "Sincronizando…",
+    "lastSynced": "Última sincronización {time}",
+    "neverSynced": "Sin sincronizar todavía"
   }
 }

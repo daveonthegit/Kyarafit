@@ -7,12 +7,13 @@ import { getOfflineDb } from "./db";
  */
 
 const CURSOR_KEY = "listChangedSince:cursor";
+const LAST_SYNCED_KEY = "sync:lastSyncedAt";
 
-export function getSyncCursor(): number {
+function readMetaNumber(key: string): number {
   try {
     const row = getOfflineDb().getFirstSync<{ value: string }>(
       `SELECT value FROM sync_meta WHERE key = ?`,
-      [CURSOR_KEY]
+      [key]
     );
     const parsed = row ? Number(row.value) : 0;
     return Number.isFinite(parsed) ? parsed : 0;
@@ -21,14 +22,35 @@ export function getSyncCursor(): number {
   }
 }
 
-export function setSyncCursor(cursor: number): void {
+function writeMetaNumber(key: string, value: number): void {
   try {
     getOfflineDb().runSync(
       `INSERT INTO sync_meta (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [CURSOR_KEY, String(cursor)]
+      [key, String(value)]
     );
   } catch {
     // Best-effort; ignore.
   }
+}
+
+export function getSyncCursor(): number {
+  return readMetaNumber(CURSOR_KEY);
+}
+
+export function setSyncCursor(cursor: number): void {
+  writeMetaNumber(CURSOR_KEY, cursor);
+}
+
+/**
+ * Timestamp (ms) of the last successful warm-up pull, or `null` if never synced. Surfaced by the
+ * sync-status UI (REQ-D64).
+ */
+export function getLastSyncedAt(): number | null {
+  const value = readMetaNumber(LAST_SYNCED_KEY);
+  return value > 0 ? value : null;
+}
+
+export function setLastSyncedAt(ts: number): void {
+  writeMetaNumber(LAST_SYNCED_KEY, ts);
 }

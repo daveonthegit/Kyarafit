@@ -82,3 +82,46 @@ export function failMutation(id: number): void {
     // Best-effort; ignore.
   }
 }
+
+/** Count of pending rows awaiting replay (sync-status badge, REQ-D64). */
+export function countPendingMutations(): number {
+  try {
+    const row = getOfflineDb().getFirstSync<{ c: number }>(
+      `SELECT COUNT(*) AS c FROM mutation_queue WHERE status = 'pending'`
+    );
+    return row?.c ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Count of rows past the retry ceiling (surfaced as the failed-sync error state, REQ-D64). */
+export function countFailedMutations(): number {
+  try {
+    const row = getOfflineDb().getFirstSync<{ c: number }>(
+      `SELECT COUNT(*) AS c FROM mutation_queue WHERE status = 'failed'`
+    );
+    return row?.c ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Reset failed rows back to pending (retry counter cleared) so a manual "sync now" can retry them
+ * (REQ-D64 actionable error state). Returns the number of rows requeued.
+ */
+export function requeueFailedMutations(): number {
+  try {
+    const db = getOfflineDb();
+    const before = db.getFirstSync<{ c: number }>(
+      `SELECT COUNT(*) AS c FROM mutation_queue WHERE status = 'failed'`
+    );
+    db.runSync(
+      `UPDATE mutation_queue SET status = 'pending', retry_count = 0 WHERE status = 'failed'`
+    );
+    return before?.c ?? 0;
+  } catch {
+    return 0;
+  }
+}

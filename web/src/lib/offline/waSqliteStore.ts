@@ -30,6 +30,7 @@ const OPFS_DIRECTORY = "/kyarafit-offline";
 /** SQLite database filename within the pool. */
 const DB_FILENAME = "kyarafit.db";
 const CURSOR_KEY = "listChangedSince:cursor";
+const LAST_SYNCED_KEY = "sync:lastSyncedAt";
 
 /** Logical table names (mirrors the IndexedDB object stores + mobile's SQLite tables). */
 const TABLES = {
@@ -321,6 +322,28 @@ export class WaSqliteLocalStore implements LocalStore {
     await this.exec(`UPDATE ${TABLES.mutationQueue} SET status = 'failed' WHERE id = ?`, [id]);
   }
 
+  async countPendingMutations(): Promise<number> {
+    const rows = await this.select(
+      `SELECT COUNT(*) FROM ${TABLES.mutationQueue} WHERE status = 'pending'`
+    );
+    return rows[0] ? Number(rows[0][0]) : 0;
+  }
+
+  async countFailedMutations(): Promise<number> {
+    const rows = await this.select(
+      `SELECT COUNT(*) FROM ${TABLES.mutationQueue} WHERE status = 'failed'`
+    );
+    return rows[0] ? Number(rows[0][0]) : 0;
+  }
+
+  async requeueFailedMutations(): Promise<number> {
+    const n = await this.countFailedMutations();
+    await this.exec(
+      `UPDATE ${TABLES.mutationQueue} SET status = 'pending', retry_count = 0 WHERE status = 'failed'`
+    );
+    return n;
+  }
+
   // --- id map (clientId -> serverId) ---
 
   async setServerId(clientId: string, serverId: string): Promise<void> {
@@ -354,6 +377,25 @@ export class WaSqliteLocalStore implements LocalStore {
       `INSERT INTO ${TABLES.syncMeta} (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       [CURSOR_KEY, String(cursor)]
+    );
+  }
+
+  // --- last-synced timestamp (sync-status, REQ-D64) ---
+
+  async getLastSyncedAt(): Promise<number | null> {
+    const rows = await this.select(`SELECT value FROM ${TABLES.syncMeta} WHERE key = ?`, [
+      LAST_SYNCED_KEY,
+    ]);
+    const row = rows[0];
+    const parsed = row ? Number(row[0]) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async setLastSyncedAt(ts: number): Promise<void> {
+    await this.exec(
+      `INSERT INTO ${TABLES.syncMeta} (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [LAST_SYNCED_KEY, String(ts)]
     );
   }
 

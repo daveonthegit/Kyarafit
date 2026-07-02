@@ -73,6 +73,12 @@ export interface LocalStore {
   deleteMutation(id: number): Promise<void>;
   bumpMutationRetry(id: number): Promise<void>;
   failMutation(id: number): Promise<void>;
+  /** Count of pending rows awaiting replay (sync-status badge, REQ-D64). */
+  countPendingMutations(): Promise<number>;
+  /** Count of rows past the retry ceiling (failed-sync error state, REQ-D64). */
+  countFailedMutations(): Promise<number>;
+  /** Reset failed rows to pending so a manual "sync now" retries them; returns the count requeued. */
+  requeueFailedMutations(): Promise<number>;
 
   // --- id map (clientId -> serverId) ---
   setServerId(clientId: string, serverId: string): Promise<void>;
@@ -82,12 +88,18 @@ export interface LocalStore {
   getSyncCursor(): Promise<number>;
   setSyncCursor(cursor: number): Promise<void>;
 
+  // --- last-synced timestamp (sync-status, REQ-D64) ---
+  /** Timestamp (ms) of the last successful warm-up pull, or `null` if never synced. */
+  getLastSyncedAt(): Promise<number | null>;
+  setLastSyncedAt(ts: number): Promise<void>;
+
   // --- maintenance ---
   /** Wipe everything (sign-out / account switch). Local data is never auto-deleted otherwise. */
   clearAll(): Promise<void>;
 }
 
 const CURSOR_KEY = "listChangedSince:cursor";
+const LAST_SYNCED_KEY = "sync:lastSyncedAt";
 
 /**
  * In-memory `LocalStore`. Used by unit tests (jsdom has no IndexedDB) and as a safe fallback during
@@ -176,6 +188,30 @@ export class InMemoryLocalStore implements LocalStore {
     if (row) row.status = "failed";
   }
 
+  async countPendingMutations(): Promise<number> {
+    let n = 0;
+    for (const row of this.mutations.values()) if (row.status === "pending") n += 1;
+    return n;
+  }
+
+  async countFailedMutations(): Promise<number> {
+    let n = 0;
+    for (const row of this.mutations.values()) if (row.status === "failed") n += 1;
+    return n;
+  }
+
+  async requeueFailedMutations(): Promise<number> {
+    let n = 0;
+    for (const row of this.mutations.values()) {
+      if (row.status === "failed") {
+        row.status = "pending";
+        row.retry_count = 0;
+        n += 1;
+      }
+    }
+    return n;
+  }
+
   async setServerId(clientId: string, serverId: string): Promise<void> {
     this.idMap.set(clientId, serverId);
   }
@@ -192,6 +228,16 @@ export class InMemoryLocalStore implements LocalStore {
 
   async setSyncCursor(cursor: number): Promise<void> {
     this.meta.set(CURSOR_KEY, String(cursor));
+  }
+
+  async getLastSyncedAt(): Promise<number | null> {
+    const raw = this.meta.get(LAST_SYNCED_KEY);
+    const parsed = raw ? Number(raw) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async setLastSyncedAt(ts: number): Promise<void> {
+    this.meta.set(LAST_SYNCED_KEY, String(ts));
   }
 
   async clearAll(): Promise<void> {
