@@ -113,6 +113,7 @@ export default [
       'src/app/planner/**/*.tsx',
       'src/app/packing/**/*.tsx',
       'src/app/itinerary/**/*.tsx',
+      'src/app/settings/data/**/*.tsx',
     ],
     plugins: {
       kyarafit: { rules: { 'no-direct-convex-in-offline-core': noDirectConvexInOfflineCore } },
