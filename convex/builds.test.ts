@@ -226,3 +226,165 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     ).rejects.toThrow(/upgrade/i);
   });
 });
+
+describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
+  it("should_allow_group_cosplay_build_publish_within_caps_for_free_member", async () => {
+    const t = convexTest(schema, modules);
+    await setTier(t, "group-owner", "PRO");
+    await setTier(t, "free-member", "FREE");
+
+    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.mutation(api.groups.addMember, {
+      groupId: group!._id,
+      userId: "group-owner",
+      newUserId: "free-member",
+    });
+
+    const build = await t.mutation(api.builds.create, {
+      userId: "free-member",
+      name: "Within caps",
+      status: "idea",
+    });
+    await t.mutation(api.builds.setGroupId, {
+      buildId: build!._id,
+      userId: "free-member",
+      groupId: group!._id,
+    });
+    const published = await t.mutation(api.builds.update, {
+      id: build!._id,
+      userId: "free-member",
+      visibility: "public",
+    });
+    expect(published?.visibility).toBe("public");
+  });
+
+  it("should_enforce_group_build_count_and_mb_limits", async () => {
+    // --- Build-count cap: a free member may publish up to FREE_GROUP_BUILD_LIMIT (5) group builds. ---
+    const t = convexTest(schema, modules);
+    await setTier(t, "group-owner", "PRO");
+    await setTier(t, "free-member", "FREE");
+
+    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.mutation(api.groups.addMember, {
+      groupId: group!._id,
+      userId: "group-owner",
+      newUserId: "free-member",
+    });
+
+    // First five publishes succeed.
+    for (let i = 0; i < 5; i += 1) {
+      const build = await t.mutation(api.builds.create, {
+        userId: "free-member",
+        name: `Group build ${i}`,
+        status: "idea",
+      });
+      await t.mutation(api.builds.setGroupId, {
+        buildId: build!._id,
+        userId: "free-member",
+        groupId: group!._id,
+      });
+      const published = await t.mutation(api.builds.update, {
+        id: build!._id,
+        userId: "free-member",
+        visibility: "public",
+      });
+      expect(published?.visibility).toBe("public");
+    }
+
+    // The sixth exceeds the count cap and is blocked (and stays private).
+    const sixth = await t.mutation(api.builds.create, {
+      userId: "free-member",
+      name: "Group build 6 (over count)",
+      status: "idea",
+    });
+    await t.mutation(api.builds.setGroupId, {
+      buildId: sixth!._id,
+      userId: "free-member",
+      groupId: group!._id,
+    });
+    await expect(
+      t.mutation(api.builds.update, {
+        id: sixth!._id,
+        userId: "free-member",
+        visibility: "public",
+      })
+    ).rejects.toThrow(/upgrade/i);
+    const sixthStored = await t.run(async (ctx) => ctx.db.get(sixth!._id));
+    expect(sixthStored?.visibility).toBe("private");
+
+    // --- MB cap: a single build whose images exceed FREE_GROUP_CLOUD_MB (100) is blocked. ---
+    const t2 = convexTest(schema, modules);
+    await setTier(t2, "group-owner", "PRO");
+    await setTier(t2, "free-member", "FREE");
+
+    const group2 = await t2.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t2.mutation(api.groups.addMember, {
+      groupId: group2!._id,
+      userId: "group-owner",
+      newUserId: "free-member",
+    });
+
+    const bigBuild = await t2.mutation(api.builds.create, {
+      userId: "free-member",
+      name: "Oversized group build",
+      status: "idea",
+    });
+    await t2.mutation(api.builds.setGroupId, {
+      buildId: bigBuild!._id,
+      userId: "free-member",
+      groupId: group2!._id,
+    });
+    // Attach a >100 MB image directly (bypassing the create-time device-storage guard) so the
+    // group-cloud MB cap is what blocks the publish.
+    await t2.run(async (ctx) => {
+      const storageId = await ctx.storage.store(new Blob([new Uint8Array(101 * 1024 * 1024)]));
+      const existing = (await ctx.db.get(bigBuild!._id))!;
+      await ctx.db.patch(bigBuild!._id, {
+        imageStorageId: storageId,
+        version: existing.version + 1,
+      });
+    });
+    await expect(
+      t2.mutation(api.builds.update, {
+        id: bigBuild!._id,
+        userId: "free-member",
+        visibility: "public",
+      })
+    ).rejects.toThrow(/upgrade/i);
+    const bigStored = await t2.run(async (ctx) => ctx.db.get(bigBuild!._id));
+    expect(bigStored?.visibility).toBe("private");
+  });
+
+  it("should_not_apply_group_cloud_caps_to_paid_users", async () => {
+    const t = convexTest(schema, modules);
+    await setTier(t, "group-owner", "PRO");
+    await setTier(t, "paid-member", "PRO");
+
+    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.mutation(api.groups.addMember, {
+      groupId: group!._id,
+      userId: "group-owner",
+      newUserId: "paid-member",
+    });
+
+    // A paid member can publish well beyond the free build-count cap.
+    for (let i = 0; i < 6; i += 1) {
+      const build = await t.mutation(api.builds.create, {
+        userId: "paid-member",
+        name: `Paid group build ${i}`,
+        status: "idea",
+      });
+      await t.mutation(api.builds.setGroupId, {
+        buildId: build!._id,
+        userId: "paid-member",
+        groupId: group!._id,
+      });
+      const published = await t.mutation(api.builds.update, {
+        id: build!._id,
+        userId: "paid-member",
+        visibility: "public",
+      });
+      expect(published?.visibility).toBe("public");
+    }
+  });
+});

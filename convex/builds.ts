@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
-import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { checkLimitAndAddUsage, getStorageSizeMb, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
 import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
@@ -12,6 +12,11 @@ import { getBuildScopedWorkflow } from "./workflow";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 import { getUserTier, requireFeature } from "./lib/entitlements";
 import { can } from "@kyarafit/design-system/domain/entitlements";
+import {
+  canUploadBuildToCloud,
+  FREE_GROUP_BUILD_LIMIT,
+  FREE_GROUP_CLOUD_MB,
+} from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   MAX_LENGTH,
@@ -37,17 +42,89 @@ function isPublicVisibility(visibility: string | undefined): boolean {
   return visibility === "public" || visibility === "unlisted";
 }
 
+/** Total cloud image size (MB) hosted by a build: hero image + reference + process galleries. */
+async function buildCloudSizeMb(ctx: MutationCtx, build: Doc<"builds">): Promise<number> {
+  let mb = 0;
+  if (build.imageStorageId) {
+    mb += await getStorageSizeMb(ctx, build.imageStorageId);
+  }
+  const refImages = await ctx.db
+    .query("buildReferenceImages")
+    .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+    .collect();
+  for (const r of refImages) {
+    if (r.imageStorageId) mb += await getStorageSizeMb(ctx, r.imageStorageId);
+  }
+  const processPics = await ctx.db
+    .query("buildProcessPictures")
+    .withIndex("by_buildId", (q) => q.eq("buildId", build._id))
+    .collect();
+  for (const p of processPics) {
+    if (p.imageStorageId) mb += await getStorageSizeMb(ctx, p.imageStorageId);
+  }
+  return mb;
+}
+
+/**
+ * REQ-021 caps: a FREE user cloud-hosting a group build must stay within
+ * `FREE_GROUP_BUILD_LIMIT` group builds AND `FREE_GROUP_CLOUD_MB` of images. We derive the current
+ * count/usage from the user's already-published group builds (public/unlisted), excluding the build
+ * being published now, then let `canUploadBuildToCloud` decide. Enforced server-side so the client
+ * can't bypass it.
+ */
+async function enforceFreeGroupCloudCaps(
+  ctx: MutationCtx,
+  userId: string,
+  tier: string,
+  effectiveGroupId: Id<"groups">,
+  build: Doc<"builds">
+): Promise<void> {
+  const userBuilds = await ctx.db
+    .query("builds")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+  const existingGroupCloudBuilds = userBuilds.filter(
+    (b) => b._id !== build._id && b.groupId != null && isPublicVisibility(b.visibility)
+  );
+  let currentGroupCloudMb = 0;
+  for (const b of existingGroupCloudBuilds) {
+    currentGroupCloudMb += await buildCloudSizeMb(ctx, b);
+  }
+  const addMb = await buildCloudSizeMb(ctx, build);
+
+  const allowed = canUploadBuildToCloud({
+    tier,
+    build: { groupId: effectiveGroupId },
+    groupMembership: { isActiveMember: true, groupId: effectiveGroupId },
+    existingGroupBuildCount: existingGroupCloudBuilds.length,
+    currentGroupCloudMb,
+    addMb,
+  });
+  if (!allowed) {
+    if (existingGroupCloudBuilds.length >= FREE_GROUP_BUILD_LIMIT) {
+      throw new Error(
+        `Free group-cosplay cloud limit reached (${FREE_GROUP_BUILD_LIMIT} builds). Upgrade to publish more.`
+      );
+    }
+    throw new Error(
+      `Free group-cosplay cloud storage limit reached (${FREE_GROUP_CLOUD_MB} MB). Upgrade to publish more.`
+    );
+  }
+}
+
 /**
  * REQ-017: publishing a build (visibility public/unlisted = cloud share) requires a paid tier,
  * EXCEPT the REQ-021 group-cosplay exception: a FREE user may cloud-host a build only when it is
  * linked to a group they are a *current* member of. We verify membership server-side against the
  * build's effective `groupId` at publish time, so the exception can't be used to publish arbitrary
- * builds (no group link → no exception) and it self-revokes once the user leaves the group.
+ * builds (no group link → no exception) and it self-revokes once the user leaves the group. The
+ * exception is further bounded by the REQ-021 build-count + MB caps (see enforceFreeGroupCloudCaps).
  */
 async function enforcePublicShareForBuild(
   ctx: MutationCtx,
   userId: string,
-  effectiveGroupId: Id<"groups"> | undefined
+  effectiveGroupId: Id<"groups"> | undefined,
+  build: Doc<"builds">
 ): Promise<void> {
   const tier = await getUserTier(ctx, userId);
   if (can(tier, "public_share")) return;
@@ -56,7 +133,10 @@ async function enforcePublicShareForBuild(
       .query("groupMembers")
       .withIndex("by_groupId_userId", (q) => q.eq("groupId", effectiveGroupId).eq("userId", userId))
       .unique();
-    if (membership) return;
+    if (membership) {
+      await enforceFreeGroupCloudCaps(ctx, userId, tier, effectiveGroupId, build);
+      return;
+    }
   }
   throw new Error("This action requires an upgrade.");
 }
@@ -783,7 +863,7 @@ export const update = mutation({
     if (isPublicVisibility(fields.visibility)) {
       const effectiveGroupId =
         fields.groupId !== undefined ? (fields.groupId ?? undefined) : build.groupId;
-      await enforcePublicShareForBuild(ctx, userId, effectiveGroupId);
+      await enforcePublicShareForBuild(ctx, userId, effectiveGroupId, build);
     }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
