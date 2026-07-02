@@ -71,7 +71,6 @@ export default function SettingsDataPage() {
   );
 
   const createBuild = useOfflineMutation(api.builds.create);
-  const createElement = useOfflineMutation(api.elements.create);
   const createConvention = useOfflineMutation(api.conventions.create);
   const createWorkflowItem = useOfflineMutation(api.workflow.create);
   const createPackingItem = useOfflineMutation(api.conventions.addManualPackingItem);
@@ -105,23 +104,6 @@ export default function SettingsDataPage() {
             idempotencyKey,
           });
           return;
-        case "elements": {
-          const buildId = readString(row.buildId);
-          // Elements are build-scoped (REQ-040); without their owning build we cannot recreate them.
-          if (!buildId) return;
-          await createElement({
-            userId,
-            buildId: buildId as Id<"builds">,
-            parentElementId: readString(row.parentElementId) as Id<"elements"> | undefined,
-            name: readString(row.name) ?? "Untitled element",
-            category: readString(row.category),
-            notes: readString(row.notes),
-            sourceUrl: readString(row.sourceUrl),
-            sortOrder: readNumber(row.sortOrder),
-            idempotencyKey,
-          });
-          return;
-        }
         case "conventions":
           await createConvention({
             userId,
@@ -166,7 +148,7 @@ export default function SettingsDataPage() {
           return;
       }
     },
-    [userId, createBuild, createElement, createConvention, createWorkflowItem, createPackingItem]
+    [userId, createBuild, createConvention, createWorkflowItem, createPackingItem]
   );
 
   const handleFile = useCallback(

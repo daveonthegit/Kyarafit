@@ -18,7 +18,6 @@ const CREATE_MUTATIONS = new Set<string>([
   "builds:create",
   "conventions:create",
   "workflow:create",
-  "elements:create",
   "buildProgressUpdates:add",
 ]);
 

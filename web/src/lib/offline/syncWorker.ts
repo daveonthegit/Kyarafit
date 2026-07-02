@@ -114,7 +114,6 @@ type ChangedDoc = { _id: string; userId?: string } & Record<string, unknown>;
 const WARMUP_TABLES = [
   "closetItems",
   "cosplayNodes",
-  "elements",
   "builds",
   "buildTasks",
   "workflowItems",

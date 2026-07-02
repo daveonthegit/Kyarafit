@@ -28,9 +28,6 @@ const IDEMPOTENT_MUTATIONS = new Set<string>([
   "workflow:move",
   "workflow:moveAndResequence",
   "users:setFocusedBuild",
-  "elements:create",
-  "elements:update",
-  "elements:duplicateToBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
 ]);

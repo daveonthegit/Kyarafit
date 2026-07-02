@@ -19,15 +19,14 @@ type CloudImageRef = Extract<ImageRef, { kind: "cloud" }>;
 
 /**
  * Local-first tables whose docs carry `ImageRef`(s) that participate in paid cloud mirroring. Keep
- * in parity with the `imageRefValidator` fields in `convex/schema.ts`: `elements.imageRef` (single)
- * and `buildProgressUpdates.imageRefs` (array).
+ * in parity with the `imageRefValidator` fields in `convex/schema.ts`: `buildProgressUpdates.imageRefs`
+ * (array).
  */
-export const IMAGE_REF_TABLES = ["elements", "buildProgressUpdates"] as const;
+export const IMAGE_REF_TABLES = ["buildProgressUpdates"] as const;
 export type ImageRefTable = (typeof IMAGE_REF_TABLES)[number];
 
 /** The idempotent update mutation that flips an `ImageRef` from local→cloud, per mirroring table. */
 const MIRROR_MUTATION: Record<ImageRefTable, string> = {
-  elements: "elements:update",
   buildProgressUpdates: "buildProgressUpdates:update",
 };
 

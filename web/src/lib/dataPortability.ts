@@ -21,7 +21,6 @@ import {
 /** Local-first entity collections included in a portable bundle. Order is stable for summaries. */
 export const PORTABLE_COLLECTIONS = [
   "builds",
-  "elements",
   "conventions",
   "workflowItems",
   "packingListItems",
@@ -61,7 +60,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function emptyCollections(): PortableCollections {
   return {
     builds: [],
-    elements: [],
     conventions: [],
     workflowItems: [],
     packingListItems: [],

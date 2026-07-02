@@ -24,7 +24,6 @@ import type * as conventions from "../conventions.js";
 import type * as cosplayMigration from "../cosplayMigration.js";
 import type * as cosplayNodes from "../cosplayNodes.js";
 import type * as crons from "../crons.js";
-import type * as elements from "../elements.js";
 import type * as email from "../email.js";
 import type * as emailHelpers from "../emailHelpers.js";
 import type * as files from "../files.js";
@@ -76,7 +75,6 @@ declare const fullApi: ApiFromModules<{
   cosplayMigration: typeof cosplayMigration;
   cosplayNodes: typeof cosplayNodes;
   crons: typeof crons;
-  elements: typeof elements;
   email: typeof email;
   emailHelpers: typeof emailHelpers;
   files: typeof files;

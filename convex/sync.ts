@@ -47,7 +47,6 @@ export const listChangedSince = query({
     const empty = {
       closetItems: [],
       cosplayNodes: [],
-      elements: [],
       builds: [],
       buildTasks: [],
       workflowItems: [],
@@ -90,19 +89,6 @@ export const listChangedSince = query({
         .take(limit),
       await ctx.db
         .query("cosplayNodes")
-        .withIndex("by_userId_updatedAt", (q) => q.eq("userId", userId).gt("updatedAt", since))
-        .order("asc")
-        .take(limit)
-    );
-
-    const elements = mergeById(
-      await ctx.db
-        .query("elements")
-        .withIndex("by_userId", (q) => q.eq("userId", userId).gt("_creationTime", since))
-        .order("asc")
-        .take(limit),
-      await ctx.db
-        .query("elements")
         .withIndex("by_userId_updatedAt", (q) => q.eq("userId", userId).gt("updatedAt", since))
         .order("asc")
         .take(limit)
@@ -255,7 +241,6 @@ export const listChangedSince = query({
     for (const rows of [
       closetItems,
       cosplayNodes,
-      elements,
       builds,
       buildTasks,
       workflowItems,
@@ -274,7 +259,6 @@ export const listChangedSince = query({
     return {
       closetItems,
       cosplayNodes,
-      elements,
       builds,
       buildTasks,
       workflowItems,

@@ -392,39 +392,6 @@ export default defineSchema({
     .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   /**
-   * Canonical Element model (DATA_AND_SYNC.md §3.1, REQ-040/041/042). Build-scoped (`buildId`)
-   * tree of elements via `parentElementId`; replaces the legacy `cosplayNodes` graph + `closetItems`.
-   * Cross-build reuse is duplicate-to-build (REQ-042), not a shared per-build state graph.
-   */
-  elements: defineTable({
-    userId: v.string(),
-    buildId: v.id("builds"),
-    parentElementId: v.optional(v.id("elements")),
-    name: v.string(),
-    category: v.optional(v.string()),
-    tags: v.optional(v.array(v.string())),
-    notes: v.optional(v.string()),
-    sourceUrl: v.optional(v.string()),
-    imageRef: v.optional(imageRefValidator),
-    pricingMode: v.optional(v.string()),
-    directCostCents: v.optional(v.number()),
-    unitCostCents: v.optional(v.number()),
-    quantity: v.optional(v.number()),
-    unit: v.optional(v.string()),
-    purchaseStatus: v.optional(v.string()),
-    buildStatus: v.optional(v.string()),
-    materialStatus: v.optional(v.string()),
-    manualOverallBucket: v.optional(v.string()),
-    sortOrder: v.optional(v.number()),
-    ...syncMetaFields,
-  })
-    .index("by_userId", ["userId"])
-    .index("by_buildId", ["buildId"])
-    .index("by_parentElementId", ["parentElementId"])
-    .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
-
-  /**
    * Dated build progress-update timeline (DATA_AND_SYNC.md §3.3, REQ-049). `publishedToFeed` is the
    * paid-only flag that surfaces an update on the social feed; the gate is enforced at the mutation.
    */
