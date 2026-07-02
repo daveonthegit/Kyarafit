@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   netInfoAddEventListener: vi.fn(),
   drainMutationQueue: vi.fn(),
   warmEntityRows: vi.fn(),
+  uploadLocalImages: vi.fn(),
   getOfflineDb: vi.fn(),
   enforceOfflineStorageCaps: vi.fn(),
   pruneOfflineTombstones: vi.fn(),
@@ -60,6 +61,7 @@ vi.mock("./db", () => ({
 vi.mock("./syncWorker", () => ({
   drainMutationQueue: h.drainMutationQueue,
   warmEntityRows: h.warmEntityRows,
+  uploadLocalImages: h.uploadLocalImages,
 }));
 
 async function flushAsync(): Promise<void> {
@@ -76,6 +78,7 @@ function renderProvider(): void {
 function expectZeroConvexCalls(): void {
   expect(h.drainMutationQueue).not.toHaveBeenCalled();
   expect(h.warmEntityRows).not.toHaveBeenCalled();
+  expect(h.uploadLocalImages).not.toHaveBeenCalled();
   expect(h.convexClient.query).not.toHaveBeenCalled();
   expect(h.convexClient.mutation).not.toHaveBeenCalled();
   expect(h.convexClient.action).not.toHaveBeenCalled();
@@ -88,6 +91,7 @@ describe("SyncWorkerProvider gating (REQ-D60, REQ-D10)", () => {
     h.state.tier = null;
     h.drainMutationQueue.mockResolvedValue({ processed: 0, failed: 0 });
     h.warmEntityRows.mockResolvedValue(undefined);
+    h.uploadLocalImages.mockResolvedValue({ uploaded: 0, failed: 0 });
     h.netInfoFetch.mockResolvedValue({ isConnected: true, isInternetReachable: true });
     h.netInfoAddEventListener.mockReturnValue(() => {});
   });

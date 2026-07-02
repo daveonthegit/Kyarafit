@@ -52,8 +52,8 @@ export function ConnectivityBanner() {
   const onSyncNow = useCallback(() => {
     if (syncing || !syncEnabled) return;
     setSyncing(true);
-    void syncNow(convex).finally(() => setSyncing(false));
-  }, [convex, syncEnabled, syncing]);
+    void syncNow(convex, { tier: tierInfo?.tier ?? null }).finally(() => setSyncing(false));
+  }, [convex, syncEnabled, syncing, tierInfo?.tier]);
 
   const failedNotice =
     failed > 0 ? (

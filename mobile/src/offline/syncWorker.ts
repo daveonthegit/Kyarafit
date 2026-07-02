@@ -2,12 +2,20 @@ import type { ConvexReactClient } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { shouldRetryMutation } from "@kyarafit/design-system/domain/offlineMutationQueue";
 import { rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
+import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import {
+  IMAGE_REF_TABLES,
+  collectLocalImageRefs,
+  planCloudMirror,
+} from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
-import { clearEntityOverlay, upsertSyncedEntityRow } from "./entityRows";
+import { clearEntityOverlay, listSyncedEntityRows, upsertSyncedEntityRow } from "./entityRows";
 import { overlayWritesFor } from "./offlineEntityWrites";
 import { getSyncCursor, setLastSyncedAt, setSyncCursor } from "./syncCursor";
+import { getLocalImageUri } from "../lib/images/localImageStore";
+import { uploadUriToConvexStorage } from "../lib/uploadConvexStorage";
 import {
   bumpMutationRetry,
   deleteMutation,
@@ -192,14 +200,123 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
 }
 
 /**
- * Manual "sync now" (REQ-D64): drain the queue then warm-up, in the same order as the reconnect
- * path. Connectivity-guarded by the drain/warm helpers; `warmEntityRows` records the last-synced
- * timestamp on success. Failed rows are requeued first so an explicit retry can clear the error
- * state (REQ-D64). Returns the drain result so callers can surface progress.
+ * Read an image's bytes from the on-device store, request an upload URL, and POST the bytes to it.
+ * Injectable so the orchestration is unit-testable without the file system or a real network
+ * (REQ-D71). `body` is a `file://` uri that the upload helper streams to the Convex upload URL.
  */
-export async function syncNow(client: ConvexReactClient): Promise<DrainResult> {
+export interface ImageUploadDeps {
+  /** Non-deleted synced rows for a table (the local mirror of the server's docs). */
+  listSyncedRows: (table: string) => Record<string, unknown>[];
+  /** Write the flipped doc back to the local store as a synced row. */
+  writeSyncedRow: (table: string, id: string, userId: string, doc: Record<string, unknown>) => void;
+  /** On-device file uri for an image, or null when the local binary is unavailable. */
+  readImageBytes: (imageKey: string) => Promise<{ body: string; contentType: string } | null>;
+  /** POST the file at `body` to a Convex upload URL; returns the `_storage` id, or null on failure. */
+  uploadBytes: (uploadUrl: string, body: string, contentType: string) => Promise<string | null>;
+}
+
+function defaultImageUploadDeps(): ImageUploadDeps {
+  return {
+    listSyncedRows: (table) => listSyncedEntityRows(table),
+    writeSyncedRow: (table, id, userId, doc) => upsertSyncedEntityRow(table, id, userId, doc),
+    readImageBytes: async (imageKey) => {
+      const uri = await getLocalImageUri(imageKey);
+      if (!uri) return null;
+      return { body: uri, contentType: "image/jpeg" };
+    },
+    uploadBytes: async (uploadUrl, body, contentType) => {
+      try {
+        return await uploadUriToConvexStorage(body, uploadUrl, contentType);
+      } catch {
+        return null;
+      }
+    },
+  };
+}
+
+let uploadingImages = false;
+
+export type ImageUploadResult = { uploaded: number; failed: number };
+
+/**
+ * Paid image upload as a SYNC STEP (DATA_AND_SYNC.md §7, REQ-D71): for each `local` `ImageRef` on a
+ * synced entity, upload the on-device binary to Convex storage and flip the entity's ref from
+ * `local` to `cloud` via its idempotent update mutation, keeping the local copy as a cache.
+ *
+ * Paid-only and a hard no-op for free users — it never touches Convex (preserving the REQ-D10
+ * zero-Convex-calls-for-free invariant). Single-flight and connectivity-guarded, consistent with the
+ * drain loop. A per-image failure leaves the local ref intact so it is retried on the next sync
+ * (local is the durable home, REQ-D70); it never blocks reads/writes. Web mirror lives in
+ * `web/src/lib/offline/syncWorker.ts`.
+ */
+export async function uploadLocalImages(
+  client: ConvexReactClient,
+  tier: string | null | undefined,
+  deps: ImageUploadDeps = defaultImageUploadDeps()
+): Promise<ImageUploadResult> {
+  // REQ-D71/D10: free users never upload — no Convex calls whatsoever.
+  if (!isPaidConvexTier(tier)) return { uploaded: 0, failed: 0 };
+  if (uploadingImages || !getIsOnline()) return { uploaded: 0, failed: 0 };
+  uploadingImages = true;
+  let uploaded = 0;
+  let failed = 0;
+  try {
+    for (const table of IMAGE_REF_TABLES) {
+      for (const original of deps.listSyncedRows(table)) {
+        const sites = collectLocalImageRefs(table, original);
+        if (sites.length === 0) continue;
+        const entityId = String(original._id ?? "");
+        const userId = String(original.userId ?? "");
+        let working = original;
+        let changed = false;
+        for (const site of sites) {
+          if (!getIsOnline()) break;
+          try {
+            const bytes = await deps.readImageBytes(site.imageKey);
+            // No local binary to upload (e.g. missing on disk): leave the ref for a later sync.
+            if (!bytes) continue;
+            const uploadUrl = (await client.mutation(
+              makeFunctionReference<"mutation">("files:generateUploadUrl"),
+              {} as never
+            )) as string;
+            const storageId = await deps.uploadBytes(uploadUrl, bytes.body, bytes.contentType);
+            if (!storageId) {
+              failed += 1;
+              continue;
+            }
+            const plan = planCloudMirror(site, working, storageId);
+            await client.mutation(makeFunctionReference<"mutation">(plan.fn), plan.args as never);
+            working = plan.nextDoc;
+            changed = true;
+            uploaded += 1;
+          } catch {
+            // Leave the local ref intact; retried on the next sync (REQ-D70).
+            failed += 1;
+          }
+        }
+        // Persist the flipped refs locally so the next pass sees `cloud`, not `local` (no re-upload).
+        if (changed) deps.writeSyncedRow(table, entityId, userId, working);
+      }
+    }
+  } finally {
+    uploadingImages = false;
+  }
+  return { uploaded, failed };
+}
+
+/**
+ * Manual "sync now" (REQ-D64): drain the queue, warm-up, then (paid only) upload local images, in
+ * the same order as the reconnect path. Connectivity-guarded by the helpers; `warmEntityRows`
+ * records the last-synced timestamp on success. Failed rows are requeued first so an explicit retry
+ * can clear the error state (REQ-D64). Returns the drain result so callers can surface progress.
+ */
+export async function syncNow(
+  client: ConvexReactClient,
+  opts: { tier?: string | null } = {}
+): Promise<DrainResult> {
   if (getIsOnline()) requeueFailedMutations();
   const result = await drainMutationQueue(client);
   await warmEntityRows(client);
+  await uploadLocalImages(client, opts.tier ?? null);
   return result;
 }

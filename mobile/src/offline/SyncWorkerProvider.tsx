@@ -6,7 +6,7 @@ import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
 import { useTier } from "@/lib/useTier";
 import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, warmEntityRows } from "./syncWorker";
+import { drainMutationQueue, uploadLocalImages, warmEntityRows } from "./syncWorker";
 
 function isOnlineFromState(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
@@ -38,7 +38,8 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const userId = identity?.subject ?? null;
   const signedIn = userId !== null;
   const { data: tierInfo } = useTier(userId);
-  const syncEnabled = shouldRunSyncWorker(tierInfo?.tier ?? null, signedIn);
+  const tier = tierInfo?.tier ?? null;
+  const syncEnabled = shouldRunSyncWorker(tier, signedIn);
 
   useEffect(() => {
     try {
@@ -61,8 +62,10 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       // signed-out users still track connectivity and run local maintenance, but the worker never
       // touches Convex personal data (REQ-D10).
       if (syncEnabled && isOnline) {
-        // Drain queued offline writes first, then top up the local store from the server.
-        void drainMutationQueue(convex).then(() => warmEntityRows(convex));
+        // Drain queued offline writes, top up the local store, then mirror local images to cloud.
+        void drainMutationQueue(convex)
+          .then(() => warmEntityRows(convex))
+          .then(() => uploadLocalImages(convex, tier));
       }
     };
 
@@ -78,7 +81,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       unsub();
     };
-  }, [convex, syncEnabled]);
+  }, [convex, syncEnabled, tier]);
 
   return <>{children}</>;
 }
