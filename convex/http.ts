@@ -27,6 +27,7 @@ const extraCorsOrigins = [
     .map((s) => s.trim())
     .filter((s): s is string => s.length > 0) ?? []),
   // Production app origins (keep in sync with convex/betterAuth/auth.ts trustedOrigins)
+  "https://app.kyarafit.com",
   "https://www.kyarafit.com",
   "https://kyarafit.com",
 ];

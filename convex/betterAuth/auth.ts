@@ -56,6 +56,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     ...(siteUrl ? [siteUrl.replace(/\/$/, "")] : []),
     ...extraOrigins,
     // Production app origins (keep in sync with convex/http.ts allowedOrigins)
+    "https://app.kyarafit.com",
     "https://www.kyarafit.com",
     "https://kyarafit.com",
     // Sign in with Apple (Better Auth docs)
