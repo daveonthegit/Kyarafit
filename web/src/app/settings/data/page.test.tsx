@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import SettingsDataPage from "./page";
+import { offlineRuntime } from "@/lib/offline/runtime";
+import { InMemoryLocalStore } from "@/lib/offline/localStore";
+import { setOfflineConnectivity } from "@/lib/offline/connectivity";
 import {
   buildDataBundle,
   emptyCollections,
@@ -12,31 +15,16 @@ import {
 } from "@/lib/dataPortability";
 
 // Spec: PRODUCT_SPEC.md §3/§4.9 — export/import are FREE (REQ-012). The page must offer export with no
-// upgrade gate, dedupe re-imports (REQ-D101), and fail gracefully on a malformed file.
+// upgrade gate, dedupe re-imports (REQ-D101), and fail gracefully on a malformed file. Post-fix the
+// page sources data from the LOCAL STORE (DATA_AND_SYNC.md §11 REQ-D100, invariant #2), not Convex, so
+// a free user with no cloud data still exports their locally-created rows.
 
-const snapshot = {
-  closetItems: [],
-  cosplayNodes: [],
-  elements: [],
-  builds: [{ _id: "b1", name: "Aerith", status: "wip" }],
-  buildTasks: [],
-  workflowItems: [],
-  workflowAttachments: [],
-  workflowDependencies: [],
-  conventions: [],
-  conventionDayPlans: [],
-  packingListItems: [],
-  buildReferenceImages: [],
-  buildProcessPictures: [],
-  buildProgressUpdates: [],
-  cursor: 0,
-};
-
-const createMutation = vi.fn(() => Promise.resolve(null));
+const client = { mutation: vi.fn(() => Promise.resolve(null)) };
 
 vi.mock("convex/react", () => ({
-  useQuery: () => snapshot,
-  useMutation: () => createMutation,
+  useConvex: () => client,
+  useQuery: () => undefined,
+  useMutation: () => vi.fn(),
 }));
 
 vi.mock("@/hooks/useCurrentUser", () => ({
@@ -95,6 +83,11 @@ vi.mock("@/components/layout/PageHeader", () => ({
 describe("Settings data export/import page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    offlineRuntime.setStore(new InMemoryLocalStore());
+  });
+
+  afterEach(() => {
+    setOfflineConnectivity(true);
   });
 
   it("should_export_a_downloadable_bundle_for_free_user", async () => {
@@ -109,6 +102,13 @@ describe("Settings data export/import page", () => {
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
+
+    // A free user's build lives only in the local store (never synced to Convex).
+    offlineRuntime.upsertSyncedEntityRow("builds", "b1", "user-free-1", {
+      _id: "b1",
+      name: "Aerith",
+      status: "wip",
+    });
 
     render(<SettingsDataPage />);
 
@@ -179,7 +179,7 @@ describe("Settings data export/import page", () => {
     const error = await screen.findByTestId("import-error");
     expect(error).toBeInTheDocument();
     expect(error.textContent ?? "").toMatch(/json/i);
-    // A malformed file never reaches the create mutations.
-    expect(createMutation).not.toHaveBeenCalled();
+    // A malformed file never reaches the create mutations (no writes through the offline bridge).
+    expect(client.mutation).not.toHaveBeenCalled();
   });
 });

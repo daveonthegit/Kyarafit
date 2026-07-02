@@ -8,7 +8,10 @@
  *
  * OFFLINE CORE: never imports `convex/react`. Consumes only design-system pure logic + `./localStore`.
  */
-import type { EntityOverlayRow } from "@kyarafit/design-system/domain/offlineEntityOverlay";
+import {
+  applyListOverlay,
+  type EntityOverlayRow,
+} from "@kyarafit/design-system/domain/offlineEntityOverlay";
 import {
   InMemoryLocalStore,
   type LocalStore,
@@ -108,6 +111,17 @@ class OfflineRuntime {
       .filter((row) => row.synced && !row.deleted)
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .map((row) => parseDoc(row.json) ?? {});
+  }
+
+  /**
+   * Every local row for a table — the synced base with pending overlays applied and tombstoned rows
+   * removed. This is the local-first read path for surfaces (e.g. data export) that must see a free
+   * user's locally-created data, which never reaches Convex (REQ-D100/D10).
+   */
+  listLocalEntityRowsSync(table: string): Record<string, unknown>[] {
+    const base = this.listSyncedEntityRowsSync(table) as { _id: string }[];
+    const pending = this.listPendingEntityRowsSync(table);
+    return applyListOverlay(base, pending) as Record<string, unknown>[];
   }
 
   /**

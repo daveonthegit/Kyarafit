@@ -1,27 +1,25 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
 import { useTranslations } from "next-intl";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { ExportableRow } from "@kyarafit/design-system/domain/importExport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { readLocalCollections } from "@/lib/localFirstData";
 import {
   buildDataBundle,
   countRows,
-  emptyCollections,
   MalformedBundleError,
   parseDataBundle,
   runImport,
   summarizeTotals,
-  toExportableRows,
   type CreateRowFn,
-  type PortableCollections,
 } from "@/lib/dataPortability";
 
 type ImportStatus =
@@ -58,33 +56,30 @@ function downloadFile(filename: string, contents: string): void {
 
 export default function SettingsDataPage() {
   const t = useTranslations("DataPortability");
-  const { userId } = useCurrentUser();
+  const { userId, isLoading: authLoading } = useCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus>({ kind: "idle" });
 
-  // Single existing-data read: listChangedSince(since=0) returns every local-first collection for the
-  // signed-in user (DATA_AND_SYNC.md §6/§11), which we use both to export and to dedupe imports.
-  const snapshot = useQuery(api.sync.listChangedSince, userId ? { since: 0 } : "skip");
+  // Existing-data read: source every local-first collection from the LOCAL STORE via the offline
+  // runtime (DATA_AND_SYNC.md §11, invariant #2), not `sync.listChangedSince` (cloud). This includes
+  // a FREE user's locally-created rows — which never reach Convex — so their export is not empty
+  // (REQ-D100). Subscribing to the runtime version re-renders (and re-reads) after each offline write.
+  const version = useSyncExternalStore(
+    offlineRuntime.subscribe,
+    offlineRuntime.getVersion,
+    offlineRuntime.getVersion
+  );
 
-  const createBuild = useMutation(api.builds.create);
-  const createElement = useMutation(api.elements.create);
-  const createConvention = useMutation(api.conventions.create);
-  const createWorkflowItem = useMutation(api.workflow.create);
-  const createPackingItem = useMutation(api.conventions.addManualPackingItem);
+  const createBuild = useOfflineMutation(api.builds.create);
+  const createElement = useOfflineMutation(api.elements.create);
+  const createConvention = useOfflineMutation(api.conventions.create);
+  const createWorkflowItem = useOfflineMutation(api.workflow.create);
+  const createPackingItem = useOfflineMutation(api.conventions.addManualPackingItem);
 
-  const collections = useMemo<PortableCollections>(() => {
-    if (!snapshot) return emptyCollections();
-    return {
-      builds: toExportableRows(snapshot.builds),
-      elements: toExportableRows(snapshot.elements),
-      conventions: toExportableRows(snapshot.conventions),
-      workflowItems: toExportableRows(snapshot.workflowItems),
-      packingListItems: toExportableRows(snapshot.packingListItems),
-    };
-  }, [snapshot]);
+  const collections = useMemo(() => readLocalCollections(), [version]);
 
   const totalRows = countRows(collections);
-  const isLoading = userId != null && snapshot === undefined;
+  const isLoading = authLoading;
 
   const handleExport = useCallback(() => {
     const bundle = buildDataBundle(collections);
