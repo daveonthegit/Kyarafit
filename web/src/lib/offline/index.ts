@@ -10,7 +10,7 @@ export { useOfflineMutation } from "./useOfflineMutation";
 export { SyncWorkerProvider } from "./SyncWorkerProvider";
 export { offlineRuntime } from "./runtime";
 export { getIsOnline, setOfflineConnectivity } from "./connectivity";
-export { drainMutationQueue, warmEntityRows, syncNow } from "./syncWorker";
+export { drainMutationQueue, warmEntityRows, syncNow, uploadLocalImages } from "./syncWorker";
 export { useSyncStatus, type SyncStatus } from "./useSyncStatus";
 export {
   InMemoryLocalStore,

@@ -8,7 +8,7 @@ import { useTier } from "@/lib/api/useTier";
 import { offlineRuntime } from "./runtime";
 import { createBrowserLocalStore } from "./engineSelection";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, warmEntityRows } from "./syncWorker";
+import { drainMutationQueue, uploadLocalImages, warmEntityRows } from "./syncWorker";
 
 /**
  * Wires the web local-first runtime and gates the Convex-facing sync worker.
@@ -26,7 +26,8 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const { userId } = useCurrentUser();
   const signedIn = userId !== null;
   const { data: tierInfo } = useTier();
-  const syncEnabled = shouldRunSyncWorker(tierInfo?.tier ?? null, signedIn);
+  const tier = tierInfo?.tier ?? null;
+  const syncEnabled = shouldRunSyncWorker(tier, signedIn);
 
   // Select the best durable engine in the browser (OPFS + wa-sqlite, else IndexedDB), then hydrate
   // the in-memory mirror from it once. SSR/tests keep the default in-memory store.
@@ -52,7 +53,9 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       // REQ-D60 gate: only a paid, signed-in user drains the queue or pulls from Convex. Free /
       // signed-out users still track connectivity, but the worker never touches Convex (REQ-D10).
       if (syncEnabled && isOnline) {
-        void drainMutationQueue(convex).then(() => warmEntityRows(convex));
+        void drainMutationQueue(convex)
+          .then(() => warmEntityRows(convex))
+          .then(() => uploadLocalImages(convex, tier));
       }
     };
 
@@ -71,7 +74,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
         window.removeEventListener("offline", handleOffline);
       }
     };
-  }, [convex, syncEnabled]);
+  }, [convex, syncEnabled, tier]);
 
   return <>{children}</>;
 }

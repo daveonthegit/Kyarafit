@@ -41,8 +41,8 @@ export function SyncStatus() {
   const onSyncNow = useCallback(() => {
     if (syncing || !syncEnabled) return;
     setSyncing(true);
-    void syncNow(convex).finally(() => setSyncing(false));
-  }, [convex, syncEnabled, syncing]);
+    void syncNow(convex, { tier: tierInfo?.tier ?? null }).finally(() => setSyncing(false));
+  }, [convex, syncEnabled, syncing, tierInfo?.tier]);
 
   if (!syncEnabled) return null;
   const hasSomethingToReport = pending > 0 || failed > 0 || lastSyncedAt !== null || !isOnline;
