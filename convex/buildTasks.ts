@@ -12,22 +12,15 @@ import { sanitizeAndLimit, validateDateString, MAX_LENGTH } from "./lib/validati
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 
-const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
+const legacyNodeIdValidator = v.id("cosplayNodes");
 
 async function resolveCosplayNodeId(
   ctx: QueryCtx | MutationCtx,
-  id: Id<"cosplayNodes"> | Id<"closetItems"> | undefined | null
+  id: Id<"cosplayNodes"> | undefined | null
 ) {
   if (!id) return null;
-  const current = await ctx.db.get(id as Id<"cosplayNodes">);
-  if (current && "nodeType" in current) {
-    return current._id as Id<"cosplayNodes">;
-  }
-  const migrated = await ctx.db
-    .query("cosplayNodes")
-    .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", id as Id<"closetItems">))
-    .unique();
-  return migrated?._id ?? null;
+  const current = await ctx.db.get(id);
+  return current && "nodeType" in current ? (current._id as Id<"cosplayNodes">) : null;
 }
 
 export async function workflowTasksForBuildOwner(

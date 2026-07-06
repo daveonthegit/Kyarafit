@@ -19,7 +19,6 @@
  * the server's `LOCAL_FIRST_TABLES`. Keep in parity with `syncWorker`'s `WARMUP_TABLES`.
  */
 export const BACKFILL_TABLES = [
-  "closetItems",
   "cosplayNodes",
   "builds",
   "buildTasks",

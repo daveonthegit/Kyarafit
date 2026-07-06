@@ -19,7 +19,6 @@ import type * as buildProgressUpdates from "../buildProgressUpdates.js";
 import type * as buildReferenceImages from "../buildReferenceImages.js";
 import type * as buildTasks from "../buildTasks.js";
 import type * as builds from "../builds.js";
-import type * as closetItems from "../closetItems.js";
 import type * as conventions from "../conventions.js";
 import type * as cosplayMigration from "../cosplayMigration.js";
 import type * as cosplayNodes from "../cosplayNodes.js";
@@ -71,7 +70,6 @@ declare const fullApi: ApiFromModules<{
   buildReferenceImages: typeof buildReferenceImages;
   buildTasks: typeof buildTasks;
   builds: typeof builds;
-  closetItems: typeof closetItems;
   conventions: typeof conventions;
   cosplayMigration: typeof cosplayMigration;
   cosplayNodes: typeof cosplayNodes;

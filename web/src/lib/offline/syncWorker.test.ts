@@ -18,7 +18,6 @@ import { setOfflineConnectivity } from "./connectivity";
 
 /** Every local-first table `sync.listChangedSince` returns (mirror of `convex/sync.ts`). */
 const ALL_TABLES = [
-  "closetItems",
   "cosplayNodes",
   "builds",
   "buildTasks",

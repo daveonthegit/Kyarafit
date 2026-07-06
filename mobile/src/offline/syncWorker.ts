@@ -150,7 +150,6 @@ type ChangedDoc = { _id: string; userId?: string } & Record<string, unknown>;
  * payload keys and with web's `WARMUP_TABLES`.
  */
 const WARMUP_TABLES = [
-  "closetItems",
   "cosplayNodes",
   "builds",
   "buildTasks",

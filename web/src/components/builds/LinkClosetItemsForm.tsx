@@ -22,7 +22,7 @@ import {
 } from "@kyarafit/design-system/domain/closetItems";
 import { setNativeDragLabelPreview } from "@/lib/nativeDragPreview";
 
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 export type LinkClosetItemsFormHandle = {
   save: () => Promise<void>;

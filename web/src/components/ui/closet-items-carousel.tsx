@@ -7,7 +7,7 @@ import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
 import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 export interface ClosetCarouselItem {
   _id: ClosetEntityId;

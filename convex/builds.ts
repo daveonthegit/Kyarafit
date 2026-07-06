@@ -182,12 +182,11 @@ const sortByValidator = v.optional(
   v.union(v.literal("name"), v.literal("progress"), v.literal("targetDate"), v.literal("budget"))
 );
 const orderValidator = v.optional(v.union(v.literal("asc"), v.literal("desc")));
-const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
+const legacyNodeIdValidator = v.id("cosplayNodes");
 
 /**
  * Step 2c: a build's root nodes are its own cosplayNodes with `buildId == build` and no parent,
- * ordered by `sortOrder`. Falls back to the legacy buildItemLinks (closet) path for builds whose
- * membership was never expressed via cosplay nodes (still present until the closet drop slice).
+ * ordered by `sortOrder`.
  */
 async function getBuildRootLinks(
   ctx: MutationCtx | import("./_generated/server").QueryCtx,
@@ -197,32 +196,13 @@ async function getBuildRootLinks(
     .query("cosplayNodes")
     .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
-  const roots = buildNodes
+  return buildNodes
     .filter((node) => node.parentNodeId === undefined)
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  if (roots.length > 0) {
-    return roots.map((node) => ({
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((node) => ({
       cosplayNodeId: node._id,
       sortOrder: node.sortOrder ?? 0,
     }));
-  }
-
-  const legacyLinks = await ctx.db
-    .query("buildItemLinks")
-    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-    .collect();
-  const resolved: Array<{ cosplayNodeId: Id<"cosplayNodes">; sortOrder: number }> = [];
-  for (let index = 0; index < legacyLinks.length; index += 1) {
-    const migrated = await ctx.db
-      .query("cosplayNodes")
-      .withIndex("by_legacyClosetItemId", (q) =>
-        q.eq("legacyClosetItemId", legacyLinks[index].closetItemId)
-      )
-      .unique();
-    if (!migrated) continue;
-    resolved.push({ cosplayNodeId: migrated._id, sortOrder: index });
-  }
-  return resolved;
 }
 
 async function getBuildRootNodeIds(
@@ -236,28 +216,15 @@ async function getBuildRootNodeIds(
 async function resolveLegacyNodeIds(
   ctx: MutationCtx | import("./_generated/server").QueryCtx,
   userId: string | undefined,
-  ids: Array<Id<"cosplayNodes"> | Id<"closetItems">>
+  ids: Array<Id<"cosplayNodes">>
 ) {
   const resolved: Id<"cosplayNodes">[] = [];
   const seen = new Set<string>();
   for (const rawId of ids) {
-    const direct = await ctx.db.get(rawId as Id<"cosplayNodes">);
-    if (direct && "nodeType" in direct && (!userId || direct.userId === userId)) {
-      if (!seen.has(direct._id)) {
-        resolved.push(direct._id);
-        seen.add(direct._id);
-      }
-      continue;
-    }
-    const migrated = await ctx.db
-      .query("cosplayNodes")
-      .withIndex("by_legacyClosetItemId", (q) =>
-        q.eq("legacyClosetItemId", rawId as Id<"closetItems">)
-      )
-      .unique();
-    if (migrated && (!userId || migrated.userId === userId) && !seen.has(migrated._id)) {
-      resolved.push(migrated._id);
-      seen.add(migrated._id);
+    const node = await ctx.db.get(rawId);
+    if (node && "nodeType" in node && (!userId || node.userId === userId) && !seen.has(node._id)) {
+      resolved.push(node._id);
+      seen.add(node._id);
     }
   }
   return resolved;
@@ -1008,11 +975,6 @@ export const remove = mutation({
       }
     }
 
-    const legacyLinks = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const l of legacyLinks) await ctx.db.delete(l._id);
     // Step 2c: build membership lives on the node. Deleting a build returns its nodes to the library
     // (clear buildId), preserving the prior behavior where nodes survived build deletion.
     const buildNodes = await ctx.db
@@ -1074,11 +1036,6 @@ export const removeMany = mutation({
           await ctx.db.delete(workflowItem._id);
         }
       }
-      const legacyLinks = await ctx.db
-        .query("buildItemLinks")
-        .withIndex("by_buildId", (q) => q.eq("buildId", id))
-        .collect();
-      for (const l of legacyLinks) await ctx.db.delete(l._id);
       // Step 2c: return the build's nodes to the library (clear buildId), matching prior behavior.
       const buildNodes = await ctx.db
         .query("cosplayNodes")

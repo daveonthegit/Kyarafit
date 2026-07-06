@@ -9,7 +9,7 @@ import {
 } from "@/components/builds/LinkClosetItemsForm";
 import type { Id } from "convex/_generated/dataModel";
 
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 type BuildLinkClosetModalProps = {
   open: boolean;

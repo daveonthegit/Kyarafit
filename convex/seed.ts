@@ -50,18 +50,14 @@ export const createStarter = mutation({
 
     const cosplayNodeId = await ctx.db.insert("cosplayNodes", {
       userId,
+      // Step 2c: build membership lives on the node itself (`buildId` + `sortOrder`).
+      buildId,
+      sortOrder: 0,
       nodeType: "element",
       name: "Sample piece",
       category: "other",
       tags: [],
       buildStatus: "not_started",
-    });
-
-    await ctx.db.insert("buildCosplayLinks", {
-      userId,
-      buildId,
-      cosplayNodeId,
-      sortOrder: 0,
     });
 
     await ctx.db.insert("buildTasks", {

@@ -938,7 +938,7 @@ function DroppableNodeCard({
   justDroppedRef,
   children,
 }: {
-  item: { _id: Id<"closetItems"> | CosplayNodeId; name: string };
+  item: { _id: CosplayNodeId; name: string };
   justDroppedRef: React.MutableRefObject<boolean>;
   children: React.ReactNode;
 }) {

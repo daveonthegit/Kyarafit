@@ -39,10 +39,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
 
   if (!user) return;
 
-  const closetItems = await ctx.db
-    .query("closetItems")
-    .withIndex("by_userId", (q: any) => q.eq("userId", externalId))
-    .collect();
   const cosplayNodes = await ctx.db
     .query("cosplayNodes")
     .withIndex("by_userId", (q: any) => q.eq("userId", externalId))
@@ -120,9 +116,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
     .withIndex("by_userId", (q: any) => q.eq("userId", externalId))
     .collect();
 
-  for (const item of closetItems) {
-    await deleteStorageObject(ctx, item.imageStorageId);
-  }
   for (const node of cosplayNodes) {
     await deleteStorageObject(ctx, node.imageStorageId);
   }
@@ -154,18 +147,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
   }
 
   for (const build of builds) {
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_buildId", (q: any) => q.eq("buildId", build._id))
-      .collect();
-    const nodeLinks = await ctx.db
-      .query("buildCosplayLinks")
-      .withIndex("by_buildId", (q: any) => q.eq("buildId", build._id))
-      .collect();
-    const nodeStates = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId", (q: any) => q.eq("buildId", build._id))
-      .collect();
     const references = await ctx.db
       .query("buildReferenceImages")
       .withIndex("by_buildId", (q: any) => q.eq("buildId", build._id))
@@ -187,9 +168,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
       .withIndex("by_buildId", (q: any) => q.eq("buildId", build._id))
       .collect();
 
-    await deleteDocuments(ctx, links);
-    await deleteDocuments(ctx, nodeLinks);
-    await deleteDocuments(ctx, nodeStates);
     await deleteDocuments(ctx, references);
     await deleteDocuments(ctx, pictures);
     await deleteDocuments(ctx, likes);
@@ -198,14 +176,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
   }
 
   for (const node of cosplayNodes) {
-    const parentLinks = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_parentNodeId", (q: any) => q.eq("parentNodeId", node._id))
-      .collect();
-    const childLinks = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_childNodeId", (q: any) => q.eq("childNodeId", node._id))
-      .collect();
     const nodeTasks = await ctx.db
       .query("buildTasks")
       .withIndex("by_cosplayNodeId", (q: any) => q.eq("cosplayNodeId", node._id))
@@ -214,21 +184,9 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
       .query("packingListItems")
       .withIndex("by_cosplayNodeId", (q: any) => q.eq("cosplayNodeId", node._id))
       .collect();
-    const legacyStates = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_cosplayNodeId", (q: any) => q.eq("cosplayNodeId", node._id))
-      .collect();
-    const buildLinks = await ctx.db
-      .query("buildCosplayLinks")
-      .withIndex("by_cosplayNodeId", (q: any) => q.eq("cosplayNodeId", node._id))
-      .collect();
 
-    await deleteDocuments(ctx, parentLinks);
-    await deleteDocuments(ctx, childLinks);
     await deleteDocuments(ctx, nodeTasks);
     await deleteDocuments(ctx, nodePackingItems);
-    await deleteDocuments(ctx, legacyStates);
-    await deleteDocuments(ctx, buildLinks);
   }
 
   for (const convention of conventions) {
@@ -286,28 +244,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
     await deleteDocuments(ctx, items);
   }
 
-  for (const item of closetItems) {
-    const links = await ctx.db
-      .query("buildItemLinks")
-      .withIndex("by_closetItemId", (q: any) => q.eq("closetItemId", item._id))
-      .collect();
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_closetItemId", (q: any) => q.eq("closetItemId", item._id))
-      .collect();
-    const childItems = await ctx.db
-      .query("closetItems")
-      .withIndex("by_parentItemId", (q: any) => q.eq("parentItemId", item._id))
-      .collect();
-
-    for (const child of childItems) {
-      await ctx.db.patch(child._id, { parentItemId: undefined });
-    }
-
-    await deleteDocuments(ctx, links);
-    await deleteDocuments(ctx, tasks);
-  }
-
   await deleteDocuments(ctx, workflowAttachments);
   await deleteDocuments(ctx, workflowDependencies);
   await deleteDocuments(ctx, workflowTemplates);
@@ -327,7 +263,6 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
   await deleteDocuments(ctx, workflowItems);
   await deleteDocuments(ctx, cosplayNodes);
   await deleteDocuments(ctx, builds);
-  await deleteDocuments(ctx, closetItems);
 
   await deleteStorageObject(ctx, user.imageStorageId);
   await ctx.db.delete(user._id);

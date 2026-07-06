@@ -45,7 +45,6 @@ export const listChangedSince = query({
   },
   handler: async (ctx, args) => {
     const empty = {
-      closetItems: [],
       cosplayNodes: [],
       builds: [],
       buildTasks: [],
@@ -67,19 +66,6 @@ export const listChangedSince = query({
     const userId = identity.subject;
     const since = args.since;
     const limit = clampLimit(args.limit);
-
-    const closetItems = mergeById(
-      await ctx.db
-        .query("closetItems")
-        .withIndex("by_userId", (q) => q.eq("userId", userId).gt("_creationTime", since))
-        .order("asc")
-        .take(limit),
-      await ctx.db
-        .query("closetItems")
-        .withIndex("by_userId_updatedAt", (q) => q.eq("userId", userId).gt("updatedAt", since))
-        .order("asc")
-        .take(limit)
-    );
 
     const cosplayNodes = mergeById(
       await ctx.db
@@ -239,7 +225,6 @@ export const listChangedSince = query({
 
     let cursor = since;
     for (const rows of [
-      closetItems,
       cosplayNodes,
       builds,
       buildTasks,
@@ -257,7 +242,6 @@ export const listChangedSince = query({
     }
 
     return {
-      closetItems,
       cosplayNodes,
       builds,
       buildTasks,

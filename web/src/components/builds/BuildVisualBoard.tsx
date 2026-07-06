@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import { X, Maximize2 } from "lucide-react";
 
 type VisualTab = "all" | "references" | "progress" | "nodes";
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 export type BuildVisualBoardNode = {
   _id: ClosetEntityId;

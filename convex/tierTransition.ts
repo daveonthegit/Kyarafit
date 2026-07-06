@@ -38,7 +38,6 @@ import {
  * cron may purge. Every one of these has a `by_userId` index.
  */
 export const LOCAL_FIRST_TABLES = [
-  "closetItems",
   "cosplayNodes",
   "builds",
   "buildTasks",

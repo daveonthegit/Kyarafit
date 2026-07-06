@@ -142,9 +142,6 @@ describe("cosplayNodes child-link mutations (Step 2c)", () => {
     const stored = await t.run(async (ctx) => ctx.db.get(child));
     expect(stored?.parentNodeId).toBe(parent);
     expect(stored?.sortOrder).toBe(0);
-    // No join-table row is created anymore.
-    const links = await t.run(async (ctx) => ctx.db.query("cosplayNodeLinks").collect());
-    expect(links).toHaveLength(0);
   });
 
   it("should_clear_parentNodeId_on_removeChildLink_using_the_child_node_id", async () => {
@@ -280,10 +277,6 @@ describe("build membership via node.buildId (Step 2c)", () => {
     });
     stored = await t.run(async (ctx) => ctx.db.get(node));
     expect(stored?.buildId).toBeUndefined();
-
-    // No buildCosplayLinks rows are written by the rewired path.
-    const links = await t.run(async (ctx) => ctx.db.query("buildCosplayLinks").collect());
-    expect(links).toHaveLength(0);
   });
 
   it("should_report_the_owning_build_from_getBuildsUsingNode", async () => {

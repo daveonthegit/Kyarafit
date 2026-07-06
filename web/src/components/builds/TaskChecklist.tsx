@@ -10,7 +10,7 @@ import { ResponsivePanel } from "@/components/layout/ResponsivePanel";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ScrollButton } from "@/components/ui/scroll-button";
 
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 export interface BuildTask {
   _id: Id<"workflowItems">;

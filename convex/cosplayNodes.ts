@@ -46,7 +46,7 @@ function asOptionalValidatedString<T extends readonly string[]>(
 
 /**
  * Child nodes of a node, nested via the node's own `parentNodeId` (Step 2c model), ordered by
- * `sortOrder`. Replaces the old `cosplayNodeLinks` join-table nesting.
+ * `sortOrder`. Replaces the old join-table nesting.
  */
 async function getChildNodes(ctx: QueryCtx | MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
   const children = await ctx.db
@@ -93,7 +93,7 @@ export async function deriveNodeSummary(
     };
   }
 
-  // Step 2c: per-build state IS the node's own fields now (the backfill merged buildNodeStates into
+  // Step 2c: per-build state IS the node's own fields now (the backfill merged per-build state into
   // each build-scoped node). `buildId` is still used to scope workflow task counts.
   const childNodes = await getChildNodes(ctx, cosplayNodeId);
   const childSummaries = await Promise.all(
@@ -666,8 +666,7 @@ export const update = mutation({
 /**
  * Detach references to a node that is about to be deleted. Step 2c: build membership and per-build
  * state now live on the node itself (deleted with it), so this only clears foreign references from
- * buildTasks / packingListItems. (Redundant buildCosplayLinks / buildNodeStates rows still exist but
- * are no longer read; the drop slice removes them.)
+ * buildTasks / packingListItems.
  */
 async function removeRootLinkReferences(ctx: MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
   const tasks = await ctx.db
@@ -857,122 +856,5 @@ export const reorderChildren = mutation({
         continue;
       await ctx.db.patch(childId, withUpdateMeta(child, { sortOrder: index }));
     }
-  },
-});
-
-export const upsertBuildNodeState = mutation({
-  args: {
-    buildId: v.id("builds"),
-    cosplayNodeId: v.id("cosplayNodes"),
-    userId: v.string(),
-    purchaseStatus: v.optional(v.union(v.string(), v.null())),
-    buildStatus: v.optional(v.union(v.string(), v.null())),
-    materialStatus: v.optional(v.union(v.string(), v.null())),
-    manualOverallBucket: v.optional(v.union(v.string(), v.null())),
-    pricingMode: v.optional(v.union(v.string(), v.null())),
-    directCostCents: v.optional(v.union(v.number(), v.null())),
-    unitCostCents: v.optional(v.union(v.number(), v.null())),
-    quantity: v.optional(v.union(v.number(), v.null())),
-    unit: v.optional(v.union(v.string(), v.null())),
-    purchasedAt: v.optional(v.union(v.string(), v.null())),
-    startedAt: v.optional(v.union(v.string(), v.null())),
-    completedAt: v.optional(v.union(v.string(), v.null())),
-  },
-  handler: async (ctx, args) => {
-    const node = await ctx.db.get(args.cosplayNodeId);
-    if (!node || node.userId !== args.userId) {
-      throw new Error("Node not found or not authorized");
-    }
-
-    const existing = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId_cosplayNodeId", (q) =>
-        q.eq("buildId", args.buildId).eq("cosplayNodeId", args.cosplayNodeId)
-      )
-      .unique();
-    const patch = {
-      purchaseStatus:
-        args.purchaseStatus === undefined
-          ? existing?.purchaseStatus
-          : args.purchaseStatus === null
-            ? undefined
-            : asOptionalValidatedString(args.purchaseStatus, ELEMENT_PURCHASE_STATUSES),
-      buildStatus:
-        args.buildStatus === undefined
-          ? existing?.buildStatus
-          : args.buildStatus === null
-            ? undefined
-            : asOptionalValidatedString(args.buildStatus, ELEMENT_BUILD_STATUSES),
-      materialStatus:
-        args.materialStatus === undefined
-          ? existing?.materialStatus
-          : args.materialStatus === null
-            ? undefined
-            : asOptionalValidatedString(args.materialStatus, MATERIAL_STATUSES),
-      manualOverallBucket:
-        args.manualOverallBucket === undefined
-          ? existing?.manualOverallBucket
-          : args.manualOverallBucket === null
-            ? undefined
-            : asOptionalValidatedString(args.manualOverallBucket, OVERALL_BUCKETS),
-      pricingMode:
-        args.pricingMode === undefined
-          ? existing?.pricingMode
-          : args.pricingMode === null
-            ? undefined
-            : asOptionalValidatedString(args.pricingMode, PRICING_MODES),
-      directCostCents: args.directCostCents === null ? undefined : args.directCostCents,
-      unitCostCents: args.unitCostCents === null ? undefined : args.unitCostCents,
-      quantity: args.quantity === null ? undefined : args.quantity,
-      unit:
-        args.unit === undefined
-          ? existing?.unit
-          : args.unit === null
-            ? undefined
-            : sanitizeString(args.unit),
-      purchasedAt:
-        args.purchasedAt === undefined
-          ? existing?.purchasedAt
-          : args.purchasedAt === null
-            ? undefined
-            : validateDateString(args.purchasedAt, "Purchased date"),
-      startedAt:
-        args.startedAt === undefined
-          ? existing?.startedAt
-          : args.startedAt === null
-            ? undefined
-            : validateDateString(args.startedAt, "Started date"),
-      completedAt:
-        args.completedAt === undefined
-          ? existing?.completedAt
-          : args.completedAt === null
-            ? undefined
-            : validateDateString(args.completedAt, "Completed date"),
-    };
-
-    let updatedState;
-    if (existing) {
-      await ctx.db.patch(existing._id, patch);
-      updatedState = await ctx.db.get(existing._id);
-    } else {
-      const id = await ctx.db.insert("buildNodeStates", {
-        userId: args.userId,
-        buildId: args.buildId,
-        cosplayNodeId: args.cosplayNodeId,
-        ...patch,
-      });
-      updatedState = await ctx.db.get(id);
-    }
-    await syncGeneratedWorkflowForNode(ctx, {
-      userId: args.userId,
-      cosplayNodeId: args.cosplayNodeId,
-      buildId: args.buildId,
-      nodeName: node.name,
-      category: node.category,
-      purchaseStatus: updatedState?.purchaseStatus ?? node.purchaseStatus,
-      buildStatus: updatedState?.buildStatus ?? node.buildStatus,
-      materialStatus: updatedState?.materialStatus ?? node.materialStatus,
-    });
-    return updatedState;
   },
 });
