@@ -24,6 +24,8 @@ const IDEMPOTENT = [
   "users:setFocusedBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ] as const;
 
 // Creates that run offline: return a doc with `_id` AND accept `idempotencyKey` (dedupe-safe replay).
@@ -32,6 +34,8 @@ const OFFLINE_CREATES = [
   "conventions:create",
   "workflow:create",
   "buildProgressUpdates:add",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ] as const;
 
 describe("idempotent mutation registry (REQ-D62)", () => {
@@ -46,20 +50,30 @@ describe("idempotent mutation registry (REQ-D62)", () => {
     expect(isIdempotentMutation("buildProgressUpdates:update")).toBe(true);
   });
 
+  it("build-media add mutations are idempotent", () => {
+    expect(isIdempotentMutation("buildReferenceImages:add")).toBe(true);
+    expect(isIdempotentMutation("buildProcessPictures:add")).toBe(true);
+  });
+
   it("does not mark non-idempotent handlers as idempotent", () => {
     // These server handlers do NOT accept an idempotencyKey, so they must never be enqueued offline.
-    expect(isIdempotentMutation("buildReferenceImages:add")).toBe(false);
-    expect(isIdempotentMutation("buildProcessPictures:add")).toBe(false);
+    expect(isIdempotentMutation("buildReferenceImages:remove")).toBe(false);
+    expect(isIdempotentMutation("buildReferenceImages:reorder")).toBe(false);
     expect(isIdempotentMutation("conventions:deletePackingItem")).toBe(false);
     expect(isIdempotentMutation("builds:remove")).toBe(false);
   });
 });
 
 describe("offline create registry (REQ-D62)", () => {
-  it("enqueues build progress-update creates offline", () => {
+  it("enqueues offline-safe creates", () => {
     for (const name of OFFLINE_CREATES) {
       expect(isCreateMutation(name), `${name} should be an offline create`).toBe(true);
     }
+  });
+
+  it("enqueues build-media add creates offline", () => {
+    expect(isCreateMutation("buildReferenceImages:add")).toBe(true);
+    expect(isCreateMutation("buildProcessPictures:add")).toBe(true);
   });
 
   it("every offline create is also idempotent", () => {
@@ -68,8 +82,8 @@ describe("offline create registry (REQ-D62)", () => {
     }
   });
 
-  it("does not enqueue non-idempotent media creates offline", () => {
-    expect(isCreateMutation("buildReferenceImages:add")).toBe(false);
-    expect(isCreateMutation("buildProcessPictures:add")).toBe(false);
+  it("does not enqueue non-create media mutations offline", () => {
+    expect(isCreateMutation("buildReferenceImages:remove")).toBe(false);
+    expect(isCreateMutation("buildProcessPictures:reorder")).toBe(false);
   });
 });

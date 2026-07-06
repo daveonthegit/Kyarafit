@@ -9,10 +9,10 @@
  * also be in `idempotentMutations`. Kept in parity with mobile. Keys are Convex function names
  * (`getFunctionName(api.x.y)`).
  *
- * NOTE: `buildReferenceImages:add` / `buildProcessPictures:add` are intentionally NOT here — their
- * server handlers do not accept `idempotencyKey`, so enqueuing them offline would not be
- * replay-dedupe-safe (REQ-D62). Add them once the backend adopts `runIdempotent`. The idempotent
- * build-media create today is `buildProgressUpdates:add`.
+ * `buildReferenceImages:add` / `buildProcessPictures:add` accept an `idempotencyKey` (their handlers
+ * use `idempotentReplay`/`idempotentRecord`), so an offline-enqueued create replays dedupe-safe
+ * (REQ-D62). Offline they carry an `imageUrl` (the `imageStorageId` upload path needs the online-only
+ * `files:generateUploadUrl` round-trip).
  *
  * OFFLINE CORE: never imports `convex/react`.
  */
@@ -21,6 +21,8 @@ const CREATE_MUTATIONS = new Set<string>([
   "conventions:create",
   "workflow:create",
   "buildProgressUpdates:add",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ]);
 
 export function isCreateMutation(functionName: string): boolean {

@@ -30,6 +30,8 @@ const IDEMPOTENT_MUTATIONS = new Set<string>([
   "users:setFocusedBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ]);
 
 export function isIdempotentMutation(functionName: string): boolean {

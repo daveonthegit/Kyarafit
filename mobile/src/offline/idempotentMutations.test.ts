@@ -22,6 +22,8 @@ const IDEMPOTENT = [
   "users:setFocusedBuild",
   "buildProgressUpdates:add",
   "buildProgressUpdates:update",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ] as const;
 
 const OFFLINE_CREATES = [
@@ -29,6 +31,8 @@ const OFFLINE_CREATES = [
   "conventions:create",
   "workflow:create",
   "buildProgressUpdates:add",
+  "buildReferenceImages:add",
+  "buildProcessPictures:add",
 ] as const;
 
 describe("mobile idempotent mutation registry (REQ-D62)", () => {
@@ -38,9 +42,14 @@ describe("mobile idempotent mutation registry (REQ-D62)", () => {
     }
   });
 
+  it("build-media add mutations are idempotent", () => {
+    expect(isIdempotentMutation("buildReferenceImages:add")).toBe(true);
+    expect(isIdempotentMutation("buildProcessPictures:add")).toBe(true);
+  });
+
   it("does not mark non-idempotent handlers as idempotent", () => {
-    expect(isIdempotentMutation("buildReferenceImages:add")).toBe(false);
-    expect(isIdempotentMutation("buildProcessPictures:add")).toBe(false);
+    expect(isIdempotentMutation("buildReferenceImages:remove")).toBe(false);
+    expect(isIdempotentMutation("buildProcessPictures:reorder")).toBe(false);
     expect(isIdempotentMutation("builds:remove")).toBe(false);
   });
 
@@ -51,8 +60,13 @@ describe("mobile idempotent mutation registry (REQ-D62)", () => {
     }
   });
 
-  it("does not enqueue non-idempotent media creates offline", () => {
-    expect(isCreateMutation("buildReferenceImages:add")).toBe(false);
-    expect(isCreateMutation("buildProcessPictures:add")).toBe(false);
+  it("enqueues build-media add creates offline", () => {
+    expect(isCreateMutation("buildReferenceImages:add")).toBe(true);
+    expect(isCreateMutation("buildProcessPictures:add")).toBe(true);
+  });
+
+  it("does not enqueue non-create media mutations offline", () => {
+    expect(isCreateMutation("buildReferenceImages:remove")).toBe(false);
+    expect(isCreateMutation("buildProcessPictures:reorder")).toBe(false);
   });
 });
