@@ -559,13 +559,15 @@ async function buildResolvedWorkflowTree(
 export async function getBuildScopedWorkflow(ctx: QueryCtx, buildId: Id<"builds">) {
   const build = await ctx.db.get(buildId);
   if (!build) return null;
-  const links = await ctx.db
-    .query("buildCosplayLinks")
+  // Step 2c: the build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
     .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
+  const rootNodes = buildNodes.filter((node) => node.parentNodeId === undefined);
   const keys = [
     entityKey("build", buildId),
-    ...links.map((link) => entityKey("cosplayNode", link.cosplayNodeId)),
+    ...rootNodes.map((node) => entityKey("cosplayNode", node._id)),
   ];
   const scoped = await getWorkflowItemsByAttachmentKey(ctx, build.userId, keys, buildId);
   const tree = await buildResolvedWorkflowTree(ctx, build.userId, scoped.items, scoped.attachments);

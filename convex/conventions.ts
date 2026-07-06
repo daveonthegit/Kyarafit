@@ -524,10 +524,15 @@ export const regeneratePacking = mutation({
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
 
-      const links = await ctx.db
-        .query("buildCosplayLinks")
+      // Step 2c: a build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
+      const buildNodes = await ctx.db
+        .query("cosplayNodes")
         .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
         .collect();
+      const links = buildNodes
+        .filter((node) => node.parentNodeId === undefined)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((node) => ({ cosplayNodeId: node._id }));
 
       for (const link of links) {
         const key = `${buildId}:${link.cosplayNodeId}`;

@@ -28,7 +28,6 @@ const NODE_TYPES = ["element", "material"] as const;
 const ELEMENT_PURCHASE_STATUSES = ["to_buy", "bought"] as const;
 const ELEMENT_BUILD_STATUSES = ["not_started", "wip", "built"] as const;
 const MATERIAL_STATUSES = ["to_buy", "bought", "in_use", "complete"] as const;
-const LINK_MODES = ["owned", "reference"] as const;
 const PRICING_MODES = ["total", "per_unit"] as const;
 
 type NodeType = (typeof NODE_TYPES)[number];
@@ -45,28 +44,16 @@ function asOptionalValidatedString<T extends readonly string[]>(
   return validValues.includes(value as T[number]) ? (value as T[number]) : undefined;
 }
 
-async function getBuildNodeState(
-  ctx: QueryCtx | MutationCtx,
-  buildId: Id<"builds"> | undefined,
-  cosplayNodeId: Id<"cosplayNodes">
-) {
-  if (!buildId) return null;
-  return (
-    (await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId_cosplayNodeId", (q) =>
-        q.eq("buildId", buildId).eq("cosplayNodeId", cosplayNodeId)
-      )
-      .unique()) ?? null
-  );
-}
-
-async function getChildLinks(ctx: QueryCtx | MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
-  const links = await ctx.db
-    .query("cosplayNodeLinks")
-    .withIndex("by_parentNodeId_sortOrder", (q) => q.eq("parentNodeId", cosplayNodeId))
+/**
+ * Child nodes of a node, nested via the node's own `parentNodeId` (Step 2c model), ordered by
+ * `sortOrder`. Replaces the old `cosplayNodeLinks` join-table nesting.
+ */
+async function getChildNodes(ctx: QueryCtx | MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
+  const children = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", cosplayNodeId))
     .collect();
-  return [...links].sort((a, b) => a.sortOrder - b.sortOrder);
+  return [...children].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
 export async function deriveNodeSummary(
@@ -106,10 +93,11 @@ export async function deriveNodeSummary(
     };
   }
 
-  const state = await getBuildNodeState(ctx, buildId, cosplayNodeId);
-  const childLinks = await getChildLinks(ctx, cosplayNodeId);
+  // Step 2c: per-build state IS the node's own fields now (the backfill merged buildNodeStates into
+  // each build-scoped node). `buildId` is still used to scope workflow task counts.
+  const childNodes = await getChildNodes(ctx, cosplayNodeId);
   const childSummaries = await Promise.all(
-    childLinks.map((link) => deriveNodeSummary(ctx, link.childNodeId, buildId, visited))
+    childNodes.map((child) => deriveNodeSummary(ctx, child._id, buildId, visited))
   );
 
   const scopedWorkflow = await getWorkflowItemsByAttachmentKey(
@@ -122,42 +110,26 @@ export async function deriveNodeSummary(
   const completedTaskCount = workflowTasks.filter((task) => task.status === "done").length;
   const childBuckets = childSummaries.map((summary) => summary.overallBucket);
 
-  const effectivePricingMode = state?.pricingMode ?? node.pricingMode;
   const directCostCents = normalizeDirectCostCents({
-    pricingMode: effectivePricingMode,
-    directCostCents: state?.directCostCents ?? node.directCostCents,
-    unitCostCents: state?.unitCostCents ?? node.unitCostCents,
-    quantity: state?.quantity ?? node.quantity,
+    pricingMode: node.pricingMode,
+    directCostCents: node.directCostCents,
+    unitCostCents: node.unitCostCents,
+    quantity: node.quantity,
   });
 
   const overallBucket =
     node.nodeType === "material"
       ? deriveMaterialOverallBucket({
-          manualOverallBucket: asOptionalValidatedString(
-            state?.manualOverallBucket ?? node.manualOverallBucket,
-            OVERALL_BUCKETS
-          ),
-          materialStatus: asOptionalValidatedString(
-            state?.materialStatus ?? node.materialStatus,
-            MATERIAL_STATUSES
-          ),
+          manualOverallBucket: asOptionalValidatedString(node.manualOverallBucket, OVERALL_BUCKETS),
+          materialStatus: asOptionalValidatedString(node.materialStatus, MATERIAL_STATUSES),
           childBuckets,
           taskCount: workflowTasks.length,
           completedTaskCount,
         })
       : deriveElementOverallBucket({
-          manualOverallBucket: asOptionalValidatedString(
-            state?.manualOverallBucket ?? node.manualOverallBucket,
-            OVERALL_BUCKETS
-          ),
-          purchaseStatus: asOptionalValidatedString(
-            state?.purchaseStatus ?? node.purchaseStatus,
-            ELEMENT_PURCHASE_STATUSES
-          ),
-          buildStatus: asOptionalValidatedString(
-            state?.buildStatus ?? node.buildStatus,
-            ELEMENT_BUILD_STATUSES
-          ),
+          manualOverallBucket: asOptionalValidatedString(node.manualOverallBucket, OVERALL_BUCKETS),
+          purchaseStatus: asOptionalValidatedString(node.purchaseStatus, ELEMENT_PURCHASE_STATUSES),
+          buildStatus: asOptionalValidatedString(node.buildStatus, ELEMENT_BUILD_STATUSES),
           childBuckets,
           taskCount: workflowTasks.length,
           completedTaskCount,
@@ -180,17 +152,14 @@ export async function deriveNodeSummary(
     progressPercent,
     directCostCents,
     totalCostCents: directCostCents + descendantCost,
-    childCount: childLinks.length,
+    childCount: childNodes.length,
     hasIncompleteDescendants,
   };
 }
 
 async function getAllowedChildren(ctx: QueryCtx | MutationCtx, nodeId: Id<"cosplayNodes">) {
-  const links = await ctx.db
-    .query("cosplayNodeLinks")
-    .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", nodeId))
-    .collect();
-  return links.map((link) => link.childNodeId as string);
+  const children = await getChildNodes(ctx, nodeId);
+  return children.map((child) => child._id as string);
 }
 
 function sanitizeNodeFields(fields: {
@@ -311,12 +280,8 @@ export const list = query({
           .collect());
 
     if (args.rootsOnly) {
-      const links = await ctx.db
-        .query("cosplayNodeLinks")
-        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-        .collect();
-      const childIds = new Set(links.map((link) => link.childNodeId as string));
-      nodes = nodes.filter((node) => !childIds.has(node._id as string));
+      // Step 2c: a node is a child iff it has a parentNodeId; roots have none.
+      nodes = nodes.filter((node) => node.parentNodeId === undefined);
     }
 
     if (categoryFilter) {
@@ -381,37 +346,30 @@ export const get = query({
     const node = await ctx.db.get(args.id);
     if (!node) return null;
 
-    const [summary, childLinks, parentLinks] = await Promise.all([
+    const [summary, childNodes] = await Promise.all([
       deriveNodeSummary(ctx, args.id, args.buildId),
-      getChildLinks(ctx, args.id),
-      ctx.db
-        .query("cosplayNodeLinks")
-        .withIndex("by_childNodeId", (q) => q.eq("childNodeId", args.id))
-        .collect(),
+      getChildNodes(ctx, args.id),
     ]);
 
+    // Step 2c: nesting lives on the node. A child's `linkId` (used by removeChildLink /
+    // reorderChildren) is now the child node's own id; `linkMode` is always "owned".
     const children = await Promise.all(
-      childLinks.map(async (link) => {
-        const child = await ctx.db.get(link.childNodeId);
-        if (!child) return null;
+      childNodes.map(async (child) => {
         const childSummary = await deriveNodeSummary(ctx, child._id, args.buildId);
         return {
           ...child,
           ...childSummary,
-          linkId: link._id,
-          linkMode: link.linkMode,
-          sortOrder: link.sortOrder,
+          linkId: child._id,
+          linkMode: "owned" as const,
+          sortOrder: child.sortOrder ?? 0,
         };
       })
     );
-    const parents = await Promise.all(
-      parentLinks.map(async (link) => {
-        const parent = await ctx.db.get(link.parentNodeId);
-        return parent
-          ? { _id: parent._id, name: parent.name, nodeType: parent.nodeType, linkId: link._id }
-          : null;
-      })
-    );
+    // A node has at most one parent now (single `parentNodeId`). Its "link" is its own id.
+    const parentDoc = node.parentNodeId ? await ctx.db.get(node.parentNodeId) : null;
+    const parents = parentDoc
+      ? [{ _id: parentDoc._id, name: parentDoc.name, nodeType: parentDoc.nodeType, linkId: node._id }]
+      : [];
 
     return {
       ...node,
@@ -425,31 +383,30 @@ export const get = query({
 export const listChildren = query({
   args: { parentNodeId: v.id("cosplayNodes"), buildId: v.optional(v.id("builds")) },
   handler: async (ctx, args) => {
-    const links = await getChildLinks(ctx, args.parentNodeId);
-    return (
-      await Promise.all(
-        links.map(async (link) => {
-          const child = await ctx.db.get(link.childNodeId);
-          if (!child) return null;
-          return {
-            ...child,
-            ...(await deriveNodeSummary(ctx, child._id, args.buildId)),
-            linkId: link._id,
-            linkMode: link.linkMode,
-            sortOrder: link.sortOrder,
-          };
-        })
-      )
-    ).filter((child): child is NonNullable<typeof child> => child !== null);
+    const children = await getChildNodes(ctx, args.parentNodeId);
+    return await Promise.all(
+      children.map(async (child) => ({
+        ...child,
+        ...(await deriveNodeSummary(ctx, child._id, args.buildId)),
+        linkId: child._id,
+        linkMode: "owned" as const,
+        sortOrder: child.sortOrder ?? 0,
+      }))
+    );
   },
 });
 
 /** Shared implementation for build visual outline / board lists. */
 export async function computeBuildVisualNodesList(ctx: QueryCtx, buildId: Id<"builds">) {
-  const rootLinks = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", buildId))
+  // Step 2c: a build's root nodes are its own nodes with no parent, sourced from `buildId`.
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
+  const rootLinks = buildNodes
+    .filter((node) => node.parentNodeId === undefined)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((node) => ({ cosplayNodeId: node._id }));
 
   const visualNodes = new Map<
     string,
@@ -497,10 +454,9 @@ export async function computeBuildVisualNodesList(ctx: QueryCtx, buildId: Id<"bu
       sortOrder: existing ? Math.min(existing.sortOrder, sortOrder) : sortOrder,
     });
 
-    const childLinks = await getChildLinks(ctx, cosplayNodeId);
-    for (let index = 0; index < childLinks.length; index += 1) {
-      const childLink = childLinks[index];
-      await visit(childLink.childNodeId, depth + 1, false, sortOrder * 100 + index + 1, seen);
+    const childNodes = await getChildNodes(ctx, cosplayNodeId);
+    for (let index = 0; index < childNodes.length; index += 1) {
+      await visit(childNodes[index]._id, depth + 1, false, sortOrder * 100 + index + 1, seen);
     }
   };
 
@@ -700,23 +656,13 @@ export const update = mutation({
   },
 });
 
+/**
+ * Detach references to a node that is about to be deleted. Step 2c: build membership and per-build
+ * state now live on the node itself (deleted with it), so this only clears foreign references from
+ * buildTasks / packingListItems. (Redundant buildCosplayLinks / buildNodeStates rows still exist but
+ * are no longer read; the drop slice removes them.)
+ */
 async function removeRootLinkReferences(ctx: MutationCtx, cosplayNodeId: Id<"cosplayNodes">) {
-  const buildLinks = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-    .collect();
-  for (const link of buildLinks) {
-    await ctx.db.delete(link._id);
-  }
-
-  const buildStates = await ctx.db
-    .query("buildNodeStates")
-    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-    .collect();
-  for (const state of buildStates) {
-    await ctx.db.delete(state._id);
-  }
-
   const tasks = await ctx.db
     .query("buildTasks")
     .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
@@ -740,27 +686,19 @@ async function maybeCascadeOwnedMaterialChildren(
   parentNodeId: Id<"cosplayNodes">,
   cascade: boolean
 ) {
-  const childLinks = await ctx.db
-    .query("cosplayNodeLinks")
-    .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", parentNodeId))
-    .collect();
+  const children = await getChildNodes(ctx, parentNodeId);
 
-  for (const link of childLinks) {
-    const child = await ctx.db.get(link.childNodeId);
-    await ctx.db.delete(link._id);
+  for (const child of children) {
+    // Detach the child from its (soon-deleted) parent. Nesting is single-parent now, so clearing
+    // parentNodeId is the equivalent of deleting the old parent->child cosplayNodeLink.
+    await ctx.db.patch(child._id, { parentNodeId: undefined, sortOrder: undefined });
     if (!child || child.userId !== userId) continue;
     if (!cascade) continue;
-    if (child.nodeType !== "material" && link.linkMode !== "owned") continue;
+    // Links are always "owned" now; preserve the "material OR owned" gate (always true).
 
-    const remainingParents = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_childNodeId", (q) => q.eq("childNodeId", child._id))
-      .collect();
-    const remainingRoots = await ctx.db
-      .query("buildCosplayLinks")
-      .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", child._id))
-      .collect();
-    if (remainingParents.length === 0 && remainingRoots.length === 0) {
+    // The child had a single parent (just cleared). It survives only if it is a build root.
+    const isBuildRoot = child.buildId !== undefined;
+    if (!isBuildRoot) {
       await removeRootLinkReferences(ctx, child._id);
       await subtractUsageForStorageId(ctx, userId, child.imageStorageId);
       await maybeCascadeOwnedMaterialChildren(ctx, userId, child._id, true);
@@ -782,15 +720,6 @@ export const remove = mutation({
     }
 
     await removeRootLinkReferences(ctx, args.id);
-
-    const parentLinks = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_childNodeId", (q) => q.eq("childNodeId", args.id))
-      .collect();
-    for (const link of parentLinks) {
-      await ctx.db.delete(link._id);
-    }
-
     await maybeCascadeOwnedMaterialChildren(ctx, args.userId, args.id, args.cascade ?? false);
     await subtractUsageForStorageId(ctx, args.userId, node.imageStorageId);
     await ctx.db.delete(args.id);
@@ -808,13 +737,6 @@ export const removeMany = mutation({
       const node = await ctx.db.get(id);
       if (!node || node.userId !== args.userId) continue;
       await removeRootLinkReferences(ctx, id);
-      const parentLinks = await ctx.db
-        .query("cosplayNodeLinks")
-        .withIndex("by_childNodeId", (q) => q.eq("childNodeId", id))
-        .collect();
-      for (const link of parentLinks) {
-        await ctx.db.delete(link._id);
-      }
       await maybeCascadeOwnedMaterialChildren(ctx, args.userId, id, args.cascade ?? false);
       await subtractUsageForStorageId(ctx, args.userId, node.imageStorageId);
       await ctx.db.delete(id);
@@ -836,9 +758,8 @@ export const convertType = mutation({
     if (!isNodeType(args.nodeType)) throw new Error("Invalid cosplay node type");
 
     if (args.nodeType === "element") {
-      const childLinks = await getChildLinks(ctx, args.id);
-      const children = await Promise.all(childLinks.map((link) => ctx.db.get(link.childNodeId)));
-      if (children.some((child) => child?.nodeType === "material")) {
+      const children = await getChildNodes(ctx, args.id);
+      if (children.some((child) => child.nodeType === "material")) {
         throw new Error("Elements cannot become parents of materials");
       }
     }
@@ -882,34 +803,30 @@ export const addChildLink = mutation({
     );
     if (cycle) throw new Error("That link would create a cycle");
 
-    const existingLink = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", args.parentNodeId))
-      .collect();
-    const sortOrder = args.sortOrder ?? existingLink.length;
-    const linkMode = asOptionalValidatedString(args.linkMode, LINK_MODES) ?? "owned";
-    const id = await ctx.db.insert("cosplayNodeLinks", {
-      userId: args.userId,
-      parentNodeId: args.parentNodeId,
-      childNodeId: args.childNodeId,
-      linkMode,
-      sortOrder,
-    });
-    return await ctx.db.get(id);
+    // Step 2c: nesting lives on the child node. "Linking" a child = set its parentNodeId + sortOrder.
+    // `linkMode` is accepted for API compatibility but no longer stored (all nesting is "owned").
+    const existingChildren = await getChildNodes(ctx, args.parentNodeId);
+    const sortOrder = args.sortOrder ?? existingChildren.length;
+    await ctx.db.patch(
+      args.childNodeId,
+      withUpdateMeta(child, { parentNodeId: args.parentNodeId, sortOrder })
+    );
+    return await ctx.db.get(args.childNodeId);
   },
 });
 
 export const removeChildLink = mutation({
   args: {
-    id: v.id("cosplayNodeLinks"),
+    // Step 2c: the "link id" is the child node's own id; removing it clears the child's parentNodeId.
+    id: v.id("cosplayNodes"),
     userId: v.string(),
   },
   handler: async (ctx, args) => {
-    const link = await ctx.db.get(args.id);
-    if (!link || link.userId !== args.userId) {
+    const child = await ctx.db.get(args.id);
+    if (!child || child.userId !== args.userId) {
       throw new Error("Link not found");
     }
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, withUpdateMeta(child, { parentNodeId: undefined }));
   },
 });
 
@@ -917,7 +834,8 @@ export const reorderChildren = mutation({
   args: {
     parentNodeId: v.id("cosplayNodes"),
     userId: v.string(),
-    orderedLinkIds: v.array(v.id("cosplayNodeLinks")),
+    // Step 2c: ordered child node ids (each child carries its own sortOrder).
+    orderedLinkIds: v.array(v.id("cosplayNodes")),
   },
   handler: async (ctx, args) => {
     const parent = await ctx.db.get(args.parentNodeId);
@@ -926,10 +844,11 @@ export const reorderChildren = mutation({
     }
 
     for (let index = 0; index < args.orderedLinkIds.length; index += 1) {
-      const linkId = args.orderedLinkIds[index];
-      const link = await ctx.db.get(linkId);
-      if (!link || link.parentNodeId !== args.parentNodeId || link.userId !== args.userId) continue;
-      await ctx.db.patch(linkId, { sortOrder: index });
+      const childId = args.orderedLinkIds[index];
+      const child = await ctx.db.get(childId);
+      if (!child || child.parentNodeId !== args.parentNodeId || child.userId !== args.userId)
+        continue;
+      await ctx.db.patch(childId, withUpdateMeta(child, { sortOrder: index }));
     }
   },
 });

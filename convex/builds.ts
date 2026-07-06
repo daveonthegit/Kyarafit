@@ -184,21 +184,34 @@ const sortByValidator = v.optional(
 const orderValidator = v.optional(v.union(v.literal("asc"), v.literal("desc")));
 const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
 
+/**
+ * Step 2c: a build's root nodes are its own cosplayNodes with `buildId == build` and no parent,
+ * ordered by `sortOrder`. Falls back to the legacy buildItemLinks (closet) path for builds whose
+ * membership was never expressed via cosplay nodes (still present until the closet drop slice).
+ */
 async function getBuildRootLinks(
   ctx: MutationCtx | import("./_generated/server").QueryCtx,
   buildId: Doc<"builds">["_id"]
 ) {
-  const links = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_buildId_sortOrder", (q) => q.eq("buildId", buildId))
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
-  if (links.length > 0) return links;
+  const roots = buildNodes
+    .filter((node) => node.parentNodeId === undefined)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  if (roots.length > 0) {
+    return roots.map((node) => ({
+      cosplayNodeId: node._id,
+      sortOrder: node.sortOrder ?? 0,
+    }));
+  }
 
   const legacyLinks = await ctx.db
     .query("buildItemLinks")
     .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
-  const resolved = [];
+  const resolved: Array<{ cosplayNodeId: Id<"cosplayNodes">; sortOrder: number }> = [];
   for (let index = 0; index < legacyLinks.length; index += 1) {
     const migrated = await ctx.db
       .query("cosplayNodes")
@@ -207,14 +220,7 @@ async function getBuildRootLinks(
       )
       .unique();
     if (!migrated) continue;
-    resolved.push({
-      _id: legacyLinks[index]._id,
-      _creationTime: legacyLinks[index]._creationTime,
-      userId: legacyLinks[index].userId,
-      buildId: legacyLinks[index].buildId,
-      cosplayNodeId: migrated._id,
-      sortOrder: index,
-    });
+    resolved.push({ cosplayNodeId: migrated._id, sortOrder: index });
   }
   return resolved;
 }
@@ -1007,16 +1013,15 @@ export const remove = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
     for (const l of legacyLinks) await ctx.db.delete(l._id);
-    const links = await ctx.db
-      .query("buildCosplayLinks")
+    // Step 2c: build membership lives on the node. Deleting a build returns its nodes to the library
+    // (clear buildId), preserving the prior behavior where nodes survived build deletion.
+    const buildNodes = await ctx.db
+      .query("cosplayNodes")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
-    for (const l of links) await ctx.db.delete(l._id);
-    const buildNodeStates = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const state of buildNodeStates) await ctx.db.delete(state._id);
+    for (const n of buildNodes) {
+      await ctx.db.patch(n._id, withUpdateMeta(n, { buildId: undefined }));
+    }
 
     for (const r of refImages) await ctx.db.delete(r._id);
     for (const p of processPics) await ctx.db.delete(p._id);
@@ -1074,16 +1079,14 @@ export const removeMany = mutation({
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
       for (const l of legacyLinks) await ctx.db.delete(l._id);
-      const links = await ctx.db
-        .query("buildCosplayLinks")
+      // Step 2c: return the build's nodes to the library (clear buildId), matching prior behavior.
+      const buildNodes = await ctx.db
+        .query("cosplayNodes")
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
-      for (const l of links) await ctx.db.delete(l._id);
-      const buildNodeStates = await ctx.db
-        .query("buildNodeStates")
-        .withIndex("by_buildId", (q) => q.eq("buildId", id))
-        .collect();
-      for (const state of buildNodeStates) await ctx.db.delete(state._id);
+      for (const n of buildNodes) {
+        await ctx.db.patch(n._id, withUpdateMeta(n, { buildId: undefined }));
+      }
       await ctx.db.delete(id);
     }
   },
@@ -1233,27 +1236,48 @@ export const listWithDetails = query({
     );
   },
 });
+/** Current root nodes (buildId == build, no parent) of a build, sorted by sortOrder. */
+async function getBuildRootNodes(
+  ctx: MutationCtx | import("./_generated/server").QueryCtx,
+  buildId: Id<"builds">
+) {
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  return buildNodes
+    .filter((node) => node.parentNodeId === undefined)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+/**
+ * Step 2c: build membership lives on the node's own `buildId`. Making a node a build root sets its
+ * `buildId` (+ clears any parent, sets sortOrder); detaching clears its `buildId` (node returns to
+ * the library, keeping its own subtree via parentNodeId).
+ */
 async function replaceBuildRootLinks(
   ctx: MutationCtx,
   userId: string,
   buildId: Id<"builds">,
   cosplayNodeIds: Id<"cosplayNodes">[]
 ) {
-  const existing = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-    .collect();
-  for (const link of existing) {
-    await ctx.db.delete(link._id);
+  const nextIds = new Set(cosplayNodeIds.map((id) => id as string));
+  const currentRoots = await getBuildRootNodes(ctx, buildId);
+  for (const node of currentRoots) {
+    if (!nextIds.has(node._id as string)) {
+      await ctx.db.patch(
+        node._id,
+        withUpdateMeta(node, { buildId: undefined, sortOrder: undefined })
+      );
+    }
   }
   for (let index = 0; index < cosplayNodeIds.length; index += 1) {
-    const cosplayNodeId = cosplayNodeIds[index];
-    await ctx.db.insert("buildCosplayLinks", {
-      userId,
-      buildId,
-      cosplayNodeId,
-      sortOrder: index,
-    });
+    const node = await ctx.db.get(cosplayNodeIds[index]);
+    if (!node || node.userId !== userId) continue;
+    await ctx.db.patch(
+      node._id,
+      withUpdateMeta(node, { buildId, parentNodeId: undefined, sortOrder: index })
+    );
   }
 }
 
@@ -1263,22 +1287,17 @@ async function addBuildRootLinks(
   buildId: Id<"builds">,
   cosplayNodeIds: Id<"cosplayNodes">[]
 ) {
-  const existing = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-    .collect();
-  const existingIds = new Set(existing.map((link) => link.cosplayNodeId));
-  let nextSortOrder = existing.length;
+  const currentRoots = await getBuildRootNodes(ctx, buildId);
+  const existingIds = new Set(currentRoots.map((node) => node._id as string));
+  let nextSortOrder = currentRoots.length;
   for (const cosplayNodeId of Array.from(new Set(cosplayNodeIds))) {
-    if (existingIds.has(cosplayNodeId)) continue;
+    if (existingIds.has(cosplayNodeId as string)) continue;
     const node = await ctx.db.get(cosplayNodeId);
     if (!node || node.userId !== userId) continue;
-    await ctx.db.insert("buildCosplayLinks", {
-      userId,
-      buildId,
-      cosplayNodeId,
-      sortOrder: nextSortOrder++,
-    });
+    await ctx.db.patch(
+      node._id,
+      withUpdateMeta(node, { buildId, parentNodeId: undefined, sortOrder: nextSortOrder++ })
+    );
   }
 }
 
@@ -1297,12 +1316,8 @@ async function removeBuildRootLink(
     throw new Error("Not found or not authorized");
   }
 
-  const links = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-    .collect();
-  for (const link of links) {
-    if (link.buildId === buildId) await ctx.db.delete(link._id);
+  if (node.buildId === buildId) {
+    await ctx.db.patch(node._id, withUpdateMeta(node, { buildId: undefined, sortOrder: undefined }));
   }
 }
 
@@ -1310,25 +1325,21 @@ async function listBuildsUsingNode(
   ctx: import("./_generated/server").QueryCtx,
   cosplayNodeId: Id<"cosplayNodes">
 ) {
-  const links = await ctx.db
-    .query("buildCosplayLinks")
-    .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
-    .collect();
-  const buildIds = Array.from(new Set(links.map((link) => link.buildId)));
-  const builds = await Promise.all(buildIds.map((buildId) => ctx.db.get(buildId)));
-  return builds.flatMap((build) =>
-    build && "name" in build
-      ? [
-          {
-            _id: build._id,
-            name: build.name,
-            imageStorageId: build.imageStorageId,
-            imageUrl: build.imageUrl,
-            character: build.character,
-          },
-        ]
-      : []
-  );
+  // Step 2c: a node belongs to a single build via its own `buildId`.
+  const node = await ctx.db.get(cosplayNodeId);
+  if (!node || node.buildId === undefined) return [];
+  const build = await ctx.db.get(node.buildId);
+  return build && "name" in build
+    ? [
+        {
+          _id: build._id,
+          name: build.name,
+          imageStorageId: build.imageStorageId,
+          imageUrl: build.imageUrl,
+          character: build.character,
+        },
+      ]
+    : [];
 }
 
 export const linkNodes = mutation({
@@ -1365,14 +1376,10 @@ export const reorderRootLinks = mutation({
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
     if (!canEdit) throw new Error("Not authorized");
 
-    const links = await ctx.db
-      .query("buildCosplayLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-
-    const linkByNode = new Map<string, (typeof links)[number]>();
-    for (const link of links) {
-      linkByNode.set(link.cosplayNodeId as string, link);
+    const roots = await getBuildRootNodes(ctx, args.buildId);
+    const nodeById = new Map<string, (typeof roots)[number]>();
+    for (const node of roots) {
+      nodeById.set(node._id as string, node);
     }
 
     const seen = new Set<string>();
@@ -1384,20 +1391,19 @@ export const reorderRootLinks = mutation({
       orderedUnique.push(id);
     }
 
-    if (orderedUnique.length !== linkByNode.size) {
+    if (orderedUnique.length !== nodeById.size) {
       throw new Error("Ordered nodes must match existing root links");
     }
     for (const id of orderedUnique) {
-      if (!linkByNode.has(id as string)) {
+      if (!nodeById.has(id as string)) {
         throw new Error("Unknown cosplay node for this build");
       }
     }
 
     for (let i = 0; i < orderedUnique.length; i++) {
-      const nodeId = orderedUnique[i];
-      const link = linkByNode.get(nodeId as string);
-      if (!link) continue;
-      await ctx.db.patch(link._id, { sortOrder: i });
+      const node = nodeById.get(orderedUnique[i] as string);
+      if (!node) continue;
+      await ctx.db.patch(node._id, withUpdateMeta(node, { sortOrder: i }));
     }
     return orderedUnique.length;
   },
@@ -1441,41 +1447,52 @@ export const duplicate = mutation({
       })
     );
 
-    const links = await ctx.db
-      .query("buildCosplayLinks")
+    // Step 2c: build membership + per-build state live on the nodes themselves. Duplicate the whole
+    // build-scoped node set (roots + descendants) with fresh ids, remapping parentNodeId, and record
+    // the id mapping so cloned workflow attachments can point at the copied nodes.
+    const sourceNodes = await ctx.db
+      .query("cosplayNodes")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
       .collect();
-    for (const link of links) {
-      await ctx.db.insert("buildCosplayLinks", {
-        userId: args.userId,
-        buildId: newBuildId,
-        cosplayNodeId: link.cosplayNodeId,
-        sortOrder: link.sortOrder,
-      });
+    const nodeIdMap = new Map<string, Id<"cosplayNodes">>();
+    for (const n of sourceNodes) {
+      const newId = await ctx.db.insert(
+        "cosplayNodes",
+        withCreateMeta({
+          userId: args.userId,
+          nodeType: n.nodeType,
+          name: n.name,
+          category: n.category,
+          tags: n.tags,
+          notes: n.notes,
+          imageUrl: n.imageUrl,
+          imageStorageId: n.imageStorageId,
+          sourceUrl: n.sourceUrl,
+          pricingMode: n.pricingMode,
+          directCostCents: n.directCostCents,
+          unitCostCents: n.unitCostCents,
+          quantity: n.quantity,
+          unit: n.unit,
+          purchaseStatus: n.purchaseStatus,
+          buildStatus: n.buildStatus,
+          materialStatus: n.materialStatus,
+          manualOverallBucket: n.manualOverallBucket,
+          buildInstructions: n.buildInstructions,
+          finishedPhotoUrls: n.finishedPhotoUrls,
+          consumable: n.consumable,
+          buildId: newBuildId,
+          sortOrder: n.sortOrder,
+        })
+      );
+      nodeIdMap.set(n._id as string, newId);
     }
-
-    const states = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
-      .collect();
-    for (const s of states) {
-      await ctx.db.insert("buildNodeStates", {
-        userId: args.userId,
-        buildId: newBuildId,
-        cosplayNodeId: s.cosplayNodeId,
-        purchaseStatus: s.purchaseStatus,
-        buildStatus: s.buildStatus,
-        materialStatus: s.materialStatus,
-        manualOverallBucket: s.manualOverallBucket,
-        pricingMode: s.pricingMode,
-        directCostCents: s.directCostCents,
-        unitCostCents: s.unitCostCents,
-        quantity: s.quantity,
-        unit: s.unit,
-        purchasedAt: s.purchasedAt,
-        startedAt: s.startedAt,
-        completedAt: s.completedAt,
-      });
+    for (const n of sourceNodes) {
+      if (n.parentNodeId === undefined) continue;
+      const mappedParent = nodeIdMap.get(n.parentNodeId as string);
+      const mappedSelf = nodeIdMap.get(n._id as string);
+      if (mappedParent && mappedSelf) {
+        await ctx.db.patch(mappedSelf, { parentNodeId: mappedParent });
+      }
     }
 
     const refImgs = await ctx.db
@@ -1573,14 +1590,17 @@ export const duplicate = mutation({
       );
 
       if (nodeAtt) {
+        // Point the cloned attachment at the copied node when one exists (Step 2c node duplication).
+        const mappedNodeId =
+          nodeIdMap.get(nodeAtt.entityId as string) ?? (nodeAtt.entityId as Id<"cosplayNodes">);
         await ctx.db.insert(
           "workflowAttachments",
           withCreateMeta({
             userId: args.userId,
             workflowItemId: newItemId,
             entityType: "cosplayNode",
-            entityId: nodeAtt.entityId,
-            entityKey: entityKey("cosplayNode", nodeAtt.entityId as Id<"cosplayNodes">),
+            entityId: mappedNodeId as string,
+            entityKey: entityKey("cosplayNode", mappedNodeId),
             role: "progress_source",
             buildContextId: newBuildId,
           })
