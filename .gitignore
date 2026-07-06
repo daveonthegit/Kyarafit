@@ -41,6 +41,12 @@ build/Release
 node_modules/
 jspm_packages/
 
+# Playwright E2E artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
