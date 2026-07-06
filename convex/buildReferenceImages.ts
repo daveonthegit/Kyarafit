@@ -1,9 +1,11 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
+import { idempotentReplay, idempotentRecord } from "./lib/idempotency";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
@@ -31,8 +33,12 @@ export const add = mutation({
     userId: v.string(),
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"buildReferenceImages"> | null;
+
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
@@ -58,7 +64,7 @@ export const add = mutation({
         sortOrder: maxOrder + 1,
       })
     );
-    return await ctx.db.get(id);
+    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(id));
   },
 });
 
