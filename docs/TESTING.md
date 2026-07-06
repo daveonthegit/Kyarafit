@@ -27,7 +27,7 @@ implementation._
 | Integration (offline) | mobile harness (jest-expo) **or** pure simulation of the queue/store | jest/vitest              | offline create→drain→idempotent replay, id remap                                              |
 | A11y (web)            | `web/src/test/a11y.test.tsx`                                         | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
 | E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                                     | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
-| E2E (mobile, later)   | mobile (Detox / Maestro)                                             | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §10               |
+| E2E (mobile, later)   | mobile (Detox / Maestro)                                             | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §11               |
 | Parity                | shared-logic assertions + mirrored component tests                   | vitest                   | web and mobile consume the same shared logic                                                  |
 
 > **Decision (test home):** prioritize pure-domain vitest now (no new tooling); add a mobile
@@ -172,9 +172,50 @@ No runnable perf gate yet — documented here to avoid a flaky/unrunnable check:
 - **Offline hydration.** Assert local-first read (list visible after reload while offline) completes
   within a budget as part of `offline-crud.spec.ts` when it runs live.
 
-## 11. Follow-ups
+## 11. Mobile E2E (runbook — not yet built)
 
-- **Mobile E2E** (Detox or Maestro): native offline CRUD + sync round-trips on a simulator. Deferred
-  — requires simulator/native-build infra not available in the current test environment.
+Not scaffolded in-repo: a mobile E2E harness needs an iOS Simulator / Android emulator and native
+builds, which the authoring environment can't run or verify. This is the concrete plan to add it — no
+unverified harness was committed on purpose.
+
+### Recommended tool: Maestro (over Detox)
+
+Maestro suits this Expo app better than Detox: YAML flows (no native test-runner build), works against
+an Expo Dev Client / release build, and has far less setup. Use Detox only if you need fine-grained
+synchronization or already run it elsewhere.
+
+### Setup
+
+```bash
+curl -Ls "https://get.maestro.mobile.dev" | bash        # installs the maestro CLI
+# Build a dev client / standalone the emulator can install:
+npx expo run:ios         # or: eas build --profile development --platform ios
+```
+
+Put flows in `mobile/e2e/*.yaml` and add a script, e.g. `"test:e2e": "maestro test e2e"` in
+`mobile/package.json`. Gate any CI job on a runner that has a simulator (macOS runner for iOS); keep it
+off the default `mobile.yml` gate, mirroring how web E2E stays out of `web.yml` (§9 CI).
+
+### Flows to cover (mirror the local-first invariants)
+
+| Flow                    | Asserts                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Offline CRUD round-trip | create a build/element with the device in airplane mode → data visible immediately (local store) → persists across app restart |
+| Sync on reconnect       | go online → pending writes drain to Convex; last-synced updates; no duplicates on replay (idempotency)                         |
+| Free → paid backfill    | upgrade a signed-in free account → "Backing up your library… N/M" indicator → cloud rows appear, deduped by `clientId`         |
+| Downgrade banner        | a downgraded account shows the cloud-retention banner; local data stays fully editable                                         |
+| Image add offline       | add a build reference/process image offline (local `ImageRef`) → survives restart → uploads on sync for a paid user            |
+
+These are the same critical paths the web Playwright specs (§9) target; keep the two suites conceptually
+in sync so web/mobile parity is actually exercised end to end.
+
+### Fixtures
+
+Needs seeded accounts like the web specs: a plain signed-in user, a paid user mid-backfill, and a
+downgraded user (`downgradedAt` set). Reuse the same seeding approach documented for §9.
+
+## 12. Follow-ups
+
 - **`@axe-core/playwright`**: real-browser a11y scans (incl. color-contrast) layered onto the E2E specs.
 - Wire the perf budgets in §10 into CI once the live E2E environment exists.
+- Build the mobile E2E harness per §11 on a simulator-capable runner.
