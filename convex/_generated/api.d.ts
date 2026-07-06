@@ -49,6 +49,7 @@ import type * as revenuecat from "../revenuecat.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
 import type * as sync from "../sync.js";
+import type * as tierTransition from "../tierTransition.js";
 import type * as users from "../users.js";
 import type * as workflow from "../workflow.js";
 
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   storageUsage: typeof storageUsage;
   sync: typeof sync;
+  tierTransition: typeof tierTransition;
   users: typeof users;
   workflow: typeof workflow;
 }>;

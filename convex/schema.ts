@@ -32,6 +32,18 @@ export default defineSchema({
     stripeSubscriptionId: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
     subscriptionCurrentPeriodEnd: v.optional(v.string()),
+    /**
+     * Downgrade lifecycle for the CLOUD mirror (DATA_AND_SYNC.md §10, REQ-D96/D97). All optional so
+     * the migration is non-breaking. Local on-device data is never governed by these fields.
+     * - `tierSource`    where the current tier came from (`revenuecat` | `admin` | `system`).
+     * - `downgradedAt`  ms timestamp of the last paid→free transition; cleared on re-subscribe. Basis
+     *                   for the grace / freeze / purge phases (see domain `cloudRetentionPhase`).
+     * - `cloudPurgedAt` ms timestamp when the retention cron purged this user's CLOUD mirror; set so
+     *                   the cron is idempotent and never re-purges an already-purged user.
+     */
+    tierSource: v.optional(v.string()),
+    downgradedAt: v.optional(v.number()),
+    cloudPurgedAt: v.optional(v.number()),
     focusedBuildId: v.optional(v.id("builds")),
     username: v.optional(v.string()),
     displayName: v.optional(v.string()),
@@ -43,7 +55,9 @@ export default defineSchema({
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    // Retention cron scans downgraded users by their downgrade timestamp (REQ-D96/D97).
+    .index("by_downgradedAt", ["downgradedAt"]),
 
   closetItems: defineTable({
     userId: v.string(),
