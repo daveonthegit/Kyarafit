@@ -7,6 +7,7 @@ import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTie
 import { sortProgressUpdates } from "@kyarafit/design-system/domain/mediaGallery";
 import { MAX_LENGTH, clampNumber, sanitizeOptional } from "./lib/validation";
 import { imageRefValidator } from "./lib/imageRef";
+import { checkLimitAndAddUsage } from "./storageUsage";
 
 /**
  * Build progress-update timeline (DATA_AND_SYNC.md §3.3, PRODUCT_SPEC.md §4.3 — REQ-049). Dated,
@@ -22,6 +23,23 @@ async function isPaidUser(ctx: MutationCtx, userId: string): Promise<boolean> {
     .withIndex("by_externalId", (q) => q.eq("externalId", userId))
     .unique();
   return isPaidConvexTier(user?.tier);
+}
+
+/** The set of Convex `_storage` ids referenced by `cloud` `ImageRef`s on a doc's `imageRefs`. */
+function cloudStorageIds(refs: unknown): Set<string> {
+  const ids = new Set<string>();
+  if (!Array.isArray(refs)) return ids;
+  for (const ref of refs) {
+    if (
+      ref !== null &&
+      typeof ref === "object" &&
+      (ref as { kind?: unknown }).kind === "cloud" &&
+      typeof (ref as { storageId?: unknown }).storageId === "string"
+    ) {
+      ids.add((ref as { storageId: string }).storageId);
+    }
+  }
+  return ids;
 }
 
 export const listByBuild = query({
@@ -107,7 +125,21 @@ export const update = mutation({
     if (args.note !== undefined)
       patch.note =
         args.note === null ? undefined : sanitizeOptional(args.note, MAX_LENGTH.notes, "Note");
-    if (args.imageRefs !== undefined) patch.imageRefs = args.imageRefs;
+    if (args.imageRefs !== undefined) {
+      // Paid image upload-on-sync flips a `local` ref to `cloud` here (REQ-D71). A newly-stored
+      // blob must go through the same cloud-storage accounting as the normal upload path so a paid
+      // user cannot exceed the REQ-D90 cap. Only storage ids that were NOT already cloud on this doc
+      // are counted, so replays and non-mirroring edits (reorder/remove) never double-count. Over
+      // the cap, `checkLimitAndAddUsage` throws before the patch, so the row keeps its `local` ref
+      // (the local binary is never lost — the sync worker retries on the next drain).
+      const before = cloudStorageIds(doc.imageRefs);
+      for (const ref of args.imageRefs) {
+        if (ref.kind === "cloud" && !before.has(ref.storageId)) {
+          await checkLimitAndAddUsage(ctx, args.userId, ref.storageId);
+        }
+      }
+      patch.imageRefs = args.imageRefs;
+    }
     if (args.progressPercent !== undefined)
       patch.progressPercent =
         args.progressPercent === null

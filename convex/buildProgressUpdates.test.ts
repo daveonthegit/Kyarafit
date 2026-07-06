@@ -112,3 +112,110 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
     expect(update!.publishedToFeed).toBe(true);
   });
 });
+
+const MB = 1024 * 1024;
+const localRef = (imageKey: string) => ({
+  kind: "local" as const,
+  uri: `file://${imageKey}`,
+  imageKey,
+});
+
+async function usageMb(t: ReturnType<typeof convexTest>, externalId: string): Promise<number> {
+  return t.run(async (ctx) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
+      .unique();
+    return user?.currentUsageMb ?? 0;
+  });
+}
+
+// Paid image upload-on-sync (REQ-D71): the sync worker flips a `local` ImageRef to `cloud` via
+// `update`. That flip must enforce the REQ-D90 cloud-storage cap (paid = 2048 MB) via the same
+// accounting as the normal upload path, without double-counting on replay.
+describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
+  it("should_count_cloud_usage_when_a_paid_user_flips_a_local_ref_to_cloud", async () => {
+    const t = convexTest(schema, modules);
+    await seedUser(t, "pro1", "PRO");
+    const buildId = await makeBuild(t, "pro1", "A");
+    const created = await t.mutation(api.buildProgressUpdates.add, {
+      buildId,
+      userId: "pro1",
+      note: "wip",
+      imageRefs: [localRef("k1")],
+    });
+
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
+    const flipped = await t.mutation(api.buildProgressUpdates.update, {
+      id: created!._id,
+      userId: "pro1",
+      imageRefs: [{ kind: "cloud", storageId, imageKey: "k1" }],
+    });
+
+    expect(flipped!.imageRefs[0]!.kind).toBe("cloud");
+    expect(await usageMb(t, "pro1")).toBeCloseTo(5, 5);
+  });
+
+  it("should_block_the_flip_over_cap_and_preserve_the_local_ref", async () => {
+    const t = convexTest(schema, modules);
+    // Seed a paid user already near the 2048 MB cap so a 5 MB blob would exceed it.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", {
+        externalId: "pro2",
+        email: "pro2@example.com",
+        tier: "PRO",
+        currentUsageMb: 2047,
+      });
+    });
+    const buildId = await makeBuild(t, "pro2", "A");
+    const created = await t.mutation(api.buildProgressUpdates.add, {
+      buildId,
+      userId: "pro2",
+      note: "wip",
+      imageRefs: [localRef("k1")],
+    });
+
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
+    await expect(
+      t.mutation(api.buildProgressUpdates.update, {
+        id: created!._id,
+        userId: "pro2",
+        imageRefs: [{ kind: "cloud", storageId, imageKey: "k1" }],
+      })
+    ).rejects.toThrow(/storage limit/i);
+
+    // The row keeps its local ref (the local binary is never lost) and usage is unchanged.
+    const stored = await t.run((ctx) => ctx.db.get(created!._id));
+    expect(stored!.imageRefs[0]!.kind).toBe("local");
+    expect(await usageMb(t, "pro2")).toBeCloseTo(2047, 5);
+  });
+
+  it("should_not_double_count_when_the_flip_is_replayed", async () => {
+    const t = convexTest(schema, modules);
+    await seedUser(t, "pro3", "PRO");
+    const buildId = await makeBuild(t, "pro3", "A");
+    const created = await t.mutation(api.buildProgressUpdates.add, {
+      buildId,
+      userId: "pro3",
+      note: "wip",
+      imageRefs: [localRef("k1")],
+    });
+
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
+    const cloudRefs = [{ kind: "cloud" as const, storageId, imageKey: "k1" }];
+    await t.mutation(api.buildProgressUpdates.update, {
+      id: created!._id,
+      userId: "pro3",
+      imageRefs: cloudRefs,
+    });
+    // Re-run the same flip (idempotent replay): the storage id is already cloud, so it must not be
+    // counted again.
+    await t.mutation(api.buildProgressUpdates.update, {
+      id: created!._id,
+      userId: "pro3",
+      imageRefs: cloudRefs,
+    });
+
+    expect(await usageMb(t, "pro3")).toBeCloseTo(5, 5);
+  });
+});
