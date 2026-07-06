@@ -1317,7 +1317,10 @@ async function removeBuildRootLink(
   }
 
   if (node.buildId === buildId) {
-    await ctx.db.patch(node._id, withUpdateMeta(node, { buildId: undefined, sortOrder: undefined }));
+    await ctx.db.patch(
+      node._id,
+      withUpdateMeta(node, { buildId: undefined, sortOrder: undefined })
+    );
   }
 }
 

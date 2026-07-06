@@ -368,7 +368,14 @@ export const get = query({
     // A node has at most one parent now (single `parentNodeId`). Its "link" is its own id.
     const parentDoc = node.parentNodeId ? await ctx.db.get(node.parentNodeId) : null;
     const parents = parentDoc
-      ? [{ _id: parentDoc._id, name: parentDoc.name, nodeType: parentDoc.nodeType, linkId: node._id }]
+      ? [
+          {
+            _id: parentDoc._id,
+            name: parentDoc.name,
+            nodeType: parentDoc.nodeType,
+            linkId: node._id,
+          },
+        ]
       : [];
 
     return {
