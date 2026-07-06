@@ -59,34 +59,10 @@ export default defineSchema({
     // Retention cron scans downgraded users by their downgrade timestamp (REQ-D96/D97).
     .index("by_downgradedAt", ["downgradedAt"]),
 
-  closetItems: defineTable({
-    userId: v.string(),
-    name: v.string(),
-    category: v.string(),
-    tags: v.array(v.string()),
-    notes: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    imageStorageId: v.optional(v.id("_storage")),
-    itemLink: v.optional(v.string()),
-    costCents: v.optional(v.number()),
-    status: v.optional(v.string()),
-    completionTaskId: v.optional(v.id("buildTasks")),
-    parentItemId: v.optional(v.id("closetItems")),
-    ...syncMetaFields,
-  })
-    .index("by_userId", ["userId"])
-    .index("by_userId_category", ["userId", "category"])
-    .index("by_completionTaskId", ["completionTaskId"])
-    .index("by_parentItemId", ["parentItemId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
-
   cosplayNodes: defineTable({
     userId: v.string(),
-    legacyClosetItemId: v.optional(v.id("closetItems")),
-    // Build-scoping migration (additive, backfilled by migrations:backfillCosplayNodeBuildScope).
-    // Optional during transition: existing rows have no buildId until the backfill runs in each
-    // deployment. Once backfill + rewiring land, buildId becomes the primary build link
-    // (replacing buildCosplayLinks) and parentNodeId replaces cosplayNodeLinks nesting.
+    // Build membership + nesting live on the node itself (Step 2c): `buildId` is the primary build
+    // link and `parentNodeId` expresses nesting. Both optional: a library node has no build/parent.
     buildId: v.optional(v.id("builds")),
     parentNodeId: v.optional(v.id("cosplayNodes")),
     sortOrder: v.optional(v.number()),
@@ -115,54 +91,10 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_nodeType", ["userId", "nodeType"])
     .index("by_userId_category", ["userId", "category"])
-    .index("by_legacyClosetItemId", ["legacyClosetItemId"])
     .index("by_userId_clientId", ["userId", "clientId"])
     .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_buildId", ["buildId"])
     .index("by_parentNodeId", ["parentNodeId"]),
-
-  cosplayNodeLinks: defineTable({
-    userId: v.string(),
-    parentNodeId: v.id("cosplayNodes"),
-    childNodeId: v.id("cosplayNodes"),
-    sortOrder: v.number(),
-    linkMode: v.string(),
-  })
-    .index("by_userId", ["userId"])
-    .index("by_parentNodeId", ["parentNodeId"])
-    .index("by_childNodeId", ["childNodeId"])
-    .index("by_parentNodeId_sortOrder", ["parentNodeId", "sortOrder"]),
-
-  buildCosplayLinks: defineTable({
-    userId: v.string(),
-    buildId: v.id("builds"),
-    cosplayNodeId: v.id("cosplayNodes"),
-    sortOrder: v.number(),
-  })
-    .index("by_buildId", ["buildId"])
-    .index("by_cosplayNodeId", ["cosplayNodeId"])
-    .index("by_buildId_sortOrder", ["buildId", "sortOrder"]),
-
-  buildNodeStates: defineTable({
-    userId: v.string(),
-    buildId: v.id("builds"),
-    cosplayNodeId: v.id("cosplayNodes"),
-    purchaseStatus: v.optional(v.string()),
-    buildStatus: v.optional(v.string()),
-    materialStatus: v.optional(v.string()),
-    manualOverallBucket: v.optional(v.string()),
-    pricingMode: v.optional(v.string()),
-    directCostCents: v.optional(v.number()),
-    unitCostCents: v.optional(v.number()),
-    quantity: v.optional(v.number()),
-    unit: v.optional(v.string()),
-    purchasedAt: v.optional(v.string()),
-    startedAt: v.optional(v.string()),
-    completedAt: v.optional(v.string()),
-  })
-    .index("by_buildId", ["buildId"])
-    .index("by_cosplayNodeId", ["cosplayNodeId"])
-    .index("by_buildId_cosplayNodeId", ["buildId", "cosplayNodeId"]),
 
   builds: defineTable({
     userId: v.string(),
@@ -202,19 +134,13 @@ export default defineSchema({
     .index("by_userId_clientId", ["userId", "clientId"])
     .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
-  buildItemLinks: defineTable({
-    userId: v.string(),
-    buildId: v.id("builds"),
-    closetItemId: v.id("closetItems"),
-  })
-    .index("by_buildId", ["buildId"])
-    .index("by_closetItemId", ["closetItemId"]),
-
   buildTasks: defineTable({
     userId: v.string(),
     buildId: v.optional(v.id("builds")),
     label: v.string(),
-    closetItemId: v.optional(v.id("closetItems")),
+    // Deprecated legacy pointer (formerly a closetItems id, now dropped). Retained as an opaque
+    // string for old rows; live code uses `cosplayNodeId`.
+    closetItemId: v.optional(v.string()),
     cosplayNodeId: v.optional(v.id("cosplayNodes")),
     packingListItemId: v.optional(v.id("packingListItems")),
     sortOrder: v.number(),
@@ -370,7 +296,9 @@ export default defineSchema({
     conventionId: v.id("conventions"),
     date: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
-    closetItemId: v.optional(v.id("closetItems")),
+    // Deprecated legacy pointer (formerly a closetItems id, now dropped). Retained as an opaque
+    // string for old rows; live code uses `cosplayNodeId`.
+    closetItemId: v.optional(v.string()),
     cosplayNodeId: v.optional(v.id("cosplayNodes")),
     workflowItemId: v.optional(v.id("workflowItems")),
     entryKind: v.optional(v.string()),
