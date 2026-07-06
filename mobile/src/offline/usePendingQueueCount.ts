@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { countFailedMutations, countPendingMutations } from "./mutationQueue";
 import { getLastSyncedAt } from "./syncCursor";
+import { getBackfillProgress, IDLE_BACKFILL, type BackfillProgress } from "./backfill";
 
 const POLL_MS = 2000;
 
@@ -18,11 +19,13 @@ export function usePendingQueueCount(): number {
   return n;
 }
 
-/** Observable sync status for the status UI (REQ-D64): pending + failed counts + last-synced. */
+/** Observable sync status for the status UI (REQ-D64/D95): pending + failed + last-synced + backfill. */
 export type SyncStatus = {
   pending: number;
   failed: number;
   lastSyncedAt: number | null;
+  /** One-time upgrade-backfill progress (REQ-D95); `running=false` when idle or complete. */
+  backfill: BackfillProgress;
 };
 
 /**
@@ -34,6 +37,7 @@ export function useSyncStatus(): SyncStatus {
     pending: 0,
     failed: 0,
     lastSyncedAt: null,
+    backfill: IDLE_BACKFILL,
   });
 
   useEffect(() => {
@@ -42,6 +46,7 @@ export function useSyncStatus(): SyncStatus {
         pending: countPendingMutations(),
         failed: countFailedMutations(),
         lastSyncedAt: getLastSyncedAt(),
+        backfill: getBackfillProgress(),
       });
     tick();
     const id = setInterval(tick, POLL_MS);

@@ -38,7 +38,7 @@ export function ConnectivityBanner() {
   const { data: tierInfo } = useTier(userId);
   const syncEnabled = shouldRunSyncWorker(tierInfo?.tier ?? null, signedIn);
 
-  const { pending, failed, lastSyncedAt } = useSyncStatus();
+  const { pending, failed, lastSyncedAt, backfill } = useSyncStatus();
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state: NetInfoState) => {
@@ -88,24 +88,35 @@ export function ConnectivityBanner() {
   }
 
   // Online: show the sync-status row only for paid, signed-in users with something to report.
-  if (!syncEnabled || (pending === 0 && failed === 0 && lastSyncedAt === null)) {
+  if (
+    !syncEnabled ||
+    (pending === 0 && failed === 0 && lastSyncedAt === null && !backfill.running)
+  ) {
     return null;
   }
 
   const lastSynced = formatLastSynced(lastSyncedAt);
+  // REQ-D95: a one-time "Backing up your library… N/M" indicator takes priority while it runs.
+  const statusText = backfill.running
+    ? t("common.backingUp", {
+        defaultValue: "Backing up your library… {{done}}/{{total}}",
+        done: backfill.done,
+        total: backfill.total,
+      })
+    : pending > 0
+      ? t("common.syncPendingCount", {
+          defaultValue: "{{count}} pending changes waiting to sync",
+          count: pending,
+        })
+      : lastSynced
+        ? t("common.lastSynced", { defaultValue: "Last synced {{time}}", time: lastSynced })
+        : t("common.neverSynced", { defaultValue: "Not synced yet" });
 
   return (
     <View className="flex-row items-center justify-between gap-3 border-b border-kyar-border bg-kyar-bg px-4 py-2 dark:border-kyar-dark-border dark:bg-kyar-dark-bg">
       <View className="min-w-0 flex-1">
         <Text className="text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {pending > 0
-            ? t("common.syncPendingCount", {
-                defaultValue: "{{count}} pending changes waiting to sync",
-                count: pending,
-              })
-            : lastSynced
-              ? t("common.lastSynced", { defaultValue: "Last synced {{time}}", time: lastSynced })
-              : t("common.neverSynced", { defaultValue: "Not synced yet" })}
+          {statusText}
         </Text>
         {failedNotice}
       </View>

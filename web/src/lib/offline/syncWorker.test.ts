@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { ConvexReactClient } from "convex/react";
 import { getFunctionName } from "convex/server";
-import { syncNow, uploadLocalImages, warmEntityRows, type ImageUploadDeps } from "./syncWorker";
+import {
+  runBackfill,
+  syncNow,
+  uploadLocalImages,
+  warmEntityRows,
+  type ImageUploadDeps,
+} from "./syncWorker";
 import { offlineRuntime } from "./runtime";
 import { InMemoryLocalStore } from "./localStore";
 import { setOfflineConnectivity } from "./connectivity";
@@ -257,5 +263,79 @@ describe("uploadLocalImages (REQ-D71)", () => {
     expect(written2[0].doc.imageRefs).toEqual([
       { kind: "cloud", storageId: "storage_9", imageKey: "local_a" },
     ]);
+  });
+});
+
+describe("runBackfill (REQ-D95 upgrade backfill trigger)", () => {
+  function seedPendingBuilds(): void {
+    offlineRuntime.setStore(new InMemoryLocalStore());
+    offlineRuntime.writeEntityOverlay(
+      "builds",
+      "local:b1",
+      "user_1",
+      { _id: "local:b1", userId: "user_1", name: "Aerith", status: "idea" },
+      false
+    );
+    offlineRuntime.writeEntityOverlay(
+      "builds",
+      "local:b2",
+      "user_1",
+      { _id: "local:b2", userId: "user_1", name: "Cloud", status: "idea" },
+      false
+    );
+  }
+
+  it("should_make_zero_convex_calls_for_a_free_user", async () => {
+    seedPendingBuilds();
+    const mutation = vi.fn(() => Promise.resolve(null));
+    const client = { mutation } as unknown as ConvexReactClient;
+
+    const result = await runBackfill(client, "FREE");
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(result).toEqual({ running: false, done: 0, total: 0 });
+    // Never marks a free device complete, so a later upgrade still backfills.
+    expect(await offlineRuntime.getMeta("backfill:complete")).toBeNull();
+  });
+
+  it("should_make_zero_convex_calls_when_signed_out_or_missing_tier", async () => {
+    seedPendingBuilds();
+    const mutation = vi.fn(() => Promise.resolve(null));
+    const client = { mutation } as unknown as ConvexReactClient;
+
+    expect(await runBackfill(client, null)).toEqual({ running: false, done: 0, total: 0 });
+    expect(await runBackfill(client, undefined)).toEqual({ running: false, done: 0, total: 0 });
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it("should_push_pending_local_rows_and_mark_complete_for_a_paid_user", async () => {
+    seedPendingBuilds();
+    const calls: Array<{ fn: string; args: unknown }> = [];
+    const mutation = vi.fn((ref: unknown, args: unknown) => {
+      calls.push({ fn: getFunctionName(ref as never), args });
+      const rows = (args as { rows: unknown[] }).rows;
+      return Promise.resolve({
+        table: "builds",
+        total: rows.length,
+        inserted: rows.length,
+        skipped: 0,
+        cloudCount: rows.length,
+      });
+    });
+    const client = { mutation } as unknown as ConvexReactClient;
+
+    const result = await runBackfill(client, "PRO");
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].fn).toBe("tierTransition:backfillRows");
+    const args = calls[0].args as { table: string; rows: Array<Record<string, unknown>> };
+    expect(args.table).toBe("builds");
+    expect(args.rows.map((r) => r.clientId).sort()).toEqual(["local:b1", "local:b2"]);
+    expect(result).toEqual({ running: false, done: 2, total: 2 });
+    expect(await offlineRuntime.getMeta("backfill:complete")).toBe("1");
+
+    // Idempotent: a second run respects the per-device marker — no further Convex calls.
+    await runBackfill(client, "PRO");
+    expect(calls).toHaveLength(1);
   });
 });

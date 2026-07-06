@@ -399,6 +399,20 @@ export class WaSqliteLocalStore implements LocalStore {
     );
   }
 
+  async getMeta(key: string): Promise<string | null> {
+    const rows = await this.select(`SELECT value FROM ${TABLES.syncMeta} WHERE key = ?`, [key]);
+    const row = rows[0];
+    return row ? String(row[0]) : null;
+  }
+
+  async setMeta(key: string, value: string): Promise<void> {
+    await this.exec(
+      `INSERT INTO ${TABLES.syncMeta} (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [key, value]
+    );
+  }
+
   // --- maintenance ---
 
   async clearAll(): Promise<void> {

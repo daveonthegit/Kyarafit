@@ -8,7 +8,7 @@ import { useTier } from "@/lib/api/useTier";
 import { offlineRuntime } from "./runtime";
 import { createBrowserLocalStore } from "./engineSelection";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, uploadLocalImages, warmEntityRows } from "./syncWorker";
+import { drainMutationQueue, runBackfill, uploadLocalImages, warmEntityRows } from "./syncWorker";
 
 /**
  * Wires the web local-first runtime and gates the Convex-facing sync worker.
@@ -55,7 +55,9 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       if (syncEnabled && isOnline) {
         void drainMutationQueue(convex)
           .then(() => warmEntityRows(convex))
-          .then(() => uploadLocalImages(convex, tier));
+          .then(() => uploadLocalImages(convex, tier))
+          // REQ-D95: one-time upgrade backfill of rows created while FREE (idempotent; marked done).
+          .then(() => runBackfill(convex, tier));
       }
     };
 

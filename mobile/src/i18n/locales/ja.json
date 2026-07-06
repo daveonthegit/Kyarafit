@@ -21,6 +21,7 @@
     "syncing": "同期中…",
     "lastSynced": "最終同期 {{time}}",
     "neverSynced": "まだ同期されていません",
+    "backingUp": "ライブラリをバックアップ中… {{done}}/{{total}}",
     "cancel": "キャンセル",
     "loading": "読み込み中…",
     "done": "完了",

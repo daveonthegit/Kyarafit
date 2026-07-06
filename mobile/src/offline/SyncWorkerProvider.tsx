@@ -6,7 +6,7 @@ import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
 import { useTier } from "@/lib/useTier";
 import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, uploadLocalImages, warmEntityRows } from "./syncWorker";
+import { drainMutationQueue, runBackfill, uploadLocalImages, warmEntityRows } from "./syncWorker";
 
 function isOnlineFromState(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
@@ -65,7 +65,9 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
         // Drain queued offline writes, top up the local store, then mirror local images to cloud.
         void drainMutationQueue(convex)
           .then(() => warmEntityRows(convex))
-          .then(() => uploadLocalImages(convex, tier));
+          .then(() => uploadLocalImages(convex, tier))
+          // REQ-D95: one-time upgrade backfill of rows created while FREE (idempotent; marked done).
+          .then(() => runBackfill(convex, tier));
       }
     };
 

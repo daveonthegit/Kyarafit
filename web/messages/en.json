@@ -190,6 +190,7 @@
     "syncNow": "Sync now",
     "syncing": "Syncing…",
     "lastSynced": "Last synced {time}",
-    "neverSynced": "Not synced yet"
+    "neverSynced": "Not synced yet",
+    "backingUp": "Backing up your library… {done}/{total}"
   }
 }

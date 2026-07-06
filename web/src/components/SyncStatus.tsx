@@ -35,7 +35,7 @@ export function SyncStatus() {
   const { data: tierInfo } = useTier();
   const syncEnabled = shouldRunSyncWorker(tierInfo?.tier ?? null, signedIn);
   const { isOnline } = useIsOnline();
-  const { pending, failed, lastSyncedAt } = useSyncStatus();
+  const { pending, failed, lastSyncedAt, backfill } = useSyncStatus();
   const [syncing, setSyncing] = useState(false);
 
   const onSyncNow = useCallback(() => {
@@ -45,17 +45,22 @@ export function SyncStatus() {
   }, [convex, syncEnabled, syncing, tierInfo?.tier]);
 
   if (!syncEnabled) return null;
-  const hasSomethingToReport = pending > 0 || failed > 0 || lastSyncedAt !== null || !isOnline;
+  const backingUp = backfill.running;
+  const hasSomethingToReport =
+    pending > 0 || failed > 0 || lastSyncedAt !== null || !isOnline || backingUp;
   if (!hasSomethingToReport) return null;
 
   const lastSynced = formatLastSynced(lastSyncedAt);
-  const statusText = !isOnline
-    ? t("offline")
-    : pending > 0
-      ? t("pending", { count: pending })
-      : lastSynced
-        ? t("lastSynced", { time: lastSynced })
-        : t("neverSynced");
+  // REQ-D95: a one-time "Backing up your library… N/M" indicator takes priority while it runs.
+  const statusText = backingUp
+    ? t("backingUp", { done: backfill.done, total: backfill.total })
+    : !isOnline
+      ? t("offline")
+      : pending > 0
+        ? t("pending", { count: pending })
+        : lastSynced
+          ? t("lastSynced", { time: lastSynced })
+          : t("neverSynced");
 
   return (
     <div

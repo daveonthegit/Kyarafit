@@ -190,6 +190,7 @@
     "syncNow": "Sincronizar ahora",
     "syncing": "Sincronizando…",
     "lastSynced": "Última sincronización {time}",
-    "neverSynced": "Sin sincronizar todavía"
+    "neverSynced": "Sin sincronizar todavía",
+    "backingUp": "Haciendo copia de tu biblioteca… {done}/{total}"
   }
 }

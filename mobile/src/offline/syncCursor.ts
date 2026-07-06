@@ -8,6 +8,7 @@ import { getOfflineDb } from "./db";
 
 const CURSOR_KEY = "listChangedSince:cursor";
 const LAST_SYNCED_KEY = "sync:lastSyncedAt";
+const BACKFILL_COMPLETE_KEY = "backfill:complete";
 
 function readMetaNumber(key: string): number {
   try {
@@ -53,4 +54,33 @@ export function getLastSyncedAt(): number | null {
 
 export function setLastSyncedAt(ts: number): void {
   writeMetaNumber(LAST_SYNCED_KEY, ts);
+}
+
+/**
+ * Per-device marker: the one-time upgrade backfill has drained every local-first table (REQ-D95).
+ * Best-effort; a read failure returns `false` so the (idempotent, server-deduped) backfill re-runs
+ * rather than being wrongly skipped.
+ */
+export function isBackfillComplete(): boolean {
+  try {
+    const row = getOfflineDb().getFirstSync<{ value: string }>(
+      `SELECT value FROM sync_meta WHERE key = ?`,
+      [BACKFILL_COMPLETE_KEY]
+    );
+    return row?.value === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setBackfillComplete(): void {
+  try {
+    getOfflineDb().runSync(
+      `INSERT INTO sync_meta (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [BACKFILL_COMPLETE_KEY, "1"]
+    );
+  } catch {
+    // Best-effort; ignore.
+  }
 }

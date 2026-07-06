@@ -93,6 +93,12 @@ export interface LocalStore {
   getLastSyncedAt(): Promise<number | null>;
   setLastSyncedAt(ts: number): Promise<void>;
 
+  // --- generic per-device flags (e.g. the REQ-D95 upgrade-backfill-complete marker) ---
+  /** Read an arbitrary string flag from the sync-meta store, or `null` if unset. */
+  getMeta(key: string): Promise<string | null>;
+  /** Persist an arbitrary string flag in the sync-meta store. */
+  setMeta(key: string, value: string): Promise<void>;
+
   // --- maintenance ---
   /** Wipe everything (sign-out / account switch). Local data is never auto-deleted otherwise. */
   clearAll(): Promise<void>;
@@ -238,6 +244,14 @@ export class InMemoryLocalStore implements LocalStore {
 
   async setLastSyncedAt(ts: number): Promise<void> {
     this.meta.set(LAST_SYNCED_KEY, String(ts));
+  }
+
+  async getMeta(key: string): Promise<string | null> {
+    return this.meta.get(key) ?? null;
+  }
+
+  async setMeta(key: string, value: string): Promise<void> {
+    this.meta.set(key, value);
   }
 
   async clearAll(): Promise<void> {

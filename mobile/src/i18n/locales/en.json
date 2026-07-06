@@ -21,6 +21,7 @@
     "syncing": "Syncing…",
     "lastSynced": "Last synced {{time}}",
     "neverSynced": "Not synced yet",
+    "backingUp": "Backing up your library… {{done}}/{{total}}",
     "cancel": "Cancel",
     "loading": "Loading…",
     "done": "Done",

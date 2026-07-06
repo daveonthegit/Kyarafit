@@ -232,6 +232,17 @@ export class IndexedDbLocalStore implements LocalStore {
     await db.put(SYNC_META, { key: LAST_SYNCED_KEY, value: String(ts) });
   }
 
+  async getMeta(key: string): Promise<string | null> {
+    const db = await this.db();
+    const row = (await db.get(SYNC_META, key)) as { value: string } | undefined;
+    return row ? row.value : null;
+  }
+
+  async setMeta(key: string, value: string): Promise<void> {
+    const db = await this.db();
+    await db.put(SYNC_META, { key, value });
+  }
+
   async clearAll(): Promise<void> {
     const db = await this.db();
     const tx = db.transaction(

@@ -18,6 +18,7 @@ import {
   type PendingMutation,
   type StoredEntityRow,
 } from "./localStore";
+import { IDLE_BACKFILL, type BackfillProgress } from "./backfill";
 
 function createDefaultStore(): LocalStore {
   // IndexedDB is browser-only; SSR / jsdom fall back to the in-memory engine. The browser store is
@@ -35,6 +36,8 @@ class OfflineRuntime {
   /** Single row per (table,id); `synced=false` ⇒ pending optimistic overlay. */
   private readonly entityRows = new Map<string, Map<string, StoredEntityRow>>();
   private idMap = new Map<string, string>();
+  /** In-memory upgrade-backfill progress mirror for the sync-status UI (REQ-D95). */
+  private backfillProgress: BackfillProgress = IDLE_BACKFILL;
 
   // --- store wiring ---
 
@@ -270,6 +273,29 @@ class OfflineRuntime {
 
   async setLastSyncedAt(ts: number): Promise<void> {
     await this.persist(() => this.store.setLastSyncedAt(ts));
+  }
+
+  // --- generic per-device flags ---
+
+  async getMeta(key: string): Promise<string | null> {
+    return (await this.safe(() => this.store.getMeta(key))) ?? null;
+  }
+
+  async setMeta(key: string, value: string): Promise<void> {
+    await this.persist(() => this.store.setMeta(key, value));
+  }
+
+  // --- upgrade-backfill progress (sync-status, REQ-D95) ---
+
+  /** Current aggregate backfill progress for the render path. */
+  getBackfillProgress(): BackfillProgress {
+    return this.backfillProgress;
+  }
+
+  /** Update the backfill progress mirror and repaint subscribers. */
+  setBackfillProgress(progress: BackfillProgress): void {
+    this.backfillProgress = progress;
+    this.bump();
   }
 
   // --- lifecycle ---

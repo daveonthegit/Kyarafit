@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { offlineRuntime } from "./runtime";
+import { IDLE_BACKFILL, type BackfillProgress } from "./backfill";
 
-/** Observable sync status for the status UI (REQ-D64): pending + failed counts + last-synced. */
+/** Observable sync status for the status UI (REQ-D64/D95): pending + failed + last-synced + backfill. */
 export type SyncStatus = {
   pending: number;
   failed: number;
   lastSyncedAt: number | null;
+  /** One-time upgrade-backfill progress (REQ-D95); `running=false` when idle or complete. */
+  backfill: BackfillProgress;
 };
 
 const POLL_MS = 2000;
@@ -22,6 +25,7 @@ export function useSyncStatus(): SyncStatus {
     pending: 0,
     failed: 0,
     lastSyncedAt: null,
+    backfill: IDLE_BACKFILL,
   });
 
   useEffect(() => {
@@ -32,7 +36,13 @@ export function useSyncStatus(): SyncStatus {
         offlineRuntime.countFailedMutations(),
         offlineRuntime.getLastSyncedAt(),
       ]);
-      if (active) setStatus({ pending, failed, lastSyncedAt });
+      if (active)
+        setStatus({
+          pending,
+          failed,
+          lastSyncedAt,
+          backfill: offlineRuntime.getBackfillProgress(),
+        });
     };
     void tick();
     const id = setInterval(() => void tick(), POLL_MS);

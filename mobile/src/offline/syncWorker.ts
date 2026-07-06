@@ -11,9 +11,27 @@ import {
 import { getIsOnline } from "./connectivity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
-import { clearEntityOverlay, listSyncedEntityRows, upsertSyncedEntityRow } from "./entityRows";
+import {
+  clearEntityOverlay,
+  listPendingEntityRows,
+  listSyncedEntityRows,
+  upsertSyncedEntityRow,
+} from "./entityRows";
 import { overlayWritesFor } from "./offlineEntityWrites";
-import { getSyncCursor, setLastSyncedAt, setSyncCursor } from "./syncCursor";
+import {
+  getSyncCursor,
+  isBackfillComplete,
+  setBackfillComplete,
+  setLastSyncedAt,
+  setSyncCursor,
+} from "./syncCursor";
+import {
+  IDLE_BACKFILL,
+  runUpgradeBackfill,
+  setBackfillProgress,
+  type BackfillDeps,
+  type BackfillProgress,
+} from "./backfill";
 import { getLocalImageUri } from "../lib/images/localImageStore";
 import { uploadUriToConvexStorage } from "../lib/uploadConvexStorage";
 import {
@@ -318,4 +336,52 @@ export async function syncNow(
   await warmEntityRows(client);
   await uploadLocalImages(client, opts.tier ?? null);
   return result;
+}
+
+/**
+ * Wire the pure backfill orchestration to the local SQLite store + Convex. `listLocalRows` reads only
+ * the NOT-YET-SYNCED local-first rows (the free-created base that never reached the cloud), stamping
+ * each with its client-minted id as the dedupe `clientId`. It only READS local data — copies are
+ * pushed to the cloud; nothing local is ever mutated or deleted (the REQ-D95 invariant).
+ */
+function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
+  return {
+    listLocalRows: (table) =>
+      listPendingEntityRows(table)
+        .filter((row) => !row.deleted && row.doc)
+        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id })),
+    pushChunk: (table, rows) =>
+      client.mutation(makeFunctionReference<"mutation">("tierTransition:backfillRows"), {
+        table,
+        rows,
+      } as never) as Promise<{
+        table: string;
+        total: number;
+        inserted: number;
+        skipped: number;
+        cloudCount: number;
+      }>,
+    isComplete: () => isBackfillComplete(),
+    markComplete: () => setBackfillComplete(),
+    onProgress: (progress) => setBackfillProgress(progress),
+  };
+}
+
+/**
+ * REQ-D95 — upgrade backfill trigger. When a user becomes paid + signed in, push the local-first
+ * rows they created while FREE (never enqueued by the sync worker) up to the cloud once, deduped
+ * server-side by `clientId` and marked complete per device so it never re-scans.
+ *
+ * Paid-only and a HARD no-op for free/signed-out users — it returns before any Convex call, so the
+ * REQ-D10 zero-Convex-calls-for-free invariant holds even if it is ever invoked off the gated path.
+ * Idempotent and safe to call on every reconnect: a completed device short-circuits in the store.
+ */
+export async function runBackfill(
+  client: ConvexReactClient,
+  tier: string | null | undefined,
+  deps: BackfillDeps = defaultBackfillDeps(client)
+): Promise<BackfillProgress> {
+  // REQ-D95/D10: free users never back up — no Convex calls whatsoever.
+  if (!isPaidConvexTier(tier)) return IDLE_BACKFILL;
+  return runUpgradeBackfill(deps);
 }
