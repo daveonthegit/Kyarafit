@@ -15,7 +15,7 @@ export type NodeSelectionMeta = {
   isRoot: boolean;
   rootIndex?: number;
   parentNodeId?: CosplayNodeId;
-  siblingLinkIds?: Id<"cosplayNodeLinks">[];
+  siblingLinkIds?: Id<"cosplayNodes">[];
   siblingIndex?: number;
 };
 
@@ -47,7 +47,7 @@ export type DetailedNode = {
     _id: CosplayNodeId;
     name: string;
     nodeType: "element" | "material";
-    linkId: Id<"cosplayNodeLinks">;
+    linkId: Id<"cosplayNodes">;
     linkMode: "owned" | "reference";
     sortOrder: number;
   }>;

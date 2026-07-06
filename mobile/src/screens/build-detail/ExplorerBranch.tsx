@@ -31,7 +31,7 @@ type Props = {
   isRoot?: boolean;
   rootIndex?: number;
   parentNodeId?: Id<"cosplayNodes">;
-  siblingLinkIds?: Id<"cosplayNodeLinks">[];
+  siblingLinkIds?: Id<"cosplayNodes">[];
   siblingIndex?: number;
   selectedNodeId?: Id<"cosplayNodes"> | null;
   pathPrefix?: ExplorerPathSegment[];

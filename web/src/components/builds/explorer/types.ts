@@ -42,7 +42,8 @@ export type DetailedLinkedNode = ExplorerLinkedNode & {
   children: Array<
     ExplorerLinkedNode & {
       _id: CosplayNodeId;
-      linkId: Id<"cosplayNodeLinks">;
+      // Step 2c: nesting lives on the node; the "link id" is the child node's own id.
+      linkId: Id<"cosplayNodes">;
       linkMode: "owned" | "reference";
       sortOrder: number;
     }
@@ -54,7 +55,7 @@ export type NodeSelectionMeta = {
   isRoot: boolean;
   rootIndex?: number;
   parentNodeId?: CosplayNodeId;
-  siblingLinkIds?: Id<"cosplayNodeLinks">[];
+  siblingLinkIds?: Id<"cosplayNodes">[];
   siblingIndex?: number;
 };
 

@@ -55,7 +55,7 @@ type ParentRef = {
   _id: Id<"cosplayNodes">;
   name: string;
   nodeType: string;
-  linkId: Id<"cosplayNodeLinks">;
+  linkId: Id<"cosplayNodes">;
 };
 
 type WorkflowTreeNode = {
@@ -84,7 +84,7 @@ function flattenWorkflow(
 type FlatWorkflowRow = WorkflowTreeNode & { depth: number };
 
 type ChildRow = Doc<"cosplayNodes"> & {
-  linkId: Id<"cosplayNodeLinks">;
+  linkId: Id<"cosplayNodes">;
   linkMode: string;
   sortOrder: number;
   overallBucket: string;
@@ -733,7 +733,7 @@ function ElementDetailBody({
   ]);
 
   const confirmRemoveLink = useCallback(
-    (linkId: Id<"cosplayNodeLinks">, label: string) => {
+    (linkId: Id<"cosplayNodes">, label: string) => {
       Alert.alert(t("elements.unlinkConfirmTitle"), label, [
         { text: t("common.cancel"), style: "cancel" },
         {
