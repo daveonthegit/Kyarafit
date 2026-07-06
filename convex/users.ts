@@ -389,11 +389,26 @@ export const updateProfile = mutation({
   },
 });
 
-/** Internal mutation for admin/system use — update tier directly. */
+/**
+ * Internal mutation for admin/system use — update tier directly and maintain the downgrade lifecycle
+ * state for the CLOUD mirror (DATA_AND_SYNC.md §10, REQ-D96/D97).
+ *
+ * Transition handling (paid = PRO/SUPPORTER/legacy; free = FREE):
+ * - paid → free: record `downgradedAt = now` and `subscriptionStatus = "canceled"`. This starts the
+ *   grace → freeze → purge clock. An idempotent re-delivery (free → free) leaves `downgradedAt`
+ *   untouched, so the original downgrade time is preserved.
+ * - free/downgraded → paid: clear `downgradedAt` / `cloudPurgedAt` and set `subscriptionStatus =
+ *   "active"`. Re-subscribing cancels any pending purge (REQ-D96: re-subscribe resumes seamlessly).
+ *
+ * This never touches local on-device data; it only records server-side state. The paid→free flip also
+ * stops the sync worker automatically (see domain `shouldRunSyncWorker`).
+ */
 export const setTier = internalMutation({
   args: {
     externalId: v.string(),
     tier: v.string(),
+    /** Provenance of this tier change: "revenuecat" | "admin" | "system". */
+    source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -401,7 +416,34 @@ export const setTier = internalMutation({
       .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
       .unique();
     if (!user) return null;
-    await ctx.db.patch(user._id, { tier: normalizeConvexTier(args.tier) });
+
+    const prevTier = normalizeConvexTier(user.tier);
+    const nextTier = normalizeConvexTier(args.tier);
+    const wasPaid = prevTier !== "FREE";
+    const nowPaid = nextTier !== "FREE";
+
+    const patch: {
+      tier: typeof nextTier;
+      tierSource?: string;
+      downgradedAt?: number;
+      cloudPurgedAt?: number;
+      subscriptionStatus?: string;
+    } = { tier: nextTier };
+    if (args.source) patch.tierSource = args.source;
+
+    if (wasPaid && !nowPaid) {
+      // Downgrade: start the retention clock with a fresh timestamp on the transition only.
+      patch.downgradedAt = Date.now();
+      patch.subscriptionStatus = "canceled";
+    } else if (!wasPaid && nowPaid) {
+      // Upgrade / re-subscribe: cancel any pending downgrade + purge state.
+      patch.downgradedAt = undefined;
+      patch.cloudPurgedAt = undefined;
+      patch.subscriptionStatus = "active";
+    }
+    // free→free and paid→paid leave downgrade state untouched (idempotent re-delivery safe).
+
+    await ctx.db.patch(user._id, patch);
     return user._id;
   },
 });

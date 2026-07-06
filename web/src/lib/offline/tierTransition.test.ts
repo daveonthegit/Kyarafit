@@ -2,8 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   selectBackfillRows,
   planDowngrade,
+  cloudRetentionPhase,
+  isCloudFrozen,
+  isCloudPurgeable,
+  DOWNGRADE_GRACE_MS,
+  DOWNGRADE_RETENTION_MS,
   type BackfillRow,
 } from "@kyarafit/design-system/domain/tierTransition";
+import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
 
 // Spec: DATA_AND_SYNC.md §10 (REQ-D95/96).
 describe("selectBackfillRows (REQ-D95 upgrade backfill dedupe)", () => {
@@ -38,5 +44,51 @@ describe("planDowngrade (REQ-D96)", () => {
 
   it("should_never_delete_local_data_on_downgrade", () => {
     expect(planDowngrade().deleteLocalData).toBe(false);
+  });
+
+  it("should_stop_sync_and_preserve_data_on_downgrade", () => {
+    const plan = planDowngrade();
+    expect(plan.stopSync).toBe(true);
+    expect(plan.keepLocalData).toBe(true);
+    expect(plan.deleteLocalData).toBe(false);
+    // Once the tier flips to FREE the worker gate stops the worker automatically (REQ-D60/D96).
+    expect(shouldRunSyncWorker("FREE", true)).toBe(false);
+    expect(shouldRunSyncWorker("PRO", true)).toBe(true);
+  });
+});
+
+describe("cloudRetentionPhase (REQ-D96/D97 grace → freeze → purge)", () => {
+  const now = 1_000_000_000_000;
+
+  it("should_report_active_when_never_downgraded", () => {
+    expect(cloudRetentionPhase(null, now)).toBe("active");
+    expect(cloudRetentionPhase(undefined, now)).toBe("active");
+    expect(isCloudFrozen(null, now)).toBe(false);
+    expect(isCloudPurgeable(null, now)).toBe(false);
+  });
+
+  it("should_keep_cloud_intact_during_the_grace_period", () => {
+    const downgradedAt = now - (DOWNGRADE_GRACE_MS - 1);
+    expect(cloudRetentionPhase(downgradedAt, now)).toBe("grace");
+    expect(isCloudFrozen(downgradedAt, now)).toBe(false);
+    expect(isCloudPurgeable(downgradedAt, now)).toBe(false);
+  });
+
+  it("should_freeze_cloud_after_grace_but_before_retention", () => {
+    const downgradedAt = now - DOWNGRADE_GRACE_MS;
+    expect(cloudRetentionPhase(downgradedAt, now)).toBe("frozen");
+    expect(isCloudFrozen(downgradedAt, now)).toBe(true);
+    expect(isCloudPurgeable(downgradedAt, now)).toBe(false);
+  });
+
+  it("should_become_purgeable_only_after_the_retention_window", () => {
+    const justBefore = now - (DOWNGRADE_RETENTION_MS - 1);
+    expect(cloudRetentionPhase(justBefore, now)).toBe("frozen");
+    expect(isCloudPurgeable(justBefore, now)).toBe(false);
+
+    const atRetention = now - DOWNGRADE_RETENTION_MS;
+    expect(cloudRetentionPhase(atRetention, now)).toBe("purgeable");
+    expect(isCloudFrozen(atRetention, now)).toBe(true);
+    expect(isCloudPurgeable(atRetention, now)).toBe(true);
   });
 });

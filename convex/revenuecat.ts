@@ -89,6 +89,7 @@ export const revenuecatWebhook = httpAction(async (ctx, request) => {
   await ctx.runMutation(internal.users.setTier, {
     externalId: appUserId,
     tier,
+    source: "revenuecat",
   });
 
   return new Response("OK", { status: 200 });
