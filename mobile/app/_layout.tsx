@@ -26,6 +26,7 @@ import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 import { useAppFonts } from "@/theme/appFonts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
+import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
 import { SyncWorkerProvider } from "@/offline";
 import { RevenueCatBootstrap } from "@/components/RevenueCatBootstrap";
 
@@ -100,6 +101,7 @@ function RootLayoutNav() {
   return (
     <View className="flex-1">
       <ConnectivityBanner />
+      <CloudRetentionBanner />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -3,6 +3,7 @@ import {
   selectBackfillRows,
   planDowngrade,
   cloudRetentionPhase,
+  cloudRetentionBanner,
   isCloudFrozen,
   isCloudPurgeable,
   DOWNGRADE_GRACE_MS,
@@ -90,5 +91,38 @@ describe("cloudRetentionPhase (REQ-D96/D97 grace → freeze → purge)", () => {
     expect(cloudRetentionPhase(atRetention, now)).toBe("purgeable");
     expect(isCloudFrozen(atRetention, now)).toBe(true);
     expect(isCloudPurgeable(atRetention, now)).toBe(true);
+  });
+});
+
+describe("cloudRetentionBanner (REQ-D96/D97 downgrade status surface)", () => {
+  const now = 1_000_000_000_000;
+
+  it("should_return_null_when_never_downgraded", () => {
+    expect(cloudRetentionBanner(null, now)).toBeNull();
+    expect(cloudRetentionBanner(undefined, now)).toBeNull();
+  });
+
+  it("should_surface_grace_with_the_freeze_deadline", () => {
+    const downgradedAt = now - (DOWNGRADE_GRACE_MS - 1);
+    expect(cloudRetentionBanner(downgradedAt, now)).toEqual({
+      phase: "grace",
+      deadline: downgradedAt + DOWNGRADE_GRACE_MS,
+    });
+  });
+
+  it("should_surface_frozen_with_the_purge_deadline", () => {
+    const downgradedAt = now - DOWNGRADE_GRACE_MS;
+    expect(cloudRetentionBanner(downgradedAt, now)).toEqual({
+      phase: "frozen",
+      deadline: downgradedAt + DOWNGRADE_RETENTION_MS,
+    });
+  });
+
+  it("should_surface_purgeable_after_the_retention_window", () => {
+    const downgradedAt = now - DOWNGRADE_RETENTION_MS;
+    expect(cloudRetentionBanner(downgradedAt, now)).toEqual({
+      phase: "purgeable",
+      deadline: downgradedAt + DOWNGRADE_RETENTION_MS,
+    });
   });
 });

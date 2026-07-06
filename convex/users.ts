@@ -213,6 +213,9 @@ export const getMe = query({
       tier: normalizeConvexTier(user.tier),
       currentUsageMb: user.currentUsageMb,
       storageLimitMb: convexTierStorageLimitMb(user.tier),
+      // REQ-D96/D97: the client surfaces a non-blocking cloud-retention banner from this timestamp.
+      // `null` = never downgraded (or re-subscribed) — the cloud is active and nothing is shown.
+      downgradedAt: user.downgradedAt ?? null,
     };
   },
 });

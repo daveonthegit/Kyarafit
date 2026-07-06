@@ -92,3 +92,32 @@ export function isCloudFrozen(downgradedAt: number | null | undefined, now: numb
 export function isCloudPurgeable(downgradedAt: number | null | undefined, now: number): boolean {
   return cloudRetentionPhase(downgradedAt, now) === "purgeable";
 }
+
+/**
+ * INFORMATIONAL descriptor for the downgrade cloud-retention banner (REQ-D96/D97, client). Given a
+ * user's `downgradedAt` and the current time, returns which non-active phase to surface and the ms
+ * epoch `deadline` that phase counts down to:
+ *
+ * - `grace`     cloud is fully intact; `deadline` = when it freezes (downgrade + grace).
+ * - `frozen`    cloud is read-only; `deadline` = when it may be purged (downgrade + retention).
+ * - `purgeable` cloud may already be purged; `deadline` = the (past) purge time.
+ *
+ * Returns `null` for a user who never downgraded (or re-subscribed) — an `active` cloud shows nothing.
+ * This is display-only: it NEVER implies the app is read-only or that local data is affected (local
+ * on-device data is always fully editable offline, REQ-D96).
+ */
+export interface CloudRetentionBanner {
+  phase: Exclude<CloudRetentionPhase, "active">;
+  deadline: number;
+}
+
+export function cloudRetentionBanner(
+  downgradedAt: number | null | undefined,
+  now: number
+): CloudRetentionBanner | null {
+  const phase = cloudRetentionPhase(downgradedAt, now);
+  if (phase === "active" || downgradedAt == null) return null;
+  const deadline =
+    phase === "grace" ? downgradedAt + DOWNGRADE_GRACE_MS : downgradedAt + DOWNGRADE_RETENTION_MS;
+  return { phase, deadline };
+}

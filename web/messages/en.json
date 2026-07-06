@@ -191,6 +191,9 @@
     "syncing": "Syncing…",
     "lastSynced": "Last synced {time}",
     "neverSynced": "Not synced yet",
-    "backingUp": "Backing up your library… {done}/{total}"
+    "backingUp": "Backing up your library… {done}/{total}",
+    "cloudGrace": "Cloud backup active until {date}",
+    "cloudFrozen": "Cloud backup frozen — resubscribe to keep syncing (removed {date})",
+    "cloudPurgeable": "Cloud backup expired — resubscribe to restore syncing"
   }
 }

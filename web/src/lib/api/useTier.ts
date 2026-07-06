@@ -9,12 +9,15 @@ export interface MeResponse {
   tier: string;
   currentUsageMb: number;
   storageLimitMb: number;
+  /** ms epoch of the last paid→free downgrade, or `null` if never downgraded (REQ-D96/D97). */
+  downgradedAt?: number | null;
 }
 
 const FREE_DEFAULT: MeResponse = {
   tier: "FREE",
   currentUsageMb: 0,
   storageLimitMb: 50,
+  downgradedAt: null,
 };
 
 /**
@@ -36,6 +39,7 @@ export function useTier(): { data: MeResponse | null; isLoading: boolean } {
       tier: me.tier,
       currentUsageMb: me.currentUsageMb,
       storageLimitMb: me.storageLimitMb,
+      downgradedAt: me.downgradedAt ?? null,
     },
     isLoading: false,
   };

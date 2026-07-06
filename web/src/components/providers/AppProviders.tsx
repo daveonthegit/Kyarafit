@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { CreationModalsProvider } from "@/contexts/CreationModalsContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SyncStatus } from "@/components/SyncStatus";
+import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
 import { SyncWorkerProvider } from "@/lib/offline";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -12,6 +13,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <SyncWorkerProvider>
         <CreationModalsProvider>{children}</CreationModalsProvider>
         <SyncStatus />
+        <CloudRetentionBanner />
       </SyncWorkerProvider>
     </ThemeProvider>
   );
