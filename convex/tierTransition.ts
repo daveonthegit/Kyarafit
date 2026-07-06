@@ -1,8 +1,21 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { withCreateMeta } from "./lib/syncMeta";
-import { selectBackfillRows } from "@kyarafit/design-system/domain/tierTransition";
-import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import {
+  DOWNGRADE_RETENTION_MS,
+  isCloudPurgeable,
+  selectBackfillRows,
+} from "@kyarafit/design-system/domain/tierTransition";
+import {
+  isPaidConvexTier,
+  normalizeConvexTier,
+} from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 
 /**
  * Tier-transition backend (DATA_AND_SYNC.md §10, REQ-D95/D96/D97).
@@ -167,3 +180,95 @@ export const backfillStatus = query({
     return counts;
   },
 });
+
+/**
+ * Delete every CLOUD row a user owns across the local-first tables. Operates only on Convex tables
+ * (the cloud mirror); it cannot and does not reach the client's on-device store. Returns the number
+ * of cloud rows removed.
+ */
+async function purgeUserCloudMirror(ctx: MutationCtx, userId: string): Promise<number> {
+  let deleted = 0;
+  for (const table of LOCAL_FIRST_TABLES) {
+    const rows = await userRowsInTable(ctx, table, userId);
+    for (const row of rows) {
+      await looseDb(ctx).delete(row._id);
+      deleted += 1;
+    }
+  }
+  return deleted;
+}
+
+/**
+ * REQ-D96/D97 — downgrade retention cron. Purges the CLOUD copies of local-first data for users who
+ * downgraded paid→free and have stayed free past the full retention window (grace + freeze + the rest
+ * of {@link DOWNGRADE_RETENTION_MS}). Registered daily in `convex/crons.ts`.
+ *
+ * SAFETY / SELECTION PREDICATE — a user is purged only when ALL hold:
+ *   1. `downgradedAt` is set and `now - downgradedAt >= DOWNGRADE_RETENTION_MS` (isCloudPurgeable) —
+ *      i.e. strictly past grace AND past freeze. Users in grace or freeze are never selected.
+ *   2. Their current tier is still FREE (a re-subscribe clears `downgradedAt` and sets tier back to
+ *      paid via `users.setTier`, so re-upgrading before the window elapses cancels the purge).
+ *   3. `cloudPurgedAt` is unset — makes the cron idempotent; an already-purged user is skipped, so a
+ *      second run deletes nothing.
+ * After purging, `cloudPurgedAt` is stamped and `downgradedAt` cleared so the user drops out of the
+ * candidate index.
+ *
+ * NEVER DELETES LOCAL DATA: this only touches Convex tables (the cloud mirror). The device store is a
+ * separate database Convex cannot reach — the invariant is structural, not a runtime check.
+ *
+ * Guards: bounded by `limit` per run; `dryRun` reports candidates + would-be deletions without
+ * mutating anything; `now` is injectable for deterministic tests (the cron passes none → Date.now()).
+ */
+export const purgeDowngradedCloudData = internalMutation({
+  args: {
+    now: v.optional(v.number()),
+    limit: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 500);
+    const dryRun = args.dryRun ?? false;
+    const cutoff = now - DOWNGRADE_RETENTION_MS;
+
+    // Coarse candidate scan via index: downgraded users whose downgrade is at/older than the cutoff.
+    const candidates = await ctx.db
+      .query("users")
+      .withIndex("by_downgradedAt", (q) => q.gt("downgradedAt", 0).lte("downgradedAt", cutoff))
+      .take(limit);
+
+    let usersPurged = 0;
+    let rowsDeleted = 0;
+    const purgedUserIds: string[] = [];
+
+    for (const user of candidates) {
+      // Defense in depth: re-verify each guard against the authoritative domain predicate + fields.
+      if (!isCloudPurgeable(user.downgradedAt, now)) continue;
+      if (normalizeConvexTier(user.tier) !== "FREE") continue;
+      if (user.cloudPurgedAt != null) continue;
+
+      if (dryRun) {
+        rowsDeleted += await countUserCloudMirror(ctx, user.externalId);
+        usersPurged += 1;
+        purgedUserIds.push(user.externalId);
+        continue;
+      }
+
+      rowsDeleted += await purgeUserCloudMirror(ctx, user.externalId);
+      await ctx.db.patch(user._id, { cloudPurgedAt: now, downgradedAt: undefined });
+      usersPurged += 1;
+      purgedUserIds.push(user.externalId);
+    }
+
+    return { usersPurged, rowsDeleted, dryRun, purgedUserIds };
+  },
+});
+
+/** Count (without deleting) a user's cloud-mirror rows — used by the cron's dryRun mode. */
+async function countUserCloudMirror(ctx: MutationCtx, userId: string): Promise<number> {
+  let total = 0;
+  for (const table of LOCAL_FIRST_TABLES) {
+    total += (await userRowsInTable(ctx, table, userId)).length;
+  }
+  return total;
+}
