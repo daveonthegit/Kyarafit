@@ -28,7 +28,7 @@ import { useTier } from "@/lib/api/useTier";
 describe("Settings Subscription page", () => {
   it("renders Subscription Plan heading", () => {
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 5, storageLimitMb: 50 },
+      data: { tier: "FREE", currentUsageMb: 5, storageLimitMb: 50, role: "user" },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
@@ -45,7 +45,7 @@ describe("Settings Subscription page", () => {
     // Spec (DATA_AND_SYNC.md §9): free = 0 cloud / unlimited local. The page must not assume a 50MB
     // free cloud cap.
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 0 },
+      data: { tier: "FREE", currentUsageMb: 10, storageLimitMb: 0, role: "user" },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
@@ -55,7 +55,7 @@ describe("Settings Subscription page", () => {
   it("should_present_cloud_sync_as_the_paid_upgrade", () => {
     // REQ-015 / REQ-091: cloud sync (work on any device, never lose data) is the paid value prop.
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0 },
+      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0, role: "user" },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
@@ -64,7 +64,7 @@ describe("Settings Subscription page", () => {
 
   it("renders back to settings link", () => {
     vi.mocked(useTier).mockReturnValue({
-      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0 },
+      data: { tier: "FREE", currentUsageMb: 0, storageLimitMb: 0, role: "user" },
       isLoading: false,
     });
     render(<SettingsSubscriptionPage />);
