@@ -12,10 +12,8 @@ import {
   isCloudPurgeable,
   selectBackfillRows,
 } from "@kyarafit/design-system/domain/tierTransition";
-import {
-  isPaidConvexTier,
-  normalizeConvexTier,
-} from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
 
 /**
  * Tier-transition backend (DATA_AND_SYNC.md §10, REQ-D95/D96/D97).
@@ -101,8 +99,9 @@ async function resolvePaidUserId(ctx: MutationCtx | QueryCtx): Promise<string> {
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", userId))
     .unique();
-  // REQ-D95: backfill is a paid, cloud feature — only runs for a user who is (newly) paid.
-  if (!isPaidConvexTier(user?.tier)) {
+  // REQ-D95: backfill is a paid, cloud feature — only runs for a user who is (newly) paid. Owners
+  // count as paid regardless of tier (role read from the DB row, never client input).
+  if (!hasPaidAccess(user?.tier, user?.role)) {
     throw new Error("Cloud backup requires an upgrade.");
   }
   return userId;

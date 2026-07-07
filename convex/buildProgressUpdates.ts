@@ -3,7 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { idempotentReplay, idempotentRecord } from "./lib/idempotency";
-import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
 import { sortProgressUpdates } from "@kyarafit/design-system/domain/mediaGallery";
 import { MAX_LENGTH, clampNumber, sanitizeOptional } from "./lib/validation";
 import { imageRefValidator } from "./lib/imageRef";
@@ -22,7 +22,8 @@ async function isPaidUser(ctx: MutationCtx, userId: string): Promise<boolean> {
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", userId))
     .unique();
-  return isPaidConvexTier(user?.tier);
+  // Owners count as paid regardless of tier (role read from the DB row, never client input).
+  return hasPaidAccess(user?.tier, user?.role);
 }
 
 /** The set of Convex `_storage` ids referenced by `cloud` `ImageRef`s on a doc's `imageRefs`. */

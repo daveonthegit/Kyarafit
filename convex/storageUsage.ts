@@ -5,7 +5,7 @@
  */
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { convexTierStorageLimitMb } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import { effectiveStorageLimitMb } from "@kyarafit/design-system/domain/accessPolicy";
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -53,7 +53,9 @@ export async function checkLimitAndAddUsage(
     .unique();
   if (!user) return;
 
-  const limitMb = convexTierStorageLimitMb(user.tier);
+  // Role-aware, enforced from the DB row: owners get the unlimited sentinel cap (never trusted from
+  // client input). Everyone else keeps their tier's bounded cap.
+  const limitMb = effectiveStorageLimitMb(user.tier, user.role);
   if (limitMb >= 0 && user.currentUsageMb + sizeMb > limitMb) {
     throw new Error(
       `Storage limit reached (${user.currentUsageMb.toFixed(1)} / ${limitMb} MB). Upgrade to upload more.`

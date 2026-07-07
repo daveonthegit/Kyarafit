@@ -3,10 +3,11 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
+import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
-  convexTierStorageLimitMb,
-  normalizeConvexTier,
-} from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+  effectiveConvexTier,
+  effectiveStorageLimitMb,
+} from "@kyarafit/design-system/domain/accessPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
 import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
 
@@ -210,9 +211,12 @@ export const getMe = query({
     if (!user) return null;
 
     return {
-      tier: normalizeConvexTier(user.tier),
+      // Role-aware effective values (server is the source of truth): an owner surfaces as the top paid
+      // tier with the unlimited storage cap, so client gating + admin UI both work off getMe.
+      tier: effectiveConvexTier(user.tier, user.role),
       currentUsageMb: user.currentUsageMb,
-      storageLimitMb: convexTierStorageLimitMb(user.tier),
+      storageLimitMb: effectiveStorageLimitMb(user.tier, user.role),
+      role: user.role ?? "user",
       // REQ-D96/D97: the client surfaces a non-blocking cloud-retention banner from this timestamp.
       // `null` = never downgraded (or re-subscribed) — the cloud is active and nothing is shown.
       downgradedAt: user.downgradedAt ?? null,
