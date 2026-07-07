@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
@@ -10,6 +10,10 @@ import {
 } from "@kyarafit/design-system/domain/accessPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
 import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
+import { requireOwner } from "./admin";
+
+/** Server-validated app-role values. The DB row (never client input) is the source of truth. */
+const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("owner"));
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -452,5 +456,83 @@ export const setTier = internalMutation({
 
     await ctx.db.patch(user._id, patch);
     return user._id;
+  },
+});
+
+/**
+ * CLI/bootstrap role setter (SECURITY-SENSITIVE). Runnable only from the server via
+ * `npx convex run users:setUserRole '{...}'` (internalMutation — not exposed to clients). Used to
+ * bootstrap the FIRST owner when no owner exists yet, and by system tooling.
+ *
+ * Finds the target by `externalId` (preferred) or `email` and sets `role`. The `role` arg is
+ * constrained by `roleValidator` so an invalid value is rejected before the handler runs.
+ */
+export const setUserRole = internalMutation({
+  args: {
+    externalId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    role: roleValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!args.externalId && !args.email) {
+      throw new Error("Provide externalId or email to identify the user");
+    }
+    const user = args.externalId
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId!))
+          .unique()
+      : await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", args.email!.trim()))
+          .unique();
+    if (!user) {
+      throw new Error("User not found");
+    }
+    await ctx.db.patch(user._id, { role: args.role });
+    return user._id;
+  },
+});
+
+/**
+ * Owner-only role grant/revoke (SECURITY-SENSITIVE). Gated by `requireOwner` — only a user whose DB
+ * row is `role === "owner"` may call it, so an owner can grant owner/admin/user to anyone (and revoke
+ * it). The caller's role is loaded server-side; the `role` arg is constrained by `roleValidator`.
+ *
+ * Identify the target by `targetUserId` (a `users` _id), `targetExternalId` (Better Auth subject), or
+ * `email`. Exactly one is required.
+ */
+export const grantRole = mutation({
+  args: {
+    targetUserId: v.optional(v.id("users")),
+    targetExternalId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    role: roleValidator,
+  },
+  handler: async (ctx, args) => {
+    // Authorize FIRST: only an owner may reach the rest of this handler.
+    await requireOwner(ctx);
+
+    let target: Doc<"users"> | null = null;
+    if (args.targetUserId) {
+      target = await ctx.db.get(args.targetUserId);
+    } else if (args.targetExternalId) {
+      target = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", args.targetExternalId!))
+        .unique();
+    } else if (args.email) {
+      target = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email!.trim()))
+        .unique();
+    } else {
+      throw new Error("Provide targetUserId, targetExternalId, or email to identify the user");
+    }
+    if (!target) {
+      throw new Error("Target user not found");
+    }
+    await ctx.db.patch(target._id, { role: args.role });
+    return target._id;
   },
 });
