@@ -202,6 +202,25 @@ describe("owner treated as paid in the publish gate", () => {
   });
 });
 
+describe("owner treated as paid in the backfill gate", () => {
+  it("should_let_an_owner_run_paid_only_backfillStatus", async () => {
+    const t = convexTest(schema, modules);
+    await seedUser(t, "owner1", "FREE", "owner");
+    const counts = await t
+      .withIdentity({ subject: "owner1" })
+      .query(api.tierTransition.backfillStatus, {});
+    expect(counts).toBeTruthy();
+  });
+
+  it("should_still_block_a_free_user_from_backfill", async () => {
+    const t = convexTest(schema, modules);
+    await seedUser(t, "free1", "FREE");
+    await expect(
+      t.withIdentity({ subject: "free1" }).query(api.tierTransition.backfillStatus, {})
+    ).rejects.toThrow(/upgrade/i);
+  });
+});
+
 describe("requireAdmin / requireOwner", () => {
   const broadcastArgs = {
     title: "Hello",
@@ -223,7 +242,9 @@ describe("requireAdmin / requireOwner", () => {
   it("should_accept_an_admin_for_an_admin_gated_mutation", async () => {
     const t = convexTest(schema, modules);
     await seedUser(t, "a1", "FREE", "admin");
-    const id = await t.withIdentity({ subject: "a1" }).mutation(api.broadcasts.create, broadcastArgs);
+    const id = await t
+      .withIdentity({ subject: "a1" })
+      .mutation(api.broadcasts.create, broadcastArgs);
     expect(id).toBeTruthy();
   });
 
