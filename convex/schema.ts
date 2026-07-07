@@ -49,8 +49,12 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     bio: v.optional(v.string()),
     profileVisibility: v.optional(v.string()),
-    /** App role; omit or `"user"` for normal users, `"admin"` for broadcast/admin APIs. */
-    role: v.optional(v.union(v.literal("user"), v.literal("admin"))),
+    /**
+     * App role; omit or `"user"` for normal users, `"admin"` for broadcast/admin APIs, `"owner"` for
+     * the unlimited/all-access privileged role (see `design-system/domain/accessPolicy.ts`). Enforced
+     * server-side from this row — never trusted from client input.
+     */
+    role: v.optional(v.union(v.literal("user"), v.literal("admin"), v.literal("owner"))),
   })
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])

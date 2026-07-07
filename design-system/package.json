@@ -22,6 +22,7 @@
     "./domain/offlinePlannerOverlay": "./domain/offlinePlannerOverlay.ts",
     "./domain/offlineBuildTreeOverlay": "./domain/offlineBuildTreeOverlay.ts",
     "./domain/subscriptionTierPolicy": "./domain/subscriptionTierPolicy.ts",
+    "./domain/accessPolicy": "./domain/accessPolicy.ts",
     "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
     "./domain/syncPolicy": "./domain/syncPolicy.ts",
     "./domain/cloudStoragePolicy": "./domain/cloudStoragePolicy.ts",

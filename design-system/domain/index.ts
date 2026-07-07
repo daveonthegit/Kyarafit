@@ -8,6 +8,7 @@ export * from "./entitlements";
 export * from "./offlineQueryCache";
 export * from "./offlineMutationQueue";
 export * from "./subscriptionTierPolicy";
+export * from "./accessPolicy";
 export * from "./subscriptionPlans";
 export * from "./imageRef";
 export * from "./imageUpload";
