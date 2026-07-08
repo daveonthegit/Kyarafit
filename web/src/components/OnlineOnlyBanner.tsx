@@ -10,11 +10,40 @@ import { useIsOnline } from "@/lib/useIsOnline";
  * cached content and never crashes — write controls remain the responsibility of the
  * surface, which should treat them as unavailable while this banner is shown.
  */
-export function OnlineOnlyBanner({ className = "" }: { className?: string }) {
+export function OnlineOnlyBanner({
+  className = "",
+  surface = "cream",
+}: {
+  className?: string;
+  /** "glass" = compact panel-header strip on glass surfaces (ref 12) */
+  surface?: "cream" | "glass";
+}) {
   const { isOnline, recheck } = useIsOnline();
   const t = useTranslations("Social");
 
   if (isOnline) return null;
+
+  if (surface === "glass") {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className={`flex items-center gap-3 rounded-[10px] border border-glass-border bg-glass-bar px-4 py-2.5 text-kyar-media-fg ${className}`.trim()}
+      >
+        <span className="material-symbols-outlined text-lg text-media-fg-55" aria-hidden>
+          cloud_off
+        </span>
+        <p className="min-w-0 flex-1 truncate text-[13px] text-media-fg-70">{t("offlineTitle")}</p>
+        <button
+          type="button"
+          onClick={recheck}
+          className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg border-b border-glass-border-strong pb-0.5 transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+        >
+          {t("retry")}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

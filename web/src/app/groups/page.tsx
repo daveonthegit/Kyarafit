@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
@@ -19,73 +19,148 @@ export default function GroupsPage() {
   const groups = groupsQuery ?? [];
   const isLoading = authLoading || (userId !== null && groupsQuery === undefined);
 
+  // Featured = most recent from the same list that fills the shelf (12c).
+  const featured: Doc<"groups"> | undefined = groups[0];
+
   return (
-    <WebAppShell>
-      <PageHeader title="Groups" subtitle="Coordinate with others" />
-      <OnlineOnlyBanner className="mt-4" />
-      <main className="flex-1 py-6">
-        {isLoading ? (
-          <EmptyState icon="hourglass_empty" message="Loading…" />
-        ) : groups.length === 0 ? (
-          <EmptyState
-            icon="group"
-            message="No groups yet."
-            secondary="Create a group to coordinate cosplays with others and pick which convention days you’re wearing them."
-            action={
+    <WebAppShell fullBleed>
+      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+        <PhotoBackdrop imageStorageId={featured?.imageStorageId} imageUrl={featured?.imageUrl} />
+
+        <div className="relative z-10 flex-1 flex flex-col w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-12 pb-6 min-h-0">
+          {/* Featured group (12c) */}
+          <section className="flex-1 min-w-0 max-w-[680px] lg:mt-4">
+            {featured ? (
+              <>
+                <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
+                  Your groups · {featured.visibility}
+                </span>
+                <h1 className="font-serif italic font-normal text-[40px] lg:text-[80px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
+                  {featured.name}
+                </h1>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link
+                    href={`/g/${featured._id}`}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-glass-solid px-[22px] py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                  >
+                    Open group
+                  </Link>
+                </div>
+              </>
+            ) : !isLoading ? (
+              <>
+                <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
+                  Groups
+                </span>
+                <h1 className="font-serif italic font-normal text-[40px] lg:text-[64px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
+                  Cosplay is better together.
+                </h1>
+              </>
+            ) : null}
+          </section>
+
+          {/* Your groups — bottom glass shelf (12c) */}
+          <section
+            className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
+            aria-label="Your groups"
+          >
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
+                Your groups · {groups.length}
+              </span>
+              <div className="flex-1" />
               <button
                 type="button"
                 onClick={() => openCreationModal("newGroup")}
-                className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-kyar-text px-6 py-2.5 rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               >
-                Create group
+                Create group ▸
               </button>
-            }
-          />
-        ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((group: Doc<"groups">) => (
-              <li key={group._id}>
-                <Link
-                  href={`/g/${group._id}`}
-                  className="block relative aspect-video w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all group/card"
-                >
-                  {group.imageStorageId ? (
-                    <ResolvedImage
-                      imageStorageId={group.imageStorageId}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-105"
-                    />
-                  ) : group.imageUrl ? (
-                    <img
-                      src={group.imageUrl}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-105"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover/card:scale-105">
-                      <span className="material-symbols-outlined text-6xl">group</span>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-kyar-media-scrim transition-colors duration-300" />
+            </div>
+            <OnlineOnlyBanner surface="glass" className="mb-3" />
 
-                  <div className="absolute inset-0 flex flex-col justify-end p-5 text-kyar-media-fg">
-                    <div className="flex justify-between items-end gap-2">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[9px] font-bold tracking-[0.2em] opacity-80 uppercase block mb-1">
-                          {group.visibility}
-                        </span>
-                        <h3 className="truncate font-serif text-2xl font-normal italic leading-none tracking-tight text-kyar-media-fg drop-shadow-md transition-opacity group-hover/card:opacity-90 lg:text-3xl">
-                          {group.name}
-                        </h3>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </main>
+            {isLoading ? (
+              <EmptyState surface="glass" icon="hourglass_empty" message="Loading…" />
+            ) : groups.length === 0 ? (
+              <EmptyState
+                surface="glass"
+                icon="group"
+                message="No groups yet."
+                secondary="Create a group to coordinate cosplays with others and pick which convention days you’re wearing them."
+              />
+            ) : null}
+
+            {!isLoading && (
+              <ul className="flex gap-3 overflow-x-auto no-scrollbar snap-x pb-1">
+                {groups.map((group: Doc<"groups">) => {
+                  const isFeatured = featured?._id === group._id;
+                  return (
+                    <li key={group._id} className="snap-start shrink-0 w-[200px]">
+                      <Link
+                        href={`/g/${group._id}`}
+                        className={`relative block h-[150px] w-full overflow-hidden rounded-[10px] bg-glass-active transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                          isFeatured
+                            ? "outline outline-[1.5px] -outline-offset-[1.5px] outline-glass-border-strong"
+                            : ""
+                        }`}
+                        aria-label={`Open ${group.name}`}
+                      >
+                        {group.imageStorageId ? (
+                          <ResolvedImage
+                            imageStorageId={group.imageStorageId}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                            aria-hidden
+                          />
+                        ) : group.imageUrl ? (
+                          <img
+                            src={group.imageUrl}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className="absolute inset-0 flex items-center justify-center bg-studio-wall text-media-fg-45">
+                            <span className="material-symbols-outlined text-4xl" aria-hidden>
+                              group
+                            </span>
+                          </span>
+                        )}
+                        <div className="absolute inset-0 bg-kyar-media-scrim" aria-hidden />
+                        <div className="absolute left-0 right-0 bottom-0 p-2.5">
+                          <span className="block text-[9px] font-bold uppercase tracking-[0.16em] opacity-70 mb-0.5">
+                            {group.visibility}
+                          </span>
+                          <span className="block font-serif italic text-[16px] leading-tight truncate">
+                            {group.name}
+                          </span>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {userId && (
+                  <li className="snap-start shrink-0 w-[200px]">
+                    <button
+                      type="button"
+                      onClick={() => openCreationModal("newGroup")}
+                      className="flex h-[150px] w-full flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-kyar-media-ring text-media-fg-70 hover:text-kyar-media-fg hover:border-glass-border-strong transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                      aria-label="Create group"
+                    >
+                      <span className="material-symbols-outlined text-2xl" aria-hidden>
+                        add
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.16em]">
+                        Create group
+                      </span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>
     </WebAppShell>
   );
 }
