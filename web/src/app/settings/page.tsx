@@ -7,8 +7,6 @@ import { useTranslations } from "next-intl";
 import { useTier } from "@/lib/api/useTier";
 import { useFeatureAccess } from "@/lib/api/useTier";
 import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { SectionCard } from "@/components/ui/SectionCard";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { SignOutConfirmDialog } from "@/components/settings/SignOutConfirmDialog";
@@ -23,6 +21,31 @@ const menuItems: { labelKey: string; href: string }[] = [
   { labelKey: "notificationStyle", href: "/settings/notifications" },
   { labelKey: "dataManagement", href: "/settings/data" },
 ];
+
+function SegmentButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`min-h-[44px] rounded-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+        active
+          ? "bg-glass-solid text-glass-ink"
+          : "border border-glass-border-strong text-kyar-media-fg opacity-60 hover:opacity-90"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export default function Settings() {
   const router = useRouter();
@@ -53,173 +76,185 @@ export default function Settings() {
   };
 
   return (
-    <WebAppShell>
-      <PageHeader
-        title={t("title")}
-        subtitle={t("systemPreferences")}
-        trailing={
+    <WebAppShell fullBleed>
+      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+        <div className="absolute inset-0 bg-studio-wall" aria-hidden />
+
+        <div className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-6 flex items-center gap-4">
           <Link
             href="/home"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
             aria-label={t("backToHome")}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 hover:text-kyar-media-fg hover:bg-glass-active transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             <span className="material-symbols-outlined font-light text-2xl" aria-hidden>
               arrow_back
             </span>
           </Link>
-        }
-      />
+        </div>
 
-      <main className="flex-1 space-y-6 pb-24 lg:pb-8">
-        {!isLoading && tier && (
-          <SectionCard title={t("backupStorage")}>
-            {tier.storageLimitMb >= 0 && (
-              <div className="py-3 border-b border-kyar-cardBorder">
-                <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
-                  {t("storage")}
-                </p>
-                <p className="text-sm text-kyar-text">
-                  {t("storageOf", {
-                    used: formatStorageMb(tier.currentUsageMb),
-                    limit: formatStorageMb(tier.storageLimitMb),
-                  })}
-                </p>
-              </div>
-            )}
-            {tier.storageLimitMb === -1 && (
-              <div className="py-3 border-b border-kyar-cardBorder">
-                <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-1">
-                  {t("storage")}
-                </p>
-                <p className="text-sm text-kyar-text">
-                  {t("storageUsedUnlimited", {
-                    used: formatStorageMb(tier.currentUsageMb),
-                  })}
-                </p>
-              </div>
-            )}
-            {showUpgradePrompt && (
-              <UpgradePrompt
-                message={t("upgradeForSync")}
-                linkText={t("viewPlan")}
-                className="mt-4"
-              />
-            )}
-          </SectionCard>
-        )}
-        <SectionCard title={t("profileIdentity")}>
-          <div className="mb-5 pb-5 border-b border-kyar-cardBorder">
-            <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">
-              {tTheme("appearance")}
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {(["system", "light", "dark"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setPreference(mode)}
-                  className={`min-h-[44px] px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-                    preference === mode
-                      ? "bg-kyar-text text-kyar-bg border-kyar-text shadow-md"
-                      : "bg-kyar-surface text-kyar-text border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted"
-                  }`}
-                  aria-pressed={preference === mode}
-                >
-                  {tTheme(mode)}
-                </button>
-              ))}
+        <main className="relative z-10 mx-auto mb-16 mt-4 w-full max-w-[600px] px-4 sm:px-6 flex-1">
+          {/* ONE glass work panel (11a) */}
+          <div className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
+            <div className="px-6 py-5 sm:px-8 border-b border-glass-divider-strong">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-2">
+                {t("systemPreferences")}
+              </span>
+              <h1 className="font-serif italic text-[30px] font-normal tracking-[-0.01em]">
+                {t("title")}
+              </h1>
             </div>
-          </div>
-          <div className="mb-5">
-            <p className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-3">
-              {t("language")}
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {SUPPORTED_LOCALES.map((loc) => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => setLocale(loc as SupportedLocale)}
-                  className={`min-h-[44px] px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-                    locale === loc
-                      ? "bg-kyar-text text-kyar-bg border-kyar-text shadow-md"
-                      : "bg-kyar-surface text-kyar-text border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted"
-                  }`}
-                  aria-pressed={locale === loc}
-                >
-                  {tLang(loc)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <ul className="divide-y divide-kyar-cardBorder" role="list">
-            {menuItems.map(({ labelKey, href }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className="flex justify-between items-center min-h-[44px] py-3 -mx-2 px-2 rounded-xl hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
-                >
-                  <span className="text-[11px] uppercase tracking-widest font-medium text-kyar-text">
-                    {t(labelKey)}
-                  </span>
-                  <span
-                    className="material-symbols-outlined text-sm text-kyar-textTertiary"
-                    aria-hidden
+
+            {!isLoading && tier && (
+              <section className="px-6 py-5 sm:px-8 border-b border-glass-divider-strong">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">
+                  {t("backupStorage")}
+                </span>
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55 mb-1">
+                  {t("storage")}
+                </span>
+                {tier.storageLimitMb >= 0 ? (
+                  <p className="text-sm tabular-nums">
+                    {t("storageOf", {
+                      used: formatStorageMb(tier.currentUsageMb),
+                      limit: formatStorageMb(tier.storageLimitMb),
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-sm tabular-nums">
+                    {t("storageUsedUnlimited", {
+                      used: formatStorageMb(tier.currentUsageMb),
+                    })}
+                  </p>
+                )}
+                {showUpgradePrompt && (
+                  <UpgradePrompt
+                    surface="glass"
+                    message={t("upgradeForSync")}
+                    linkText={t("viewPlan")}
+                    className="mt-4"
+                  />
+                )}
+              </section>
+            )}
+
+            <section className="px-6 py-5 sm:px-8 border-b border-glass-divider-strong">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">
+                {t("profileIdentity")}
+              </span>
+              <div className="mb-5">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55 mb-3">
+                  {tTheme("appearance")}
+                </span>
+                <div className="flex gap-2 flex-wrap">
+                  {(["system", "light", "dark"] as const).map((mode) => (
+                    <SegmentButton
+                      key={mode}
+                      active={preference === mode}
+                      label={tTheme(mode)}
+                      onClick={() => setPreference(mode)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="mb-5">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55 mb-3">
+                  {t("language")}
+                </span>
+                <div className="flex gap-2 flex-wrap">
+                  {SUPPORTED_LOCALES.map((loc) => (
+                    <SegmentButton
+                      key={loc}
+                      active={locale === loc}
+                      label={tLang(loc)}
+                      onClick={() => setLocale(loc as SupportedLocale)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <ul
+                className="border-t border-glass-divider divide-y divide-glass-divider"
+                role="list"
+              >
+                {menuItems.map(({ labelKey, href }) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className="flex min-h-[44px] items-center justify-between py-3 -mx-2 px-2 rounded-[10px] transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                    >
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                        {t(labelKey)}
+                      </span>
+                      <span className="material-symbols-outlined text-base opacity-50" aria-hidden>
+                        chevron_right
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="px-6 py-5 sm:px-8 border-b border-glass-divider-strong">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-2">
+                {t("legalAndPolicies")}
+              </span>
+              <p className="text-xs text-media-fg-55 mb-4">{t("legalAndPoliciesSubtitle")}</p>
+              <ul className="space-y-1" role="list">
+                <li>
+                  <Link
+                    href="/terms"
+                    className="inline-flex min-h-[44px] items-center text-[11px] font-semibold uppercase tracking-[0.14em] text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
                   >
-                    chevron_right
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-        <SectionCard title={t("legalAndPolicies")}>
-          <p className="text-xs text-kyar-textSecondary mb-4">{t("legalAndPoliciesSubtitle")}</p>
-          <ul className="space-y-1" role="list">
-            <li>
-              <Link
-                href="/terms"
-                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+                    <span className="border-b border-glass-border-strong pb-0.5">
+                      {t("termsOfService")}
+                    </span>
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/privacy"
+                    className="inline-flex min-h-[44px] items-center text-[11px] font-semibold uppercase tracking-[0.14em] text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+                  >
+                    <span className="border-b border-glass-border-strong pb-0.5">
+                      {t("privacyPolicy")}
+                    </span>
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    href="mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
+                    className="inline-flex min-h-[44px] items-center text-[11px] font-semibold uppercase tracking-[0.14em] text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+                  >
+                    <span className="border-b border-glass-border-strong pb-0.5">
+                      {t("securitySupport")}
+                    </span>
+                  </a>
+                </li>
+              </ul>
+            </section>
+
+            <div className="px-6 py-5 sm:px-8">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="min-h-[44px] inline-flex items-center rounded-full border border-on-glass-danger/60 px-6 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger transition-colors hover:bg-on-glass-danger/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
               >
-                {t("termsOfService")}
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/privacy"
-                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
-              >
-                {t("privacyPolicy")}
-              </Link>
-            </li>
-            <li>
-              <a
-                href="mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
-                className="inline-flex min-h-[44px] items-center text-[11px] font-medium uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
-              >
-                {t("securitySupport")}
-              </a>
-            </li>
-          </ul>
-        </SectionCard>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="min-h-[44px] inline-flex items-center text-[10px] uppercase tracking-widest font-bold text-kyar-danger rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 hover:bg-kyar-danger/10 px-6 py-2 transition-colors border border-transparent hover:border-kyar-danger/25"
-        >
-          {t("signOut")}
-        </button>
-      </main>
-      {showSignOutWarning && (
-        <SignOutConfirmDialog
-          title={t("signOutConfirmTitle")}
-          description={t("signOutExportWarning")}
-          confirmLabel={t("signOutConfirm")}
-          cancelLabel={t("signOutCancel")}
-          onConfirm={() => void performSignOut()}
-          onCancel={() => setShowSignOutWarning(false)}
-        />
-      )}
+                {t("signOut")}
+              </button>
+            </div>
+          </div>
+        </main>
+
+        {showSignOutWarning && (
+          <SignOutConfirmDialog
+            title={t("signOutConfirmTitle")}
+            description={t("signOutExportWarning")}
+            confirmLabel={t("signOutConfirm")}
+            cancelLabel={t("signOutCancel")}
+            onConfirm={() => void performSignOut()}
+            onCancel={() => setShowSignOutWarning(false)}
+          />
+        )}
+      </div>
     </WebAppShell>
   );
 }

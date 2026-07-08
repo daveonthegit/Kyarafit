@@ -38,7 +38,7 @@ export function SignOutConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-kyar-text/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim-dim backdrop-blur-[6px] p-4"
       onClick={onCancel}
     >
       <div
@@ -46,23 +46,23 @@ export function SignOutConfirmDialog({
         aria-modal="true"
         aria-labelledby="sign-out-dialog-title"
         aria-describedby="sign-out-dialog-description"
-        className="w-full max-w-md rounded-sm border border-kyar-cardBorder bg-kyar-surface p-6 shadow-lg"
+        className="w-full max-w-md rounded-glass-overlay bg-glass-overlay-on-wall backdrop-blur-glass-overlay border border-glass-border-overlay shadow-glass-overlay text-kyar-media-fg p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <h2
           id="sign-out-dialog-title"
-          className="text-sm font-semibold uppercase tracking-widest text-kyar-text"
+          className="text-[11px] font-bold uppercase tracking-[0.16em]"
         >
           {title}
         </h2>
-        <p id="sign-out-dialog-description" className="mt-3 text-sm text-kyar-textSecondary">
+        <p id="sign-out-dialog-description" className="mt-3 text-sm text-media-fg-70">
           {description}
         </p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[44px] rounded-full border border-kyar-borderSubtle bg-kyar-surface px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar px-6 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             {cancelLabel}
           </button>
@@ -70,7 +70,7 @@ export function SignOutConfirmDialog({
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className="min-h-[44px] rounded-full border border-kyar-danger px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-danger transition-colors hover:bg-kyar-danger/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="min-h-[44px] rounded-full border border-on-glass-danger px-6 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger transition-colors hover:bg-on-glass-danger/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             {confirmLabel}
           </button>

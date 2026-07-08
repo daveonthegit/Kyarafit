@@ -9,6 +9,8 @@ export interface UpgradePromptProps {
   linkHref?: string;
   /** Link label. Defaults to "View plan". */
   linkText?: string;
+  /** "glass" = panel-header strip on glass surfaces (icon + text + underline action) */
+  surface?: "cream" | "glass";
   /** Optional class name for the container. */
   className?: string;
 }
@@ -21,8 +23,30 @@ export function UpgradePrompt({
   message,
   linkHref = "/settings/subscription",
   linkText = "View plan",
+  surface = "cream",
   className = "",
 }: UpgradePromptProps) {
+  if (surface === "glass") {
+    return (
+      <div
+        className={`flex items-center gap-3 rounded-[10px] border border-glass-border bg-glass-bar px-4 py-3 text-kyar-media-fg ${className}`}
+        role="region"
+        aria-label="Upgrade prompt"
+      >
+        <span className="material-symbols-outlined text-lg text-media-fg-55" aria-hidden>
+          cloud_upload
+        </span>
+        <p className="min-w-0 flex-1 text-[13px] text-media-fg-70">{message}</p>
+        <Link
+          href={linkHref}
+          className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg border-b border-glass-border-strong pb-0.5 transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+        >
+          {linkText}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`rounded-sm border border-kyar-borderSubtle bg-kyar-muted p-4 ${className}`}

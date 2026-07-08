@@ -1,16 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { ExportableRow } from "@kyarafit/design-system/domain/importExport";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { SectionCard } from "@/components/ui/SectionCard";
-import { WebAppShell } from "@/components/layout/WebAppShell";
+import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { readLocalCollections } from "@/lib/localFirstData";
 import {
   buildDataBundle,
@@ -180,41 +177,31 @@ export default function SettingsDataPage() {
   );
 
   return (
-    <WebAppShell>
-      <PageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-        trailing={
-          <Link
-            href="/settings"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
-            aria-label={t("backToSettings")}
-          >
-            <span className="material-symbols-outlined font-light text-2xl" aria-hidden>
-              arrow_back
-            </span>
-          </Link>
-        }
-      />
-
-      <main className="flex-1 space-y-6 pb-24 lg:pb-8">
-        <SectionCard title={t("exportTitle")}>
-          <p className="text-sm leading-6 text-kyar-textSecondary">{t("exportDescription")}</p>
-          <p className="mt-2 text-[11px] uppercase tracking-widest text-kyar-textTertiary">
+    <SettingsGlassShell eyebrow={t("subtitle")} title={t("title")} backLabel={t("backToSettings")}>
+      <div className="space-y-8">
+        <section>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">
+            {t("exportTitle")}
+          </span>
+          <p className="text-sm leading-6 text-media-fg-70">{t("exportDescription")}</p>
+          <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
             {isLoading ? t("loading") : t("itemCount", { count: totalRows })}
           </p>
           <button
             type="button"
             onClick={handleExport}
             disabled={isLoading}
-            className="mt-4 min-h-[44px] inline-flex items-center px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold bg-kyar-text text-kyar-bg border border-kyar-text shadow-md hover:bg-kyar-text/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-4 min-h-[44px] inline-flex items-center rounded-full bg-glass-solid px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("exportButton")}
           </button>
-        </SectionCard>
+        </section>
 
-        <SectionCard title={t("importTitle")}>
-          <p className="text-sm leading-6 text-kyar-textSecondary">{t("importDescription")}</p>
+        <section className="border-t border-glass-divider-strong pt-6">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">
+            {t("importTitle")}
+          </span>
+          <p className="text-sm leading-6 text-media-fg-70">{t("importDescription")}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -228,14 +215,14 @@ export default function SettingsDataPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={importStatus.kind === "importing"}
-            className="mt-4 min-h-[44px] inline-flex items-center px-6 py-2.5 rounded-full text-[10px] uppercase tracking-widest font-bold bg-kyar-surface text-kyar-text border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-4 min-h-[44px] inline-flex items-center rounded-full border border-glass-border-strong bg-glass-bar px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importStatus.kind === "importing" ? t("importing") : t("importButton")}
           </button>
 
           <div aria-live="polite" className="mt-4 min-h-[1.25rem]">
             {importStatus.kind === "done" && (
-              <p className="text-sm text-kyar-text" data-testid="import-summary">
+              <p className="text-sm" data-testid="import-summary">
                 {t("importSummary", {
                   added: importStatus.added,
                   skipped: importStatus.skipped,
@@ -243,13 +230,13 @@ export default function SettingsDataPage() {
               </p>
             )}
             {importStatus.kind === "error" && (
-              <p className="text-sm text-kyar-danger" role="alert" data-testid="import-error">
+              <p className="text-sm text-on-glass-danger" role="alert" data-testid="import-error">
                 {importStatus.reason}
               </p>
             )}
           </div>
-        </SectionCard>
-      </main>
-    </WebAppShell>
+        </section>
+      </div>
+    </SettingsGlassShell>
   );
 }
