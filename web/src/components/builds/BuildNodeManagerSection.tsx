@@ -155,11 +155,11 @@ export function BuildNodeManagerSection({
   if (roots.length === 0 && !searchNeedle) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-dashed border-kyar-borderSubtle bg-kyar-surface px-5 py-12 text-center">
-          <span className="material-symbols-outlined mb-3 block text-3xl text-kyar-textTertiary">
+        <div className="rounded-glass border border-dashed border-kyar-media-ring px-5 py-12 text-center text-kyar-media-fg">
+          <span className="material-symbols-outlined mb-3 block text-3xl text-media-fg-45">
             account_tree
           </span>
-          <p className="text-sm text-kyar-textSecondary">
+          <p className="text-sm text-media-fg-70">
             No linked elements yet. Add a main element or link an existing element to start
             building.
           </p>
@@ -167,7 +167,7 @@ export function BuildNodeManagerSection({
             <button
               type="button"
               onClick={onCreateRoot}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-kyar-text px-4 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-bg"
+              className="inline-flex items-center gap-1.5 rounded-full bg-glass-solid px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90 transition-opacity"
             >
               <span className="material-symbols-outlined text-base">add</span>
               New main element
@@ -175,7 +175,7 @@ export function BuildNodeManagerSection({
             <button
               type="button"
               onClick={onOpenLinkNodes}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-kyar-borderSubtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-text"
+              className="inline-flex items-center gap-1.5 rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg hover:bg-glass-active transition-colors"
             >
               <span className="material-symbols-outlined text-base">link</span>
               Link existing
@@ -188,7 +188,7 @@ export function BuildNodeManagerSection({
 
   return (
     <div className="space-y-0">
-      <div className="overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft">
+      <div className="overflow-hidden rounded-[10px] border border-glass-divider text-kyar-media-fg">
         {/* Toolbar */}
         <BuildExplorerToolbar
           search={search}
@@ -208,7 +208,7 @@ export function BuildNodeManagerSection({
         />
 
         {/* Layout: unified recursive tree + optional desktop panel */}
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-kyar-borderSubtle">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-glass-divider">
           {/* Main content area */}
           <div className="min-w-0">
             {/* Root drop zone during drag */}
@@ -218,10 +218,10 @@ export function BuildNodeManagerSection({
                   type="button"
                   data-root-drop-zone="true"
                   className={[
-                    "flex w-full items-center justify-center rounded-lg border border-dashed px-3 py-2.5 text-[10px] uppercase tracking-widest transition-colors",
+                    "flex w-full items-center justify-center rounded-lg border px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] transition-colors",
                     drag.dragOverNodeId === "__root__"
-                      ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                      : "border-kyar-borderSubtle text-kyar-textTertiary",
+                      ? "border-glass-border-strong bg-glass-active text-kyar-media-fg"
+                      : "border-glass-border text-media-fg-55",
                   ].join(" ")}
                 >
                   {drag.dragOverNodeId === "__root__"
@@ -244,7 +244,7 @@ export function BuildNodeManagerSection({
             </div>
 
             {/* Status footer */}
-            <div className="hidden items-center gap-4 border-t border-kyar-borderSubtle bg-kyar-bg px-4 py-2 text-[10px] tabular-nums text-kyar-textTertiary md:flex">
+            <div className="font-explorer-mono hidden items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
               <span>
                 {searchNeedle
                   ? `${roots.length} match${roots.length === 1 ? "" : "es"}`
@@ -259,7 +259,7 @@ export function BuildNodeManagerSection({
           {/* Desktop side panel (persistent detail sheet) */}
           <div className="hidden min-w-0 lg:block">
             {sheetOpen && selectedDetail && selected ? (
-              <div className="h-full overflow-y-auto bg-kyar-surface">
+              <div className="h-full overflow-y-auto">
                 <BuildNodeDetailSheet
                   detail={selectedDetail}
                   selected={selected}
@@ -274,7 +274,7 @@ export function BuildNodeManagerSection({
                 />
               </div>
             ) : (
-              <div className="flex min-h-[320px] items-center justify-center p-5 text-center text-sm text-kyar-textTertiary">
+              <div className="flex min-h-[320px] items-center justify-center p-5 text-center text-sm text-media-fg-55">
                 Select an element to view details
               </div>
             )}

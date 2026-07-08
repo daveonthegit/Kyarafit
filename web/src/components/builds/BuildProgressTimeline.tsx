@@ -91,8 +91,10 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
   return (
     <section aria-labelledby="build-progress-heading" className="space-y-8">
       <div>
-        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">Timeline</p>
-        <h2 id="build-progress-heading" className="mt-2 font-serif text-2xl text-kyar-text">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+          Timeline
+        </p>
+        <h2 id="build-progress-heading" className="mt-2 font-serif italic text-2xl">
           Progress updates
         </h2>
       </div>
@@ -100,12 +102,12 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
       <form
         onSubmit={handleSubmit}
         aria-label="Add progress update"
-        className="space-y-4 rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-5"
+        className="space-y-4 rounded-glass border border-glass-border bg-glass-active p-5"
       >
         <div>
           <label
             htmlFor="progress-note"
-            className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary"
+            className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55"
           >
             Note
           </label>
@@ -115,14 +117,14 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="What progress did you make?"
-            className="w-full resize-y rounded-lg border border-kyar-border bg-transparent px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="glass-field w-full resize-y px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-kyar-accent"
           />
         </div>
 
         <div>
           <label
             htmlFor="progress-percent"
-            className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary"
+            className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55"
           >
             Progress % (optional)
           </label>
@@ -134,17 +136,17 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
             value={progressPercent}
             onChange={(e) => setProgressPercent(e.target.value)}
             placeholder="0–100"
-            className="w-32 min-h-[44px] rounded-lg border border-kyar-border bg-transparent px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="glass-field w-32 min-h-[44px] px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-kyar-accent"
           />
         </div>
 
         {canPublish ? (
-          <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-kyar-text">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm">
             <input
               type="checkbox"
               checked={publishWanted}
               onChange={(e) => setPublishWanted(e.target.checked)}
-              className="h-4 w-4 focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              className="h-4 w-4 accent-kyar-media-fg focus-visible:ring-2 focus-visible:ring-kyar-accent"
             />
             <span>Publish to feed</span>
           </label>
@@ -152,15 +154,15 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
           <div
             role="note"
             aria-label="Publishing requires a paid plan"
-            className="rounded-lg border border-kyar-borderSubtle bg-kyar-muted p-4"
+            className="rounded-[10px] border border-glass-border bg-glass-bar p-4"
           >
-            <p className="mb-2 text-sm text-kyar-text">
+            <p className="mb-2 text-sm text-media-fg-70">
               Publishing a progress update to the public feed is a paid feature. Your update is
               still saved privately to this build&apos;s timeline.
             </p>
             <Link
               href="/settings/subscription"
-              className="inline-flex min-h-[44px] items-center rounded-sm text-[11px] font-semibold uppercase tracking-widest text-kyar-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+              className="inline-flex min-h-[44px] items-center rounded-sm text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg border-b border-glass-border-strong hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
             >
               Upgrade to publish
             </Link>
@@ -168,7 +170,7 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
         )}
 
         {error ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-on-glass-danger">
             {error}
           </p>
         ) : null}
@@ -176,46 +178,49 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
         <button
           type="submit"
           disabled={submitting || !userId}
-          className="min-h-[44px] w-full rounded-sm bg-kyar-text px-4 py-3 text-xs font-bold uppercase tracking-widest text-kyar-bg transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 disabled:opacity-50"
+          className="min-h-[44px] w-full rounded-full bg-glass-solid px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50"
         >
           {submitting ? "Adding…" : "Add update"}
         </button>
       </form>
 
       {isLoading ? (
-        <p className="text-sm text-kyar-textTertiary">Loading progress updates…</p>
+        <p className="text-sm text-media-fg-55">Loading progress updates…</p>
       ) : updates.length === 0 ? (
-        <div className="rounded-[24px] border border-dashed border-kyar-borderSubtle bg-kyar-surface p-8 text-center">
-          <p className="font-serif text-lg text-kyar-text">No progress updates yet</p>
-          <p className="mt-2 text-sm text-kyar-textTertiary">
+        <div className="rounded-glass border border-glass-border p-8 text-center">
+          <p className="font-serif italic text-lg">No progress updates yet</p>
+          <p className="mt-2 text-sm text-media-fg-55">
             Add your first update above to start a dated timeline of your build.
           </p>
         </div>
       ) : (
         <ol className="space-y-6">
           {updates.map((update) => (
-            <li key={update.id} className="border-l-2 border-kyar-text/20 pl-5">
+            <li
+              key={update.id}
+              className="relative border-l-2 border-[rgb(255_253_248/0.2)] pl-5 before:absolute before:-left-[5px] before:top-1.5 before:h-2 before:w-2 before:rounded-full before:bg-kyar-media-fg"
+            >
               <div className="flex flex-wrap items-baseline gap-3">
                 <time
                   dateTime={new Date(update.createdAt).toISOString()}
-                  className="text-[11px] font-medium uppercase tracking-widest text-kyar-textTertiary"
+                  className="text-[10px] font-semibold uppercase tracking-[0.16em] text-media-fg-55"
                 >
                   {formatUpdateDate(update.createdAt)}
                 </time>
                 {typeof update.progressPercent === "number" ? (
-                  <span className="rounded-full border border-kyar-borderSubtle px-2 py-0.5 text-[10px] uppercase tracking-widest text-kyar-text">
+                  <span className="rounded-full bg-on-glass-chip-neutral-bg px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg">
                     {update.progressPercent}%
                   </span>
                 ) : null}
                 {update.publishedToFeed ? (
-                  <span className="rounded-full border border-kyar-accent/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-kyar-accent">
+                  <span className="rounded-full bg-on-glass-chip-done-bg px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-on-glass-chip-done-fg">
                     Published
                   </span>
                 ) : null}
               </div>
 
               {update.note ? (
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-kyar-textSecondary">
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-media-fg-70">
                   {update.note}
                 </p>
               ) : null}

@@ -114,7 +114,7 @@ function TreeNode({
         onOverflowMenu={onOverflowMenu}
       />
       {expanded && hasChildren ? (
-        <div className="ml-5 border-l border-kyar-borderSubtle pl-1">
+        <div className="ml-5 border-l border-glass-divider-strong pl-1">
           {children.map((child, index) => {
             const childMeta: NodeSelectionMeta = {
               nodeId: child._id,

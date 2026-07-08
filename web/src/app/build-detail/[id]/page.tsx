@@ -6,11 +6,11 @@ import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
+import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { WorkflowTree } from "@/components/builds/WorkflowTree";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ClosetCarouselCardContent } from "@/components/ui/closet-items-carousel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
@@ -295,30 +295,42 @@ export default function BuildDetailPage() {
 
   if (!id) {
     return (
-      <WebAppShell>
-        <p className="meta-label pt-12">Missing build id.</p>
-        <Link href="/builds" className="mt-4 text-sm underline">
-          Back to Builds
-        </Link>
+      <WebAppShell fullBleed>
+        <div className="relative flex-1 bg-studio-wall text-kyar-media-fg px-6 lg:px-10">
+          <p className="pt-12 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+            Missing build id.
+          </p>
+          <Link href="/builds" className="mt-4 inline-block text-sm underline">
+            Back to Builds
+          </Link>
+        </div>
       </WebAppShell>
     );
   }
 
   if (build === undefined) {
     return (
-      <WebAppShell>
-        <p className="meta-label pt-12">Loading...</p>
+      <WebAppShell fullBleed>
+        <div className="relative flex-1 bg-studio-wall text-kyar-media-fg px-6 lg:px-10">
+          <p className="pt-12 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+            Loading...
+          </p>
+        </div>
       </WebAppShell>
     );
   }
 
   if (!build) {
     return (
-      <WebAppShell>
-        <p className="meta-label pt-12">Build not found.</p>
-        <Link href="/builds" className="mt-4 text-sm underline">
-          Back to Builds
-        </Link>
+      <WebAppShell fullBleed>
+        <div className="relative flex-1 bg-studio-wall text-kyar-media-fg px-6 lg:px-10">
+          <p className="pt-12 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+            Build not found.
+          </p>
+          <Link href="/builds" className="mt-4 inline-block text-sm underline">
+            Back to Builds
+          </Link>
+        </div>
       </WebAppShell>
     );
   }
@@ -334,601 +346,576 @@ export default function BuildDetailPage() {
   };
 
   const daysRemaining = getDaysRemaining(build.targetDate);
-  const detailFrameClass = "mx-auto w-full max-w-3xl xl:max-w-5xl 2xl:max-w-6xl";
+  const detailFrameClass = "w-full";
 
   return (
-    <WebAppShell>
-      <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-kyar-borderSubtle bg-kyar-bg/95 pb-4 pt-12 backdrop-blur-md">
-        <Link href="/builds" aria-label="Back to builds">
-          <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
-        </Link>
-        <span className="flex-1 truncate text-[11px] uppercase tracking-widest text-kyar-textTertiary">
-          {build.name}
-        </span>
-        {!isEditing ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("summary")}
-              className="p-1 text-kyar-textTertiary transition-colors hover:text-kyar-accent"
-              aria-label="Open build summary tab"
-            >
-              <span className="material-symbols-outlined font-light text-[22px]">summarize</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setNotesModalOpen(true)}
-              className="p-1 text-kyar-textTertiary transition-colors hover:text-kyar-accent"
-              aria-label="Open build notes"
-            >
-              <span className="material-symbols-outlined font-light text-[22px]">description</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="p-1 text-kyar-textTertiary transition-colors hover:text-kyar-accent"
-              aria-label="Edit build"
-            >
-              <span className="material-symbols-outlined font-light text-[22px]">edit</span>
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsEditing(false)}
-            className="text-[10px] font-bold uppercase tracking-widest text-kyar-textTertiary hover:text-kyar-text"
+    <WebAppShell fullBleed>
+      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+        <PhotoBackdrop
+          imageStorageId={build.imageStorageId}
+          imageUrl={build.imageUrl}
+          scrimRight="strong"
+          objectPosition={
+            build.imageFocalX != null && build.imageFocalY != null
+              ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
+              : undefined
+          }
+        />
+
+        <div className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-6 flex items-center gap-4">
+          <Link
+            href="/builds"
+            aria-label="Back to builds"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 hover:text-kyar-media-fg hover:bg-glass-active transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
-            Cancel
-          </button>
-        )}
-      </header>
-
-      <main className="mx-auto mb-16 mt-6 w-full max-w-[1600px] px-4 sm:px-6 lg:px-8">
-        {isEditing ? (
-          <div className="mx-auto max-w-3xl space-y-12">
-            <div className="border-b border-kyar-borderSubtle pb-8 text-center">
-              <h1 className="font-serif text-4xl tracking-tight text-kyar-text">Edit Project</h1>
-              <p className="text-sm uppercase tracking-widest text-kyar-textTertiary">
-                Settings &amp; Metadata
-              </p>
+            <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
+          </Link>
+          <span className="flex-1 truncate text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-70">
+            The archive ▸ {build.name}
+            {build.character ? ` · ${build.character}` : ""}
+          </span>
+          {!isEditing ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("summary")}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 transition-colors hover:text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                aria-label="Open build summary tab"
+              >
+                <span className="material-symbols-outlined font-light text-[22px]">summarize</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotesModalOpen(true)}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 transition-colors hover:text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                aria-label="Open build notes"
+              >
+                <span className="material-symbols-outlined font-light text-[22px]">
+                  description
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 transition-colors hover:text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                aria-label="Edit build"
+              >
+                <span className="material-symbols-outlined font-light text-[22px]">edit</span>
+              </button>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70 hover:text-kyar-media-fg"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
 
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-[240px_1fr] lg:gap-16">
-              <div className="space-y-4">
-                <label className="block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                  Cover Image
-                </label>
-                <ImageUpload
-                  category="builds"
-                  onImageSelected={(result) => {
-                    if ("imageStorageId" in result && result.imageStorageId) {
-                      setEditImageStorageId(result.imageStorageId);
-                      setEditImageUrl("");
-                    } else {
-                      setEditImageUrl(result.imageUrl ?? "");
-                      setEditImageStorageId(null);
-                    }
-                  }}
-                  currentImage={editImageUrl || undefined}
-                  currentStorageId={editImageStorageId ?? undefined}
-                />
+        <main className="relative z-10 mx-auto mb-16 mt-4 w-full max-w-[1600px] px-4 sm:px-6 lg:px-10">
+          {isEditing ? (
+            <div className="mx-auto max-w-3xl space-y-10 bg-glass backdrop-blur-glass border border-glass-border rounded-glass p-6 sm:p-8">
+              <div className="border-b border-glass-divider-strong pb-8 text-center">
+                <h1 className="font-serif italic text-4xl tracking-tight">Edit Project</h1>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-media-fg-55">
+                  Settings &amp; Metadata
+                </p>
               </div>
 
-              <div className="space-y-8">
-                <div>
-                  <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                    Project Name
+              <div className="grid grid-cols-1 gap-10 md:grid-cols-[240px_1fr] lg:gap-16">
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                    Cover Image
                   </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full border-0 border-b border-kyar-text/30 bg-transparent py-3 text-3xl font-serif tracking-tight placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none focus-visible:ring-0"
+                  <ImageUpload
+                    category="builds"
+                    onImageSelected={(result) => {
+                      if ("imageStorageId" in result && result.imageStorageId) {
+                        setEditImageStorageId(result.imageStorageId);
+                        setEditImageUrl("");
+                      } else {
+                        setEditImageUrl(result.imageUrl ?? "");
+                        setEditImageStorageId(null);
+                      }
+                    }}
+                    currentImage={editImageUrl || undefined}
+                    currentStorageId={editImageStorageId ?? undefined}
                   />
                 </div>
-                <div>
-                  <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                    Character (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editCharacter}
-                    onChange={(e) => setEditCharacter(e.target.value)}
-                    placeholder="e.g. Arlecchino"
-                    className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none focus-visible:ring-0"
-                  />
-                </div>
-                <div>
-                  <label className="mb-3 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                    Status
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {STATUSES.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setEditStatus(s)}
-                        className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
-                          editStatus === s
-                            ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                            : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+
+                <div className="space-y-8">
                   <div>
-                    <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                      Budget $ (optional)
+                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                      Project Name
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editBudgetCents}
-                      onChange={(e) => setEditBudgetCents(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none focus-visible:ring-0"
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full border-0 border-b border-glass-border-strong bg-transparent py-3 text-3xl font-serif italic tracking-tight placeholder:text-media-fg-55 focus:border-kyar-media-fg focus:outline-none focus-visible:ring-0"
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                      Deadline (optional)
+                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                      Character (optional)
                     </label>
                     <input
-                      type="date"
-                      value={editTargetDate}
-                      onChange={(e) => setEditTargetDate(e.target.value)}
-                      className="w-full border-0 border-b border-kyar-border bg-transparent py-2 text-base focus:border-kyar-text focus:outline-none focus-visible:ring-0"
+                      type="text"
+                      value={editCharacter}
+                      onChange={(e) => setEditCharacter(e.target.value)}
+                      placeholder="e.g. Arlecchino"
+                      className="w-full border-0 border-b border-glass-border bg-transparent py-2 text-base placeholder:text-media-fg-55 focus:border-kyar-media-fg focus:outline-none focus-visible:ring-0"
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="mb-3 block text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                    Visibility
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["private", "unlisted", "public"] as const).map((v) => {
-                      // REQ-017: unlisted/public require a paid tier; private stays free.
-                      const gated = !canPublish && v !== "private";
-                      return (
+                  <div>
+                    <label className="mb-3 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                      Status
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {STATUSES.map((s) => (
                         <button
-                          key={v}
+                          key={s}
                           type="button"
-                          onClick={() => setEditVisibility(v)}
-                          disabled={gated}
-                          aria-disabled={gated}
-                          title={gated ? "Publishing is a paid feature" : undefined}
-                          className={`border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                            editVisibility === v
-                              ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                              : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
+                          onClick={() => setEditStatus(s)}
+                          className={`rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors ${
+                            editStatus === s
+                              ? "bg-glass-solid text-glass-ink"
+                              : "border border-glass-border-strong text-kyar-media-fg opacity-60 hover:opacity-90"
                           }`}
                         >
-                          {v}
+                          {s}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-kyar-textTertiary">
-                    Private: only you. Unlisted: anyone with link. Public: on your profile.
-                  </p>
-                  {!canPublish && (
-                    <UpgradePrompt
-                      className="mt-4"
-                      message="Publishing a build publicly is a paid feature. Your build stays private and on your device until you upgrade."
-                      linkText="View plan"
-                    />
-                  )}
-                  {(editVisibility === "public" || editVisibility === "unlisted") && (
-                    <div className="mt-8 space-y-3 border-t border-kyar-borderSubtle pt-6">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-kyar-textTertiary">
-                        Shared page sections
-                      </p>
-                      <p className="text-xs leading-relaxed text-kyar-textTertiary">
-                        These apply to the public URL and unlisted share links for this build.
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {(
-                          [
-                            ["showExplorer", "Explorer (outline & notes block)"],
-                            ["showNotes", "Notes in explorer"],
-                            ["showTasks", "Tasks & timeline"],
-                            ["showVisualBoard", "Visual board (refs, progress, elements)"],
-                            ["showSummary", "Summary stats"],
-                            ["showCollaborators", "Collaborators"],
-                          ] as const
-                        ).map(([key, label]) => (
-                          <label
-                            key={key}
-                            className="flex cursor-pointer items-start gap-2 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-sm text-kyar-text"
+                  <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                        Budget $ (optional)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editBudgetCents}
+                        onChange={(e) => setEditBudgetCents(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full border-0 border-b border-glass-border bg-transparent py-2 text-base placeholder:text-media-fg-55 focus:border-kyar-media-fg focus:outline-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                        Deadline (optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={editTargetDate}
+                        onChange={(e) => setEditTargetDate(e.target.value)}
+                        className="w-full border-0 border-b border-glass-border bg-transparent py-2 text-base focus:border-kyar-media-fg focus:outline-none focus-visible:ring-0 [color-scheme:dark]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-3 block text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                      Visibility
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["private", "unlisted", "public"] as const).map((v) => {
+                        // REQ-017: unlisted/public require a paid tier; private stays free.
+                        const gated = !canPublish && v !== "private";
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setEditVisibility(v)}
+                            disabled={gated}
+                            aria-disabled={gated}
+                            title={gated ? "Publishing is a paid feature" : undefined}
+                            className={`rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                              editVisibility === v
+                                ? "bg-glass-solid text-glass-ink"
+                                : "border border-glass-border-strong text-kyar-media-fg opacity-60 hover:opacity-90"
+                            }`}
                           >
-                            <input
-                              type="checkbox"
-                              className="mt-0.5"
-                              checked={publicViewerToggles[key]}
-                              onChange={(e) =>
-                                setPublicViewerToggles((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.checked,
-                                }))
-                              }
-                            />
-                            <span>{label}</span>
-                          </label>
-                        ))}
+                            {v}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-media-fg-55">
+                      Private: only you. Unlisted: anyone with link. Public: on your profile.
+                    </p>
+                    {!canPublish && (
+                      <UpgradePrompt
+                        className="mt-4"
+                        message="Publishing a build publicly is a paid feature. Your build stays private and on your device until you upgrade."
+                        linkText="View plan"
+                      />
+                    )}
+                    {(editVisibility === "public" || editVisibility === "unlisted") && (
+                      <div className="mt-8 space-y-3 border-t border-glass-divider pt-6">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                          Shared page sections
+                        </p>
+                        <p className="text-xs leading-relaxed text-media-fg-55">
+                          These apply to the public URL and unlisted share links for this build.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {(
+                            [
+                              ["showExplorer", "Explorer (outline & notes block)"],
+                              ["showNotes", "Notes in explorer"],
+                              ["showTasks", "Tasks & timeline"],
+                              ["showVisualBoard", "Visual board (refs, progress, elements)"],
+                              ["showSummary", "Summary stats"],
+                              ["showCollaborators", "Collaborators"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label
+                              key={key}
+                              className="flex cursor-pointer items-start gap-2 rounded-lg border border-glass-border bg-glass-active px-3 py-2 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-0.5"
+                                checked={publicViewerToggles[key]}
+                                onChange={(e) =>
+                                  setPublicViewerToggles((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.checked,
+                                  }))
+                                }
+                              />
+                              <span>{label}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                  </div>
+                  <div className="flex gap-4 border-t border-glass-divider pt-6">
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      disabled={savePending || !editName.trim()}
+                      className="flex-1 rounded-full bg-glass-solid py-4 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+                    >
+                      {savePending ? "Saving…" : "Save changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      disabled={savePending}
+                      className="rounded-full border border-glass-border-strong bg-glass-bar px-8 py-4 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full space-y-6">
+              {/* Identity block over the backdrop (6b) */}
+              <div className="max-w-[720px]">
+                <h1 className="font-serif italic font-normal text-[40px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)] sm:text-[56px] lg:text-[72px]">
+                  {build.name}
+                </h1>
+                <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {build.character && (
+                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+                      Character · {build.character}
+                    </span>
+                  )}
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+                    Status · {build.status}
+                  </span>
+                  {build.targetDate && daysRemaining !== null && (
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-[0.2em] ${
+                        daysRemaining < 0
+                          ? "text-on-glass-danger"
+                          : daysRemaining <= 7
+                            ? "text-on-glass-chip-warn-fg"
+                            : "opacity-70"
+                      }`}
+                    >
+                      Deadline ·{" "}
+                      {new Date(build.targetDate).toLocaleDateString(undefined, {
+                        month: "long",
+                        day: "numeric",
+                      })}{" "}
+                      ·{" "}
+                      {daysRemaining < 0
+                        ? `${Math.abs(daysRemaining)} days overdue`
+                        : daysRemaining === 0
+                          ? "Due today"
+                          : `${daysRemaining} days left`}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Work panel with tabs (6b) */}
+              <section className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
+                <nav className="flex flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong">
+                  {(
+                    [
+                      ["explorer", "Elements"],
+                      ["tasks", "Tasks"],
+                      ["board", "Board"],
+                      ["progress", "Updates"],
+                      ["summary", "Summary"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setActiveTab(value)}
+                      aria-pressed={activeTab === value}
+                      className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                        activeTab === value
+                          ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                          : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+                <div className="p-4 sm:p-5">
+                  {activeTab === "explorer" && (
+                    <div className={`${detailFrameClass} space-y-8`}>
+                      {build.notes && (
+                        <section className="border-l-2 border-glass-border-strong pl-5">
+                          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                            Notes
+                          </p>
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-media-fg-70">
+                            {build.notes}
+                          </p>
+                        </section>
+                      )}
+                      <section className="border-t border-glass-divider pt-4">
+                        <BuildNodeManagerSection
+                          buildId={id}
+                          buildName={build.name}
+                          userId={userId}
+                          linkedNodes={linkedNodes}
+                          linkedNodeIds={linkedNodeIds}
+                          onOpenLinkNodes={() => setFabModal("linkNodes")}
+                          onCreateRoot={() =>
+                            openCreationModal("newCloset", {
+                              successRedirectTo: null,
+                              onCreated: async (node) => {
+                                if (!userId) return;
+                                await linkNodes({
+                                  userId,
+                                  buildId: id,
+                                  cosplayNodeIds: [...linkedNodeIds, node._id],
+                                });
+                              },
+                            })
+                          }
+                          onCreateChild={(parentId, initialNodeType) =>
+                            openCreationModal("newCloset", {
+                              initialNodeType,
+                              initialCategory:
+                                initialNodeType === "material" ? "material" : "other",
+                              successRedirectTo: null,
+                              onCreated: async (node) => {
+                                if (!userId) return;
+                                await addChildLink({
+                                  userId,
+                                  parentNodeId: parentId,
+                                  childNodeId: node._id,
+                                  linkMode: "owned",
+                                });
+                              },
+                            })
+                          }
+                        />
+                      </section>
                     </div>
                   )}
-                </div>
-                <div className="flex gap-4 border-t border-kyar-borderSubtle pt-6">
-                  <button
-                    type="button"
-                    onClick={handleSaveEdit}
-                    disabled={savePending || !editName.trim()}
-                    className="flex-1 bg-kyar-text py-4 text-xs font-bold uppercase tracking-widest text-kyar-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {savePending ? "Saving…" : "Save changes"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    disabled={savePending}
-                    className="border border-kyar-borderSubtle px-8 py-4 text-xs font-semibold uppercase tracking-widest transition-colors hover:border-kyar-text disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="w-full space-y-8">
-            <div className={detailFrameClass}>
-              <div className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-kyar-textTertiary">
-                <span>Kyarafit</span>
-                {build.character && (
-                  <>
-                    <span className="opacity-40">/</span>
-                    <span>{build.character}</span>
-                  </>
-                )}
-              </div>
 
-              <div className="relative mb-4 overflow-hidden rounded-md shadow-sm">
-                {build.imageStorageId ? (
-                  <div className="relative aspect-[21/9] w-full bg-kyar-mutedWarm sm:aspect-[3/1]">
-                    <ResolvedImage
-                      imageStorageId={build.imageStorageId}
-                      alt={build.name}
-                      className="h-full w-full object-cover"
-                      style={{
-                        objectPosition:
-                          build.imageFocalX != null && build.imageFocalY != null
-                            ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
-                            : "center",
-                      }}
-                    />
-                  </div>
-                ) : build.imageUrl ? (
-                  <div className="relative aspect-[21/9] w-full bg-kyar-mutedWarm sm:aspect-[3/1]">
-                    <img
-                      src={build.imageUrl}
-                      alt={build.name}
-                      className="h-full w-full object-cover"
-                      style={{
-                        objectPosition:
-                          build.imageFocalX != null && build.imageFocalY != null
-                            ? `${build.imageFocalX * 100}% ${build.imageFocalY * 100}%`
-                            : "center",
-                      }}
-                    />
-                  </div>
-                ) : null}
+                  {activeTab === "tasks" && (
+                    <section id="build-tasks" className={detailFrameClass}>
+                      <h2 className="mb-6 font-serif italic text-2xl">Tasks &amp; Timeline</h2>
+                      <WorkflowTree buildId={id} userId={userId} />
+                    </section>
+                  )}
 
-                <div
-                  className={`${
-                    build.imageStorageId || build.imageUrl
-                      ? "absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end bg-gradient-to-t from-kyar-bg via-kyar-bg/50 to-transparent px-6 pb-4 pt-20 sm:items-start sm:px-10 sm:pt-24"
-                      : ""
-                  }`}
-                >
-                  <h1 className="text-center font-serif text-5xl font-bold leading-[0.9] tracking-tight text-kyar-text sm:text-left sm:text-6xl lg:text-7xl">
-                    {build.name}
-                  </h1>
-                </div>
-              </div>
+                  {activeTab === "board" && (
+                    <section className={detailFrameClass}>
+                      <DndContext onDragEnd={handleDragEnd}>
+                        <BuildVisualBoard
+                          buildId={id}
+                          userId={userId}
+                          linkedNodes={visualBoardNodes}
+                          onOpenLinkNodes={() => {
+                            if (userId) setFabModal("linkNodes");
+                          }}
+                          renderNodeCard={(item) => {
+                            const nodeItem = item as LinkedNode;
+                            return (
+                              <DroppableNodeCard item={nodeItem} justDroppedRef={justDroppedRef}>
+                                <ClosetCarouselCardContent
+                                  item={{
+                                    ...nodeItem,
+                                    costCents:
+                                      nodeItem.totalCostCents ?? nodeItem.directCostCents ?? null,
+                                  }}
+                                  formatCents={formatCents}
+                                />
+                              </DroppableNodeCard>
+                            );
+                          }}
+                        />
+                      </DndContext>
+                    </section>
+                  )}
 
-              {build.targetDate && daysRemaining !== null && (
-                <div className="mt-4 flex items-center gap-3 text-sm">
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-kyar-textTertiary">
-                    Deadline
-                  </span>
-                  <span className="h-3 w-px bg-kyar-borderSubtle"></span>
-                  <span className="font-medium text-kyar-text">
-                    {new Date(build.targetDate).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                  <span
-                    className={`ml-1 text-xs ${
-                      daysRemaining < 0
-                        ? "text-red-600"
-                        : daysRemaining <= 7
-                          ? "text-orange-600"
-                          : "text-kyar-textTertiary"
-                    }`}
-                  >
-                    (
-                    {daysRemaining < 0
-                      ? `${Math.abs(daysRemaining)} days overdue`
-                      : daysRemaining === 0
-                        ? "Due today!"
-                        : `${daysRemaining} days remaining`}
-                    )
-                  </span>
-                </div>
-              )}
-            </div>
+                  {activeTab === "progress" && (
+                    <section className={detailFrameClass}>
+                      <BuildProgressTimeline buildId={id} userId={userId} />
+                    </section>
+                  )}
 
-            <nav
-              className={`${detailFrameClass} flex flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4`}
-            >
-              {(
-                [
-                  ["explorer", "Explorer"],
-                  ["tasks", "Tasks"],
-                  ["board", "Visual board"],
-                  ["progress", "Progress"],
-                  ["summary", "Summary"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setActiveTab(value)}
-                  className={`rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest transition-colors ${
-                    activeTab === value
-                      ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                      : "border-kyar-borderSubtle text-kyar-textTertiary hover:border-kyar-text hover:text-kyar-text"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-
-            {activeTab === "explorer" && (
-              <div className={`${detailFrameClass} space-y-8`}>
-                {build.notes && (
-                  <section className="border-l-2 border-kyar-text/20 pl-5">
-                    <p className="mb-3 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                      Notes
-                    </p>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-kyar-textSecondary">
-                      {build.notes}
-                    </p>
-                  </section>
-                )}
-                <section className="border-t border-kyar-borderSubtle pt-4">
-                  <BuildNodeManagerSection
-                    buildId={id}
-                    buildName={build.name}
-                    userId={userId}
-                    linkedNodes={linkedNodes}
-                    linkedNodeIds={linkedNodeIds}
-                    onOpenLinkNodes={() => setFabModal("linkNodes")}
-                    onCreateRoot={() =>
-                      openCreationModal("newCloset", {
-                        successRedirectTo: null,
-                        onCreated: async (node) => {
-                          if (!userId) return;
-                          await linkNodes({
-                            userId,
-                            buildId: id,
-                            cosplayNodeIds: [...linkedNodeIds, node._id],
-                          });
-                        },
-                      })
-                    }
-                    onCreateChild={(parentId, initialNodeType) =>
-                      openCreationModal("newCloset", {
-                        initialNodeType,
-                        initialCategory: initialNodeType === "material" ? "material" : "other",
-                        successRedirectTo: null,
-                        onCreated: async (node) => {
-                          if (!userId) return;
-                          await addChildLink({
-                            userId,
-                            parentNodeId: parentId,
-                            childNodeId: node._id,
-                            linkMode: "owned",
-                          });
-                        },
-                      })
-                    }
-                  />
-                </section>
-              </div>
-            )}
-
-            {activeTab === "tasks" && (
-              <section
-                id="build-tasks"
-                className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}
-              >
-                <h2 className="mb-6 font-serif text-2xl text-kyar-text">Tasks &amp; Timeline</h2>
-                <WorkflowTree buildId={id} userId={userId} />
-              </section>
-            )}
-
-            {activeTab === "board" && (
-              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
-                <DndContext onDragEnd={handleDragEnd}>
-                  <BuildVisualBoard
-                    buildId={id}
-                    userId={userId}
-                    linkedNodes={visualBoardNodes}
-                    onOpenLinkNodes={() => {
-                      if (userId) setFabModal("linkNodes");
-                    }}
-                    renderNodeCard={(item) => {
-                      const nodeItem = item as LinkedNode;
-                      return (
-                        <DroppableNodeCard item={nodeItem} justDroppedRef={justDroppedRef}>
-                          <ClosetCarouselCardContent
-                            item={{
-                              ...nodeItem,
-                              costCents:
-                                nodeItem.totalCostCents ?? nodeItem.directCostCents ?? null,
-                            }}
+                  {activeTab === "summary" && (
+                    <section className={detailFrameClass}>
+                      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                        <div>
+                          <BuildSummarySection
+                            summary={summary ?? null}
                             formatCents={formatCents}
                           />
-                        </DroppableNodeCard>
-                      );
-                    }}
-                  />
-                </DndContext>
-              </section>
-            )}
-
-            {activeTab === "progress" && (
-              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
-                <BuildProgressTimeline buildId={id} userId={userId} />
-              </section>
-            )}
-
-            {activeTab === "summary" && (
-              <section className={`${detailFrameClass} border-t border-kyar-borderSubtle pt-4`}>
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-                  <div>
-                    <BuildSummarySection summary={summary ?? null} formatCents={formatCents} />
-                  </div>
-                  <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                          Collaborators
-                        </p>
-                        <h2 className="mt-2 font-serif text-2xl text-kyar-text">Team</h2>
-                      </div>
-                      {userId && build.userId === userId && (
-                        <button
-                          type="button"
-                          onClick={() => setFabModal("invite")}
-                          className="rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] uppercase tracking-widest"
-                        >
-                          Invite
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-5 space-y-3">
-                      {collaborators.length > 0 ? (
-                        collaborators.map((c) => (
-                          <div
-                            key={c.userId}
-                            className="flex items-center justify-between gap-3 rounded-2xl border border-kyar-borderSubtle px-4 py-3"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-muted text-xs font-serif text-kyar-text">
-                                {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm text-kyar-text">
-                                  {c.name ?? c.email ?? c.userId}
-                                </p>
-                                <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-                                  {c.role}
-                                </p>
-                              </div>
+                        </div>
+                        <div className="rounded-glass border border-glass-border bg-glass-active p-5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                                Collaborators
+                              </p>
+                              <h2 className="mt-2 font-serif italic text-2xl">Team</h2>
                             </div>
                             {userId && build.userId === userId && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  removeCollaborator({
-                                    buildId: id,
-                                    ownerId: userId,
-                                    userId: c.userId,
-                                  })
-                                }
-                                className="text-[10px] uppercase tracking-widest text-red-600/70 hover:text-red-600"
+                                onClick={() => setFabModal("invite")}
+                                className="rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors"
                               >
-                                Remove
+                                Invite
                               </button>
                             )}
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-kyar-textTertiary">No collaborators yet.</p>
-                      )}
-                    </div>
-                  </div>
+                          <div className="mt-5 space-y-3">
+                            {collaborators.length > 0 ? (
+                              collaborators.map((c) => (
+                                <div
+                                  key={c.userId}
+                                  className="flex items-center justify-between gap-3 rounded-[10px] border border-glass-border px-4 py-3"
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-glass-border bg-glass text-xs font-serif">
+                                      {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm">
+                                        {c.name ?? c.email ?? c.userId}
+                                      </p>
+                                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                                        {c.role}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {userId && build.userId === userId && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeCollaborator({
+                                          buildId: id,
+                                          ownerId: userId,
+                                          userId: c.userId,
+                                        })
+                                      }
+                                      className="text-[10px] uppercase tracking-[0.16em] text-on-glass-danger/70 hover:text-on-glass-danger"
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-media-fg-55">No collaborators yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
                 </div>
               </section>
-            )}
-          </div>
+            </div>
+          )}
+        </main>
+
+        <BuildNotesModal
+          open={notesModalOpen}
+          notes={editNotes}
+          onNotesChange={setEditNotes}
+          onSave={handleSaveNotes}
+          onClear={handleClearNotes}
+          onClose={() => !notesSavePending && setNotesModalOpen(false)}
+          saving={notesSavePending}
+          error={notesError}
+        />
+        <BuildDetailFab
+          hidden={isEditing}
+          userId={userId}
+          showInviteCollaborator={!!userId && build.userId === userId}
+          onOpenModal={setFabModal}
+        />
+
+        <BuildPhotoBatchModal
+          open={photoKind != null}
+          kind={photoKind}
+          onClose={() => setFabModal(null)}
+          onImageSelected={handlePhotoSelected}
+        />
+
+        {userId && (
+          <BuildLinkClosetModal
+            open={fabModal === "linkNodes"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            userId={userId}
+            closetItems={nodeRowsForLink}
+            linkedIds={linkedNodeIds}
+          />
         )}
-      </main>
 
-      <BuildNotesModal
-        open={notesModalOpen}
-        notes={editNotes}
-        onNotesChange={setEditNotes}
-        onSave={handleSaveNotes}
-        onClear={handleClearNotes}
-        onClose={() => !notesSavePending && setNotesModalOpen(false)}
-        saving={notesSavePending}
-        error={notesError}
-      />
-      <BuildDetailFab
-        hidden={isEditing}
-        userId={userId}
-        showInviteCollaborator={!!userId && build.userId === userId}
-        onOpenModal={setFabModal}
-      />
+        {userId && (
+          <BuildAddTaskModal
+            open={fabModal === "task"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            userId={userId}
+            taskCount={tasks.length}
+          />
+        )}
 
-      <BuildPhotoBatchModal
-        open={photoKind != null}
-        kind={photoKind}
-        onClose={() => setFabModal(null)}
-        onImageSelected={handlePhotoSelected}
-      />
-
-      {userId && (
-        <BuildLinkClosetModal
-          open={fabModal === "linkNodes"}
-          onClose={() => setFabModal(null)}
-          buildId={id}
-          userId={userId}
-          closetItems={nodeRowsForLink}
-          linkedIds={linkedNodeIds}
-        />
-      )}
-
-      {userId && (
-        <BuildAddTaskModal
-          open={fabModal === "task"}
-          onClose={() => setFabModal(null)}
-          buildId={id}
-          userId={userId}
-          taskCount={tasks.length}
-        />
-      )}
-
-      {userId && build.userId === userId && (
-        <BuildInviteCollaboratorModal
-          open={fabModal === "invite"}
-          onClose={() => setFabModal(null)}
-          buildId={id}
-          ownerId={userId}
-        />
-      )}
+        {userId && build.userId === userId && (
+          <BuildInviteCollaboratorModal
+            open={fabModal === "invite"}
+            onClose={() => setFabModal(null)}
+            buildId={id}
+            ownerId={userId}
+          />
+        )}
+      </div>
     </WebAppShell>
   );
 }
@@ -954,7 +941,7 @@ function DroppableNodeCard({
     >
       <Link
         href={`/elements/${item._id}`}
-        className="block cursor-pointer rounded-sm transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text/20 focus-visible:ring-offset-2"
+        className="block cursor-pointer rounded-sm transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
         aria-label={`View ${item.name}`}
         onClick={(e) => {
           if (justDroppedRef.current) {

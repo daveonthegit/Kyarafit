@@ -113,7 +113,7 @@ export function BuildVisualBoard({
           element: (
             <button
               type="button"
-              className="break-inside-avoid mb-4 w-full text-left rounded-2xl overflow-hidden bg-kyar-mutedWarm shadow-sm hover:shadow-md transition-all group relative flex flex-col cursor-pointer border border-transparent"
+              className="break-inside-avoid mb-4 w-full text-left rounded-2xl overflow-hidden bg-glass-active transition-all group relative flex flex-col cursor-pointer border border-glass-border"
             >
               <ResolvedImage
                 imageStorageId={r.imageStorageId}
@@ -139,7 +139,7 @@ export function BuildVisualBoard({
           element: (
             <button
               type="button"
-              className="break-inside-avoid mb-4 w-full text-left rounded-2xl overflow-hidden bg-kyar-mutedWarm shadow-sm hover:shadow-md transition-all group relative flex flex-col cursor-pointer border border-transparent"
+              className="break-inside-avoid mb-4 w-full text-left rounded-2xl overflow-hidden bg-glass-active transition-all group relative flex flex-col cursor-pointer border border-glass-border"
             >
               <ResolvedImage
                 imageStorageId={p.imageStorageId}
@@ -205,38 +205,43 @@ export function BuildVisualBoard({
 
   const content = (
     <>
-      <div className="flex flex-row flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-kyar-borderSubtle pb-3 mb-6 shrink-0">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-glass-divider-strong pb-3 mb-6 shrink-0 text-kyar-media-fg">
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="font-serif text-xl sm:text-2xl text-kyar-text leading-none tracking-tight">
-            Visual Board
+          <h2 className="font-serif italic text-xl sm:text-2xl leading-none tracking-tight">
+            The board
           </h2>
           <button
             type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="shrink-0 p-2 rounded-full hover:bg-kyar-borderSubtle text-kyar-textSecondary transition-colors"
+            className="shrink-0 p-2 rounded-full hover:bg-glass-active text-media-fg-70 transition-colors"
             title={isFullscreen ? "Exit full screen" : "Expand full screen"}
             aria-label={isFullscreen ? "Exit full screen" : "Expand visual board full screen"}
           >
             {isFullscreen ? <X className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
-        <div className="flex w-full sm:w-auto sm:min-w-[12rem] items-center gap-2">
-          <label htmlFor={filterSelectId} className="sr-only">
-            Visual board view
-          </label>
-          <select
-            id={filterSelectId}
-            value={tab}
-            onChange={(e) => setTab(e.target.value as VisualTab)}
-            className="w-full sm:w-auto min-h-[2.5rem] min-w-0 sm:min-w-[11rem] rounded-lg border border-kyar-borderSubtle bg-kyar-surface py-2 pl-3 pr-9 text-sm text-kyar-text shadow-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/30 focus:border-kyar-accent cursor-pointer"
-            aria-label="Visual board view"
-          >
-            {TABS.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+        <div
+          id={filterSelectId}
+          role="tablist"
+          aria-label="Visual board view"
+          className="flex w-full sm:w-auto items-center gap-2 overflow-x-auto no-scrollbar"
+        >
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`min-h-[40px] shrink-0 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                tab === t.id
+                  ? "bg-glass-solid text-glass-ink"
+                  : "border border-glass-border-strong text-kyar-media-fg opacity-60 hover:opacity-90"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -246,8 +251,8 @@ export function BuildVisualBoard({
         {tab === "all" && (
           <div className="w-full">
             {allEmpty && (
-              <div className="text-center py-10 bg-kyar-surface rounded-xl border border-kyar-borderSubtle">
-                <p className="text-sm text-kyar-textTertiary mb-3">No images or items yet.</p>
+              <div className="text-center py-10 rounded-glass border border-glass-border text-kyar-media-fg">
+                <p className="text-sm text-media-fg-55 mb-3">No images or items yet.</p>
                 {!readOnly && _userId ? (
                   <button
                     type="button"
@@ -255,19 +260,19 @@ export function BuildVisualBoard({
                       setIsFullscreen(false);
                       onOpenLinkNodes();
                     }}
-                    className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
+                    className="text-[10px] uppercase tracking-[0.16em] text-kyar-media-fg font-bold border border-glass-border-strong bg-glass-bar px-4 py-2 rounded-full hover:bg-glass-active transition-colors inline-block"
                   >
                     Link nodes
                   </button>
                 ) : readOnly ? (
-                  <p className="text-xs text-kyar-textTertiary">No images or items in this view.</p>
+                  <p className="text-xs text-media-fg-55">No images or items in this view.</p>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
+                  <p className="text-xs text-media-fg-55">Sign in to link nodes.</p>
                 )}
               </div>
             )}
             <div
-              className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3"} gap-3 sm:gap-4 pb-12`}
+              className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3 lg:columns-4"} gap-3 sm:gap-4 pb-12`}
             >
               {itemsAll.map((item) => (
                 <div key={`${item.type}-${item.id}`}>{item.element}</div>
@@ -279,12 +284,12 @@ export function BuildVisualBoard({
         {tab === "references" && (
           <div className="w-full pb-12">
             {itemsReferences.length === 0 ? (
-              <p className="text-sm text-kyar-textTertiary py-8 text-center border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
+              <p className="text-sm text-media-fg-55 py-8 text-center border border-glass-border rounded-glass">
                 No reference images yet.
               </p>
             ) : (
               <div
-                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3"} gap-3 sm:gap-4`}
+                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3 lg:columns-4"} gap-3 sm:gap-4`}
               >
                 {itemsReferences.map((item) => (
                   <div key={`${item.type}-${item.id}`}>{item.element}</div>
@@ -297,12 +302,12 @@ export function BuildVisualBoard({
         {tab === "progress" && (
           <div className="w-full pb-12">
             {itemsProgress.length === 0 ? (
-              <p className="text-sm text-kyar-textTertiary py-8 text-center border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
+              <p className="text-sm text-media-fg-55 py-8 text-center border border-glass-border rounded-glass">
                 No progress photos yet.
               </p>
             ) : (
               <div
-                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3"} gap-3 sm:gap-4`}
+                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3 lg:columns-4"} gap-3 sm:gap-4`}
               >
                 {itemsProgress.map((item) => (
                   <div key={`${item.type}-${item.id}`}>{item.element}</div>
@@ -315,8 +320,8 @@ export function BuildVisualBoard({
         {tab === "nodes" && (
           <div className="w-full pb-12">
             {itemsNodes.length === 0 ? (
-              <div className="text-center py-8 border border-kyar-borderSubtle rounded-xl bg-kyar-surface">
-                <p className="text-sm text-kyar-textTertiary mb-3">No elements linked yet.</p>
+              <div className="text-center py-8 rounded-glass border border-glass-border text-kyar-media-fg">
+                <p className="text-sm text-media-fg-55 mb-3">No elements linked yet.</p>
                 {!readOnly && _userId ? (
                   <button
                     type="button"
@@ -324,19 +329,19 @@ export function BuildVisualBoard({
                       setIsFullscreen(false);
                       onOpenLinkNodes();
                     }}
-                    className="text-[10px] uppercase tracking-widest text-kyar-text font-medium border border-kyar-cardBorder px-4 py-2 rounded hover:bg-kyar-muted transition-colors inline-block"
+                    className="text-[10px] uppercase tracking-[0.16em] text-kyar-media-fg font-bold border border-glass-border-strong bg-glass-bar px-4 py-2 rounded-full hover:bg-glass-active transition-colors inline-block"
                   >
                     Link nodes
                   </button>
                 ) : readOnly ? (
-                  <p className="text-xs text-kyar-textTertiary">No elements in this view.</p>
+                  <p className="text-xs text-media-fg-55">No elements in this view.</p>
                 ) : (
-                  <p className="text-xs text-kyar-textTertiary">Sign in to link nodes.</p>
+                  <p className="text-xs text-media-fg-55">Sign in to link nodes.</p>
                 )}
               </div>
             ) : (
               <div
-                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3"} gap-3 sm:gap-4`}
+                className={`columns-2 ${isFullscreen ? "sm:columns-3 md:columns-4 lg:columns-5" : "sm:columns-3 lg:columns-4"} gap-3 sm:gap-4`}
               >
                 {itemsNodes.map((item) => (
                   <div key={`${item.type}-${item.id}`}>{item.element}</div>
@@ -356,7 +361,7 @@ export function BuildVisualBoard({
       {isFullscreen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] bg-kyar-bg overflow-hidden flex flex-col p-6 sm:p-10">
+          <div className="fixed inset-0 z-[9999] bg-studio-wall text-kyar-media-fg overflow-hidden flex flex-col p-6 sm:p-10">
             <div className="max-w-[1600px] w-full mx-auto flex-1 flex flex-col min-h-0">
               {content}
             </div>

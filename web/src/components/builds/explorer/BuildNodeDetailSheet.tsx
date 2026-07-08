@@ -36,10 +36,10 @@ type BuildNodeDetailSheetProps = {
 };
 
 const STATUS_DOT = {
-  neutral: "bg-kyar-textTertiary",
-  warning: "bg-amber-500",
-  active: "bg-sky-500",
-  success: "bg-emerald-500",
+  neutral: "bg-on-glass-chip-neutral-fg",
+  warning: "bg-on-glass-chip-warn-fg",
+  active: "bg-on-glass-chip-active-fg",
+  success: "bg-on-glass-chip-done-fg",
 } as const;
 
 export function BuildNodeDetailSheet({
@@ -80,7 +80,7 @@ export function BuildNodeDetailSheet({
       {/* Header bar with save status */}
       <div className={`flex items-center justify-between px-5 pb-2 ${inline ? "pt-4" : "pt-1"}`}>
         <span
-          className="text-[10px] uppercase tracking-widest text-kyar-textTertiary"
+          className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55"
           aria-live="polite"
         >
           {persistStatus === "saving" && "Saving…"}
@@ -92,7 +92,7 @@ export function BuildNodeDetailSheet({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-kyar-textTertiary transition-colors hover:bg-kyar-muted"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-media-fg-55 transition-colors hover:bg-glass-active"
             aria-label="Close"
           >
             <span className="material-symbols-outlined text-lg">close</span>
@@ -103,7 +103,7 @@ export function BuildNodeDetailSheet({
       <div className="space-y-5 px-5 pb-8">
         {/* Header: thumbnail + editable name */}
         <div className="flex items-start gap-3">
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-muted">
+          <div className="h-[190px] w-[150px] shrink-0 overflow-hidden rounded-xl border border-glass-border bg-glass-active">
             {detail.imageStorageId || detail.imageUrl ? (
               <ResolvedImage
                 imageStorageId={detail.imageStorageId ?? null}
@@ -113,7 +113,7 @@ export function BuildNodeDetailSheet({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <span className="material-symbols-outlined text-lg text-kyar-textTertiary">
+                <span className="material-symbols-outlined text-lg text-media-fg-45">
                   {detail.nodeType === "material" ? "inventory_2" : "checkroom"}
                 </span>
               </div>
@@ -127,20 +127,20 @@ export function BuildNodeDetailSheet({
               aria-invalid={!inspectorForm.name.trim()}
               aria-label="Node name"
               className={[
-                "w-full border-b border-transparent bg-transparent font-serif text-xl font-semibold text-kyar-text",
-                "focus:border-kyar-text focus:outline-none",
-                !inspectorForm.name.trim() ? "border-red-500 text-red-700" : "",
+                "w-full border-b border-glass-border bg-transparent font-serif italic text-xl text-kyar-media-fg",
+                "focus:border-kyar-media-fg focus:outline-none",
+                !inspectorForm.name.trim() ? "border-on-glass-danger text-on-glass-danger" : "",
               ].join(" ")}
             />
             {!inspectorForm.name.trim() && (
-              <p className="mt-1 text-xs text-red-600">Name is required</p>
+              <p className="mt-1 text-xs text-on-glass-danger">Name is required</p>
             )}
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
                 {formatNodeTypeLabel(detail.nodeType)}
               </span>
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[chip.tone]}`} />
-              <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
                 {detail.progressPercent ?? 0}%
               </span>
             </div>
@@ -149,10 +149,8 @@ export function BuildNodeDetailSheet({
 
         {/* Status selector (segmented control) */}
         <div>
-          <p className="mb-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-            Status
-          </p>
-          <div className="flex gap-1 rounded-xl bg-kyar-muted p-1">
+          <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-media-fg-55">Status</p>
+          <div className="flex gap-1 rounded-full bg-glass-bar p-1">
             {(detail.nodeType === "element"
               ? ELEMENT_COMBINED_OPTIONS
               : MATERIAL_STATUS_OPTIONS
@@ -179,10 +177,10 @@ export function BuildNodeDetailSheet({
                     }
                   }}
                   className={[
-                    "flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors",
+                    "flex-1 rounded-full px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors",
                     isActive
-                      ? "bg-kyar-surface text-kyar-text shadow-sm"
-                      : "text-kyar-textSecondary hover:text-kyar-text",
+                      ? "bg-glass-solid text-glass-ink"
+                      : "text-media-fg-55 hover:text-kyar-media-fg",
                   ].join(" ")}
                 >
                   {opt.label}
@@ -195,7 +193,7 @@ export function BuildNodeDetailSheet({
         {/* Cost inputs */}
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
               Direct cost
             </span>
             <input
@@ -208,15 +206,15 @@ export function BuildNodeDetailSheet({
               }
               placeholder="0.00"
               inputMode="decimal"
-              className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
+              className="glass-field w-full px-3 py-2.5 text-sm tabular-nums focus:ring-1 focus:ring-kyar-accent"
             />
           </label>
           <div className="space-y-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
               Rollup cost
             </span>
-            <div className="flex items-center rounded-xl border border-kyar-borderSubtle px-3 py-2.5">
-              <span className="text-sm font-medium tabular-nums text-kyar-text">
+            <div className="flex items-center rounded-[10px] border border-glass-border px-3 py-2.5">
+              <span className="text-sm font-medium tabular-nums text-kyar-media-fg">
                 {detail.totalCostCents != null ? formatCents(detail.totalCostCents) : "—"}
               </span>
             </div>
@@ -225,14 +223,12 @@ export function BuildNodeDetailSheet({
 
         {/* Notes */}
         <label className="block space-y-1.5">
-          <span className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">
-            Notes
-          </span>
+          <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">Notes</span>
           <textarea
             value={inspectorForm.notes}
             onChange={(e) => onFormChange((prev) => ({ ...prev, notes: e.target.value }))}
             rows={3}
-            className="w-full rounded-xl border border-kyar-borderSubtle bg-transparent px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-kyar-text/20"
+            className="glass-field w-full px-3 py-2.5 text-sm focus:ring-1 focus:ring-kyar-accent"
           />
         </label>
 
@@ -243,14 +239,14 @@ export function BuildNodeDetailSheet({
             onClick={() =>
               onCreateChild(detail._id, detail.nodeType === "material" ? "material" : "element")
             }
-            className="rounded-xl border border-kyar-text px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-text transition-colors hover:bg-kyar-text hover:text-kyar-bg"
+            className="rounded-full bg-glass-solid px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90"
           >
             New child
           </button>
           <button
             type="button"
             onClick={onUnlink}
-            className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-red-300 hover:text-red-600"
+            className="rounded-full border border-on-glass-danger/60 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger transition-colors hover:bg-on-glass-danger/10"
           >
             {selected?.isRoot ? "Unlink root" : "Unlink child"}
           </button>
@@ -258,7 +254,7 @@ export function BuildNodeDetailSheet({
             <button
               type="button"
               onClick={() => onMoveNode(selected)}
-              className="rounded-xl border border-kyar-borderSubtle px-3 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text"
+              className="rounded-full border border-glass-border-strong bg-glass-bar px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg transition-colors hover:bg-glass-active"
             >
               Move
             </button>
@@ -268,7 +264,7 @@ export function BuildNodeDetailSheet({
         {/* Open full page link */}
         <Link
           href={`/elements/${detail._id}`}
-          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-kyar-textSecondary transition-colors hover:text-kyar-text"
+          className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 transition-colors hover:text-kyar-media-fg"
         >
           <span className="material-symbols-outlined text-base">open_in_new</span>
           Open full page
@@ -279,7 +275,7 @@ export function BuildNodeDetailSheet({
 
   if (inline) {
     return (
-      <div role="region" aria-label={`Edit ${detail.name}`}>
+      <div role="region" aria-label={`Edit ${detail.name}`} className="text-kyar-media-fg">
         {sheetContent}
       </div>
     );
@@ -290,7 +286,7 @@ export function BuildNodeDetailSheet({
       {/* Backdrop */}
       <div
         ref={backdropRef}
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+        className="fixed inset-0 z-40 bg-scrim-dim backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden
       />
@@ -301,7 +297,7 @@ export function BuildNodeDetailSheet({
         role="dialog"
         aria-label={`Edit ${detail.name}`}
         className={[
-          "fixed inset-x-0 bottom-0 z-50 overflow-y-auto rounded-t-2xl bg-kyar-surface shadow-xl",
+          "fixed inset-x-0 bottom-0 z-50 overflow-y-auto rounded-t-glass-sheet bg-glass-overlay-on-wall backdrop-blur-glass-overlay border-t border-glass-border-overlay shadow-glass-overlay text-kyar-media-fg",
           sheetHeight === "full" ? "top-4" : "top-[40%]",
           "transition-[top] duration-300 ease-out",
         ].join(" ")}
@@ -311,7 +307,7 @@ export function BuildNodeDetailSheet({
           <button
             type="button"
             onClick={() => setSheetHeight((h) => (h === "half" ? "full" : "half"))}
-            className="h-1 w-10 rounded-full bg-kyar-textTertiary/30"
+            className="h-1 w-10 rounded-full bg-media-fg-45"
             aria-label={sheetHeight === "half" ? "Expand sheet" : "Collapse sheet"}
           />
         </div>

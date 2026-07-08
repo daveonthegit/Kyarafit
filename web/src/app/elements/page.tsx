@@ -30,7 +30,6 @@ import {
   nodeSearchText,
   type CosplayExplorerItem,
 } from "@kyarafit/design-system/domain";
-import type { CosplayNodeType } from "@kyarafit/design-system/types";
 
 type CosplayNodeId = Id<"cosplayNodes">;
 type SortBy = "name" | "category" | "cost" | "progress" | "bucket";

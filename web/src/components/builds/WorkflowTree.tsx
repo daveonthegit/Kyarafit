@@ -83,7 +83,7 @@ function WorkflowTaskGroup({ summary, children }: { summary: ReactNode; children
   const [open, setOpen] = useState(true);
   return (
     <details
-      className="group border border-kyar-borderSubtle rounded-2xl overflow-hidden bg-kyar-surface shadow-sm"
+      className="group rounded-[10px] overflow-hidden border border-glass-divider"
       open={open}
       onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
     >
@@ -153,7 +153,7 @@ function WorkflowItemRow({
             })
           }
           disabled={!userId}
-          className="min-h-[40px] flex-1 rounded-lg border border-kyar-borderSubtle bg-kyar-surface px-3 py-2 text-xs text-kyar-text sm:min-h-0 sm:flex-none"
+          className="glass-field min-h-[40px] flex-1 px-3 py-2 text-xs sm:min-h-0 sm:flex-none"
         >
           {WORKFLOW_STATUS_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -165,7 +165,7 @@ function WorkflowItemRow({
           type="button"
           onClick={() => onAddSubtask(node._id)}
           disabled={!userId}
-          className="min-h-[40px] rounded-lg border border-kyar-borderSubtle px-3 py-2 text-[11px] font-medium text-kyar-text disabled:opacity-50"
+          className="min-h-[40px] rounded-full border border-glass-border px-3 py-2 text-[11px] font-medium text-media-fg-70 hover:text-kyar-media-fg hover:bg-glass-active transition-colors disabled:opacity-50"
         >
           Add subtask
         </button>
@@ -173,7 +173,7 @@ function WorkflowItemRow({
           type="button"
           onClick={() => void removeWorkflow({ id: node._id, userId: userId ?? "" })}
           disabled={!userId}
-          className="min-h-[40px] rounded-lg border border-kyar-borderSubtle px-3 py-2 text-[11px] text-kyar-textTertiary disabled:opacity-50"
+          className="min-h-[40px] rounded-full border border-glass-border px-3 py-2 text-[11px] text-media-fg-55 hover:text-on-glass-danger hover:border-on-glass-danger transition-colors disabled:opacity-50"
         >
           Remove
         </button>
@@ -271,23 +271,27 @@ export function WorkflowTree({
     <div className="space-y-5">
       <div className="space-y-2">
         <div className="flex items-end justify-between text-sm">
-          <span className="font-medium text-kyar-text">Task progress</span>
-          <span className="text-kyar-textTertiary">{progressPercent}%</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-70">
+            Task progress
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] tabular-nums text-media-fg-70">
+            {progressPercent}%
+          </span>
         </div>
-        <div className="h-2 w-full border border-kyar-borderSubtle bg-kyar-surface">
+        <div className="h-[2px] w-full rounded-full bg-glass-border overflow-hidden">
           <div
-            className="h-full bg-kyar-text transition-[width] duration-200"
+            className="h-full bg-kyar-media-fg rounded-full transition-[width] duration-200"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <p className="text-xs text-kyar-textTertiary">
+        <p className="text-xs text-media-fg-55">
           {stats?.tasksDone ?? 0} of {stats?.tasksTotal ?? 0} tasks done
         </p>
       </div>
 
       <div className="space-y-2">
         {rows.length === 0 ? (
-          <div className="rounded-xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-6 text-sm text-kyar-textTertiary shadow-sm">
+          <div className="rounded-[10px] border border-glass-border px-4 py-6 text-sm text-media-fg-55">
             {hideComposer ? "No tasks yet." : "No tasks yet. Add the first task below."}
           </div>
         ) : (
@@ -305,9 +309,9 @@ export function WorkflowTree({
               <WorkflowTaskGroup
                 key={groupKey}
                 summary={
-                  <summary className="flex list-none cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset min-h-[44px] [&::-webkit-details-marker]:hidden">
+                  <summary className="flex list-none cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset min-h-[44px] [&::-webkit-details-marker]:hidden">
                     <span
-                      className="select-none text-[10px] uppercase tracking-wider text-kyar-meta transition-transform group-open:rotate-90"
+                      className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 transition-transform group-open:rotate-90"
                       aria-hidden
                     >
                       ▶
@@ -318,19 +322,19 @@ export function WorkflowTree({
                     >
                       <span className="block truncate">{title}</span>
                       {!isBuild ? (
-                        <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-widest text-kyar-meta">
+                        <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-[0.16em] text-media-fg-55">
                           {typeLabel}
                         </span>
                       ) : null}
                     </span>
                     {isBuild ? (
-                      <span className="text-[10px] uppercase tracking-widest text-kyar-meta">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
                         Build-wide steps
                       </span>
                     ) : (
                       <Link
                         href={`/elements/${groupKey as Id<"cosplayNodes">}`}
-                        className="shrink-0 text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+                        className="shrink-0 text-[10px] uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
                         onClick={(e) => e.stopPropagation()}
                       >
                         Open
@@ -339,7 +343,7 @@ export function WorkflowTree({
                   </summary>
                 }
               >
-                <div className="space-y-2 border-t border-kyar-cardBorder px-2 py-3 sm:px-3">
+                <div className="space-y-1 border-t border-glass-divider px-2 py-3 sm:px-3">
                   {groupRows.map((node) => (
                     <WorkflowItemRow
                       key={node._id}
@@ -358,7 +362,7 @@ export function WorkflowTree({
       </div>
 
       {newChildParentId && !hideComposer && (
-        <div className="flex flex-wrap gap-2 rounded-xl border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2 rounded-[10px] border border-glass-border p-3">
           <input
             type="text"
             value={newChildTitle}
@@ -367,12 +371,12 @@ export function WorkflowTree({
               if (event.key === "Enter") void handleCreateChild();
             }}
             placeholder="Add a subtask"
-            className="flex-1 border border-kyar-borderSubtle px-3 py-2 text-sm"
+            className="glass-field flex-1 px-3 py-2 text-sm"
           />
           <button
             type="button"
             onClick={() => void handleCreateChild()}
-            className="bg-kyar-text px-3 py-2 text-[11px] font-semibold text-kyar-bg"
+            className="rounded-full bg-glass-solid px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90"
           >
             Save
           </button>
@@ -382,7 +386,7 @@ export function WorkflowTree({
               setNewChildParentId(null);
               setNewChildTitle("");
             }}
-            className="border border-kyar-borderSubtle px-3 py-2 text-[11px]"
+            className="rounded-full border border-glass-border-strong bg-glass-bar px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active"
           >
             Cancel
           </button>
@@ -390,7 +394,7 @@ export function WorkflowTree({
       )}
 
       {!hideComposer && (
-        <div className="flex gap-2 border-t border-kyar-borderSubtle pt-4">
+        <div className="flex gap-2 border-t border-glass-divider pt-4">
           <input
             type="text"
             value={newRootTitle}
@@ -398,14 +402,14 @@ export function WorkflowTree({
             onKeyDown={(event) => {
               if (event.key === "Enter") void handleCreateRoot();
             }}
-            placeholder="Add a task"
-            className="flex-1 border border-kyar-borderSubtle px-3 py-2 text-sm"
+            placeholder="Add a task… press ⏎ to save"
+            className="glass-field flex-1 px-3 py-2 text-sm"
           />
           <button
             type="button"
             onClick={() => void handleCreateRoot()}
             disabled={!userId || !newRootTitle.trim()}
-            className="bg-kyar-text px-4 py-2 text-[11px] font-semibold text-kyar-bg disabled:opacity-50"
+            className="rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors disabled:opacity-50"
           >
             Add task
           </button>
