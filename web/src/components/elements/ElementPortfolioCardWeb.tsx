@@ -59,8 +59,8 @@ function ProgressRing({
 
 function Badges({ statusBadge, compact }: { statusBadge: string; compact?: boolean }) {
   const pill = compact
-    ? "rounded-full border border-white/25 bg-black/40 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-kyar-media-fg backdrop-blur"
-    : "rounded-full border border-white/25 bg-black/40 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-kyar-media-fg backdrop-blur";
+    ? "rounded-full bg-on-glass-chip-neutral-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg backdrop-blur-glass-chip"
+    : "rounded-full bg-on-glass-chip-neutral-bg px-3 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg backdrop-blur-glass-chip";
   return (
     <div className="absolute left-3 top-3 z-10 flex gap-2">
       <span className={pill}>{statusBadge}</span>
@@ -99,7 +99,7 @@ function PosterBody({
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
       ) : (
-        <div className="flex h-full items-center justify-center bg-kyar-mutedWarm text-kyar-textTertiary">
+        <div className="flex h-full items-center justify-center bg-studio-wall text-media-fg-45">
           <span className="material-symbols-outlined text-5xl">
             {item.nodeType === "material" ? "science" : "checkroom"}
           </span>
@@ -110,9 +110,7 @@ function PosterBody({
       <div className={`absolute bottom-0 left-0 right-0 text-kyar-media-fg ${pad}`}>
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p
-              className={`mb-1 font-bold uppercase tracking-[0.2em] opacity-80 ${isGrid ? "text-[8px]" : "text-[9px]"}`}
-            >
+            <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] opacity-80">
               {categoryUpper}
             </p>
             <h3 className={`line-clamp-2 ${titleClass}`}>{item.name}</h3>
@@ -125,7 +123,7 @@ function PosterBody({
           />
         </div>
         <div
-          className={`flex items-center justify-between font-bold uppercase tracking-wider text-kyar-media-fg-muted ${isGrid ? "mt-2 text-[9px]" : "mt-3 text-[10px]"}`}
+          className={`flex items-center justify-between font-bold uppercase tracking-[0.14em] text-kyar-media-fg-muted ${isGrid ? "mt-2 text-[9px]" : "mt-3 text-[10px]"}`}
         >
           <span>{progressLabel}</span>
           <span className="truncate pl-2">{childrenLabel}</span>
@@ -150,9 +148,9 @@ export function ElementPortfolioCardWeb({
 
   if (variant === "compact") {
     return (
-      <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-mutedWarm shadow-soft">
+      <div className="overflow-hidden rounded-[10px] border border-glass-border bg-glass text-kyar-media-fg">
         <div className="flex h-[148px] flex-row">
-          <div className="relative h-full w-28 shrink-0 overflow-hidden bg-kyar-mutedWarm">
+          <div className="relative h-full w-28 shrink-0 overflow-hidden bg-glass-active">
             {item.imageStorageId || item.imageUrl ? (
               <ResolvedImage
                 imageStorageId={item.imageStorageId ?? undefined}
@@ -161,7 +159,7 @@ export function ElementPortfolioCardWeb({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-kyar-textTertiary">
+              <div className="flex h-full items-center justify-center text-media-fg-45">
                 <span className="material-symbols-outlined text-4xl">
                   {item.nodeType === "material" ? "science" : "checkroom"}
                 </span>
@@ -169,20 +167,20 @@ export function ElementPortfolioCardWeb({
             )}
             <div className="absolute inset-0 bg-kyar-media-scrim-faint" />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-between bg-kyar-surface py-3 pl-3 pr-3">
+          <div className="flex min-w-0 flex-1 flex-col justify-between py-3 pl-3 pr-3">
             <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-kyar-textSecondary">
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-media-fg-70">
                 {(item.category?.trim() || "uncategorized").toUpperCase()}
               </p>
-              <h3 className="mt-1 line-clamp-2 font-serif text-[20px] italic leading-snug text-kyar-text">
+              <h3 className="mt-1 line-clamp-2 font-serif text-[20px] italic leading-snug">
                 {item.name}
               </h3>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-kyar-textSecondary">
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-media-fg-70">
                 {item.typeBadge} · {item.statusBadge}
               </p>
             </div>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-kyar-textSecondary">
+              <p className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-[0.14em] text-media-fg-70">
                 {progressLabel}
                 <br />
                 {childrenLabel}
@@ -190,8 +188,8 @@ export function ElementPortfolioCardWeb({
               <ProgressRing
                 progress={pct}
                 sizeClass="h-8 w-8"
-                textClass="text-kyar-text"
-                trackClass="text-kyar-text/15"
+                textClass="text-kyar-media-fg"
+                trackClass="text-kyar-media-fg/20"
               />
             </div>
           </div>
@@ -202,7 +200,7 @@ export function ElementPortfolioCardWeb({
 
   const posterVariant = variant === "grid" ? "grid" : "comfortable";
   return (
-    <div className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft">
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-glass-border bg-glass-active">
       <PosterBody
         item={item}
         progress={pct}
