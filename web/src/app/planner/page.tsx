@@ -5,8 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { SectionCard } from "@/components/ui/SectionCard";
+import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
@@ -368,6 +367,7 @@ export default function Planner() {
 
   const plannerTasks = useOfflineQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
   const conventions = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
+  const buildsList = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
   const filteredTasks = useMemo(() => {
     const list = plannerTasks ?? [];
@@ -454,6 +454,13 @@ export default function Planner() {
       events,
     }));
   }, [plannerTasks, conventions]);
+
+  /** Build owning the most urgent (soonest-due, incomplete) task — backs the page photo. */
+  const urgentBuild = useMemo(() => {
+    const task = sortedTasks.find((t) => t.status !== "done" && t.buildId);
+    if (!task) return undefined;
+    return (buildsList ?? []).find((b) => b._id === task.buildId);
+  }, [sortedTasks, buildsList]);
 
   const checkedCount = useMemo(
     () => filteredTasks.filter((t) => t.status === "done").length,
@@ -679,213 +686,229 @@ export default function Planner() {
   });
 
   return (
-    <WebAppShell>
-      <PageHeader
-        title={view === "daily" ? dateLabel : view === "calendar" ? "Calendar" : "Circuit"}
-        subtitle={view === "daily" ? weekdayLabel : undefined}
-        sticky
-      />
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-6">
-        <button
-          type="button"
-          onClick={() => setView("daily")}
-          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-            view === "daily"
-              ? "bg-kyar-text text-kyar-bg shadow-md"
-              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
-          }`}
-          aria-pressed={view === "daily"}
-          aria-label="Daily view"
-        >
-          Daily
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("events")}
-          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-            view === "events"
-              ? "bg-kyar-text text-kyar-bg shadow-md"
-              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
-          }`}
-          aria-pressed={view === "events"}
-          aria-label="Events view"
-        >
-          Events
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("calendar")}
-          className={`min-h-[44px] flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-            view === "calendar"
-              ? "bg-kyar-text text-kyar-bg shadow-md"
-              : "bg-kyar-surface border border-kyar-borderSubtle text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
-          }`}
-          aria-pressed={view === "calendar"}
-          aria-label="Calendar view"
-        >
-          Calendar
-        </button>
-      </div>
+    <WebAppShell fullBleed>
+      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+        <PhotoBackdrop
+          imageStorageId={urgentBuild?.imageStorageId}
+          imageUrl={urgentBuild?.imageUrl}
+          scrimRight="strong"
+        />
 
-      <main className="flex-1 pb-24 lg:pb-8">
-        {view === "calendar" ? (
-          <div className="flex flex-1 flex-col">
-            {isLoading ? (
-              <p className="text-sm text-kyar-textTertiary">Loading calendar...</p>
-            ) : (
-              <FullScreenCalendar data={calendarData} addHref="/builds" addLabel="Add task" />
-            )}
-          </div>
-        ) : view === "daily" ? (
-          <>
-            {isLoading ? (
-              <p className="text-sm text-kyar-textTertiary">Loading tasks...</p>
-            ) : (
-              <>
-                <div className="mb-6 flex flex-wrap items-center gap-3">
-                  <div className="flex gap-2 flex-wrap">
-                    {(["all", "today", "week"] as const).map((tf) => (
-                      <button
-                        key={tf}
-                        type="button"
-                        onClick={() => setTimeframe(tf)}
-                        className={`min-h-[44px] px-4 py-2 text-[10px] uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 ${
-                          timeframe === tf
-                            ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
-                            : "border-kyar-borderSubtle bg-kyar-surface text-kyar-text hover:border-kyar-text hover:bg-kyar-muted"
-                        }`}
-                        aria-pressed={timeframe === tf}
-                      >
-                        {tf === "all" ? "All" : tf === "today" ? "Today" : "This week"}
-                      </button>
-                    ))}
-                  </div>
-                  <Link
-                    href="/builds"
-                    className="min-h-[44px] inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest border border-kyar-text px-6 py-2.5 rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+        <div className="relative z-10 flex-1 flex flex-col lg:flex-row gap-6 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-12 pb-6 min-h-0">
+          {/* Headline block (3b) */}
+          <section className="flex-1 min-w-0 max-w-[520px] lg:self-start lg:mt-8">
+            <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
+              {weekdayLabel} · {dateLabel}
+            </span>
+            <h1 className="font-serif italic font-normal text-[38px] lg:text-[76px] leading-[0.98] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
+              What&rsquo;s due
+            </h1>
+            {urgentBuild ? (
+              <p className="mt-4 max-w-[380px] text-[15px] text-media-fg-70">
+                Most urgent right now:{" "}
+                <span className="font-serif italic text-kyar-media-fg">{urgentBuild.name}</span>.
+              </p>
+            ) : null}
+          </section>
+
+          {/* Work panel (3b) */}
+          <section
+            className={`w-full shrink-0 flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-140px)] ${
+              view === "calendar" ? "lg:w-[760px]" : "lg:w-[560px]"
+            }`}
+          >
+            <div className="px-5 py-4 border-b border-glass-divider-strong">
+              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+                {(
+                  [
+                    ["daily", "Daily"],
+                    ["events", "Events"],
+                    ["calendar", "Calendar"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setView(value)}
+                    className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                      view === value
+                        ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                        : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                    }`}
+                    aria-pressed={view === value}
+                    aria-label={`${label} view`}
                   >
-                    Add task
-                  </Link>
-                </div>
-
-                {totalCount === 0 ? (
-                  <SectionCard title="Tasks">
-                    <p className="text-sm text-kyar-textTertiary mb-2">No tasks yet.</p>
-                    <Link
-                      href="/builds"
-                      className="text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
+                    {label}
+                  </button>
+                ))}
+                <div className="flex-1" />
+                {view === "daily" &&
+                  (["all", "today", "week"] as const).map((tf) => (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => setTimeframe(tf)}
+                      className={`text-[9px] uppercase tracking-[0.16em] pb-0.5 border-b transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                        timeframe === tf
+                          ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                          : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                      }`}
+                      aria-pressed={timeframe === tf}
                     >
-                      Open a build to add tasks
-                    </Link>
-                  </SectionCard>
-                ) : (
-                  <>
-                    <SectionCard title="Progress" className="mb-8">
-                      <div className="flex items-baseline gap-4 flex-wrap">
-                        <p className="text-lg font-medium text-kyar-text">
-                          {checkedCount} of {totalCount} tasks
-                        </p>
-                        <div
-                          className="flex-1 min-w-[120px] h-3 max-w-xs bg-kyar-muted rounded-full overflow-hidden border border-kyar-borderSubtle"
-                          role="progressbar"
-                          aria-valuenow={checkedCount}
-                          aria-valuemin={0}
-                          aria-valuemax={totalCount}
-                        >
-                          <div
-                            className="h-full bg-kyar-text rounded-full transition-[width] duration-300"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                      </div>
-                    </SectionCard>
+                      {tf === "all" ? "All" : tf === "today" ? "Today" : "This week"}
+                    </button>
+                  ))}
+                <Link
+                  href="/builds"
+                  className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                >
+                  Add task
+                </Link>
+              </div>
+              {view === "daily" && totalCount > 0 && (
+                <div className="mt-3 flex items-center gap-3">
+                  <div
+                    className="h-[2px] flex-1 max-w-[220px] bg-glass-border rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={checkedCount}
+                    aria-valuemin={0}
+                    aria-valuemax={totalCount}
+                  >
+                    <div
+                      className="h-full bg-kyar-media-fg rounded-full transition-[width] duration-300"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55 tabular-nums">
+                    {checkedCount} / {totalCount} tasks
+                  </span>
+                </div>
+              )}
+            </div>
 
-                    {deadlineApproaching.length > 0 && (
-                      <SectionCard title="Deadline approaching" className="mb-8">
+            <main className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+              {view === "calendar" ? (
+                <div className="flex flex-1 flex-col">
+                  {isLoading ? (
+                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading calendar...</p>
+                  ) : (
+                    <FullScreenCalendar data={calendarData} addHref="/builds" addLabel="Add task" />
+                  )}
+                </div>
+              ) : view === "daily" ? (
+                <>
+                  {isLoading ? (
+                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading tasks...</p>
+                  ) : totalCount === 0 ? (
+                    <div className="px-2 py-4">
+                      <p className="text-sm text-media-fg-70 mb-2">No tasks yet.</p>
+                      <Link
+                        href="/builds"
+                        className="text-sm text-kyar-media-fg border-b border-glass-border-strong pb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                      >
+                        Open a build to add tasks
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      {deadlineApproaching.length > 0 && (
+                        <section className="mb-5">
+                          <h3 className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
+                            Deadline approaching
+                          </h3>
+                          <PlannerTaskTree
+                            tree={treeApproaching}
+                            userId={userId}
+                            onToggle={handleToggle}
+                            dragController={dragController}
+                          />
+                        </section>
+                      )}
+
+                      <section>
+                        <h3 className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
+                          {deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}
+                        </h3>
                         <PlannerTaskTree
-                          tree={treeApproaching}
+                          tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
                           userId={userId}
                           onToggle={handleToggle}
                           dragController={dragController}
                         />
-                      </SectionCard>
-                    )}
-
-                    <SectionCard title={deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}>
-                      <PlannerTaskTree
-                        tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
-                        userId={userId}
-                        onToggle={handleToggle}
-                        dragController={dragController}
-                      />
-                    </SectionCard>
-                  </>
-                )}
-              </>
-            )}
-          </>
-        ) : view === "events" ? (
-          <div className="space-y-6">
-            {isLoadingConventions ? (
-              <p className="text-sm text-kyar-textTertiary">Loading events…</p>
-            ) : !conventions || conventions.length === 0 ? (
-              <SectionCard title="Events">
-                <p className="text-sm text-kyar-textTertiary mb-2">No events yet.</p>
-                <Link
-                  href="/conventions"
-                  className="text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded"
-                >
-                  Create an event
-                </Link>
-              </SectionCard>
-            ) : (
-              conventions.map((con) => (
-                <SectionCard key={con._id} title={con.name}>
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <span className="text-xs text-kyar-meta">
-                      {new Date(con.startDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      })}{" "}
-                      –{" "}
-                      {new Date(con.endDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <div className="flex gap-2 flex-wrap">
+                      </section>
+                    </>
+                  )}
+                </>
+              ) : view === "events" ? (
+                <div>
+                  {isLoadingConventions ? (
+                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading events…</p>
+                  ) : !conventions || conventions.length === 0 ? (
+                    <div className="px-2 py-4">
+                      <p className="text-sm text-media-fg-70 mb-2">No events yet.</p>
                       <Link
-                        href={`/conventions/${con._id}`}
-                        className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-kyar-borderSubtle px-6 py-2.5 rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                        href="/conventions"
+                        className="text-sm text-kyar-media-fg border-b border-glass-border-strong pb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                       >
-                        Plan
-                      </Link>
-                      <Link
-                        href={`/conventions/${con._id}/packing`}
-                        className="min-h-[44px] inline-flex items-center text-[10px] font-bold uppercase tracking-widest border border-kyar-borderSubtle px-6 py-2.5 rounded-full hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
-                      >
-                        Packing List
+                        Create an event
                       </Link>
                     </div>
-                  </div>
-                </SectionCard>
-              ))
-            )}
+                  ) : (
+                    conventions.map((con) => (
+                      <div
+                        key={con._id}
+                        className="flex flex-wrap items-center justify-between gap-3 px-2 py-3.5 border-b border-glass-divider"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-serif italic text-[17px] truncate">{con.name}</p>
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55 mt-0.5">
+                            {new Date(con.startDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              year: "numeric",
+                            })}{" "}
+                            –{" "}
+                            {new Date(con.endDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <div className="flex gap-4 flex-wrap">
+                          <Link
+                            href={`/conventions/${con._id}`}
+                            className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                          >
+                            Plan
+                          </Link>
+                          <Link
+                            href={`/conventions/${con._id}/packing`}
+                            className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                          >
+                            Packing list
+                          </Link>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </main>
+          </section>
+        </div>
+
+        {dragState.draggingMeta && dragState.pointerX != null && dragState.pointerY != null ? (
+          <div
+            className="pointer-events-none fixed z-[10000] max-w-[260px] rotate-[1.5deg] rounded-full bg-glass-preview backdrop-blur-[20px] border border-glass-border-strong px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-kyar-media-fg shadow-[0_24px_48px_-16px_rgb(12_11_20/0.6)]"
+            style={{
+              left: Math.max(12, Math.min(dragState.pointerX + 14, window.innerWidth - 280)),
+              top: Math.max(12, Math.min(dragState.pointerY + 14, window.innerHeight - 80)),
+            }}
+          >
+            <span className="block truncate">{dragState.draggingMeta.title ?? "Task"}</span>
           </div>
         ) : null}
-      </main>
-      {dragState.draggingMeta && dragState.pointerX != null && dragState.pointerY != null ? (
-        <div
-          className="pointer-events-none fixed z-[10000] max-w-[260px] rounded-full bg-kyar-text px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-kyar-bg shadow-lg"
-          style={{
-            left: Math.max(12, Math.min(dragState.pointerX + 14, window.innerWidth - 280)),
-            top: Math.max(12, Math.min(dragState.pointerY + 14, window.innerHeight - 80)),
-          }}
-        >
-          <span className="block truncate">{dragState.draggingMeta.title ?? "Task"}</span>
-        </div>
-      ) : null}
+      </div>
     </WebAppShell>
   );
 }
@@ -914,16 +937,16 @@ function PlannerTaskNodeList({
   const scopeKey = plannerTaskScopeKey(tasks[0]);
 
   return (
-    <ul className="divide-y divide-kyar-borderSubtle/60">
+    <ul className="divide-y divide-glass-divider">
       {parent == null &&
       dragController.state.draggingMeta?.scopeKey === scopeKey &&
       dragController.state.draggingMeta.parentId != null ? (
         <li
           data-planner-root-drop-zone={scopeKey}
-          className={`rounded-xl border border-dashed px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest ${
+          className={`rounded-xl border px-3 py-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] ${
             dragController.state.dragOverRootScopeKey === scopeKey
-              ? "border-kyar-text bg-kyar-muted text-kyar-text"
-              : "border-kyar-borderSubtle bg-kyar-surface text-kyar-meta"
+              ? "border-glass-border-strong bg-glass-active text-kyar-media-fg"
+              : "border-glass-border bg-glass-bar text-media-fg-55"
           }`}
         >
           Drop here to make it top level
@@ -991,10 +1014,14 @@ function PlannerTaskNodeItem({
         className={`relative ${active ? "opacity-55" : ""}`}
       >
         {dropBefore ? (
-          <div className="absolute inset-x-3 top-0 z-10 h-1 rounded-full bg-kyar-text" />
+          <div className="absolute inset-x-3 top-0 z-10 h-[2.5px] rounded-[2px] bg-[var(--drop-line)] shadow-[0_0_12px_rgb(255_253_248/0.8)]">
+            <span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-[var(--drop-line)]" />
+          </div>
         ) : null}
         {dropAfter ? (
-          <div className="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-kyar-text" />
+          <div className="absolute inset-x-3 bottom-0 z-10 h-[2.5px] rounded-[2px] bg-[var(--drop-line)] shadow-[0_0_12px_rgb(255_253_248/0.8)]">
+            <span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-[var(--drop-line)]" />
+          </div>
         ) : null}
         <PlannerTaskRow
           title={task.title}
@@ -1019,7 +1046,7 @@ function PlannerTaskNodeItem({
         />
       </div>
       {childrenOpen && task.children.length > 0 ? (
-        <div className="mb-1 ml-[15px] border-l border-kyar-borderSubtle pl-3 sm:pl-4">
+        <div className="mb-1 ml-[15px] border-l border-glass-divider-strong pl-3 sm:pl-4">
           <PlannerTaskNodeList
             tasks={task.children}
             parent={task}
@@ -1055,32 +1082,32 @@ function PlannerTaskTree({
   if (!hasConventions && !hasStandalone && !hasUnassigned) return null;
 
   return (
-    <div className="divide-y divide-kyar-borderSubtle">
+    <div className="divide-y divide-glass-divider-strong">
       {conventionGroups.map((convention) => (
         <details key={convention.conventionId} className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
               ▶
             </span>
             <span className="flex-1">{convention.conventionName}</span>
             <Link
               href={`/conventions/${convention.conventionId}/packing`}
-              className="text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+              className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
               onClick={(e) => e.stopPropagation()}
             >
               Open
             </Link>
           </summary>
-          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
+          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
             {convention.builds.map((build) => (
               <details key={build.buildId} className="group/build">
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-                  <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/build:rotate-90 transition-transform">
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                  <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open/build:rotate-90 transition-transform">
                     ▶
                   </span>
                   <span className="flex-1 font-light">{build.buildName}</span>
                 </summary>
-                <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
+                <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
                   <PlannerTaskNodeList
                     tasks={build.tasks}
                     userId={userId}
@@ -1092,13 +1119,13 @@ function PlannerTaskTree({
             ))}
             {convention.packingTasks.length > 0 && (
               <details key={`packing-${convention.conventionId}`} className="group/pack">
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-                  <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open/pack:rotate-90 transition-transform">
+                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                  <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open/pack:rotate-90 transition-transform">
                     ▶
                   </span>
                   <span className="flex-1 font-light">Packing</span>
                 </summary>
-                <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
+                <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
                   <PlannerTaskNodeList
                     tasks={convention.packingTasks}
                     userId={userId}
@@ -1113,20 +1140,20 @@ function PlannerTaskTree({
       ))}
       {standaloneBuilds.map((build) => (
         <details key={build.buildId} className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
               ▶
             </span>
             <span className="flex-1">{build.buildName}</span>
             <Link
               href={`/build-detail/${build.buildId}`}
-              className="text-[10px] uppercase tracking-widest text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+              className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
               onClick={(e) => e.stopPropagation()}
             >
               Open
             </Link>
           </summary>
-          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
+          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
             <PlannerTaskNodeList
               tasks={build.tasks}
               userId={userId}
@@ -1138,13 +1165,13 @@ function PlannerTaskTree({
       ))}
       {hasUnassigned && (
         <details className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-text hover:bg-kyar-mutedWarm/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-wider text-kyar-meta group-open:rotate-90 transition-transform">
+          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
               ▶
             </span>
             <span className="flex-1">Elements and other tasks</span>
           </summary>
-          <div className="ml-3 border-l border-kyar-borderSubtle pl-2 pb-2 sm:pl-3">
+          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
             <PlannerTaskNodeList
               tasks={unassignedTasks}
               userId={userId}

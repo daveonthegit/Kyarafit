@@ -10,15 +10,15 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
  * dividers and nesting reads through the left rail, not stacked borders.
  */
 export const plannerWorkflowRowClassName =
-  "flex flex-wrap items-start gap-2 rounded-lg px-2 py-3 min-h-[44px] hover:bg-kyar-mutedWarm/70 transition-colors";
+  "flex flex-wrap items-start gap-2 rounded-[10px] px-2 py-3 min-h-[44px] hover:bg-glass-active transition-colors text-kyar-media-fg";
 
 export const plannerWorkflowCheckboxClassName =
-  "mt-1 rounded-full border-2 border-kyar-border bg-kyar-surface w-6 h-6 min-w-[24px] min-h-[24px] accent-kyar-accent focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 transition-transform active:scale-90 cursor-pointer checked:bg-kyar-text checked:border-kyar-text disabled:opacity-50 disabled:cursor-not-allowed";
+  "mt-1 rounded-full border-2 border-media-fg-45 bg-transparent w-[21px] h-[21px] min-w-[21px] min-h-[21px] accent-kyar-media-fg focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 transition-transform active:scale-90 cursor-pointer checked:bg-glass-solid checked:border-glass-solid disabled:opacity-50 disabled:cursor-not-allowed";
 
 const metaLinkClassName =
-  "text-[11px] uppercase tracking-wide text-kyar-meta hover:text-kyar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 rounded";
+  "text-[10px] uppercase tracking-[0.14em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded";
 
-const metaMutedClassName = "text-[11px] uppercase tracking-wide text-kyar-textTertiary";
+const metaMutedClassName = "text-[10px] uppercase tracking-[0.14em] text-media-fg-55";
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -83,7 +83,7 @@ export function PlannerWorkflowTaskTitle({
 }) {
   return (
     <p
-      className={`font-light tracking-tight ${done ? "line-through text-kyar-textTertiary" : "text-kyar-text"}`}
+      className={`text-[13px] font-normal tracking-tight ${done ? "line-through text-media-fg-55" : "text-kyar-media-fg"}`}
     >
       {children}
     </p>
@@ -115,7 +115,7 @@ export function PlannerWorkflowMetaText({ children }: { children: ReactNode }) {
 }
 
 export function PlannerWorkflowMetaMuted({ children }: { children: ReactNode }) {
-  return <span className="text-[11px] text-kyar-textTertiary">{children}</span>;
+  return <span className="text-[11px] text-media-fg-55">{children}</span>;
 }
 
 /**
@@ -170,7 +170,7 @@ export function PlannerTaskRow({
   return (
     <div
       className={`${plannerWorkflowRowClassName} ${
-        dropIntoLabel ? "bg-kyar-muted ring-1 ring-inset ring-kyar-text" : ""
+        dropIntoLabel ? "bg-glass-active ring-1 ring-inset ring-[var(--drop-into-ring)]" : ""
       }`}
     >
       <div className="flex min-h-[32px] items-center gap-1">
@@ -178,7 +178,7 @@ export function PlannerTaskRow({
           <button
             type="button"
             onClick={dragHandleProps.onToggleChildren}
-            className="min-h-[32px] min-w-[32px] rounded-full text-xs text-kyar-meta hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+            className="min-h-[32px] min-w-[32px] rounded-full text-xs text-media-fg-55 hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
             aria-label={dragHandleProps.childrenOpen ? "Collapse task" : "Expand task"}
           >
             {dragHandleProps.childrenOpen ? "▾" : "▸"}
@@ -190,7 +190,7 @@ export function PlannerTaskRow({
           <button
             type="button"
             onPointerDown={dragHandleProps.onPointerDown}
-            className="touch-none min-h-[32px] min-w-[32px] cursor-grab rounded-full text-lg leading-none text-kyar-meta hover:bg-kyar-mutedWarm active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+            className="touch-none min-h-[32px] min-w-[32px] cursor-grab rounded-full text-lg leading-none text-media-fg-45 hover:bg-glass-active hover:text-kyar-media-fg active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
             aria-label={`Drag "${title}"`}
             title="Drag to reorder, nest, or promote"
           >
@@ -220,7 +220,7 @@ export function PlannerTaskRow({
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
             aria-label={detailsOpen ? `Hide details for "${title}"` : `Show details for "${title}"`}
-            className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-[10px] font-bold uppercase tracking-widest text-kyar-meta hover:bg-kyar-mutedWarm hover:text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55 hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             <span aria-hidden="true" className="transition-transform">
               {detailsOpen ? "▾" : "▸"}
@@ -231,26 +231,30 @@ export function PlannerTaskRow({
         {detailsOpen ? (
           <dl
             id={detailsId}
-            className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-kyar-borderSubtle/60 pt-2"
+            className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-glass-divider pt-2"
           >
             <div className="flex items-baseline gap-1.5">
-              <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">Status</dt>
-              <dd className="text-[11px] uppercase tracking-wide text-kyar-meta">{statusLabel}</dd>
+              <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">Status</dt>
+              <dd className="text-[10px] uppercase tracking-[0.14em] text-media-fg-70">
+                {statusLabel}
+              </dd>
             </div>
             {hasPriority ? (
               <div className="flex items-baseline gap-1.5">
-                <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">
                   Priority
                 </dt>
-                <dd className="text-[11px] uppercase tracking-wide text-kyar-meta">{priority}</dd>
+                <dd className="text-[10px] uppercase tracking-[0.14em] text-media-fg-70">
+                  {priority}
+                </dd>
               </div>
             ) : null}
             {hasDependencies ? (
               <div className="flex items-baseline gap-1.5">
-                <dt className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">
                   Dependencies
                 </dt>
-                <dd className="text-[11px] text-kyar-danger">
+                <dd className="text-[11px] text-on-glass-danger">
                   {blockedByTitles && blockedByTitles.length > 0
                     ? `blocked by ${blockedByTitles.join(", ")}`
                     : `blocked by ${blockedByCount}`}
@@ -260,8 +264,8 @@ export function PlannerTaskRow({
           </dl>
         ) : null}
         {dropIntoLabel ? (
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-kyar-meta">
-            {dropIntoLabel}
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+            {dropIntoLabel} ▸
           </p>
         ) : null}
       </div>
