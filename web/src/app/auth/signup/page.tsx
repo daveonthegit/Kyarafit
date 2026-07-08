@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/auth-client";
+import { AuthGlassFrame } from "@/components/auth/AuthGlassFrame";
 
 const socialButtonClass =
-  "w-full flex items-center justify-center gap-3 border border-kyar-text py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-text hover:text-kyar-bg transition-all disabled:opacity-50";
+  "w-full min-h-[44px] flex items-center justify-center gap-3 rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors disabled:opacity-50";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -74,16 +75,10 @@ export default function SignUpPage() {
   const anyLoading = loading || oauthLoading !== null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 bg-kyar-bg">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <p className="meta-label mb-2 opacity-40">Join</p>
-          <h1 className="font-serif text-4xl italic tracking-tight">Kyarafit</h1>
-        </div>
-
+    <AuthGlassFrame eyebrow="Join">
+      <div>
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-800 text-sm">
+          <div className="mb-4 rounded-[10px] border border-on-glass-danger/40 bg-on-glass-danger/15 p-4 text-sm text-kyar-media-fg">
             {error}
           </div>
         )}
@@ -130,26 +125,30 @@ export default function SignUpPage() {
 
         {/* Divider */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 border-t border-kyar-border" />
-          <span className="text-xs text-kyar-textTertiary uppercase tracking-widest">or</span>
-          <div className="flex-1 border-t border-kyar-border" />
+          <div className="flex-1 border-t border-glass-border" />
+          <span className="text-[10px] text-media-fg-55 uppercase tracking-[0.16em]">or</span>
+          <div className="flex-1 border-t border-glass-border" />
         </div>
 
         {/* Sign-up form */}
         <form onSubmit={handleSignUp} className="space-y-4">
           <div>
-            <label className="meta-label block mb-1">Name</label>
+            <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Name
+            </label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+              className="glass-field w-full px-4 py-3 text-sm"
             />
           </div>
           <div>
-            <label className="meta-label block mb-1">Username</label>
+            <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Username
+            </label>
             <input
               type="text"
               required
@@ -158,22 +157,26 @@ export default function SignUpPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Choose a username (3+ characters)"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+              className="glass-field w-full px-4 py-3 text-sm"
             />
           </div>
           <div>
-            <label className="meta-label block mb-1">Email</label>
+            <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Email
+            </label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+              className="glass-field w-full px-4 py-3 text-sm"
             />
           </div>
           <div>
-            <label className="meta-label block mb-1">Password</label>
+            <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Password
+            </label>
             <input
               type="password"
               required
@@ -181,44 +184,46 @@ export default function SignUpPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+              className="glass-field w-full px-4 py-3 text-sm"
             />
           </div>
           <div>
-            <label className="meta-label block mb-1">Confirm Password</label>
+            <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Confirm Password
+            </label>
             <input
               type="password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"
-              className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+              className="glass-field w-full px-4 py-3 text-sm"
             />
           </div>
           <button
             type="submit"
             disabled={anyLoading}
-            className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
+            className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? "Creating account…" : "Create Account"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-kyar-textTertiary">
+        <p className="mt-6 text-center text-xs text-media-fg-55">
           Already have an account?{" "}
-          <Link href="/auth/signin" className="underline hover:text-kyar-text">
+          <Link href="/auth/signin" className="underline hover:text-kyar-media-fg">
             Sign in
           </Link>
         </p>
 
         <div className="mt-6 text-center">
-          <p className="text-xs text-kyar-textTertiary">
+          <p className="text-xs text-media-fg-55">
             By continuing, you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-kyar-text">
+            <Link href="/terms" className="underline hover:text-kyar-media-fg">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="underline hover:text-kyar-text">
+            <Link href="/privacy" className="underline hover:text-kyar-media-fg">
               Privacy Policy
             </Link>
             .
@@ -226,11 +231,11 @@ export default function SignUpPage() {
         </div>
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-kyar-text">
+          <Link href="/" className="text-xs text-media-fg-55 hover:text-kyar-media-fg">
             &larr; Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </AuthGlassFrame>
   );
 }

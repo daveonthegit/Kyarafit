@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/auth-client";
 import { setStoredBearerToken } from "@/lib/auth/bearer-storage-plugin";
+import { AuthGlassFrame } from "@/components/auth/AuthGlassFrame";
 
 type Mode = "signin" | "forgot";
 
 const socialButtonClass =
-  "w-full flex items-center justify-center gap-3 border border-kyar-text py-3 text-xs uppercase tracking-widest font-semibold hover:bg-kyar-text hover:text-kyar-bg transition-all disabled:opacity-50";
+  "w-full min-h-[44px] flex items-center justify-center gap-3 rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors disabled:opacity-50";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -163,22 +164,16 @@ export default function SignInPage() {
   const anyLoading = loading || oauthLoading !== null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 bg-kyar-bg">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <p className="meta-label mb-2 opacity-40">Welcome to</p>
-          <h1 className="font-serif text-4xl italic tracking-tight">Kyarafit</h1>
-        </div>
-
+    <AuthGlassFrame>
+      <div>
         {/* Alerts */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-800 text-sm">
+          <div className="mb-4 rounded-[10px] border border-on-glass-danger/40 bg-on-glass-danger/15 p-4 text-sm text-kyar-media-fg">
             {error}
           </div>
         )}
         {(info || resetSuccess) && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-800 text-sm">
+          <div className="mb-4 rounded-[10px] border border-on-glass-chip-done-fg/30 bg-on-glass-chip-done-bg p-4 text-sm text-on-glass-chip-done-fg">
             {resetSuccess ? "Password updated successfully. Sign in below." : info}
           </div>
         )}
@@ -187,20 +182,22 @@ export default function SignInPage() {
           /* ── Forgot password ── */
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
-              <label className="meta-label block mb-1">Email</label>
+              <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+                Email
+              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+                className="glass-field w-full px-4 py-3 text-sm"
               />
             </div>
             <button
               type="submit"
               disabled={anyLoading}
-              className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
+              className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? "Sending…" : "Send Reset Link"}
             </button>
@@ -210,7 +207,7 @@ export default function SignInPage() {
                 setMode("signin");
                 setError(null);
               }}
-              className="w-full text-xs text-kyar-textTertiary hover:text-kyar-text underline"
+              className="w-full text-xs text-media-fg-55 hover:text-kyar-media-fg underline"
             >
               Back to sign in
             </button>
@@ -260,9 +257,9 @@ export default function SignInPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-3 mb-6">
-              <div className="flex-1 border-t border-kyar-border" />
-              <span className="text-xs text-kyar-textTertiary uppercase tracking-widest">or</span>
-              <div className="flex-1 border-t border-kyar-border" />
+              <div className="flex-1 border-t border-glass-border" />
+              <span className="text-[10px] text-media-fg-55 uppercase tracking-[0.16em]">or</span>
+              <div className="flex-1 border-t border-glass-border" />
             </div>
 
             {/* Username or email + password */}
@@ -272,19 +269,23 @@ export default function SignInPage() {
             >
               {signInWithEmail ? (
                 <div>
-                  <label className="meta-label block mb-1">Email</label>
+                  <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+                    Email
+                  </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+                    className="glass-field w-full px-4 py-3 text-sm"
                   />
                 </div>
               ) : (
                 <div>
-                  <label className="meta-label block mb-1">Username</label>
+                  <label className="block mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+                    Username
+                  </label>
                   <input
                     type="text"
                     required
@@ -292,20 +293,22 @@ export default function SignInPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Your username"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+                    className="glass-field w-full px-4 py-3 text-sm"
                   />
                 </div>
               )}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="meta-label">Password</label>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+                    Password
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
                       setMode("forgot");
                       setError(null);
                     }}
-                    className="text-xs text-kyar-textTertiary hover:text-kyar-text underline"
+                    className="text-xs text-media-fg-55 hover:text-kyar-media-fg underline"
                   >
                     Forgot password?
                   </button>
@@ -316,19 +319,19 @@ export default function SignInPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+                  className="glass-field w-full px-4 py-3 text-sm"
                 />
               </div>
               <button
                 type="submit"
                 disabled={anyLoading}
-                className="w-full bg-kyar-text text-kyar-bg py-3 text-xs uppercase tracking-widest font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
+                className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {loading ? "Signing in…" : "Sign In"}
               </button>
               {showResendVerification && (
                 <div className="space-y-2">
-                  <label className="meta-label block">
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
                     Enter your email to resend verification
                   </label>
                   <input
@@ -336,13 +339,13 @@ export default function SignInPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full border border-kyar-border px-4 py-3 text-sm focus:outline-none focus:border-kyar-text"
+                    className="glass-field w-full px-4 py-3 text-sm"
                   />
                   <button
                     type="button"
                     onClick={handleResendVerification}
                     disabled={anyLoading || resendLoading || !email.trim()}
-                    className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors disabled:opacity-50 text-kyar-textSecondary hover:text-kyar-text"
+                    className="w-full min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold text-media-fg-70 hover:bg-glass-active hover:text-kyar-media-fg transition-colors disabled:opacity-50"
                   >
                     {resendLoading ? "Sending…" : "Resend verification email"}
                   </button>
@@ -357,25 +360,25 @@ export default function SignInPage() {
                   setSignInWithEmail(!signInWithEmail);
                   setError(null);
                 }}
-                className="text-xs text-kyar-textTertiary hover:text-kyar-text underline"
+                className="text-xs text-media-fg-55 hover:text-kyar-media-fg underline"
               >
                 {signInWithEmail ? "Sign in with username instead" : "Sign in with email instead"}
               </button>
             </p>
 
-            <p className="mt-6 text-center text-xs text-kyar-textTertiary">
+            <p className="mt-6 text-center text-xs text-media-fg-55">
               Don&apos;t have an account?{" "}
-              <Link href="/auth/signup" className="underline hover:text-kyar-text">
+              <Link href="/auth/signup" className="underline hover:text-kyar-media-fg">
                 Create one
               </Link>
             </p>
-            <p className="mt-3 text-center text-xs text-kyar-textTertiary">
+            <p className="mt-3 text-center text-xs text-media-fg-55">
               Read our{" "}
-              <Link href="/privacy" className="underline hover:text-kyar-text">
+              <Link href="/privacy" className="underline hover:text-kyar-media-fg">
                 Privacy Policy
               </Link>{" "}
               and{" "}
-              <Link href="/terms" className="underline hover:text-kyar-text">
+              <Link href="/terms" className="underline hover:text-kyar-media-fg">
                 Terms of Service
               </Link>
               .
@@ -384,11 +387,11 @@ export default function SignInPage() {
         )}
 
         <div className="mt-8 text-center">
-          <Link href="/" className="text-xs text-kyar-textTertiary hover:text-kyar-text">
+          <Link href="/" className="text-xs text-media-fg-55 hover:text-kyar-media-fg">
             &larr; Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </AuthGlassFrame>
   );
 }

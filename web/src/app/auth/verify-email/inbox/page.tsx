@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/auth-client";
+import { AuthGlassFrame } from "@/components/auth/AuthGlassFrame";
 
 export default function VerifyEmailInboxPage() {
   const searchParams = useSearchParams();
@@ -36,26 +37,22 @@ export default function VerifyEmailInboxPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 bg-kyar-bg">
-      <div className="w-full max-w-md text-center">
-        <div className="mb-8">
-          <div className="text-5xl mb-6">📬</div>
-          <h1 className="font-serif text-3xl italic tracking-tight mb-3">Check your inbox</h1>
-          <p className="text-sm text-kyar-textSecondary leading-relaxed">
-            We sent a verification link to{" "}
-            {email ? <strong className="text-kyar-text">{email}</strong> : "your email address"}.
-            Click the link to activate your account.
-          </p>
-        </div>
+    <AuthGlassFrame icon="mark_email_unread" eyebrow="One more step" title="Check your inbox">
+      <div className="text-center">
+        <p className="mb-8 -mt-2 text-sm text-media-fg-70 leading-relaxed">
+          We sent a verification link to{" "}
+          {email ? <strong className="text-kyar-media-fg">{email}</strong> : "your email address"}.
+          Click the link to activate your account.
+        </p>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-800 text-sm text-left">
+          <div className="mb-4 rounded-[10px] border border-on-glass-danger/40 bg-on-glass-danger/15 p-4 text-sm text-left text-kyar-media-fg">
             {error}
           </div>
         )}
 
         {resent && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-800 text-sm text-left">
+          <div className="mb-4 rounded-[10px] border border-on-glass-chip-done-fg/30 bg-on-glass-chip-done-bg p-4 text-sm text-left text-on-glass-chip-done-fg">
             Verification email resent. Check your inbox (and spam folder).
           </div>
         )}
@@ -65,27 +62,27 @@ export default function VerifyEmailInboxPage() {
             <button
               onClick={handleResend}
               disabled={resending}
-              className="w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors disabled:opacity-50"
+              className="w-full min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors disabled:opacity-50"
             >
               {resending ? "Resending…" : "Resend verification email"}
             </button>
           )}
           <Link
             href="/auth/signin"
-            className="block w-full border border-kyar-border py-3 text-xs uppercase tracking-widest font-semibold hover:border-kyar-text transition-colors text-center"
+            className="block w-full min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors text-center"
           >
             Back to sign in
           </Link>
         </div>
 
-        <p className="mt-8 text-xs text-kyar-textTertiary">
+        <p className="mt-8 text-xs text-media-fg-55">
           Didn&apos;t receive anything? Check your spam folder or{" "}
-          <Link href="/auth/signup" className="underline hover:text-kyar-text">
+          <Link href="/auth/signup" className="underline hover:text-kyar-media-fg">
             try a different email
           </Link>
           .
         </p>
       </div>
-    </div>
+    </AuthGlassFrame>
   );
 }
