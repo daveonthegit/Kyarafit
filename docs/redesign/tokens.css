@@ -1,0 +1,65 @@
+/* Kyarafit v2 — glass tier tokens. ADD to web/src/app/globals.css :root.
+   These do NOT flip with data-theme: glass always sits on photography.
+   v2.1 — updated after the July 2026 design-QA pass (see 05-qa-addendum.md). */
+:root {
+  /* Glass surfaces (light-on-photo) — three weights, never mix per element:
+     chrome (bars) 0.08/blur 18 · panel 0.10/blur 24 · overlay 0.14/blur 30 */
+  --glass-bg: rgb(255 253 248 / 0.10);          /* panels, shelves */
+  --glass-bg-bar: rgb(255 253 248 / 0.08);      /* top bar, tab bar, creator strips */
+  --glass-bg-overlay: rgb(255 253 248 / 0.14);  /* modals, auth cards, detail sheets */
+  --glass-bg-active: rgb(255 253 248 / 0.06);   /* highlighted row inside a panel */
+  --glass-bg-preview: rgb(255 253 248 / 0.22);  /* floating drag preview */
+  --glass-bg-solid: #fffdf8;                    /* primary pill on photo — SOLID, never translucent (QA-3) */
+  --glass-border: rgb(255 253 248 / 0.16);
+  --glass-border-overlay: rgb(255 253 248 / 0.22);
+  --glass-border-strong: rgb(255 253 248 / 0.4);
+  --glass-divider: rgb(255 253 248 / 0.10);
+  --glass-divider-strong: rgb(255 253 248 / 0.14);
+  --glass-blur: 24px;        /* panels */
+  --glass-blur-bar: 18px;    /* bars */
+  --glass-blur-overlay: 30px;/* modals/sheets */
+  --glass-blur-chip: 10px;   /* pills, chips */
+  --glass-radius: 14px;      /* panels */
+  --glass-radius-overlay: 16px; /* modals, auth cards */
+  --glass-radius-sheet: 20px;/* mobile bottom sheets (top corners) */
+  --glass-shadow-overlay: 0 40px 100px rgb(0 0 0 / 0.55);
+
+  /* Text on glass/photo — reuses the fixed media foreground family */
+  --media-fg-55: rgb(255 253 248 / 0.55);  /* inactive nav/labels */
+  --media-fg-70: rgb(255 253 248 / 0.70);
+  --media-fg-45: rgb(255 253 248 / 0.45);  /* empty checkbox borders */
+
+  /* State colors on glass (dark-photo-safe versions of danger/status) */
+  --on-glass-danger: rgb(255 168 168 / 0.95);
+  --on-glass-chip-done-bg: rgb(140 220 180 / 0.25);
+  --on-glass-chip-done-fg: rgb(190 245 215);
+  --on-glass-chip-active-bg: rgb(150 200 255 / 0.25);
+  --on-glass-chip-active-fg: rgb(200 225 255);
+  --on-glass-chip-warn-bg: rgb(255 215 140 / 0.25);
+  --on-glass-chip-warn-fg: rgb(255 235 190);
+  --on-glass-chip-neutral-bg: rgb(255 253 248 / 0.14);
+  --on-glass-chip-neutral-fg: rgb(255 253 248 / 0.8);
+
+  /* Backdrop scrims (extend the existing .bg-kyar-media-scrim family).
+     QA-1: mid-stops were raised — light type was failing AA where headlines
+     crossed bright photo regions. Use -strong on HIGH-KEY photos (bright,
+     busy, daylight/con-floor shots) and whenever a right work panel exists. */
+  --scrim-page-right: linear-gradient(to right, rgb(12 11 20 / 0.6) 0%, rgb(12 11 20 / 0.32) 45%, rgb(12 11 20 / 0.55) 100%);
+  --scrim-page-right-strong: linear-gradient(to right, rgb(12 11 20 / 0.7) 0%, rgb(12 11 20 / 0.42) 45%, rgb(12 11 20 / 0.72) 100%);
+  --scrim-page-vertical: linear-gradient(to top, rgb(12 11 20 / 0.72) 0%, rgb(12 11 20 / 0.22) 45%, rgb(12 11 20 / 0.35) 100%);
+  --scrim-page-vertical-mobile: linear-gradient(to top, rgb(12 11 20 / 0.86) 0%, rgb(12 11 20 / 0.38) 50%, rgb(12 11 20 / 0.42) 100%);
+  --studio-wall: linear-gradient(180deg, oklch(0.17 0.015 278), oklch(0.13 0.012 278));
+
+  /* Drop-zone indicators (explorers) — on glass */
+  --drop-line: #fffdf8;                       /* 2.5px, radius 2, glow 0 0 12px rgb(255 253 248/.8) */
+  --drop-into-ring: rgb(255 253 248 / 0.7);   /* inset 0 0 0 1.5px */
+}
+
+/* Fallback when backdrop-filter is unsupported */
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --glass-bg: rgb(20 19 32 / 0.85);
+    --glass-bg-bar: rgb(20 19 32 / 0.82);
+    --glass-bg-overlay: rgb(20 19 32 / 0.92);
+  }
+}
