@@ -218,22 +218,18 @@ export default function ConventionsPage() {
   return (
     <WebAppShell fullBleed>
       <div className="relative flex-1 flex flex-col text-kyar-media-fg">
-        <PhotoBackdrop
-          imageStorageId={nextEvent?.imageStorageId}
-          imageUrl={nextEvent?.imageUrl}
-          scrimRight="strong"
-        />
+        <PhotoBackdrop imageStorageId={nextEvent?.imageStorageId} imageUrl={nextEvent?.imageUrl} />
 
-        <div className="relative z-10 flex-1 flex flex-col lg:flex-row gap-6 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-12 pb-6 min-h-0">
-          {/* Featured next event (6e) */}
-          <section className="flex-1 min-w-0 max-w-[640px] lg:self-start lg:mt-6">
+        <div className="relative z-10 flex-1 flex flex-col w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-12 pb-6 min-h-0">
+          {/* Featured next event (6e, archive-shelf layout like Builds 1b) */}
+          <section className="flex-1 min-w-0 max-w-[680px] lg:mt-4">
             {nextEvent ? (
               <>
                 <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
                   Next · {formatEventDateRange(nextEvent.startDate, nextEvent.endDate)}
                   {nextEvent.location ? ` · ${nextEvent.location}` : ""}
                 </span>
-                <h1 className="font-serif italic font-normal text-[40px] lg:text-[84px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
+                <h1 className="font-serif italic font-normal text-[40px] lg:text-[88px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
                   {nextEvent.name}
                 </h1>
                 <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -274,86 +270,106 @@ export default function ConventionsPage() {
             ) : null}
           </section>
 
-          {/* The season — right glass panel (6e) */}
+          {/* The season — bottom glass shelf (like Builds 1b) */}
           <section
-            className="w-full lg:w-[480px] shrink-0 flex flex-col self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-140px)]"
+            className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
             aria-label="All events"
           >
-            <div className="px-5 py-4 border-b border-glass-divider-strong">
-              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
-                  The season · {new Date().getFullYear()}
-                </span>
-                <div className="flex-1" />
-                {FILTER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFilter(opt.value as ConventionFilter)}
-                    className={`text-[9px] uppercase tracking-[0.16em] pb-0.5 border-b transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                      filter === opt.value
-                        ? "font-bold text-kyar-media-fg border-kyar-media-fg"
-                        : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
-                    }`}
-                    aria-pressed={filter === opt.value}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search events..."
-                  aria-label="Search events by name or location"
-                  className="glass-field flex-1 min-w-[140px] px-3 py-2 text-[13px]"
-                />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
-                  className="glass-field min-h-[40px] px-3 py-2 text-[10px] uppercase tracking-[0.14em]"
-                  aria-label="Sort events by"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
+                The season · {filteredAndSorted.length}
+              </span>
+              {FILTER_OPTIONS.map((opt) => (
                 <button
+                  key={opt.value}
                   type="button"
-                  onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-                  className="inline-flex min-h-[40px] items-center rounded-full border border-glass-border-strong px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg opacity-60 transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-                  aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+                  onClick={() => setFilter(opt.value as ConventionFilter)}
+                  className={`text-[9px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                    filter === opt.value
+                      ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                      : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                  }`}
+                  aria-pressed={filter === opt.value}
                 >
-                  {order === "asc" ? "Asc" : "Desc"}
+                  {opt.label}
                 </button>
-              </div>
+              ))}
+              <div className="flex-1" />
+              <Link
+                href="/conventions/new"
+                className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+              >
+                Add an event ▸
+              </Link>
             </div>
 
-            <main className="flex-1 min-h-0 overflow-y-auto">
-              {isLoading && (
-                <EmptyState surface="glass" icon="hourglass_empty" message="Loading…" />
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search events..."
+                aria-label="Search events by name or location"
+                className="glass-field px-3 py-2 text-[13px] w-full sm:w-[220px]"
+              />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as ConventionSortBy)}
+                className="glass-field min-h-[40px] px-3 py-2 text-[10px] uppercase tracking-[0.14em]"
+                aria-label="Sort events by"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+                className="inline-flex min-h-[40px] items-center rounded-full border border-glass-border-strong px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg opacity-60 transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+              >
+                {order === "asc" ? "Asc" : "Desc"}
+              </button>
+              {filteredAndSorted.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowSelectModal(true)}
+                  className="ml-auto text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg border-b border-glass-border-strong pb-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                >
+                  Select for actions
+                </button>
               )}
-              {!isLoading && conventions.length === 0 && (
-                <EmptyState
-                  surface="glass"
-                  icon="festival"
-                  message="No events yet."
-                  secondary="Create your first event to map builds onto specific days and generate a packing plan."
-                />
-              )}
-              {!isLoading && conventions.length > 0 && filteredAndSorted.length === 0 && (
-                <EmptyState
-                  surface="glass"
-                  icon="search_off"
-                  message="No events match your search or filter."
-                />
-              )}
-              {!isLoading &&
-                filteredAndSorted.map((c) => {
+            </div>
+
+            {isLoading && <EmptyState surface="glass" icon="hourglass_empty" message="Loading…" />}
+            {!isLoading && conventions.length === 0 && (
+              <EmptyState
+                surface="glass"
+                icon="festival"
+                message="No events yet."
+                secondary="Create your first event to map builds onto specific days and generate a packing plan."
+                action={
+                  <Link
+                    href="/conventions/new"
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-glass-solid px-[22px] py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                  >
+                    New event
+                  </Link>
+                }
+              />
+            )}
+            {!isLoading && conventions.length > 0 && filteredAndSorted.length === 0 && (
+              <EmptyState
+                surface="glass"
+                icon="search_off"
+                message="No events match your search or filter."
+              />
+            )}
+            {!isLoading && filteredAndSorted.length > 0 && (
+              <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x pb-1">
+                {filteredAndSorted.map((c) => {
                   const today = new Date().toISOString().slice(0, 10);
                   const upcoming = c.endDate >= today;
                   const days = upcoming ? daysUntil(c.startDate) : null;
@@ -363,75 +379,54 @@ export default function ConventionsPage() {
                     <Link
                       key={c._id}
                       href={`/conventions/${c._id}`}
-                      className={`flex items-center gap-4 px-5 py-3.5 border-b border-glass-divider transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                        upcoming ? "" : "opacity-60"
-                      }`}
+                      className={`relative snap-start shrink-0 w-[200px] h-[150px] rounded-[10px] overflow-hidden bg-glass-active transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                        isNext
+                          ? "outline outline-[1.5px] -outline-offset-[1.5px] outline-glass-border-strong"
+                          : ""
+                      } ${upcoming ? "" : "opacity-60"}`}
                       aria-label={`Open ${c.name}`}
                     >
-                      <div className="h-[52px] w-[42px] shrink-0 overflow-hidden rounded-lg border border-glass-border bg-glass-active">
-                        {hasImage ? (
-                          <ResolvedImage
-                            imageStorageId={c.imageStorageId ?? undefined}
-                            imageUrl={c.imageUrl ?? undefined}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            aria-hidden
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-media-fg-45">
-                            <span className="material-symbols-outlined text-lg" aria-hidden>
-                              festival
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-serif italic text-[17px] leading-tight truncate">
-                          {c.name}
-                        </p>
-                        <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55 truncate">
+                      {hasImage ? (
+                        <ResolvedImage
+                          imageStorageId={c.imageStorageId ?? undefined}
+                          imageUrl={c.imageUrl ?? undefined}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                          aria-hidden
+                        />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center text-media-fg-45">
+                          <span className="material-symbols-outlined text-4xl" aria-hidden>
+                            festival
+                          </span>
+                        </span>
+                      )}
+                      <div className="absolute inset-0 bg-kyar-media-scrim" aria-hidden />
+                      {days !== null && days >= 0 && (
+                        <span
+                          className={`absolute top-2.5 left-2.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${
+                            isNext
+                              ? "bg-on-glass-chip-active-bg text-on-glass-chip-active-fg backdrop-blur-glass-chip"
+                              : "bg-on-glass-chip-neutral-bg text-on-glass-chip-neutral-fg backdrop-blur-glass-chip"
+                          }`}
+                        >
+                          {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
+                        </span>
+                      )}
+                      <div className="absolute left-0 right-0 bottom-0 p-2.5">
+                        <span className="block text-[9px] font-bold uppercase tracking-[0.16em] opacity-70 mb-0.5 truncate">
                           {formatEventDateRange(c.startDate, c.endDate)}
                           {c.location ? ` · ${c.location}` : ""}
-                        </p>
+                        </span>
+                        <span className="block font-serif italic text-[16px] leading-tight truncate">
+                          {c.name}
+                        </span>
                       </div>
-                      {isNext && days !== null && days >= 0 ? (
-                        <span className="shrink-0 rounded-full bg-on-glass-chip-active-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-active-fg">
-                          {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
-                        </span>
-                      ) : days !== null && days >= 0 ? (
-                        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] opacity-55">
-                          {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
-                        </span>
-                      ) : null}
-                      <span
-                        className="material-symbols-outlined shrink-0 text-[16px] opacity-50"
-                        aria-hidden
-                      >
-                        chevron_right
-                      </span>
                     </Link>
                   );
                 })}
-            </main>
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-3.5 border-t border-glass-divider-strong">
-              <Link
-                href="/conventions/new"
-                className="text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              >
-                <span className="border-b border-glass-border-strong pb-0.5">Add an event ▸</span>
-              </Link>
-              <div className="flex-1" />
-              {filteredAndSorted.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowSelectModal(true)}
-                  className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg border-b border-glass-border-strong pb-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-                >
-                  Select for actions
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </section>
         </div>
 
