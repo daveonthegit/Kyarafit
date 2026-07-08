@@ -27,6 +27,9 @@ type FocusedBuild = {
   tasksTotal: number;
 };
 
+const STUDIO_CARD_WIDTH_PX = 200;
+const STUDIO_CARD_GAP_PX = 12;
+
 function daysUntil(startDate: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -130,6 +133,8 @@ export default function HomePage() {
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
   const [focusSearch, setFocusSearch] = useState("");
   const focusSearchInputRef = useRef<HTMLInputElement>(null);
+  const studioShelfRef = useRef<HTMLDivElement>(null);
+  const [visibleStudioBuildCount, setVisibleStudioBuildCount] = useState(0);
 
   const [buildToCrop, setBuildToCrop] = useState<(typeof builds)[number] | null>(null);
   const cropBuildImageUrl = useQuery(
@@ -170,6 +175,38 @@ export default function HomePage() {
     const t = setTimeout(() => focusSearchInputRef.current?.focus(), 50);
     return () => clearTimeout(t);
   }, [isFocusModalOpen]);
+
+  useEffect(() => {
+    const el = studioShelfRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const availableWidth = el.clientWidth;
+      const slots = Math.max(
+        1,
+        Math.floor(
+          (availableWidth + STUDIO_CARD_GAP_PX) / (STUDIO_CARD_WIDTH_PX + STUDIO_CARD_GAP_PX)
+        )
+      );
+      setVisibleStudioBuildCount(Math.max(0, slots - 1));
+    };
+
+    measure();
+
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(el);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [studioBuilds.length]);
+
+  const visibleStudioBuilds = useMemo(
+    () => studioBuilds.slice(0, visibleStudioBuildCount),
+    [studioBuilds, visibleStudioBuildCount]
+  );
 
   useEffect(() => {
     if (!isFocusModalOpen) return;
@@ -226,7 +263,7 @@ export default function HomePage() {
           }
         />
 
-        <div className="relative z-10 flex-1 flex flex-col lg:flex-row gap-6 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-14 pb-6 min-h-0">
+        <div className="relative z-10 flex-1 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-14 pb-6 min-h-0">
           {/* Headline block — lower-left over the backdrop (6a) */}
           <section className="flex-1 min-w-0 max-w-[560px] lg:self-start lg:mt-10">
             <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
@@ -271,7 +308,7 @@ export default function HomePage() {
 
           {/* What's due — right glass panel (6a) */}
           <aside
-            className="w-full lg:w-[360px] shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
+            className="w-full lg:w-[360px] lg:ml-auto shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
             aria-label={t("whatsDue")}
           >
             <div className="px-5 py-4 border-b border-glass-divider-strong">
@@ -348,20 +385,14 @@ export default function HomePage() {
           aria-label={t("inTheStudio", { count: builds.length })}
         >
           <div className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
-            <div className="flex items-baseline justify-between gap-4 mb-3">
+            <div className="mb-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
                 {t("inTheStudio", { count: builds.length })}
               </span>
-              <Link
-                href="/builds"
-                className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              >
-                {t("viewAllBuilds")} ▸
-              </Link>
             </div>
             {studioBuilds.length > 0 ? (
-              <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x">
-                {studioBuilds.map((build, index) => {
+              <div ref={studioShelfRef} className="flex gap-3 overflow-hidden">
+                {visibleStudioBuilds.map((build, index) => {
                   const hasImage = build.imageStorageId != null || build.imageUrl != null;
                   const pct =
                     build.tasksTotal > 0
@@ -404,6 +435,18 @@ export default function HomePage() {
                     </Link>
                   );
                 })}
+                <Link
+                  href="/builds"
+                  className="relative snap-start shrink-0 w-[200px] h-[150px] rounded-[10px] border border-glass-border-strong bg-glass-active flex flex-col items-center justify-center gap-2 text-media-fg-70 hover:bg-glass hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                  aria-label={t("viewAllBuilds")}
+                >
+                  <span className="material-symbols-outlined text-[22px]" aria-hidden>
+                    grid_view
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em]">
+                    {t("viewAllBuilds")}
+                  </span>
+                </Link>
               </div>
             ) : (
               <p className="text-[13px] text-media-fg-55 py-2">

@@ -424,6 +424,21 @@ button:active,
   border-color: var(--glass-border-strong);
 }
 
+/* Landing section reveals (Landing Live spec): blocks start low + hidden and
+   ease in over 0.7s when ~20% enters the viewport; the global reduced-motion
+   block collapses the transition so they resolve immediately. */
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s var(--ease-out-strong),
+    transform 0.7s var(--ease-out-strong);
+}
+.landing-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
 /* Backdrop photo Ken Burns — ≤1.03 scale over 12s (surface rule 9);
    the global reduced-motion block above disables it. */
 @keyframes glass-ken-burns {
