@@ -1,8 +1,103 @@
 {
   "meta": {
     "name": "Kyarafit Design Tokens",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "source": "web runtime source of truth"
+  },
+  "glass": {
+    "surface": {
+      "panel": "rgba(255,253,248,0.10)",
+      "bar": "rgba(255,253,248,0.08)",
+      "overlay": "rgba(255,253,248,0.14)",
+      "active": "rgba(255,253,248,0.06)",
+      "preview": "rgba(255,253,248,0.22)",
+      "solid": "#FFFDF8"
+    },
+    "border": {
+      "default": "rgba(255,253,248,0.16)",
+      "overlay": "rgba(255,253,248,0.22)",
+      "strong": "rgba(255,253,248,0.40)",
+      "divider": "rgba(255,253,248,0.10)",
+      "dividerStrong": "rgba(255,253,248,0.14)"
+    },
+    "text": {
+      "fg": "#FFFDF8",
+      "fg70": "rgba(255,253,248,0.70)",
+      "fg55": "rgba(255,253,248,0.55)",
+      "fg45": "rgba(255,253,248,0.45)",
+      "ink": "#171629",
+      "danger": "rgba(255,168,168,0.95)"
+    },
+    "chip": {
+      "done": { "bg": "rgba(140,220,180,0.25)", "fg": "rgb(190,245,215)" },
+      "active": { "bg": "rgba(150,200,255,0.25)", "fg": "rgb(200,225,255)" },
+      "warn": { "bg": "rgba(255,215,140,0.25)", "fg": "rgb(255,235,190)" },
+      "neutral": { "bg": "rgba(255,253,248,0.14)", "fg": "rgba(255,253,248,0.80)" }
+    },
+    "blur": {
+      "panel": 24,
+      "bar": 18,
+      "overlay": 30,
+      "chip": 10
+    },
+    "radius": {
+      "panel": 14,
+      "overlay": 16,
+      "sheet": 20
+    },
+    "scrim": {
+      "pageRight": {
+        "direction": "to right",
+        "stops": [
+          { "color": "rgba(12,11,20,0.60)", "at": 0 },
+          { "color": "rgba(12,11,20,0.32)", "at": 0.45 },
+          { "color": "rgba(12,11,20,0.55)", "at": 1 }
+        ]
+      },
+      "pageRightStrong": {
+        "direction": "to right",
+        "stops": [
+          { "color": "rgba(12,11,20,0.70)", "at": 0 },
+          { "color": "rgba(12,11,20,0.42)", "at": 0.45 },
+          { "color": "rgba(12,11,20,0.72)", "at": 1 }
+        ]
+      },
+      "pageVertical": {
+        "direction": "to top",
+        "stops": [
+          { "color": "rgba(12,11,20,0.72)", "at": 0 },
+          { "color": "rgba(12,11,20,0.22)", "at": 0.45 },
+          { "color": "rgba(12,11,20,0.35)", "at": 1 }
+        ]
+      },
+      "pageVerticalMobile": {
+        "direction": "to top",
+        "stops": [
+          { "color": "rgba(12,11,20,0.86)", "at": 0 },
+          { "color": "rgba(12,11,20,0.38)", "at": 0.5 },
+          { "color": "rgba(12,11,20,0.42)", "at": 1 }
+        ]
+      },
+      "studioWall": {
+        "direction": "180deg",
+        "stops": [
+          { "color": "oklch(0.17 0.015 278)", "at": 0 },
+          { "color": "oklch(0.13 0.012 278)", "at": 1 }
+        ]
+      }
+    },
+    "drop": {
+      "line": "#FFFDF8",
+      "intoRing": "rgba(255,253,248,0.70)"
+    },
+    "shadow": {
+      "overlay": "0 40px 100px rgba(0,0,0,0.55)"
+    },
+    "fallback": {
+      "panel": "rgba(20,19,32,0.85)",
+      "bar": "rgba(20,19,32,0.82)",
+      "overlay": "rgba(20,19,32,0.92)"
+    }
   },
   "themes": {
     "light": {

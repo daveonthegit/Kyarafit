@@ -135,6 +135,25 @@ export const font = {
 
 export const motion = designTokens.motion;
 
+/**
+ * Glass Studio (v2) tokens — light-on-photo surfaces shared by web + mobile.
+ * These never theme-flip: glass always sits on photography or the studio wall.
+ * Mobile renders `surface`/`border` over expo-blur (`blur` values), and falls
+ * back to `fallback` opaque panels where blur is unavailable.
+ */
+export const glass = {
+  surface: designTokens.glass.surface,
+  border: designTokens.glass.border,
+  text: designTokens.glass.text,
+  chip: designTokens.glass.chip,
+  blur: designTokens.glass.blur,
+  radius: designTokens.glass.radius,
+  scrim: designTokens.glass.scrim,
+  drop: designTokens.glass.drop,
+  shadow: designTokens.glass.shadow,
+  fallback: designTokens.glass.fallback,
+} as const;
+
 export function ls(em: number, fontSize: number) {
   return em * fontSize;
 }

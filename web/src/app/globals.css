@@ -9,25 +9,25 @@
   --kyar-bg-warm: 0.968 0.008 82;
   --kyar-surface: 0.992 0.002 84;
   --kyar-surface-warm: 0.982 0.006 82;
-  --kyar-muted: 0.944 0.010 82;
+  --kyar-muted: 0.944 0.01 82;
   --kyar-muted-warm: 0.918 0.014 80;
   --kyar-panel: 0.966 0.007 84;
   --kyar-panel-raised: 0.988 0.003 84;
 
   --kyar-text: 0.205 0.018 278;
   --kyar-text-secondary: 0.425 0.015 278;
-  --kyar-text-tertiary: 0.560 0.012 274;
-  --kyar-text-muted: 0.680 0.009 270;
-  --kyar-meta: 0.490 0.014 276;
+  --kyar-text-tertiary: 0.56 0.012 274;
+  --kyar-text-muted: 0.68 0.009 270;
+  --kyar-meta: 0.49 0.014 276;
 
-  --kyar-border: 0.860 0.011 82;
+  --kyar-border: 0.86 0.011 82;
   --kyar-border-subtle: 0.905 0.007 84;
   --kyar-card-border: 0.838 0.014 82;
 
   --kyar-accent: 0.585 0.193 276;
-  --kyar-accent-soft: 0.930 0.030 274;
-  --kyar-danger: 0.615 0.190 22;
-  --kyar-shadow: 0.230 0.020 278;
+  --kyar-accent-soft: 0.93 0.03 274;
+  --kyar-danger: 0.615 0.19 22;
+  --kyar-shadow: 0.23 0.02 278;
 
   /*
    * Photo / poster overlays: fixed light foreground + dark scrim.
@@ -56,35 +56,119 @@
 
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Kyarafit v2 — glass tier tokens (docs/redesign/tokens.css v2.1).
+     These do NOT flip with data-theme: glass always sits on photography. */
+
+  /* Glass surfaces (light-on-photo) — three weights, never mix per element:
+     chrome (bars) 0.08/blur 18 · panel 0.10/blur 24 · overlay 0.14/blur 30 */
+  --glass-bg: rgb(255 253 248 / 0.1); /* panels, shelves */
+  --glass-bg-bar: rgb(255 253 248 / 0.08); /* top bar, tab bar, creator strips */
+  --glass-bg-overlay: rgb(255 253 248 / 0.14); /* modals, auth cards, detail sheets */
+  --glass-bg-active: rgb(255 253 248 / 0.06); /* highlighted row inside a panel */
+  --glass-bg-preview: rgb(255 253 248 / 0.22); /* floating drag preview */
+  --glass-bg-solid: #fffdf8; /* primary pill on photo — SOLID, never translucent (QA-3) */
+  --glass-ink: oklch(0.205 0.018 278); /* fixed ink on solid-light fills — never theme-flips */
+  --glass-border: rgb(255 253 248 / 0.16);
+  --glass-border-overlay: rgb(255 253 248 / 0.22);
+  --glass-border-strong: rgb(255 253 248 / 0.4);
+  --glass-divider: rgb(255 253 248 / 0.1);
+  --glass-divider-strong: rgb(255 253 248 / 0.14);
+  --glass-blur: 24px; /* panels */
+  --glass-blur-bar: 18px; /* bars */
+  --glass-blur-overlay: 30px; /* modals/sheets */
+  --glass-blur-chip: 10px; /* pills, chips */
+  --glass-radius: 14px; /* panels */
+  --glass-radius-overlay: 16px; /* modals, auth cards */
+  --glass-radius-sheet: 20px; /* mobile bottom sheets (top corners) */
+  --glass-shadow-overlay: 0 40px 100px rgb(0 0 0 / 0.55);
+
+  /* Text on glass/photo — reuses the fixed media foreground family */
+  --media-fg-55: rgb(255 253 248 / 0.55); /* inactive nav/labels */
+  --media-fg-70: rgb(255 253 248 / 0.7);
+  --media-fg-45: rgb(255 253 248 / 0.45); /* empty checkbox borders */
+
+  /* State colors on glass (dark-photo-safe versions of danger/status) */
+  --on-glass-danger: rgb(255 168 168 / 0.95);
+  --on-glass-chip-done-bg: rgb(140 220 180 / 0.25);
+  --on-glass-chip-done-fg: rgb(190 245 215);
+  --on-glass-chip-active-bg: rgb(150 200 255 / 0.25);
+  --on-glass-chip-active-fg: rgb(200 225 255);
+  --on-glass-chip-warn-bg: rgb(255 215 140 / 0.25);
+  --on-glass-chip-warn-fg: rgb(255 235 190);
+  --on-glass-chip-neutral-bg: rgb(255 253 248 / 0.14);
+  --on-glass-chip-neutral-fg: rgb(255 253 248 / 0.8);
+
+  /* Backdrop scrims (extend the existing .bg-kyar-media-scrim family).
+     QA-1: use -strong on high-key photos (bright, busy, daylight/con-floor
+     shots) and whenever a right work panel exists. */
+  --scrim-page-right: linear-gradient(
+    to right,
+    rgb(12 11 20 / 0.6) 0%,
+    rgb(12 11 20 / 0.32) 45%,
+    rgb(12 11 20 / 0.55) 100%
+  );
+  --scrim-page-right-strong: linear-gradient(
+    to right,
+    rgb(12 11 20 / 0.7) 0%,
+    rgb(12 11 20 / 0.42) 45%,
+    rgb(12 11 20 / 0.72) 100%
+  );
+  --scrim-page-vertical: linear-gradient(
+    to top,
+    rgb(12 11 20 / 0.72) 0%,
+    rgb(12 11 20 / 0.22) 45%,
+    rgb(12 11 20 / 0.35) 100%
+  );
+  --scrim-page-vertical-mobile: linear-gradient(
+    to top,
+    rgb(12 11 20 / 0.86) 0%,
+    rgb(12 11 20 / 0.38) 50%,
+    rgb(12 11 20 / 0.42) 100%
+  );
+  --studio-wall: linear-gradient(180deg, oklch(0.17 0.015 278), oklch(0.13 0.012 278));
+
+  /* Drop-zone indicators (explorers) — on glass */
+  --drop-line: #fffdf8; /* 2.5px, radius 2, glow 0 0 12px rgb(255 253 248/.8) */
+  --drop-into-ring: rgb(255 253 248 / 0.7); /* inset 0 0 0 1.5px */
+}
+
+/* Fallback when backdrop-filter is unsupported */
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --glass-bg: rgb(20 19 32 / 0.85);
+    --glass-bg-bar: rgb(20 19 32 / 0.82);
+    --glass-bg-overlay: rgb(20 19 32 / 0.92);
+  }
 }
 
 :root[data-theme="dark"],
 html.dark {
   color-scheme: dark;
 
-  --kyar-bg: 0.190 0.016 278;
+  --kyar-bg: 0.19 0.016 278;
   --kyar-bg-warm: 0.225 0.015 274;
   --kyar-surface: 0.236 0.017 278;
   --kyar-surface-warm: 0.262 0.016 274;
-  --kyar-muted: 0.298 0.020 278;
-  --kyar-muted-warm: 0.338 0.020 274;
+  --kyar-muted: 0.298 0.02 278;
+  --kyar-muted-warm: 0.338 0.02 274;
   --kyar-panel: 0.254 0.018 278;
   --kyar-panel-raised: 0.294 0.018 276;
 
-  --kyar-text: 0.950 0.008 82;
-  --kyar-text-secondary: 0.805 0.010 82;
-  --kyar-text-tertiary: 0.680 0.012 82;
-  --kyar-text-muted: 0.540 0.013 82;
-  --kyar-meta: 0.740 0.010 82;
+  --kyar-text: 0.95 0.008 82;
+  --kyar-text-secondary: 0.805 0.01 82;
+  --kyar-text-tertiary: 0.68 0.012 82;
+  --kyar-text-muted: 0.54 0.013 82;
+  --kyar-meta: 0.74 0.01 82;
 
   --kyar-border: 0.365 0.022 278;
-  --kyar-border-subtle: 0.290 0.018 278;
-  --kyar-card-border: 0.420 0.021 278;
+  --kyar-border-subtle: 0.29 0.018 278;
+  --kyar-card-border: 0.42 0.021 278;
 
   --kyar-accent: 0.748 0.141 274;
-  --kyar-accent-soft: 0.362 0.060 274;
-  --kyar-danger: 0.742 0.140 18;
-  --kyar-shadow: 0.040 0.010 278;
+  --kyar-accent-soft: 0.362 0.06 274;
+  --kyar-danger: 0.742 0.14 18;
+  --kyar-shadow: 0.04 0.01 278;
 }
 
 * {
@@ -285,4 +369,37 @@ button:active,
   .bg-kyar-media-scrim-faint {
     background-image: linear-gradient(to top, rgb(12 11 20 / 0.42) 0%, transparent 100%);
   }
+
+  /* Glass Studio page scrims + studio wall (fixed, never theme-flipped) */
+  .bg-scrim-page-right {
+    background-image: var(--scrim-page-right);
+  }
+  .bg-scrim-page-right-strong {
+    background-image: var(--scrim-page-right-strong);
+  }
+  .bg-scrim-page-vertical {
+    background-image: var(--scrim-page-vertical);
+  }
+  .bg-scrim-page-vertical-mobile {
+    background-image: var(--scrim-page-vertical-mobile);
+  }
+  .bg-studio-wall {
+    background-image: var(--studio-wall);
+  }
+}
+
+/* Backdrop photo Ken Burns — ≤1.03 scale over 12s (surface rule 9);
+   the global reduced-motion block above disables it. */
+@keyframes glass-ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.03);
+  }
+}
+
+.animate-glass-ken-burns {
+  animation: glass-ken-burns 12s ease-in-out infinite alternate;
+  will-change: transform;
 }
