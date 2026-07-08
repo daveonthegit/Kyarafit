@@ -277,17 +277,17 @@ export default function HomePage() {
                         aria-labelledby="focus-modal-title"
                       >
                         <div className="flex flex-col max-h-[90vh]">
-                          <div className="flex items-center justify-between gap-3 border-b border-kyar-borderSubtle px-4 py-3 shrink-0">
+                          <div className="flex items-center justify-between gap-3 border-b border-glass-divider-strong px-4 py-3 shrink-0">
                             <h2
                               id="focus-modal-title"
-                              className="font-serif text-lg italic font-normal text-kyar-text"
+                              className="font-serif text-lg italic font-normal text-kyar-media-fg"
                             >
                               {t("selectFocus")}
                             </h2>
                             <button
                               type="button"
                               onClick={closeFocusModal}
-                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-kyar-text hover:bg-kyar-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-sm text-media-fg-70 hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                               aria-label="Close"
                             >
                               <span className="material-symbols-outlined font-light text-xl">
@@ -295,14 +295,14 @@ export default function HomePage() {
                               </span>
                             </button>
                           </div>
-                          <div className="p-3 border-b border-kyar-borderSubtle shrink-0">
+                          <div className="p-3 border-b border-glass-divider shrink-0">
                             <input
                               ref={focusSearchInputRef}
                               type="search"
                               value={focusSearch}
                               onChange={(e) => setFocusSearch(e.target.value)}
                               placeholder={t("searchBuildsPlaceholder")}
-                              className="w-full rounded-sm border border-kyar-borderSubtle bg-kyar-bg px-3 py-2 text-sm text-kyar-text placeholder:text-kyar-meta focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                              className="glass-field w-full px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-kyar-accent"
                               aria-label={t("selectFocus")}
                             />
                           </div>
@@ -311,14 +311,14 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => selectFocus(undefined)}
-                                className="w-full flex items-center gap-3 p-3 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                                className="w-full flex items-center gap-3 p-3 rounded-[10px] border border-glass-border hover:border-glass-border-strong hover:bg-glass-active text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                               >
-                                <span className="w-12 h-12 shrink-0 rounded-sm bg-kyar-muted flex items-center justify-center text-kyar-textTertiary">
+                                <span className="w-12 h-12 shrink-0 rounded-sm bg-glass flex items-center justify-center text-media-fg-55">
                                   <span className="material-symbols-outlined text-2xl">
                                     schedule
                                   </span>
                                 </span>
-                                <span className="font-serif italic text-kyar-text">
+                                <span className="font-serif italic text-kyar-media-fg">
                                   {t("defaultFocus")}
                                 </span>
                               </button>
@@ -327,13 +327,13 @@ export default function HomePage() {
                               const hasImage = b.imageStorageId != null || b.imageUrl != null;
                               return (
                                 <li key={b._id} role="option">
-                                  <div className="flex items-center gap-1 rounded-sm border border-kyar-borderSubtle hover:border-kyar-text hover:bg-kyar-muted overflow-hidden">
+                                  <div className="flex items-center gap-1 rounded-[10px] border border-glass-border hover:border-glass-border-strong hover:bg-glass-active overflow-hidden">
                                     <button
                                       type="button"
                                       onClick={() => selectFocus(b._id)}
-                                      className="flex-1 flex items-center gap-3 p-3 min-w-0 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-inset"
+                                      className="flex-1 flex items-center gap-3 p-3 min-w-0 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset"
                                     >
-                                      <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-kyar-muted">
+                                      <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden bg-glass">
                                         {hasImage ? (
                                           <ResolvedImage
                                             imageStorageId={b.imageStorageId ?? undefined}
@@ -342,7 +342,7 @@ export default function HomePage() {
                                             className="w-full h-full object-cover"
                                           />
                                         ) : (
-                                          <div className="w-full h-full flex items-center justify-center text-kyar-textTertiary">
+                                          <div className="w-full h-full flex items-center justify-center text-media-fg-55">
                                             <span className="material-symbols-outlined text-2xl">
                                               photo_library
                                             </span>
@@ -350,17 +350,17 @@ export default function HomePage() {
                                         )}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="font-serif italic text-kyar-text truncate">
+                                        <p className="font-serif italic text-kyar-media-fg truncate">
                                           {b.name}
                                         </p>
-                                        <p className="text-[10px] uppercase tracking-wider text-kyar-meta mt-0.5">
+                                        <p className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55 mt-0.5">
                                           {b.tasksChecked} / {b.tasksTotal} tasks
                                           {b.character ? ` · ${b.character}` : ""}
                                         </p>
                                       </div>
                                       {focusedBuildId === b._id && (
                                         <span
-                                          className="material-symbols-outlined text-kyar-text shrink-0"
+                                          className="material-symbols-outlined text-kyar-media-fg shrink-0"
                                           aria-hidden
                                         >
                                           check
@@ -371,7 +371,7 @@ export default function HomePage() {
                                       <button
                                         type="button"
                                         onClick={(e) => openCropForBuild(e, b)}
-                                        className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center text-kyar-meta hover:text-kyar-text hover:bg-kyar-borderSubtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                                        className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center text-media-fg-55 hover:text-kyar-media-fg hover:bg-glass-active transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                                         aria-label={t("adjustCrop")}
                                         title={t("adjustCrop")}
                                       >
@@ -385,7 +385,7 @@ export default function HomePage() {
                               );
                             })}
                             {filteredBuildsForFocus.length === 0 && (
-                              <li className="py-4 text-center text-sm text-kyar-textTertiary">
+                              <li className="py-4 text-center text-sm text-media-fg-55">
                                 {t("noBuildsMatch")}
                               </li>
                             )}

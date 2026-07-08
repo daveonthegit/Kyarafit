@@ -1238,10 +1238,10 @@ export default function ElementDetailPage() {
         aria-labelledby="delete-node-dialog-title"
       >
         <div className="p-6">
-          <h2 id="delete-node-dialog-title" className="mb-2 font-serif text-lg font-bold">
+          <h2 id="delete-node-dialog-title" className="mb-2 font-serif italic text-lg">
             Delete this item?
           </h2>
-          <p className="mb-6 text-sm text-kyar-meta">
+          <p className="mb-6 text-sm text-media-fg-70">
             This removes the item and its links. Remove a link instead if you only want it detached
             from a build or parent piece.
           </p>
@@ -1249,7 +1249,7 @@ export default function ElementDetailPage() {
             <button
               type="button"
               onClick={() => setShowDelete(false)}
-              className="flex-1 rounded-full border border-kyar-text py-3 text-sm font-bold uppercase tracking-wider"
+              className="flex-1 min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors"
             >
               Cancel
             </button>
@@ -1261,7 +1261,7 @@ export default function ElementDetailPage() {
                   router.push("/elements");
                 }
               }}
-              className="flex-1 rounded-full bg-kyar-danger py-3 text-sm font-bold uppercase tracking-wider text-kyar-bg"
+              className="flex-1 min-h-[44px] rounded-full border border-on-glass-danger py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger hover:bg-on-glass-danger/10 transition-colors"
             >
               Delete
             </button>

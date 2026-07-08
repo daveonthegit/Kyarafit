@@ -375,46 +375,46 @@ export default function ConventionsPage() {
         aria-labelledby="conventions-select-dialog-title"
       >
         <div className="p-6">
-          <h2 id="conventions-select-dialog-title" className="font-serif text-lg font-bold mb-2">
+          <h2 id="conventions-select-dialog-title" className="font-serif italic text-lg mb-2">
             Select conventions
           </h2>
-          <p className="text-sm text-kyar-meta mb-4">
+          <p className="text-sm text-media-fg-70 mb-4">
             Choose conventions to archive, unarchive, or delete. Same list as current filter.
           </p>
           <div className="flex gap-2 mb-4">
             <button
               type="button"
               onClick={selectAll}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
+              className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active transition-colors"
             >
               {selectedIds.size === filteredAndSorted.length ? "Deselect all" : "Select all"}
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
+              className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] opacity-70 hover:opacity-100 transition-opacity"
             >
               Clear
             </button>
           </div>
-          <ul className="max-h-[50vh] overflow-y-auto border border-kyar-borderSubtle rounded-sm divide-y divide-kyar-borderSubtle">
+          <ul className="max-h-[50vh] overflow-y-auto border border-glass-border rounded-[10px] divide-y divide-glass-divider">
             {filteredAndSorted.map((c) => {
               const isSelected = selectedIds.has(c._id);
               return (
                 <li key={c._id}>
-                  <label className="flex items-center gap-3 py-3 px-3 cursor-pointer hover:bg-kyar-muted/50">
+                  <label className="flex items-center gap-3 py-3 px-3 cursor-pointer hover:bg-glass-active">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c._id)}
-                      className="w-5 h-5 rounded-sm border-2 border-kyar-text bg-kyar-surface accent-kyar-accent focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
+                      className="w-5 h-5 rounded-sm border-2 border-media-fg-45 bg-transparent accent-kyar-accent focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0"
                       aria-label={`Select ${c.name}`}
                     />
                     <div className="min-w-0 flex-1">
-                      <span className="font-serif font-bold italic text-kyar-text block truncate">
+                      <span className="font-serif italic text-kyar-media-fg block truncate">
                         {c.name}
                       </span>
-                      <span className="text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
                         {c.startDate} – {c.endDate}
                         {c.location ? ` · ${c.location}` : ""}
                       </span>
@@ -424,15 +424,15 @@ export default function ConventionsPage() {
               );
             })}
           </ul>
-          <p className="text-xs text-kyar-meta mt-3">{selectedIds.size} selected</p>
+          <p className="text-xs text-media-fg-70 mt-3">{selectedIds.size} selected</p>
           {selectedIds.size > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-kyar-borderSubtle">
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-glass-divider">
               {filter !== "archived" && (
                 <button
                   type="button"
                   onClick={() => handleArchiveSelected(true)}
                   disabled={actionPending}
-                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active transition-colors disabled:opacity-50"
                 >
                   Archive
                 </button>
@@ -442,7 +442,7 @@ export default function ConventionsPage() {
                   type="button"
                   onClick={() => handleArchiveSelected(false)}
                   disabled={actionPending}
-                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active transition-colors disabled:opacity-50"
                 >
                   Unarchive
                 </button>
@@ -451,14 +451,14 @@ export default function ConventionsPage() {
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={actionPending}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-kyar-bg transition-colors disabled:opacity-50"
+                className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger border border-on-glass-danger rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
               >
                 Delete
               </button>
               <button
                 type="button"
                 onClick={clearSelection}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
+                className="px-4 py-2 min-h-[40px] text-[10px] font-bold uppercase tracking-[0.16em] opacity-70 hover:opacity-100 transition-opacity"
               >
                 Clear selection
               </button>
@@ -467,7 +467,7 @@ export default function ConventionsPage() {
           <button
             type="button"
             onClick={() => setShowSelectModal(false)}
-            className="mt-4 w-full py-3 bg-kyar-text text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity"
+            className="mt-4 w-full min-h-[44px] py-3 bg-glass-solid text-glass-ink text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:opacity-90 transition-opacity"
           >
             Done
           </button>
@@ -480,10 +480,10 @@ export default function ConventionsPage() {
         aria-labelledby="conventions-delete-dialog-title"
       >
         <div className="p-6">
-          <h2 id="conventions-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
+          <h2 id="conventions-delete-dialog-title" className="font-serif italic text-lg mb-2">
             Delete {selectedIds.size} convention{selectedIds.size !== 1 ? "s" : ""}?
           </h2>
-          <p className="text-sm text-kyar-meta mb-6">
+          <p className="text-sm text-media-fg-70 mb-6">
             Day plans and packing lists for these conventions will be removed. This cannot be
             undone.
           </p>
@@ -491,7 +491,7 @@ export default function ConventionsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-3 border border-kyar-text text-sm font-bold uppercase tracking-wider rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
+              className="flex-1 min-h-[44px] py-3 border border-glass-border-strong bg-glass-bar text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-glass-active transition-colors"
             >
               Cancel
             </button>
@@ -499,7 +499,7 @@ export default function ConventionsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-3 bg-kyar-danger text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 min-h-[44px] py-3 border border-on-glass-danger text-on-glass-danger text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>

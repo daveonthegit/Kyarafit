@@ -88,13 +88,13 @@ export function BuildHeroCropModal({
   return (
     <AdaptiveModal open={open} onClose={onClose} aria-labelledby="hero-crop-title">
       <div className="flex flex-col">
-        <h2 id="hero-crop-title" className="text-lg font-serif font-medium px-4 pt-4 pb-2">
+        <h2 id="hero-crop-title" className="text-lg font-serif italic px-4 pt-4 pb-2">
           Position hero image
         </h2>
-        <p className="text-sm text-kyar-textSecondary px-4 pb-2 truncate" title={buildName}>
+        <p className="text-sm text-media-fg-70 px-4 pb-2 truncate" title={buildName}>
           {buildName}
         </p>
-        <div className="relative w-full h-[min(50vh,320px)] bg-kyar-mutedWarm">
+        <div className="relative w-full h-[min(50vh,320px)]">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -106,7 +106,7 @@ export function BuildHeroCropModal({
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
             style={{
-              containerStyle: { backgroundColor: "var(--kyar-mutedWarm)" },
+              containerStyle: { backgroundColor: "rgb(12 11 20 / 0.6)" },
               cropAreaStyle: {
                 border: "2px solid white",
                 boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)",
@@ -115,7 +115,7 @@ export function BuildHeroCropModal({
           />
         </div>
         <div className="px-4 py-2">
-          <label className="text-[11px] uppercase tracking-widest text-kyar-textSecondary block mb-1">
+          <label className="text-[10px] uppercase tracking-[0.16em] text-media-fg-70 block mb-1">
             Zoom
           </label>
           <input
@@ -125,11 +125,11 @@ export function BuildHeroCropModal({
             step={0.1}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full h-2 accent-black"
+            className="w-full h-2 accent-kyar-accent"
           />
         </div>
         {errorMessage && (
-          <p className="mx-4 mb-2 text-sm text-red-600" role="alert">
+          <p className="mx-4 mb-2 text-sm text-on-glass-danger" role="alert">
             {errorMessage}
           </p>
         )}
@@ -137,7 +137,7 @@ export function BuildHeroCropModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-kyar-text border border-kyar-cardBorder rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-text focus-visible:ring-offset-2"
+            className="px-4 py-2 min-h-[44px] text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             Cancel
           </button>
@@ -145,7 +145,7 @@ export function BuildHeroCropModal({
             type="button"
             onClick={handleSave}
             disabled={saving || !croppedArea}
-            className="px-4 py-2 text-sm font-medium bg-kyar-text text-kyar-bg rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bg"
+            className="px-4 py-2 min-h-[44px] text-[10px] font-bold uppercase tracking-[0.16em] bg-glass-solid text-glass-ink rounded-full hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             {saving ? "Saving…" : "Save"}
           </button>

@@ -482,17 +482,17 @@ export default function BuildsPage() {
         aria-labelledby="builds-delete-dialog-title"
       >
         <div className="p-6">
-          <h2 id="builds-delete-dialog-title" className="font-serif text-lg font-bold mb-2">
+          <h2 id="builds-delete-dialog-title" className="font-serif italic text-lg mb-2">
             Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
           </h2>
-          <p className="text-sm text-kyar-meta mb-6">
+          <p className="text-sm text-media-fg-70 mb-6">
             This cannot be undone. Tasks and element links will be removed.
           </p>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 py-3 border border-kyar-text text-sm font-bold uppercase tracking-wider rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors"
+              className="flex-1 min-h-[44px] py-3 border border-glass-border-strong bg-glass-bar text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-glass-active transition-colors"
             >
               Cancel
             </button>
@@ -500,7 +500,7 @@ export default function BuildsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={actionPending}
-              className="flex-1 py-3 bg-kyar-danger text-kyar-bg text-sm font-bold uppercase tracking-wider rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 min-h-[44px] py-3 border border-on-glass-danger text-on-glass-danger text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
             >
               {actionPending ? "Deleting..." : "Delete"}
             </button>

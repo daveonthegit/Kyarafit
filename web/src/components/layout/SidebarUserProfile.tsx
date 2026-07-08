@@ -9,9 +9,17 @@ import { cn } from "@/lib/utils";
 
 type SidebarUserProfileProps = {
   collapsed: boolean;
+  /** "glass" = light-on-glass text/borders for the v2 shell */
+  surface?: "cream" | "glass";
+  /** Avatar-only 30px circle (glass top bar) */
+  compact?: boolean;
 };
 
-export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
+export function SidebarUserProfile({
+  collapsed,
+  surface = "cream",
+  compact = false,
+}: SidebarUserProfileProps) {
   const { data: session, isPending } = authClient.useSession();
   const externalId = session?.user?.id ?? null;
   const convexUser = useQuery(api.users.getByExternalId, externalId ? { externalId } : "skip");
@@ -30,6 +38,45 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
 
   if (isPending || !user) return null;
 
+  const glass = surface === "glass";
+
+  const avatar = (size: string) => (
+    <Link
+      href="/settings/account"
+      className={cn(
+        "flex-shrink-0 rounded-full overflow-hidden border focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent",
+        size,
+        glass
+          ? "border-glass-border-strong bg-glass"
+          : "border-kyar-cardBorder bg-kyar-mutedWarm focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
+      )}
+      aria-label="Go to account details"
+    >
+      {profileImageStorageId ? (
+        <ResolvedImage
+          imageStorageId={profileImageStorageId}
+          alt=""
+          className="w-full h-full object-cover"
+        />
+      ) : profileImageUrl ? (
+        <img src={profileImageUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <span
+          className={cn(
+            "material-symbols-outlined w-full h-full flex items-center justify-center",
+            glass ? "text-[18px] text-media-fg-70" : "text-2xl text-kyar-textTertiary"
+          )}
+        >
+          person
+        </span>
+      )}
+    </Link>
+  );
+
+  if (compact) {
+    return avatar("w-[30px] h-[30px]");
+  }
+
   return (
     <div
       className={cn(
@@ -37,25 +84,7 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
         collapsed ? "justify-center gap-0 px-0" : "gap-3 px-3"
       )}
     >
-      <Link
-        href="/settings/account"
-        className="flex-shrink-0 w-9 h-9 rounded-full overflow-hidden border border-kyar-cardBorder bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-        aria-label="Go to account details"
-      >
-        {profileImageStorageId ? (
-          <ResolvedImage
-            imageStorageId={profileImageStorageId}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : profileImageUrl ? (
-          <img src={profileImageUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="material-symbols-outlined text-2xl text-kyar-textTertiary w-full h-full flex items-center justify-center">
-            person
-          </span>
-        )}
-      </Link>
+      {avatar("w-9 h-9")}
       <div
         className={cn(
           "flex flex-col items-start justify-center overflow-hidden min-w-0 transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none",
@@ -69,11 +98,21 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
           href="/settings/account"
           className="flex flex-col items-start justify-center min-w-0 w-full"
         >
-          <span className="text-sm font-medium text-kyar-text truncate w-full text-left">
+          <span
+            className={cn(
+              "text-sm font-medium truncate w-full text-left",
+              glass ? "text-kyar-media-fg" : "text-kyar-text"
+            )}
+          >
             {displayName}
           </span>
           {username != null && username !== "" && (
-            <span className="text-xs text-kyar-textTertiary truncate w-full text-left">
+            <span
+              className={cn(
+                "text-xs truncate w-full text-left",
+                glass ? "text-media-fg-55" : "text-kyar-textTertiary"
+              )}
+            >
               @{username}
             </span>
           )}
@@ -81,7 +120,12 @@ export function SidebarUserProfile({ collapsed }: SidebarUserProfileProps) {
         {profileIsPublic && username && (
           <Link
             href={`/u/${username}`}
-            className="text-[11px] uppercase tracking-widest text-kyar-accent hover:underline mt-0.5"
+            className={cn(
+              "text-[11px] uppercase tracking-widest hover:underline mt-0.5",
+              glass
+                ? "text-kyar-media-fg underline decoration-glass-border-strong"
+                : "text-kyar-accent"
+            )}
           >
             View profile
           </Link>

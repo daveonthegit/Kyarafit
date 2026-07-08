@@ -386,6 +386,42 @@ button:active,
   .bg-studio-wall {
     background-image: var(--studio-wall);
   }
+
+  /* Transitional: glass wash over the studio wall. Glass chrome (bars, drawer,
+     dialogs) needs a dark base while routed screens are still cream; once every
+     screen renders its own PhotoBackdrop/studio wall (Phases 2–5), these drop
+     back to plain bg-glass-*. */
+  .bg-glass-on-wall {
+    background-image: linear-gradient(var(--glass-bg), var(--glass-bg)), var(--studio-wall);
+  }
+  .bg-glass-bar-on-wall {
+    background-image: linear-gradient(var(--glass-bg-bar), var(--glass-bg-bar)), var(--studio-wall);
+  }
+  .bg-glass-overlay-on-wall {
+    background-image:
+      linear-gradient(var(--glass-bg-overlay), var(--glass-bg-overlay)), var(--studio-wall);
+  }
+
+  /* Dim wash behind glass overlays (drawer, dialogs) — fixed, never theme-flipped */
+  .bg-scrim-dim {
+    background-color: rgb(12 11 20 / 0.6);
+  }
+}
+
+/* Glass-outline form field (13d): use on inputs/textareas/selects inside
+   glass dialogs. Pair with padding/type classes at the call site. */
+.glass-field {
+  border: 1px solid var(--glass-border-overlay);
+  border-radius: 10px;
+  background-color: rgb(255 253 248 / 0.05);
+  color: var(--kyar-media-fg);
+}
+.glass-field::placeholder {
+  color: var(--media-fg-55);
+}
+.glass-field:focus {
+  outline: none;
+  border-color: var(--glass-border-strong);
 }
 
 /* Backdrop photo Ken Burns — ≤1.03 scale over 12s (surface rule 9);
