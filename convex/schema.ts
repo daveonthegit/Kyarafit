@@ -65,6 +65,10 @@ export default defineSchema({
 
   cosplayNodes: defineTable({
     userId: v.string(),
+    // DEPRECATED legacy pointer (formerly a closetItems id). Retained as an optional opaque string so
+    // existing rows validate; live code never reads it. Removed only after the purge migration
+    // (migrations:purgeLegacyBuildScopingData) clears it from all rows. See docs/setup schema notes.
+    legacyClosetItemId: v.optional(v.string()),
     // Build membership + nesting live on the node itself (Step 2c): `buildId` is the primary build
     // link and `parentNodeId` expresses nesting. Both optional: a library node has no build/parent.
     buildId: v.optional(v.id("builds")),
@@ -99,6 +103,83 @@ export default defineSchema({
     .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_buildId", ["buildId"])
     .index("by_parentNodeId", ["parentNodeId"]),
+
+  // DEPRECATED tables — superseded by build-scoped cosplayNodes (Step 2c). No live code reads them;
+  // their data is redundant with cosplayNodes.buildId/parentNodeId/node-fields. Kept in the schema
+  // only so existing (non-empty) deployments validate on deploy. Convex cannot drop a non-empty
+  // table in one step, so removal is two-phase: run migrations:purgeLegacyBuildScopingData to empty
+  // them, then a follow-up deploy removes these defs. See docs/setup/DOMAIN_MIGRATION notes.
+  closetItems: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    notes: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
+    itemLink: v.optional(v.string()),
+    costCents: v.optional(v.number()),
+    status: v.optional(v.string()),
+    completionTaskId: v.optional(v.id("buildTasks")),
+    parentItemId: v.optional(v.id("closetItems")),
+    ...syncMetaFields,
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_category", ["userId", "category"])
+    .index("by_completionTaskId", ["completionTaskId"])
+    .index("by_parentItemId", ["parentItemId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
+  cosplayNodeLinks: defineTable({
+    userId: v.string(),
+    parentNodeId: v.id("cosplayNodes"),
+    childNodeId: v.id("cosplayNodes"),
+    sortOrder: v.number(),
+    linkMode: v.string(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_parentNodeId", ["parentNodeId"])
+    .index("by_childNodeId", ["childNodeId"])
+    .index("by_parentNodeId_sortOrder", ["parentNodeId", "sortOrder"]),
+
+  buildCosplayLinks: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeId: v.id("cosplayNodes"),
+    sortOrder: v.number(),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
+    .index("by_buildId_sortOrder", ["buildId", "sortOrder"]),
+
+  buildNodeStates: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    cosplayNodeId: v.id("cosplayNodes"),
+    purchaseStatus: v.optional(v.string()),
+    buildStatus: v.optional(v.string()),
+    materialStatus: v.optional(v.string()),
+    manualOverallBucket: v.optional(v.string()),
+    pricingMode: v.optional(v.string()),
+    directCostCents: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    purchasedAt: v.optional(v.string()),
+    startedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_cosplayNodeId", ["cosplayNodeId"])
+    .index("by_buildId_cosplayNodeId", ["buildId", "cosplayNodeId"]),
+
+  buildItemLinks: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    closetItemId: v.id("closetItems"),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_closetItemId", ["closetItemId"]),
 
   builds: defineTable({
     userId: v.string(),

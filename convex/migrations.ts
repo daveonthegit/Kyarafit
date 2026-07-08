@@ -107,3 +107,49 @@ export const reportCosplayNodeScoping = internalQuery({
     };
   },
 });
+
+/**
+ * Two-phase cleanup for the DEPRECATED build-scoping tables + cosplayNodes.legacyClosetItemId.
+ * The tables can't be dropped from the schema while they hold data (Convex rejects a non-empty table
+ * that's absent from the schema), so:
+ *   1. deploy the schema that keeps them (deprecated),
+ *   2. run this: `npx convex run migrations:purgeLegacyBuildScopingData` — empties them + strips the field,
+ *   3. deploy the follow-up schema that removes the defs.
+ * Idempotent and re-runnable (a second run reports all-zero). Deletes only redundant data already
+ * migrated onto cosplayNodes.buildId/parentNodeId/node-fields; touches no on-device data.
+ */
+export const purgeLegacyBuildScopingData = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const closetItems = await ctx.db.query("closetItems").collect();
+    for (const row of closetItems) await ctx.db.delete(row._id);
+    const cosplayNodeLinks = await ctx.db.query("cosplayNodeLinks").collect();
+    for (const row of cosplayNodeLinks) await ctx.db.delete(row._id);
+    const buildCosplayLinks = await ctx.db.query("buildCosplayLinks").collect();
+    for (const row of buildCosplayLinks) await ctx.db.delete(row._id);
+    const buildNodeStates = await ctx.db.query("buildNodeStates").collect();
+    for (const row of buildNodeStates) await ctx.db.delete(row._id);
+    const buildItemLinks = await ctx.db.query("buildItemLinks").collect();
+    for (const row of buildItemLinks) await ctx.db.delete(row._id);
+
+    let cosplayNodesStripped = 0;
+    const nodes = await ctx.db.query("cosplayNodes").collect();
+    for (const node of nodes) {
+      if (node.legacyClosetItemId !== undefined) {
+        await ctx.db.patch(node._id, { legacyClosetItemId: undefined });
+        cosplayNodesStripped += 1;
+      }
+    }
+
+    return {
+      deleted: {
+        closetItems: closetItems.length,
+        cosplayNodeLinks: cosplayNodeLinks.length,
+        buildCosplayLinks: buildCosplayLinks.length,
+        buildNodeStates: buildNodeStates.length,
+        buildItemLinks: buildItemLinks.length,
+      },
+      cosplayNodesStripped,
+    };
+  },
+});
