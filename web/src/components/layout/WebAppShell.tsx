@@ -9,9 +9,16 @@ import { GlobalFAB } from "@/components/layout/GlobalFAB";
 
 /**
  * Web-only app shell: glass top bar (desktop/tablet), content container,
- * glass bottom nav + FAB (mobile).
+ * glass bottom nav + FAB (mobile). `fullBleed` drops the width-constrained
+ * container for v2 photo-backdrop screens, which manage their own padding.
  */
-export function WebAppShell({ children }: { children: React.ReactNode }) {
+export function WebAppShell({
+  children,
+  fullBleed = false,
+}: {
+  children: React.ReactNode;
+  fullBleed?: boolean;
+}) {
   const pathname = usePathname();
   const active = getActiveSection(pathname ?? null);
   const hideFAB = shouldHideGlobalFAB(pathname ?? null);
@@ -22,9 +29,13 @@ export function WebAppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         <main className="flex-1 flex flex-col pb-24 lg:pb-0">
-          <WebContentContainer className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
-            {children}
-          </WebContentContainer>
+          {fullBleed ? (
+            children
+          ) : (
+            <WebContentContainer className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
+              {children}
+            </WebContentContainer>
+          )}
         </main>
 
         <BottomNav active={active} className="lg:hidden" />

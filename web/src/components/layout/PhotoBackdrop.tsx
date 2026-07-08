@@ -16,6 +16,8 @@ interface PhotoBackdropProps {
   scrimRight?: "off" | "default" | "strong";
   /** Slow ≤1.03 zoom over 12s; disabled under prefers-reduced-motion. */
   kenBurns?: boolean;
+  /** CSS object-position for the photo (e.g. from a build's saved focal point) */
+  objectPosition?: string;
   className?: string;
 }
 
@@ -31,6 +33,7 @@ export function PhotoBackdrop({
   alt = "",
   scrimRight = "off",
   kenBurns = true,
+  objectPosition,
   className = "",
 }: PhotoBackdropProps) {
   return (
@@ -44,6 +47,7 @@ export function PhotoBackdrop({
           imageUrl={imageUrl}
           alt={alt}
           className="absolute inset-0 h-full w-full object-cover"
+          style={objectPosition ? { objectPosition } : undefined}
         />
       </div>
       <div className="absolute inset-0 bg-scrim-page-vertical-mobile md:hidden" />
