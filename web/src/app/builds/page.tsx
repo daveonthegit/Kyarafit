@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { BuildPortfolioCardWeb } from "@/components/builds/BuildPortfolioCardWeb";
 import { ControlPill } from "@/components/ui/ControlPill";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 import {
   PORTFOLIO_LAYOUT_LABELS,
   cyclePortfolioLayout,
@@ -44,9 +45,9 @@ const SORT_LABELS: Record<BuildSortBy, string> = {
 const BUILD_SORT_CYCLE: BuildSortBy[] = ["name", "targetDate", "progress", "budget"];
 
 const BUILD_TAB_LABELS: Record<BuildTab, string> = {
-  all: "All builds",
-  current: "Current (in progress)",
-  planning: "Planning / idea",
+  all: "All",
+  current: "In progress",
+  planning: "Planning",
   completed: "Completed",
   archived: "Archived",
 };
@@ -54,13 +55,13 @@ const BUILD_TAB_LABELS: Record<BuildTab, string> = {
 function portfolioGridClass(layout: PortfolioLayoutMode): string {
   switch (layout) {
     case "comfortable":
-      return "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+      return "flex gap-3 overflow-x-auto no-scrollbar snap-x pb-1";
     case "compact":
-      return "grid w-full max-w-3xl grid-cols-1 gap-3 mx-auto";
+      return "grid w-full max-w-3xl grid-cols-1 gap-3";
     case "grid":
       return "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4";
     default:
-      return "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+      return "flex gap-3 overflow-x-auto no-scrollbar snap-x pb-1";
   }
 }
 
@@ -108,9 +109,14 @@ export default function BuildsPage() {
   const sharedBuilds = useQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip") ?? [];
   const isLoading = authLoading || buildsLoading;
   const hasSearch = search.trim().length > 0;
-  const activeTabLabel = tabOptions.find((opt) => opt.value === activeTab)?.label ?? "All builds";
   const layoutLabel = PORTFOLIO_LAYOUT_LABELS[layout];
-  const controlsSummary = `${activeTabLabel} · ${SORT_LABELS[sortBy]} · ${order === "asc" ? "Ascending" : "Descending"} · ${layoutLabel}`;
+
+  const featured = useMemo(() => builds.find((b) => b.status === "wip") ?? builds[0], [builds]);
+  const featuredIndex = featured ? builds.indexOf(featured) : -1;
+  const featuredProgress =
+    featured && featured.tasksTotal > 0
+      ? Math.round((100 * featured.tasksChecked) / featured.tasksTotal)
+      : 0;
 
   const cycleSort = useCallback(() => {
     setSortBy((prev) => {
@@ -222,311 +228,325 @@ export default function BuildsPage() {
     }
   }, [userId, deletedForUndo, createBuild]);
 
-  return (
-    <WebAppShell>
-      <PageHeader
-        title="My Builds"
-        subtitle="Build library"
-        search={{
-          value: search,
-          onChange: setSearch,
-          placeholder: "Search builds...",
-          "aria-label": "Search builds by name or character",
-        }}
-        mobileControlsLabel="Refine builds"
-        mobileControlsSummary={controlsSummary}
-        trailing={
-          <>
-            {sharedBuilds.length > 0 && (
-              <a
-                href="#shared-with-me"
-                className="hidden sm:flex min-h-[44px] items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              >
-                Shared ({sharedBuilds.length})
-              </a>
-            )}
-            <Link
-              href="/elements"
-              className="hidden sm:flex min-h-[44px] items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface shadow-sm px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-kyar-text hover:bg-kyar-muted hover:border-kyar-text transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              aria-label="Open elements"
-            >
-              Elements
-            </Link>
-          </>
-        }
+  const renderBuildTile = (b: (typeof builds)[number], index: number) => {
+    const isSelected = selectedIds.has(b._id);
+    const isFeatured = featured?._id === b._id;
+    return (
+      <div
+        key={b._id}
+        className={`group relative ${layout === "comfortable" ? "snap-start shrink-0 w-[200px]" : ""}`}
       >
-        <div className="flex w-full flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0 mr-2">
-            Status
-          </span>
-          {tabOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setActiveTab(opt.value as BuildTab)}
-              className={`shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                activeTab === opt.value
-                  ? "border-kyar-text bg-kyar-text text-kyar-bg shadow-md"
-                  : "border-kyar-borderSubtle bg-kyar-surface text-kyar-textSecondary hover:border-kyar-text hover:bg-kyar-muted"
-              }`}
-              aria-pressed={activeTab === opt.value}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-5 sm:hidden">
-          <span className="text-[10px] uppercase tracking-widest text-kyar-meta">
-            Sort &amp; view
-          </span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <ControlPill
-              label={SORT_LABELS[sortBy]}
-              onClick={cycleSort}
-              aria-label="Change sort field"
-            />
-            <ControlPill
-              label={order === "asc" ? "Ascending" : "Descending"}
-              onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-              aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-            />
-            <ControlPill
-              label={layoutLabel}
-              onClick={cycleLayout}
-              aria-label="Change card layout"
-            />
-          </div>
-        </div>
-        <div className="hidden w-full flex-wrap items-center gap-3 sm:ml-auto sm:flex sm:w-auto sm:justify-end">
-          <span className="text-[10px] uppercase tracking-widest text-kyar-meta shrink-0">
-            Sort by
-          </span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as BuildSortBy)}
-            className="min-h-[44px] min-w-[11rem] flex-1 border-b border-kyar-border bg-transparent py-1.5 text-[11px] uppercase tracking-wider text-kyar-text focus:border-kyar-text focus:outline-none transition-colors sm:min-w-0 sm:flex-none"
-            aria-label="Sort builds by"
-          >
-            <option value="name">Name</option>
-            <option value="progress">Progress</option>
-            <option value="targetDate">Target date</option>
-            <option value="budget">Budget</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
-            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-4 text-[10px] font-bold uppercase tracking-[0.22em] text-kyar-textSecondary transition-colors hover:border-kyar-text hover:text-kyar-text focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-            aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
-            title={order === "asc" ? "Ascending" : "Descending"}
-          >
-            {order === "asc" ? "Asc" : "Desc"}
-          </button>
-          <ControlPill label={layoutLabel} onClick={cycleLayout} aria-label="Change card layout" />
-        </div>
-      </PageHeader>
-
-      <main className="flex-1 mt-3 sm:mt-6">
-        {isLoading && <EmptyState icon="hourglass_empty" message="Loading…" />}
-        {!isLoading && builds.length === 0 && !hasSearch && (
-          <EmptyState
-            icon="construction"
-            message="No builds yet."
-            secondary="Create one to link elements and materials and use them in convention packing."
-            action={
-              <button
-                type="button"
-                onClick={() => openCreationModal("newBuild")}
-                className="min-h-[44px] inline-flex items-center text-[10px] font-semibold uppercase tracking-widest border border-kyar-text px-4 py-2.5 rounded hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-bgWarm"
-              >
-                New build
-              </button>
-            }
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => toggleSelect(b._id)}
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute z-20 h-6 w-6 cursor-pointer rounded-full border border-glass-border-strong bg-scrim-dim shadow-sm backdrop-blur-glass-chip transition-all checked:border-kyar-media-fg checked:bg-glass-solid focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 active:scale-90 focus-visible:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 ${
+            selectedIds.size > 0 ? "opacity-100" : "opacity-0"
+          } right-3 top-3`}
+          aria-label={`Select ${b.name}`}
+        />
+        <Link
+          href={`/build-detail/${b._id}`}
+          className={`group block w-full cursor-pointer overflow-hidden rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent transition-transform hover:-translate-y-0.5 ${
+            isSelected ? "ring-2 ring-kyar-media-fg" : ""
+          } ${isFeatured ? "outline outline-[1.5px] -outline-offset-[1.5px] outline-glass-border-strong" : ""}`}
+          aria-label={`View details for ${b.name}`}
+        >
+          <BuildPortfolioCardWeb
+            variant={layout === "comfortable" ? "grid" : layout}
+            projectIndex={index + 1}
+            item={{
+              name: b.name,
+              character: b.character,
+              status: b.status,
+              imageStorageId: b.imageStorageId,
+              imageUrl: b.imageUrl,
+              tasksTotal: b.tasksTotal,
+              tasksChecked: b.tasksChecked,
+            }}
           />
-        )}
-        {!isLoading && builds.length === 0 && hasSearch && (
-          <EmptyState icon="search_off" message="No builds match your search." />
-        )}
-        {!isLoading && builds.length > 0 && (
-          <div className="mb-3 sm:mb-4 flex items-center gap-3">
-            <p className="text-[10px] uppercase tracking-widest opacity-50">
-              {builds.length} build{builds.length !== 1 ? "s" : ""}
-            </p>
-            <button
-              type="button"
-              onClick={selectAll}
-              className="text-[10px] uppercase tracking-widest font-medium underline"
-            >
-              {selectedIds.size === builds.length ? "Deselect all" : "Select all"}
-            </button>
-          </div>
-        )}
-        <div className={portfolioGridClass(layout)}>
-          {!isLoading &&
-            builds.length > 0 &&
-            builds.map((b, index) => {
-              const isSelected = selectedIds.has(b._id);
+        </Link>
+      </div>
+    );
+  };
 
-              return (
-                <div key={b._id} className="group relative">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleSelect(b._id)}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`absolute z-20 h-6 w-6 cursor-pointer rounded-full border border-kyar-borderSubtle bg-kyar-text/25 shadow-sm backdrop-blur-sm transition-all checked:border-kyar-text checked:bg-kyar-text focus:ring-2 focus:ring-kyar-accent focus:ring-offset-0 active:scale-90 focus-visible:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100 ${
-                      selectedIds.size > 0 ? "opacity-100" : "opacity-0"
-                    } ${layout === "compact" ? "right-3 top-3" : "right-4 top-4"}`}
-                    aria-label={`Select ${b.name}`}
-                  />
-                  <Link
-                    href={`/build-detail/${b._id}`}
-                    className={`group block w-full cursor-pointer overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 transition-all hover:-translate-y-1 hover:shadow-lg ${
-                      isSelected ? "ring-2 ring-kyar-text" : ""
-                    }`}
-                    aria-label={`View details for ${b.name}`}
+  return (
+    <WebAppShell fullBleed>
+      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+        <PhotoBackdrop imageStorageId={featured?.imageStorageId} imageUrl={featured?.imageUrl} />
+
+        <div className="relative z-10 flex-1 flex flex-col w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-12 pb-6 min-h-0">
+          {/* Featured headline (1b) */}
+          <section className="flex-1 min-w-0 max-w-[680px] lg:mt-4">
+            {featured ? (
+              <>
+                <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
+                  Featured · Project {String(featuredIndex + 1).padStart(2, "0")} ·{" "}
+                  {featured.status}
+                </span>
+                <h1 className="font-serif italic font-normal text-[40px] lg:text-[88px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
+                  {featured.name}
+                </h1>
+                <div className="mt-5 flex items-center gap-4">
+                  <div
+                    className="h-[2px] w-[180px] sm:w-[260px] bg-glass-border rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={featured.tasksChecked}
+                    aria-valuemin={0}
+                    aria-valuemax={featured.tasksTotal}
                   >
-                    <BuildPortfolioCardWeb
-                      variant={layout}
-                      projectIndex={index + 1}
-                      item={{
-                        name: b.name,
-                        character: b.character,
-                        status: b.status,
-                        imageStorageId: b.imageStorageId,
-                        imageUrl: b.imageUrl,
-                        tasksTotal: b.tasksTotal,
-                        tasksChecked: b.tasksChecked,
-                      }}
+                    <div
+                      className="h-full bg-kyar-media-fg rounded-full"
+                      style={{ width: `${featuredProgress}%` }}
                     />
-                  </Link>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] tabular-nums">
+                    {featuredProgress}%
+                  </span>
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55">
+                    {featured.tasksChecked} / {featured.tasksTotal} tasks
+                  </span>
                 </div>
-              );
-            })}
-        </div>
-
-        {sharedBuilds.length > 0 && (
-          <section
-            id="shared-with-me"
-            className="mt-12 pt-8 border-t border-kyar-borderSubtle scroll-mt-24"
-          >
-            <h2 className="text-[11px] uppercase tracking-widest text-kyar-textSecondary mb-4">
-              Shared with you ({sharedBuilds.length})
-            </h2>
-            <div className={portfolioGridClass(layout)}>
-              {sharedBuilds.map((b, index) => (
                 <Link
-                  key={b._id}
-                  href={`/build-detail/${b._id}`}
-                  className="group block w-full overflow-hidden rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+                  href={`/build-detail/${featured._id}`}
+                  className="mt-5 inline-block text-[10px] font-bold uppercase tracking-[0.16em] border-b border-kyar-media-fg pb-0.5 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                 >
-                  <BuildPortfolioCardWeb
-                    variant={layout}
-                    projectIndex={index + 1}
-                    item={{
-                      name: b.name,
-                      character: b.character ?? (b.myRole ? String(b.myRole) : null),
-                      status: b.status,
-                      imageStorageId: b.imageStorageId,
-                      imageUrl: b.imageUrl,
-                      tasksTotal: b.tasksTotal,
-                      tasksChecked: b.tasksChecked,
-                    }}
-                  />
+                  Open build ▸
                 </Link>
-              ))}
-            </div>
+              </>
+            ) : null}
           </section>
-        )}
-      </main>
 
-      {selectedIds.size > 0 && (
-        <div
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-6 py-4 bg-kyar-surface border border-kyar-borderSubtle shadow-lg flex items-center justify-between gap-6 flex-wrap rounded-full w-[90%] max-w-2xl"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        >
-          <span className="text-sm font-bold">{selectedIds.size} selected</span>
-          <div className="flex gap-2 flex-wrap">
-            {STATUS_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => handleSetStatusSelected(value)}
-                disabled={actionPending}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-kyar-text rounded-full hover:bg-kyar-text hover:text-kyar-bg transition-colors disabled:opacity-50"
+          {/* The archive — bottom glass shelf (1b) */}
+          <section className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
+                The archive · {builds.length}
+              </span>
+              {tabOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setActiveTab(opt.value as BuildTab)}
+                  className={`text-[9px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                    activeTab === opt.value
+                      ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                      : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                  }`}
+                  aria-pressed={activeTab === opt.value}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className="flex-1" />
+              {sharedBuilds.length > 0 && (
+                <a
+                  href="#shared-with-me"
+                  className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                >
+                  Shared ({sharedBuilds.length})
+                </a>
+              )}
+              <Link
+                href="/elements"
+                className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                aria-label="Open elements"
               >
-                {label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={actionPending}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-kyar-danger border border-kyar-danger rounded-full hover:bg-kyar-danger hover:text-kyar-bg transition-colors disabled:opacity-50"
-            >
-              Delete
-            </button>
-            <button
-              type="button"
-              onClick={clearSelection}
-              className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
+                Elements ▸
+              </Link>
+            </div>
 
-      <AdaptiveModal
-        open={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        aria-labelledby="builds-delete-dialog-title"
-      >
-        <div className="p-6">
-          <h2 id="builds-delete-dialog-title" className="font-serif italic text-lg mb-2">
-            Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
-          </h2>
-          <p className="text-sm text-media-fg-70 mb-6">
-            This cannot be undone. Tasks and element links will be removed.
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 min-h-[44px] py-3 border border-glass-border-strong bg-glass-bar text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-glass-active transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteSelected}
-              disabled={actionPending}
-              className="flex-1 min-h-[44px] py-3 border border-on-glass-danger text-on-glass-danger text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
-            >
-              {actionPending ? "Deleting..." : "Delete"}
-            </button>
-          </div>
-        </div>
-      </AdaptiveModal>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search builds..."
+                aria-label="Search builds by name or character"
+                className="glass-field px-3 py-2 text-[13px] w-full sm:w-[220px]"
+              />
+              <ControlPill
+                surface="glass"
+                label={SORT_LABELS[sortBy]}
+                onClick={cycleSort}
+                aria-label="Change sort field"
+              />
+              <ControlPill
+                surface="glass"
+                label={order === "asc" ? "Asc" : "Desc"}
+                onClick={() => setOrder((o) => (o === "asc" ? "desc" : "asc"))}
+                aria-label={order === "asc" ? "Sort ascending" : "Sort descending"}
+              />
+              <ControlPill
+                surface="glass"
+                label={layoutLabel}
+                onClick={cycleLayout}
+                aria-label="Change card layout"
+              />
+              {builds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="ml-auto text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg border-b border-glass-border-strong pb-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                >
+                  {selectedIds.size === builds.length ? "Deselect all" : "Select all"}
+                </button>
+              )}
+            </div>
 
-      {deletedForUndo && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-4 bg-kyar-text text-kyar-bg rounded-full border border-kyar-border shadow-2xl"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="text-sm font-medium">
-            {deletedForUndo.count} build{deletedForUndo.count !== 1 ? "s" : ""} deleted
-          </span>
-          <button
-            type="button"
-            onClick={handleUndoDelete}
-            disabled={actionPending}
-            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider border border-current rounded-full hover:bg-kyar-bg/10 disabled:opacity-50 transition-colors"
+            {isLoading && <EmptyState surface="glass" icon="hourglass_empty" message="Loading…" />}
+            {!isLoading && builds.length === 0 && !hasSearch && (
+              <EmptyState
+                surface="glass"
+                icon="construction"
+                message="No builds yet."
+                secondary="Create one to link elements and materials and use them in convention packing."
+                action={
+                  <PhotoPill onClick={() => openCreationModal("newBuild")} icon="add">
+                    New build
+                  </PhotoPill>
+                }
+              />
+            )}
+            {!isLoading && builds.length === 0 && hasSearch && (
+              <EmptyState
+                surface="glass"
+                icon="search_off"
+                message="No builds match your search."
+              />
+            )}
+            {!isLoading && builds.length > 0 && (
+              <div className={portfolioGridClass(layout)}>{builds.map(renderBuildTile)}</div>
+            )}
+
+            {sharedBuilds.length > 0 && (
+              <div
+                id="shared-with-me"
+                className="mt-8 pt-5 border-t border-glass-divider scroll-mt-24"
+              >
+                <h2 className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85 mb-4">
+                  Shared with you · {sharedBuilds.length}
+                </h2>
+                <div className={portfolioGridClass(layout)}>
+                  {sharedBuilds.map((b, index) => (
+                    <Link
+                      key={b._id}
+                      href={`/build-detail/${b._id}`}
+                      className={`group block overflow-hidden rounded-[10px] transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                        layout === "comfortable" ? "snap-start shrink-0 w-[200px]" : "w-full"
+                      }`}
+                    >
+                      <BuildPortfolioCardWeb
+                        variant={layout === "comfortable" ? "grid" : layout}
+                        projectIndex={index + 1}
+                        item={{
+                          name: b.name,
+                          character: b.character ?? (b.myRole ? String(b.myRole) : null),
+                          status: b.status,
+                          imageStorageId: b.imageStorageId,
+                          imageUrl: b.imageUrl,
+                          tasksTotal: b.tasksTotal,
+                          tasksChecked: b.tasksChecked,
+                        }}
+                      />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {selectedIds.size > 0 && (
+          <div
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 px-6 py-4 bg-glass-overlay-on-wall backdrop-blur-glass-overlay border border-glass-border-overlay shadow-glass-overlay text-kyar-media-fg flex items-center justify-between gap-6 flex-wrap rounded-full w-[90%] max-w-2xl"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
           >
-            {actionPending ? "Undoing…" : "Undo"}
-          </button>
-        </div>
-      )}
+            <span className="text-sm font-bold">{selectedIds.size} selected</span>
+            <div className="flex gap-2 flex-wrap">
+              {STATUS_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => handleSetStatusSelected(value)}
+                  disabled={actionPending}
+                  className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active transition-colors disabled:opacity-50"
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={actionPending}
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-on-glass-danger border border-on-glass-danger rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] opacity-70 hover:opacity-100 transition-opacity"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        <AdaptiveModal
+          open={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          aria-labelledby="builds-delete-dialog-title"
+        >
+          <div className="p-6">
+            <h2 id="builds-delete-dialog-title" className="font-serif italic text-lg mb-2">
+              Delete {selectedIds.size} build{selectedIds.size !== 1 ? "s" : ""}?
+            </h2>
+            <p className="text-sm text-media-fg-70 mb-6">
+              This cannot be undone. Tasks and element links will be removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 min-h-[44px] py-3 border border-glass-border-strong bg-glass-bar text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-glass-active transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={actionPending}
+                className="flex-1 min-h-[44px] py-3 border border-on-glass-danger text-on-glass-danger text-[10px] font-bold uppercase tracking-[0.16em] rounded-full hover:bg-on-glass-danger/10 transition-colors disabled:opacity-50"
+              >
+                {actionPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </AdaptiveModal>
+
+        {deletedForUndo && (
+          <div
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-4 bg-glass-solid text-glass-ink rounded-full shadow-fab"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="text-sm font-medium">
+              {deletedForUndo.count} build{deletedForUndo.count !== 1 ? "s" : ""} deleted
+            </span>
+            <button
+              type="button"
+              onClick={handleUndoDelete}
+              disabled={actionPending}
+              className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] border border-current rounded-full hover:bg-glass-ink/10 disabled:opacity-50 transition-colors"
+            >
+              {actionPending ? "Undoing…" : "Undo"}
+            </button>
+          </div>
+        )}
+      </div>
     </WebAppShell>
   );
 }

@@ -85,7 +85,7 @@ function PosterOverlay({
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+        <div className="absolute inset-0 flex items-center justify-center text-media-fg-45 transition-transform duration-700 group-hover:scale-105">
           <span className="material-symbols-outlined text-6xl">image</span>
         </div>
       )}
@@ -95,14 +95,10 @@ function PosterOverlay({
       >
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <span
-              className={`mb-1 block font-bold uppercase tracking-[0.2em] opacity-80 ${isGrid ? "text-[8px]" : "text-[9px]"}`}
-            >
+            <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.2em] opacity-80">
               Project {projectNumber}
             </span>
-            <h2
-              className={`truncate text-kyar-media-fg drop-shadow-md transition-colors group-hover:text-kyar-accent ${titleClass}`}
-            >
+            <h2 className={`truncate text-kyar-media-fg drop-shadow-md ${titleClass}`}>
               {item.name}
             </h2>
           </div>
@@ -151,9 +147,9 @@ export function BuildPortfolioCardWeb({
 
   if (variant === "compact") {
     return (
-      <div className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft">
+      <div className="overflow-hidden rounded-[10px] border border-glass-border bg-glass text-kyar-media-fg">
         <div className="flex h-[148px] flex-row">
-          <div className="relative h-full w-28 shrink-0 overflow-hidden bg-kyar-muted">
+          <div className="relative h-full w-28 shrink-0 overflow-hidden bg-glass-active">
             {item.imageStorageId || item.imageUrl ? (
               <ResolvedImage
                 imageStorageId={item.imageStorageId}
@@ -162,31 +158,31 @@ export function BuildPortfolioCardWeb({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-kyar-textTertiary">
+              <div className="flex h-full items-center justify-center text-media-fg-45">
                 <span className="material-symbols-outlined text-4xl">image</span>
               </div>
             )}
             <div className="absolute inset-0 bg-kyar-media-scrim-soft" />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-between bg-kyar-surface py-3 pl-3 pr-4">
+          <div className="flex min-w-0 flex-1 flex-col justify-between py-3 pl-3 pr-4">
             <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-kyar-textSecondary">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-media-fg-70">
                 Project {projectNumber}
               </p>
-              <h3 className="mt-1 line-clamp-2 font-serif text-[22px] italic leading-tight text-kyar-text">
+              <h3 className="mt-1 line-clamp-2 font-serif text-[22px] italic leading-tight">
                 {item.name}
               </h3>
             </div>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-widest text-kyar-textSecondary">
+              <p className="min-w-0 flex-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
                 {item.status}
                 {item.character ? ` · ${item.character}` : ""}
               </p>
               <ProgressRing
                 progress={progress}
                 sizeClass="h-8 w-8"
-                textClass="text-kyar-text"
-                trackClass="text-kyar-text/15"
+                textClass="text-kyar-media-fg"
+                trackClass="text-kyar-media-fg/20"
               />
             </div>
           </div>
@@ -197,7 +193,7 @@ export function BuildPortfolioCardWeb({
 
   const posterVariant = variant === "grid" ? "grid" : "comfortable";
   return (
-    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft">
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-glass-border bg-glass-active">
       <PosterOverlay
         item={item}
         projectNumber={projectNumber}
