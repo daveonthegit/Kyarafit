@@ -110,7 +110,7 @@ export default function ResetPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? "Saving…" : "Set New Password"}
           </button>

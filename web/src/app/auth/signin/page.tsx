@@ -164,7 +164,11 @@ export default function SignInPage() {
   const anyLoading = loading || oauthLoading !== null;
 
   return (
-    <AuthGlassFrame>
+    <AuthGlassFrame
+      variant="split"
+      eyebrow={mode === "forgot" ? "Account recovery" : "Welcome back"}
+      title={mode === "forgot" ? "Reset password" : "Sign in"}
+    >
       <div>
         {/* Alerts */}
         {error && (
@@ -197,7 +201,7 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={anyLoading}
-              className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? "Sending…" : "Send Reset Link"}
             </button>
@@ -325,7 +329,7 @@ export default function SignInPage() {
               <button
                 type="submit"
                 disabled={anyLoading}
-                className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {loading ? "Signing in…" : "Sign In"}
               </button>

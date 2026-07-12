@@ -75,7 +75,7 @@ export default function SignUpPage() {
   const anyLoading = loading || oauthLoading !== null;
 
   return (
-    <AuthGlassFrame eyebrow="Join">
+    <AuthGlassFrame variant="split" eyebrow="New here" title="Create account">
       <div>
         {error && (
           <div className="mb-4 rounded-[10px] border border-on-glass-danger/40 bg-on-glass-danger/15 p-4 text-sm text-kyar-media-fg">
@@ -203,7 +203,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={anyLoading}
-            className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {loading ? "Creating account…" : "Create Account"}
           </button>

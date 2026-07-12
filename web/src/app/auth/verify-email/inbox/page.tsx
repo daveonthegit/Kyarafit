@@ -57,25 +57,34 @@ export default function VerifyEmailInboxPage() {
           </div>
         )}
 
-        <div className="space-y-3 mt-8">
-          {email && !resent && (
+        <div className="mt-8">
+          {email && !resent ? (
             <button
               onClick={handleResend}
               disabled={resending}
-              className="w-full min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors disabled:opacity-50"
+              className="w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {resending ? "Resending…" : "Resend verification email"}
             </button>
+          ) : (
+            <Link
+              href="/auth/signin"
+              className="block w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity text-center"
+            >
+              Back to sign in
+            </Link>
           )}
-          <Link
-            href="/auth/signin"
-            className="block w-full min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar py-3 text-[10px] uppercase tracking-[0.16em] font-bold hover:bg-glass-active transition-colors text-center"
-          >
-            Back to sign in
-          </Link>
         </div>
 
-        <p className="mt-8 text-xs text-media-fg-55">
+        {email && !resent && (
+          <p className="mt-4 text-xs text-media-fg-55">
+            <Link href="/auth/signin" className="underline hover:text-kyar-media-fg">
+              Back to sign in
+            </Link>
+          </p>
+        )}
+
+        <p className="mt-6 text-xs text-media-fg-55">
           Didn&apos;t receive anything? Check your spam folder or{" "}
           <Link href="/auth/signup" className="underline hover:text-kyar-media-fg">
             try a different email
