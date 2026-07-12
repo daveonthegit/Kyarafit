@@ -11,6 +11,7 @@
       "overlay": "rgba(255,253,248,0.14)",
       "active": "rgba(255,253,248,0.06)",
       "preview": "rgba(255,253,248,0.22)",
+      "field": "rgba(255,253,248,0.05)",
       "solid": "#FFFDF8"
     },
     "border": {
@@ -83,6 +84,13 @@
         "stops": [
           { "color": "oklch(0.17 0.015 278)", "at": 0 },
           { "color": "oklch(0.13 0.012 278)", "at": 1 }
+        ]
+      },
+      "studioWallRn": {
+        "direction": "180deg",
+        "stops": [
+          { "color": "#0E0F16", "at": 0 },
+          { "color": "#06070C", "at": 1 }
         ]
       }
     },

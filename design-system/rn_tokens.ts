@@ -148,11 +148,18 @@ export const glass = {
   chip: designTokens.glass.chip,
   blur: designTokens.glass.blur,
   radius: designTokens.glass.radius,
-  scrim: designTokens.glass.scrim,
+  scrim: {
+    ...designTokens.glass.scrim,
+    // RN color parsing has no oklch(); studioWall swaps to pre-converted hex stops.
+    studioWall: designTokens.glass.scrim.studioWallRn,
+  },
   drop: designTokens.glass.drop,
   shadow: designTokens.glass.shadow,
   fallback: designTokens.glass.fallback,
 } as const;
+
+export type GlassScrim = (typeof glass.scrim)[keyof typeof glass.scrim];
+export type GlassChipTone = keyof typeof glass.chip;
 
 export function ls(em: number, fontSize: number) {
   return em * fontSize;

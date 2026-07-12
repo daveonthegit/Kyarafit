@@ -9,7 +9,10 @@ export {
   shadow,
   font,
   motion,
+  glass,
   ls,
   type DesignColors,
   type DesignThemeName,
+  type GlassScrim,
+  type GlassChipTone,
 } from "../rn_tokens";
