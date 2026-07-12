@@ -15,6 +15,16 @@ export type ElementPortfolioCardWebModel = {
   childCount: number;
   typeBadge: string;
   statusBadge: string;
+  statusTone?: ChipTone;
+};
+
+type ChipTone = "done" | "active" | "warn" | "neutral";
+
+const CHIP_TONE_CLASSES: Record<ChipTone, string> = {
+  done: "bg-on-glass-chip-done-bg text-on-glass-chip-done-fg",
+  active: "bg-on-glass-chip-active-bg text-on-glass-chip-active-fg",
+  warn: "bg-on-glass-chip-warn-bg text-on-glass-chip-warn-fg",
+  neutral: "bg-on-glass-chip-neutral-bg text-on-glass-chip-neutral-fg",
 };
 
 function ProgressRing({
@@ -57,10 +67,18 @@ function ProgressRing({
   );
 }
 
-function Badges({ statusBadge, compact }: { statusBadge: string; compact?: boolean }) {
-  const pill = compact
-    ? "rounded-full bg-on-glass-chip-neutral-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg backdrop-blur-glass-chip"
-    : "rounded-full bg-on-glass-chip-neutral-bg px-3 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg backdrop-blur-glass-chip";
+function Badges({
+  statusBadge,
+  tone = "neutral",
+  compact,
+}: {
+  statusBadge: string;
+  tone?: ChipTone;
+  compact?: boolean;
+}) {
+  const pill = `rounded-full ${CHIP_TONE_CLASSES[tone]} ${
+    compact ? "px-2 py-0.5" : "px-3 py-1"
+  } text-[9px] font-bold uppercase tracking-[0.14em] backdrop-blur-glass-chip`;
   return (
     <div className="absolute left-3 top-3 z-10 flex gap-2">
       <span className={pill}>{statusBadge}</span>
@@ -70,24 +88,13 @@ function Badges({ statusBadge, compact }: { statusBadge: string; compact?: boole
 
 function PosterBody({
   item,
-  progress,
-  progressLabel,
-  childrenLabel,
   variant,
 }: {
   item: ElementPortfolioCardWebModel;
-  progress: number;
-  progressLabel: string;
-  childrenLabel: string;
   variant: "comfortable" | "grid";
 }) {
   const isGrid = variant === "grid";
-  const titleClass = isGrid
-    ? "font-serif text-xl italic leading-tight"
-    : "font-serif text-3xl italic leading-none";
-  const pad = isGrid ? "p-3 pt-9" : "p-4 pt-12";
-  const ringSize = isGrid ? "h-7 w-7" : "h-9 w-9";
-  const categoryUpper = (item.category?.trim() || "uncategorized").toUpperCase();
+  const metaUpper = (item.category?.trim() || item.typeBadge).toUpperCase();
 
   return (
     <>
@@ -106,28 +113,14 @@ function PosterBody({
         </div>
       )}
       <div className="absolute inset-0 bg-kyar-media-scrim-heavy" />
-      <Badges statusBadge={item.statusBadge} compact={isGrid} />
-      <div className={`absolute bottom-0 left-0 right-0 text-kyar-media-fg ${pad}`}>
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] opacity-80">
-              {categoryUpper}
-            </p>
-            <h3 className={`line-clamp-2 ${titleClass}`}>{item.name}</h3>
-          </div>
-          <ProgressRing
-            progress={progress}
-            sizeClass={ringSize}
-            textClass="text-kyar-media-fg drop-shadow-md"
-            trackClass="text-kyar-media-fg/25"
-          />
-        </div>
-        <div
-          className={`flex items-center justify-between font-bold uppercase tracking-[0.14em] text-kyar-media-fg-muted ${isGrid ? "mt-2 text-[9px]" : "mt-3 text-[10px]"}`}
-        >
-          <span>{progressLabel}</span>
-          <span className="truncate pl-2">{childrenLabel}</span>
-        </div>
+      <Badges statusBadge={item.statusBadge} tone={item.statusTone} compact={isGrid} />
+      <div className="absolute bottom-0 left-0 right-0 p-3 pt-9 text-kyar-media-fg">
+        <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] opacity-70">
+          {metaUpper}
+        </p>
+        <h3 className="line-clamp-2 font-serif text-[14px] italic leading-snug sm:text-[16px]">
+          {item.name}
+        </h3>
       </div>
     </>
   );
@@ -201,13 +194,7 @@ export function ElementPortfolioCardWeb({
   const posterVariant = variant === "grid" ? "grid" : "comfortable";
   return (
     <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-glass-border bg-glass-active">
-      <PosterBody
-        item={item}
-        progress={pct}
-        progressLabel={progressLabel}
-        childrenLabel={childrenLabel}
-        variant={posterVariant}
-      />
+      <PosterBody item={item} variant={posterVariant} />
     </div>
   );
 }

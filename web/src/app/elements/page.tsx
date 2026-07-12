@@ -66,6 +66,16 @@ function portfolioGridClass(layout: PortfolioLayoutMode): string {
   }
 }
 
+/** On-glass chip tone per status label (prototype 6d: owned=done, wip=active, to-buy=warn). */
+const STATUS_CHIP_TONES: Record<string, "done" | "active" | "warn" | "neutral"> = {
+  Complete: "done",
+  Built: "done",
+  Bought: "done",
+  "In use": "active",
+  "In progress": "active",
+  Incomplete: "warn",
+};
+
 const SUBSTATE_OPTIONS = [
   { value: "", label: "All states" },
   { value: "to_buy", label: "To buy" },
@@ -188,10 +198,10 @@ export default function ElementsPage() {
         <div className="absolute inset-0 bg-studio-wall" aria-hidden />
 
         <div className="relative z-10 flex-1 flex flex-col w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pt-8 lg:pt-10 pb-6">
-          {/* The closet header + type tabs (6d) */}
+          {/* Elements header + type tabs (6d) */}
           <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-4">
             <h1 className="font-serif italic font-normal text-[34px] lg:text-[52px] tracking-[-0.02em]">
-              The closet
+              Elements
             </h1>
             <div className="flex items-baseline gap-4 flex-wrap">
               <ElementsUnderlineTab
@@ -380,6 +390,7 @@ export default function ElementsPage() {
                               childCount: childrenN,
                               typeBadge: formatNodeTypeLabel(item.nodeType),
                               statusBadge: formatNodeStatus(item),
+                              statusTone: STATUS_CHIP_TONES[formatNodeStatus(item)] ?? "neutral",
                             }}
                             progressLabel={progressLabel}
                             childrenLabel={childrenLabel}
