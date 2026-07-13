@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { APP_HREF } from "@/lib/appRoutes";
 import { MobileBackButton } from "@/components/navigation/MobileBackButton";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { navHeaderTitleStyle } from "@/theme/appFonts";
+import { glassHeaderOptions } from "@/theme/glassNavigation";
 
 export default function SettingsLayout() {
   const { colors } = useDesignTheme();
@@ -10,27 +10,21 @@ export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
         headerBackTitle: "Back",
         headerBackVisible: false,
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
-        headerTintColor: colors.text,
-        headerShadowVisible: false,
-        headerStyle: {
-          backgroundColor: colors.bg,
-        },
-        headerTitleStyle: navHeaderTitleStyle(colors.text),
+        ...glassHeaderOptions(),
         contentStyle: {
           backgroundColor: colors.bg,
         },
-        headerLeft: () => <MobileBackButton fallbackHref={APP_HREF.settings} />,
+        headerLeft: () => <MobileBackButton surface="glass" fallbackHref={APP_HREF.settings} />,
       }}
     >
       <Stack.Screen
         name="index"
         options={{
-          headerLeft: () => <MobileBackButton fallbackHref={APP_HREF.more} />,
+          headerLeft: () => <MobileBackButton surface="glass" fallbackHref={APP_HREF.more} />,
         }}
       />
     </Stack>

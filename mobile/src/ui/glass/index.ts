@@ -1,4 +1,5 @@
 export { GlassPanel, GlassBar, GlassOverlay } from "./GlassSurface";
+export { GlassSheet } from "./GlassSheet";
 export { PhotoBackdrop } from "./PhotoBackdrop";
 export { PhotoPill } from "./PhotoPill";
 export { GlassTextField } from "./GlassTextField";

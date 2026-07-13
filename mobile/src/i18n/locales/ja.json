@@ -34,7 +34,10 @@
     "addElement": "要素を追加",
     "addEvent": "イベントを追加",
     "addGroup": "グループを追加",
-    "events": "イベント"
+    "events": "イベント",
+    "closeMenu": "メニューを閉じる",
+    "moreCreateOptions": "その他の作成オプション",
+    "closeCreateMenu": "作成メニューを閉じる"
   },
   "nav": {
     "home": "ホーム",

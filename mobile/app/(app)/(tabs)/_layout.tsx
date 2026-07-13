@@ -1,14 +1,14 @@
+import { useState } from "react";
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type NavSectionId } from "@kyarafit/design-system";
 import { APP_HREF } from "@/lib/appRoutes";
-import { NAV_SECTION_MATERIAL_ICON } from "@/lib/navIconsMobile";
+import { GlassTabBar } from "@/components/navigation/GlassTabBar";
+import { MobileNavDrawer } from "@/components/navigation/MobileNavDrawer";
 import { MobileBackButton } from "@/components/navigation/MobileBackButton";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES, navHeaderTitleStyle } from "@/theme/appFonts";
+import { glassHeaderOptions } from "@/theme/glassNavigation";
 
 const TAB_SECTION_BY_ROUTE = {
   index: "home",
@@ -18,18 +18,13 @@ const TAB_SECTION_BY_ROUTE = {
   more: "menu",
 } as const satisfies Record<string, NavSectionId>;
 
-const TAB_BAR_BASE_HEIGHT = 56;
-
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { colors } = useDesignTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const getTabOptions = (route: keyof typeof TAB_SECTION_BY_ROUTE) => {
     const sectionId = TAB_SECTION_BY_ROUTE[route];
-    const iconName = (NAV_SECTION_MATERIAL_ICON[sectionId] ??
-      "circle") as keyof typeof MaterialIcons.glyphMap;
     const navTitleKey = sectionId === "menu" ? "menu" : sectionId;
     const navTitle = t(`nav.${navTitleKey}`);
     const headerTitle = route === "index" ? t("home.title") : navTitle;
@@ -39,39 +34,26 @@ export default function TabsLayout() {
       headerTitle,
       headerBackVisible: false,
       headerLeft:
-        route === "index" ? undefined : () => <MobileBackButton fallbackHref={APP_HREF.home} />,
-      tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-        <MaterialIcons name={iconName} size={size} color={color} />
-      ),
+        route === "index"
+          ? undefined
+          : () => <MobileBackButton surface="glass" fallbackHref={APP_HREF.home} />,
     };
   };
 
   return (
     <View className="flex-1">
       <Tabs
+        tabBar={(props) => (
+          <GlassTabBar
+            {...props}
+            sectionByRoute={TAB_SECTION_BY_ROUTE}
+            onMenuPress={() => setMenuOpen(true)}
+          />
+        )}
         screenOptions={{
-          headerShown: true,
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-          headerStyle: {
-            backgroundColor: colors.bg,
-          },
-          headerTitleStyle: navHeaderTitleStyle(colors.text),
+          ...glassHeaderOptions(),
           sceneStyle: {
             backgroundColor: colors.bg,
-          },
-          tabBarActiveTintColor: colors.text,
-          tabBarInactiveTintColor: colors.meta,
-          tabBarLabelStyle: {
-            fontFamily: APP_FONT_FAMILIES.sansMedium,
-            fontSize: 11,
-          },
-          tabBarStyle: {
-            borderTopColor: colors.border,
-            backgroundColor: colors.bg,
-            height: tabBarHeight,
-            paddingBottom: Math.max(insets.bottom, 4),
-            paddingTop: 4,
           },
         }}
       >
@@ -79,8 +61,9 @@ export default function TabsLayout() {
         <Tabs.Screen name="builds" options={getTabOptions("builds")} />
         <Tabs.Screen name="elements" options={getTabOptions("elements")} />
         <Tabs.Screen name="planner" options={getTabOptions("planner")} />
-        <Tabs.Screen name="more" options={getTabOptions("more")} />
+        <Tabs.Screen name="more" options={{ ...getTabOptions("more"), headerShown: false }} />
       </Tabs>
+      <MobileNavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
   );
 }

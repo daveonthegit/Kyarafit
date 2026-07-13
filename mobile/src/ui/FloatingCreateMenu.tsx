@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { glass, ls, shadow } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { GlassSheet } from "./glass/GlassSheet";
 
 export type FloatingCreateAction = {
   key: string;
@@ -12,6 +14,11 @@ export type FloatingCreateAction = {
   onPress: () => void;
 };
 
+/**
+ * Contextual create control (web `GlobalFAB` mirror): solid-light pill above
+ * the tab bar — the screen's ONE primary (QA-3). First action is the
+ * screen's primary add; extra actions open a glass sheet menu.
+ */
 export function FloatingCreateMenu({
   actions,
   bottomOffset = 84,
@@ -21,7 +28,7 @@ export function FloatingCreateMenu({
 }) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { colors } = useDesignTheme();
+  const { t } = useTranslation();
 
   const menuActions = useMemo(() => actions.filter(Boolean), [actions]);
 
@@ -29,54 +36,130 @@ export function FloatingCreateMenu({
     return null;
   }
 
-  return (
-    <View pointerEvents="box-none" className="absolute inset-0">
-      {open ? (
-        <Pressable
-          className="absolute inset-0 bg-kyar-text/6 dark:bg-kyar-dark-text/8"
-          onPress={() => setOpen(false)}
-        />
-      ) : null}
+  const [primary, ...others] = menuActions;
 
+  return (
+    <>
       <View
         pointerEvents="box-none"
         className="absolute right-5 items-end"
         style={{ bottom: insets.bottom + bottomOffset }}
       >
-        {open ? (
-          <View className="mb-3 min-w-[204px] gap-2 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-2 shadow-fab dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
-            {menuActions.map((action) => (
-              <Pressable
-                key={action.key}
-                onPress={() => {
-                  setOpen(false);
-                  action.onPress();
-                }}
-                className="min-h-[52px] flex-row items-center gap-3 rounded-2xl px-4 py-3 active:bg-kyar-panel dark:active:bg-kyar-dark-panel"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-full bg-kyar-panel dark:bg-kyar-dark-panel">
-                  <Ionicons name={action.icon} size={18} color={colors.text} />
-                </View>
-                <Text
-                  style={{ fontFamily: APP_FONT_FAMILIES.sansSemiBold }}
-                  className="flex-1 text-sm text-kyar-text dark:text-kyar-dark-text"
-                >
-                  {action.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        <Pressable
-          onPress={() => setOpen((value) => !value)}
-          className="h-16 w-16 items-center justify-center rounded-full bg-kyar-text shadow-fab active:opacity-90 dark:bg-kyar-dark-text"
-          accessibilityRole="button"
-          accessibilityLabel={open ? "Close create menu" : "Open create menu"}
+        <View
+          style={[
+            shadow.fab,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              borderRadius: 999,
+              backgroundColor: glass.surface.solid,
+              overflow: "hidden",
+            },
+          ]}
         >
-          <Ionicons name={open ? "close" : "add"} size={30} color={colors.bg} />
-        </Pressable>
+          <Pressable
+            onPress={primary.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={primary.label}
+            style={({ pressed }) => ({
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingLeft: 20,
+              paddingRight: others.length > 0 ? 14 : 20,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Ionicons name={primary.icon} size={16} color={glass.text.ink} />
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.sansBold,
+                fontSize: 10,
+                letterSpacing: ls(0.16, 10),
+                textTransform: "uppercase",
+                color: glass.text.ink,
+              }}
+            >
+              {primary.label}
+            </Text>
+          </Pressable>
+          {others.length > 0 ? (
+            <>
+              <View
+                style={{
+                  width: 1,
+                  height: 24,
+                  backgroundColor: glass.text.ink,
+                  opacity: 0.25,
+                }}
+              />
+              <Pressable
+                onPress={() => setOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.moreCreateOptions")}
+                style={({ pressed }) => ({
+                  minHeight: 44,
+                  minWidth: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Ionicons name="chevron-up" size={18} color={glass.text.ink} />
+              </Pressable>
+            </>
+          ) : null}
+        </View>
       </View>
-    </View>
+
+      <GlassSheet open={open} onClose={() => setOpen(false)} closeLabel={t("common.closeCreateMenu")}>
+        <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+          {others.map((action) => (
+            <Pressable
+              key={action.key}
+              onPress={() => {
+                setOpen(false);
+                action.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              style={({ pressed }) => ({
+                minHeight: 52,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingHorizontal: 12,
+                borderRadius: 10,
+                backgroundColor: pressed ? glass.surface.active : "transparent",
+              })}
+            >
+              <View
+                style={{
+                  height: 36,
+                  width: 36,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  backgroundColor: glass.surface.bar,
+                }}
+              >
+                <Ionicons name={action.icon} size={18} color={glass.text.fg} />
+              </View>
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                  fontSize: 14,
+                  color: glass.text.fg,
+                }}
+              >
+                {action.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </GlassSheet>
+    </>
   );
 }

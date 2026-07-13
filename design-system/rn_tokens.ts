@@ -156,6 +156,8 @@ export const glass = {
   drop: designTokens.glass.drop,
   shadow: designTokens.glass.shadow,
   fallback: designTokens.glass.fallback,
+  scrimDim: designTokens.glass.scrimDim,
+  statusCutout: designTokens.glass.statusCutout,
 } as const;
 
 export type GlassScrim = (typeof glass.scrim)[keyof typeof glass.scrim];

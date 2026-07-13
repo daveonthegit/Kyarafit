@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
-import { borderWidth } from "@kyarafit/design-system/rn";
+import { LinearGradient } from "expo-linear-gradient";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import {
   ANDROID_BLUR_METHOD,
   GLASS_OVERLAY_SHADOW,
   GLASS_WEIGHTS,
   isGlassBlurSupported,
+  scrimGradientProps,
   type GlassWeight,
 } from "./glassSurfaces";
 
@@ -17,17 +19,24 @@ type GlassSurfaceProps = {
    * rows (blur is expensive) or when a surface shows jank on device.
    */
   blur?: boolean;
+  /**
+   * Transitional chrome (web `.bg-glass-*-on-wall`): glass wash over the
+   * studio-wall gradient instead of blurring live content. Use for chrome
+   * that sits over not-yet-converted (cream) screens.
+   */
+  onWall?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 function GlassSurface({
   weight,
   blur = true,
+  onWall = false,
   style,
   children,
 }: GlassSurfaceProps & { weight: GlassWeight }) {
   const recipe = GLASS_WEIGHTS[weight];
-  const blurOn = blur && isGlassBlurSupported();
+  const blurOn = !onWall && blur && isGlassBlurSupported();
 
   return (
     <View
@@ -37,11 +46,17 @@ function GlassSurface({
           borderWidth: borderWidth.hairline,
           borderColor: recipe.border,
           overflow: "hidden",
-          backgroundColor: blurOn ? "transparent" : recipe.fallback,
+          backgroundColor: blurOn || onWall ? "transparent" : recipe.fallback,
         },
         style,
       ]}
     >
+      {onWall ? (
+        <LinearGradient
+          {...scrimGradientProps(glass.scrim.studioWall)}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       {blurOn ? (
         <BlurView
           intensity={recipe.intensity}
@@ -50,7 +65,7 @@ function GlassSurface({
           style={StyleSheet.absoluteFill}
         />
       ) : null}
-      {blurOn ? (
+      {blurOn || onWall ? (
         <View
           style={[StyleSheet.absoluteFill, { backgroundColor: recipe.surface }]}
           pointerEvents="none"
@@ -72,12 +87,16 @@ export function GlassBar(props: GlassSurfaceProps) {
 }
 
 /** Overlay weight (0.14 / blur 30 / radius 16 + deep shadow) — sheets, dialogs. */
-export function GlassOverlay({ style, ...props }: GlassSurfaceProps) {
+export function GlassOverlay({
+  style,
+  surfaceStyle,
+  ...props
+}: GlassSurfaceProps & { surfaceStyle?: StyleProp<ViewStyle> }) {
   // Shadow lives on an unclipped wrapper: the rounded surface clips children
   // with overflow hidden, which would swallow its own shadow.
   return (
     <View style={[GLASS_OVERLAY_SHADOW, { borderRadius: GLASS_WEIGHTS.overlay.radius }, style]}>
-      <GlassSurface weight="overlay" {...props} />
+      <GlassSurface weight="overlay" style={surfaceStyle} {...props} />
     </View>
   );
 }

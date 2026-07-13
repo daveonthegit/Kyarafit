@@ -98,6 +98,8 @@
       "line": "#FFFDF8",
       "intoRing": "rgba(255,253,248,0.70)"
     },
+    "scrimDim": "rgba(12,11,20,0.60)",
+    "statusCutout": "rgba(12,11,20,0.90)",
     "shadow": {
       "overlay": "0 40px 100px rgba(0,0,0,0.55)"
     },

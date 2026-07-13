@@ -34,7 +34,10 @@
     "addElement": "Add element",
     "addEvent": "Add event",
     "addGroup": "Add group",
-    "events": "Events"
+    "events": "Events",
+    "closeMenu": "Close menu",
+    "moreCreateOptions": "More create options",
+    "closeCreateMenu": "Close create menu"
   },
   "nav": {
     "home": "Home",

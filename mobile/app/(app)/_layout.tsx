@@ -2,6 +2,7 @@ import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useSession } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
+import { glassHeaderOptions } from "@/theme/glassNavigation";
 
 export default function AppGroupLayout() {
   const { session, loading } = useSession();
@@ -21,6 +22,10 @@ export default function AppGroupLayout() {
   return (
     <Stack
       screenOptions={{
+        // Glass chrome defaults for screens that opt into a header
+        // (discover, feed, itinerary, packing) — headers stay hidden unless
+        // a screen shows one.
+        ...glassHeaderOptions(),
         headerShown: false,
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
