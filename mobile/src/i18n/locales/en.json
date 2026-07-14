@@ -630,7 +630,8 @@
     "devGallery": "Component gallery",
     "devGallerySubtitle": "App screen previews",
     "pendingMutations": "Pending changes",
-    "homeLink": "Back to home"
+    "homeLink": "Back to home",
+    "cloudSync": "Cloud sync"
   },
   "groups": {
     "title": "Groups",

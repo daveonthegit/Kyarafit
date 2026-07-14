@@ -8,6 +8,7 @@ import type { ExportableRow } from "@kyarafit/design-system/domain/importExport"
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
+import { SyncStatus } from "@/components/SyncStatus";
 import { readLocalCollections } from "@/lib/localFirstData";
 import {
   buildDataBundle,
@@ -179,7 +180,8 @@ export default function SettingsDataPage() {
   return (
     <SettingsGlassShell eyebrow={t("subtitle")} title={t("title")} backLabel={t("backToSettings")}>
       <div className="space-y-8">
-        <section>
+        <SyncStatus />
+        <section className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-glass-divider-strong [&:not(:first-child)]:pt-6">
           <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">
             {t("exportTitle")}
           </span>

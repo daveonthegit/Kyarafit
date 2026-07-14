@@ -203,6 +203,7 @@
     "backingUp": "Haciendo copia de tu biblioteca… {done}/{total}",
     "cloudGrace": "Copia en la nube activa hasta {date}",
     "cloudFrozen": "Copia en la nube congelada — vuelve a suscribirte para seguir sincronizando (se eliminará {date})",
-    "cloudPurgeable": "Copia en la nube caducada — vuelve a suscribirte para restaurar la sincronización"
+    "cloudPurgeable": "Copia en la nube caducada — vuelve a suscribirte para restaurar la sincronización",
+    "sectionTitle": "Sincronización en la nube"
   }
 }

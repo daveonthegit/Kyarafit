@@ -27,7 +27,6 @@ import { useAppFonts } from "@/theme/appFonts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
-import { SyncStatusChip } from "@/components/SyncStatusChip";
 import { SyncWorkerProvider } from "@/offline";
 import { RevenueCatBootstrap } from "@/components/RevenueCatBootstrap";
 
@@ -121,8 +120,8 @@ function RootLayoutNav() {
 /**
  * Status surfaces float over the navigator instead of pushing it down —
  * in-flow top banners doubled the header's status-bar inset and collided
- * with the clock/dynamic island. Strips sit below the status bar; the sync
- * chip anchors bottom-left above the tab bar (03-component-changes).
+ * with the clock/dynamic island. Sync status/"Sync now" lives in Settings →
+ * Offline (owner: no omnipresent status chips).
  */
 function GlobalStatusChrome() {
   const insets = useSafeAreaInsets();
@@ -141,7 +140,6 @@ function GlobalStatusChrome() {
         <ConnectivityBanner />
         <CloudRetentionBanner />
       </View>
-      <SyncStatusChip />
     </View>
   );
 }

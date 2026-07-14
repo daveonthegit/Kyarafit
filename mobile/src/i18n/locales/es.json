@@ -630,7 +630,8 @@
     "devGallery": "Galería de componentes",
     "devGallerySubtitle": "Vista previa del sistema de diseño (en construcción)",
     "pendingMutations": "Cambios pendientes",
-    "homeLink": "Volver al inicio"
+    "homeLink": "Volver al inicio",
+    "cloudSync": "Sincronización en la nube"
   },
   "groups": {
     "title": "Grupos",

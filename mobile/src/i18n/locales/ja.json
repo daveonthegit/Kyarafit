@@ -630,7 +630,8 @@
     "devGallery": "コンポーネントギャラリー",
     "devGallerySubtitle": "デザインシステムのプレビュー（構築中）",
     "pendingMutations": "保留中の変更",
-    "homeLink": "ホームへ"
+    "homeLink": "ホームへ",
+    "cloudSync": "クラウド同期"
   },
   "groups": {
     "title": "グループ",

@@ -5,6 +5,7 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useTranslation } from "react-i18next";
 
 import { usePendingQueueCount } from "@/offline";
+import { SyncStatusSection } from "@/components/settings/SyncStatusSection";
 import { MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
 export default function SettingsOfflineScreen() {
@@ -40,6 +41,8 @@ export default function SettingsOfflineScreen() {
           </Text>
         </SurfaceCard>
 
+        <SyncStatusSection offline={offline} />
+
         <SurfaceCard className="mt-4 px-4 py-4">
           <MetaLabel>{t("settings.pendingMutations")}</MetaLabel>
           <Text className="mt-3 font-serif text-4xl italic text-kyar-text dark:text-kyar-dark-text">
@@ -59,3 +62,4 @@ export default function SettingsOfflineScreen() {
     </>
   );
 }
+
