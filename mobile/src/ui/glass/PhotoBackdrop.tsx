@@ -106,7 +106,8 @@ export function PhotoBackdrop({
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFill, { overflow: "hidden" }, style]}
+      // Flattened: expo-router's <Slot> rejects array styles on its children.
+      style={StyleSheet.flatten([StyleSheet.absoluteFill, { overflow: "hidden" }, style])}
       accessibilityElementsHidden={!accessibilityLabel}
       importantForAccessibility={accessibilityLabel ? "auto" : "no-hide-descendants"}
     >

@@ -40,7 +40,8 @@ function GlassSurface({
 
   return (
     <View
-      style={[
+      // Flattened: expo-router's <Slot> rejects array styles on its children.
+      style={StyleSheet.flatten([
         {
           borderRadius: recipe.radius,
           borderWidth: borderWidth.hairline,
@@ -49,7 +50,7 @@ function GlassSurface({
           backgroundColor: blurOn || onWall ? "transparent" : recipe.fallback,
         },
         style,
-      ]}
+      ])}
     >
       {onWall ? (
         <LinearGradient
@@ -95,7 +96,13 @@ export function GlassOverlay({
   // Shadow lives on an unclipped wrapper: the rounded surface clips children
   // with overflow hidden, which would swallow its own shadow.
   return (
-    <View style={[GLASS_OVERLAY_SHADOW, { borderRadius: GLASS_WEIGHTS.overlay.radius }, style]}>
+    <View
+      style={StyleSheet.flatten([
+        GLASS_OVERLAY_SHADOW,
+        { borderRadius: GLASS_WEIGHTS.overlay.radius },
+        style,
+      ])}
+    >
       <GlassSurface weight="overlay" style={surfaceStyle} {...props} />
     </View>
   );
