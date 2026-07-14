@@ -11,7 +11,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
 import { APP_HREF } from "@/lib/appRoutes";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
 
 function getDatesInRange(start: string, end: string) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, Modal, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 type Props = {
   visible: boolean;

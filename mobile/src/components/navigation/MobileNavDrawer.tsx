@@ -28,7 +28,7 @@ import { APP_HREF } from "@/lib/appRoutes";
 import { getMobileNavActiveSection } from "@/lib/getMobileNavActiveSection";
 import { NAV_SECTION_MATERIAL_ICON } from "@/lib/navIconsMobile";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { DataBoundary } from "@/ui";
 import { GlassOverlay, useReducedMotion } from "@/ui/glass";
 

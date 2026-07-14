@@ -94,7 +94,20 @@
     "followingFeed": "De quien sigues",
     "followingEmpty": "Sigue a creadores para ver builds públicos aquí.",
     "followingUnknownCreator": "Creador",
-    "openFollowingBuild": "Abrir build"
+    "openFollowingBuild": "Abrir build",
+    "glassOpenBuild": "Abrir proyecto",
+    "glassWhatsDue": "Pendientes",
+    "glassInTheStudio": "En el estudio · {{count}}",
+    "glassDueToday": "Hoy",
+    "glassDueTomorrow": "Mañana",
+    "glassHeadlineDueZero": "Todo al día",
+    "glassHeadlineDueOne": "Una cosa pendiente",
+    "glassHeadlineDueOther": "{{count}} cosas pendientes",
+    "glassHeadlineEventToday": "{{event}} es hoy",
+    "glassHeadlineEventOneDay": "1 día para {{event}}",
+    "glassHeadlineEventDays": "{{days}} días para {{event}}",
+    "glassEventRowMeta": "{{count}} proyectos · {{days}} días",
+    "glassEventRowMetaToday": "{{count}} proyectos · hoy"
   },
   "builds": {
     "pageTitle": "Mis proyectos",
@@ -154,7 +167,16 @@
       "wip": "En curso",
       "ready": "Listo",
       "archived": "Archivado"
-    }
+    },
+    "featuredEyebrow": "Destacado",
+    "sharedEyebrow": "Compartido",
+    "openBuild": "Abrir proyecto",
+    "openBoard": "Tablero",
+    "archiveEyebrow": "El archivo · {{count}}",
+    "startFirstBuild": "Empieza tu primer proyecto",
+    "searchToggle": "Buscar proyectos",
+    "viewGridToggle": "Cambiar a vista de cuadrícula",
+    "viewFeaturedToggle": "Cambiar a vista destacada"
   },
   "elements": {
     "pageTitle": "Elementos",
@@ -317,7 +339,10 @@
     "deleteNode": "Eliminar elemento",
     "deleteNodeTitle": "¿Eliminar este elemento?",
     "deleteNodeBody": "Se eliminará este elemento y sus enlaces asociados.",
-    "deleteNodeAction": "Eliminar elemento"
+    "deleteNodeAction": "Eliminar elemento",
+    "closetTitle": "El armario",
+    "closetEmpty": "Tu armario está vacío. Agrega tu primera pieza.",
+    "nameRequired": "El nombre es obligatorio"
   },
   "buildDetail": {
     "newElement": "Nuevo elemento",
@@ -401,7 +426,13 @@
     "deleteBuildAction": "Eliminar build",
     "addChildElement": "Elemento hijo",
     "addChildMaterial": "Material hijo",
-    "openElement": "Abrir elemento completo"
+    "openElement": "Abrir elemento completo",
+    "headlineTasksMeta": "{{checked}} / {{total}} tareas · {{pct}}%",
+    "explorerDragHelper": "Mantén pulsada una fila para arrastrar, anidar o reordenar",
+    "explorerMatches": "{{count}} coincidencias",
+    "explorerRoots": "{{count}} raíces",
+    "boardAddImage": "Agregar imagen",
+    "taskBlocked": "Bloqueada"
   },
   "linkElements": {
     "title": "Enlazar elementos",
@@ -749,7 +780,14 @@
     "indent": "Anidar",
     "outdent": "Promover",
     "taskStructureHint": "Reordenar, anidar o editar esta tarea.",
-    "taskActionsA11y": "Acciones de la tarea"
+    "taskActionsA11y": "Acciones de la tarea",
+    "headline": "Pendientes",
+    "groupLater": "Más tarde",
+    "showLater": "Mostrar",
+    "hideLater": "Ocultar",
+    "progressShort": "{{done}}/{{total}} hechas",
+    "blocked": "Bloqueada",
+    "overdue": "Atrasada"
   },
   "workflowEditor": {
     "title": "Editar tarea",

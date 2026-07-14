@@ -26,6 +26,26 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(mobileRoot, "src"),
+      // expo-blur/expo-linear-gradient ship untranspiled JSX that vite can't
+      // parse; tests only need passthrough views.
+      "expo-blur": path.resolve(mobileRoot, "src/test-support/expoBlurStub.tsx"),
+      "expo-linear-gradient": path.resolve(
+        mobileRoot,
+        "src/test-support/expoLinearGradientStub.tsx"
+      ),
+      "@expo/vector-icons/MaterialIcons": path.resolve(
+        mobileRoot,
+        "src/test-support/expoVectorIconsStub.tsx"
+      ),
+      "@expo/vector-icons": path.resolve(
+        mobileRoot,
+        "src/test-support/expoVectorIconsStub.tsx"
+      ),
+      // Imports real react-native (Flow syntax) outside the per-test vi.mock.
+      "react-native-safe-area-context": path.resolve(
+        mobileRoot,
+        "src/test-support/safeAreaContextStub.tsx"
+      ),
       "convex/_generated/api": path.resolve(repoRoot, "convex/_generated/api.js"),
       "convex/_generated/dataModel": path.resolve(repoRoot, "convex/_generated/dataModel.js"),
       "convex/_generated/server": path.resolve(repoRoot, "convex/_generated/server.js"),

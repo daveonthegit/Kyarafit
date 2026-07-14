@@ -94,7 +94,20 @@
     "followingFeed": "フォロー中の公開Build",
     "followingEmpty": "クリエイターをフォローするとここに表示されます。",
     "followingUnknownCreator": "クリエイター",
-    "openFollowingBuild": "Buildを開く"
+    "openFollowingBuild": "Buildを開く",
+    "glassOpenBuild": "ビルドを開く",
+    "glassWhatsDue": "期限のあるもの",
+    "glassInTheStudio": "スタジオ · {{count}}",
+    "glassDueToday": "今日",
+    "glassDueTomorrow": "明日",
+    "glassHeadlineDueZero": "すべて完了",
+    "glassHeadlineDueOne": "期限が1件",
+    "glassHeadlineDueOther": "期限が{{count}}件",
+    "glassHeadlineEventToday": "{{event}}は今日",
+    "glassHeadlineEventOneDay": "{{event}}まであと1日",
+    "glassHeadlineEventDays": "{{event}}まであと{{days}}日",
+    "glassEventRowMeta": "{{count}}ビルド · あと{{days}}日",
+    "glassEventRowMetaToday": "{{count}}ビルド · 今日"
   },
   "builds": {
     "pageTitle": "マイビルド",
@@ -154,7 +167,16 @@
       "wip": "作業中",
       "ready": "準備完了",
       "archived": "アーカイブ"
-    }
+    },
+    "featuredEyebrow": "注目",
+    "sharedEyebrow": "共有",
+    "openBuild": "ビルドを開く",
+    "openBoard": "ボード",
+    "archiveEyebrow": "アーカイブ · {{count}}",
+    "startFirstBuild": "最初のビルドを始める",
+    "searchToggle": "ビルドを検索",
+    "viewGridToggle": "グリッド表示に切り替え",
+    "viewFeaturedToggle": "注目表示に切り替え"
   },
   "elements": {
     "pageTitle": "エレメント",
@@ -317,7 +339,10 @@
     "deleteNode": "エレメントを削除",
     "deleteNodeTitle": "このエレメントを削除しますか？",
     "deleteNodeBody": "このエレメントと関連リンクが削除されます。",
-    "deleteNodeAction": "エレメントを削除"
+    "deleteNodeAction": "エレメントを削除",
+    "closetTitle": "クローゼット",
+    "closetEmpty": "クローゼットは空です。最初のアイテムを追加しましょう。",
+    "nameRequired": "名前は必須です"
   },
   "buildDetail": {
     "newElement": "新規エレメント",
@@ -401,7 +426,13 @@
     "deleteBuildAction": "Buildを削除",
     "addChildElement": "子エレメント",
     "addChildMaterial": "子マテリアル",
-    "openElement": "フル要素を開く"
+    "openElement": "フル要素を開く",
+    "headlineTasksMeta": "{{checked}} / {{total}} タスク · {{pct}}%",
+    "explorerDragHelper": "行を長押しでドラッグ・入れ子・並べ替え",
+    "explorerMatches": "{{count}}件一致",
+    "explorerRoots": "ルート{{count}}件",
+    "boardAddImage": "画像を追加",
+    "taskBlocked": "ブロック中"
   },
   "linkElements": {
     "title": "エレメントをリンク",
@@ -749,7 +780,14 @@
     "indent": "ネスト",
     "outdent": "昇格",
     "taskStructureHint": "並べ替え、ネスト、または編集できます。",
-    "taskActionsA11y": "タスクのアクション"
+    "taskActionsA11y": "タスクのアクション",
+    "headline": "期限のあるもの",
+    "groupLater": "後で",
+    "showLater": "表示",
+    "hideLater": "隠す",
+    "progressShort": "{{done}}/{{total}} 完了",
+    "blocked": "ブロック中",
+    "overdue": "期限切れ"
   },
   "workflowEditor": {
     "title": "タスクを編集",

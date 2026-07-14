@@ -44,6 +44,9 @@ export const APP_HREF = {
   itinerary: href("/itinerary"),
   /** Outfit (build) detail — stack route under `(app)/b/[buildId]`. */
   build: (buildId: string) => href(`/(app)/b/${buildId}`),
+  /** Build detail opened on a specific section (e.g. the Builds pager's Board pill). */
+  buildTab: (buildId: string, tab: "summary" | "explorer" | "tasks" | "board" | "updates") =>
+    href(`/(app)/b/${buildId}?tab=${tab}`),
   /** Public outfit viewer — used by Discover / Feed / public profile taps. */
   publicBuild: (buildId: string) => href(`/public-builds/${buildId}`),
   /** Unlisted outfit share page parity with web `/b/s/[shareToken]`. */

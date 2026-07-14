@@ -16,7 +16,7 @@ import {
   enumerateConventionDays,
   formatConventionTimelineDate,
 } from "@/screens/conventions/utils";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 

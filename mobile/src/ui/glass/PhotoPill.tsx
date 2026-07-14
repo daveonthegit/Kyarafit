@@ -1,7 +1,7 @@
 import { Pressable, Text, View, type PressableProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { glass, ls } from "@kyarafit/design-system/rn";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 type Variant = "solid" | "outline" | "text";
 type Size = "md" | "sm";

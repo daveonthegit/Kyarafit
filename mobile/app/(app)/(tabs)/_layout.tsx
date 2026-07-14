@@ -3,11 +3,9 @@ import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { type NavSectionId } from "@kyarafit/design-system";
-import { APP_HREF } from "@/lib/appRoutes";
 import { GlassTabBar } from "@/components/navigation/GlassTabBar";
 import { MobileNavDrawer } from "@/components/navigation/MobileNavDrawer";
-import { MobileBackButton } from "@/components/navigation/MobileBackButton";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { glass } from "@kyarafit/design-system/rn";
 import { glassHeaderOptions } from "@/theme/glassNavigation";
 
 const TAB_SECTION_BY_ROUTE = {
@@ -20,23 +18,18 @@ const TAB_SECTION_BY_ROUTE = {
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const getTabOptions = (route: keyof typeof TAB_SECTION_BY_ROUTE) => {
     const sectionId = TAB_SECTION_BY_ROUTE[route];
     const navTitleKey = sectionId === "menu" ? "menu" : sectionId;
     const navTitle = t(`nav.${navTitleKey}`);
-    const headerTitle = route === "index" ? t("home.title") : navTitle;
 
+    // Converted studio tabs draw their own headline over the photo (7a/7b/
+    // 7e + closet) — no navigation header.
     return {
       title: navTitle,
-      headerTitle,
-      headerBackVisible: false,
-      headerLeft:
-        route === "index"
-          ? undefined
-          : () => <MobileBackButton surface="glass" fallbackHref={APP_HREF.home} />,
+      headerShown: false as const,
     };
   };
 
@@ -52,8 +45,9 @@ export default function TabsLayout() {
         )}
         screenOptions={{
           ...glassHeaderOptions(),
+          // Studio-wall dark behind full-bleed scenes — never a cream flash.
           sceneStyle: {
-            backgroundColor: colors.bg,
+            backgroundColor: glass.scrim.studioWall.stops[0].color,
           },
         }}
       >

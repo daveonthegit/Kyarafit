@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import type { Href } from "expo-router";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { MobileBackButton } from "./MobileBackButton";
 
 type Props = {

@@ -9,7 +9,7 @@ import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { Button, DataBoundary, FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
 
 export default function GroupsIndexScreen() {

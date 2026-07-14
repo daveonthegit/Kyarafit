@@ -16,7 +16,7 @@ import {
 import { COSPLAY_OVERALL_BUCKETS, type CosplayNodeType } from "@kyarafit/design-system/types";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
 

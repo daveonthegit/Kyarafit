@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import type { TFunction } from "i18next";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { GlassTextField } from "@/ui/glass";
+import { GlassBody, GlassHairlineProgress, GlassMeta, GlassOutlineButton, GlassSolidButton } from "./glassAtoms";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { WORKFLOW_STATUSES } from "@kyarafit/design-system/domain";
@@ -228,40 +232,52 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
 
   if (tree === undefined) {
     return (
-      <Text className="px-4 py-4 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+      <GlassBody size={13} tone="fg55" style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
         {t("elements.workflowLoading")}
-      </Text>
+      </GlassBody>
     );
   }
 
   return (
     <View ref={rootViewRef} className="flex-1" onLayout={updateRootFrame}>
-      <View className="mx-4 mt-2 rounded-3xl border border-kyar-borderSubtle bg-kyar-panel p-4 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+      <View
+        style={{
+          marginHorizontal: 14,
+          marginTop: 14,
+          borderRadius: 12,
+          borderWidth: borderWidth.hairline,
+          borderColor: glass.border.divider,
+          backgroundColor: glass.surface.field,
+          padding: 14,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <GlassBody size={13} tone="fg" semiBold>
               {t("buildDetail.workflowProgress")}
-            </Text>
-            <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            </GlassBody>
+            <GlassBody size={12} tone="fg55" style={{ marginTop: 4 }}>
               {t("buildDetail.workflowCardHint")}
-            </Text>
+            </GlassBody>
           </View>
-          <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {progressPercent}%
-          </Text>
+          <GlassBody size={13} tone="fg70">
+            {`${progressPercent}%`}
+          </GlassBody>
         </View>
-        <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
-          <View
-            className="h-full rounded-full bg-kyar-text dark:bg-kyar-dark-text"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </View>
-        <Text className="mt-2 text-xs text-kyar-meta dark:text-kyar-dark-meta">
+        <GlassHairlineProgress percent={progressPercent} style={{ marginTop: 10 }} />
+        <GlassMeta size={9} tone="fg55" style={{ marginTop: 8 }}>
           {t("buildDetail.workflowDoneCount", {
             done: stats?.tasksDone ?? 0,
             total: stats?.tasksTotal ?? 0,
           })}
-        </Text>
+        </GlassMeta>
       </View>
 
       <ScrollView
@@ -270,10 +286,19 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         scrollEnabled={!plannerTaskMove.dragMeta}
       >
         {rows.length === 0 ? (
-          <View className="rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-6 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
-            <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          <View
+            style={{
+              borderRadius: 12,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.divider,
+              backgroundColor: glass.surface.field,
+              paddingHorizontal: 14,
+              paddingVertical: 22,
+            }}
+          >
+            <GlassBody size={13} tone="fg55">
               {t("buildDetail.workflowEmpty")}
-            </Text>
+            </GlassBody>
           </View>
         ) : (
           sortedGroupKeys.map((groupKey) => {
@@ -292,24 +317,43 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
             return (
               <View
                 key={groupKey}
-                className="mb-4 overflow-hidden rounded-3xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                style={{
+                  marginBottom: 14,
+                  overflow: "hidden",
+                  borderRadius: 12,
+                  borderWidth: borderWidth.hairline,
+                  borderColor: glass.border.divider,
+                  backgroundColor: glass.surface.field,
+                }}
               >
                 <View
-                  className="flex-row items-center gap-2 border-b border-kyar-borderSubtle bg-kyar-panel px-3 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-                  style={{ paddingLeft: 12 + headerDepth * 10 }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    borderBottomWidth: borderWidth.hairline,
+                    borderBottomColor: glass.border.divider,
+                    paddingVertical: 12,
+                    paddingRight: 12,
+                    paddingLeft: 12 + headerDepth * 10,
+                  }}
                 >
-                  <Text className="min-w-0 flex-1 text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      minWidth: 0,
+                      flex: 1,
+                      fontFamily: APP_FONT_FAMILIES.displayItalic,
+                      fontStyle: "italic",
+                      fontSize: 17,
+                      color: glass.text.fg,
+                    }}
+                  >
                     {title}
                   </Text>
-                  {!isBuild ? (
-                    <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                      {typeLabel}
-                    </Text>
-                  ) : (
-                    <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                      {t("buildDetail.buildGroupLabel")}
-                    </Text>
-                  )}
+                  <GlassMeta size={9} tone="fg55">
+                    {!isBuild ? typeLabel : t("buildDetail.buildGroupLabel")}
+                  </GlassMeta>
                 </View>
                 <View className="gap-2 px-2 py-3">
                   <WorkflowTaskRootDropZone
@@ -356,70 +400,104 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
         )}
 
         {newChildParentId ? (
-          <View className="mt-4 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
-            <TextInput
+          <View
+            style={{
+              marginTop: 14,
+              borderRadius: 12,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.divider,
+              backgroundColor: glass.surface.field,
+              padding: 12,
+            }}
+          >
+            <GlassTextField
               value={newChildTitle}
               onChangeText={setNewChildTitle}
               placeholder={t("buildDetail.subtaskPlaceholder")}
-              className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-3 text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
               onSubmitEditing={() => void handleCreateChild()}
             />
-            <View className="mt-2 flex-row gap-2">
-              <Pressable
+            <View style={{ marginTop: 10, flexDirection: "row", gap: 10 }}>
+              <GlassOutlineButton
+                label={t("common.save")}
                 onPress={() => void handleCreateChild()}
-                className="flex-1 items-center rounded-full bg-kyar-text py-3 dark:bg-kyar-dark-text"
-              >
-                <Text className="text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                  {t("common.save")}
-                </Text>
-              </Pressable>
-              <Pressable
+                style={{ flex: 1 }}
+              />
+              <GlassOutlineButton
+                label={t("common.cancel")}
                 onPress={() => {
                   setNewChildParentId(null);
                   setNewChildTitle("");
                 }}
-                className="flex-1 items-center rounded-full border border-kyar-borderSubtle py-3 dark:border-kyar-dark-borderSubtle"
-              >
-                <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("common.cancel")}
-                </Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         ) : null}
 
-        <View className="mt-6 flex-row gap-2 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-          <TextInput
-            value={newRootTitle}
-            onChangeText={setNewRootTitle}
-            placeholder={t("buildDetail.workflowAddStep")}
-            className="min-h-[44px] flex-1 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-3 text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface dark:text-kyar-dark-text"
-            onSubmitEditing={() => void handleCreateRoot()}
-          />
-          <Pressable
+        <View
+          style={{
+            marginTop: 22,
+            flexDirection: "row",
+            gap: 10,
+            borderTopWidth: borderWidth.hairline,
+            borderTopColor: glass.border.divider,
+            paddingTop: 14,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <GlassTextField
+              value={newRootTitle}
+              onChangeText={setNewRootTitle}
+              placeholder={t("buildDetail.workflowAddStep")}
+              onSubmitEditing={() => void handleCreateRoot()}
+            />
+          </View>
+          <GlassSolidButton
+            label={t("buildDetail.addStep")}
             onPress={() => void handleCreateRoot()}
             disabled={!newRootTitle.trim()}
-            className="justify-center rounded-full bg-kyar-text px-4 py-2 disabled:opacity-40 dark:bg-kyar-dark-text"
-          >
-            <Text className="text-xs font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-              {t("buildDetail.addStep")}
-            </Text>
-          </Pressable>
+            style={{ paddingHorizontal: 18 }}
+          />
         </View>
       </ScrollView>
 
       <Modal visible={statusPickId !== null} transparent animationType="fade">
         <Pressable
-          className="flex-1 justify-end bg-kyar-text/40 dark:bg-kyar-dark-text/40"
+          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: glass.scrimDim }}
           onPress={() => setStatusPickId(null)}
         >
           <Pressable
-            className="max-h-[70%] rounded-t-3xl bg-kyar-surface px-4 pb-8 pt-4 dark:bg-kyar-dark-surface"
+            style={{
+              maxHeight: "70%",
+              borderTopLeftRadius: glass.radius.sheet,
+              borderTopRightRadius: glass.radius.sheet,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.overlay,
+              backgroundColor: glass.fallback.overlay,
+              paddingHorizontal: 16,
+              paddingTop: 14,
+              paddingBottom: 32,
+            }}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text className="mb-3 text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+            <View
+              style={{
+                alignSelf: "center",
+                marginBottom: 12,
+                height: 4,
+                width: 44,
+                borderRadius: 2,
+                backgroundColor: glass.border.strong,
+              }}
+            />
+            <GlassBody
+              size={13}
+              tone="fg"
+              semiBold
+              style={{ marginBottom: 10, textAlign: "center" }}
+            >
               {t("elements.workflowStatus")}
-            </Text>
+            </GlassBody>
             <ScrollView>
               {WORKFLOW_STATUSES.map((st) => (
                 <Pressable
@@ -430,24 +508,28 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
                     }
                     setStatusPickId(null);
                   }}
-                  className={`border-b border-kyar-borderSubtle py-3 dark:border-kyar-dark-borderSubtle ${
-                    statusPickCurrent === st ? "bg-kyar-panel dark:bg-kyar-dark-panel" : ""
-                  }`}
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    borderBottomWidth: borderWidth.hairline,
+                    borderBottomColor: glass.border.divider,
+                    borderRadius: statusPickCurrent === st ? 10 : 0,
+                    paddingHorizontal: 10,
+                    backgroundColor:
+                      statusPickCurrent === st ? glass.surface.field : "transparent",
+                  }}
                 >
-                  <Text className="text-base text-kyar-text dark:text-kyar-dark-text">
+                  <GlassBody size={14} tone={statusPickCurrent === st ? "fg" : "fg70"}>
                     {st.replace(/_/g, " ")}
-                  </Text>
+                  </GlassBody>
                 </Pressable>
               ))}
             </ScrollView>
-            <Pressable
+            <GlassOutlineButton
+              label={t("common.cancel")}
               onPress={() => setStatusPickId(null)}
-              className="mt-3 rounded-full border border-kyar-borderSubtle py-3 dark:border-kyar-dark-borderSubtle"
-            >
-              <Text className="text-center text-base text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("common.cancel")}
-              </Text>
-            </Pressable>
+              style={{ marginTop: 12 }}
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -514,20 +596,31 @@ function BuildWorkflowTaskRow({
       rowLongPressDrag
     >
       <View className="p-3">
-        <View className="flex-row items-start gap-2">
+        <View className="flex-row items-start gap-2.5">
           <Pressable
             onPress={onToggleDone}
-            className="mt-0.5 h-8 w-8 items-center justify-center rounded-full border border-kyar-border bg-kyar-surface dark:border-kyar-dark-border dark:bg-kyar-dark-surface"
+            hitSlop={12}
+            className={`mt-0.5 h-[21px] w-[21px] items-center justify-center rounded-full ${
+              node.status === "done"
+                ? "bg-kyar-text dark:bg-kyar-dark-text"
+                : "border-[1.5px] border-kyar-border bg-transparent dark:border-kyar-dark-border"
+            }`}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: node.status === "done" }}
           >
-            <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+            <Text
+              className={`text-[11px] ${
+                node.status === "done"
+                  ? "text-kyar-bg dark:text-kyar-dark-bg"
+                  : "text-transparent"
+              }`}
+            >
               {node.status === "done" ? "✓" : ""}
             </Text>
           </Pressable>
           <Pressable onPress={onOpenEditor} className="min-w-0 flex-1">
             <Text
-              className={`text-base ${
+              className={`text-[13px] leading-[18px] ${
                 node.status === "done"
                   ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
                   : "text-kyar-text dark:text-kyar-dark-text"
@@ -535,9 +628,29 @@ function BuildWorkflowTaskRow({
             >
               {node.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-              {node.kind} · {node.progressPercent}%{node.dueDate ? ` · ${node.dueDate}` : ""}
-            </Text>
+            <View className="mt-0.5 flex-row flex-wrap items-center gap-1.5">
+              <Text className="text-xs text-kyar-meta dark:text-kyar-dark-meta">
+                {node.kind} · {node.progressPercent}%
+              </Text>
+              {node.dueDate ? (
+                <Text
+                  className={`text-xs ${
+                    node.status !== "done" && Date.parse(node.dueDate) < Date.now()
+                      ? "text-kyar-danger dark:text-kyar-dark-danger"
+                      : "text-kyar-meta dark:text-kyar-dark-meta"
+                  }`}
+                >
+                  · {node.dueDate}
+                </Text>
+              ) : null}
+              {node.status === "blocked" ? (
+                <View className="rounded-full border border-kyar-danger/40 px-2 py-0.5">
+                  <Text className="text-[9px] uppercase tracking-widest text-kyar-danger dark:text-kyar-dark-danger">
+                    {t("buildDetail.taskBlocked", { defaultValue: "Blocked" })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </Pressable>
           <WorkflowTaskDragHandle
             taskId={node._id}

@@ -2,7 +2,7 @@ import { ScrollView, Text, View } from "react-native";
 import { Redirect, Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { glass, ls } from "@kyarafit/design-system/rn";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
 import {
   GlassBar,

@@ -7,22 +7,39 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
-import { FocalCoverImage } from "@/components/FocalCoverImage";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 import { APP_HREF } from "@/lib/appRoutes";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { FloatingCreateMenu, MetaLabel, SurfaceCard } from "@/ui";
-import { ElementPortfolioCard } from "@/components/elements/ElementPortfolioCard";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { FloatingCreateMenu } from "@/ui";
+import {
+  GlassBar,
+  GlassPanel,
+  GlassStatusChip,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+  scrimGradientProps,
+  type GlassStatusTone,
+} from "@/ui/glass";
+import {
+  GlassBody,
+  GlassHairlineProgress,
+  GlassMeta,
+  GlassOutlineButton,
+  GlassSolidButton,
+} from "./glassAtoms";
 import { ExplorerBranch, type ExplorerPathSegment } from "./ExplorerBranch";
 import { HeroFocalModal } from "./HeroFocalModal";
 import { BuildWorkflowTasks } from "./BuildWorkflowTasks";
@@ -85,11 +102,98 @@ type Props = {
   collaborators?: CollaboratorRow[];
   onDuplicate?: () => void;
   onDelete?: () => void;
+  /** Deep-link target section (e.g. Board pill on the Builds pager). */
+  initialTab?: TabId;
 };
+
+function buildStatusTone(status: string): GlassStatusTone {
+  const value = status.toLowerCase();
+  if (value.includes("done") || value.includes("complete") || value === "built") return "success";
+  if (value.includes("progress") || value === "wip" || value === "active") return "active";
+  if (value.includes("block") || value.includes("wait")) return "warning";
+  return "neutral";
+}
+
+/** Segmented pill pair (active = solid light + ink; QA-3 segmented exemption). */
+function SegmentedPair<T extends string>({
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 4,
+        borderRadius: 999,
+        backgroundColor: glass.surface.bar,
+        padding: 4,
+      }}
+    >
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => onChange(opt.value)}
+            disabled={disabled}
+            style={{
+              flex: 1,
+              minHeight: 36,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 999,
+              backgroundColor: active ? glass.surface.solid : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: active ? APP_FONT_FAMILIES.sansSemiBold : APP_FONT_FAMILIES.sansMedium,
+                fontSize: 11,
+                color: active ? glass.text.ink : glass.text.fg70,
+              }}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const SHEET_STYLE = {
+  borderTopLeftRadius: glass.radius.sheet,
+  borderTopRightRadius: glass.radius.sheet,
+  borderWidth: borderWidth.hairline,
+  borderColor: glass.border.overlay,
+  backgroundColor: glass.fallback.overlay,
+} as const;
+
+function SheetGrip() {
+  return (
+    <View
+      style={{
+        alignSelf: "center",
+        marginBottom: 14,
+        height: 4,
+        width: 44,
+        borderRadius: 2,
+        backgroundColor: glass.border.strong,
+      }}
+    />
+  );
+}
 
 export function BuildDetailBody(props: Props) {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     buildId,
@@ -103,9 +207,10 @@ export function BuildDetailBody(props: Props) {
     collaborators,
     onDuplicate,
     onDelete,
+    initialTab,
   } = props;
 
-  const [tab, setTab] = useState<TabId>("summary");
+  const [tab, setTab] = useState<TabId>(initialTab ?? "summary");
   const [boardView, setBoardView] = useState<BoardView>("all");
   const [boardFullscreen, setBoardFullscreen] = useState(false);
   const [boardLightbox, setBoardLightbox] = useState<{
@@ -404,26 +509,36 @@ export function BuildDetailBody(props: Props) {
         : []),
     ];
   }, [summary, t]);
+
   const quickNotesCard =
     build.notes && (tab === "summary" || tab === "explorer") ? (
-      <SurfaceCard className="mx-4 mb-3 px-4 py-4">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="min-w-0 flex-1">
-            <MetaLabel>{t("buildDetail.notesLabel")}</MetaLabel>
-            <Text className="mt-3 text-sm leading-7 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+      <GlassBar style={{ marginHorizontal: 16, marginBottom: 10, borderRadius: 14 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+          }}
+        >
+          <View style={{ minWidth: 0, flex: 1 }}>
+            <GlassMeta size={9} tone="fg55">
+              {t("buildDetail.notesLabel")}
+            </GlassMeta>
+            <GlassBody size={13} tone="fg70" style={{ marginTop: 6 }} numberOfLines={3}>
               {build.notes}
-            </Text>
+            </GlassBody>
           </View>
-          <Pressable
+          <PhotoPill
+            variant="outline"
+            size="sm"
+            label={t("buildDetail.tabSummary")}
             onPress={() => setTab("summary")}
-            className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-          >
-            <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-              {t("buildDetail.tabSummary")}
-            </Text>
-          </Pressable>
+          />
         </View>
-      </SurfaceCard>
+      </GlassBar>
     ) : null;
 
   const openLinkElements = useCallback(() => {
@@ -599,144 +714,41 @@ export function BuildDetailBody(props: Props) {
     updateRootFrame();
   }, [explorerMove.dragMeta, updateRootFrame]);
 
-  const summaryHero = (
-    <SurfaceCard className="overflow-hidden">
-      <View className="relative aspect-[16/11] w-full bg-kyar-muted dark:bg-kyar-dark-muted">
-        {heroUri ? (
-          <FocalCoverImage
-            uri={heroUri}
-            focalX={build.imageFocalX}
-            focalY={build.imageFocalY}
-            className="absolute inset-0"
-          />
-        ) : (
-          <View className="absolute inset-0 items-center justify-center">
-            <Text className="text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-              {t("home.heroFallback")}
-            </Text>
-          </View>
-        )}
-        <View className="absolute inset-x-0 bottom-0 bg-kyar-text/38 px-5 pb-5 pt-10 dark:bg-kyar-dark-text/40">
-          {build.character ? (
-            <MetaLabel className="text-kyar-bg">{build.character}</MetaLabel>
-          ) : null}
-          <Text
-            style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-            className="mt-2 text-4xl italic leading-[40px] text-kyar-bg"
-          >
-            {build.name}
-          </Text>
-        </View>
-      </View>
+  const headlineProgress = summary ? summary.progressPercent : build.progress;
+  const headlineTasksChecked = summary?.tasksChecked ?? build.tasksChecked;
+  const headlineTasksTotal = summary?.tasksTotal ?? build.tasksTotal;
 
-      <View className="gap-3 px-5 py-4">
-        <View className="flex-row flex-wrap gap-2">
-          <View className="rounded-full bg-kyar-panel px-3 py-2 dark:bg-kyar-dark-panel">
-            <Text className="text-xs font-semibold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-              {build.status}
-            </Text>
-          </View>
-          {summary ? (
-            <View className="rounded-full bg-kyar-panel px-3 py-2 dark:bg-kyar-dark-panel">
-              <Text className="text-xs font-semibold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                {Math.round(summary.progressPercent)}%
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {heroUri ? (
-          <Pressable onPress={() => setFocalOpen(true)} className="self-start">
-            <Text className="text-sm font-semibold underline text-kyar-text dark:text-kyar-dark-text">
-              {t("buildDetail.adjustFocal")}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </SurfaceCard>
+  const headlineBlock = (
+    <View style={{ paddingHorizontal: 22, paddingTop: 14, paddingBottom: 14 }}>
+      <GlassMeta size={9} tone="fg70" bold tracking={0.26}>
+        {[build.character, build.status].filter(Boolean).join(" · ") || build.status}
+      </GlassMeta>
+      <Text
+        numberOfLines={2}
+        style={{
+          marginTop: 6,
+          fontFamily: APP_FONT_FAMILIES.displayItalic,
+          fontStyle: "italic",
+          fontSize: 38,
+          lineHeight: 38,
+          color: glass.text.fg,
+        }}
+      >
+        {build.name}
+      </Text>
+      <GlassHairlineProgress percent={headlineProgress} style={{ marginTop: 12 }} />
+      <GlassMeta size={9} tone="fg55" style={{ marginTop: 6 }}>
+        {t("buildDetail.headlineTasksMeta", {
+          defaultValue: "{{checked}} / {{total}} tasks · {{pct}}%",
+          checked: headlineTasksChecked,
+          total: headlineTasksTotal,
+          pct: Math.round(headlineProgress),
+        })}
+      </GlassMeta>
+    </View>
   );
 
-  const summaryStatsCard =
-    summaryMetrics.length > 0 ? (
-      <SurfaceCard className="px-4 py-4">
-        <View className="flex-row flex-wrap gap-3">
-          {summaryMetrics.map((item) => (
-            <View
-              key={item.key}
-              className="min-w-[46%] flex-1 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
-            >
-              <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {item.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </SurfaceCard>
-    ) : null;
-
-  const collaboratorsOwnerPanel =
-    collaborators !== undefined ? (
-      <SurfaceCard className="px-4 py-4">
-        <View className="flex-row items-center justify-between gap-3">
-          <View className="min-w-0 flex-1">
-            <MetaLabel>{t("buildDetail.collaborators")}</MetaLabel>
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-              className="mt-2 text-[30px] italic text-kyar-text dark:text-kyar-dark-text"
-            >
-              {t("buildDetail.teamHeading")}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => setInviteModalOpen(true)}
-            className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
-          >
-            <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-              {t("buildDetail.inviteCollaborator")}
-            </Text>
-          </Pressable>
-        </View>
-
-        {collaborators.length === 0 ? (
-          <Text className="mt-4 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("buildDetail.collaboratorsEmpty")}
-          </Text>
-        ) : (
-          <View className="mt-4 gap-3">
-            {collaborators.map((collaborator) => (
-              <View
-                key={collaborator.userId}
-                className="flex-row items-center justify-between gap-3 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
-              >
-                <Text className="min-w-0 flex-1 text-sm text-kyar-text dark:text-kyar-dark-text">
-                  {collaborator.name ??
-                    collaborator.username ??
-                    collaborator.email ??
-                    collaborator.userId}
-                </Text>
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                    {collaborator.role === "editor"
-                      ? t("buildDetail.roleEditor")
-                      : collaborator.role === "viewer"
-                        ? t("buildDetail.roleViewer")
-                        : collaborator.role}
-                  </Text>
-                  <Pressable
-                    onPress={() => confirmRemoveCollaborator(collaborator.userId)}
-                    className="rounded-full border border-kyar-borderSubtle px-3 py-1.5 dark:border-kyar-dark-borderSubtle"
-                  >
-                    <Text className="text-[10px] uppercase tracking-widest text-kyar-danger dark:text-kyar-dark-danger">
-                      {t("buildDetail.inviteRemove")}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </SurfaceCard>
-    ) : null;
+  const menuItemStyle = { minHeight: 44, justifyContent: "center" as const, borderRadius: 10, paddingHorizontal: 14 };
 
   const imageRail = (
     title: string,
@@ -745,18 +757,41 @@ export function BuildDetailBody(props: Props) {
     onRemove: (id: string) => void
   ) => (
     <View>
-      <MetaLabel>{title}</MetaLabel>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
+      <GlassMeta size={10} tone="fg70" bold>
+        {title}
+      </GlassMeta>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
         <Pressable
           onPress={onAdd}
-          className="mr-3 h-24 w-24 items-center justify-center rounded-2xl border border-dashed border-kyar-border bg-kyar-panel dark:border-kyar-dark-border dark:bg-kyar-dark-panel"
+          accessibilityRole="button"
+          style={{
+            marginRight: 10,
+            height: 96,
+            width: 96,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 12,
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor: glass.border.strong,
+            backgroundColor: glass.surface.field,
+          }}
         >
-          <Text className="text-2xl text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            +
-          </Text>
+          <Ionicons name="add" size={20} color={glass.text.fg70} />
         </Pressable>
         {(items ?? []).map((item) => (
-          <View key={item._id} className="mr-3 h-24 w-24 overflow-hidden rounded-2xl">
+          <View
+            key={item._id}
+            style={{
+              marginRight: 10,
+              height: 96,
+              width: 96,
+              borderRadius: 12,
+              overflow: "hidden",
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.divider,
+            }}
+          >
             <ConvexStorageImage
               storageId={item.imageStorageId}
               imageUrl={item.imageUrl}
@@ -773,9 +808,20 @@ export function BuildDetailBody(props: Props) {
                   },
                 ])
               }
-              className="absolute right-1 top-1 rounded-full bg-kyar-text/60 px-2 py-1 dark:bg-kyar-dark-text/60"
+              hitSlop={8}
+              style={{
+                position: "absolute",
+                right: 4,
+                top: 4,
+                height: 22,
+                width: 22,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 11,
+                backgroundColor: glass.scrimDim,
+              }}
             >
-              <Text className="text-[10px] font-bold text-kyar-bg dark:text-kyar-dark-bg">×</Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: glass.text.fg }}>×</Text>
             </Pressable>
           </View>
         ))}
@@ -783,38 +829,186 @@ export function BuildDetailBody(props: Props) {
     </View>
   );
 
+  const boardTile = (
+    item: (typeof boardVisibleItems)[number],
+    colIndex: number,
+    rowIndex: number
+  ) => {
+    const tall = (colIndex + rowIndex) % 2 === 0;
+    if (item.type === "node") {
+      const node = item.node;
+      const pct = Math.round(node.progressPercent ?? 0);
+      return (
+        <Pressable
+          key={item.key}
+          onPress={() => router.push(APP_HREF.element(node._id as string))}
+          style={{
+            borderRadius: 16,
+            overflow: "hidden",
+            borderWidth: borderWidth.hairline,
+            borderColor: glass.border.divider,
+            backgroundColor: glass.surface.field,
+          }}
+        >
+          <View style={{ height: tall ? 150 : 110 }}>
+            {node.imageStorageId || node.imageUrl ? (
+              <ConvexStorageImage
+                storageId={node.imageStorageId}
+                imageUrl={node.imageUrl}
+                className="h-full w-full"
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons
+                  name={node.nodeType === "material" ? "cube-outline" : "diamond-outline"}
+                  size={22}
+                  color={glass.text.fg45}
+                />
+              </View>
+            )}
+          </View>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontStyle: "italic",
+                fontSize: 17,
+                color: glass.text.fg,
+              }}
+            >
+              {node.name}
+            </Text>
+            <GlassHairlineProgress percent={pct} style={{ marginTop: 8 }} />
+            <GlassMeta size={9} tone="fg55" style={{ marginTop: 6 }}>
+              {`${
+                node.nodeType === "material"
+                  ? t("elements.typeMaterial")
+                  : t("elements.typeElement")
+              } · ${pct}%`}
+            </GlassMeta>
+          </View>
+        </Pressable>
+      );
+    }
+
+    const kindLabel =
+      item.type === "reference"
+        ? t("buildDetail.referenceImages")
+        : t("buildDetail.processPictures");
+    return (
+      <Pressable
+        key={item.key}
+        onPress={() =>
+          setBoardLightbox({
+            imageStorageId: item.imageStorageId ?? null,
+            imageUrl: item.imageUrl ?? null,
+            label: kindLabel,
+            dayLabel: item.type === "progress" ? item.dayLabel : null,
+          })
+        }
+        style={{
+          height: tall ? 200 : 150,
+          borderRadius: 16,
+          overflow: "hidden",
+          borderWidth: borderWidth.hairline,
+          borderColor: glass.border.divider,
+          backgroundColor: glass.surface.field,
+        }}
+      >
+        {item.imageStorageId || item.imageUrl ? (
+          <ConvexStorageImage
+            storageId={item.imageStorageId}
+            imageUrl={item.imageUrl}
+            className="h-full w-full"
+          />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="image-outline" size={22} color={glass.text.fg45} />
+          </View>
+        )}
+        <LinearGradient
+          {...scrimGradientProps(glass.scrim.pageVertical)}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 64 }}
+          pointerEvents="none"
+        />
+        <View style={{ position: "absolute", left: 10, bottom: 8 }}>
+          <GlassMeta size={9} tone="fg">
+            {item.type === "progress" ? `${kindLabel} · ${item.dayLabel}` : kindLabel}
+          </GlassMeta>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const boardAddTile =
+    boardView === "nodes" ? null : (
+      <Pressable
+        onPress={() => void (boardView === "progress" ? onAddProcess() : onAddReference())}
+        accessibilityRole="button"
+        style={{
+          minHeight: 110,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderStyle: "dashed",
+          borderColor: glass.border.strong,
+          backgroundColor: glass.surface.field,
+        }}
+      >
+        <Ionicons name="add" size={18} color={glass.text.fg70} />
+        <GlassMeta size={9} tone="fg70">
+          {t("buildDetail.boardAddImage", { defaultValue: "Add image" })}
+        </GlassMeta>
+      </Pressable>
+    );
+
   const boardPanel = (isFullscreen = false) => (
-    <SurfaceCard className="gap-4 px-4 py-4">
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
+    <View style={{ gap: 14, padding: 14 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontStyle: "italic",
+            fontSize: 22,
+            color: glass.text.fg,
+          }}
+        >
           {t("buildDetail.tabBoard")}
         </Text>
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={() => setBoardFullscreen((value) => !value)}
-            className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-          >
-            <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-              {isFullscreen
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <PhotoPill
+            variant="outline"
+            size="sm"
+            label={
+              isFullscreen
                 ? t("common.close", { defaultValue: "Close" })
-                : t("common.fullscreen", { defaultValue: "Fullscreen" })}
-            </Text>
-          </Pressable>
+                : t("common.fullscreen", { defaultValue: "Fullscreen" })
+            }
+            onPress={() => setBoardFullscreen((value) => !value)}
+          />
           {!isFullscreen ? (
-            <Pressable
+            <PhotoPill
+              variant="outline"
+              size="sm"
+              label={t("buildDetail.linkElements")}
               onPress={openLinkElements}
-              className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-            >
-              <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                {t("buildDetail.linkElements")}
-              </Text>
-            </Pressable>
+            />
           ) : null}
         </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: "row", gap: 8 }}>
           {(
             [
               { id: "all", label: "All" },
@@ -822,226 +1016,164 @@ export function BuildDetailBody(props: Props) {
               { id: "progress", label: "Progress" },
               { id: "nodes", label: "Elements" },
             ] as { id: BoardView; label: string }[]
-          ).map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => setBoardView(item.id)}
-              className={`rounded-full border px-4 py-2 ${
-                boardView === item.id
-                  ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                  : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-              }`}
-            >
-              <Text
-                className={`text-[10px] uppercase tracking-widest ${
-                  boardView === item.id
-                    ? "text-kyar-bg dark:text-kyar-dark-bg"
-                    : "text-kyar-text dark:text-kyar-dark-text"
-                }`}
+          ).map((item) => {
+            const active = boardView === item.id;
+            return (
+              <Pressable
+                key={item.id}
+                onPress={() => setBoardView(item.id)}
+                style={{
+                  minHeight: 34,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  backgroundColor: active ? glass.surface.solid : glass.surface.bar,
+                  borderWidth: active ? 0 : 1,
+                  borderColor: glass.border.default,
+                }}
               >
-                {t(`buildDetail.boardFilter${item.label}`, { defaultValue: item.label })}
-              </Text>
-            </Pressable>
-          ))}
+                <GlassMeta size={9} tone={active ? "ink" : "fg"} bold>
+                  {t(`buildDetail.boardFilter${item.label}`, { defaultValue: item.label })}
+                </GlassMeta>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
 
       {boardVisibleItems.length === 0 ? (
-        <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
-          {boardView === "references"
-            ? t("buildDetail.referencesEmpty", { defaultValue: "No reference images yet." })
-            : boardView === "progress"
-              ? t("buildDetail.progressEmpty", { defaultValue: "No progress photos yet." })
-              : boardView === "nodes"
-                ? t("buildDetail.nodesEmpty", { defaultValue: "No linked elements yet." })
-                : t("buildDetail.boardEmpty")}
-        </Text>
+        <View style={{ gap: 12 }}>
+          {boardAddTile}
+          <GlassBody size={13} tone="fg55" style={{ paddingVertical: 24, textAlign: "center" }}>
+            {boardView === "references"
+              ? t("buildDetail.referencesEmpty", { defaultValue: "No reference images yet." })
+              : boardView === "progress"
+                ? t("buildDetail.progressEmpty", { defaultValue: "No progress photos yet." })
+                : boardView === "nodes"
+                  ? t("buildDetail.nodesEmpty", { defaultValue: "No linked elements yet." })
+                  : t("buildDetail.boardEmpty")}
+          </GlassBody>
+        </View>
       ) : (
-        <View className="flex-row gap-3">
+        <View style={{ flexDirection: "row", gap: 10 }}>
           {boardColumns.map((col, colIndex) => (
-            <View key={`col-${colIndex}`} className="flex-1 gap-3">
-              {col.map((item) => {
-                if (item.type === "node") {
-                  const node = item.node;
-                  return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => router.push(APP_HREF.element(node._id as string))}
-                    >
-                      <ElementPortfolioCard
-                        variant="grid"
-                        item={{
-                          name: node.name,
-                          category: node.nodeType === "material" ? "materials" : "elements",
-                          imageStorageId: node.imageStorageId ?? null,
-                          imageUrl: node.imageUrl ?? null,
-                          nodeType: (node.nodeType as "element" | "material") ?? "element",
-                          progressPercent: node.progressPercent ?? 0,
-                          childCount: node.childCount ?? 0,
-                          typeBadge:
-                            node.nodeType === "material"
-                              ? t("elements.typeMaterial")
-                              : t("elements.typeElement"),
-                          statusBadge: t("elements.progressPercent", {
-                            pct: Math.round(node.progressPercent ?? 0),
-                          }),
-                        }}
-                        progressLabel={t("elements.progressPercent", {
-                          pct: Math.round(node.progressPercent ?? 0),
-                        })}
-                        childrenLabel={t("elements.childCount", {
-                          count: node.childCount ?? 0,
-                          defaultValue:
-                            (node.childCount ?? 0) === 1
-                              ? "1 child"
-                              : `${node.childCount ?? 0} children`,
-                        })}
-                      />
-                    </Pressable>
-                  );
-                }
-
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() =>
-                      setBoardLightbox({
-                        imageStorageId: item.imageStorageId ?? null,
-                        imageUrl: item.imageUrl ?? null,
-                        label:
-                          item.type === "reference"
-                            ? t("buildDetail.referenceImages")
-                            : t("buildDetail.processPictures"),
-                        dayLabel: item.type === "progress" ? item.dayLabel : null,
-                      })
-                    }
-                    className="overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted"
-                  >
-                    <View className="relative min-h-[120px]">
-                      {item.imageStorageId || item.imageUrl ? (
-                        <ConvexStorageImage
-                          storageId={item.imageStorageId}
-                          imageUrl={item.imageUrl}
-                          className="h-full w-full"
-                        />
-                      ) : (
-                        <View className="h-[140px] items-center justify-center">
-                          <Text className="text-3xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                            ⌁
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View className="px-3 py-2">
-                      <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                        {item.type === "reference"
-                          ? t("buildDetail.referenceImages")
-                          : t("buildDetail.processPictures")}
-                      </Text>
-                      {item.type === "progress" ? (
-                        <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {item.dayLabel}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
+            <View key={`col-${colIndex}`} style={{ flex: 1, gap: 10 }}>
+              {colIndex === 0 ? boardAddTile : null}
+              {col.map((item, rowIndex) => boardTile(item, colIndex, rowIndex))}
             </View>
           ))}
         </View>
       )}
-    </SurfaceCard>
+    </View>
   );
 
   return (
-    <View
-      ref={rootViewRef}
-      onLayout={updateRootFrame}
-      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-    >
-      <View className="px-4 pb-3">
-        <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => {
-              setSectionMenuOpen((value) => !value);
-              setActionsMenuOpen(false);
-            }}
-            className="min-h-[56px] flex-1 flex-row items-center justify-between rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-          >
-            <View>
-              <MetaLabel>{t("buildDetail.sectionLabel", { defaultValue: "Section" })}</MetaLabel>
-              <Text
-                style={{ fontFamily: APP_FONT_FAMILIES.sansSemiBold }}
-                className="mt-1 text-base text-kyar-text dark:text-kyar-dark-text"
-              >
-                {activeSection.label}
-              </Text>
-            </View>
-            <Text className="text-base text-kyar-meta dark:text-kyar-dark-meta">
-              {sectionMenuOpen ? "▴" : "▾"}
-            </Text>
-          </Pressable>
+    <View ref={rootViewRef} onLayout={updateRootFrame} style={{ flex: 1 }}>
+      <PhotoBackdrop
+        imageUrl={heroUri}
+        focalX={build.imageFocalX}
+        focalY={build.imageFocalY}
+      />
 
-          {isOwner ? (
+      {headlineBlock}
+
+      <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <GlassBar style={{ flex: 1, borderRadius: 14 }}>
             <Pressable
               onPress={() => {
-                setActionsMenuOpen((value) => !value);
-                setSectionMenuOpen(false);
+                setSectionMenuOpen((value) => !value);
+                setActionsMenuOpen(false);
               }}
-              className="h-14 w-14 items-center justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+              accessibilityRole="button"
+              style={{
+                minHeight: 52,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+              }}
             >
-              <Text className="text-xl text-kyar-text dark:text-kyar-dark-text">⋯</Text>
+              <View>
+                <GlassMeta size={9} tone="fg55">
+                  {t("buildDetail.sectionLabel", { defaultValue: "Section" })}
+                </GlassMeta>
+                <Text
+                  style={{
+                    marginTop: 2,
+                    fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                    fontSize: 14,
+                    color: glass.text.fg,
+                  }}
+                >
+                  {activeSection.label}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, color: glass.text.fg55 }}>
+                {sectionMenuOpen ? "▴" : "▾"}
+              </Text>
             </Pressable>
+          </GlassBar>
+
+          {isOwner ? (
+            <GlassBar style={{ borderRadius: 999 }}>
+              <Pressable
+                onPress={() => {
+                  setActionsMenuOpen((value) => !value);
+                  setSectionMenuOpen(false);
+                }}
+                accessibilityRole="button"
+                style={{ height: 52, width: 52, alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={18} color={glass.text.fg} />
+              </Pressable>
+            </GlassBar>
           ) : null}
         </View>
 
         {sectionMenuOpen ? (
-          <SurfaceCard className="mt-2 gap-1 px-2 py-2">
-            {sectionItems.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => {
-                  setTab(item.id);
-                  setSectionMenuOpen(false);
-                }}
-                className={`rounded-2xl px-4 py-3 ${
-                  tab === item.id ? "bg-kyar-text dark:bg-kyar-dark-text" : "bg-transparent"
-                }`}
-              >
-                <Text
-                  className={`text-[11px] font-semibold uppercase tracking-widest ${
-                    tab === item.id
-                      ? "text-kyar-bg dark:text-kyar-dark-bg"
-                      : "text-kyar-text dark:text-kyar-dark-text"
-                  }`}
+          <GlassPanel blur={false} style={{ marginTop: 8, padding: 6, gap: 2 }}>
+            {sectionItems.map((item) => {
+              const active = tab === item.id;
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => {
+                    setTab(item.id);
+                    setSectionMenuOpen(false);
+                  }}
+                  style={[menuItemStyle, active && { backgroundColor: glass.surface.solid }]}
                 >
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </SurfaceCard>
+                  <GlassMeta size={10} tone={active ? "ink" : "fg"} bold>
+                    {item.label}
+                  </GlassMeta>
+                </Pressable>
+              );
+            })}
+          </GlassPanel>
         ) : null}
 
         {actionsMenuOpen ? (
-          <SurfaceCard className="mt-2 gap-1 px-2 py-2">
+          <GlassPanel blur={false} style={{ marginTop: 8, padding: 6, gap: 2 }}>
             {build.notes ? (
-              <Pressable onPress={openNotes} className="rounded-2xl px-4 py-3">
-                <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+              <Pressable onPress={openNotes} style={menuItemStyle}>
+                <GlassMeta size={10} tone="fg" bold>
                   {t("buildDetail.notesLabel")}
-                </Text>
+                </GlassMeta>
               </Pressable>
             ) : null}
-            <Pressable onPress={openLinkElements} className="rounded-2xl px-4 py-3">
-              <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+            <Pressable onPress={openLinkElements} style={menuItemStyle}>
+              <GlassMeta size={10} tone="fg" bold>
                 {t("buildDetail.linkElements")}
-              </Text>
+              </GlassMeta>
             </Pressable>
             {heroUri ? (
-              <Pressable onPress={openFocalPoint} className="rounded-2xl px-4 py-3">
-                <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+              <Pressable onPress={openFocalPoint} style={menuItemStyle}>
+                <GlassMeta size={10} tone="fg" bold>
                   {t("buildDetail.adjustFocal")}
-                </Text>
+                </GlassMeta>
               </Pressable>
             ) : null}
             {onDuplicate ? (
@@ -1050,11 +1182,11 @@ export function BuildDetailBody(props: Props) {
                   setActionsMenuOpen(false);
                   onDuplicate();
                 }}
-                className="rounded-2xl px-4 py-3"
+                style={menuItemStyle}
               >
-                <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                <GlassMeta size={10} tone="fg" bold>
                   {t("buildDetail.duplicate")}
-                </Text>
+                </GlassMeta>
               </Pressable>
             ) : null}
             {onDelete ? (
@@ -1063,34 +1195,76 @@ export function BuildDetailBody(props: Props) {
                   setActionsMenuOpen(false);
                   onDelete();
                 }}
-                className="rounded-2xl px-4 py-3"
+                style={menuItemStyle}
               >
-                <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-danger dark:text-kyar-dark-danger">
+                <GlassMeta size={10} tone="danger" bold>
                   {t("buildDetail.deleteBuildAction")}
-                </Text>
+                </GlassMeta>
               </Pressable>
             ) : null}
-          </SurfaceCard>
+          </GlassPanel>
         ) : null}
       </View>
 
       {quickNotesCard}
 
-      <View className="min-h-0 flex-1">
-        {tab === "summary" ? (
-          <ScrollView className="flex-1" contentContainerClassName="gap-4 px-4 pb-16">
-            {summaryHero}
-            {summaryStatsCard}
+      <View
+        style={{
+          minHeight: 0,
+          flex: 1,
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 12,
+        }}
+      >
+        <GlassPanel style={{ flex: 1 }}>
+          {tab === "summary" ? (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 18, padding: 14 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <GlassStatusChip tone={buildStatusTone(build.status)} label={build.status} />
+                {summary ? (
+                  <GlassStatusChip
+                    tone="neutral"
+                    label={`${Math.round(summary.progressPercent)}%`}
+                  />
+                ) : null}
+                {heroUri ? (
+                  <PhotoPill
+                    variant="text"
+                    size="sm"
+                    label={t("buildDetail.adjustFocal")}
+                    onPress={() => setFocalOpen(true)}
+                  />
+                ) : null}
+              </View>
 
-            <SurfaceCard className="gap-6 px-4 py-4">
-              <Pressable
+              {summaryMetrics.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {summaryMetrics.map((item) => (
+                    <View
+                      key={item.key}
+                      style={{
+                        minWidth: "46%",
+                        flex: 1,
+                        borderRadius: 10,
+                        borderWidth: borderWidth.hairline,
+                        borderColor: glass.border.divider,
+                        backgroundColor: glass.surface.field,
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                      }}
+                    >
+                      <GlassBody size={12} tone="fg70">
+                        {item.label}
+                      </GlassBody>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <GlassSolidButton
+                label={t("buildDetail.linkElements")}
                 onPress={openLinkElements}
-                className="items-center rounded-full bg-kyar-text py-3 active:opacity-90 dark:bg-kyar-dark-text"
-              >
-                <Text className="font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                  {t("buildDetail.linkElements")}
-                </Text>
-              </Pressable>
+              />
 
               {imageRail(
                 t("buildDetail.referenceImages"),
@@ -1104,140 +1278,236 @@ export function BuildDetailBody(props: Props) {
                 processPics,
                 (id) => void removeProcess({ id: id as Id<"buildProcessPictures">, userId })
               )}
-            </SurfaceCard>
 
-            {collaboratorsOwnerPanel}
-          </ScrollView>
-        ) : null}
-
-        {tab === "explorer" ? (
-          <ScrollView
-            className="flex-1"
-            contentContainerClassName="gap-4 px-4 pb-16"
-            scrollEnabled={!explorerMove.dragMeta}
-          >
-            <SurfaceCard className="overflow-hidden">
-              <View className="gap-3 border-b border-kyar-borderSubtle px-4 py-4 dark:border-kyar-dark-borderSubtle">
-                <TextInput
-                  value={explorerSearch}
-                  onChangeText={setExplorerSearch}
-                  placeholder={t("elements.searchPlaceholder")}
-                  placeholderTextColor={colors.textTertiary}
-                  className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-                />
-
-                <View className="flex-row items-center justify-between gap-3">
-                  <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                    {explorerSearch.trim()
-                      ? `${filteredRoots.length} matches`
-                      : `${orderedRoots.length} roots`}
-                  </Text>
-                  <Pressable
-                    onPress={openLinkElements}
-                    className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
+              {collaborators !== undefined ? (
+                <View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
                   >
-                    <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                      {t("buildDetail.linkElements")}
-                    </Text>
-                  </Pressable>
+                    <View style={{ minWidth: 0, flex: 1 }}>
+                      <GlassMeta size={9} tone="fg55">
+                        {t("buildDetail.collaborators")}
+                      </GlassMeta>
+                      <Text
+                        style={{
+                          marginTop: 4,
+                          fontFamily: APP_FONT_FAMILIES.displayItalic,
+                          fontStyle: "italic",
+                          fontSize: 24,
+                          color: glass.text.fg,
+                        }}
+                      >
+                        {t("buildDetail.teamHeading")}
+                      </Text>
+                    </View>
+                    <PhotoPill
+                      variant="outline"
+                      size="sm"
+                      label={t("buildDetail.inviteCollaborator")}
+                      onPress={() => setInviteModalOpen(true)}
+                    />
+                  </View>
+
+                  {collaborators.length === 0 ? (
+                    <GlassBody size={13} tone="fg55" style={{ marginTop: 12 }}>
+                      {t("buildDetail.collaboratorsEmpty")}
+                    </GlassBody>
+                  ) : (
+                    <View style={{ marginTop: 12, gap: 8 }}>
+                      {collaborators.map((collaborator) => (
+                        <View
+                          key={collaborator.userId}
+                          style={{
+                            minHeight: 44,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            borderRadius: 10,
+                            borderWidth: borderWidth.hairline,
+                            borderColor: glass.border.divider,
+                            backgroundColor: glass.surface.field,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                          }}
+                        >
+                          <GlassBody
+                            size={13}
+                            tone="fg"
+                            numberOfLines={1}
+                            style={{ minWidth: 0, flex: 1 }}
+                          >
+                            {collaborator.name ??
+                              collaborator.username ??
+                              collaborator.email ??
+                              collaborator.userId}
+                          </GlassBody>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <GlassMeta size={9} tone="fg55">
+                              {collaborator.role === "editor"
+                                ? t("buildDetail.roleEditor")
+                                : collaborator.role === "viewer"
+                                  ? t("buildDetail.roleViewer")
+                                  : collaborator.role}
+                            </GlassMeta>
+                            <Pressable
+                              onPress={() => confirmRemoveCollaborator(collaborator.userId)}
+                              accessibilityRole="button"
+                              hitSlop={8}
+                              style={{ minHeight: 34, justifyContent: "center" }}
+                            >
+                              <GlassMeta size={9} tone="danger" bold>
+                                {t("buildDetail.inviteRemove")}
+                              </GlassMeta>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
+              ) : null}
+            </ScrollView>
+          ) : null}
+
+          {tab === "explorer" ? (
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
+              scrollEnabled={!explorerMove.dragMeta}
+            >
+              <GlassTextField
+                value={explorerSearch}
+                onChangeText={setExplorerSearch}
+                placeholder={t("elements.searchPlaceholder")}
+              />
+
+              <View
+                style={{
+                  marginTop: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <GlassMeta size={9} tone="fg55">
+                  {explorerSearch.trim()
+                    ? t("buildDetail.explorerMatches", {
+                        defaultValue: "{{count}} matches",
+                        count: filteredRoots.length,
+                      })
+                    : t("buildDetail.explorerRoots", {
+                        defaultValue: "{{count}} roots",
+                        count: orderedRoots.length,
+                      })}
+                </GlassMeta>
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  label={t("buildDetail.linkElements")}
+                  onPress={openLinkElements}
+                />
               </View>
 
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                className="border-b border-kyar-borderSubtle px-4 py-3 dark:border-kyar-dark-borderSubtle"
+                style={{
+                  marginTop: 12,
+                  borderBottomWidth: borderWidth.hairline,
+                  borderBottomColor: glass.border.divider,
+                }}
+                contentContainerStyle={{ paddingBottom: 10 }}
                 scrollEnabled={!explorerMove.dragMeta}
               >
-                <View className="flex-row items-center gap-1.5">
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Pressable
                     onPress={() => {
                       setSelectedPath([]);
                       void inspector.commitSelection(null);
                     }}
+                    style={{ minHeight: 28, justifyContent: "center" }}
                   >
-                    <Text className="text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                    <GlassBody size={12} tone="fg70">
                       {build.name}
-                    </Text>
+                    </GlassBody>
                   </Pressable>
                   {selectedPath.map((segment, index) => (
                     <View
                       key={`${segment.meta.nodeId}-${index}`}
-                      className="flex-row items-center gap-1.5"
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                     >
-                      <Text className="text-xs text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                      <GlassBody size={12} tone="fg45">
                         /
-                      </Text>
+                      </GlassBody>
                       <Pressable
                         onPress={() =>
                           openNodeSheet(segment.meta, selectedPath.slice(0, index + 1))
                         }
+                        style={{ minHeight: 28, justifyContent: "center" }}
                       >
-                        <Text
-                          className={`text-xs ${
-                            index === selectedPath.length - 1
-                              ? "text-kyar-text dark:text-kyar-dark-text"
-                              : "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                          }`}
+                        <GlassBody
+                          size={12}
+                          tone={index === selectedPath.length - 1 ? "fg" : "fg70"}
                         >
                           {segment.label}
-                        </Text>
+                        </GlassBody>
                       </Pressable>
                     </View>
                   ))}
                 </View>
               </ScrollView>
 
-              <View className="gap-2 border-b border-kyar-borderSubtle px-4 py-3 dark:border-kyar-dark-borderSubtle">
-                <View className="flex-row flex-wrap gap-2">
-                  <Pressable
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  <PhotoPill
+                    variant="outline"
+                    size="sm"
+                    label={t("elements.newElementShort")}
                     onPress={() => openQuickCreate("element")}
-                    className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
-                  >
-                    <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                      {t("elements.newElementShort")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
+                  />
+                  <PhotoPill
+                    variant="outline"
+                    size="sm"
+                    label={t("elements.newMaterialShort")}
                     onPress={() => openQuickCreate("material")}
-                    className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
-                  >
-                    <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                      {t("elements.newMaterialShort")}
-                    </Text>
-                  </Pressable>
+                  />
                   {inspector.selected?.nodeId ? (
                     <>
-                      <Pressable
+                      <PhotoPill
+                        variant="outline"
+                        size="sm"
+                        label={t("buildDetail.addChildElement", { defaultValue: "Child element" })}
                         onPress={() => openQuickCreate("element", inspector.selected?.nodeId)}
-                        className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
-                      >
-                        <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                          {t("buildDetail.addChildElement", { defaultValue: "Child element" })}
-                        </Text>
-                      </Pressable>
-                      <Pressable
+                      />
+                      <PhotoPill
+                        variant="outline"
+                        size="sm"
+                        label={t("buildDetail.addChildMaterial", {
+                          defaultValue: "Child material",
+                        })}
                         onPress={() => openQuickCreate("material", inspector.selected?.nodeId)}
-                        className="rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle"
-                      >
-                        <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                          {t("buildDetail.addChildMaterial", { defaultValue: "Child material" })}
-                        </Text>
-                      </Pressable>
+                      />
                     </>
                   ) : null}
                 </View>
                 {inspector.selectedDetail ? (
-                  <Text className="text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                  <GlassBody size={12} tone="fg55">
                     {t("buildDetail.explorerSelectionHint", {
                       defaultValue:
                         "Select a node to open detail, create children, or reorganize the tree.",
                     })}
-                  </Text>
+                  </GlassBody>
                 ) : null}
               </View>
 
-              <View className="px-4 py-4">
+              <View style={{ marginTop: 14 }}>
                 {explorerSearch.trim() ? (
                   filteredRoots.length > 0 ? (
                     filteredRoots.map((root) => (
@@ -1261,32 +1531,46 @@ export function BuildDetailBody(props: Props) {
                       />
                     ))
                   ) : (
-                    <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
+                    <GlassBody
+                      size={13}
+                      tone="fg55"
+                      style={{ paddingVertical: 24, textAlign: "center" }}
+                    >
                       {t("buildDetail.outlineEmpty")}
-                    </Text>
+                    </GlassBody>
                   )
                 ) : orderedRoots.length > 0 ? (
                   <>
-                    <Text className="mb-3 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                      {t("buildDetail.outlineDragHint", {
-                        defaultValue:
-                          "Long-press any linked element to move it, nest it, or drag it back to root.",
+                    <GlassMeta size={9} tone="fg55" style={{ marginBottom: 10 }}>
+                      {t("buildDetail.explorerDragHelper", {
+                        defaultValue: "Long-press a row to drag, nest, or reorder",
                       })}
-                    </Text>
+                    </GlassMeta>
                     {explorerMove.dragMeta ? (
                       <View
                         ref={explorerMove.registerRootDropZone}
-                        className={`mb-3 rounded-2xl border border-dashed px-4 py-3 ${
-                          explorerMove.dragVisualState.dragOverNodeId === "__root__"
-                            ? "border-kyar-text bg-kyar-panelRaised dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised"
-                            : "border-kyar-borderSubtle bg-kyar-panel dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-                        }`}
+                        style={{
+                          marginBottom: 10,
+                          borderRadius: 10,
+                          borderWidth:
+                            explorerMove.dragVisualState.dragOverNodeId === "__root__" ? 1.5 : 1,
+                          borderColor:
+                            explorerMove.dragVisualState.dragOverNodeId === "__root__"
+                              ? glass.drop.intoRing
+                              : glass.border.divider,
+                          backgroundColor:
+                            explorerMove.dragVisualState.dragOverNodeId === "__root__"
+                              ? glass.surface.active
+                              : glass.surface.field,
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                        }}
                       >
-                        <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                        <GlassMeta size={9} tone="fg70">
                           {t("buildDetail.dropToRootLabel", {
                             defaultValue: "Drop here to move to root",
                           })}
-                        </Text>
+                        </GlassMeta>
                       </View>
                     ) : null}
 
@@ -1312,47 +1596,61 @@ export function BuildDetailBody(props: Props) {
                     ))}
                   </>
                 ) : (
-                  <Text className="py-8 text-center text-kyar-meta dark:text-kyar-dark-meta">
+                  <GlassBody
+                    size={13}
+                    tone="fg55"
+                    style={{ paddingVertical: 24, textAlign: "center" }}
+                  >
                     {t("buildDetail.outlineEmpty")}
-                  </Text>
+                  </GlassBody>
                 )}
               </View>
-            </SurfaceCard>
-          </ScrollView>
-        ) : null}
+            </ScrollView>
+          ) : null}
 
-        {tab === "tasks" ? (
-          <View className="flex-1 pb-8">
-            <BuildWorkflowTasks buildId={buildId} userId={userId} t={t} />
-          </View>
-        ) : null}
+          {tab === "tasks" ? (
+            <View style={{ flex: 1, paddingBottom: 12 }}>
+              <BuildWorkflowTasks buildId={buildId} userId={userId} t={t} />
+            </View>
+          ) : null}
 
-        {tab === "board" ? (
-          <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
-            {boardPanel(false)}
-          </ScrollView>
-        ) : null}
+          {tab === "board" ? (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+              {boardPanel(false)}
+            </ScrollView>
+          ) : null}
 
-        {tab === "updates" ? (
-          <ScrollView className="flex-1" contentContainerClassName="px-4 pb-16 pt-2">
-            <BuildProgressTimeline buildId={buildId} userId={userId} />
-          </ScrollView>
-        ) : null}
+          {tab === "updates" ? (
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
+            >
+              <BuildProgressTimeline buildId={buildId} userId={userId} />
+            </ScrollView>
+          ) : null}
+        </GlassPanel>
       </View>
 
       {explorerMove.dragMeta && explorerMove.dragVisualState.dragPoint ? (
         <View
           pointerEvents="none"
-          className="absolute"
           style={{
+            position: "absolute",
             left: Math.max(12, explorerMove.dragVisualState.dragPoint.x - rootFrame.x - 120),
             top: Math.max(12, explorerMove.dragVisualState.dragPoint.y - rootFrame.y - 36),
           }}
         >
-          <View className="rounded-full bg-kyar-text px-4 py-3 shadow-fab dark:bg-kyar-dark-text">
-            <Text className="text-[11px] font-semibold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
+          <View
+            style={{
+              borderRadius: 999,
+              backgroundColor: glass.surface.solid,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+            }}
+          >
+            <GlassMeta size={10} tone="ink" bold>
               {explorerMove.dragMeta.name}
-            </Text>
+            </GlassMeta>
           </View>
         </View>
       ) : null}
@@ -1398,10 +1696,27 @@ export function BuildDetailBody(props: Props) {
         transparent={false}
         onRequestClose={() => setBoardFullscreen(false)}
       >
-        <View className="flex-1 bg-kyar-bg px-4 pb-10 pt-14 dark:bg-kyar-dark-bg">
-          <ScrollView className="flex-1" contentContainerClassName="pb-8">
-            {boardPanel(true)}
-          </ScrollView>
+        <View style={{ flex: 1 }}>
+          <PhotoBackdrop
+            imageUrl={heroUri}
+            focalX={build.imageFocalX}
+            focalY={build.imageFocalY}
+            kenBurns={false}
+          />
+          <View
+            style={{
+              flex: 1,
+              paddingHorizontal: 16,
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <GlassPanel style={{ flex: 1 }}>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+                {boardPanel(true)}
+              </ScrollView>
+            </GlassPanel>
+          </View>
         </View>
       </Modal>
 
@@ -1411,26 +1726,50 @@ export function BuildDetailBody(props: Props) {
         transparent
         onRequestClose={() => setBoardLightbox(null)}
       >
-        <View className="flex-1 bg-black/95 px-4 pb-8 pt-14">
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-1 pr-3">
-              <Text className="text-[11px] uppercase tracking-widest text-white/80">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: glass.statusCutout,
+            paddingHorizontal: 16,
+            paddingTop: insets.top + 12,
+            paddingBottom: insets.bottom + 16,
+          }}
+        >
+          <View
+            style={{
+              marginBottom: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ minWidth: 0, flex: 1 }}>
+              <GlassMeta size={10} tone="fg70" bold>
                 {boardLightbox?.label ?? ""}
-              </Text>
+              </GlassMeta>
               {boardLightbox?.dayLabel ? (
-                <Text className="mt-1 text-xs text-white/70">{boardLightbox.dayLabel}</Text>
+                <GlassBody size={12} tone="fg55" style={{ marginTop: 4 }}>
+                  {boardLightbox.dayLabel}
+                </GlassBody>
               ) : null}
             </View>
-            <Pressable
+            <PhotoPill
+              variant="outline"
+              size="sm"
+              label={t("common.close", { defaultValue: "Close" })}
               onPress={() => setBoardLightbox(null)}
-              className="rounded-full border border-white/25 px-3 py-2"
-            >
-              <Text className="text-[10px] uppercase tracking-widest text-white">
-                {t("common.close", { defaultValue: "Close" })}
-              </Text>
-            </Pressable>
+            />
           </View>
-          <View className="flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black">
+          <View
+            style={{
+              flex: 1,
+              overflow: "hidden",
+              borderRadius: 16,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.divider,
+            }}
+          >
             {boardLightbox ? (
               <ConvexStorageImage
                 storageId={boardLightbox.imageStorageId}
@@ -1458,22 +1797,45 @@ export function BuildDetailBody(props: Props) {
       />
 
       <Pressable
-        className={quickCreateOpen ? "absolute inset-0 bg-black/40" : "hidden"}
+        style={
+          quickCreateOpen
+            ? { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: glass.scrimDim }
+            : { display: "none" }
+        }
         onPress={() => {
           if (!quickCreateBusy) setQuickCreateOpen(false);
         }}
       >
         {quickCreateOpen ? (
           <Pressable
-            className="absolute inset-x-0 bottom-0 rounded-t-3xl border border-kyar-borderSubtle bg-kyar-surface px-5 pb-8 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+            style={[
+              SHEET_STYLE,
+              {
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingHorizontal: 20,
+                paddingTop: 14,
+                paddingBottom: insets.bottom + 24,
+              },
+            ]}
             onPress={(event) => event.stopPropagation()}
           >
-            <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+            <SheetGrip />
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontStyle: "italic",
+                fontSize: 22,
+                color: glass.text.fg,
+              }}
+            >
               {quickCreateParentId
                 ? t("buildDetail.quickCreateChildTitle", { defaultValue: "Create child node" })
                 : t("buildDetail.quickCreateRootTitle", { defaultValue: "Create linked node" })}
             </Text>
-            <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            <GlassBody size={13} tone="fg70" style={{ marginTop: 6 }}>
               {quickCreateParentId
                 ? t("buildDetail.quickCreateChildBody", {
                     defaultValue: "Add a new node directly under the currently selected element.",
@@ -1482,77 +1844,55 @@ export function BuildDetailBody(props: Props) {
                     defaultValue:
                       "Add a brand-new element or material directly into this build explorer.",
                   })}
-            </Text>
-            <TextInput
-              value={quickCreateName}
-              onChangeText={setQuickCreateName}
-              placeholder={t("elements.namePlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              className="mt-4 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-            />
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
-                onPress={() => setQuickCreateType("element")}
-                className={`flex-1 rounded-full border px-4 py-3 ${
-                  quickCreateType === "element"
-                    ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                    : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                }`}
-              >
-                <Text
-                  className={`text-center text-xs font-semibold uppercase tracking-wide ${
-                    quickCreateType === "element"
-                      ? "text-kyar-bg dark:text-kyar-dark-bg"
-                      : "text-kyar-text dark:text-kyar-dark-text"
-                  }`}
-                >
-                  {t("elements.typeElement")}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setQuickCreateType("material")}
-                className={`flex-1 rounded-full border px-4 py-3 ${
-                  quickCreateType === "material"
-                    ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                    : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                }`}
-              >
-                <Text
-                  className={`text-center text-xs font-semibold uppercase tracking-wide ${
-                    quickCreateType === "material"
-                      ? "text-kyar-bg dark:text-kyar-dark-bg"
-                      : "text-kyar-text dark:text-kyar-dark-text"
-                  }`}
-                >
-                  {t("elements.typeMaterial")}
-                </Text>
-              </Pressable>
+            </GlassBody>
+            <View style={{ marginTop: 14 }}>
+              <GlassTextField
+                value={quickCreateName}
+                onChangeText={setQuickCreateName}
+                placeholder={t("elements.namePlaceholder")}
+              />
             </View>
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
+            <View style={{ marginTop: 14 }}>
+              <SegmentedPair
+                options={[
+                  { value: "element", label: t("elements.typeElement") },
+                  { value: "material", label: t("elements.typeMaterial") },
+                ]}
+                value={quickCreateType}
+                onChange={setQuickCreateType}
+              />
+            </View>
+            <View style={{ marginTop: 16, flexDirection: "row", gap: 10 }}>
+              <GlassOutlineButton
+                label={t("common.cancel")}
                 onPress={() => setQuickCreateOpen(false)}
-                className="flex-1 rounded-full border border-kyar-borderSubtle px-4 py-3 dark:border-kyar-dark-borderSubtle"
-              >
-                <Text className="text-center text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("common.cancel")}
-                </Text>
-              </Pressable>
-              <Pressable
+                style={{ flex: 1 }}
+              />
+              <GlassSolidButton
+                label={quickCreateBusy ? t("elements.creating") : t("elements.create")}
                 onPress={() => void handleQuickCreate()}
                 disabled={!quickCreateName.trim() || quickCreateBusy}
-                className="flex-1 rounded-full bg-kyar-text px-4 py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
-              >
-                <Text className="text-center text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                  {quickCreateBusy ? t("elements.creating") : t("elements.create")}
-                </Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
             </View>
           </Pressable>
         ) : null}
       </Pressable>
 
       <Pressable
-        className={inviteModalOpen ? "absolute inset-0 z-[60] flex-1 bg-black/40" : "hidden"}
+        style={
+          inviteModalOpen
+            ? {
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                zIndex: 60,
+                backgroundColor: glass.scrimDim,
+              }
+            : { display: "none" }
+        }
         onPress={() => {
           if (!invitePending) setInviteModalOpen(false);
         }}
@@ -1560,102 +1900,103 @@ export function BuildDetailBody(props: Props) {
         {inviteModalOpen ? (
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            className="flex-1 justify-end"
+            style={{ flex: 1, justifyContent: "flex-end" }}
           >
             <Pressable
-              className="border-t border-kyar-borderSubtle bg-kyar-surface px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+              style={[
+                SHEET_STYLE,
+                {
+                  paddingHorizontal: 20,
+                  paddingTop: 14,
+                  paddingBottom: insets.bottom + 24,
+                },
+              ]}
               onPress={(event) => event.stopPropagation()}
             >
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+              <SheetGrip />
+              <View
+                style={{
+                  marginBottom: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.displayItalic,
+                    fontStyle: "italic",
+                    fontSize: 22,
+                    color: glass.text.fg,
+                  }}
+                >
                   {t("buildDetail.inviteModalTitle")}
                 </Text>
-                <Pressable
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  label={t("buildDetail.inviteDone")}
                   onPress={() => {
                     if (!invitePending) setInviteModalOpen(false);
                   }}
-                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-                >
-                  <Text className="text-[10px] uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                    {t("buildDetail.inviteDone")}
-                  </Text>
-                </Pressable>
+                />
               </View>
-              <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              <GlassBody size={13} tone="fg70">
                 {t("buildDetail.inviteModalBody")}
-              </Text>
+              </GlassBody>
               {inviteFeedback ? (
-                <Text className="mt-3 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-2 text-sm text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text">
-                  {inviteFeedback}
-                </Text>
+                <View
+                  style={{
+                    marginTop: 12,
+                    borderRadius: 10,
+                    borderWidth: borderWidth.hairline,
+                    borderColor: glass.border.divider,
+                    backgroundColor: glass.surface.field,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <GlassBody size={13} tone="fg">
+                    {inviteFeedback}
+                  </GlassBody>
+                </View>
               ) : null}
               {inviteError ? (
-                <Text className="mt-3 text-sm text-kyar-danger dark:text-kyar-dark-danger">
+                <GlassBody size={13} tone="danger" style={{ marginTop: 12 }}>
                   {inviteError}
-                </Text>
+                </GlassBody>
               ) : null}
-              <MetaLabel className="mt-4">{t("buildDetail.inviteEmailLabel")}</MetaLabel>
-              <TextInput
-                value={inviteEmail}
-                onChangeText={setInviteEmail}
-                placeholder={t("buildDetail.inviteEmailPlaceholder")}
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!invitePending}
-                className="mt-2 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-              />
-              <MetaLabel className="mt-4">{t("buildDetail.inviteRoleLabel")}</MetaLabel>
-              <View className="mt-2 flex-row gap-3">
-                <Pressable
-                  onPress={() => setInviteRole("viewer")}
-                  className={`flex-1 rounded-full border px-4 py-3 ${
-                    inviteRole === "viewer"
-                      ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                      : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                  }`}
-                  disabled={invitePending}
-                >
-                  <Text
-                    className={`text-center text-xs font-semibold uppercase tracking-wide ${
-                      inviteRole === "viewer"
-                        ? "text-kyar-bg dark:text-kyar-dark-bg"
-                        : "text-kyar-text dark:text-kyar-dark-text"
-                    }`}
-                  >
-                    {t("buildDetail.roleViewer")}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setInviteRole("editor")}
-                  className={`flex-1 rounded-full border px-4 py-3 ${
-                    inviteRole === "editor"
-                      ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                      : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                  }`}
-                  disabled={invitePending}
-                >
-                  <Text
-                    className={`text-center text-xs font-semibold uppercase tracking-wide ${
-                      inviteRole === "editor"
-                        ? "text-kyar-bg dark:text-kyar-dark-bg"
-                        : "text-kyar-text dark:text-kyar-dark-text"
-                    }`}
-                  >
-                    {t("buildDetail.roleEditor")}
-                  </Text>
-                </Pressable>
+              <View style={{ marginTop: 16 }}>
+                <GlassTextField
+                  label={t("buildDetail.inviteEmailLabel")}
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder={t("buildDetail.inviteEmailPlaceholder")}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!invitePending}
+                />
               </View>
-              <Pressable
+              <GlassMeta size={10} tone="fg70" bold style={{ marginTop: 16, marginBottom: 8 }}>
+                {t("buildDetail.inviteRoleLabel")}
+              </GlassMeta>
+              <SegmentedPair
+                options={[
+                  { value: "viewer", label: t("buildDetail.roleViewer") },
+                  { value: "editor", label: t("buildDetail.roleEditor") },
+                ]}
+                value={inviteRole}
+                onChange={setInviteRole}
+                disabled={invitePending}
+              />
+              <GlassSolidButton
+                label={invitePending ? t("buildDetail.inviteSending") : t("buildDetail.inviteSend")}
                 onPress={() => void handleSendCollaboratorInvite()}
                 disabled={invitePending || !inviteEmail.trim()}
-                className="mt-6 rounded-full bg-kyar-text py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
-              >
-                <Text className="text-center text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                  {invitePending ? t("buildDetail.inviteSending") : t("buildDetail.inviteSend")}
-                </Text>
-              </Pressable>
+                style={{ marginTop: 20 }}
+              />
             </Pressable>
           </KeyboardAvoidingView>
         ) : null}

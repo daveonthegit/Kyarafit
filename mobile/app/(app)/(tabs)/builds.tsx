@@ -2,24 +2,33 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
-  TextInput,
   View,
+  useWindowDimensions,
+  type ViewToken,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
+import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { DataBoundary, FloatingCreateMenu, MetaLabel } from "@/ui";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { DataBoundary, FloatingCreateMenu } from "@/ui";
+import {
+  GlassEmptyState,
+  GlassSheet,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+} from "@/ui/glass";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 import {
@@ -36,13 +45,22 @@ type BuildListRow = Doc<"builds"> & {
   myRole?: string | null;
 };
 
-/** Long labels for status chips + refine-bar summary (parity with web). */
+/** Long labels for the bulk sheet summary (parity with web). */
 const TAB_SUMMARY_I18N: Record<TabFilter, string> = {
   all: "builds.tabSummaryAll",
   current: "builds.tabSummaryCurrent",
   planning: "builds.tabSummaryPlanning",
   completed: "builds.tabSummaryCompleted",
   archived: "builds.tabSummaryArchived",
+};
+
+/** Short chip labels for the archive-grid filter row. */
+const TAB_I18N: Record<TabFilter, string> = {
+  all: "builds.tabAll",
+  current: "builds.tabCurrent",
+  planning: "builds.tabPlanning",
+  completed: "builds.tabCompleted",
+  archived: "builds.tabArchived",
 };
 
 const SORT_I18N: Record<SortBy, string> = {
@@ -53,10 +71,21 @@ const SORT_I18N: Record<SortBy, string> = {
 };
 
 type ListReady = { rows: BuildListRow[]; sharedRows: BuildListRow[]; userId: string };
-type LayoutMode = "comfortable" | "compact" | "grid";
+type ViewMode = "featured" | "grid";
 type BuildStatusAction = "idea" | "wip" | "ready" | "archived";
+type PagerEntry = { row: BuildListRow; shared: boolean };
 
 const STATUS_ACTIONS: BuildStatusAction[] = ["idea", "wip", "ready", "archived"];
+const MAX_PAGER_DOTS = 12;
+
+function progressPercent(row: BuildListRow): number {
+  if (!row.tasksTotal) return 0;
+  return Math.round((row.tasksChecked / row.tasksTotal) * 100);
+}
+
+function padIndex(index: number): string {
+  return String(index + 1).padStart(2, "0");
+}
 
 export default function BuildsScreen() {
   const { t } = useTranslation();
@@ -162,11 +191,13 @@ function BuildsListBody({
   refreshing: boolean;
   onRefresh: () => void;
 }) {
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { rows, sharedRows, userId } = loaded;
-  const [layout, setLayout] = useState<LayoutMode>("comfortable");
+  const [viewMode, setViewMode] = useState<ViewMode>("featured");
+  const [searchOpen, setSearchOpen] = useState(search.trim().length > 0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
@@ -193,16 +224,28 @@ function BuildsListBody({
   const removeMany = useOfflineMutation(api.builds.removeMany);
   const createBuild = useOfflineMutation(api.builds.create);
 
-  const cycleLayout = useCallback(() => {
-    setLayout((mode) =>
-      mode === "comfortable" ? "compact" : mode === "compact" ? "grid" : "comfortable"
-    );
-  }, []);
-
   const visibleRows = useMemo(
     () => rows.filter((row) => !hiddenIds.has(row._id as string)),
     [hiddenIds, rows]
   );
+
+  /** Featured pager pages: own builds first, then shared builds. */
+  const pages = useMemo((): PagerEntry[] => {
+    return [
+      ...visibleRows.map((row) => ({ row, shared: false })),
+      ...sharedRows.map((row) => ({ row, shared: true })),
+    ];
+  }, [sharedRows, visibleRows]);
+
+  useEffect(() => {
+    if (activeIndex >= pages.length) setActiveIndex(Math.max(0, pages.length - 1));
+  }, [activeIndex, pages.length]);
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems[0];
+    if (first?.index != null) setActiveIndex(first.index);
+  }).current;
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
@@ -381,357 +424,789 @@ function BuildsListBody({
     [duplicateBuild, setFocusedBuild, t, updateBuild, userId]
   );
 
-  const tabOptions = getTabFilterOptions();
+  const statusLabel = useCallback(
+    (status: string) => t(`builds.status.${status}`, { defaultValue: status }),
+    [t]
+  );
 
-  const layoutLabel =
-    layout === "comfortable"
-      ? t("builds.layoutComfortable")
-      : layout === "compact"
-        ? t("builds.layoutCompact")
-        : t("builds.layoutGrid");
+  const openBuild = useCallback((id: string) => router.push(APP_HREF.build(id)), []);
+  const openBoard = useCallback((id: string) => router.push(APP_HREF.buildTab(id, "board")), []);
+
+  const tabOptions = getTabFilterOptions();
   const sortLabel = t(SORT_I18N[sortBy]);
   const orderLabel = order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc");
-  const summaryTabLabel = t(TAB_SUMMARY_I18N[activeTab]);
-  const filterSummary = [summaryTabLabel, sortLabel, orderLabel, layoutLabel].join(" · ");
+
+  const chromeTop = insets.top + 10;
+  const headlineTop = insets.top + 58 + (searchOpen ? 68 : 0);
+  const searching = search.trim().length > 0;
+  const emptyMessage = searching ? t("builds.emptySearch") : t("builds.empty");
+
+  const emptyState = (
+    <GlassEmptyState
+      icon="construct-outline"
+      message={emptyMessage}
+      action={
+        !searching ? (
+          <PhotoPill
+            variant="solid"
+            icon="add"
+            label={t("builds.startFirstBuild", { defaultValue: "Start your first build" })}
+            onPress={() => router.push(APP_HREF.buildNew)}
+          />
+        ) : undefined
+      }
+    />
+  );
 
   return (
-    <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
-      <View className="px-5 pb-3 pt-4">
-        <View className="w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
-          <Ionicons
-            name="search"
-            size={18}
-            color={colors.textTertiary}
-            importantForAccessibility="no"
+    <View style={{ flex: 1 }}>
+      {viewMode === "featured" ? (
+        pages.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            <PhotoBackdrop scrim="off" kenBurns={false} />
+            {emptyState}
+          </View>
+        ) : (
+          <FlatList
+            data={pages}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(entry) => String(entry.row._id)}
+            style={{ flex: 1 }}
+            initialNumToRender={2}
+            windowSize={3}
+            getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
+            renderItem={({ item, index }) => (
+              <FeaturedPage
+                entry={item}
+                index={index}
+                pageCount={pages.length}
+                activeIndex={activeIndex}
+                width={width}
+                headlineTop={headlineTop}
+                t={t}
+                statusLabel={statusLabel}
+                onOpen={() => openBuild(String(item.row._id))}
+                onOpenBoard={() => openBoard(String(item.row._id))}
+                onLongPress={item.shared ? undefined : () => showActions(item.row)}
+              />
+            )}
           />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t("builds.searchPlaceholder")}
-            placeholderTextColor={colors.textTertiary}
-            className="min-h-[38px] flex-1 py-2 text-[13px] text-kyar-text dark:text-kyar-dark-text"
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
+        )
+      ) : (
+        <View style={{ flex: 1 }}>
+          <PhotoBackdrop scrim="off" kenBurns={false} />
+          <FlatList
+            key="archive-grid"
+            data={visibleRows}
+            numColumns={2}
+            keyExtractor={(item) => item._id}
+            columnWrapperStyle={{ gap: 10 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: headlineTop,
+              paddingBottom: insets.bottom + 120,
+              gap: 10,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={glass.text.fg}
+              />
+            }
+            ListHeaderComponent={
+              <ArchiveHeader
+                t={t}
+                count={visibleRows.length}
+                tabOptions={tabOptions}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                sortLabel={sortLabel}
+                orderLabel={orderLabel}
+                cycleSort={cycleSort}
+                toggleOrder={toggleOrder}
+                onSelect={visibleRows.length > 0 ? () => setBulkOpen(true) : undefined}
+              />
+            }
+            ListEmptyComponent={emptyState}
+            renderItem={({ item, index }) => (
+              <ArchiveTile
+                row={item}
+                index={index}
+                statusLabel={statusLabel}
+                onPress={() => openBuild(String(item._id))}
+                onLongPress={() => showActions(item)}
+              />
+            )}
+            ListFooterComponent={
+              sharedRows.length > 0 ? (
+                <View style={{ marginTop: 28 }}>
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansBold,
+                      fontSize: 9,
+                      letterSpacing: ls(0.22, 9),
+                      textTransform: "uppercase",
+                      color: glass.text.fg,
+                      opacity: 0.75,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {t("builds.sharedWithYou", { count: sharedRows.length })}
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                    {sharedRows.map((item, index) => (
+                      <View key={item._id} style={{ width: (width - 32 - 10) / 2 }}>
+                        <ArchiveTile
+                          row={item}
+                          index={index}
+                          statusLabel={statusLabel}
+                          onPress={() => openBuild(String(item._id))}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null
+            }
           />
         </View>
+      )}
 
-        <Pressable
-          onPress={() => setFiltersOpen((value) => !value)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: filtersOpen }}
-          className="mt-3 flex min-h-[42px] w-full flex-row items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 shadow-soft active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+      {/* Screen chrome: search + view toggle, top-right of the headline area. */}
+      <View
+        style={{
+          position: "absolute",
+          top: chromeTop,
+          left: 22,
+          right: 22,
+        }}
+        pointerEvents="box-none"
+      >
+        <View
+          style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}
+          pointerEvents="box-none"
         >
-          <View className="shrink-0 flex-row items-center gap-2">
-            <Ionicons
-              name="options-outline"
-              size={16}
-              color={colors.text}
-              importantForAccessibility="no"
+          <IconPill
+            icon="search"
+            active={searchOpen}
+            accessibilityLabel={t("builds.searchToggle", { defaultValue: "Search builds" })}
+            onPress={() => {
+              if (searchOpen) setSearch("");
+              setSearchOpen((open) => !open);
+            }}
+          />
+          <IconPill
+            icon={viewMode === "featured" ? "grid-outline" : "albums-outline"}
+            accessibilityLabel={
+              viewMode === "featured"
+                ? t("builds.viewGridToggle", { defaultValue: "Switch to grid view" })
+                : t("builds.viewFeaturedToggle", { defaultValue: "Switch to featured view" })
+            }
+            onPress={() => setViewMode((mode) => (mode === "featured" ? "grid" : "featured"))}
+          />
+        </View>
+        {searchOpen ? (
+          <View style={{ marginTop: 10 }}>
+            <GlassTextField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("builds.searchPlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              clearButtonMode="while-editing"
             />
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-              className="text-[9px] uppercase tracking-[0.22em] text-kyar-text dark:text-kyar-dark-text"
-              numberOfLines={1}
-            >
-              {t("builds.refineBuilds")}
-            </Text>
-          </View>
-          <View className="min-w-0 flex-1 flex-row items-center justify-end gap-2">
-            <Text
-              className="flex-1 text-right text-[10px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-              numberOfLines={2}
-            >
-              {filterSummary}
-            </Text>
-            <Ionicons
-              name={filtersOpen ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.text}
-            />
-          </View>
-        </Pressable>
-
-        {filtersOpen ? (
-          <View className="mt-3 rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
-            <MetaLabel>{t("builds.filtersStatusLabel")}</MetaLabel>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-2"
-              contentContainerClassName="gap-2 pr-1"
-            >
-              {tabOptions.map((option) => {
-                const active = activeTab === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    onPress={() => setActiveTab(option.value)}
-                    className={`min-h-[44px] shrink justify-center rounded-full border px-4 py-2 ${
-                      active
-                        ? "border-kyar-text bg-kyar-text shadow-md dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                        : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-                    }`}
-                  >
-                    <Text
-                      style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-                      className={`text-[10px] uppercase tracking-wider ${
-                        active
-                          ? "text-kyar-bg dark:text-kyar-dark-bg"
-                          : "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                      }`}
-                    >
-                      {t(TAB_SUMMARY_I18N[option.value])}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <View className="mt-5">
-              <MetaLabel>{t("builds.filtersSortViewLabel")}</MetaLabel>
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                <ControlPill label={sortLabel} onPress={cycleSort} />
-                <ControlPill label={orderLabel} onPress={toggleOrder} />
-                <ControlPill label={layoutLabel} onPress={cycleLayout} />
-              </View>
-            </View>
           </View>
         ) : null}
       </View>
 
-      <FlatList
-        key={layout}
-        data={visibleRows}
-        numColumns={layout === "grid" ? 2 : 1}
-        keyExtractor={(item) => item._id}
-        columnWrapperStyle={layout === "grid" ? { gap: 12, paddingHorizontal: 20 } : undefined}
-        contentContainerStyle={{
-          paddingHorizontal: layout === "grid" ? 0 : 20,
-          paddingTop: 8,
-          paddingBottom: 132,
-          gap: 12,
-        }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListHeaderComponent={
-          <View className="pb-3">
-            <View className="flex-row items-center justify-between gap-3">
-              <Text className="min-w-0 flex-1 text-[10px] uppercase tracking-widest text-kyar-meta opacity-60 dark:text-kyar-dark-meta">
-                {visibleRows.length} {visibleRows.length === 1 ? "build" : "builds"}
-              </Text>
-              {visibleRows.length > 0 ? (
-                <Pressable
-                  onPress={() => setBulkOpen(true)}
-                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-                >
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                    {t("builds.bulkSelectAction")}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        }
-        ListEmptyComponent={
-          <Text className="py-12 text-center text-kyar-meta dark:text-kyar-dark-meta">
-            {search.trim() ? t("builds.emptySearch") : t("builds.empty")}
-          </Text>
-        }
-        renderItem={({ item, index }) => (
-          <Pressable
-            className={layout === "grid" ? "mb-3 flex-1" : "mb-3"}
-            onPress={() => router.push(APP_HREF.build(item._id))}
-            onLongPress={() => showActions(item)}
-          >
-            <BuildPortfolioCard
-              variant={layout}
-              projectIndex={index + 1}
-              item={{
-                name: item.name,
-                character: item.character,
-                status: item.status,
-                imageStorageId: item.imageStorageId,
-                imageUrl: item.imageUrl,
-                tasksTotal: item.tasksTotal,
-                tasksChecked: item.tasksChecked,
-              }}
-            />
-          </Pressable>
-        )}
-        ListFooterComponent={
-          sharedRows.length > 0 ? (
-            <View className="mt-8 border-t border-kyar-borderSubtle pt-6 dark:border-kyar-dark-borderSubtle">
-              <MetaLabel>{t("builds.sharedWithYou", { count: sharedRows.length })}</MetaLabel>
-              <View className="mt-4 gap-3">
-                {sharedRows.map((item, index) => (
-                  <Pressable
-                    key={item._id}
-                    className={layout === "grid" ? "mb-3 flex-1" : "mb-3"}
-                    onPress={() => router.push(APP_HREF.build(item._id))}
-                  >
-                    <BuildPortfolioCard
-                      variant={layout === "grid" ? "compact" : layout}
-                      projectIndex={index + 1}
-                      item={{
-                        name: item.name,
-                        character: item.character ?? item.myRole ?? null,
-                        status: item.status,
-                        imageStorageId: item.imageStorageId,
-                        imageUrl: item.imageUrl,
-                        tasksTotal: item.tasksTotal,
-                        tasksChecked: item.tasksChecked,
-                      }}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null
-        }
-      />
-
       <FloatingCreateMenu actions={addMenuActions} />
 
-      <Modal
-        visible={bulkOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setBulkOpen(false)}
+      <GlassSheet
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        closeLabel={t("common.cancel")}
       >
-        <View className="flex-1">
-          <Pressable
-            className="flex-1 justify-end bg-kyar-text/25"
-            onPress={() => setBulkOpen(false)}
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 22,
+              color: glass.text.fg,
+            }}
           >
-            <Pressable
-              className="max-h-[88%] rounded-t-[28px] border border-kyar-borderSubtle bg-kyar-bg px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-bg"
-              onPress={(event) => event.stopPropagation()}
-            >
-              <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-                {t("builds.bulkModalTitle")}
-              </Text>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("builds.bulkModalBody")}
-              </Text>
-              <View className="mt-4 flex-row flex-wrap gap-2">
-                <Pressable
-                  onPress={selectAllInModal}
-                  className="rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                >
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-                    {selectedIds.size === visibleRows.length && visibleRows.length > 0
-                      ? t("builds.bulkDeselectAll")
-                      : t("builds.bulkSelectAll")}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={clearSelection} className="rounded-full px-4 py-2">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                    {t("builds.bulkClear")}
-                  </Text>
-                </Pressable>
-              </View>
+            {t("builds.bulkModalTitle")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 12,
+              lineHeight: 18,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("builds.bulkModalBody")}
+          </Text>
+          <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <PhotoPill
+              variant="outline"
+              size="sm"
+              label={
+                selectedIds.size === visibleRows.length && visibleRows.length > 0
+                  ? t("builds.bulkDeselectAll")
+                  : t("builds.bulkSelectAll")
+              }
+              onPress={selectAllInModal}
+            />
+            <PhotoPill variant="text" size="sm" label={t("builds.bulkClear")} onPress={clearSelection} />
+          </View>
 
-              <ScrollView
-                className="mt-4 max-h-[42%] rounded-2xl border border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
-                nestedScrollEnabled
-              >
-                {visibleRows.map((item) => {
-                  const selected = selectedIds.has(String(item._id));
-                  return (
-                    <Pressable
-                      key={item._id}
-                      onPress={() => toggleSelected(String(item._id))}
-                      className="flex-row items-center gap-3 border-b border-kyar-borderSubtle px-3 py-3 dark:border-kyar-dark-borderSubtle"
-                    >
-                      <Ionicons
-                        name={selected ? "checkbox" : "square-outline"}
-                        size={22}
-                        color={selected ? colors.text : colors.textTertiary}
-                      />
-                      <View className="min-w-0 flex-1">
-                        <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-                          {item.name}
-                        </Text>
-                        <Text className="mt-1 text-[10px] uppercase tracking-wide text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                          {item.character ? `${item.character} · ` : ""}
-                          {item.status}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
-              <Text className="mt-3 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                {t("builds.bulkSelectedCount", { count: selectedIds.size })}
-              </Text>
-
-              {selectedIds.size > 0 ? (
-                <View className="mt-4 flex-row flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-                  {STATUS_ACTIONS.map((status) => (
-                    <Pressable
-                      key={status}
-                      onPress={() => void handleBulkStatus(status)}
-                      disabled={bulkPending}
-                      className="rounded-xl border border-kyar-borderSubtle px-4 py-3 disabled:opacity-40 dark:border-kyar-dark-borderSubtle"
-                    >
-                      <Text className="text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                        {t(`builds.status.${status}`)}
-                      </Text>
-                    </Pressable>
-                  ))}
+          <View
+            style={{
+              marginTop: 14,
+              maxHeight: 280,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.default,
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
+            <ScrollView nestedScrollEnabled>
+              {visibleRows.map((item, rowIndex) => {
+                const selected = selectedIds.has(String(item._id));
+                return (
                   <Pressable
-                    onPress={confirmBulkDelete}
-                    disabled={bulkPending}
-                    className="rounded-xl border border-kyar-danger/40 px-4 py-3 disabled:opacity-40"
+                    key={item._id}
+                    onPress={() => toggleSelected(String(item._id))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      minHeight: 52,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderBottomWidth: rowIndex === visibleRows.length - 1 ? 0 : borderWidth.hairline,
+                      borderBottomColor: glass.border.divider,
+                    }}
                   >
-                    <Text className="text-center text-sm font-semibold text-kyar-danger dark:text-kyar-dark-danger">
-                      {t("builds.bulkDelete")}
-                    </Text>
+                    <Ionicons
+                      name={selected ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={selected ? glass.text.fg : glass.text.fg45}
+                    />
+                    <View style={{ minWidth: 0, flex: 1 }}>
+                      <Text
+                        style={{
+                          fontFamily: APP_FONT_FAMILIES.sansMedium,
+                          fontSize: 14,
+                          color: glass.text.fg,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 2,
+                          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                          fontSize: 9,
+                          letterSpacing: ls(0.14, 9),
+                          textTransform: "uppercase",
+                          color: glass.text.fg55,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {item.character ? `${item.character} · ` : ""}
+                        {statusLabel(item.status)}
+                      </Text>
+                    </View>
                   </Pressable>
-                </View>
-              ) : null}
+                );
+              })}
+            </ScrollView>
+          </View>
 
+          <Text
+            style={{
+              marginTop: 10,
+              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontSize: 9,
+              letterSpacing: ls(0.14, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg55,
+            }}
+          >
+            {t("builds.bulkSelectedCount", { count: selectedIds.size })} ·{" "}
+            {t(TAB_SUMMARY_I18N[activeTab])}
+          </Text>
+
+          {selectedIds.size > 0 ? (
+            <View
+              style={{
+                marginTop: 14,
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 8,
+                borderTopWidth: borderWidth.hairline,
+                borderTopColor: glass.border.divider,
+                paddingTop: 14,
+              }}
+            >
+              {STATUS_ACTIONS.map((status) => (
+                <PhotoPill
+                  key={status}
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkPending}
+                  label={t(`builds.status.${status}`)}
+                  onPress={() => void handleBulkStatus(status)}
+                />
+              ))}
               <Pressable
-                onPress={() => setBulkOpen(false)}
-                className="mt-6 rounded-full bg-kyar-text px-4 py-3 dark:bg-kyar-dark-text"
+                onPress={confirmBulkDelete}
+                disabled={bulkPending}
+                accessibilityRole="button"
+                style={{
+                  minHeight: 34,
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  borderWidth: borderWidth.hairline,
+                  borderColor: glass.text.danger,
+                  paddingHorizontal: 16,
+                  opacity: bulkPending ? 0.25 : 1,
+                }}
               >
-                <Text className="text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                  {t("builds.bulkDone")}
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.16, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.danger,
+                  }}
+                >
+                  {t("builds.bulkDelete")}
                 </Text>
               </Pressable>
-            </Pressable>
-          </Pressable>
+            </View>
+          ) : null}
+
+          <View style={{ marginTop: 18, alignItems: "center" }}>
+            <PhotoPill variant="solid" label={t("builds.bulkDone")} onPress={() => setBulkOpen(false)} />
+          </View>
         </View>
-      </Modal>
+      </GlassSheet>
 
       {deletedForUndo ? (
-        <View className="absolute bottom-28 left-4 right-4 z-20 flex-row items-center justify-between gap-3 rounded-2xl border border-kyar-border bg-kyar-text px-4 py-3 dark:border-kyar-dark-border dark:bg-kyar-dark-text">
-          <Text className="min-w-0 flex-1 text-sm font-medium text-kyar-bg dark:text-kyar-dark-bg">
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: insets.bottom + 96,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            borderRadius: 14,
+            borderWidth: borderWidth.hairline,
+            borderColor: glass.border.overlay,
+            backgroundColor: glass.fallback.overlay,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            style={{
+              minWidth: 0,
+              flex: 1,
+              fontFamily: APP_FONT_FAMILIES.sansMedium,
+              fontSize: 12,
+              color: glass.text.fg,
+            }}
+          >
             {t("builds.bulkUndoDeleted", { count: deletedForUndo.count })}
           </Text>
-          <Pressable
-            onPress={() => void handleUndoDelete()}
+          <PhotoPill
+            variant="text"
+            size="sm"
             disabled={bulkPending}
-            className="rounded-full border border-kyar-bg/40 px-3 py-2 dark:border-kyar-dark-bg/40"
-          >
-            <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-              {bulkPending ? t("builds.bulkUndoing") : t("builds.bulkUndoAction")}
-            </Text>
-          </Pressable>
+            label={bulkPending ? t("builds.bulkUndoing") : t("builds.bulkUndoAction")}
+            onPress={() => void handleUndoDelete()}
+          />
         </View>
       ) : null}
     </View>
   );
 }
 
-function ControlPill({ label, onPress }: { label: string; onPress: () => void }) {
+/** One full-bleed pager page: the build's photo with headline, progress, actions. */
+function FeaturedPage({
+  entry,
+  index,
+  pageCount,
+  activeIndex,
+  width,
+  headlineTop,
+  t,
+  statusLabel,
+  onOpen,
+  onOpenBoard,
+  onLongPress,
+}: {
+  entry: PagerEntry;
+  index: number;
+  pageCount: number;
+  activeIndex: number;
+  width: number;
+  headlineTop: number;
+  t: (key: string, opt?: Record<string, string | number>) => string;
+  statusLabel: (status: string) => string;
+  onOpen: () => void;
+  onOpenBoard: () => void;
+  onLongPress?: () => void;
+}) {
+  const { row, shared } = entry;
+  const pct = progressPercent(row);
+  const eyebrowLead = shared
+    ? t("builds.sharedEyebrow", { defaultValue: "Shared" })
+    : t("builds.featuredEyebrow", { defaultValue: "Featured" });
+
+  return (
+    <View style={{ width, flex: 1 }}>
+      <PhotoBackdrop
+        imageStorageId={row.imageStorageId}
+        imageUrl={row.imageUrl}
+        focalX={row.imageFocalX}
+        focalY={row.imageFocalY}
+        kenBurns={index === activeIndex}
+      />
+      <Pressable
+        onLongPress={onLongPress}
+        disabled={!onLongPress}
+        style={{ position: "absolute", left: 22, right: 22, top: headlineTop }}
+      >
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 9,
+            letterSpacing: ls(0.26, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg,
+            opacity: 0.75,
+            marginBottom: 8,
+          }}
+        >
+          {eyebrowLead} · {padIndex(index)} · {statusLabel(row.status)}
+        </Text>
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontSize: 40,
+            lineHeight: 38,
+            letterSpacing: ls(-0.02, 40),
+            color: glass.text.fg,
+          }}
+        >
+          {row.name}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 }}>
+          <View
+            style={{
+              flex: 1,
+              maxWidth: 180,
+              height: 2,
+              borderRadius: 2,
+              backgroundColor: glass.border.overlay,
+              overflow: "hidden",
+            }}
+          >
+            <View
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                backgroundColor: glass.surface.solid,
+              }}
+            />
+          </View>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontSize: 11,
+              color: glass.text.fg,
+            }}
+          >
+            {pct}%
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 20 }}>
+          <PhotoPill
+            variant="solid"
+            label={t("builds.openBuild", { defaultValue: "Open build" })}
+            onPress={onOpen}
+          />
+          <PhotoPill
+            variant="outline"
+            label={t("builds.openBoard", { defaultValue: "Board" })}
+            onPress={onOpenBoard}
+          />
+        </View>
+        <View
+          style={{
+            marginTop: 18,
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 5,
+          }}
+        >
+          {pageCount <= MAX_PAGER_DOTS ? (
+            Array.from({ length: pageCount }, (_, dot) => (
+              <View
+                key={dot}
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: glass.text.fg,
+                  opacity: dot === activeIndex ? 1 : 0.35,
+                }}
+              />
+            ))
+          ) : (
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 11,
+                color: glass.text.fg70,
+              }}
+            >
+              {activeIndex + 1} / {pageCount}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
+/** Grid-mode header: archive eyebrow, filter tabs (underline-active), sort/order/select. */
+function ArchiveHeader({
+  t,
+  count,
+  tabOptions,
+  activeTab,
+  setActiveTab,
+  sortLabel,
+  orderLabel,
+  cycleSort,
+  toggleOrder,
+  onSelect,
+}: {
+  t: (key: string, opt?: Record<string, string | number>) => string;
+  count: number;
+  tabOptions: { value: TabFilter; label: string }[];
+  activeTab: TabFilter;
+  setActiveTab: (v: TabFilter) => void;
+  sortLabel: string;
+  orderLabel: string;
+  cycleSort: () => void;
+  toggleOrder: () => void;
+  onSelect?: () => void;
+}) {
+  return (
+    <View style={{ paddingHorizontal: 6, paddingBottom: 14 }}>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 9,
+          letterSpacing: ls(0.22, 9),
+          textTransform: "uppercase",
+          color: glass.text.fg,
+          opacity: 0.75,
+        }}
+      >
+        {t("builds.archiveEyebrow", { count, defaultValue: "The archive · {{count}}" })}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginTop: 12 }}
+        contentContainerStyle={{ gap: 14, paddingRight: 6 }}
+      >
+        {tabOptions.map((option) => {
+          const active = activeTab === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => setActiveTab(option.value)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              style={{ minHeight: 44, justifyContent: "center" }}
+            >
+              <Text
+                style={{
+                  fontFamily: active ? APP_FONT_FAMILIES.sansBold : APP_FONT_FAMILIES.sansSemiBold,
+                  fontSize: 9,
+                  letterSpacing: ls(0.16, 9),
+                  textTransform: "uppercase",
+                  color: glass.text.fg,
+                  opacity: active ? 1 : 0.55,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: active ? glass.text.fg : "transparent",
+                  paddingBottom: 2,
+                }}
+              >
+                {t(TAB_I18N[option.value])}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 18, marginTop: 2 }}>
+        <HeaderTextAction label={sortLabel} onPress={cycleSort} />
+        <HeaderTextAction label={orderLabel} onPress={toggleOrder} />
+        {onSelect ? <HeaderTextAction label={t("builds.bulkSelectAction")} onPress={onSelect} /> : null}
+      </View>
+    </View>
+  );
+}
+
+function HeaderTextAction({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      className="min-h-[40px] justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+      accessibilityRole="button"
+      style={{ minHeight: 44, justifyContent: "center" }}
     >
-      <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">{label}</Text>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+          fontSize: 9,
+          letterSpacing: ls(0.14, 9),
+          textTransform: "uppercase",
+          color: glass.text.fg70,
+          borderBottomWidth: 1,
+          borderBottomColor: glass.border.strong,
+          paddingBottom: 2,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** 2-col archive tile: photo, bottom scrim, serif name + 9px meta. */
+function ArchiveTile({
+  row,
+  index,
+  statusLabel,
+  onPress,
+  onLongPress,
+}: {
+  row: BuildListRow;
+  index: number;
+  statusLabel: (status: string) => string;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
+  const pct = progressPercent(row);
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityRole="button"
+      accessibilityLabel={row.name}
+      style={{ flex: 1, height: 118, borderRadius: 10, overflow: "hidden" }}
+    >
+      <PhotoBackdrop
+        imageStorageId={row.imageStorageId}
+        imageUrl={row.imageUrl}
+        focalX={row.imageFocalX}
+        focalY={row.imageFocalY}
+        scrim="off"
+        kenBurns={false}
+      />
+      <LinearGradient
+        colors={[glass.scrim.pageVerticalMobile.stops[0]!.color, "transparent"]}
+        locations={[0, 0.6]}
+        start={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={{ position: "absolute", left: 10, right: 10, bottom: 8 }}>
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontSize: 14,
+            color: glass.text.fg,
+          }}
+          numberOfLines={1}
+        >
+          {row.name}
+        </Text>
+        <Text
+          style={{
+            marginTop: 2,
+            fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+            fontSize: 9,
+            letterSpacing: ls(0.14, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg70,
+          }}
+          numberOfLines={1}
+        >
+          {padIndex(index)} · {statusLabel(row.status)} · {pct}%
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/** 44pt glass-outline icon pill (screen chrome). */
+function IconPill({
+  icon,
+  onPress,
+  accessibilityLabel,
+  active = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  accessibilityLabel: string;
+  active?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: active }}
+      style={({ pressed }) => [
+        {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: borderWidth.hairline,
+          borderColor: active ? glass.border.strong : glass.border.overlay,
+          backgroundColor: active ? glass.surface.overlay : glass.surface.bar,
+        },
+        pressed && { transform: [{ scale: 0.96 }] },
+      ]}
+    >
+      <Ionicons name={icon} size={18} color={glass.text.fg} />
     </Pressable>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, TextInput, View, type TextInputProps } from "react-native";
 import { glass, ls } from "@kyarafit/design-system/rn";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 type Props = TextInputProps & {
   label?: string;

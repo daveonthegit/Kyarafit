@@ -27,7 +27,7 @@ import { startSocialLink } from "@/lib/auth/startSocialSignIn";
 import { APP_HREF } from "@/lib/appRoutes";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { Button, DataBoundary, TextField } from "@/ui";

@@ -4,7 +4,7 @@ import { BottomSheetFlatList, BottomSheetModal, BottomSheetTextInput } from "@go
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 type ChooseFocusSheetRef = ComponentRef<typeof BottomSheetModal>;
 

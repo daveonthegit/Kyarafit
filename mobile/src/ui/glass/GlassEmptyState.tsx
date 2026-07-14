@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { glass } from "@kyarafit/design-system/rn";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 type Props = {
   icon?: keyof typeof Ionicons.glyphMap;

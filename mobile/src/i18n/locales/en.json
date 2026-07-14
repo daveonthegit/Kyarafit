@@ -94,7 +94,20 @@
     "followingFeed": "From people you follow",
     "followingEmpty": "Follow creators to see their public builds here.",
     "followingUnknownCreator": "Creator",
-    "openFollowingBuild": "Open build"
+    "openFollowingBuild": "Open build",
+    "glassOpenBuild": "Open build",
+    "glassWhatsDue": "What's due",
+    "glassInTheStudio": "In the studio · {{count}}",
+    "glassDueToday": "Today",
+    "glassDueTomorrow": "Tomorrow",
+    "glassHeadlineDueZero": "All caught up",
+    "glassHeadlineDueOne": "One thing due",
+    "glassHeadlineDueOther": "{{count}} things due",
+    "glassHeadlineEventToday": "{{event}} is today",
+    "glassHeadlineEventOneDay": "1 day to {{event}}",
+    "glassHeadlineEventDays": "{{days}} days to {{event}}",
+    "glassEventRowMeta": "{{count}} builds · {{days}} days",
+    "glassEventRowMetaToday": "{{count}} builds · today"
   },
   "builds": {
     "pageTitle": "My Builds",
@@ -154,7 +167,16 @@
       "wip": "In progress",
       "ready": "Ready",
       "archived": "Archived"
-    }
+    },
+    "featuredEyebrow": "Featured",
+    "sharedEyebrow": "Shared",
+    "openBuild": "Open build",
+    "openBoard": "Board",
+    "archiveEyebrow": "The archive · {{count}}",
+    "startFirstBuild": "Start your first build",
+    "searchToggle": "Search builds",
+    "viewGridToggle": "Switch to grid view",
+    "viewFeaturedToggle": "Switch to featured view"
   },
   "elements": {
     "pageTitle": "Elements",
@@ -317,7 +339,10 @@
     "deleteNode": "Delete element",
     "deleteNodeTitle": "Delete this element?",
     "deleteNodeBody": "This removes the element itself. Unlink it instead if you only want it removed from a containing element or build.",
-    "deleteNodeAction": "Delete element"
+    "deleteNodeAction": "Delete element",
+    "closetTitle": "The closet",
+    "closetEmpty": "Your closet is empty. Add your first piece.",
+    "nameRequired": "Name is required"
   },
   "buildDetail": {
     "newElement": "New element",
@@ -401,7 +426,13 @@
     "roleEditor": "Editor",
     "addChildElement": "Sub-element",
     "addChildMaterial": "Sub-material",
-    "openElement": "Open full element"
+    "openElement": "Open full element",
+    "headlineTasksMeta": "{{checked}} / {{total}} tasks · {{pct}}%",
+    "explorerDragHelper": "Long-press a row to drag, nest, or reorder",
+    "explorerMatches": "{{count}} matches",
+    "explorerRoots": "{{count}} roots",
+    "boardAddImage": "Add image",
+    "taskBlocked": "Blocked"
   },
   "linkElements": {
     "title": "Link elements",
@@ -749,7 +780,14 @@
     "indent": "Nest",
     "outdent": "Promote",
     "taskStructureHint": "Reorder, nest, or edit this task.",
-    "taskActionsA11y": "Task actions"
+    "taskActionsA11y": "Task actions",
+    "headline": "What's due",
+    "groupLater": "Later",
+    "showLater": "Show",
+    "hideLater": "Hide",
+    "progressShort": "{{done}}/{{total}} done",
+    "blocked": "Blocked",
+    "overdue": "Overdue"
   },
   "workflowEditor": {
     "title": "Edit task",

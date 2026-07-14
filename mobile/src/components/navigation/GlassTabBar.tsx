@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { type NavSectionId } from "@kyarafit/design-system";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { NAV_SECTION_MATERIAL_ICON } from "@/lib/navIconsMobile";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { GlassBar } from "@/ui/glass";
 
 /**
@@ -30,8 +30,13 @@ export function GlassTabBar({
 
   return (
     <GlassBar
-      onWall
       style={{
+        // Overlays the scene so full-bleed photo backdrops run under the bar
+        // (converted screens pad their scroll content with GLASS_TAB_BAR_SPACE).
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
         borderWidth: 0,
         borderTopWidth: borderWidth.hairline,
         borderColor: glass.border.dividerStrong,

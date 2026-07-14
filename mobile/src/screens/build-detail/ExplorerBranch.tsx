@@ -1,12 +1,16 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { useTranslation } from "react-i18next";
 import { formatNodeTypeLabel } from "@kyarafit/design-system/domain";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { GlassStatusChip, type GlassStatusTone } from "@/ui/glass";
 import { useOfflineQuery } from "@/offline";
+import { GlassMeta } from "./glassAtoms";
 import type { NodeSelectionMeta } from "./useNodeInspector";
 
 type BranchNode = {
@@ -52,6 +56,44 @@ type Props = {
   dragOverNodeId?: Id<"cosplayNodes"> | "__root__" | null;
   dragOverZone?: "before" | "into" | "after" | null;
 };
+
+function progressTone(percent: number): GlassStatusTone {
+  if (percent >= 100) return "success";
+  if (percent > 0) return "active";
+  return "neutral";
+}
+
+/** 2.5px drop line + 8px dot at the drag insertion edge (glass.drop.line). */
+function DropLine({ edge }: { edge: "top" | "bottom" }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          left: 8,
+          right: 8,
+          height: 2.5,
+          borderRadius: 1.25,
+          backgroundColor: glass.drop.line,
+        },
+        edge === "top" ? { top: -1.5 } : { bottom: -1.5 },
+      ]}
+    >
+      <View
+        style={{
+          position: "absolute",
+          left: -4,
+          top: -2.75,
+          height: 8,
+          width: 8,
+          borderRadius: 4,
+          backgroundColor: glass.drop.line,
+        }}
+      />
+    </View>
+  );
+}
 
 function ExplorerBranchImpl({
   node,
@@ -113,6 +155,8 @@ function ExplorerBranchImpl({
     return () => unregisterRow(node._id);
   }, [displayName, node._id, node.nodeType, registerRow, selectionMeta, unregisterRow]);
 
+  const pct = Math.round(node.progressPercent);
+
   return (
     <View>
       <Pressable
@@ -155,31 +199,38 @@ function ExplorerBranchImpl({
           onEndMove();
         }}
         delayLongPress={220}
-        style={{ marginLeft: depth * 14 }}
-        className={`mb-2 rounded-2xl border px-3 py-3 ${
-          dropInto
-            ? "border-kyar-text bg-kyar-panelRaised dark:border-kyar-dark-text dark:bg-kyar-dark-panelRaised"
+        style={{
+          minHeight: 44,
+          marginBottom: 6,
+          borderRadius: 10,
+          paddingHorizontal: 10,
+          paddingVertical: 7,
+          backgroundColor: dropInto
+            ? glass.surface.active
             : selected
-              ? "border-kyar-border bg-kyar-panel dark:border-kyar-dark-border dark:bg-kyar-dark-panel"
-              : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-        } ${dragging ? "opacity-55" : ""}`}
+              ? glass.surface.field
+              : "transparent",
+          borderWidth: dropInto ? 1.5 : borderWidth.hairline,
+          borderColor: dropInto
+            ? glass.drop.intoRing
+            : selected
+              ? glass.border.dividerStrong
+              : glass.border.divider,
+          opacity: dragging ? 0.35 : 1,
+        }}
       >
-        {dropBefore ? (
-          <View className="absolute inset-x-4 top-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
-        ) : null}
-        {dropAfter ? (
-          <View className="absolute inset-x-4 bottom-0 h-1 rounded-full bg-kyar-text dark:bg-kyar-dark-text" />
-        ) : null}
+        {dropBefore ? <DropLine edge="top" /> : null}
+        {dropAfter ? <DropLine edge="bottom" /> : null}
 
-        <View className="flex-row items-center gap-2.5">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           {hasChildren ? (
             <Pressable
               onPress={(e) => {
                 e.stopPropagation?.();
                 setExpanded((value) => !value);
               }}
-              hitSlop={8}
-              className="h-8 w-8 items-center justify-center rounded-full"
+              hitSlop={10}
+              style={{ height: 28, width: 22, alignItems: "center", justifyContent: "center" }}
               accessibilityRole="button"
               accessibilityLabel={
                 expanded
@@ -187,15 +238,23 @@ function ExplorerBranchImpl({
                   : t("common.expand", { defaultValue: "Expand" })
               }
             >
-              <Text className="text-base text-kyar-meta dark:text-kyar-dark-meta">
-                {expanded ? "▾" : "▸"}
-              </Text>
+              <Text style={{ fontSize: 13, color: glass.text.fg55 }}>{expanded ? "▾" : "▸"}</Text>
             </Pressable>
           ) : (
-            <View className="w-8" />
+            <View style={{ width: 22 }} />
           )}
 
-          <View className="h-11 w-11 overflow-hidden rounded-2xl bg-kyar-panel dark:bg-kyar-dark-panel">
+          <View
+            style={{
+              height: 40,
+              width: 40,
+              borderRadius: 8,
+              overflow: "hidden",
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.default,
+              backgroundColor: glass.surface.field,
+            }}
+          >
             {node.imageStorageId || node.imageUrl ? (
               <ConvexStorageImage
                 storageId={node.imageStorageId}
@@ -203,49 +262,67 @@ function ExplorerBranchImpl({
                 className="h-full w-full"
               />
             ) : (
-              <View className="h-full w-full items-center justify-center">
-                <Text className="text-base text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                  {node.nodeType === "material" ? "◧" : "◇"}
-                </Text>
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons
+                  name={node.nodeType === "material" ? "cube-outline" : "diamond-outline"}
+                  size={16}
+                  color={glass.text.fg55}
+                />
               </View>
             )}
           </View>
 
-          <View className="min-w-0 flex-1">
+          <View style={{ minWidth: 0, flex: 1 }}>
             <Text
-              style={{
-                fontFamily: isRoot
-                  ? APP_FONT_FAMILIES.displayItalic
-                  : APP_FONT_FAMILIES.sansSemiBold,
-              }}
-              className={`${isRoot ? "text-[22px] italic leading-[26px]" : "text-sm"} text-kyar-text dark:text-kyar-dark-text`}
+              style={
+                isRoot
+                  ? {
+                      fontFamily: APP_FONT_FAMILIES.displayItalic,
+                      fontStyle: "italic",
+                      fontSize: 17,
+                      lineHeight: 20,
+                      color: glass.text.fg,
+                    }
+                  : {
+                      fontFamily: APP_FONT_FAMILIES.sansMedium,
+                      fontSize: 13,
+                      lineHeight: 17,
+                      color: glass.text.fg,
+                    }
+              }
               numberOfLines={2}
             >
               {displayName}
             </Text>
             {dropInto ? (
-              <Text className="mt-2 text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+              <GlassMeta size={9} tone="fg70" style={{ marginTop: 3 }}>
                 {t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
-              </Text>
-            ) : null}
-            <View className="mt-1 flex-row flex-wrap items-center gap-2">
-              <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+              </GlassMeta>
+            ) : (
+              <GlassMeta size={9} tone="fg55" style={{ marginTop: 3 }}>
                 {formatNodeTypeLabel(
                   node.nodeType === "element" || node.nodeType === "material"
                     ? node.nodeType
                     : undefined
                 )}
-              </Text>
-              <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                {Math.round(node.progressPercent)}%
-              </Text>
-            </View>
+              </GlassMeta>
+            )}
           </View>
+
+          <GlassStatusChip tone={progressTone(pct)} label={`${pct}%`} />
         </View>
       </Pressable>
 
-      {expanded && detail?.children
-        ? detail.children.map((child, idx) => (
+      {expanded && detail?.children ? (
+        <View
+          style={{
+            marginLeft: 14,
+            paddingLeft: 8,
+            borderLeftWidth: 2,
+            borderLeftColor: glass.border.divider,
+          }}
+        >
+          {detail.children.map((child, idx) => (
             <ExplorerBranch
               key={child._id as string}
               node={{
@@ -274,8 +351,9 @@ function ExplorerBranchImpl({
               dragOverNodeId={dragOverNodeId}
               dragOverZone={dragOverZone}
             />
-          ))
-        : null}
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

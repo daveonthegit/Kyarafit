@@ -24,67 +24,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("react-native", async () => {
-  const { createElement, forwardRef } = await import("react");
-
-  type AnyProps = Record<string, unknown> & { children?: unknown };
-
-  function rnComponent(tag: string, asInput = false) {
-    return forwardRef(function RNComp(props: AnyProps, ref: unknown) {
-      const {
-        children,
-        onPress,
-        onChangeText,
-        accessibilityLabel,
-        accessibilityRole,
-        accessibilityState,
-        testID,
-        value,
-        placeholder,
-        disabled,
-        // RN-only props that are not valid DOM attributes — drop them.
-        multiline: _multiline,
-        editable: _editable,
-        keyboardType: _keyboardType,
-        placeholderTextColor: _placeholderTextColor,
-        numberOfLines: _numberOfLines,
-        className: _className,
-        style: _style,
-        ...rest
-      } = props;
-
-      const state = (accessibilityState ?? {}) as { checked?: boolean; disabled?: boolean };
-      const mapped: Record<string, unknown> = {
-        ref,
-        "aria-label": accessibilityLabel,
-        role: accessibilityRole,
-        "data-testid": testID,
-        ...rest,
-      };
-      if ("checked" in state) mapped["aria-checked"] = String(Boolean(state.checked));
-      if ("disabled" in state) mapped["aria-disabled"] = String(Boolean(state.disabled));
-      if (onPress && !disabled) mapped.onClick = onPress;
-
-      if (asInput) {
-        mapped.value = (value as string) ?? "";
-        mapped.placeholder = placeholder;
-        if (onChangeText) {
-          mapped.onChange = (event: { target: { value: string } }) =>
-            (onChangeText as (text: string) => void)(event.target.value);
-        }
-        return createElement(tag, mapped);
-      }
-      return createElement(tag, mapped, children as never);
-    });
-  }
-
-  return {
-    View: rnComponent("div"),
-    Text: rnComponent("span"),
-    Pressable: rnComponent("div"),
-    ScrollView: rnComponent("div"),
-    TextInput: rnComponent("input", true),
-    ActivityIndicator: rnComponent("div"),
-  };
+  const { createReactNativeMock } = await import("@/test-support/rnMock");
+  return createReactNativeMock();
 });
 
 vi.mock("convex/_generated/api", () => ({

@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { glass, ls, type GlassChipTone } from "@kyarafit/design-system/rn";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 /** Semantic tones used across web (`STATUS_TONE_CLASSES`) → glass chip pairs. */
 export type GlassStatusTone = "neutral" | "warning" | "active" | "success";

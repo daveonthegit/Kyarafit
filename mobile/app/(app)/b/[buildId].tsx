@@ -5,8 +5,11 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
+import { glass } from "@kyarafit/design-system/rn";
 import { DataBoundary } from "@/ui";
+import { PhotoBackdrop } from "@/ui/glass";
 import { APP_HREF } from "@/lib/appRoutes";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { BuildDetailBody } from "@/screens/build-detail/DetailBody";
 
 type BuildRow = Doc<"builds"> & {
@@ -43,8 +46,18 @@ export default function BuildDetailScreen() {
   const router = useRouter();
   const duplicateBuild = useMutation(api.builds.duplicate);
   const removeBuild = useMutation(api.builds.remove);
-  const raw = useLocalSearchParams<{ buildId: string | string[] }>().buildId;
+  const params = useLocalSearchParams<{ buildId: string | string[]; tab?: string | string[] }>();
+  const raw = params.buildId;
   const buildIdParam = Array.isArray(raw) ? raw[0] : raw;
+  const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+  const initialTab =
+    rawTab === "summary" ||
+    rawTab === "explorer" ||
+    rawTab === "tasks" ||
+    rawTab === "board" ||
+    rawTab === "updates"
+      ? rawTab
+      : undefined;
   const id = buildIdParam ? (buildIdParam as Id<"builds">) : undefined;
 
   const identity = useQuery(api.auth.getCurrentUser);
@@ -144,10 +157,20 @@ export default function BuildDetailScreen() {
       data={data}
       error={error}
       empty={
-        <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
-          <Text className="text-center text-kyar-meta dark:text-kyar-dark-meta">
-            {t("builds.notFound")}
-          </Text>
+        <View style={{ flex: 1 }}>
+          <PhotoBackdrop scrim="off" kenBurns={false} />
+          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
+            <Text
+              style={{
+                textAlign: "center",
+                fontFamily: APP_FONT_FAMILIES.sansRegular,
+                fontSize: 13,
+                color: glass.text.fg70,
+              }}
+            >
+              {t("builds.notFound")}
+            </Text>
+          </View>
         </View>
       }
     >
@@ -164,6 +187,7 @@ export default function BuildDetailScreen() {
           collaborators={loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined}
           onDuplicate={loaded.build.userId === loaded.userId ? handleDuplicate : undefined}
           onDelete={loaded.build.userId === loaded.userId ? handleDelete : undefined}
+          initialTab={initialTab}
         />
       )}
     </DataBoundary>

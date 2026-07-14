@@ -17,7 +17,7 @@ import type { Id } from "convex/_generated/dataModel";
 import { FocalCoverImage } from "@/components/FocalCoverImage";
 import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
 import { APP_HREF } from "@/lib/appRoutes";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
 import {

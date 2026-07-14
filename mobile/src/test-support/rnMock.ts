@@ -65,6 +65,33 @@ export async function createReactNativeMock() {
     return createElement("div", { "data-testid": "modal" }, props.children as never);
   }
 
+  // Animated/Easing shims for glass primitives (GlassSheet, PhotoBackdrop):
+  // values are inert, animations resolve immediately.
+  class AnimatedValue {
+    constructor(public value: number) {}
+    setValue(v: number) {
+      this.value = v;
+    }
+    interpolate() {
+      return this;
+    }
+  }
+  const finished = { start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }), stop: () => {} };
+  const Animated = {
+    Value: AnimatedValue,
+    timing: () => finished,
+    parallel: () => finished,
+    sequence: () => finished,
+    loop: () => finished,
+    View: rnComponent("div"),
+    Text: rnComponent("span"),
+  };
+  const Easing = {
+    bezier: () => (t: number) => t,
+    inOut: (fn: unknown) => fn,
+    ease: (t: number) => t,
+  };
+
   return {
     View: rnComponent("div"),
     Text: rnComponent("span"),
@@ -75,5 +102,23 @@ export async function createReactNativeMock() {
     ActivityIndicator: rnComponent("div"),
     Modal,
     Alert: { alert: () => {} },
+    Animated,
+    Easing,
+    StyleSheet: {
+      absoluteFill: {},
+      absoluteFillObject: {},
+      create: (styles: Record<string, unknown>) => styles,
+      flatten: (style: unknown) => style,
+      hairlineWidth: 1,
+    },
+    Platform: { OS: "ios", select: (spec: Record<string, unknown>) => spec.ios ?? spec.default },
+    useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
+    AccessibilityInfo: {
+      isReduceMotionEnabled: () => Promise.resolve(false),
+      addEventListener: () => ({ remove: () => {} }),
+    },
+    Image: rnComponent("img"),
+    RefreshControl: rnComponent("div"),
+    FlatList: rnComponent("div"),
   };
 }

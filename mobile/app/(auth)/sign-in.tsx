@@ -9,7 +9,7 @@ import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { APP_HREF } from "@/lib/appRoutes";
 import { openWebAppPath } from "@/lib/openWebAppPath";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import {
   AUTH_ON_PRIMARY,
   AuthScreenShell,

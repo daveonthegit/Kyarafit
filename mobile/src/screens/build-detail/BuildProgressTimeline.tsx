@@ -1,13 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { can, normalizeTier } from "@kyarafit/design-system/domain/entitlements";
 import { sortProgressUpdates } from "@kyarafit/design-system/domain/mediaGallery";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { useTier } from "@/lib/useTier";
-import { MetaLabel, SurfaceCard } from "@/ui";
+import { GlassStatusChip, GlassTextField } from "@/ui/glass";
+import { GlassBody, GlassMeta, GlassSolidButton } from "./glassAtoms";
 
 /**
  * Build "Progress updates" timeline (PRODUCT_SPEC.md §4.3 REQ-049, AC-07; DESIGN_SYSTEM.md §5).
@@ -16,6 +19,9 @@ import { MetaLabel, SurfaceCard } from "@/ui";
  * timeline immediately (optimistic, offline-capable for the owner). Publishing an update to the
  * social feed is PAID (REQ-018): free users see a non-blocking upgrade hint and the entry stays
  * local. Ordering is delegated to the shared pure `sortProgressUpdates` so web/mobile stay at parity.
+ *
+ * Glass Studio 7.2: light-on-glass restyle only — renders inside the build
+ * detail work panel, so all surfaces are plain token colors (no nested blur).
  */
 
 type ProgressUpdateRow = Doc<"buildProgressUpdates"> & { id: string };
@@ -44,6 +50,13 @@ function parseProgressPercent(raw: string): number | undefined {
   if (Number.isNaN(parsed)) return undefined;
   return Math.max(0, Math.min(100, parsed));
 }
+
+const TIMELINE_CARD = {
+  borderRadius: 12,
+  borderWidth: borderWidth.hairline,
+  borderColor: glass.border.divider,
+  backgroundColor: glass.surface.field,
+} as const;
 
 export function BuildProgressTimeline({ buildId, userId }: Props) {
   const { t } = useTranslation();
@@ -135,19 +148,27 @@ export function BuildProgressTimeline({ buildId, userId }: Props) {
   }, [addUpdate, buildId, busy, canPublish, note, percentText, publish, userId]);
 
   return (
-    <View className="gap-4">
-      <SurfaceCard className="gap-4 px-4 py-4">
+    <View style={{ gap: 16 }}>
+      <View style={{ gap: 14 }}>
         <View>
-          <MetaLabel>
+          <GlassMeta size={9} tone="fg55">
             {t("buildDetail.progressUpdatesLabel", { defaultValue: "Timeline" })}
-          </MetaLabel>
-          <Text className="mt-1 font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
+          </GlassMeta>
+          <Text
+            style={{
+              marginTop: 4,
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontStyle: "italic",
+              fontSize: 24,
+              color: glass.text.fg,
+            }}
+          >
             {t("buildDetail.progressUpdatesTitle", { defaultValue: "Progress updates" })}
           </Text>
         </View>
 
-        <View className="gap-3">
-          <TextInput
+        <View style={{ gap: 10 }}>
+          <GlassTextField
             value={note}
             onChangeText={setNote}
             multiline
@@ -158,9 +179,8 @@ export function BuildProgressTimeline({ buildId, userId }: Props) {
             accessibilityLabel={t("buildDetail.progressUpdateNoteLabel", {
               defaultValue: "Progress update note",
             })}
-            className="min-h-[44px] rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
           />
-          <TextInput
+          <GlassTextField
             value={percentText}
             onChangeText={setPercentText}
             keyboardType="number-pad"
@@ -171,7 +191,6 @@ export function BuildProgressTimeline({ buildId, userId }: Props) {
             accessibilityLabel={t("buildDetail.progressUpdatePercentLabel", {
               defaultValue: "Progress percent",
             })}
-            className="min-h-[44px] rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
           />
 
           <Pressable
@@ -181,129 +200,159 @@ export function BuildProgressTimeline({ buildId, userId }: Props) {
             accessibilityLabel={t("buildDetail.progressUpdatePublishLabel", {
               defaultValue: "Publish update to social feed",
             })}
-            className="min-h-[44px] flex-row items-center justify-between gap-3 rounded-2xl border border-kyar-borderSubtle px-4 py-3 dark:border-kyar-dark-borderSubtle"
+            style={[
+              TIMELINE_CARD,
+              {
+                minHeight: 44,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              },
+            ]}
           >
-            <Text className="min-w-0 flex-1 text-sm text-kyar-text dark:text-kyar-dark-text">
+            <GlassBody size={13} tone="fg" style={{ minWidth: 0, flex: 1 }}>
               {t("buildDetail.progressUpdatePublish", { defaultValue: "Publish to feed" })}
-            </Text>
+            </GlassBody>
             <View
-              className={`h-6 w-11 justify-center rounded-full px-0.5 ${
-                publish
-                  ? "bg-kyar-text dark:bg-kyar-dark-text"
-                  : "bg-kyar-panelRaised dark:bg-kyar-dark-panelRaised"
-              }`}
+              style={{
+                height: 24,
+                width: 44,
+                justifyContent: "center",
+                borderRadius: 12,
+                paddingHorizontal: 2,
+                backgroundColor: publish ? glass.surface.solid : glass.surface.bar,
+                borderWidth: publish ? 0 : 1,
+                borderColor: glass.border.default,
+              }}
             >
               <View
-                className={`h-5 w-5 rounded-full bg-kyar-bg dark:bg-kyar-dark-bg ${
-                  publish ? "self-end" : "self-start"
-                }`}
+                style={{
+                  height: 18,
+                  width: 18,
+                  borderRadius: 9,
+                  alignSelf: publish ? "flex-end" : "flex-start",
+                  backgroundColor: publish ? glass.text.ink : glass.text.fg70,
+                }}
               />
             </View>
           </Pressable>
 
           {!canPublish && showUpgradeHint ? (
-            <Text
-              accessibilityRole="alert"
-              className="rounded-2xl bg-kyar-panel px-4 py-3 text-sm leading-5 text-kyar-textSecondary dark:bg-kyar-dark-panel dark:text-kyar-dark-textSecondary"
-            >
-              {t("buildDetail.progressUpdatePublishUpgrade", {
-                defaultValue:
-                  "Publishing updates to the feed is a paid feature. This update will stay private on your timeline.",
-              })}
-            </Text>
+            <View style={[TIMELINE_CARD, { paddingHorizontal: 12, paddingVertical: 10 }]}>
+              <GlassBody size={13} tone="fg70" accessibilityRole="alert">
+                {t("buildDetail.progressUpdatePublishUpgrade", {
+                  defaultValue:
+                    "Publishing updates to the feed is a paid feature. This update will stay private on your timeline.",
+                })}
+              </GlassBody>
+            </View>
           ) : null}
 
           {error ? (
-            <Text className="text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+            <GlassBody size={13} tone="danger">
+              {error}
+            </GlassBody>
           ) : null}
 
-          <Pressable
+          <GlassSolidButton
+            label={
+              busy
+                ? t("buildDetail.progressUpdateAdding", { defaultValue: "Adding…" })
+                : t("buildDetail.progressUpdateAdd", { defaultValue: "Add update" })
+            }
             onPress={() => void onSubmit()}
             disabled={!canSubmit}
-            accessibilityRole="button"
             accessibilityState={{ disabled: !canSubmit }}
             accessibilityLabel={t("buildDetail.progressUpdateAddLabel", {
               defaultValue: "Add progress update",
             })}
-            className="min-h-[44px] items-center justify-center rounded-full bg-kyar-text py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
-          >
-            <Text className="text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-              {busy
-                ? t("buildDetail.progressUpdateAdding", { defaultValue: "Adding…" })
-                : t("buildDetail.progressUpdateAdd", { defaultValue: "Add update" })}
-            </Text>
-          </Pressable>
+          />
         </View>
-      </SurfaceCard>
+      </View>
 
       {loading ? (
-        <View className="items-center py-10">
-          <ActivityIndicator />
+        <View style={{ alignItems: "center", paddingVertical: 40 }}>
+          <ActivityIndicator color={glass.text.fg70} />
         </View>
       ) : timeline.length === 0 ? (
-        <SurfaceCard className="items-center gap-2 px-4 py-10">
-          <Text className="text-center text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+        <View
+          style={[
+            TIMELINE_CARD,
+            { alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 36 },
+          ]}
+        >
+          <GlassBody size={14} tone="fg" semiBold style={{ textAlign: "center" }}>
             {t("buildDetail.progressUpdatesEmptyTitle", {
               defaultValue: "No progress updates yet",
             })}
-          </Text>
-          <Text className="text-center text-sm leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          </GlassBody>
+          <GlassBody size={13} tone="fg55" style={{ textAlign: "center" }}>
             {t("buildDetail.progressUpdatesEmptyBody", {
               defaultValue: "Add your first progress update to start your timeline.",
             })}
-          </Text>
-        </SurfaceCard>
+          </GlassBody>
+        </View>
       ) : (
-        <View className="gap-3">
+        <View style={{ gap: 10 }}>
           {timeline.map((update, index) => (
-            <SurfaceCard key={update.id ?? (update._id as string)} className="gap-2 px-4 py-4">
+            <View
+              key={update.id ?? (update._id as string)}
+              style={[TIMELINE_CARD, { gap: 8, paddingHorizontal: 14, paddingVertical: 14 }]}
+            >
               <View
                 accessibilityRole="text"
                 accessibilityLabel={t("buildDetail.progressUpdateEntryLabel", {
                   defaultValue: "Progress update",
                 })}
-                className="flex-row items-center justify-between gap-3"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
               >
-                <MetaLabel>{formatTimelineDate(update.createdAt)}</MetaLabel>
-                <View className="flex-row items-center gap-2">
+                <GlassMeta size={9} tone="fg55">
+                  {formatTimelineDate(update.createdAt)}
+                </GlassMeta>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   {typeof update.progressPercent === "number" ? (
-                    <View className="rounded-full bg-kyar-panel px-3 py-1 dark:bg-kyar-dark-panel">
-                      <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                        {t("buildDetail.progressUpdatePercentBadge", {
-                          defaultValue: `${Math.round(update.progressPercent)}%`,
-                          pct: Math.round(update.progressPercent),
-                        })}
-                      </Text>
-                    </View>
+                    <GlassStatusChip
+                      tone="neutral"
+                      label={t("buildDetail.progressUpdatePercentBadge", {
+                        defaultValue: `${Math.round(update.progressPercent)}%`,
+                        pct: Math.round(update.progressPercent),
+                      })}
+                    />
                   ) : null}
                   {update.publishedToFeed ? (
-                    <View className="rounded-full bg-kyar-text px-3 py-1 dark:bg-kyar-dark-text">
-                      <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-                        {t("buildDetail.progressUpdatePublished", { defaultValue: "Published" })}
-                      </Text>
-                    </View>
+                    <GlassStatusChip
+                      tone="active"
+                      label={t("buildDetail.progressUpdatePublished", {
+                        defaultValue: "Published",
+                      })}
+                    />
                   ) : null}
                 </View>
               </View>
 
               {update.note ? (
-                <Text
-                  testID={`progress-update-note-${index}`}
-                  className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                >
+                <GlassBody size={13} tone="fg70" testID={`progress-update-note-${index}`}>
                   {update.note}
-                </Text>
+                </GlassBody>
               ) : null}
 
               {(update.imageRefs?.length ?? 0) > 0 ? (
-                <Text className="text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                <GlassMeta size={9} tone="fg55">
                   {t("buildDetail.progressUpdatePhotoCount", {
                     defaultValue: `${update.imageRefs?.length ?? 0} photo(s)`,
                     count: update.imageRefs?.length ?? 0,
                   })}
-                </Text>
+                </GlassMeta>
               ) : null}
-            </SurfaceCard>
+            </View>
           ))}
         </View>
       )}

@@ -29,7 +29,7 @@ import {
   restoreRevenueCatPurchases,
 } from "@/lib/revenuecat";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
 
