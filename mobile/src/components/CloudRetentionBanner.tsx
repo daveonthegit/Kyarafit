@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import { cloudRetentionBanner } from "@kyarafit/design-system/domain/tierTransition";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { useTier } from "@/lib/useTier";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 function formatDate(ts: number): string {
   try {
@@ -51,10 +53,24 @@ export function CloudRetentionBanner({ now = Date.now() }: { now?: number }) {
           });
 
   return (
-    <View className="border-b border-kyar-border bg-kyar-accentSoft px-4 py-2 dark:border-kyar-dark-border dark:bg-kyar-dark-accentSoft">
+    <View
+      style={{
+        borderRadius: 12,
+        borderWidth: borderWidth.hairline,
+        borderColor: glass.border.default,
+        backgroundColor: glass.fallback.overlay,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+      }}
+    >
       <Text
         accessibilityRole="text"
-        className="text-center text-xs font-medium text-kyar-text dark:text-kyar-dark-text"
+        style={{
+          textAlign: "center",
+          fontFamily: APP_FONT_FAMILIES.sansMedium,
+          fontSize: 12,
+          color: glass.text.fg,
+        }}
       >
         {message}
       </Text>

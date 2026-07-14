@@ -1,4 +1,5 @@
 import { Redirect, Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 import { useSession } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -20,16 +21,20 @@ export default function AppGroupLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        // Glass chrome defaults for screens that opt into a header
-        // (discover, feed, itinerary, packing) — headers stay hidden unless
-        // a screen shows one.
-        ...glassHeaderOptions(),
-        headerShown: false,
-        gestureEnabled: true,
-        fullScreenGestureEnabled: true,
-      }}
-    />
+    <>
+      {/* In-app chrome is glass-dark on every screen (QA-6) — light status icons. */}
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          // Glass chrome defaults for screens that opt into a header
+          // (discover, feed, itinerary, packing) — headers stay hidden unless
+          // a screen shows one.
+          ...glassHeaderOptions(),
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
+    </>
   );
 }

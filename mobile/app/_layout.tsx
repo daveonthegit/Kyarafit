@@ -2,9 +2,9 @@ import "../global.css";
 import { useEffect, useState, type ReactNode } from "react";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +27,7 @@ import { useAppFonts } from "@/theme/appFonts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
+import { SyncStatusChip } from "@/components/SyncStatusChip";
 import { SyncWorkerProvider } from "@/offline";
 import { RevenueCatBootstrap } from "@/components/RevenueCatBootstrap";
 
@@ -100,8 +101,6 @@ function RootLayoutNav() {
 
   return (
     <View className="flex-1">
-      <ConnectivityBanner />
-      <CloudRetentionBanner />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -114,6 +113,35 @@ function RootLayoutNav() {
         <Stack.Screen name="(app)" />
         <Stack.Screen name="(public)" />
       </Stack>
+      <GlobalStatusChrome />
+    </View>
+  );
+}
+
+/**
+ * Status surfaces float over the navigator instead of pushing it down —
+ * in-flow top banners doubled the header's status-bar inset and collided
+ * with the clock/dynamic island. Strips sit below the status bar; the sync
+ * chip anchors bottom-left above the tab bar (03-component-changes).
+ */
+function GlobalStatusChrome() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          top: insets.top + 8,
+          left: 12,
+          right: 12,
+          gap: 8,
+        }}
+      >
+        <ConnectivityBanner />
+        <CloudRetentionBanner />
+      </View>
+      <SyncStatusChip />
     </View>
   );
 }
