@@ -1,4 +1,12 @@
-import { Pressable, Text, View, type PressableProps } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { glass, ls } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
@@ -7,6 +15,8 @@ type Variant = "solid" | "outline" | "text";
 type Size = "md" | "sm";
 
 type PhotoPillProps = Omit<PressableProps, "children" | "style"> & {
+  /** Merged after the variant styles (also arrives via Link asChild). */
+  style?: StyleProp<ViewStyle>;
   /**
    * solid — the ONE primary per view: solid light fill, ink text (QA-3).
    * outline — secondary: glass-outline pill on bar-weight glass.
@@ -37,6 +47,7 @@ export function PhotoPill({
   icon,
   label,
   disabled,
+  style,
   ...rest
 }: PhotoPillProps) {
   const sizing = SIZES[size];
@@ -45,9 +56,12 @@ export function PhotoPill({
   return (
     <Pressable
       accessibilityRole="button"
+      {...rest}
       disabled={disabled}
       className="active:opacity-80"
-      style={[
+      // Flattened merge — Link asChild injects a style prop, which must not
+      // replace the variant styles (and Slot rejects array styles).
+      style={StyleSheet.flatten([
         {
           flexDirection: "row",
           alignItems: "center",
@@ -65,8 +79,8 @@ export function PhotoPill({
           borderColor: glass.border.strong,
         },
         disabled ? { opacity: 0.25 } : null,
-      ]}
-      {...rest}
+        style,
+      ])}
     >
       {icon ? (
         <Ionicons name={icon} size={size === "sm" ? 14 : 15} color={foreground} />
