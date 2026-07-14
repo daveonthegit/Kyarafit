@@ -80,8 +80,8 @@ export function GlassSheet({ open, onClose, closeLabel, children }: GlassSheetPr
       </Animated.View>
       <View style={{ flex: 1, justifyContent: "flex-end" }} pointerEvents="box-none">
         <Animated.View style={{ transform: [{ translateY }] }}>
+          {/* Real blur — matches the nav drawer's live-glass overlay. */}
           <GlassOverlay
-            onWall
             style={{ borderRadius: 0 }}
             surfaceStyle={{
               borderTopLeftRadius: glass.radius.sheet,

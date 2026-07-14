@@ -129,8 +129,9 @@ export function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () 
           transform: [{ translateX }],
         }}
       >
+        {/* Real blur (overlay weight) — the screen behind reads through the
+            frost; iOS UIVisualEffectView blurs through the Modal layer. */}
         <GlassOverlay
-          onWall
           style={{ flex: 1, borderRadius: 0 }}
           surfaceStyle={{
             flex: 1,
