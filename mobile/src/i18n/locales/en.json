@@ -986,7 +986,9 @@
     "resendVerification": "Resend verification email",
     "verifyResent": "Verification email sent. Check your inbox (and spam folder).",
     "resendFailed": "Could not resend. Try again.",
-    "verifySpamHint": "Did not receive anything? Check spam or try resend above."
+    "verifySpamHint": "Did not receive anything? Check spam or try resend above.",
+    "joinEyebrow": "Join",
+    "accountRecovery": "Account recovery"
   },
   "devGallery": {
     "title": "Glass Studio",
@@ -1016,5 +1018,12 @@
     "emptyMessage": "No photos yet",
     "emptySecondary": "Add reference shots to build your board.",
     "emptyCta": "Add photo"
+  },
+  "landing": {
+    "kicker": "The cosplay studio planner",
+    "headline": "Made by hand.\nPlanned to the seam.",
+    "subcopy": "Every element, task, and convention day for your next build — tracked in one quiet studio that works offline.",
+    "ctaPrimary": "Start planning — free",
+    "ctaMeta": "No account · runs on your device"
   }
 }

@@ -11,6 +11,7 @@ export const APP_HREF = {
   elements: href("/(app)/(tabs)/elements"),
   planner: href("/(app)/(tabs)/planner"),
   more: href("/(app)/(tabs)/more"),
+  welcome: href("/(auth)/welcome"),
   signIn: href("/(auth)/sign-in"),
   signInResetSuccess: href("/(auth)/sign-in?reset=success"),
   signUp: href("/(auth)/sign-up"),

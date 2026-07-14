@@ -1,30 +1,31 @@
 import { useState } from "react";
-import { Text, TextInput, Pressable, ActivityIndicator, View } from "react-native";
+import { Text, Pressable, View } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { glass } from "@kyarafit/design-system/rn";
 import { authClient, setStoredBearerToken } from "@/lib/auth/client";
 import { startSocialSignIn } from "@/lib/auth/startSocialSignIn";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { APP_HREF } from "@/lib/appRoutes";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { GlassTextField } from "@/ui/glass";
+import { GoogleLogo } from "@/components/auth/AuthScreenShell";
 import {
-  AUTH_ON_PRIMARY,
-  AuthScreenShell,
-  GoogleLogo,
-  authFieldInputCls,
-  authMetaLabelCls,
-  authOAuthLabelCls,
-  authPrimaryBtnWebCls,
-  authSocialBtnCls,
-} from "@/components/auth/AuthScreenShell";
+  AuthGlassDivider,
+  AuthGlassErrorBanner,
+  AuthGlassFrame,
+  AuthGlassLink,
+  AuthGlassOutlineButton,
+  AuthGlassSolidButton,
+  AuthGlassSuccessBanner,
+  authGlassLabelStyle,
+  authGlassLinkTextStyle,
+} from "@/components/auth/AuthGlassFrame";
 
 export default function SignInScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { colors } = useDesignTheme();
   const { reset: resetParam } = useLocalSearchParams<{ reset?: string }>();
   const resetSuccess = resetParam === "success";
 
@@ -142,109 +143,81 @@ export default function SignInScreen() {
   }
 
   return (
-    <AuthScreenShell>
-      <View className="mb-10 w-full items-center">
-        <Text className={`mb-2 text-center ${authMetaLabelCls} opacity-40`}>
-          {t("auth.welcomeTo")}
-        </Text>
-        <Text
-          className="text-center text-4xl italic text-kyar-text"
-          style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-        >
-          {t("common.appName")}
-        </Text>
-      </View>
-
+    <AuthGlassFrame eyebrow={t("auth.welcomeTo")} title={t("common.appName")}>
       {(error || resetSuccess || info) && (
-        <View className="mb-4 w-full gap-3">
-          {error ? (
-            <View className="border border-kyar-danger bg-kyar-surface px-4 py-3 dark:border-kyar-dark-danger dark:bg-kyar-dark-surface">
-              <Text className="text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
-            </View>
-          ) : null}
+        <View style={{ marginBottom: 16, gap: 12 }}>
+          {error ? <AuthGlassErrorBanner message={error} /> : null}
           {(info || resetSuccess) && (
-            <View className="border border-kyar-accent bg-kyar-accentSoft px-4 py-3 dark:border-kyar-dark-accent dark:bg-kyar-dark-accentSoft">
-              <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                {resetSuccess ? t("auth.passwordResetSuccess") : info}
-              </Text>
-            </View>
+            <AuthGlassSuccessBanner
+              message={resetSuccess ? t("auth.passwordResetSuccess") : (info ?? "")}
+            />
           )}
         </View>
       )}
 
-      <View className="mb-6 w-full gap-3">
-        <Pressable className={authSocialBtnCls} onPress={() => onOAuth("google")} disabled={busy}>
-          {oauthLoading === "google" ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              <GoogleLogo />
-              <Text className={authOAuthLabelCls}>{t("auth.continueWithGoogle")}</Text>
-            </>
-          )}
-        </Pressable>
-
-        <Pressable className={authSocialBtnCls} onPress={() => onOAuth("apple")} disabled={busy}>
-          {oauthLoading === "apple" ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="apple" size={16} color="#171529" />
-              <Text className={authOAuthLabelCls}>{t("auth.continueWithApple")}</Text>
-            </>
-          )}
-        </Pressable>
+      <View style={{ marginBottom: 24, gap: 12 }}>
+        <AuthGlassOutlineButton
+          label={t("auth.continueWithGoogle")}
+          leading={<GoogleLogo />}
+          loading={oauthLoading === "google"}
+          onPress={() => onOAuth("google")}
+          disabled={busy}
+        />
+        <AuthGlassOutlineButton
+          label={t("auth.continueWithApple")}
+          leading={<MaterialCommunityIcons name="apple" size={16} color={glass.text.fg} />}
+          loading={oauthLoading === "apple"}
+          onPress={() => onOAuth("apple")}
+          disabled={busy}
+        />
       </View>
 
-      <View className="mb-6 w-full flex-row items-center gap-3">
-        <View className="h-px flex-1 bg-kyar-border" />
-        <Text className="text-xs text-kyar-textTertiary">{t("auth.orDivider")}</Text>
-        <View className="h-px flex-1 bg-kyar-border" />
+      <View style={{ marginBottom: 24 }}>
+        <AuthGlassDivider label={t("auth.orDivider")} />
       </View>
 
       {signInWithEmail ? (
-        <>
-          <Text className={authMetaLabelCls}>{t("common.email")}</Text>
-          <TextInput
-            className={authFieldInputCls}
-            placeholderTextColor={colors.textTertiary}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-          />
-        </>
+        <GlassTextField
+          label={t("common.email")}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+        />
       ) : (
-        <>
-          <Text className={authMetaLabelCls}>{t("auth.username")}</Text>
-          <TextInput
-            className={authFieldInputCls}
-            placeholderTextColor={colors.textTertiary}
-            autoCapitalize="none"
-            autoComplete="username"
-            textContentType="username"
-            value={username}
-            onChangeText={setUsername}
-            placeholder={t("auth.usernameSignInPlaceholder")}
-          />
-        </>
+        <GlassTextField
+          label={t("auth.username")}
+          autoCapitalize="none"
+          autoComplete="username"
+          textContentType="username"
+          value={username}
+          onChangeText={setUsername}
+          placeholder={t("auth.usernameSignInPlaceholder")}
+        />
       )}
 
-      <View className="mt-4 w-full flex-row items-center justify-between">
-        <Text className={authMetaLabelCls}>{t("common.password")}</Text>
+      <View
+        style={{
+          marginTop: 16,
+          marginBottom: 6,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text style={authGlassLabelStyle}>{t("common.password")}</Text>
         <Link href={APP_HREF.forgotPassword} asChild>
-          <Pressable className="py-1">
-            <Text className="text-xs text-kyar-textTertiary underline">
-              {t("auth.forgotPassword")}
-            </Text>
+          <Pressable
+            className="active:opacity-80"
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text style={authGlassLinkTextStyle}>{t("auth.forgotPassword")}</Text>
           </Pressable>
         </Link>
       </View>
-      <TextInput
-        className={authFieldInputCls}
-        placeholderTextColor={colors.textTertiary}
+      <GlassTextField
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -255,22 +228,18 @@ export default function SignInScreen() {
         placeholder="••••••••"
       />
 
-      <Pressable className={authPrimaryBtnWebCls} onPress={onSubmit} disabled={busy}>
-        {submitting ? (
-          <ActivityIndicator color={AUTH_ON_PRIMARY} />
-        ) : (
-          <Text className="text-xs font-semibold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-            {t("common.signIn")}
-          </Text>
-        )}
-      </Pressable>
+      <AuthGlassSolidButton
+        label={t("common.signIn")}
+        loading={submitting}
+        onPress={onSubmit}
+        disabled={busy}
+        style={{ marginTop: 16 }}
+      />
 
       {showResendVerification ? (
-        <View className="mt-4 w-full gap-2">
-          <Text className={authMetaLabelCls}>{t("auth.resendVerificationHint")}</Text>
-          <TextInput
-            className={authFieldInputCls}
-            placeholderTextColor={colors.textTertiary}
+        <View style={{ marginTop: 16, gap: 8 }}>
+          <Text style={authGlassLabelStyle}>{t("auth.resendVerificationHint")}</Text>
+          <GlassTextField
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
@@ -278,67 +247,114 @@ export default function SignInScreen() {
             onChangeText={setEmail}
             placeholder="you@example.com"
           />
-          <Pressable
-            className="w-full items-center rounded-none border border-kyar-border bg-transparent py-3 active:opacity-90 dark:border-kyar-dark-border"
+          <AuthGlassOutlineButton
+            label={t("auth.resendVerification")}
+            loading={resendLoading}
             onPress={onResendVerification}
             disabled={busy || resendLoading || !email.trim()}
-          >
-            {resendLoading ? (
-              <ActivityIndicator />
-            ) : (
-              <Text className={authOAuthLabelCls}>{t("auth.resendVerification")}</Text>
-            )}
-          </Pressable>
+          />
         </View>
       ) : null}
 
-      <Pressable
-        className="mt-4 self-center py-2"
+      <AuthGlassLink
+        label={
+          signInWithEmail ? t("auth.signInWithUsernameInstead") : t("auth.signInWithEmailInstead")
+        }
+        style={{ marginTop: 8 }}
         onPress={() => {
           setSignInWithEmail(!signInWithEmail);
           setError(null);
           setInfo(null);
         }}
-      >
-        <Text className="text-xs text-kyar-textTertiary underline">
-          {signInWithEmail ? t("auth.signInWithUsernameInstead") : t("auth.signInWithEmailInstead")}
-        </Text>
-      </Pressable>
+      />
 
-      <View className="mt-6 w-full items-center">
-        <Text className="text-center text-xs text-kyar-textTertiary">
+      <View
+        style={{
+          marginTop: 4,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: authGlassLinkTextStyle.fontFamily,
+            fontSize: 12,
+            color: glass.text.fg55,
+          }}
+        >
           {t("auth.dontHaveAccount")}{" "}
-          <Link href={APP_HREF.signUp} asChild>
-            <Pressable className="active:opacity-80">
-              <Text className="text-xs text-kyar-textTertiary underline">
-                {t("auth.createOne")}
-              </Text>
-            </Pressable>
-          </Link>
         </Text>
+        <Link href={APP_HREF.signUp} asChild>
+          <Pressable
+            className="active:opacity-80"
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text style={authGlassLinkTextStyle}>{t("auth.createOne")}</Text>
+          </Pressable>
+        </Link>
       </View>
 
-      <View className="mt-4 w-full flex-row flex-wrap items-center justify-center px-2">
-        <Text className="text-center text-xs leading-5 text-kyar-textTertiary">
+      <View
+        style={{
+          marginTop: 4,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: authGlassLinkTextStyle.fontFamily,
+            fontSize: 12,
+            lineHeight: 20,
+            color: glass.text.fg55,
+          }}
+        >
           {t("auth.readOur")}{" "}
         </Text>
-        <Pressable onPress={() => void openWebAppPath("/privacy", t)} className="active:opacity-80">
-          <Text className="text-xs leading-5 text-kyar-textTertiary underline">
-            {t("auth.privacyPolicyName")}
-          </Text>
+        <Pressable
+          onPress={() => void openWebAppPath("/privacy", t)}
+          className="active:opacity-80"
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Text style={authGlassLinkTextStyle}>{t("auth.privacyPolicyName")}</Text>
         </Pressable>
-        <Text className="text-xs leading-5 text-kyar-textTertiary">{` ${t("auth.andConj")} `}</Text>
-        <Pressable onPress={() => void openWebAppPath("/terms", t)} className="active:opacity-80">
-          <Text className="text-xs leading-5 text-kyar-textTertiary underline">
-            {t("auth.termsOfServiceName")}
-          </Text>
+        <Text
+          style={{
+            fontFamily: authGlassLinkTextStyle.fontFamily,
+            fontSize: 12,
+            lineHeight: 20,
+            color: glass.text.fg55,
+          }}
+        >{` ${t("auth.andConj")} `}</Text>
+        <Pressable
+          onPress={() => void openWebAppPath("/terms", t)}
+          className="active:opacity-80"
+          style={{ minHeight: 44, justifyContent: "center" }}
+        >
+          <Text style={authGlassLinkTextStyle}>{t("auth.termsOfServiceName")}</Text>
         </Pressable>
-        <Text className="text-xs leading-5 text-kyar-textTertiary">.</Text>
+        <Text
+          style={{
+            fontFamily: authGlassLinkTextStyle.fontFamily,
+            fontSize: 12,
+            lineHeight: 20,
+            color: glass.text.fg55,
+          }}
+        >
+          .
+        </Text>
       </View>
 
-      <Pressable className="mt-8 items-center py-2" onPress={() => void openWebAppPath("/", t)}>
-        <Text className="text-xs text-kyar-textTertiary">{t("auth.backToHome")}</Text>
-      </Pressable>
-    </AuthScreenShell>
+      <AuthGlassLink
+        label={t("auth.backToHome")}
+        textStyle={{ textDecorationLine: "none", color: glass.text.fg55 }}
+        style={{ marginTop: 8 }}
+        onPress={() => router.replace(APP_HREF.welcome)}
+      />
+    </AuthGlassFrame>
   );
 }

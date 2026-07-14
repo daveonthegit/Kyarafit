@@ -1,25 +1,22 @@
 import { useState } from "react";
-import { Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
 import { mobileResetPasswordRedirectUrl } from "@/lib/auth/callback-url";
 import { APP_HREF } from "@/lib/appRoutes";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { GlassTextField } from "@/ui/glass";
 import {
-  AUTH_ON_PRIMARY,
-  AuthScreenShell,
-  authFieldInputCls,
-  authFooterTextCls,
-  authLabelCls,
-  authSuccessCls,
-  authSubtitleCls,
-  authTitleCls,
-} from "@/components/auth/AuthScreenShell";
+  AuthGlassErrorBanner,
+  AuthGlassFrame,
+  AuthGlassSolidButton,
+  AuthGlassSuccessBanner,
+  authGlassBodyStyle,
+  authGlassLinkTextStyle,
+} from "@/components/auth/AuthGlassFrame";
 
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -47,14 +44,28 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <AuthScreenShell>
-      <Text className={authTitleCls}>{t("auth.forgotPasswordTitle")}</Text>
-      <Text className={authSubtitleCls}>{t("auth.forgotPasswordHint")}</Text>
+    <AuthGlassFrame
+      icon="mail-unread-outline"
+      eyebrow={t("auth.accountRecovery", { defaultValue: "Account recovery" })}
+      title={t("auth.forgotPasswordTitle")}
+    >
+      <Text style={[authGlassBodyStyle, { textAlign: "center", marginBottom: 20 }]}>
+        {t("auth.forgotPasswordHint")}
+      </Text>
 
-      <Text className={`mt-8 ${authLabelCls}`}>{t("common.email")}</Text>
-      <TextInput
-        className={authFieldInputCls}
-        placeholderTextColor={colors.textTertiary}
+      {error ? (
+        <View style={{ marginBottom: 16 }}>
+          <AuthGlassErrorBanner message={error} />
+        </View>
+      ) : null}
+      {info ? (
+        <View style={{ marginBottom: 16 }}>
+          <AuthGlassSuccessBanner message={info} />
+        </View>
+      ) : null}
+
+      <GlassTextField
+        label={t("common.email")}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -63,30 +74,22 @@ export default function ForgotPasswordScreen() {
         placeholder="you@example.com"
       />
 
-      {error ? (
-        <Text className="mt-3 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
-      ) : null}
-      {info ? <Text className={authSuccessCls}>{info}</Text> : null}
-
-      <Pressable
-        className="mt-8 items-center rounded-xl bg-kyar-text py-4 active:opacity-90 dark:bg-kyar-dark-text"
+      <AuthGlassSolidButton
+        label={t("auth.sendResetLink")}
+        loading={submitting}
         onPress={onSubmit}
         disabled={submitting || !email.trim()}
-      >
-        {submitting ? (
-          <ActivityIndicator color={AUTH_ON_PRIMARY} />
-        ) : (
-          <Text className="text-base font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-            {t("auth.sendResetLink")}
-          </Text>
-        )}
-      </Pressable>
+        style={{ marginTop: 20 }}
+      />
 
       <Link href={APP_HREF.signIn} asChild>
-        <Pressable className="mt-6">
-          <Text className={authFooterTextCls}>{t("auth.backToSignIn")}</Text>
+        <Pressable
+          className="active:opacity-80"
+          style={{ marginTop: 12, minHeight: 44, justifyContent: "center", alignSelf: "center" }}
+        >
+          <Text style={authGlassLinkTextStyle}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       </Link>
-    </AuthScreenShell>
+    </AuthGlassFrame>
   );
 }

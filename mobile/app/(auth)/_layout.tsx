@@ -1,17 +1,28 @@
 import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { glass } from "@kyarafit/design-system/rn";
 import { useSession } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+
+/** Auth lives in the photo-dark studio world — no cream, no theme flip. */
+const STUDIO_WALL_BG = glass.scrim.studioWall.stops[1].color;
 
 export default function AuthGroupLayout() {
   const { session, loading } = useSession();
-  const { colors } = useDesignTheme();
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-kyar-bg dark:bg-kyar-dark-bg">
-        <ActivityIndicator color={colors.text} />
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: STUDIO_WALL_BG,
+        }}
+      >
+        <StatusBar style="light" />
+        <ActivityIndicator color={glass.text.fg} />
       </View>
     );
   }
@@ -21,13 +32,16 @@ export default function AuthGroupLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.bg },
-        gestureEnabled: true,
-        fullScreenGestureEnabled: true,
-      }}
-    />
+    <>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: STUDIO_WALL_BG },
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
+    </>
   );
 }

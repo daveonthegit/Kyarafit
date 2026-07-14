@@ -986,7 +986,9 @@
     "resendVerification": "Reenviar correo de verificación",
     "verifyResent": "Correo de verificación enviado. Revisa tu bandeja (y spam).",
     "resendFailed": "No se pudo reenviar. Inténtalo de nuevo.",
-    "verifySpamHint": "¿No llegó nada? Revisa spam o usa reenviar arriba."
+    "verifySpamHint": "¿No llegó nada? Revisa spam o usa reenviar arriba.",
+    "joinEyebrow": "Únete",
+    "accountRecovery": "Recuperación de cuenta"
   },
   "devGallery": {
     "title": "Glass Studio",
@@ -1016,5 +1018,12 @@
     "emptyMessage": "Aún no hay fotos",
     "emptySecondary": "Agrega fotos de referencia para armar tu tablero.",
     "emptyCta": "Agregar foto"
+  },
+  "landing": {
+    "kicker": "El planificador de estudio de cosplay",
+    "headline": "Hecho a mano.\nPlaneado hasta la costura.",
+    "subcopy": "Cada elemento, tarea y día de convención de tu próximo proyecto, en un estudio silencioso que funciona sin conexión.",
+    "ctaPrimary": "Empieza a planificar — gratis",
+    "ctaMeta": "Sin cuenta · funciona en tu dispositivo"
   }
 }

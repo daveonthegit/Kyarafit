@@ -986,7 +986,9 @@
     "resendVerification": "確認メールを再送信",
     "verifyResent": "確認メールを送信しました。受信トレイ（と迷惑メール）を確認してください。",
     "resendFailed": "再送信できませんでした。もう一度お試しください。",
-    "verifySpamHint": "届きませんか？迷惑メールを確認するか、上から再送信してください。"
+    "verifySpamHint": "届きませんか？迷惑メールを確認するか、上から再送信してください。",
+    "joinEyebrow": "参加",
+    "accountRecovery": "アカウントの復元"
   },
   "devGallery": {
     "title": "Glass Studio",
@@ -1016,5 +1018,12 @@
     "emptyMessage": "写真がまだありません",
     "emptySecondary": "参考写真を追加してボードを作りましょう。",
     "emptyCta": "写真を追加"
+  },
+  "landing": {
+    "kicker": "コスプレスタジオプランナー",
+    "headline": "手づくりのものを、\n縫い目まで計画する。",
+    "subcopy": "次のビルドのエレメント、タスク、イベント当日まで——オフラインでも使える静かなスタジオでまとめて管理。",
+    "ctaPrimary": "無料で計画を始める",
+    "ctaMeta": "アカウント不要 · 端末上で動作"
   }
 }

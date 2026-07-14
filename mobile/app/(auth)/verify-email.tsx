@@ -1,15 +1,24 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Link, useLocalSearchParams } from "expo-router";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { useTranslation } from "react-i18next";
+import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { authClient } from "@/lib/auth/client";
 import { mobileEmailCallbackUrl } from "@/lib/auth/callback-url";
 import { APP_HREF } from "@/lib/appRoutes";
 import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { AUTH_ON_PRIMARY, AuthScreenShell } from "@/components/auth/AuthScreenShell";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import {
+  AuthGlassErrorBanner,
+  AuthGlassFrame,
+  AuthGlassOutlineButton,
+  AuthGlassSolidButton,
+  AuthGlassSuccessBanner,
+  authGlassBodyStyle,
+  authGlassLinkTextStyle,
+} from "@/components/auth/AuthGlassFrame";
 
 function singleParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -23,7 +32,6 @@ function isSafeToken(t: string): boolean {
 
 export default function VerifyEmailScreen() {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
   const params = useLocalSearchParams();
   const email = singleParam(params.email);
   const token = singleParam(params.token);
@@ -81,72 +89,76 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <AuthScreenShell>
-      <Text className="text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-        {t("auth.checkYourEmail")}
-      </Text>
-      <Text className="mt-2 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+    <AuthGlassFrame icon="mail-unread-outline" title={t("auth.checkYourEmail")}>
+      <Text style={[authGlassBodyStyle, { textAlign: "center" }]}>
         {t("auth.verifyEmailBody")}
         {email ? ` ${email}` : ""}.
       </Text>
 
       {token && verifyUrl ? (
-        <View className="mt-6 rounded-xl border border-kyar-border bg-kyar-surface p-4 dark:border-kyar-dark-border dark:bg-kyar-dark-surface">
-          <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("auth.verifyTokenHint")}
-          </Text>
-          <Pressable
-            className="mt-4 items-center rounded-lg bg-kyar-text py-3 active:opacity-90 dark:bg-kyar-dark-text"
+        <View
+          style={{
+            marginTop: 20,
+            borderWidth: borderWidth.hairline,
+            borderColor: glass.border.default,
+            borderRadius: 10,
+            backgroundColor: glass.surface.field,
+            padding: 16,
+          }}
+        >
+          <Text style={authGlassBodyStyle}>{t("auth.verifyTokenHint")}</Text>
+          <AuthGlassSolidButton
+            label={t("auth.completeVerification")}
+            loading={browserLoading}
             onPress={openVerifyInBrowser}
             disabled={browserLoading}
-          >
-            {browserLoading ? (
-              <ActivityIndicator color={AUTH_ON_PRIMARY} />
-            ) : (
-              <Text className="font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                {t("auth.completeVerification")}
-              </Text>
-            )}
-          </Pressable>
+            style={{ marginTop: 14 }}
+          />
         </View>
       ) : null}
 
       {error ? (
-        <Text className="mt-4 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+        <View style={{ marginTop: 16 }}>
+          <AuthGlassErrorBanner message={error} />
+        </View>
       ) : null}
       {resent ? (
-        <Text className="mt-4 text-sm text-kyar-accent dark:text-kyar-dark-accent">
-          {t("auth.verifyResent")}
-        </Text>
+        <View style={{ marginTop: 16 }}>
+          <AuthGlassSuccessBanner message={t("auth.verifyResent")} />
+        </View>
       ) : null}
 
       {email && !resent ? (
-        <Pressable
-          className="mt-6 items-center rounded-xl border border-kyar-border py-4 active:opacity-90 dark:border-kyar-dark-border"
+        <AuthGlassOutlineButton
+          label={t("auth.resendVerification")}
+          loading={resending}
           onPress={handleResend}
           disabled={resending}
-        >
-          {resending ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {t("auth.resendVerification")}
-            </Text>
-          )}
-        </Pressable>
+          style={{ marginTop: 20 }}
+        />
       ) : null}
 
       <Link href={APP_HREF.signIn} asChild>
-        <Pressable className="mt-8 self-start">
-          <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
-            {t("auth.backToSignIn")}
-          </Text>
+        <Pressable
+          className="active:opacity-80"
+          style={{ marginTop: 12, minHeight: 44, justifyContent: "center", alignSelf: "center" }}
+        >
+          <Text style={authGlassLinkTextStyle}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       </Link>
 
-      <Text className="mt-6 text-xs text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+      <Text
+        style={{
+          marginTop: 16,
+          fontFamily: APP_FONT_FAMILIES.sansRegular,
+          fontSize: 11,
+          lineHeight: 16,
+          textAlign: "center",
+          color: glass.text.fg55,
+        }}
+      >
         {t("auth.verifySpamHint")}
       </Text>
-    </AuthScreenShell>
+    </AuthGlassFrame>
   );
 }
