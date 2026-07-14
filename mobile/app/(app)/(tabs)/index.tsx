@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type ComponentRef } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "convex/react";
@@ -629,7 +629,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
                 <Pressable
                   accessibilityRole="button"
                   className="active:opacity-80"
-                  style={[agendaRowStyle, agendaDivider]}
+                  style={StyleSheet.flatten([agendaRowStyle, agendaDivider])}
                 >
                   <Ionicons name="calendar-outline" size={17} color={glass.text.fg70} />
                   <View style={{ flex: 1, minWidth: 0 }}>
