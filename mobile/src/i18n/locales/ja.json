@@ -342,7 +342,12 @@
     "deleteNodeAction": "エレメントを削除",
     "closetTitle": "クローゼット",
     "closetEmpty": "クローゼットは空です。最初のアイテムを追加しましょう。",
-    "nameRequired": "名前は必須です"
+    "nameRequired": "名前は必須です",
+    "tabAllCount": "すべて · {{count}}",
+    "tabElements": "エレメント",
+    "tabMaterials": "素材",
+    "searchToggle": "エレメントを検索",
+    "invested": "投資額 {{amount}}"
   },
   "buildDetail": {
     "newElement": "新規エレメント",
@@ -787,7 +792,11 @@
     "hideLater": "隠す",
     "progressShort": "{{done}}/{{total}} 完了",
     "blocked": "ブロック中",
-    "overdue": "期限切れ"
+    "overdue": "期限切れ",
+    "viewDaily": "デイリー",
+    "progressCount": "{{done}} / {{total}} タスク",
+    "openGroup": "開く",
+    "detailsAction": "詳細"
   },
   "workflowEditor": {
     "title": "タスクを編集",

@@ -342,7 +342,12 @@
     "deleteNodeAction": "Eliminar elemento",
     "closetTitle": "El armario",
     "closetEmpty": "Tu armario está vacío. Agrega tu primera pieza.",
-    "nameRequired": "El nombre es obligatorio"
+    "nameRequired": "El nombre es obligatorio",
+    "tabAllCount": "Todo · {{count}}",
+    "tabElements": "Elementos",
+    "tabMaterials": "Materiales",
+    "searchToggle": "Buscar elementos",
+    "invested": "{{amount}} invertido"
   },
   "buildDetail": {
     "newElement": "Nuevo elemento",
@@ -787,7 +792,11 @@
     "hideLater": "Ocultar",
     "progressShort": "{{done}}/{{total}} hechas",
     "blocked": "Bloqueada",
-    "overdue": "Atrasada"
+    "overdue": "Atrasada",
+    "viewDaily": "Diario",
+    "progressCount": "{{done}} / {{total}} tareas",
+    "openGroup": "Abrir",
+    "detailsAction": "Detalles"
   },
   "workflowEditor": {
     "title": "Editar tarea",

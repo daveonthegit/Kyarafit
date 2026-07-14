@@ -230,7 +230,8 @@ function DrawerNavRow({
         onPress={onClose}
         accessibilityRole="link"
         accessibilityState={isActive ? { selected: true } : undefined}
-        style={({ pressed }) => ({
+        className="active:opacity-80"
+        style={{
           minHeight: 44,
           flexDirection: "row",
           alignItems: "center",
@@ -238,12 +239,8 @@ function DrawerNavRow({
           paddingHorizontal: 16,
           paddingVertical: 10,
           borderRadius: 10,
-          backgroundColor: isActive
-            ? glass.surface.bar
-            : pressed
-              ? glass.surface.active
-              : "transparent",
-        })}
+          backgroundColor: isActive ? glass.surface.bar : "transparent",
+        }}
       >
         <MaterialIcons
           name={iconName}
@@ -343,7 +340,8 @@ function DrawerProfileFooterWithData({
             <Link href={APP_HREF.settingsAccount} asChild>
               <Pressable
                 onPress={onClose}
-                style={({ pressed }) => ({
+                className="active:opacity-80"
+                style={{
                   minHeight: 44,
                   flexDirection: "row",
                   alignItems: "center",
@@ -351,8 +349,8 @@ function DrawerProfileFooterWithData({
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderRadius: 10,
-                  backgroundColor: pressed ? glass.surface.active : "transparent",
-                })}
+                  backgroundColor: "transparent",
+                }}
               >
                 <ProfileAvatar
                   imageStorageId={profileImageStorageId}
@@ -391,7 +389,12 @@ function DrawerProfileFooterWithData({
               <Link href={APP_HREF.profile(username)} asChild>
                 <Pressable
                   onPress={onClose}
-                  style={{ paddingHorizontal: 12, paddingVertical: 8, minHeight: 44, justifyContent: "center" }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    minHeight: 44,
+                    justifyContent: "center",
+                  }}
                 >
                   <Text
                     style={{

@@ -145,14 +145,15 @@ export function GlassSolidButton({
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
-      style={({ pressed }) => [
+      className="active:opacity-80"
+      style={[
         {
           minHeight: 44,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 999,
           backgroundColor: glass.surface.solid,
-          opacity: disabled ? 0.4 : pressed ? 0.88 : 1,
+          opacity: disabled ? 0.4 : 1,
         },
         style,
       ]}
@@ -189,7 +190,8 @@ export function GlassOutlineButton({
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
-      style={({ pressed }) => [
+      className="active:opacity-80"
+      style={[
         {
           minHeight: 44,
           alignItems: "center",
@@ -198,7 +200,7 @@ export function GlassOutlineButton({
           borderWidth: 1,
           borderColor: danger ? glass.text.danger : glass.border.strong,
           backgroundColor: glass.surface.bar,
-          opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
+          opacity: disabled ? 0.4 : 1,
         },
         style,
       ]}

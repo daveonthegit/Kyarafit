@@ -20,6 +20,7 @@ import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
+import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { DataBoundary, FloatingCreateMenu } from "@/ui";
 import {
   GlassEmptyState,
@@ -27,6 +28,7 @@ import {
   GlassTextField,
   PhotoBackdrop,
   PhotoPill,
+  scrimGradientProps,
 } from "@/ui/glass";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -240,6 +242,12 @@ function BuildsListBody({
   useEffect(() => {
     if (activeIndex >= pages.length) setActiveIndex(Math.max(0, pages.length - 1));
   }, [activeIndex, pages.length]);
+
+  /** Bottom-strip tiles: every build except the currently featured page. */
+  const stripEntries = useMemo(
+    () => pages.filter((_, index) => index !== activeIndex),
+    [activeIndex, pages]
+  );
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -467,34 +475,47 @@ function BuildsListBody({
             {emptyState}
           </View>
         ) : (
-          <FlatList
-            data={pages}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(entry) => String(entry.row._id)}
-            style={{ flex: 1 }}
-            initialNumToRender={2}
-            windowSize={3}
-            getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={onViewableItemsChanged}
-            renderItem={({ item, index }) => (
-              <FeaturedPage
-                entry={item}
-                index={index}
-                pageCount={pages.length}
-                activeIndex={activeIndex}
-                width={width}
-                headlineTop={headlineTop}
-                t={t}
-                statusLabel={statusLabel}
-                onOpen={() => openBuild(String(item.row._id))}
-                onOpenBoard={() => openBoard(String(item.row._id))}
-                onLongPress={item.shared ? undefined : () => showActions(item.row)}
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={pages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(entry) => String(entry.row._id)}
+              style={{ flex: 1 }}
+              initialNumToRender={2}
+              windowSize={3}
+              getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+              viewabilityConfig={viewabilityConfig}
+              onViewableItemsChanged={onViewableItemsChanged}
+              renderItem={({ item, index }) => (
+                <FeaturedPage
+                  entry={item}
+                  index={index}
+                  pageCount={pages.length}
+                  activeIndex={activeIndex}
+                  width={width}
+                  headlineTop={headlineTop}
+                  t={t}
+                  statusLabel={statusLabel}
+                  onOpen={() => openBuild(String(item.row._id))}
+                  onOpenBoard={() => openBoard(String(item.row._id))}
+                  onLongPress={item.shared ? undefined : () => showActions(item.row)}
+                />
+              )}
+            />
+            {stripEntries.length > 0 ? (
+              <ArchiveStrip
+                label={t("builds.archiveEyebrow", {
+                  count: stripEntries.length,
+                  defaultValue: "The archive · {{count}}",
+                })}
+                entries={stripEntries}
+                bottom={insets.bottom + 120}
+                onOpen={openBuild}
               />
-            )}
-          />
+            ) : null}
+          </View>
         )
       ) : (
         <View style={{ flex: 1 }}>
@@ -637,6 +658,7 @@ function BuildsListBody({
             style={{
               fontFamily: APP_FONT_FAMILIES.displayItalic,
               fontSize: 22,
+              lineHeight: 25,
               color: glass.text.fg,
             }}
           >
@@ -911,7 +933,7 @@ function FeaturedPage({
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
             fontSize: 40,
-            lineHeight: 38,
+            lineHeight: 44,
             letterSpacing: ls(-0.02, 40),
             color: glass.text.fg,
           }}
@@ -1150,6 +1172,7 @@ function ArchiveTile({
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
             fontSize: 14,
+            lineHeight: 16,
             color: glass.text.fg,
           }}
           numberOfLines={1}
@@ -1174,6 +1197,90 @@ function ArchiveTile({
   );
 }
 
+/** Featured-mode bottom strip: archive eyebrow + horizontal shelf of small photo tiles. */
+function ArchiveStrip({
+  label,
+  entries,
+  bottom,
+  onOpen,
+}: {
+  label: string;
+  entries: PagerEntry[];
+  bottom: number;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <View
+      style={{ position: "absolute", left: 0, right: 0, bottom }}
+      pointerEvents="box-none"
+    >
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 9,
+          letterSpacing: ls(0.22, 9),
+          textTransform: "uppercase",
+          color: glass.text.fg,
+          opacity: 0.75,
+          marginBottom: 10,
+          paddingHorizontal: 16,
+        }}
+      >
+        {label}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}
+      >
+        {entries.map((entry) => (
+          <Pressable
+            key={String(entry.row._id)}
+            onPress={() => onOpen(String(entry.row._id))}
+            accessibilityRole="button"
+            accessibilityLabel={entry.row.name}
+            className="active:opacity-80"
+            style={{
+              width: 116,
+              height: 70,
+              borderRadius: 9,
+              overflow: "hidden",
+              backgroundColor: glass.surface.active,
+            }}
+          >
+            {entry.row.imageStorageId != null || entry.row.imageUrl != null ? (
+              <ConvexStorageImage
+                storageId={entry.row.imageStorageId ?? null}
+                imageUrl={entry.row.imageUrl ?? null}
+                className="absolute inset-0 h-full w-full"
+                accessibilityLabel={entry.row.name}
+              />
+            ) : null}
+            <LinearGradient
+              {...scrimGradientProps(glass.scrim.pageVertical)}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={{ position: "absolute", left: 9, right: 9, bottom: 6 }}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.displayItalic,
+                  fontSize: 12,
+                  lineHeight: 14,
+                  color: glass.text.fg,
+                }}
+              >
+                {entry.row.name}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 /** 44pt glass-outline icon pill (screen chrome). */
 function IconPill({
   icon,
@@ -1192,7 +1299,8 @@ function IconPill({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected: active }}
-      style={({ pressed }) => [
+      className="active:opacity-80"
+      style={[
         {
           width: 44,
           height: 44,
@@ -1203,7 +1311,6 @@ function IconPill({
           borderColor: active ? glass.border.strong : glass.border.overlay,
           backgroundColor: active ? glass.surface.overlay : glass.surface.bar,
         },
-        pressed && { transform: [{ scale: 0.96 }] },
       ]}
     >
       <Ionicons name={icon} size={18} color={glass.text.fg} />

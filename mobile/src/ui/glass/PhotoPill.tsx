@@ -27,6 +27,9 @@ const SIZES: Record<Size, { minHeight: number; paddingHorizontal: number; fontSi
 /**
  * Button for glass/photo surfaces (surface rule 5). The cream `Button`
  * survives on not-yet-converted screens only.
+ *
+ * NOTE: styles are static (no function `style`) — function styles on
+ * Pressable are dropped under the NativeWind interop on device.
  */
 export function PhotoPill({
   variant = "solid",
@@ -43,7 +46,8 @@ export function PhotoPill({
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
-      style={({ pressed }) => [
+      className="active:opacity-80"
+      style={[
         {
           flexDirection: "row",
           alignItems: "center",
@@ -60,8 +64,7 @@ export function PhotoPill({
           borderWidth: 1,
           borderColor: glass.border.strong,
         },
-        pressed && !disabled && { transform: [{ scale: 0.98 }] },
-        disabled && { opacity: 0.25 },
+        disabled ? { opacity: 0.25 } : null,
       ]}
       {...rest}
     >

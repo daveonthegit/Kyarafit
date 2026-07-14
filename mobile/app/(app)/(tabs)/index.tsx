@@ -203,7 +203,7 @@ export default function HomeScreen() {
 
 type FocusSheetRef = ComponentRef<typeof BottomSheetModal>;
 
-/** Small photo tile for the studio / following shelves (prototype: 104×52, radius 9). */
+/** Small photo tile for the studio / following shelves (7.2 device pass: 116×70, radius 9). */
 function ShelfTile({
   name,
   meta,
@@ -219,8 +219,8 @@ function ShelfTile({
   return (
     <View
       style={{
-        width: 104,
-        height: 52,
+        width: 116,
+        height: 70,
         borderRadius: 9,
         overflow: "hidden",
         backgroundColor: glass.surface.active,
@@ -258,7 +258,8 @@ function ShelfTile({
           numberOfLines={1}
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
-            fontSize: 11,
+            fontSize: 12,
+            lineHeight: 14,
             color: glass.text.fg,
           }}
         >
@@ -443,6 +444,15 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
     borderBottomColor: glass.border.divider,
   } as const;
 
+  /** One compact horizontal agenda row (planner grammar) — static styles only (addendum #1). */
+  const agendaRowStyle = {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 44,
+    paddingVertical: 10,
+  } as const;
+
   return (
     <View style={{ flex: 1 }}>
       <PhotoBackdrop
@@ -469,6 +479,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
             style={{
               fontFamily: APP_FONT_FAMILIES.sansBold,
               fontSize: 9,
+              lineHeight: 12,
               letterSpacing: ls(0.26, 9),
               textTransform: "uppercase",
               color: glass.text.fg,
@@ -482,7 +493,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
             style={{
               fontFamily: APP_FONT_FAMILIES.displayItalic,
               fontSize: 38,
-              lineHeight: 38,
+              lineHeight: 44,
               color: glass.text.fg,
             }}
           >
@@ -556,17 +567,8 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
                     key={item._id}
                     onPress={() => openPlannerItem(item)}
                     accessibilityRole="button"
-                    style={({ pressed }) => [
-                      {
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 10,
-                        minHeight: 44,
-                        paddingVertical: 10,
-                      },
-                      agendaDivider,
-                      pressed && { opacity: 0.8 },
-                    ]}
+                    className="active:opacity-80"
+                    style={[agendaRowStyle, agendaDivider]}
                   >
                     <View
                       style={{
@@ -626,17 +628,8 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
               <Link href={APP_HREF.convention(nextEvent.convention._id)} asChild>
                 <Pressable
                   accessibilityRole="button"
-                  style={({ pressed }) => [
-                    {
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 10,
-                      minHeight: 44,
-                      paddingVertical: 10,
-                    },
-                    agendaDivider,
-                    pressed && { opacity: 0.8 },
-                  ]}
+                  className="active:opacity-80"
+                  style={[agendaRowStyle, agendaDivider]}
                 >
                   <Ionicons name="calendar-outline" size={17} color={glass.text.fg70} />
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -644,7 +637,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
                       numberOfLines={1}
                       style={{
                         fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-                        fontSize: 12,
+                        fontSize: 13,
                         color: glass.text.fg,
                       }}
                     >
@@ -696,7 +689,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
           >
             {otherOutfits.map((build) => (
               <Link key={build._id} href={APP_HREF.build(build._id)} asChild>
-                <Pressable style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+                <Pressable className="active:opacity-80">
                   <ShelfTile
                     name={build.name}
                     imageStorageId={build.imageStorageId ?? null}
@@ -708,19 +701,17 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
             <Link href={APP_HREF.builds} asChild>
               <Pressable
                 accessibilityRole="button"
-                style={({ pressed }) => [
-                  {
-                    width: 104,
-                    height: 52,
-                    borderRadius: 9,
-                    borderWidth: 1,
-                    borderColor: glass.border.strong,
-                    backgroundColor: glass.surface.field,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  },
-                  pressed && { opacity: 0.85 },
-                ]}
+                className="active:opacity-80"
+                style={{
+                  width: 116,
+                  height: 70,
+                  borderRadius: 9,
+                  borderWidth: 1,
+                  borderColor: glass.border.strong,
+                  backgroundColor: glass.surface.field,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
                 <Text
                   style={{
@@ -757,7 +748,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
                   <Pressable
                     key={build._id}
                     onPress={() => router.push(APP_HREF.publicBuild(build._id))}
-                    style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                    className="active:opacity-80"
                   >
                     <ShelfTile
                       name={build.name}

@@ -342,7 +342,12 @@
     "deleteNodeAction": "Delete element",
     "closetTitle": "The closet",
     "closetEmpty": "Your closet is empty. Add your first piece.",
-    "nameRequired": "Name is required"
+    "nameRequired": "Name is required",
+    "tabAllCount": "All · {{count}}",
+    "tabElements": "Elements",
+    "tabMaterials": "Materials",
+    "searchToggle": "Search elements",
+    "invested": "{{amount}} invested"
   },
   "buildDetail": {
     "newElement": "New element",
@@ -787,7 +792,11 @@
     "hideLater": "Hide",
     "progressShort": "{{done}}/{{total}} done",
     "blocked": "Blocked",
-    "overdue": "Overdue"
+    "overdue": "Overdue",
+    "viewDaily": "Daily",
+    "progressCount": "{{done}} / {{total}} tasks",
+    "openGroup": "Open",
+    "detailsAction": "Details"
   },
   "workflowEditor": {
     "title": "Edit task",

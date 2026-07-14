@@ -107,6 +107,13 @@ function isDueToday(dueDate: string | undefined) {
   return dueDate === TODAY;
 }
 
+/** Mirrors web planner `isDueApproaching`: due within the next 7 days (past-due excluded). */
+function isDueApproaching(dueDate: string | undefined) {
+  if (!dueDate) return false;
+  if (dueDate < TODAY) return false;
+  return dueDate <= addDays(TODAY, 7);
+}
+
 function isDueThisWeek(dueDate: string | undefined) {
   if (!dueDate) return false;
   const weekEnd = addDays(TODAY, 7);
@@ -295,8 +302,6 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
-  const [showLater, setShowLater] = useState(false);
-  const openingPath: string | null = null;
 
   // Backdrop = the build owning the most urgent task: first overdue task's
   // build, else the build of the nearest due task (same build-image pattern
@@ -325,37 +330,36 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
       const dateA = a.dueDate ?? "9999-12-31";
       const dateB = b.dueDate ?? "9999-12-31";
       if (dateA !== dateB) return dateA.localeCompare(dateB);
+      const nameCmp = (a.buildName ?? "").localeCompare(b.buildName ?? "");
+      if (nameCmp !== 0) return nameCmp;
       if ((a.priority ?? 0) !== (b.priority ?? 0)) return (b.priority ?? 0) - (a.priority ?? 0);
       return a.title.localeCompare(b.title);
     });
   }, [filteredTasks]);
 
-  const todayTasks = useMemo(
-    () => sortedTasks.filter((task) => task.overdue || isDueToday(task.dueDate)),
-    [sortedTasks]
-  );
-  const weekTasks = useMemo(
-    () =>
-      sortedTasks.filter((task) => !todayTasks.includes(task) && isDueThisWeek(task.dueDate)),
-    [sortedTasks, todayTasks]
-  );
-  const laterTasks = useMemo(
-    () =>
-      sortedTasks.filter((task) => !todayTasks.includes(task) && !weekTasks.includes(task)),
-    [sortedTasks, todayTasks, weekTasks]
-  );
+  // Same split as the web planner: "Deadline approaching" (due within 7 days)
+  // vs everything else, each rendered as the grouped convention/build tree.
+  const { deadlineApproaching, otherTasks } = useMemo(() => {
+    const approaching: PlannerTask[] = [];
+    const rest: PlannerTask[] = [];
+    for (const task of sortedTasks) {
+      if (isDueApproaching(task.dueDate)) approaching.push(task);
+      else rest.push(task);
+    }
+    return { deadlineApproaching: approaching, otherTasks: rest };
+  }, [sortedTasks]);
 
-  const todayTree = useMemo(
-    () => buildTaskTree(todayTasks, loaded.conventions),
-    [loaded.conventions, todayTasks]
+  const treeApproaching = useMemo(
+    () => buildTaskTree(deadlineApproaching, loaded.conventions),
+    [deadlineApproaching, loaded.conventions]
   );
-  const weekTree = useMemo(
-    () => buildTaskTree(weekTasks, loaded.conventions),
-    [loaded.conventions, weekTasks]
+  const treeOther = useMemo(
+    () => buildTaskTree(otherTasks, loaded.conventions),
+    [loaded.conventions, otherTasks]
   );
-  const laterTree = useMemo(
-    () => buildTaskTree(laterTasks, loaded.conventions),
-    [loaded.conventions, laterTasks]
+  const treeAll = useMemo(
+    () => buildTaskTree(sortedTasks, loaded.conventions),
+    [loaded.conventions, sortedTasks]
   );
 
   const agendaGroups = useMemo(() => {
@@ -538,7 +542,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
             style={{
               fontFamily: APP_FONT_FAMILIES.displayItalic,
               fontSize: 40,
-              lineHeight: 38,
+              lineHeight: 44,
               color: glass.text.fg,
             }}
           >
@@ -556,10 +560,18 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                 gap: 12,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 14,
+                }}
+              >
                 <UnderlineTab
                   active={view === "tasks"}
-                  label={t("planner.viewTasks")}
+                  label={t("planner.viewDaily", { defaultValue: "Daily" })}
                   onPress={() => setView("tasks")}
                 />
                 <UnderlineTab
@@ -572,24 +584,7 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                   label={t("planner.viewAgenda")}
                   onPress={() => setView("agenda")}
                 />
-              </View>
-              {view === "tasks" && hasAnyTasks ? (
-                <Text
-                  style={{
-                    fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-                    fontSize: 9,
-                    letterSpacing: ls(0.14, 9),
-                    textTransform: "uppercase",
-                    color: glass.text.fg55,
-                  }}
-                >
-                  {t("planner.progressShort", {
-                    defaultValue: "{{done}}/{{total}} done",
-                    done: doneCount,
-                    total: filteredTasks.length,
-                  })}
-                </Text>
-              ) : null}
+              </ScrollView>
             </View>
 
             {view === "tasks" ? (
@@ -597,37 +592,93 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  flexWrap: "wrap",
                   gap: 14,
                   marginTop: 14,
+                }}
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
+                  <UnderlineTab
+                    active={timeframe === "all"}
+                    label={t("planner.timeAll")}
+                    onPress={() => setTimeframe("all")}
+                  />
+                  <UnderlineTab
+                    active={timeframe === "today"}
+                    label={t("planner.timeToday")}
+                    onPress={() => setTimeframe("today")}
+                  />
+                  <UnderlineTab
+                    active={timeframe === "week"}
+                    label={t("planner.timeWeek")}
+                    onPress={() => setTimeframe("week")}
+                  />
+                </ScrollView>
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  label={t("planner.addTask")}
+                  onPress={() => router.push(APP_HREF.builds)}
+                />
+              </View>
+            ) : null}
+
+            {view === "tasks" && hasAnyTasks ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  marginTop: 12,
                   paddingBottom: 12,
                   borderBottomWidth: borderWidth.hairline,
                   borderBottomColor: glass.border.divider,
                 }}
               >
-                <UnderlineTab
-                  active={timeframe === "all"}
-                  label={t("planner.timeAll")}
-                  onPress={() => setTimeframe("all")}
-                />
-                <UnderlineTab
-                  active={timeframe === "today"}
-                  label={t("planner.timeToday")}
-                  onPress={() => setTimeframe("today")}
-                />
-                <UnderlineTab
-                  active={timeframe === "week"}
-                  label={t("planner.timeWeek")}
-                  onPress={() => setTimeframe("week")}
-                />
-                <View style={{ marginLeft: "auto" }}>
-                  <PhotoPill
-                    variant="outline"
-                    size="sm"
-                    label={t("planner.addTask")}
-                    onPress={() => router.push(APP_HREF.builds)}
+                <View
+                  accessibilityRole="progressbar"
+                  accessibilityValue={{ min: 0, max: filteredTasks.length, now: doneCount }}
+                  style={{
+                    flex: 1,
+                    maxWidth: 220,
+                    height: 2,
+                    borderRadius: 1,
+                    overflow: "hidden",
+                    backgroundColor: glass.border.strong,
+                  }}
+                >
+                  <View
+                    style={{
+                      height: 2,
+                      borderRadius: 1,
+                      backgroundColor: glass.text.fg,
+                      width: `${filteredTasks.length > 0 ? (doneCount / filteredTasks.length) * 100 : 0}%`,
+                    }}
                   />
                 </View>
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.16, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("planner.progressCount", {
+                    defaultValue: "{{done}} / {{total}} tasks",
+                    done: doneCount,
+                    total: filteredTasks.length,
+                  })}
+                </Text>
               </View>
             ) : null}
 
@@ -648,76 +699,47 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                 />
               ) : (
                 <View>
-                  {todayTasks.length > 0 ? (
-                    <PlannerDueGroup label={t("planner.timeToday")}>
+                  {deadlineApproaching.length > 0 ? (
+                    <View style={{ marginTop: 16 }}>
+                      <PlannerSectionHeader
+                        label={t("planner.dueSoon", { defaultValue: "Deadline approaching" })}
+                      />
                       <PlannerTreeSection
-                        tree={todayTree}
+                        tree={treeApproaching}
                         onToggleTask={toggleTask}
                         onEditTask={setEditorTaskId}
                         taskMove={plannerTaskMove}
                         onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
                         onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
                         onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                        openingPath={openingPath}
+                        onOpenConventionPacking={(id) =>
+                          router.push(APP_HREF.conventionPacking(id as string))
+                        }
                       />
-                    </PlannerDueGroup>
+                    </View>
                   ) : null}
 
-                  {weekTasks.length > 0 ? (
-                    <PlannerDueGroup label={t("planner.timeWeek")}>
-                      <PlannerTreeSection
-                        tree={weekTree}
-                        onToggleTask={toggleTask}
-                        onEditTask={setEditorTaskId}
-                        taskMove={plannerTaskMove}
-                        onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                        onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                        onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                        openingPath={openingPath}
-                      />
-                    </PlannerDueGroup>
-                  ) : null}
-
-                  {laterTasks.length > 0 ? (
-                    <PlannerDueGroup
-                      label={t("planner.groupLater", { defaultValue: "Later" })}
-                      trailing={
-                        <Pressable
-                          onPress={() => setShowLater((value) => !value)}
-                          hitSlop={12}
-                          accessibilityRole="button"
-                          accessibilityState={{ expanded: showLater }}
-                        >
-                          <Text
-                            style={{
-                              fontFamily: APP_FONT_FAMILIES.sansBold,
-                              fontSize: 9,
-                              letterSpacing: ls(0.16, 9),
-                              textTransform: "uppercase",
-                              color: glass.text.fg55,
-                            }}
-                          >
-                            {showLater
-                              ? `${t("planner.hideLater", { defaultValue: "Hide" })} ▴`
-                              : `${t("planner.showLater", { defaultValue: "Show" })} ▾`}
-                          </Text>
-                        </Pressable>
+                  <View style={{ marginTop: 16 }}>
+                    <PlannerSectionHeader
+                      label={
+                        deadlineApproaching.length > 0
+                          ? t("planner.otherTasks", { defaultValue: "Other tasks" })
+                          : t("planner.taskSection", { defaultValue: "Tasks" })
                       }
-                    >
-                      {showLater ? (
-                        <PlannerTreeSection
-                          tree={laterTree}
-                          onToggleTask={toggleTask}
-                          onEditTask={setEditorTaskId}
-                          taskMove={plannerTaskMove}
-                          onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                          onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                          onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                          openingPath={openingPath}
-                        />
-                      ) : null}
-                    </PlannerDueGroup>
-                  ) : null}
+                    />
+                    <PlannerTreeSection
+                      tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
+                      onToggleTask={toggleTask}
+                      onEditTask={setEditorTaskId}
+                      taskMove={plannerTaskMove}
+                      onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                      onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                      onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
+                      onOpenConventionPacking={(id) =>
+                        router.push(APP_HREF.conventionPacking(id as string))
+                      }
+                    />
+                  </View>
                 </View>
               )
             ) : null}
@@ -815,7 +837,6 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
                           <PlannerTaskExplorerRow
                             key={`${group.date}-task-${entry.task._id}`}
                             task={entry.task}
-                            depth={0}
                             hasChildren={false}
                             childrenExpanded
                             onToggleChildrenExpanded={() => undefined}
@@ -1046,31 +1067,122 @@ function PlannerDueGroup({
   );
 }
 
-/** Sub-scope meta header (convention / packing / unassigned runs) with optional link. */
-function PlannerScopeHeader({ label, trailing }: { label: string; trailing?: ReactNode }) {
+/** Section header inside the tasks panel ("Deadline approaching" / "Other tasks"). */
+function PlannerSectionHeader({ label }: { label: string }) {
+  return (
+    <Text
+      style={{
+        fontFamily: APP_FONT_FAMILIES.sansBold,
+        fontSize: 10,
+        letterSpacing: ls(0.24, 10),
+        textTransform: "uppercase",
+        color: glass.text.fg,
+        opacity: 0.85,
+        marginBottom: 4,
+      }}
+    >
+      {label}
+    </Text>
+  );
+}
+
+/** Indented children rail — mirrors the web planner's `border-l` nesting rail. */
+function PlannerGroupRail({ children }: { children: ReactNode }) {
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginTop: 8,
+        marginLeft: 13,
+        paddingLeft: 10,
+        borderLeftWidth: borderWidth.hairline,
+        borderLeftColor: glass.border.strong,
+        paddingBottom: 6,
       }}
     >
-      <Text
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Collapsible group row — caret + sentence-case group name + optional trailing
+ * "Open" meta link, matching the web planner's `<details>` group summaries.
+ */
+function PlannerCollapsibleGroup({
+  label,
+  nested = false,
+  openLabel,
+  onOpen,
+  children,
+}: {
+  label: string;
+  /** Nested groups (builds/packing inside a convention) use a lighter title weight. */
+  nested?: boolean;
+  openLabel?: string;
+  onOpen?: () => void;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <View>
+      <View
         style={{
-          flex: 1,
-          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-          fontSize: 9,
-          letterSpacing: ls(0.16, 9),
-          textTransform: "uppercase",
-          color: glass.text.fg55,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          minHeight: 44,
         }}
-        numberOfLines={1}
       >
-        {label}
-      </Text>
-      {trailing ?? null}
+        <Pressable
+          onPress={() => setExpanded((value) => !value)}
+          className="active:opacity-80"
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontSize: 11, color: glass.text.fg55, width: 14 }}>
+            {expanded ? "▾" : "▸"}
+          </Text>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: nested ? APP_FONT_FAMILIES.sansRegular : APP_FONT_FAMILIES.sansMedium,
+              fontSize: nested ? 14 : 15,
+              color: glass.text.fg,
+            }}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </Pressable>
+        {openLabel && onOpen ? (
+          <Pressable
+            onPress={onOpen}
+            hitSlop={10}
+            className="active:opacity-80"
+            accessibilityRole="link"
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 10,
+                letterSpacing: ls(0.16, 10),
+                textTransform: "uppercase",
+                color: glass.text.fg55,
+              }}
+            >
+              {openLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {expanded ? <PlannerGroupRail>{children}</PlannerGroupRail> : null}
     </View>
   );
 }
@@ -1083,7 +1195,7 @@ function PlannerTreeSection({
   onOpenBuild,
   onOpenElement,
   onOpenConvention,
-  openingPath,
+  onOpenConventionPacking,
 }: {
   tree: PlannerTree;
   onToggleTask: (task: PlannerTask) => void | Promise<void>;
@@ -1092,7 +1204,7 @@ function PlannerTreeSection({
   onOpenBuild: (id: Id<"builds">) => void;
   onOpenElement: (id: Id<"cosplayNodes">) => void;
   onOpenConvention: (id: Id<"conventions">) => void;
-  openingPath: string | null;
+  onOpenConventionPacking: (id: Id<"conventions">) => void;
 }) {
   const { t } = useTranslation();
   const hasContent =
@@ -1101,79 +1213,55 @@ function PlannerTreeSection({
     tree.unassignedTasks.length > 0;
   if (!hasContent) return null;
 
+  const listProps = {
+    onToggleTask,
+    onEditTask,
+    taskMove,
+    onOpenBuild,
+    onOpenElement,
+    onOpenConvention,
+  };
+  const openLabel = t("planner.openGroup", { defaultValue: "Open" });
+
   return (
     <View>
       {tree.conventionGroups.map((group) => (
-        <View key={group.conventionId}>
-          <PlannerScopeHeader
-            label={`${t("planner.eventLabel")} · ${group.conventionName}`}
-            trailing={
-              <PhotoPill
-                variant="text"
-                size="sm"
-                label={
-                  openingPath === `/conventions/${group.conventionId}`
-                    ? t("planner.opening")
-                    : t("planner.openPlan")
-                }
-                onPress={() => onOpenConvention(group.conventionId)}
-              />
-            }
-          />
-
+        <PlannerCollapsibleGroup
+          key={group.conventionId}
+          label={group.conventionName}
+          openLabel={openLabel}
+          onOpen={() => onOpenConventionPacking(group.conventionId)}
+        >
           {group.builds.map((build) => (
-            <PlannerTaskTreeList
-              key={build.buildId}
-              nodes={build.tasks}
-              onToggleTask={onToggleTask}
-              onEditTask={onEditTask}
-              taskMove={taskMove}
-              onOpenBuild={onOpenBuild}
-              onOpenElement={onOpenElement}
-              onOpenConvention={onOpenConvention}
-            />
+            <PlannerCollapsibleGroup key={build.buildId} label={build.buildName} nested>
+              <PlannerTaskTreeList nodes={build.tasks} {...listProps} />
+            </PlannerCollapsibleGroup>
           ))}
-
           {group.packingTasks.length > 0 ? (
-            <View>
-              <PlannerScopeHeader label={t("planner.packingSection")} />
-              <PlannerTaskTreeList
-                nodes={group.packingTasks}
-                onToggleTask={onToggleTask}
-                onEditTask={onEditTask}
-                taskMove={taskMove}
-                onOpenBuild={onOpenBuild}
-                onOpenElement={onOpenElement}
-                onOpenConvention={onOpenConvention}
-              />
-            </View>
+            <PlannerCollapsibleGroup label={t("planner.packingSection")} nested>
+              <PlannerTaskTreeList nodes={group.packingTasks} {...listProps} />
+            </PlannerCollapsibleGroup>
           ) : null}
-        </View>
+        </PlannerCollapsibleGroup>
       ))}
 
       {tree.standaloneBuilds.map((build) => (
-        <PlannerTaskTreeList
+        <PlannerCollapsibleGroup
           key={build.buildId}
-          nodes={build.tasks}
-          onToggleTask={onToggleTask}
-          onEditTask={onEditTask}
-          taskMove={taskMove}
-          onOpenBuild={onOpenBuild}
-          onOpenElement={onOpenElement}
-          onOpenConvention={onOpenConvention}
-        />
+          label={build.buildName}
+          openLabel={openLabel}
+          onOpen={() => onOpenBuild(build.buildId)}
+        >
+          <PlannerTaskTreeList nodes={build.tasks} {...listProps} />
+        </PlannerCollapsibleGroup>
       ))}
 
       {tree.unassignedTasks.length > 0 ? (
-        <PlannerTaskTreeList
-          nodes={tree.unassignedTasks}
-          onToggleTask={onToggleTask}
-          onEditTask={onEditTask}
-          taskMove={taskMove}
-          onOpenBuild={onOpenBuild}
-          onOpenElement={onOpenElement}
-          onOpenConvention={onOpenConvention}
-        />
+        <PlannerCollapsibleGroup
+          label={t("planner.otherTaskGroup", { defaultValue: "Elements and other tasks" })}
+        >
+          <PlannerTaskTreeList nodes={tree.unassignedTasks} {...listProps} />
+        </PlannerCollapsibleGroup>
       ) : null}
     </View>
   );
@@ -1278,7 +1366,6 @@ function PlannerTaskBranch({
     <View>
       <PlannerTaskExplorerRow
         task={task}
-        depth={task.ancestorIds.length}
         hasChildren={hasChildren}
         childrenExpanded={childrenExpanded}
         onToggleChildrenExpanded={() => setChildrenExpanded((v) => !v)}
@@ -1293,17 +1380,19 @@ function PlannerTaskBranch({
       />
 
       {hasChildren && childrenExpanded ? (
-        <PlannerTaskTreeList
-          nodes={task.children}
-          parent={task}
-          onToggleTask={onToggleTask}
-          onEditTask={onEditTask}
-          taskMove={taskMove}
-          onOpenBuild={onOpenBuild}
-          onOpenElement={onOpenElement}
-          onOpenConvention={onOpenConvention}
-          menuMode={menuMode}
-        />
+        <PlannerGroupRail>
+          <PlannerTaskTreeList
+            nodes={task.children}
+            parent={task}
+            onToggleTask={onToggleTask}
+            onEditTask={onEditTask}
+            taskMove={taskMove}
+            onOpenBuild={onOpenBuild}
+            onOpenElement={onOpenElement}
+            onOpenConvention={onOpenConvention}
+            menuMode={menuMode}
+          />
+        </PlannerGroupRail>
       ) : null}
     </View>
   );
@@ -1311,7 +1400,6 @@ function PlannerTaskBranch({
 
 function PlannerTaskExplorerRow({
   task,
-  depth,
   hasChildren,
   childrenExpanded,
   onToggleChildrenExpanded,
@@ -1325,7 +1413,6 @@ function PlannerTaskExplorerRow({
   dragMeta,
 }: {
   task: PlannerTask;
-  depth: number;
   hasChildren: boolean;
   childrenExpanded: boolean;
   onToggleChildrenExpanded: () => void;
@@ -1379,18 +1466,49 @@ function PlannerTaskExplorerRow({
 
   const hasContextTarget = Boolean(task.buildId || task.cosplayNodeId || task.conventionId);
 
-  const rowDepth = Math.min(56, depth * 14);
   const done = task.status === "done";
   const dueToday = isDueToday(task.dueDate);
   const contextMeta = task.buildName ?? task.conventionName ?? null;
+  const overdueShown = task.overdue && !done;
+  const dueMeta = task.dueDate
+    ? overdueShown
+      ? t("planner.overdue", { defaultValue: "Overdue" })
+      : dueToday
+        ? t("planner.timeToday")
+        : formatDateLabel(task.dueDate)
+    : null;
+
+  const metaText = (
+    <Text
+      style={{
+        flexShrink: 1,
+        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+        fontSize: 9,
+        letterSpacing: ls(0.14, 9),
+        textTransform: "uppercase",
+        color: glass.text.fg55,
+      }}
+      numberOfLines={1}
+    >
+      {contextMeta ?? null}
+      {dueMeta ? (
+        <Text style={{ color: (overdueShown || dueToday) && !done ? glass.text.danger : glass.text.fg55 }}>
+          {contextMeta ? " · " : ""}
+          {dueMeta}
+        </Text>
+      ) : null}
+      {contextMeta || dueMeta ? " · " : ""}
+      {`${task.progressPercent}%`}
+    </Text>
+  );
 
   const rowBody = (
     <View
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        paddingVertical: 11,
+        gap: 8,
+        paddingVertical: 10,
         borderBottomWidth: borderWidth.hairline,
         borderBottomColor: glass.border.divider,
       }}
@@ -1402,7 +1520,8 @@ function PlannerTaskExplorerRow({
             onToggleChildrenExpanded();
           }}
           hitSlop={10}
-          style={{ width: 22, height: 28, alignItems: "center", justifyContent: "center" }}
+          className="active:opacity-80"
+          style={{ width: 20, height: 32, alignItems: "center", justifyContent: "center" }}
           accessibilityRole="button"
           accessibilityLabel={
             childrenExpanded
@@ -1416,29 +1535,34 @@ function PlannerTaskExplorerRow({
         </Pressable>
       ) : null}
 
+      {dragEnabled && taskMove && dragMeta ? (
+        <GlassDragHandle dragMeta={dragMeta} taskMove={taskMove} />
+      ) : null}
+
       <Pressable
         onPress={(event) => {
           event.stopPropagation?.();
           onToggle();
         }}
-        hitSlop={14}
-        style={{ width: 24, height: 28, alignItems: "center", justifyContent: "center" }}
+        hitSlop={12}
+        className="active:opacity-80"
+        style={{ width: 28, height: 32, alignItems: "center", justifyContent: "center" }}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: done }}
       >
         <View
           style={{
-            width: 17,
-            height: 17,
+            width: 21,
+            height: 21,
             borderRadius: 999,
             alignItems: "center",
             justifyContent: "center",
-            borderWidth: done ? 0 : 1.5,
-            borderColor: glass.text.fg55,
+            borderWidth: done ? 0 : 2,
+            borderColor: glass.text.fg45,
             backgroundColor: done ? glass.surface.solid : "transparent",
           }}
         >
-          {done ? <Ionicons name="checkmark" size={12} color={glass.text.ink} /> : null}
+          {done ? <Ionicons name="checkmark" size={14} color={glass.text.ink} /> : null}
         </View>
       </Pressable>
 
@@ -1454,85 +1578,47 @@ function PlannerTaskExplorerRow({
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.sansRegular,
-            fontSize: 12,
-            lineHeight: 16,
-            color: done ? glass.text.fg45 : glass.text.fg,
+            fontSize: 13,
+            lineHeight: 17,
+            color: done ? glass.text.fg55 : glass.text.fg,
             textDecorationLine: done ? "line-through" : "none",
           }}
         >
           {task.title}
         </Text>
-        {contextMeta ? (
-          <Text
-            style={{
-              marginTop: 2,
-              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-              fontSize: 9,
-              letterSpacing: ls(0.14, 9),
-              textTransform: "uppercase",
-              color: glass.text.fg55,
-            }}
-            numberOfLines={1}
-          >
-            {contextMeta}
-          </Text>
-        ) : null}
+        <View
+          style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}
+        >
+          {metaText}
+          {task.blockedByCount ? (
+            <GlassStatusChip
+              tone="warning"
+              label={t("planner.blocked", { defaultValue: "Blocked" })}
+            />
+          ) : null}
+        </View>
       </Pressable>
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-        {dragEnabled && taskMove && dragMeta ? (
-          <GlassDragHandle dragMeta={dragMeta} taskMove={taskMove} />
-        ) : null}
-        <Pressable
-          onPress={onEdit}
-          hitSlop={8}
-          style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
-          accessibilityLabel={t("workflowEditor.editAction")}
-          accessibilityRole="button"
-        >
-          <Ionicons name="create-outline" size={16} color={glass.text.fg55} />
-        </Pressable>
-      </View>
-
-      {task.blockedByCount ? (
-        <GlassStatusChip tone="warning" label={t("planner.blocked", { defaultValue: "Blocked" })} />
-      ) : task.overdue && !done ? (
+      <Pressable
+        onPress={onEdit}
+        hitSlop={6}
+        className="active:opacity-80"
+        style={{ minHeight: 44, justifyContent: "center", paddingLeft: 4 }}
+        accessibilityLabel={t("workflowEditor.editAction")}
+        accessibilityRole="button"
+      >
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.sansBold,
             fontSize: 9,
-            letterSpacing: ls(0.14, 9),
-            textTransform: "uppercase",
-            color: glass.text.danger,
-          }}
-        >
-          {t("planner.overdue", { defaultValue: "Overdue" })}
-        </Text>
-      ) : dueToday && !done ? (
-        <Text
-          style={{
-            fontFamily: APP_FONT_FAMILIES.sansBold,
-            fontSize: 9,
-            letterSpacing: ls(0.14, 9),
-            textTransform: "uppercase",
-            color: glass.text.danger,
-          }}
-        >
-          {t("planner.timeToday")}
-        </Text>
-      ) : task.dueDate ? (
-        <Text
-          style={{
-            fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-            fontSize: 9,
-            letterSpacing: ls(0.14, 9),
+            letterSpacing: ls(0.16, 9),
             textTransform: "uppercase",
             color: glass.text.fg55,
           }}
         >
-          {formatDateLabel(task.dueDate)}
+          {`▸ ${t("planner.detailsAction", { defaultValue: "Details" })}`}
         </Text>
-      ) : null}
+      </Pressable>
     </View>
   );
 
@@ -1542,7 +1628,6 @@ function PlannerTaskExplorerRow({
         taskId={task._id}
         dragMeta={dragMeta}
         taskMove={taskMove}
-        depthMargin={rowDepth}
         dropIntoLabel={t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
       >
         {rowBody}
@@ -1550,7 +1635,7 @@ function PlannerTaskExplorerRow({
     );
   }
 
-  return <View style={{ marginLeft: rowDepth }}>{rowBody}</View>;
+  return <View>{rowBody}</View>;
 }
 
 /**
@@ -1782,9 +1867,10 @@ function GlassDragHandle({
       onTouchCancel={() => {
         taskMove.finishDrag();
       }}
-      style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
+      className="active:opacity-80"
+      style={{ width: 28, height: 32, alignItems: "center", justifyContent: "center" }}
     >
-      <Ionicons name="reorder-three" size={18} color={glass.text.fg55} />
+      <Text style={{ fontSize: 17, lineHeight: 20, color: glass.text.fg45 }}>≡</Text>
     </Pressable>
   );
 }

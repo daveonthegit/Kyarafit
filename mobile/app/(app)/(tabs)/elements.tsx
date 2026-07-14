@@ -25,6 +25,7 @@ import {
   type CosplayNodeType,
 } from "@kyarafit/design-system/types";
 import {
+  formatCents,
   formatNodeStatus,
   formatNodeTypeLabel,
   formatOverallBucket,
@@ -81,23 +82,19 @@ const HIERARCHY_FILTERS: { value: HierarchyFilter; key: string }[] = [
   { value: "hasIncomplete", key: "elements.hierarchyHasIncomplete" },
 ];
 
-/** Status → on-glass chip tone (done=success, in-flight=active, else neutral). */
+/** Status label → on-glass chip tone, mirroring web `STATUS_CHIP_TONES`
+ * (owned=done, wip=active, to-buy=warn). */
+const STATUS_CHIP_TONES: Record<string, GlassStatusTone> = {
+  Complete: "success",
+  Built: "success",
+  Bought: "success",
+  "In use": "active",
+  "In progress": "active",
+  Incomplete: "warning",
+};
+
 function nodeStatusTone(row: ElementListRow): GlassStatusTone {
-  if (
-    row.buildStatus === "built" ||
-    row.materialStatus === "complete" ||
-    row.overallBucket === "complete"
-  ) {
-    return "success";
-  }
-  if (
-    row.buildStatus === "wip" ||
-    row.materialStatus === "in_use" ||
-    row.overallBucket === "in_progress"
-  ) {
-    return "active";
-  }
-  return "neutral";
+  return STATUS_CHIP_TONES[formatNodeStatus(row)] ?? "neutral";
 }
 
 export default function ElementsScreen() {
@@ -252,6 +249,7 @@ function ElementsListBody({
 }) {
   const insets = useSafeAreaInsets();
   const { rows, builds, userId } = loaded;
+  const [searchOpen, setSearchOpen] = useState(search.trim().length > 0);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -281,12 +279,6 @@ function ElementsListBody({
   const orderLabel = order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc");
   const viewModeLabel = viewMode === "all" ? t("elements.tabAll") : t("elements.tabTree");
 
-  const typeSummary =
-    typeFilter === "all"
-      ? null
-      : typeFilter === "element"
-        ? t("elements.typeElement")
-        : t("elements.typeMaterial");
   const bucketSummary = bucketFilter === "all" ? null : formatOverallBucket(bucketFilter);
   const categorySummary = categoryFilter === "all" ? null : categoryFilter;
   const substateSummary =
@@ -418,18 +410,27 @@ function ElementsListBody({
     [clearSelection, removeNodesFromBuild, selectedNodeIds, t, userId]
   );
 
-  const filterSummary = [
-    viewModeLabel,
-    typeSummary,
+  // Only non-default refinements — shown as a caption while the panel is closed.
+  const refineParts = [
+    viewMode !== "all" ? viewModeLabel : null,
     bucketSummary,
     categorySummary,
     substateSummary,
     hierarchySummary,
-    sortLabel,
-    orderLabel,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" · ");
+    sortBy !== "name" ? sortLabel : null,
+    order !== "asc" ? orderLabel : null,
+  ].filter((part): part is string => Boolean(part));
+  const refineSummary = refineParts.join(" · ");
+  const refinesActive = refineParts.length > 0;
+
+  const investedCents = useMemo(
+    () =>
+      filteredRows.reduce(
+        (sum, row) => sum + (row.totalCostCents ?? row.directCostCents ?? 0),
+        0
+      ),
+    [filteredRows]
+  );
 
   const openNewElement = useCallback(() => {
     router.push(APP_HREF.elementNew);
@@ -437,7 +438,7 @@ function ElementsListBody({
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 52 }}>
+      <View style={{ paddingHorizontal: 22, paddingTop: insets.top + 58 }}>
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
@@ -445,120 +446,86 @@ function ElementsListBody({
             lineHeight: 38,
             letterSpacing: ls(-0.01, 34),
             color: glass.text.fg,
-            marginBottom: 6,
+            marginBottom: 8,
           }}
         >
-          {t("elements.closetTitle", { defaultValue: "The closet" })}
+          {t("elements.pageTitle")}
         </Text>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingRight: 8, alignItems: "flex-end" }}
-          style={{ marginBottom: 14, flexGrow: 0 }}
-        >
-          <CategoryChip
-            active={categoryFilter === "all"}
-            label={t("elements.filterAll")}
-            onPress={() => setCategoryFilter("all")}
-          />
-          {COSPLAY_CATEGORIES.map((category) => (
-            <CategoryChip
-              key={category}
-              active={categoryFilter === category}
-              label={category}
-              onPress={() => setCategoryFilter(category)}
-            />
-          ))}
-        </ScrollView>
-
-        <GlassTextField
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t("elements.searchPlaceholder")}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-
-        <Pressable
-          onPress={() => setFiltersOpen((value) => !value)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: filtersOpen }}
-          style={{
-            marginTop: 10,
-            minHeight: 44,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: glass.border.default,
-            backgroundColor: glass.surface.field,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <Ionicons
-              name="options-outline"
-              size={15}
-              color={glass.text.fg}
-              importantForAccessibility="no"
-            />
-            <Text
-              style={{
-                fontFamily: APP_FONT_FAMILIES.sansBold,
-                fontSize: 9,
-                letterSpacing: ls(0.2, 9),
-                textTransform: "uppercase",
-                color: glass.text.fg,
-              }}
-              numberOfLines={1}
-            >
-              {t("elements.refineElements")}
-            </Text>
-          </View>
-          <View
-            style={{
-              minWidth: 0,
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 8,
-            }}
+        {/* Type tabs + search/refine toggles — mirrors the web closet panel's header row. */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 1, flexShrink: 1 }}
+            contentContainerStyle={{ gap: 18, paddingRight: 12, alignItems: "center" }}
           >
-            <Text
-              style={{
-                flex: 1,
-                textAlign: "right",
-                fontFamily: APP_FONT_FAMILIES.sansRegular,
-                fontSize: 10,
-                color: glass.text.fg55,
-              }}
-              numberOfLines={2}
-            >
-              {filterSummary}
-            </Text>
-            <Ionicons
-              name={filtersOpen ? "chevron-up" : "chevron-down"}
-              size={16}
-              color={glass.text.fg}
+            <UnderlineTab
+              active={typeFilter === "all"}
+              label={t("elements.tabAllCount", {
+                defaultValue: "All · {{count}}",
+                count: filteredRows.length,
+              })}
+              onPress={() => setTypeFilter("all")}
+            />
+            <UnderlineTab
+              active={typeFilter === "element"}
+              label={t("elements.tabElements", { defaultValue: "Elements" })}
+              onPress={() => setTypeFilter("element")}
+            />
+            <UnderlineTab
+              active={typeFilter === "material"}
+              label={t("elements.tabMaterials", { defaultValue: "Materials" })}
+              onPress={() => setTypeFilter("material")}
+            />
+          </ScrollView>
+          <HeaderIconToggle
+            icon="search"
+            active={searchOpen || search.trim().length > 0}
+            label={t("elements.searchToggle", { defaultValue: "Search elements" })}
+            onPress={() => setSearchOpen((value) => !value)}
+          />
+          <HeaderIconToggle
+            icon="options-outline"
+            active={filtersOpen || refinesActive}
+            label={t("elements.refineElements")}
+            onPress={() => setFiltersOpen((value) => !value)}
+          />
+        </View>
+
+        {searchOpen ? (
+          <View style={{ marginTop: 8 }}>
+            <GlassTextField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("elements.searchPlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              autoFocus
             />
           </View>
-        </Pressable>
+        ) : null}
+
+        {!filtersOpen && refinesActive ? (
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontSize: 9,
+              letterSpacing: ls(0.14, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg55,
+            }}
+            numberOfLines={1}
+          >
+            {refineSummary}
+          </Text>
+        ) : null}
 
         {filtersOpen ? (
-          <GlassPanel blur={false} style={{ marginTop: 10, padding: 14 }}>
-            <RefineSectionLabel>{t("elements.filtersViewLabel")}</RefineSectionLabel>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginTop: 8 }}
-              contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-            >
+          <GlassPanel blur={false} style={{ marginTop: 8, padding: 12 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
               <GlassFilterChip
                 active={viewMode === "all"}
                 label={t("elements.tabAll")}
@@ -569,48 +536,40 @@ function ElementsListBody({
                 label={t("elements.tabTree")}
                 onPress={() => setViewMode("tree")}
               />
-            </ScrollView>
-
-            <View style={{ marginTop: 18 }}>
-              <RefineSectionLabel>{t("elements.filtersSortViewLabel")}</RefineSectionLabel>
-              <View style={{ marginTop: 8, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                <GlassControlPill label={sortLabel} onPress={cycleSort} />
-                <GlassControlPill label={orderLabel} onPress={toggleOrder} />
-              </View>
+              <GlassControlPill label={sortLabel} onPress={cycleSort} />
+              <GlassControlPill label={orderLabel} onPress={toggleOrder} />
             </View>
 
-            <View style={{ marginTop: 18 }}>
-              <RefineSectionLabel>{t("elements.typeLabel")}</RefineSectionLabel>
+            <View style={{ marginTop: 12 }}>
+              <RefineSectionLabel>{t("elements.categoryLabel")}</RefineSectionLabel>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 6 }}
                 contentContainerStyle={{ gap: 8, paddingRight: 4 }}
               >
                 <GlassFilterChip
-                  active={typeFilter === "all"}
+                  active={categoryFilter === "all"}
                   label={t("elements.filterAll")}
-                  onPress={() => setTypeFilter("all")}
+                  onPress={() => setCategoryFilter("all")}
                 />
-                <GlassFilterChip
-                  active={typeFilter === "element"}
-                  label={t("elements.typeElement")}
-                  onPress={() => setTypeFilter("element")}
-                />
-                <GlassFilterChip
-                  active={typeFilter === "material"}
-                  label={t("elements.typeMaterial")}
-                  onPress={() => setTypeFilter("material")}
-                />
+                {COSPLAY_CATEGORIES.map((category) => (
+                  <GlassFilterChip
+                    key={category}
+                    active={categoryFilter === category}
+                    label={category}
+                    onPress={() => setCategoryFilter(category)}
+                  />
+                ))}
               </ScrollView>
             </View>
 
-            <View style={{ marginTop: 18 }}>
+            <View style={{ marginTop: 12 }}>
               <RefineSectionLabel>{t("elements.sortBucket")}</RefineSectionLabel>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 6 }}
                 contentContainerStyle={{ gap: 8, paddingRight: 4 }}
               >
                 <GlassFilterChip
@@ -629,12 +588,12 @@ function ElementsListBody({
               </ScrollView>
             </View>
 
-            <View style={{ marginTop: 18 }}>
+            <View style={{ marginTop: 12 }}>
               <RefineSectionLabel>{t("elements.substateLabel")}</RefineSectionLabel>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 6 }}
                 contentContainerStyle={{ gap: 8, paddingRight: 4 }}
               >
                 {SUBSTATE_FILTERS.map((option) => (
@@ -648,12 +607,12 @@ function ElementsListBody({
               </ScrollView>
             </View>
 
-            <View style={{ marginTop: 18 }}>
+            <View style={{ marginTop: 12 }}>
               <RefineSectionLabel>{t("elements.hierarchyLabel")}</RefineSectionLabel>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 6 }}
                 contentContainerStyle={{ gap: 8, paddingRight: 4 }}
               >
                 {HIERARCHY_FILTERS.map((option) => (
@@ -675,9 +634,9 @@ function ElementsListBody({
         data={gridItems}
         numColumns={2}
         keyExtractor={(item) => (item.kind === "add" ? "add-tile" : item.row._id)}
-        columnWrapperStyle={{ gap: 10, paddingHorizontal: 20 }}
+        columnWrapperStyle={{ gap: 10, paddingHorizontal: 16 }}
         contentContainerStyle={{
-          paddingTop: 8,
+          paddingTop: 10,
           paddingBottom: insets.bottom + 120,
           gap: 10,
         }}
@@ -691,7 +650,7 @@ function ElementsListBody({
         ListHeaderComponent={
           <View
             style={{
-              paddingHorizontal: 20,
+              paddingHorizontal: 16,
               paddingBottom: 10,
               flexDirection: "row",
               alignItems: "center",
@@ -709,10 +668,16 @@ function ElementsListBody({
                 textTransform: "uppercase",
                 color: glass.text.fg55,
               }}
+              numberOfLines={1}
             >
-              {filteredRows.length === 1
+              {(filteredRows.length === 1
                 ? t("elements.countSingular", { count: filteredRows.length })
-                : t("elements.countPlural", { count: filteredRows.length })}
+                : t("elements.countPlural", { count: filteredRows.length })) +
+                " · " +
+                t("elements.invested", {
+                  defaultValue: "{{amount}} invested",
+                  amount: formatCents(investedCents),
+                })}
             </Text>
             {filteredRows.length > 0 ? (
               <Pressable
@@ -809,6 +774,7 @@ function ElementsListBody({
                 style={{
                   fontFamily: APP_FONT_FAMILIES.displayItalic,
                   fontSize: 22,
+                  lineHeight: 26,
                   color: glass.text.fg,
                 }}
               >
@@ -1090,12 +1056,13 @@ function ElementsListBody({
   );
 }
 
-/** Closet grid tile: photo, bottom scrim, status chip, meta + serif name (ref 6d). */
+/** Element grid tile — the web row anatomy (category/type meta, serif italic name,
+ * cost, toned status chip) folded onto a 3:4 photo tile with a bottom scrim. */
 function ElementClosetTile({ row, onPress }: { row: ElementListRow; onPress: () => void }) {
   const status = formatNodeStatus(row);
-  const metaParts = [formatNodeTypeLabel(row.nodeType), row.category?.trim() || null].filter(
-    (part): part is string => Boolean(part)
-  );
+  const meta = row.category?.trim() || formatNodeTypeLabel(row.nodeType);
+  const cost = row.totalCostCents ?? row.directCostCents ?? 0;
+  const metaLine = cost > 0 ? `${meta} · ${formatCents(cost)}` : meta;
   const placeholderIcon =
     row.nodeType === "material" ? ("flask-outline" as const) : ("shirt-outline" as const);
 
@@ -1104,14 +1071,15 @@ function ElementClosetTile({ row, onPress }: { row: ElementListRow; onPress: () 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={row.name}
-      style={({ pressed }) => ({
+      className="active:opacity-80"
+      style={{
         flex: 1,
+        maxWidth: "50%",
         aspectRatio: 3 / 4,
         borderRadius: 11,
         overflow: "hidden",
         backgroundColor: glass.surface.field,
-        opacity: pressed ? 0.85 : 1,
-      })}
+      }}
     >
       {row.imageStorageId || row.imageUrl ? (
         <ConvexStorageImage
@@ -1136,26 +1104,24 @@ function ElementClosetTile({ row, onPress }: { row: ElementListRow; onPress: () 
         </View>
       ) : null}
       <View style={{ position: "absolute", left: 10, right: 10, bottom: 9 }}>
-        {metaParts.length > 0 ? (
-          <Text
-            style={{
-              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
-              fontSize: 9,
-              letterSpacing: ls(0.14, 9),
-              textTransform: "uppercase",
-              color: glass.text.fg70,
-              marginBottom: 2,
-            }}
-            numberOfLines={1}
-          >
-            {metaParts.join(" · ")}
-          </Text>
-        ) : null}
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 9,
+            letterSpacing: ls(0.16, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg70,
+            marginBottom: 2,
+          }}
+          numberOfLines={1}
+        >
+          {metaLine}
+        </Text>
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
-            fontSize: 14,
-            lineHeight: 17,
+            fontSize: 15,
+            lineHeight: 18,
             color: glass.text.fg,
           }}
           numberOfLines={2}
@@ -1174,8 +1140,10 @@ function AddElementTile({ label, onPress }: { label: string; onPress: () => void
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({
+      className="active:opacity-70"
+      style={{
         flex: 1,
+        maxWidth: "50%",
         aspectRatio: 3 / 4,
         borderRadius: 11,
         borderWidth: 1,
@@ -1184,8 +1152,7 @@ function AddElementTile({ label, onPress }: { label: string; onPress: () => void
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        opacity: pressed ? 0.7 : 1,
-      })}
+      }}
     >
       <Ionicons name="add" size={22} color={glass.text.fg70} />
       <Text
@@ -1242,6 +1209,7 @@ function BuildPickerModal({
             style={{
               fontFamily: APP_FONT_FAMILIES.displayItalic,
               fontSize: 22,
+              lineHeight: 26,
               color: glass.text.fg,
             }}
           >
@@ -1308,8 +1276,8 @@ function BuildPickerModal({
   );
 }
 
-/** Header category chip: underline when active, 55% semibold otherwise (ref 6d). */
-function CategoryChip({
+/** Header type tab: underline when active, 55% semibold otherwise (web ElementsUnderlineTab). */
+function UnderlineTab({
   label,
   active,
   onPress,
@@ -1323,7 +1291,8 @@ function CategoryChip({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
-      hitSlop={{ top: 12, bottom: 12, left: 4, right: 4 }}
+      hitSlop={{ top: 14, bottom: 14, left: 6, right: 6 }}
+      className="active:opacity-80"
       style={{
         paddingBottom: 2,
         borderBottomWidth: 1.5,
@@ -1334,13 +1303,44 @@ function CategoryChip({
         style={{
           fontFamily: active ? APP_FONT_FAMILIES.sansBold : APP_FONT_FAMILIES.sansSemiBold,
           fontSize: 9,
-          letterSpacing: ls(0.16, 9),
+          letterSpacing: ls(0.18, 9),
           textTransform: "uppercase",
           color: active ? glass.text.fg : glass.text.fg55,
         }}
       >
         {label}
       </Text>
+    </Pressable>
+  );
+}
+
+/** Header icon toggle (search / tune) — web's closet-panel header icons at 44pt. */
+function HeaderIconToggle({
+  icon,
+  active,
+  label,
+  onPress,
+}: {
+  icon: "search" | "options-outline";
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      className="active:opacity-80"
+      style={{
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Ionicons name={icon} size={18} color={active ? glass.text.fg : glass.text.fg55} />
     </Pressable>
   );
 }

@@ -42,8 +42,13 @@ export function FloatingCreateMenu({
     <>
       <View
         pointerEvents="box-none"
-        className="absolute right-5 items-end"
-        style={{ bottom: insets.bottom + bottomOffset }}
+        style={{
+          position: "absolute",
+          right: 20,
+          maxWidth: 280,
+          alignItems: "flex-end",
+          bottom: insets.bottom + bottomOffset,
+        }}
       >
         <View
           style={[
@@ -61,15 +66,15 @@ export function FloatingCreateMenu({
             onPress={primary.onPress}
             accessibilityRole="button"
             accessibilityLabel={primary.label}
-            style={({ pressed }) => ({
+            className="active:opacity-80"
+            style={{
               minHeight: 44,
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
               paddingLeft: 20,
               paddingRight: others.length > 0 ? 14 : 20,
-              opacity: pressed ? 0.85 : 1,
-            })}
+            }}
           >
             <Ionicons name={primary.icon} size={16} color={glass.text.ink} />
             <Text
@@ -98,13 +103,13 @@ export function FloatingCreateMenu({
                 onPress={() => setOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel={t("common.moreCreateOptions")}
-                style={({ pressed }) => ({
+                className="active:opacity-80"
+                style={{
                   minHeight: 44,
                   minWidth: 44,
                   alignItems: "center",
                   justifyContent: "center",
-                  opacity: pressed ? 0.85 : 1,
-                })}
+                }}
               >
                 <Ionicons name="chevron-up" size={18} color={glass.text.ink} />
               </Pressable>
@@ -113,7 +118,11 @@ export function FloatingCreateMenu({
         </View>
       </View>
 
-      <GlassSheet open={open} onClose={() => setOpen(false)} closeLabel={t("common.closeCreateMenu")}>
+      <GlassSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        closeLabel={t("common.closeCreateMenu")}
+      >
         <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
           {others.map((action) => (
             <Pressable
@@ -124,15 +133,16 @@ export function FloatingCreateMenu({
               }}
               accessibilityRole="button"
               accessibilityLabel={action.label}
-              style={({ pressed }) => ({
+              className="active:opacity-80"
+              style={{
                 minHeight: 52,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 12,
                 paddingHorizontal: 12,
                 borderRadius: 10,
-                backgroundColor: pressed ? glass.surface.active : "transparent",
-              })}
+                backgroundColor: "transparent",
+              }}
             >
               <View
                 style={{
