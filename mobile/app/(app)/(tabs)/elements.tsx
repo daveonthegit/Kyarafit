@@ -1,16 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
@@ -42,7 +32,6 @@ import {
   GlassTextField,
   PhotoBackdrop,
   PhotoPill,
-  scrimGradientProps,
   type GlassStatusTone,
 } from "@/ui/glass";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -57,8 +46,6 @@ type BucketFilter = "all" | (typeof COSPLAY_OVERALL_BUCKETS)[number];
 type CategoryFilter = "all" | (typeof COSPLAY_CATEGORIES)[number];
 
 type ElementListRow = CosplayExplorerItem & { _id: Id<"cosplayNodes"> };
-
-type GridItem = { kind: "element"; row: ElementListRow } | { kind: "add" };
 
 type ListReady = {
   rows: ElementListRow[];
@@ -133,6 +120,18 @@ export default function ElementsScreen() {
   const rows = useOfflineQuery(api.cosplayNodes.list, listArgs);
   const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
+  // Featured backdrop: the last-touched piece, preferring one with imagery (web elements hero).
+  // Rows don't carry a typed `updatedAt`; prefer it when present at runtime, else `_creationTime`.
+  const featured = useMemo(() => {
+    const list = (rows ?? []) as ElementListRow[];
+    const byTouch = [...list].sort(
+      (a, b) =>
+        ((b as { updatedAt?: number }).updatedAt ?? b._creationTime ?? 0) -
+        ((a as { updatedAt?: number }).updatedAt ?? a._creationTime ?? 0)
+    );
+    return byTouch.find((row) => row.imageStorageId || row.imageUrl) ?? byTouch[0];
+  }, [rows]);
+
   const loading =
     identity === undefined || (userId != null && (rows === undefined || builds === undefined));
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -164,11 +163,15 @@ export default function ElementsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <PhotoBackdrop scrim="off" kenBurns={false} />
+      <PhotoBackdrop
+        imageStorageId={(featured?.imageStorageId as Id<"_storage"> | null) ?? undefined}
+        imageUrl={featured?.imageUrl ?? undefined}
+      />
       <DataBoundary<ListReady> status={status} data={data} error={error}>
         {(loaded) => (
           <ElementsListBody
             loaded={loaded}
+            featured={featured}
             search={search}
             setSearch={setSearch}
             sortBy={sortBy}
@@ -200,6 +203,7 @@ export default function ElementsScreen() {
 
 function ElementsListBody({
   loaded,
+  featured,
   search,
   setSearch,
   sortBy,
@@ -224,6 +228,7 @@ function ElementsListBody({
   t,
 }: {
   loaded: ListReady;
+  featured: ElementListRow | undefined;
   search: string;
   setSearch: (s: string) => void;
   sortBy: SortKey;
@@ -306,17 +311,6 @@ function ElementsListBody({
     }
     return next;
   }, [hierarchyFilter, rows, substateFilter]);
-
-  const gridItems = useMemo<GridItem[]>(
-    () =>
-      filteredRows.length === 0
-        ? []
-        : [
-            ...filteredRows.map((row): GridItem => ({ kind: "element", row })),
-            { kind: "add" },
-          ],
-    [filteredRows]
-  );
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
@@ -423,12 +417,11 @@ function ElementsListBody({
   const refineSummary = refineParts.join(" · ");
   const refinesActive = refineParts.length > 0;
 
+  const featuredStatus = featured ? formatNodeStatus(featured) : null;
+
   const investedCents = useMemo(
     () =>
-      filteredRows.reduce(
-        (sum, row) => sum + (row.totalCostCents ?? row.directCostCents ?? 0),
-        0
-      ),
+      filteredRows.reduce((sum, row) => sum + (row.totalCostCents ?? row.directCostCents ?? 0), 0),
     [filteredRows]
   );
 
@@ -438,224 +431,366 @@ function ElementsListBody({
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ paddingHorizontal: 22, paddingTop: insets.top + 58 }}>
-        <Text
-          style={{
-            fontFamily: APP_FONT_FAMILIES.displayItalic,
-            fontSize: 34,
-            lineHeight: 38,
-            letterSpacing: ls(-0.01, 34),
-            color: glass.text.fg,
-            marginBottom: 8,
-          }}
-        >
-          {t("elements.pageTitle")}
-        </Text>
-
-        {/* Type tabs + search/refine toggles — mirrors the web closet panel's header row. */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 1, flexShrink: 1 }}
-            contentContainerStyle={{ gap: 18, paddingRight: 12, alignItems: "center" }}
-          >
-            <UnderlineTab
-              active={typeFilter === "all"}
-              label={t("elements.tabAllCount", {
-                defaultValue: "All · {{count}}",
-                count: filteredRows.length,
-              })}
-              onPress={() => setTypeFilter("all")}
-            />
-            <UnderlineTab
-              active={typeFilter === "element"}
-              label={t("elements.tabElements", { defaultValue: "Elements" })}
-              onPress={() => setTypeFilter("element")}
-            />
-            <UnderlineTab
-              active={typeFilter === "material"}
-              label={t("elements.tabMaterials", { defaultValue: "Materials" })}
-              onPress={() => setTypeFilter("material")}
-            />
-          </ScrollView>
-          <HeaderIconToggle
-            icon="search"
-            active={searchOpen || search.trim().length > 0}
-            label={t("elements.searchToggle", { defaultValue: "Search elements" })}
-            onPress={() => setSearchOpen((value) => !value)}
-          />
-          <HeaderIconToggle
-            icon="options-outline"
-            active={filtersOpen || refinesActive}
-            label={t("elements.refineElements")}
-            onPress={() => setFiltersOpen((value) => !value)}
-          />
-        </View>
-
-        {searchOpen ? (
-          <View style={{ marginTop: 8 }}>
-            <GlassTextField
-              value={search}
-              onChangeText={setSearch}
-              placeholder={t("elements.searchPlaceholder")}
-              autoCapitalize="none"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-              autoFocus
-            />
-          </View>
-        ) : null}
-
-        {!filtersOpen && refinesActive ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={glass.text.fg} />
+        }
+      >
+        {/* Hero — last-touched element identity on the photo (web elements hero). */}
+        <View style={{ paddingHorizontal: 22, paddingTop: insets.top + 58 }}>
           <Text
             style={{
-              marginTop: 8,
-              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontFamily: APP_FONT_FAMILIES.sansBold,
               fontSize: 9,
-              letterSpacing: ls(0.14, 9),
+              letterSpacing: ls(0.26, 9),
               textTransform: "uppercase",
-              color: glass.text.fg55,
+              color: glass.text.fg,
+              opacity: 0.75,
+              marginBottom: 10,
             }}
-            numberOfLines={1}
           >
-            {refineSummary}
+            {t("elements.heroEyebrow", { defaultValue: "Elements · Last touched" })}
           </Text>
-        ) : null}
-
-        {filtersOpen ? (
-          <GlassPanel blur={false} style={{ marginTop: 8, padding: 12 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-              <GlassFilterChip
-                active={viewMode === "all"}
-                label={t("elements.tabAll")}
-                onPress={() => setViewMode("all")}
-              />
-              <GlassFilterChip
-                active={viewMode === "tree"}
-                label={t("elements.tabTree")}
-                onPress={() => setViewMode("tree")}
-              />
-              <GlassControlPill label={sortLabel} onPress={cycleSort} />
-              <GlassControlPill label={orderLabel} onPress={toggleOrder} />
-            </View>
-
-            <View style={{ marginTop: 12 }}>
-              <RefineSectionLabel>{t("elements.categoryLabel")}</RefineSectionLabel>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 6 }}
-                contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+          {featured ? (
+            <>
+              <Pressable
+                onPress={() => router.push(APP_HREF.element(featured._id as string))}
+                accessibilityRole="button"
+                accessibilityLabel={featured.name}
+                className="active:opacity-80"
               >
-                <GlassFilterChip
-                  active={categoryFilter === "all"}
-                  label={t("elements.filterAll")}
-                  onPress={() => setCategoryFilter("all")}
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.displayItalic,
+                    fontSize: 38,
+                    lineHeight: 42,
+                    letterSpacing: ls(-0.02, 38),
+                    color: glass.text.fg,
+                  }}
+                  numberOfLines={3}
+                >
+                  {featured.name}
+                </Text>
+              </Pressable>
+
+              {/* Meta triplet: KIND / PROGRESS / DIRECT COST (web hero dl). */}
+              <View
+                style={{
+                  marginTop: 18,
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  columnGap: 28,
+                  rowGap: 14,
+                }}
+              >
+                <HeroMeta
+                  label={t("elements.heroKind", { defaultValue: "Kind" })}
+                  value={featured.category?.trim() || formatNodeTypeLabel(featured.nodeType)}
                 />
-                {COSPLAY_CATEGORIES.map((category) => (
-                  <GlassFilterChip
-                    key={category}
-                    active={categoryFilter === category}
-                    label={category}
-                    onPress={() => setCategoryFilter(category)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={{ marginTop: 12 }}>
-              <RefineSectionLabel>{t("elements.sortBucket")}</RefineSectionLabel>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 6 }}
-                contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-              >
-                <GlassFilterChip
-                  active={bucketFilter === "all"}
-                  label={t("elements.filterAll")}
-                  onPress={() => setBucketFilter("all")}
+                <HeroMeta
+                  label={t("elements.heroProgress", { defaultValue: "Progress" })}
+                  value={`${featured.progressPercent ?? 0}%`}
                 />
-                {COSPLAY_OVERALL_BUCKETS.map((bucket) => (
-                  <GlassFilterChip
-                    key={bucket}
-                    active={bucketFilter === bucket}
-                    label={formatOverallBucket(bucket)}
-                    onPress={() => setBucketFilter(bucket)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
+                <HeroMeta
+                  label={t("elements.heroDirectCost", { defaultValue: "Direct cost" })}
+                  value={formatCents(featured.directCostCents ?? 0)}
+                />
+              </View>
 
-            <View style={{ marginTop: 12 }}>
-              <RefineSectionLabel>{t("elements.substateLabel")}</RefineSectionLabel>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 6 }}
-                contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+              <View
+                style={{
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
               >
-                {SUBSTATE_FILTERS.map((option) => (
-                  <GlassFilterChip
-                    key={option.value || "all"}
-                    active={substateFilter === option.value}
-                    label={t(option.key)}
-                    onPress={() => setSubstateFilter(option.value)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
+                {featuredStatus ? (
+                  <GlassStatusChip tone={nodeStatusTone(featured)} label={featuredStatus} />
+                ) : null}
+                <Text
+                  style={{
+                    flexShrink: 1,
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 13,
+                    color: glass.text.fg70,
+                  }}
+                  numberOfLines={1}
+                >
+                  {featured.notes?.split("\n")[0] ??
+                    ((featured.childCount ?? 0) === 1
+                      ? t("elements.heroPartsLinkedOne", {
+                          defaultValue: "{{count}} part linked",
+                          count: featured.childCount ?? 0,
+                        })
+                      : t("elements.heroPartsLinked", {
+                          defaultValue: "{{count}} parts linked",
+                          count: featured.childCount ?? 0,
+                        }))}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontSize: 38,
+                lineHeight: 42,
+                letterSpacing: ls(-0.02, 38),
+                color: glass.text.fg,
+              }}
+            >
+              {t("elements.pageTitle")}
+            </Text>
+          )}
+        </View>
 
-            <View style={{ marginTop: 12 }}>
-              <RefineSectionLabel>{t("elements.hierarchyLabel")}</RefineSectionLabel>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 6 }}
-                contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-              >
-                {HIERARCHY_FILTERS.map((option) => (
-                  <GlassFilterChip
-                    key={option.value}
-                    active={hierarchyFilter === option.value}
-                    label={t(option.key)}
-                    onPress={() => setHierarchyFilter(option.value)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-          </GlassPanel>
-        ) : null}
-      </View>
-
-      <FlatList
-        style={{ flex: 1 }}
-        data={gridItems}
-        numColumns={2}
-        keyExtractor={(item) => (item.kind === "add" ? "add-tile" : item.row._id)}
-        columnWrapperStyle={{ gap: 10, paddingHorizontal: 16 }}
-        contentContainerStyle={{
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 120,
-          gap: 10,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={glass.text.fg}
-          />
-        }
-        ListHeaderComponent={
+        {/* Work panel — web's closet panel: tabs header, list rows, footer. */}
+        <GlassPanel style={{ marginTop: 24, marginHorizontal: 16, overflow: "hidden" }}>
+          {/* Type tabs + search/refine toggles — mirrors the web closet panel's header row. */}
           <View
             style={{
-              paddingHorizontal: 16,
-              paddingBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingLeft: 16,
+              paddingRight: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: glass.border.divider,
+            }}
+          >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 1, flexShrink: 1 }}
+              contentContainerStyle={{ gap: 18, paddingRight: 12, alignItems: "center" }}
+            >
+              <UnderlineTab
+                active={typeFilter === "all"}
+                label={t("elements.tabAllCount", {
+                  defaultValue: "All · {{count}}",
+                  count: filteredRows.length,
+                })}
+                onPress={() => setTypeFilter("all")}
+              />
+              <UnderlineTab
+                active={typeFilter === "element"}
+                label={t("elements.tabElements", { defaultValue: "Elements" })}
+                onPress={() => setTypeFilter("element")}
+              />
+              <UnderlineTab
+                active={typeFilter === "material"}
+                label={t("elements.tabMaterials", { defaultValue: "Materials" })}
+                onPress={() => setTypeFilter("material")}
+              />
+            </ScrollView>
+            <HeaderIconToggle
+              icon="search"
+              active={searchOpen || search.trim().length > 0}
+              label={t("elements.searchToggle", { defaultValue: "Search elements" })}
+              onPress={() => setSearchOpen((value) => !value)}
+            />
+            <HeaderIconToggle
+              icon="options-outline"
+              active={filtersOpen || refinesActive}
+              label={t("elements.refineElements")}
+              onPress={() => setFiltersOpen((value) => !value)}
+            />
+          </View>
+
+          {searchOpen ? (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: glass.border.divider,
+              }}
+            >
+              <GlassTextField
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t("elements.searchPlaceholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                autoFocus
+              />
+            </View>
+          ) : null}
+
+          {!filtersOpen && refinesActive ? (
+            <Text
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 9,
+                letterSpacing: ls(0.14, 9),
+                textTransform: "uppercase",
+                color: glass.text.fg55,
+              }}
+              numberOfLines={1}
+            >
+              {refineSummary}
+            </Text>
+          ) : null}
+
+          {filtersOpen ? (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: glass.border.divider,
+              }}
+            >
+              <View
+                style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}
+              >
+                <GlassFilterChip
+                  active={viewMode === "all"}
+                  label={t("elements.tabAll")}
+                  onPress={() => setViewMode("all")}
+                />
+                <GlassFilterChip
+                  active={viewMode === "tree"}
+                  label={t("elements.tabTree")}
+                  onPress={() => setViewMode("tree")}
+                />
+                <GlassControlPill label={sortLabel} onPress={cycleSort} />
+                <GlassControlPill label={orderLabel} onPress={toggleOrder} />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.categoryLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  <GlassFilterChip
+                    active={categoryFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setCategoryFilter("all")}
+                  />
+                  {COSPLAY_CATEGORIES.map((category) => (
+                    <GlassFilterChip
+                      key={category}
+                      active={categoryFilter === category}
+                      label={category}
+                      onPress={() => setCategoryFilter(category)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.sortBucket")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  <GlassFilterChip
+                    active={bucketFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setBucketFilter("all")}
+                  />
+                  {COSPLAY_OVERALL_BUCKETS.map((bucket) => (
+                    <GlassFilterChip
+                      key={bucket}
+                      active={bucketFilter === bucket}
+                      label={formatOverallBucket(bucket)}
+                      onPress={() => setBucketFilter(bucket)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.substateLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  {SUBSTATE_FILTERS.map((option) => (
+                    <GlassFilterChip
+                      key={option.value || "all"}
+                      active={substateFilter === option.value}
+                      label={t(option.key)}
+                      onPress={() => setSubstateFilter(option.value)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.hierarchyLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  {HIERARCHY_FILTERS.map((option) => (
+                    <GlassFilterChip
+                      key={option.value}
+                      active={hierarchyFilter === option.value}
+                      label={t(option.key)}
+                      onPress={() => setHierarchyFilter(option.value)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Closet rows — 48×60 thumb, kind eyebrow over serif name, cost, toned chip. */}
+          {filteredRows.length === 0 ? (
+            <View style={{ paddingVertical: 8 }}>
+              <GlassEmptyState
+                icon="shirt-outline"
+                message={
+                  search.trim()
+                    ? t("elements.emptySearch")
+                    : t("elements.closetEmpty", {
+                        defaultValue: "Your closet is empty. Add your first piece.",
+                      })
+                }
+                secondary={search.trim() ? undefined : t("elements.empty")}
+              />
+            </View>
+          ) : (
+            filteredRows.map((row, index) => (
+              <ElementRow
+                key={row._id}
+                row={row}
+                last={index === filteredRows.length - 1}
+                onPress={() => router.push(APP_HREF.element(row._id as string))}
+              />
+            ))
+          )}
+
+          {/* Panel footer — count/invested meta plus the new-element pill (web footer). */}
+          <View
+            style={{
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
+              borderTopWidth: 1,
+              borderTopColor: glass.border.divider,
+              paddingLeft: 16,
+              paddingRight: 10,
+              paddingVertical: 8,
             }}
           >
             <Text
@@ -671,77 +806,56 @@ function ElementsListBody({
               numberOfLines={1}
             >
               {(filteredRows.length === 1
-                ? t("elements.countSingular", { count: filteredRows.length })
-                : t("elements.countPlural", { count: filteredRows.length })) +
+                ? t("elements.piecesOne", {
+                    defaultValue: "{{count}} piece",
+                    count: filteredRows.length,
+                  })
+                : t("elements.pieces", {
+                    defaultValue: "{{count}} pieces",
+                    count: filteredRows.length,
+                  })) +
                 " · " +
                 t("elements.invested", {
                   defaultValue: "{{amount}} invested",
                   amount: formatCents(investedCents),
                 })}
             </Text>
-            {filteredRows.length > 0 ? (
-              <Pressable
-                onPress={() => setBulkOpen(true)}
-                accessibilityRole="button"
-                style={{
-                  minHeight: 44,
-                  justifyContent: "center",
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: glass.border.default,
-                  paddingHorizontal: 14,
-                }}
-              >
-                <Text
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              {filteredRows.length > 0 ? (
+                <Pressable
+                  onPress={() => setBulkOpen(true)}
+                  accessibilityRole="button"
+                  className="active:opacity-80"
                   style={{
-                    fontFamily: APP_FONT_FAMILIES.sansBold,
-                    fontSize: 9,
-                    letterSpacing: ls(0.16, 9),
-                    textTransform: "uppercase",
-                    color: glass.text.fg,
+                    minHeight: 44,
+                    justifyContent: "center",
+                    paddingHorizontal: 10,
                   }}
                 >
-                  {t("elements.bulkSelectAction")}
-                </Text>
-              </Pressable>
-            ) : null}
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansBold,
+                      fontSize: 9,
+                      letterSpacing: ls(0.16, 9),
+                      textTransform: "uppercase",
+                      color: glass.text.fg55,
+                    }}
+                  >
+                    {t("elements.bulkSelectAction")}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <PhotoPill
+                variant="outline"
+                size="sm"
+                icon="add"
+                label={t("elements.newElementShort")}
+                onPress={openNewElement}
+              />
+            </View>
           </View>
-        }
-        ListEmptyComponent={
-          <GlassEmptyState
-            icon="shirt-outline"
-            message={
-              search.trim()
-                ? t("elements.emptySearch")
-                : t("elements.closetEmpty", {
-                    defaultValue: "Your closet is empty. Add your first piece.",
-                  })
-            }
-            secondary={search.trim() ? undefined : t("elements.empty")}
-            action={
-              search.trim() ? undefined : (
-                <PhotoPill
-                  variant="outline"
-                  size="sm"
-                  icon="add"
-                  label={t("elements.newElementShort")}
-                  onPress={openNewElement}
-                />
-              )
-            }
-          />
-        }
-        renderItem={({ item }) =>
-          item.kind === "add" ? (
-            <AddElementTile label={t("elements.newElementShort")} onPress={openNewElement} />
-          ) : (
-            <ElementClosetTile
-              row={item.row}
-              onPress={() => router.push(APP_HREF.element(item.row._id as string))}
-            />
-          )
-        }
-      />
+        </GlassPanel>
+      </ScrollView>
 
       <FloatingCreateMenu actions={addMenuActions} />
 
@@ -1056,13 +1170,50 @@ function ElementsListBody({
   );
 }
 
-/** Element grid tile — the web row anatomy (category/type meta, serif italic name,
- * cost, toned status chip) folded onto a 3:4 photo tile with a bottom scrim. */
-function ElementClosetTile({ row, onPress }: { row: ElementListRow; onPress: () => void }) {
+/** Hero meta cell — 10px uppercase label over a 15px sentence-case value (web hero dl). */
+function HeroMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 10,
+          letterSpacing: ls(0.2, 10),
+          textTransform: "uppercase",
+          color: glass.text.fg55,
+          marginBottom: 3,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansRegular,
+          fontSize: 15,
+          fontVariant: ["tabular-nums"],
+          color: glass.text.fg,
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** Closet list row — the web row anatomy: 48×60 thumb, kind eyebrow over a serif
+ * italic name, trailing cost and toned status chip. Flat (no blur) inside the panel. */
+function ElementRow({
+  row,
+  last,
+  onPress,
+}: {
+  row: ElementListRow;
+  last: boolean;
+  onPress: () => void;
+}) {
   const status = formatNodeStatus(row);
-  const meta = row.category?.trim() || formatNodeTypeLabel(row.nodeType);
+  const kind = row.category?.trim() || formatNodeTypeLabel(row.nodeType);
   const cost = row.totalCostCents ?? row.directCostCents ?? 0;
-  const metaLine = cost > 0 ? `${meta} · ${formatCents(cost)}` : meta;
   const placeholderIcon =
     row.nodeType === "material" ? ("flask-outline" as const) : ("shirt-outline" as const);
 
@@ -1073,99 +1224,79 @@ function ElementClosetTile({ row, onPress }: { row: ElementListRow; onPress: () 
       accessibilityLabel={row.name}
       className="active:opacity-80"
       style={{
-        flex: 1,
-        maxWidth: "50%",
-        aspectRatio: 3 / 4,
-        borderRadius: 11,
-        overflow: "hidden",
-        backgroundColor: glass.surface.field,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: glass.border.divider,
       }}
     >
-      {row.imageStorageId || row.imageUrl ? (
-        <ConvexStorageImage
-          storageId={row.imageStorageId as Id<"_storage"> | undefined}
-          imageUrl={row.imageUrl}
-          className="h-full w-full"
-          accessibilityLabel={row.name}
-        />
-      ) : (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name={placeholderIcon} size={40} color={glass.text.fg45} />
-        </View>
-      )}
-      <LinearGradient
-        pointerEvents="none"
-        {...scrimGradientProps(glass.scrim.pageVertical)}
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-      />
-      {status ? (
-        <View style={{ position: "absolute", left: 8, top: 8 }}>
-          <GlassStatusChip tone={nodeStatusTone(row)} label={status} />
-        </View>
-      ) : null}
-      <View style={{ position: "absolute", left: 10, right: 10, bottom: 9 }}>
+      <View
+        style={{
+          width: 48,
+          height: 60,
+          borderRadius: 8,
+          overflow: "hidden",
+          borderWidth: 1,
+          borderColor: glass.border.default,
+          backgroundColor: glass.surface.field,
+        }}
+      >
+        {row.imageStorageId || row.imageUrl ? (
+          <ConvexStorageImage
+            storageId={row.imageStorageId as Id<"_storage"> | undefined}
+            imageUrl={row.imageUrl}
+            className="h-full w-full"
+            accessibilityLabel={row.name}
+          />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={placeholderIcon} size={18} color={glass.text.fg45} />
+          </View>
+        )}
+      </View>
+      <View style={{ minWidth: 0, flex: 1 }}>
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.sansBold,
             fontSize: 9,
             letterSpacing: ls(0.16, 9),
             textTransform: "uppercase",
-            color: glass.text.fg70,
+            color: glass.text.fg55,
             marginBottom: 2,
           }}
           numberOfLines={1}
         >
-          {metaLine}
+          {kind}
         </Text>
         <Text
           style={{
             fontFamily: APP_FONT_FAMILIES.displayItalic,
-            fontSize: 15,
-            lineHeight: 18,
+            fontSize: 16,
+            lineHeight: 20,
             color: glass.text.fg,
           }}
-          numberOfLines={2}
+          numberOfLines={1}
         >
           {row.name}
         </Text>
       </View>
-    </Pressable>
-  );
-}
-
-/** Dashed "add" tile — the dashed border is reserved for add affordances. */
-function AddElementTile({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      className="active:opacity-70"
-      style={{
-        flex: 1,
-        maxWidth: "50%",
-        aspectRatio: 3 / 4,
-        borderRadius: 11,
-        borderWidth: 1,
-        borderStyle: "dashed",
-        borderColor: glass.border.strong,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-      }}
-    >
-      <Ionicons name="add" size={22} color={glass.text.fg70} />
-      <Text
-        style={{
-          fontFamily: APP_FONT_FAMILIES.sansBold,
-          fontSize: 9,
-          letterSpacing: ls(0.16, 9),
-          textTransform: "uppercase",
-          color: glass.text.fg70,
-        }}
-      >
-        {label}
-      </Text>
+      {cost > 0 ? (
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansMedium,
+            fontSize: 13,
+            fontVariant: ["tabular-nums"],
+            color: glass.text.fg70,
+          }}
+        >
+          {formatCents(cost)}
+        </Text>
+      ) : null}
+      {status ? <GlassStatusChip tone={nodeStatusTone(row)} label={status} /> : null}
     </Pressable>
   );
 }

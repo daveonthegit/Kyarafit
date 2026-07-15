@@ -347,7 +347,15 @@
     "tabElements": "Elements",
     "tabMaterials": "Materials",
     "searchToggle": "Search elements",
-    "invested": "{{amount}} invested"
+    "invested": "{{amount}} invested",
+    "heroEyebrow": "Elements · Last touched",
+    "heroKind": "Kind",
+    "heroProgress": "Progress",
+    "heroDirectCost": "Direct cost",
+    "heroPartsLinkedOne": "{{count}} part linked",
+    "heroPartsLinked": "{{count}} parts linked",
+    "piecesOne": "{{count}} piece",
+    "pieces": "{{count}} pieces"
   },
   "buildDetail": {
     "newElement": "New element",

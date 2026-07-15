@@ -347,7 +347,15 @@
     "tabElements": "エレメント",
     "tabMaterials": "素材",
     "searchToggle": "エレメントを検索",
-    "invested": "投資額 {{amount}}"
+    "invested": "投資額 {{amount}}",
+    "heroEyebrow": "エレメント · 最終更新",
+    "heroKind": "種類",
+    "heroProgress": "進捗",
+    "heroDirectCost": "直接コスト",
+    "heroPartsLinkedOne": "リンク済みパーツ {{count}} 件",
+    "heroPartsLinked": "リンク済みパーツ {{count}} 件",
+    "piecesOne": "{{count}} 点",
+    "pieces": "{{count}} 点"
   },
   "buildDetail": {
     "newElement": "新規エレメント",
