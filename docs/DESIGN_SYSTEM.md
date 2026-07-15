@@ -3,10 +3,11 @@
 _Source of truth for **UI/UX principles, information architecture, components, states, accessibility,
 and web/mobile parity**. Product → [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md)._
 
-> **Visual direction is an OPEN QUESTION (OQ-1).** This doc locks **principles, IA, component
-> contracts, and state rules** now. Concrete visual language (final type, color, mockups) is a
-> follow-up: produce 2–3 directions (refined-editorial · minimal-modern · warm-playful) referencing
-> **Pinterest, Linear, Notion**, plus a proposed palette, for sign-off before implementation.
+> **Visual direction is RESOLVED (OQ-1): the "Glass Studio" language** — photography as the page,
+> frosted-glass chrome, fixed light-on-dark media foreground. The normative visual spec lives in
+> [`redesign/`](redesign/README.md) (foundations, surface rules, component changes, per-screen
+> specs, QA addendum); this doc keeps the durable principles, component contract, state rules, and
+> parity matrix. Where this doc and `redesign/` disagree on visuals, `redesign/` wins.
 
 ---
 
@@ -21,47 +22,57 @@ and web/mobile parity**. Product → [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md)._
 
 ---
 
-## 2. Information architecture (proposed — OQ-2)
+## 2. Information architecture (resolved — OQ-2)
 
-Elements are **not** a top-level destination (managed per-build). Proposed primary nav:
+**`design-system/navConfig.ts` is the single source of truth** for sections, order, icons, and the
+add-menu; both platforms read it. As shipped:
 
-| Destination | Purpose                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| **Home**    | Dashboard: active builds, what's due (planner), upcoming conventions, recent progress updates |
-| **Builds**  | Grid of builds → build detail (elements, tasks, photos, progress updates, sharing)            |
-| **Plan**    | Conventions + day plans + packing + cross-build planner ("what's due")                        |
-| **Social**  | Feed / discover (online-only)                                                                 |
-| **Profile** | Public profile, settings, subscription, sync status                                           |
+| Surface                    | Sections                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| Mobile bottom tabs         | Home · Builds · Elements · Planner · **Menu** (`NAV_SECTIONS_BOTTOM`)                              |
+| Mobile menu drawer (13e)   | Full `NAV_SECTIONS_PRIMARY` (adds Events · Groups · Discover · Feed) + Settings + profile footer   |
+| Web glass top bar          | Studio sections inline left, social sections right (`NAV_SECTIONS_TOPBAR_*`)                       |
 
-- Mobile: bottom tab bar (these 5). Web: left sidebar / top nav (same 5).
-- **Create** is a prominent action (FAB on mobile / primary button on web) offering: new build, new convention, new task, add progress update.
-- Elements live inside **build detail**; an optional "all elements" search/filter is reachable from a build or Home, not as a tab.
+- Elements **is** a top-level destination on both platforms (this supersedes the earlier
+  "per-build only" proposal); the per-build element explorer also remains inside build detail.
+- **Create** is context-aware: web `GlobalFAB` / mobile `FloatingCreateMenu` — a solid-light pill
+  firing the section's primary add (`getPrimaryAddMenuItem`), extra actions in a glass sheet.
 
 ---
 
 ## 3. Component spec (shared contract, platform-native impl)
 
-Same name + prop shape on web and mobile (B3/N1 in [`ARCHITECTURE.md`](ARCHITECTURE.md)). UI is
+Same name + prop shape on web and mobile (B3/N1 in [`architecture.md`](architecture.md)). UI is
 platform-native; the **contract** is shared.
 
 | Primitive              | Role                                                                                |
 | ---------------------- | ----------------------------------------------------------------------------------- |
 | `PageHeader`           | Title + meta + primary action                                                       |
-| `SectionCard`          | One bordered surface for a section (never nest cards)                               |
-| `EmptyState`           | Icon + message + primary CTA                                                        |
+| `EmptyState`           | Icon + message + primary CTA (`surface="glass"` on photo/glass)                     |
 | `DataBoundary`         | Wraps async/local data: handles loading / empty / error uniformly                   |
 | `OfflineBanner`        | Online-only surfaces when disconnected                                              |
-| `SyncStatus`           | Connectivity + pending count + last-synced + manual sync (paid)                     |
+| `SyncStatus`           | Connectivity + pending count + last-synced + manual sync (paid) — **lives in Settings** (web: Backup & data; mobile: Offline), never as floating chrome (ADR-0002) |
 | `PendingBadge`         | Per-row "not yet synced" indicator                                                  |
 | `UpgradePrompt`        | Non-blocking paywall for paid actions (REQ-022)                                     |
 | `Gallery`              | Ordered, reorderable image grid (reference / process photos)                        |
 | `ProgressTimeline`     | Dated progress-update entries (REQ-049)                                             |
 | `TaskList` / `TaskRow` | Planner list with progressive disclosure (REQ-063)                                  |
-| `FormField`            | Labeled input with validation message slot                                          |
-| Buttons                | One button system: `primary`, `secondary`, `ghost`, `destructive`, sizes `sm/md/lg` |
+| `FormField`            | Labeled input with validation message slot (glass: `.glass-field` / `GlassTextField`) |
+| Buttons                | Cream surfaces: `primary/secondary/ghost/destructive`. Glass/photo surfaces: `PhotoPill` `solid/outline/text` — **exactly one solid per view** (QA-3) |
+
+Retired: **`SectionCard`** — the glass language replaced stacked cream cards with "photo, scrim,
+ONE glass panel" (see `redesign/02-surface-rules.md`, rule 3).
+
+**Glass primitives (v2, both platforms).** Web: `--glass-*` utilities in `globals.css` +
+`PhotoBackdrop` / `PhotoPill` / `ControlPill` / `GlassTopBar` / `BottomNav` / `MobileNavMenu`.
+Mobile (`mobile/src/ui/glass/`, tokens from `@kyarafit/design-system/rn` `glass`): `GlassPanel` /
+`GlassBar` / `GlassOverlay` (the three sanctioned weights + opaque fallback), `PhotoBackdrop`,
+`PhotoPill`, `GlassSheet`, `GlassTextField`, `GlassEmptyState`, `GlassStatusChip`, plus shell
+pieces `GlassTabBar` / `MobileNavDrawer` / `AuthGlassFrame`.
 
 - **CMP-1** No bespoke buttons/cards/spacing outside this system.
-- **CMP-2** Spacing/typography/radius/shadow come only from tokens (`design_tokens.json` / `rn_tokens.ts`).
+- **CMP-2** Spacing/typography/radius/shadow come only from tokens (`design_tokens.json` /
+  `rn_tokens.ts`); glass colors only from the shared `glass` block — no literals in components.
 
 ---
 
@@ -101,7 +112,10 @@ The model stays rich; the presentation must become clear:
 ## 7. Accessibility & theming (required)
 
 - **A11Y-1** WCAG AA contrast; minimum touch targets; labels/roles on all interactive elements.
-- **A11Y-2** Full **dark mode** parity on both platforms.
+- **A11Y-2** Full **dark mode** parity on both platforms. Nuance under Glass Studio: converted
+  studio screens are photo-dark by design and their glass/media-fg tokens **never theme-flip**;
+  the light/dark theme applies to the surfaces that still use `--kyar-*` tokens (email, and any
+  screens not yet converted).
 - **A11Y-3** Respect OS **dynamic type** / font scaling.
 - **A11Y-4** Honor **reduced-motion**.
 - **A11Y-5** Full **i18n parity**: en / ja / es on **both** web and mobile (web is currently partial — close the gap).

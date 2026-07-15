@@ -79,7 +79,7 @@ Cream is retired from the marketing site; the landing speaks the app's glass lan
 - Offline: this surface is online-only — `OnlineOnlyBanner` strip renders in the panel header per 03. Share-link mode identical minus follow (signed-out CTA instead).
 
 ## Cross-cutting
-- SyncStatus glass chip bottom-left on all studio screens; PendingBadge on rows written offline; OnlineOnlyBanner strip in panel headers for social surfaces.
+- ~~SyncStatus glass chip bottom-left on all studio screens~~ **superseded by ADR-0002**: sync status/"Sync now" live in Settings (web: Backup & data; mobile: Offline); only transient banners (offline strip, retention notice) float. PendingBadge on rows written offline; OnlineOnlyBanner strip in panel headers for social surfaces.
 
 ## Settings — `web/src/app/settings/page.tsx` (+ `/account`, `/subscription`, `/notifications`, `/data`) · ref 11a
 - Settings speaks the glass language too — same work-panel treatment as build detail (ref 6b), NOT cream. Glass top bar over `--studio-wall`; the settings body is ONE glass work panel (bg 0.10, blur 24px, border 0.16, radius 14px), centered (max ~600px), light-on-glass throughout.

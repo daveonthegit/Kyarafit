@@ -61,7 +61,7 @@ Web: **Next.js 16 (App Router)** + Convex. Mobile: **Expo (React Native)** + Con
 ## Mobile (Expo)
 
 - **Routing:** Expo Router under `mobile/app/` (tabs, stack). Same Convex useQuery/useMutation; auth via Better Auth; Convex provider in _layout.tsx.
-- **Offline/sync:** SQLite in mobile/src/storage/; useConvexSync (Convex→SQLite); convexSync.ts (push local changes to Convex). See [mobile/src/hooks/useConvexSync.ts](mobile/src/hooks/useConvexSync.ts).
+- **Offline/sync:** the local-first engine lives in `mobile/src/offline/` (local store, mutation queue, `useOfflineQuery`/`useOfflineMutation`, `SyncWorkerProvider`, `useSyncStatus`/`syncNow`). Local-first data goes through these hooks, never direct Convex `useQuery` (enforced by the `kyarafit/require-data-boundary` eslint rule for screens).
 - **Do:** Use same Convex API as web for feature parity; use Convex file upload (generateUploadUrl, getUrl) for images.
 - **Don't:** Don't call Go backend or EXPO_PUBLIC_API_URL for app data.
 
@@ -78,3 +78,23 @@ Web: **Next.js 16 (App Router)** + Convex. Mobile: **Expo (React Native)** + Con
 
 - **Current:** Build detail uses Convex directly; no lib/api/builds.ts. useTier hardcodes FREE (recommended: wire to Convex users.getMe when tier is live).
 - **Migration:** When adding tier from Convex, change useTier to call useQuery(api.users.getMe) and map to MeResponse; keep useFeatureAccess() as-is.
+
+## Glass Studio styling (mobile) — device-verified pitfalls
+
+Converted screens read fixed `glass` tokens from `@kyarafit/design-system/rn` (never theme-flipped);
+primitives live in `mobile/src/ui/glass/`. Rules learned the hard way on device (July 2026):
+
+- **Never pass a function as a Pressable `style`** (`style={({pressed}) => …}`) — the NativeWind
+  interop silently drops function styles. Use static style arrays + `className="active:opacity-80"`.
+- **`Link asChild` injects a `style` prop** into its child: reusable components must spread
+  `{...rest}` BEFORE their own `style` and flatten-merge an incoming `style` prop, or the injected
+  prop clobbers the variant styles.
+- **expo-router's Slot throws (dev) on array styles** on its direct children — `StyleSheet.flatten`
+  composed styles at primitive roots and on any `Link asChild` child.
+- Serif (Bodoni) headlines need `lineHeight ≥ 1.1 × fontSize` or glyph tops clip.
+- `FlatList numColumns` items need explicit widths (`flex: 1` + `maxWidth: "50%"`), else they
+  collapse to zero width.
+- Import `APP_FONT_FAMILIES` from `@/theme/fontFamilies` (pure constants), not `@/theme/appFonts`
+  (drags expo-font into vitest component suites).
+- Blur is expensive: never blur inside scrolling list rows; use `blur={false}` (opaque fallback) or
+  flat token colors there. Sync status is a Settings surface, not floating chrome (ADR-0002).

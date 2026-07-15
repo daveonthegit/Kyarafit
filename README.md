@@ -6,8 +6,9 @@ A mobile-first cosplay wardrobe and outfit planning app for cosplayers, fashion 
 
 Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan conventions, and generate packing lists automatically. The app uses a funnel-based architecture where users progress from inventory management through outfit organization to event planning.
 
-> **Working on the project?** Start with **[CURRENT_PLAN.md](CURRENT_PLAN.md)** — the canonical
-> snapshot of current direction, what's implemented, what's in progress, conventions, and known gaps.
+> **Working on the project?** Start with **[docs/AI_CONTEXT.md](docs/AI_CONTEXT.md)** (compact
+> orientation + source-of-truth doc map) and **[CONTEXT.md](CONTEXT.md)** (domain language). The
+> active visual redesign ("Glass Studio") lives in **[docs/redesign/](docs/redesign/README.md)**.
 
 ## Core Features
 
@@ -206,28 +207,26 @@ Run `make validate` before pushing. See [CI_LOCAL.md](CI_LOCAL.md) for details.
 > Deploy automation is `Needs verification`: `fly.toml` files indicate Fly.io, GitHub Actions run
 > CI (lint/typecheck/test), and older docs reference GCP/Vercel. Confirm the live target before relying on this.
 
-See [docs/MIGRATION.md](docs/MIGRATION.md) for the Supabase → Convex migration summary.
-
 ## Documentation
 
 ### Getting Started
 
-- [Migration Guide](docs/MIGRATION.md) - Supabase → Convex migration summary
-- [Development Guide](docs/DEVELOPMENT.md) - Development environment setup
+- **[docs/AI_CONTEXT.md](docs/AI_CONTEXT.md)** - Compact orientation + map of source-of-truth docs
 - **[CI/CD Local Guide](CI_LOCAL.md)** - Run CI checks locally before pushing
 
 ### Technical
 
-- [Context Document](docs/CONTEXT.md) - Project context and architecture decisions
+- [Domain Language](CONTEXT.md) - Ubiquitous language (with [docs/adr/](docs/adr/) for decisions)
+- [Architecture](docs/architecture.md) - Structure, boundaries, conventions
+- [Data & Sync](docs/DATA_AND_SYNC.md) - Local-first model, sync, conflicts, quotas
 - [Auth Documentation](docs/auth.md) - Authentication flow
-- [Project Structure](docs/project_structure.md) - Codebase organization
+- [Testing Strategy](docs/TESTING.md) - Test pyramid, naming, CI gate
 
 ### Product & Design
 
-- [Product Requirements (PRD)](docs/PRD.md) - Product vision and requirements
-- [User Flows](docs/USER_FLOWS.md) - Comprehensive feature documentation
-- [Design System](docs/design_system/README.md) - Component specifications
-- [Style Guide](docs/style_doc.md) - UI/UX guidelines
+- [Product Spec](docs/PRODUCT_SPEC.md) - Product behavior, modules, REQ IDs, acceptance criteria
+- [Design System & Parity](docs/DESIGN_SYSTEM.md) - Principles, component contract, parity matrix
+- [Glass Studio Redesign](docs/redesign/README.md) - The approved v2 visual language + screen specs
 
 ## Contributing
 

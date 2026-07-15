@@ -31,7 +31,7 @@ Paths relative to repo root. "Restyle" = keep logic/props/data flow, change pres
 
 ## Feedback
 
-- `web/src/components/SyncStatus.tsx`: same gate + logic; pill becomes glass chip (blur 10, `--glass-bg`, light text), bottom-left, above mobile tab bar.
+- `web/src/components/SyncStatus.tsx`: ~~pill becomes glass chip bottom-left, above mobile tab bar~~ **superseded by ADR-0002** (owner, phase-7.1 device check): same gate + logic, but it renders as the "Cloud sync" section on Settings → Backup & data (mobile mirror: `SyncStatusSection` on Settings → Offline). No omnipresent floating status chrome; only transient banners (offline strip, retention notice) float.
 - `web/src/components/OnlineOnlyBanner.tsx` / `UpgradePrompt.tsx`: on glass surfaces render as a panel-header strip (icon + text + underline action), on cream keep current style. On social surfaces (feed/discover/groups, ref 12) the banner is the glass strip variant.
 - `web/src/components/social/PublicBuildCard.tsx`: restyle to a 4:5 photo tile (radius 14px, top scrim) — top-left owner chip when `showOwner`, bottom source/name serif + like/comment counts. Keep all like/query props. Shared by feed + discover.
 - `web/src/components/ui/EmptyState.tsx`: add `surface="glass"` variant (light 200-weight icon + light text); used on feed/discover/groups empties.

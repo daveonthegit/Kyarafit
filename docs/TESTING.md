@@ -74,6 +74,12 @@ Avoid names describing implementation (`should_call_setServerId`).
 - Add factories/fixtures for entities (build, element, task, user-with-tier) under a shared test-fixtures module rather than ad-hoc objects.
 - Keep test data realistic but minimal.
 - Mock only platform adapters (`LocalStore`, connectivity, Convex client) — never the logic under test.
+- **Mobile component tests** run under the scoped vitest runner (`mobile/src/offline/vitest.config.ts`,
+  wired into `npm test -w mobile`): mock `react-native` per-file via
+  `createReactNativeMock()` from `mobile/src/test-support/rnMock.ts`; native packages that ship
+  untranspiled JSX/Flow (expo-blur, expo-linear-gradient, @expo/vector-icons,
+  react-native-safe-area-context) are stubbed via config-level aliases to
+  `mobile/src/test-support/*Stub.tsx` — add new native deps there, not with per-test mocks.
 
 ## 7. CI gate
 

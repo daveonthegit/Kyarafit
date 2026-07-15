@@ -7,6 +7,14 @@ Kyarafit v2 "Glass Studio" redesign. Web phases 0–6 are already implemented on
 
 Run one sub-phase (7.0–7.5) per session/PR. Stop for an owner device-check after 7.1 and 7.2.
 
+> **Progress (July 2026):** 7.0 (primitives + dev gallery), 7.1 (shell), and 7.2 (core studio
+> screens + owner device-check fixes) are DONE, plus the auth screens + signed-out welcome from
+> 7.5 (pulled forward on owner request). Remaining: **7.3 events, 7.4 social, 7.5 settings/legal**.
+> Two normative deltas since this prompt was written: **ADR-0002** (sync status lives in Settings,
+> never a floating chip — supersedes 03/04 where they say otherwise) and the **implementation
+> learnings** section at the bottom of this file (React Native pitfalls that broke on device —
+> binding for all remaining sub-phases).
+
 ---
 
 ## PROMPT (copy from here)
@@ -146,5 +154,26 @@ Read these before building the RN equivalent — mirror behavior and grammar, no
 
 Work autonomously through the current sub-phase; ask the owner only when the spec and the real
 data model genuinely conflict, or at the two STOP checkpoints.
+
+### Implementation learnings (7.0–7.2, binding)
+
+- **Never pass a function as a Pressable `style`** (`style={({pressed}) => …}`): the NativeWind
+  interop silently drops function styles on device. Use static style arrays +
+  `className="active:opacity-80"` for pressed feedback.
+- **`Link asChild` injects a `style` prop** into its child. In reusable components spread
+  `{...rest}` BEFORE your own `style`, and flatten-merge an incoming `style` prop — otherwise the
+  injected prop replaces your variant styles (this made solid pills render as bare text).
+- **expo-router's Slot rejects style ARRAYS** on its direct children (dev-mode throw). Glass
+  primitives `StyleSheet.flatten` their composed styles; do the same for any `Link asChild` child.
+- **Serif (Bodoni) headlines clip glyph tops** at `lineHeight == fontSize` — always ≥ 1.1×.
+- **FlatList `numColumns` items need real widths** (`flex:1` + `maxWidth:"50%"` inside
+  `columnWrapperStyle`) or tiles collapse to zero width.
+- Chip/filter rows that can exceed 390pt must be horizontal ScrollViews.
+- **Fonts in components:** import `APP_FONT_FAMILIES` from `@/theme/fontFamilies` (pure constants),
+  NOT `@/theme/appFonts` (pulls expo-font and breaks vitest component suites).
+- **Vitest stubs** for natively-shipped JSX live in `mobile/src/test-support/` (expo-blur,
+  expo-linear-gradient, @expo/vector-icons, react-native-safe-area-context) and are aliased in
+  `mobile/src/offline/vitest.config.ts`; the shared RN mock is `createReactNativeMock()`.
+- Sync status is a Settings surface (ADR-0002), not floating chrome; only transient banners float.
 
 ## (end of prompt)

@@ -20,11 +20,13 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 | -------------------------------------------- | ----------------------------------------------------------------- |
 | `PRODUCT_SPEC.md`                            | product behavior, modules, REQ IDs, freemium, acceptance criteria |
 | `DATA_AND_SYNC.md`                           | data model, local-first, sync, conflict, migration, quotas        |
-| `ARCHITECTURE.md`                            | structure, shared logic, boundaries, conventions                  |
+| `architecture.md`                            | structure, shared logic, boundaries, conventions                  |
 | `DESIGN_SYSTEM.md`                           | UI principles, IA/nav, components, states, a11y, parity           |
 | `TESTING.md` + `specs/refactor-test-plan.md` | how/what to test (REQ→tests)                                      |
-| `ROADMAP.md`                                 | phased implementation order                                       |
+| `roadmap.md`                                 | phased implementation order                                       |
 | `ai/IMPLEMENTATION_HANDOFF.md`               | the Composer handoff prompt                                       |
+| `redesign/` (README → 01–05 + tokens.css)    | the approved "Glass Studio" v2 visual language + per-screen specs |
+| `../CONTEXT.md` (repo root)                  | ubiquitous domain language (grown lazily; see `agents/domain.md`) |
 
 ## Key decisions (constraints)
 
@@ -42,8 +44,11 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 
 ## Current phase
 
-**Phase 0** (foundations): sync gating, entitlement corrections, cloud-storage policy, field-LWW
-conflict. See `ROADMAP.md`.
+**Glass Studio redesign rollout.** Web phases 0–6 are implemented (branch
+`feat/glass-studio-phase-0`); the mobile parity pass (phase 7) is underway — 7.0 primitives, 7.1
+shell, 7.2 core studio screens + auth/landing are done; 7.3 events, 7.4 social, and 7.5 settings
+remain. Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation phases
+(sync gating, entitlements, storage policy, field-LWW) are complete; see `roadmap.md` for history.
 
 ## Commands
 
@@ -81,4 +86,7 @@ lives in `design-system/domain/*` and is tested via web vitest.
 
 ## Open questions
 
-OQ-1 visual direction (mockups pending), OQ-2 final nav/IA, OQ-3 moderation depth, OQ-4 group-exception limits, OQ-5 progress-update publish trigger. See `PRODUCT_SPEC.md` §9.
+OQ-3 moderation depth, OQ-4 group-exception limits, OQ-5 progress-update publish trigger. See
+`PRODUCT_SPEC.md` §9. **Resolved:** OQ-1 visual direction → the "Glass Studio" language
+(`redesign/`); OQ-2 nav/IA → `design-system/navConfig.ts` is the single source of truth (mobile
+bottom tabs: Home · Builds · Elements · Planner · Menu; web glass top bar).
