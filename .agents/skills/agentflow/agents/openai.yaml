@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentflow"
+  short_description: "Run deterministic agent engineering workflows"
+  default_prompt: "Use $agentflow to start and manage this engineering task through deterministic workflow gates."
