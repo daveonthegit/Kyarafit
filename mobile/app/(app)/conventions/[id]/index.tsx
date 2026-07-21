@@ -1,24 +1,40 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
-import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
-import { ConventionEventPoster } from "@/components/conventions/ConventionEventPoster";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { APP_HREF } from "@/lib/appRoutes";
-import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   countPackingProgress,
-  countPlannedBuilds,
   enumerateConventionDays,
   formatConventionTimelineDate,
+  formatDateRange,
+  formatLongDateLabel,
+  getDaysUntil,
 } from "@/screens/conventions/utils";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import {
+  GlassPanel,
+  GlassStatusChip,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+} from "@/ui/glass";
 
 type Ready = {
   userId: string;
@@ -34,6 +50,9 @@ type Ready = {
   })[];
   packing: (Doc<"packingListItems"> & { checked: boolean })[];
 };
+
+const DAY_TILE_WIDTH = 170;
+const DAY_TILE_HEIGHT = 190;
 
 export default function ConventionDetailScreen() {
   const { t } = useTranslation();
@@ -89,12 +108,44 @@ export default function ConventionDetailScreen() {
   );
 }
 
+/** Uppercase tracked meta on photo/glass (QA-2 floors: ≥9px, ≥0.14em). */
+function Meta({
+  children,
+  size = 9,
+  color = glass.text.fg70,
+  tracking = 0.16,
+  style,
+}: {
+  children: string;
+  size?: number;
+  color?: string;
+  tracking?: number;
+  style?: StyleProp<TextStyle>;
+}) {
+  return (
+    <Text
+      style={[
+        {
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: size,
+          letterSpacing: ls(tracking, size),
+          textTransform: "uppercase",
+          color,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
+  );
+}
+
 function ConventionDetailBody({ userId, convention, plans, builds, packing }: Ready) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { colors } = useDesignTheme();
   const replacePlan = useOfflineMutation(api.conventions.replacePlan);
   const regeneratePacking = useOfflineMutation(api.conventions.regeneratePacking);
+  const updatePackingItem = useOfflineMutation(api.conventions.updatePackingItem);
   const updateConvention = useOfflineMutation(api.conventions.update);
   const removeConvention = useOfflineMutation(api.conventions.remove);
   const days = useMemo(
@@ -105,13 +156,30 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
   const [buildSearch, setBuildSearch] = useState("");
   const primaryDay = days[0] ?? convention.startDate;
   const planByDate = useMemo(() => new Map(plans.map((p) => [p.date, p])), [plans]);
-  const [timelineBlockHeight, setTimelineBlockHeight] = useState(0);
   const dayPacking = useMemo(
     () => packing.filter((item) => item.date === primaryDay || !item.date),
     [packing, primaryDay]
   );
   const packingProgress = countPackingProgress(packing);
-  const plannedBuilds = countPlannedBuilds(plans);
+  const packingPct =
+    packingProgress.total > 0
+      ? Math.round((100 * packingProgress.checked) / packingProgress.total)
+      : 0;
+  const plannedDayCount = useMemo(
+    () => days.filter((date) => planByDate.get(date)?.buildId).length,
+    [days, planByDate]
+  );
+  const daysUntil = getDaysUntil(convention.startDate);
+  const countdownLabel =
+    daysUntil > 0
+      ? t("conventions.countdownDays", { defaultValue: "{{count}} days", count: daysUntil })
+      : daysUntil === 0
+        ? t("conventions.countdownToday", { defaultValue: "Today" })
+        : t("conventions.countdownStarted", {
+            defaultValue: "{{count}} days ago",
+            count: Math.abs(daysUntil),
+          });
+  const firstUnplanned = days.find((date) => !planByDate.get(date)?.buildId) ?? days[0];
 
   const assignBuild = useCallback(
     async (buildId: Id<"builds"> | undefined) => {
@@ -201,260 +269,507 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
     ]);
   }, [convention._id, removeConvention, router, t, userId]);
 
-  return (
-    <>
-      <ScrollView
-        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 40,
-          gap: 20,
-        }}
-      >
-        <ConventionEventPoster
-          name={convention.name}
-          startDate={convention.startDate}
-          endDate={convention.endDate}
-          location={convention.location}
-          imageStorageId={convention.imageStorageId}
-          imageUrl={convention.imageUrl}
-          plannedBuilds={plannedBuilds}
-          packingChecked={packingProgress.checked}
-          packingTotal={packingProgress.total}
-          daysCount={days.length}
-          metricBuildsLabel={t("conventions.metricBuilds")}
-          metricPackingLabel={t("conventions.metricPacking")}
-          metricDaysLabel={t("conventions.metricDays")}
-          topAccessory={
-            <Pressable
-              onPress={() => router.push(APP_HREF.conventionEdit(convention._id))}
-              hitSlop={10}
-              className="active:opacity-80"
-            >
-              <Text className="text-sm font-semibold text-kyar-bg">
-                {t("conventions.editAction")}
-              </Text>
-            </Pressable>
+  const openManageMenu = useCallback(() => {
+    Alert.alert(t("conventions.manageTitle"), undefined, [
+      convention.archived === true
+        ? {
+            text: t("conventions.unarchiveAction"),
+            onPress: () => void runUnarchive(),
           }
-        />
+        : { text: t("conventions.archiveAction"), onPress: confirmArchive },
+      { text: t("conventions.deleteAction"), style: "destructive", onPress: confirmDelete },
+      { text: t("common.cancel"), style: "cancel" },
+    ]);
+  }, [confirmArchive, confirmDelete, convention.archived, runUnarchive, t]);
 
-        <SurfaceCard className="gap-3 px-4 py-4">
-          <MetaLabel>{t("conventions.manageTitle")}</MetaLabel>
-          {convention.archived === true ? (
-            <View className="self-start rounded-full bg-kyar-panel px-3 py-1.5 dark:bg-kyar-dark-panel">
-              <Text className="text-[10px] font-semibold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                {t("conventions.archivedBadge")}
-              </Text>
-            </View>
-          ) : null}
-          <View className="gap-2">
-            {convention.archived !== true ? (
-              <Button
-                title={t("conventions.archiveAction")}
-                variant="secondary"
-                onPress={confirmArchive}
+  return (
+    <View style={{ flex: 1 }}>
+      <PhotoBackdrop
+        imageStorageId={convention.imageStorageId}
+        imageUrl={convention.imageUrl}
+      />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 18, paddingBottom: 48 }}
+      >
+        {/* Headline block (ref 8a) */}
+        <View style={{ paddingHorizontal: 22 }}>
+          <Meta size={9} tracking={0.26}>
+            {`${formatDateRange(convention.startDate, convention.endDate)}${
+              convention.location ? ` · ${convention.location}` : ""
+            }`}
+          </Meta>
+          <Text
+            numberOfLines={3}
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontStyle: "italic",
+              fontSize: 38,
+              lineHeight: 42,
+              color: glass.text.fg,
+            }}
+          >
+            {convention.name}
+          </Text>
+
+          {/* Meta triplet: Countdown / Builds / Status */}
+          <View
+            style={{
+              marginTop: 12,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              alignItems: "center",
+              columnGap: 18,
+              rowGap: 8,
+            }}
+          >
+            <Meta size={9} tracking={0.2}>
+              {`${t("conventions.countdownLabel", { defaultValue: "Countdown" })} · ${countdownLabel}`}
+            </Meta>
+            <Meta size={9} tracking={0.2}>
+              {`${t("conventions.metricBuilds")} · ${t("conventions.plannedDaysMeta", {
+                defaultValue: "{{planned}}/{{total}} days",
+                planned: plannedDayCount,
+                total: days.length,
+              })}`}
+            </Meta>
+            {packingProgress.total === 0 ? (
+              <GlassStatusChip
+                tone="warning"
+                label={t("conventions.timelineStatusLogistics")}
               />
             ) : (
-              <Button
-                title={t("conventions.unarchiveAction")}
-                variant="secondary"
-                onPress={() => void runUnarchive()}
-              />
+              <Meta
+                size={9}
+                tracking={0.2}
+                color={
+                  packingProgress.checked === packingProgress.total
+                    ? glass.chip.done.fg
+                    : glass.text.fg70
+                }
+              >
+                {`${t("conventions.packingEyebrow")} · ${packingProgress.checked}/${packingProgress.total}`}
+              </Meta>
             )}
-            <Pressable
-              onPress={confirmDelete}
-              accessibilityRole="button"
-              className="rounded-xl border border-kyar-danger/35 bg-kyar-surface px-4 py-3 active:opacity-90 dark:border-kyar-dark-danger/40 dark:bg-kyar-dark-surface"
-            >
-              <Text className="text-center font-semibold text-kyar-danger dark:text-kyar-dark-danger">
-                {t("conventions.deleteAction")}
-              </Text>
-            </Pressable>
-          </View>
-        </SurfaceCard>
-
-        {/* Cosplay timeline — structure aligned with web `/conventions/[id]` (vertical spine + nodes + cards) */}
-        <View className="mb-4">
-          <View className="mb-6 flex-row items-center justify-between border-b border-kyar-borderSubtle pb-3 dark:border-kyar-dark-borderSubtle">
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-              className="text-[9px] uppercase tracking-[0.2em] text-kyar-text dark:text-kyar-dark-text"
-            >
-              {t("conventions.timelineTitle")}
-            </Text>
-            <Pressable onPress={() => router.push(APP_HREF.itinerary)} hitSlop={8}>
-              <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-accent">
-                {t("conventions.itineraryTitle")}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View
-            className="relative"
-            onLayout={(e) => setTimelineBlockHeight(e.nativeEvent.layout.height)}
-          >
-            {timelineBlockHeight > 0 ? (
-              <View
-                pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  left: 11,
-                  top: 0,
-                  width: 2,
-                  height: timelineBlockHeight,
-                  backgroundColor: colors.borderSubtle,
-                  zIndex: 0,
-                }}
-              />
+            {convention.archived === true ? (
+              <GlassStatusChip tone="neutral" label={t("conventions.archivedBadge")} />
             ) : null}
+          </View>
 
+          {/* Actions: exactly ONE solid + icon pill affordances */}
+          <View
+            style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}
+          >
+            <PhotoPill
+              variant="solid"
+              label={t("conventions.planDayAction", { defaultValue: "Plan a day" })}
+              onPress={() => setAssigningDay(firstUnplanned ?? primaryDay)}
+            />
+            <Pressable
+              onPress={() => router.push(APP_HREF.conventionEdit(convention._id))}
+              accessibilityRole="button"
+              accessibilityLabel={t("conventions.editAction")}
+              className="active:opacity-80"
+              style={{
+                height: 44,
+                width: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: glass.border.strong,
+                backgroundColor: glass.surface.bar,
+              }}
+            >
+              <Ionicons name="pencil-outline" size={17} color={glass.text.fg} />
+            </Pressable>
+            <Pressable
+              onPress={openManageMenu}
+              accessibilityRole="button"
+              accessibilityLabel={t("conventions.manageTitle")}
+              className="active:opacity-80"
+              style={{
+                height: 44,
+                width: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: glass.border.strong,
+                backgroundColor: glass.surface.bar,
+              }}
+            >
+              <Ionicons name="ellipsis-horizontal" size={17} color={glass.text.fg} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Day-plan rail (ref 8a): one photo tile per day; dashed = assign */}
+        <View style={{ marginTop: 26 }}>
+          <View
+            style={{
+              paddingHorizontal: 22,
+              flexDirection: "row",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <Meta size={10} tracking={0.24} color={glass.text.fg}>
+              {`${t("conventions.dayPlansTitle")} · ${days.length}`}
+            </Meta>
+            <Pressable
+              onPress={() => router.push(APP_HREF.itinerary)}
+              hitSlop={10}
+              className="active:opacity-80"
+              style={{ minHeight: 32, justifyContent: "center" }}
+            >
+              <Meta
+                size={9}
+                color={glass.text.fg70}
+                style={{
+                  borderBottomWidth: 1,
+                  borderBottomColor: glass.border.strong,
+                  paddingBottom: 2,
+                }}
+              >
+                {t("conventions.itineraryTitle")}
+              </Meta>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 22, gap: 12 }}
+          >
             {days.map((date, idx) => {
               const entry = planByDate.get(date);
               const build = entry?.buildId
                 ? builds.find((b) => b._id === entry.buildId)
                 : undefined;
+              const dayEyebrow = `${t("conventions.timelineDayHeading", { n: idx + 1 })} · ${formatLongDateLabel(date)}`;
+              const buildPackingItems = entry?.buildId
+                ? packing.filter((item) => item.buildId === entry.buildId)
+                : [];
+              const dayPacked = buildPackingItems.filter((item) => item.checked).length;
+
+              if (!build) {
+                // Dashed outline is the add affordance (QA-6).
+                return (
+                  <Pressable
+                    key={date}
+                    onPress={() => setAssigningDay(date)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${dayEyebrow}: ${t("conventions.assignBuildTile", {
+                      defaultValue: "Assign a build",
+                    })}`}
+                    className="active:opacity-80"
+                    style={{
+                      width: DAY_TILE_WIDTH,
+                      height: DAY_TILE_HEIGHT,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: glass.border.strong,
+                    }}
+                  >
+                    <Ionicons name="add" size={22} color={glass.text.fg70} />
+                    <Meta size={9} color={glass.text.fg}>
+                      {dayEyebrow}
+                    </Meta>
+                    <Meta size={9} color={glass.text.fg70}>
+                      {t("conventions.assignBuildTile", { defaultValue: "Assign a build" })}
+                    </Meta>
+                  </Pressable>
+                );
+              }
 
               return (
-                <View
+                <Pressable
                   key={date}
-                  className={`relative z-[1] flex-row pb-12 ${idx === days.length - 1 ? "pb-2" : ""}`}
+                  onPress={() => router.push(APP_HREF.build(build._id))}
+                  onLongPress={() => setAssigningDay(date)}
+                  delayLongPress={400}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${dayEyebrow}: ${build.name}`}
+                  className="active:opacity-90"
+                  style={{
+                    width: DAY_TILE_WIDTH,
+                    height: DAY_TILE_HEIGHT,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    borderWidth: borderWidth.hairline,
+                    borderColor: glass.border.divider,
+                    backgroundColor: glass.surface.active,
+                  }}
                 >
-                  <View className="z-[2] w-6 items-center">
-                    <View className="h-6 w-6 items-center justify-center rounded-full border-[3px] border-kyar-bg bg-kyar-text dark:border-kyar-dark-bg dark:bg-kyar-dark-text">
-                      <Text className="text-[8px] font-bold text-kyar-bg dark:text-kyar-dark-bg">
-                        {idx + 1}
-                      </Text>
+                  {build.imageStorageId || build.imageUrl ? (
+                    <ConvexStorageImage
+                      storageId={build.imageStorageId}
+                      imageUrl={build.imageUrl}
+                      className="h-full w-full"
+                    />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="image-outline" size={30} color={glass.text.fg45} />
                     </View>
-                  </View>
-
-                  <View className="min-w-0 flex-1 pl-4">
+                  )}
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: glass.scrimDim,
+                      paddingHorizontal: 10,
+                      paddingVertical: 9,
+                    }}
+                  >
+                    <Meta size={9}>{dayEyebrow}</Meta>
                     <Text
-                      style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-                      className="text-xl font-bold italic text-kyar-text dark:text-kyar-dark-text"
+                      numberOfLines={1}
+                      style={{
+                        marginTop: 3,
+                        fontFamily: APP_FONT_FAMILIES.displayItalic,
+                        fontStyle: "italic",
+                        fontSize: 14,
+                        lineHeight: 17,
+                        color: glass.text.fg,
+                      }}
                     >
-                      {t("conventions.timelineDayHeading", { n: idx + 1 })}
+                      {build.name}
                     </Text>
-                    <Text className="mt-1 text-[9px] uppercase tracking-wider text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                      {formatConventionTimelineDate(date)}
-                    </Text>
-
-                    <Pressable
-                      onPress={() =>
-                        build ? router.push(APP_HREF.build(build._id)) : setAssigningDay(date)
+                    <Meta
+                      size={9}
+                      tracking={0.14}
+                      color={
+                        buildPackingItems.length === 0
+                          ? glass.chip.warn.fg
+                          : dayPacked === buildPackingItems.length
+                            ? glass.chip.done.fg
+                            : glass.text.fg70
                       }
-                      onLongPress={build ? () => setAssigningDay(date) : undefined}
-                      delayLongPress={400}
-                      className="mt-3 active:opacity-95"
+                      style={{ marginTop: 3 }}
                     >
-                      {build ? (
-                        <BuildPortfolioCard
-                          variant="comfortable"
-                          projectIndex={idx + 1}
-                          item={{
-                            name: build.name,
-                            character: build.character,
-                            status: build.status ?? "",
-                            imageStorageId: build.imageStorageId,
-                            imageUrl: build.imageUrl,
-                            tasksTotal: build.tasksTotal,
-                            tasksChecked: build.tasksChecked,
-                          }}
-                        />
-                      ) : (
-                        <View className="aspect-[3/2] items-center justify-center border border-dashed border-kyar-borderSubtle bg-kyar-muted/40 px-6 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-muted/40">
-                          <Ionicons
-                            name="add-circle-outline"
-                            size={28}
-                            color={colors.textTertiary}
-                          />
-                          <Text
-                            style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-                            className="mt-2 text-[10px] uppercase tracking-widest text-kyar-textTertiary dark:text-kyar-dark-textTertiary"
-                          >
-                            {t("conventions.restDay")}
-                          </Text>
-                          <Text className="mt-1 text-[9px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                            {t("conventions.timelineTapToAssign")}
-                          </Text>
-                        </View>
-                      )}
-                    </Pressable>
+                      {buildPackingItems.length === 0
+                        ? t("conventions.timelineStatusLogistics")
+                        : t("conventions.timelineStatusPacking", {
+                            packed: dayPacked,
+                            total: buildPackingItems.length,
+                          })}
+                    </Meta>
                   </View>
-                </View>
+                </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
 
-        <SurfaceCard className="px-4 py-4">
-          <View className="flex-row items-center justify-between">
-            <MetaLabel>{t("conventions.dayPackingTitle")}</MetaLabel>
-            <Pressable
-              onPress={() => router.push(APP_HREF.conventionPacking(convention._id, primaryDay))}
+        {/* Packing work panel (ref 8a) — the ONE glass panel on this screen */}
+        <View style={{ marginTop: 26, paddingHorizontal: 16 }}>
+          <GlassPanel>
+            <View
+              style={{
+                paddingHorizontal: 18,
+                paddingVertical: 14,
+                borderBottomWidth: borderWidth.hairline,
+                borderBottomColor: glass.border.dividerStrong,
+              }}
             >
-              <Text className="text-xs font-semibold text-kyar-text underline dark:text-kyar-dark-text">
-                {t("conventions.openPackingAction")}
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text className="mt-3 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("conventions.packingHint")}
-          </Text>
-
-          <View className="mt-4 gap-3">
-            {dayPacking.length === 0 ? (
-              <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.noPackingItems")}
-              </Text>
-            ) : (
-              dayPacking.slice(0, 4).map((item) => (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <Meta size={10} tracking={0.24} color={glass.text.fg}>
+                  {t("conventions.packingListTitle", { defaultValue: "Packing list" })}
+                </Meta>
+                <Pressable
+                  onPress={() => void regeneratePacking({ userId, conventionId: convention._id })}
+                  hitSlop={10}
+                  className="active:opacity-80"
+                  style={{ minHeight: 32, justifyContent: "center" }}
+                >
+                  <Meta
+                    size={9}
+                    color={glass.text.fg70}
+                    style={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: glass.border.strong,
+                      paddingBottom: 2,
+                    }}
+                  >
+                    {t("conventions.regeneratePackingAction")}
+                  </Meta>
+                </Pressable>
+              </View>
+              {packingProgress.total > 0 ? (
                 <View
-                  key={item._id}
-                  className="flex-row items-center gap-3 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-3 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
+                  style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12 }}
                 >
                   <View
-                    className={`h-7 w-7 items-center justify-center rounded-full border ${
-                      item.checked
-                        ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                        : "border-kyar-border dark:border-kyar-dark-border"
-                    }`}
+                    style={{
+                      height: 2,
+                      flex: 1,
+                      borderRadius: 1,
+                      backgroundColor: glass.border.default,
+                      overflow: "hidden",
+                    }}
                   >
-                    {item.checked ? (
-                      <Ionicons name="checkmark" size={14} color={colors.bg} />
-                    ) : null}
+                    <View
+                      style={{
+                        height: 2,
+                        width: `${packingPct}%`,
+                        borderRadius: 1,
+                        backgroundColor: glass.surface.solid,
+                      }}
+                    />
                   </View>
-                  <View className="min-w-0 flex-1">
-                    <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
+                  <Meta size={9} color={glass.text.fg55}>
+                    {t("conventions.packedCountMeta", {
+                      defaultValue: "{{checked}} / {{total}} packed",
+                      checked: packingProgress.checked,
+                      total: packingProgress.total,
+                    })}
+                  </Meta>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={{ paddingHorizontal: 18, paddingVertical: 8 }}>
+              {dayPacking.length === 0 ? (
+                <Text
+                  style={{
+                    paddingVertical: 12,
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 13,
+                    lineHeight: 19,
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("conventions.noPackingItems")}
+                </Text>
+              ) : (
+                dayPacking.slice(0, 5).map((item, index) => (
+                  <Pressable
+                    key={item._id}
+                    onPress={() =>
+                      void updatePackingItem({ id: item._id, userId, checked: !item.checked })
+                    }
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: item.checked }}
+                    className="active:opacity-80"
+                    style={{
+                      minHeight: 44,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      borderTopWidth: index === 0 ? 0 : borderWidth.hairline,
+                      borderTopColor: glass.border.divider,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        height: 18,
+                        width: 18,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 4,
+                        borderWidth: item.checked ? 0 : 1.5,
+                        borderColor: glass.text.fg55,
+                        backgroundColor: item.checked ? glass.surface.solid : "transparent",
+                      }}
+                    >
+                      {item.checked ? (
+                        <Ionicons name="checkmark" size={12} color={glass.text.ink} />
+                      ) : null}
+                    </View>
+                    {/* Sentence-case body — content is never meta (QA-4). */}
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        minWidth: 0,
+                        flex: 1,
+                        fontFamily: APP_FONT_FAMILIES.sansRegular,
+                        fontSize: 13,
+                        color: item.checked ? glass.text.fg55 : glass.text.fg,
+                        textDecorationLine: item.checked ? "line-through" : "none",
+                      }}
+                    >
                       {item.label}
                     </Text>
-                    <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {item.date ?? t("conventions.generalPacking")}
-                    </Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
+                  </Pressable>
+                ))
+              )}
+            </View>
 
-          <View className="mt-4 flex-row gap-3">
-            <Button
-              title={t("conventions.regeneratePackingAction")}
-              variant="secondary"
-              onPress={() => void regeneratePacking({ userId, conventionId: convention._id })}
-              className="flex-1"
-            />
-            <Button
-              title={t("conventions.crossPackingTitle")}
-              variant="secondary"
-              onPress={() => router.push(APP_HREF.packing)}
-              className="flex-1"
-            />
-          </View>
-        </SurfaceCard>
+            <View
+              style={{
+                borderTopWidth: borderWidth.hairline,
+                borderTopColor: glass.border.dividerStrong,
+                paddingHorizontal: 18,
+                paddingVertical: 12,
+                flexDirection: "row",
+                flexWrap: "wrap",
+                alignItems: "center",
+                columnGap: 18,
+                rowGap: 8,
+              }}
+            >
+              <Pressable
+                onPress={() => router.push(APP_HREF.conventionPacking(convention._id, primaryDay))}
+                hitSlop={8}
+                className="active:opacity-80"
+                style={{ minHeight: 32, justifyContent: "center" }}
+              >
+                <Meta
+                  size={10}
+                  color={glass.text.fg70}
+                  style={{
+                    borderBottomWidth: 1,
+                    borderBottomColor: glass.border.strong,
+                    paddingBottom: 2,
+                  }}
+                >
+                  {t("conventions.openPackingAction")}
+                </Meta>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push(APP_HREF.packing)}
+                hitSlop={8}
+                className="active:opacity-80"
+                style={{ minHeight: 32, justifyContent: "center" }}
+              >
+                <Meta
+                  size={10}
+                  color={glass.text.fg70}
+                  style={{
+                    borderBottomWidth: 1,
+                    borderBottomColor: glass.border.strong,
+                    paddingBottom: 2,
+                  }}
+                >
+                  {t("conventions.crossPackingTitle")}
+                </Meta>
+              </Pressable>
+            </View>
+          </GlassPanel>
+        </View>
       </ScrollView>
 
+      {/* Assign-build picker — heavier-glass sheet */}
       <Modal
         visible={assigningDay !== null}
         animationType="slide"
@@ -462,65 +777,139 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
         onRequestClose={() => setAssigningDay(null)}
       >
         <Pressable
-          className="flex-1 justify-end bg-kyar-text/20 dark:bg-kyar-dark-text/20"
+          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: glass.scrimDim }}
           onPress={() => setAssigningDay(null)}
         >
           <Pressable
-            className="max-h-[82%] rounded-t-[32px] bg-kyar-bg px-5 pb-8 pt-5 dark:bg-kyar-dark-bg"
             onPress={(event) => event.stopPropagation()}
+            style={{
+              maxHeight: "82%",
+              borderTopLeftRadius: glass.radius.sheet,
+              borderTopRightRadius: glass.radius.sheet,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.overlay,
+              backgroundColor: glass.fallback.overlay,
+              paddingHorizontal: 20,
+              paddingTop: 18,
+              paddingBottom: 32,
+            }}
           >
-            <SectionHeading
-              eyebrow={t("conventions.assignBuildAction")}
-              title={assigningDay ? formatConventionTimelineDate(assigningDay) : ""}
-            />
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+            <Meta size={9} color={glass.text.fg55} tracking={0.2}>
+              {t("conventions.assignBuildAction")}
+            </Meta>
+            <Text
+              style={{
+                marginTop: 6,
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontStyle: "italic",
+                fontSize: 24,
+                lineHeight: 28,
+                color: glass.text.fg,
+              }}
+            >
+              {assigningDay ? formatConventionTimelineDate(assigningDay) : ""}
+            </Text>
+            <Text
+              style={{
+                marginTop: 10,
+                fontFamily: APP_FONT_FAMILIES.sansRegular,
+                fontSize: 13,
+                lineHeight: 19,
+                color: glass.text.fg70,
+              }}
+            >
               {t("conventions.assignBuildSubtitle")}
             </Text>
 
-            <TextInput
-              value={buildSearch}
-              onChangeText={setBuildSearch}
-              placeholder={t("conventions.buildSearchPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              className="mt-4 rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-            />
-
-            <ScrollView className="mt-4" contentContainerStyle={{ gap: 12, paddingBottom: 20 }}>
-              <Button
-                title={t("conventions.clearBuildAction")}
-                variant="secondary"
-                onPress={() => void assignBuild(undefined)}
+            <View style={{ marginTop: 14 }}>
+              <GlassTextField
+                value={buildSearch}
+                onChangeText={setBuildSearch}
+                placeholder={t("conventions.buildSearchPlaceholder")}
               />
+            </View>
+
+            <ScrollView style={{ marginTop: 14 }} contentContainerStyle={{ gap: 10, paddingBottom: 16 }}>
+              <Pressable
+                onPress={() => void assignBuild(undefined)}
+                accessibilityRole="button"
+                className="active:opacity-80"
+                style={{
+                  minHeight: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: glass.border.strong,
+                  backgroundColor: glass.surface.bar,
+                }}
+              >
+                <Meta size={10} color={glass.text.fg}>
+                  {t("conventions.clearBuildAction")}
+                </Meta>
+              </Pressable>
 
               {filteredBuilds.map((build) => (
                 <Pressable
                   key={build._id}
                   onPress={() => void assignBuild(build._id)}
-                  className="flex-row items-center gap-3 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-3 py-3 active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+                  accessibilityRole="button"
+                  className="active:opacity-80"
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    borderRadius: 12,
+                    borderWidth: borderWidth.hairline,
+                    borderColor: glass.border.default,
+                    backgroundColor: glass.surface.field,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
                 >
-                  <ConvexStorageImage
-                    storageId={build.imageStorageId}
-                    imageUrl={build.imageUrl}
-                    className="h-16 w-16 rounded-2xl"
-                    accessibilityLabel={build.name}
-                  />
-                  <View className="min-w-0 flex-1">
-                    <MetaLabel>{build.status ?? "Build"}</MetaLabel>
-                    <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+                  <View
+                    style={{
+                      height: 52,
+                      width: 52,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      backgroundColor: glass.surface.active,
+                    }}
+                  >
+                    <ConvexStorageImage
+                      storageId={build.imageStorageId}
+                      imageUrl={build.imageUrl}
+                      className="h-full w-full"
+                      accessibilityLabel={build.name}
+                    />
+                  </View>
+                  <View style={{ minWidth: 0, flex: 1 }}>
+                    {build.character ? (
+                      <Meta size={9} color={glass.text.fg55}>
+                        {build.character}
+                      </Meta>
+                    ) : null}
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        marginTop: build.character ? 3 : 0,
+                        fontFamily: APP_FONT_FAMILIES.displayItalic,
+                        fontStyle: "italic",
+                        fontSize: 16,
+                        lineHeight: 19,
+                        color: glass.text.fg,
+                      }}
+                    >
                       {build.name}
                     </Text>
-                    {build.character ? (
-                      <Text className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {build.character}
-                      </Text>
-                    ) : null}
                   </View>
+                  <Ionicons name="chevron-forward" size={16} color={glass.text.fg45} />
                 </Pressable>
               ))}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
-    </>
+    </View>
   );
 }

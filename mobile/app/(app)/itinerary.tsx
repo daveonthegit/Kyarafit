@@ -3,15 +3,17 @@ import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
-import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { APP_HREF } from "@/lib/appRoutes";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineQuery } from "@/offline";
 import {
   enumerateConventionDays,
   formatLongDateLabel,
   type ConventionWithDetails,
 } from "@/screens/conventions/utils";
-import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import { GlassPanel, PhotoBackdrop } from "@/ui/glass";
 
 type Ready = {
   conventions: ConventionWithDetails[];
@@ -54,18 +56,21 @@ export default function ItineraryScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("conventions.itineraryTitle"), headerShown: true }} />
-      <MobilePageHeader
-        eyebrow={t("nav.events")}
-        title={t("conventions.itineraryTitle")}
-        subtitle={t("conventions.itinerarySubtitle")}
-        fallbackHref={APP_HREF.home}
-        containerClassName="px-5 pt-4"
-      />
       <DataBoundary status={status} data={data} error={error}>
         {(loaded) => <ItineraryBody {...loaded} />}
       </DataBoundary>
     </>
   );
+}
+
+function metaTextStyle(size: number, tracking: number, color: string) {
+  return {
+    fontFamily: APP_FONT_FAMILIES.sansBold,
+    fontSize: size,
+    letterSpacing: ls(tracking, size),
+    textTransform: "uppercase" as const,
+    color,
+  };
 }
 
 function ItineraryBody({ conventions, builds }: Ready) {
@@ -91,33 +96,93 @@ function ItineraryBody({ conventions, builds }: Ready) {
     .sort((left, right) => left.date.localeCompare(right.date));
 
   return (
-    <ScrollView
-      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 }}
-    >
-      {rows.map((row) => (
-        <Pressable
-          key={row.key}
-          onPress={() => router.push(APP_HREF.convention(row.convention._id))}
-          className="active:opacity-90"
-        >
-          <SurfaceCard className="px-4 py-4">
-            <MetaLabel>{formatLongDateLabel(row.date)}</MetaLabel>
-            <Text className="mt-2 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {row.convention.name}
-            </Text>
-            <Text className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {row.convention.location ?? t("conventions.noLocation")}
-            </Text>
-            <View className="mt-4 rounded-2xl bg-kyar-panel px-3 py-3 dark:bg-kyar-dark-panel">
-              <MetaLabel>{t("conventions.itineraryBuildLabel")}</MetaLabel>
-              <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-                {row.build?.name ?? t("conventions.restDay")}
-              </Text>
-            </View>
-          </SurfaceCard>
-        </Pressable>
-      ))}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      {/* No photo — falls back to the studio wall. */}
+      <PhotoBackdrop scrim="off" kenBurns={false} />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}
+      >
+        <View style={{ paddingHorizontal: 22 }}>
+          <Text style={metaTextStyle(9, 0.26, glass.text.fg70)}>{t("nav.events")}</Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontStyle: "italic",
+              fontSize: 34,
+              lineHeight: 38,
+              color: glass.text.fg,
+            }}
+          >
+            {t("conventions.itineraryTitle")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 13,
+              lineHeight: 19,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("conventions.itinerarySubtitle")}
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 18, paddingHorizontal: 16 }}>
+          <GlassPanel>
+            {rows.map((row, index) => (
+              <Pressable
+                key={row.key}
+                onPress={() => router.push(APP_HREF.convention(row.convention._id))}
+                accessibilityRole="button"
+                className="active:opacity-80"
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: 18,
+                  paddingVertical: 14,
+                  borderTopWidth: index === 0 ? 0 : borderWidth.hairline,
+                  borderTopColor: glass.border.divider,
+                }}
+              >
+                <Text style={metaTextStyle(9, 0.2, glass.text.fg55)}>
+                  {`${formatLongDateLabel(row.date)}${
+                    row.convention.location ? ` · ${row.convention.location}` : ""
+                  }`}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    marginTop: 5,
+                    fontFamily: APP_FONT_FAMILIES.displayItalic,
+                    fontStyle: "italic",
+                    fontSize: 20,
+                    lineHeight: 24,
+                    color: glass.text.fg,
+                  }}
+                >
+                  {row.convention.name}
+                </Text>
+                {/* Sentence-case body — the day's build is content, not meta (QA-4). */}
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    marginTop: 5,
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 13,
+                    lineHeight: 18,
+                    color: row.build ? glass.text.fg : glass.text.fg55,
+                  }}
+                >
+                  {row.build?.name ?? t("conventions.restDay")}
+                </Text>
+              </Pressable>
+            ))}
+          </GlassPanel>
+        </View>
+      </ScrollView>
+    </View>
   );
 }

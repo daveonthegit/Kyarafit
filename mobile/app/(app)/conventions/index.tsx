@@ -1,42 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
-import { ConventionEventPoster } from "@/components/conventions/ConventionEventPoster";
+import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
+import { MobileBackButton } from "@/components/navigation/MobileBackButton";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { useDesignTheme } from "@/theme/useDesignTheme";
 import {
   countPackingProgress,
   countPlannedBuilds,
   filterAndSortConventions,
+  formatDateRange,
+  getDaysUntil,
   type ConventionFilter,
   type ConventionSortBy,
   type ConventionWithDetails,
   type SortOrder,
 } from "@/screens/conventions/utils";
+import { DataBoundary, FloatingCreateMenu } from "@/ui";
 import {
-  Button,
-  DataBoundary,
-  FloatingCreateMenu,
-  MetaLabel,
-  SectionHeading,
-  SurfaceCard,
-} from "@/ui";
+  GlassEmptyState,
+  GlassPanel,
+  GlassSheet,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+} from "@/ui/glass";
 
 const FILTER_KEYS: ConventionFilter[] = ["all", "upcoming", "past", "archived"];
 const SORT_KEYS: ConventionSortBy[] = ["startDate", "name", "location"];
@@ -44,6 +39,10 @@ const SORT_KEYS: ConventionSortBy[] = ["startDate", "name", "location"];
 type Ready = {
   conventions: ConventionWithDetails[];
 };
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function ConventionsIndexScreen() {
   const { t } = useTranslation();
@@ -70,9 +69,8 @@ export default function ConventionsIndexScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{ headerShown: true, title: t("nav.events"), headerLargeTitle: false }}
-      />
+      {/* Glass Studio 7.3 (6e): the list draws its own headline over the photo. */}
+      <Stack.Screen options={{ headerShown: false }} />
       <DataBoundary status={status} data={data} error={error} empty={<EmptyConventionState />}>
         {(loaded) =>
           userId ? <ConventionsBody userId={userId} conventions={loaded.conventions} /> : null
@@ -90,19 +88,19 @@ type ConventionsBodyProps = {
 function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filter, setFilter] = useState<ConventionFilter>("all");
   const [sortBy, setSortBy] = useState<ConventionSortBy>("startDate");
   const [order, setOrder] = useState<SortOrder>("asc");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
   const [deletedForUndo, setDeletedForUndo] = useState<{
     count: number;
-    payloads: Array<{
+    payloads: {
       userId: string;
       name: string;
       location?: string;
@@ -110,7 +108,7 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
       imageStorageId?: Doc<"conventions">["imageStorageId"];
       startDate: string;
       endDate: string;
-    }>;
+    }[];
   } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,6 +119,27 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
   const filtered = useMemo(
     () => filterAndSortConventions(conventions, search, filter, sortBy, order),
     [conventions, filter, order, search, sortBy]
+  );
+
+  /** Next upcoming convention — backs the page photo + headline (6e). */
+  const nextEvent = useMemo(() => {
+    const today = todayIso();
+    return (
+      [...conventions]
+        .filter((c) => c.archived !== true && c.endDate >= today)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0] ?? null
+    );
+  }, [conventions]);
+
+  const countdownLabel = useCallback(
+    (startDate: string): string | null => {
+      const days = getDaysUntil(startDate);
+      if (days < 0) return null;
+      if (days === 0) return t("conventions.countdownToday", { defaultValue: "Today" });
+      if (days === 1) return t("conventions.countdownTomorrow", { defaultValue: "Tomorrow" });
+      return t("conventions.countdownDays", { count: days, defaultValue: "{{count}} days" });
+    },
+    [t]
   );
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
@@ -248,10 +267,6 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
     }
   }, [createConvention, deletedForUndo, t]);
 
-  const dismissBulkModal = useCallback(() => {
-    setBulkOpen(false);
-  }, []);
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 450);
@@ -259,330 +274,700 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
 
   const createActions = useMemo(() => buildGlobalAddMenuActions("events", t, router), [router, t]);
 
-  const filterSummary = [
-    t(`conventions.filter.${filter}`),
-    t(`conventions.sort.${sortBy}`),
-    order === "asc" ? t("conventions.order.asc") : t("conventions.order.desc"),
-  ].join(" · ");
+  const chromeTop = insets.top + 10;
+  const headlineTop = insets.top + 58 + (searchOpen ? 68 : 0);
+  const today = todayIso();
+  const seasonYear = nextEvent
+    ? nextEvent.startDate.slice(0, 4)
+    : String(new Date().getFullYear());
+
+  const nextPlanned = nextEvent ? countPlannedBuilds(nextEvent.plans) : 0;
+  const nextPacking = nextEvent ? countPackingProgress(nextEvent.packing) : { checked: 0, total: 0 };
+  const nextCountdown = nextEvent ? countdownLabel(nextEvent.startDate) : null;
+  const packingPct =
+    nextPacking.total > 0 ? Math.round((nextPacking.checked / nextPacking.total) * 100) : 0;
 
   return (
-    <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: deletedForUndo ? 200 : 132,
-          gap: 16,
-        }}
-        ListHeaderComponent={
-          <View className="gap-4">
-            <View className="min-w-0">
-              <Text className="text-[11px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.eyebrow")}
-              </Text>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.subtitle")}
-              </Text>
-            </View>
-
-            <SurfaceCard className="px-4 py-4">
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t("conventions.searchPlaceholder")}
-                placeholderTextColor={colors.textTertiary}
-                className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-                autoCapitalize="none"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-              />
-
-              <Pressable
-                onPress={() => setFiltersOpen((value) => !value)}
-                className="mt-4 flex-row items-center justify-between rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-              >
-                <View className="min-w-0 flex-1">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                    {t("conventions.controls")}
-                  </Text>
-                  <Text
-                    className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                    numberOfLines={2}
-                  >
-                    {filterSummary}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={filtersOpen ? "chevron-up" : "chevron-down"}
-                  size={18}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-
-              {filtersOpen ? (
-                <>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mt-4"
-                    contentContainerClassName="gap-2"
-                  >
-                    {FILTER_KEYS.map((value) => (
-                      <ChoicePill
-                        key={value}
-                        active={filter === value}
-                        label={t(`conventions.filter.${value}`)}
-                        onPress={() => setFilter(value)}
-                      />
-                    ))}
-                  </ScrollView>
-                  <View className="mt-4 flex-row flex-wrap gap-2">
-                    <ControlPill
-                      label={t(`conventions.sort.${sortBy}`)}
-                      onPress={() =>
-                        setSortBy(
-                          (value) => SORT_KEYS[(SORT_KEYS.indexOf(value) + 1) % SORT_KEYS.length]!
-                        )
-                      }
-                    />
-                    <ControlPill
-                      label={
-                        order === "asc" ? t("conventions.order.asc") : t("conventions.order.desc")
-                      }
-                      onPress={() => setOrder((value) => (value === "asc" ? "desc" : "asc"))}
-                    />
-                  </View>
-                </>
-              ) : null}
-            </SurfaceCard>
-
-            <View className="flex-row items-center justify-between gap-3">
-              <MetaLabel className="min-w-0 flex-1">
-                {t("conventions.resultsCount", {
-                  count: filtered.length,
-                })}
-              </MetaLabel>
-              <Pressable
-                onPress={() => setBulkOpen(true)}
-                className="shrink-0 rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
-              >
-                <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                  {t("conventions.bulkSelectAction")}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const plannedBuilds = countPlannedBuilds(item.plans);
-          const packing = countPackingProgress(item.packing);
-          return (
-            <Pressable
-              onPress={() => router.push(APP_HREF.convention(item._id))}
-              className="active:opacity-95"
-            >
-              <ConventionEventPoster
-                name={item.name}
-                startDate={item.startDate}
-                endDate={item.endDate}
-                location={item.location}
-                imageStorageId={item.imageStorageId}
-                imageUrl={item.imageUrl}
-                plannedBuilds={plannedBuilds}
-                packingChecked={packing.checked}
-                packingTotal={packing.total}
-                metricBuildsLabel={t("conventions.metricBuilds")}
-                metricPackingLabel={t("conventions.metricPacking")}
-                metricDaysLabel={t("conventions.metricDays")}
-              />
-            </Pressable>
-          );
-        }}
-        ItemSeparatorComponent={() => <View className="h-4" />}
+    <View style={{ flex: 1 }}>
+      <PhotoBackdrop
+        imageStorageId={nextEvent?.imageStorageId}
+        imageUrl={nextEvent?.imageUrl}
       />
 
-      <FloatingCreateMenu actions={createActions} />
-
-      <Modal visible={bulkOpen} animationType="slide" transparent onRequestClose={dismissBulkModal}>
-        <View className="flex-1">
-          <Pressable
-            className="flex-1 justify-end bg-kyar-text/25 dark:bg-kyar-dark-text/25"
-            onPress={dismissBulkModal}
-          >
-            <Pressable
-              className="max-h-[88%] rounded-t-[28px] border border-kyar-borderSubtle bg-kyar-bg px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-bg"
-              onPress={(event) => event.stopPropagation()}
-            >
-              <SectionHeading eyebrow={t("nav.events")} title={t("conventions.bulkModalTitle")} />
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.bulkModalBody")}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: headlineTop, paddingBottom: insets.bottom + 140 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={glass.text.fg} />
+        }
+      >
+        {/* Headline block — the next upcoming event leads the page. */}
+        <View style={{ paddingHorizontal: 22 }}>
+          {nextEvent ? (
+            <>
+              <Text
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.sansBold,
+                  fontSize: 9,
+                  letterSpacing: ls(0.26, 9),
+                  textTransform: "uppercase",
+                  color: glass.text.fg,
+                  opacity: 0.75,
+                  marginBottom: 8,
+                }}
+                numberOfLines={1}
+              >
+                {t("conventions.nextEyebrow", { defaultValue: "Next" })} ·{" "}
+                {formatDateRange(nextEvent.startDate, nextEvent.endDate)}
+                {nextEvent.location ? ` · ${nextEvent.location}` : ""}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.displayItalic,
+                  fontSize: 38,
+                  lineHeight: 42,
+                  letterSpacing: ls(-0.02, 38),
+                  color: glass.text.fg,
+                }}
+              >
+                {nextEvent.name}
               </Text>
 
-              <View className="mt-4 flex-row flex-wrap gap-2">
-                <Pressable
-                  onPress={selectAllInModal}
-                  className="rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+              {/* Meta triplet: Countdown / Builds / Packing progress hairline. */}
+              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 22, marginTop: 16 }}>
+                {nextCountdown ? (
+                  <HeadlineMetric
+                    label={t("conventions.metricCountdown", { defaultValue: "Countdown" })}
+                    value={nextCountdown}
+                  />
+                ) : null}
+                <HeadlineMetric
+                  label={t("conventions.metricBuilds")}
+                  value={t("conventions.metricBuildsValue", {
+                    count: nextPlanned,
+                    defaultValue: "{{count}} planned",
+                  })}
+                />
+                <View>
+                  <Text style={metricLabelStyle}>{t("conventions.metricPacking")}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        width: 64,
+                        height: 2,
+                        borderRadius: 2,
+                        backgroundColor: glass.border.overlay,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${packingPct}%`,
+                          height: "100%",
+                          backgroundColor: glass.surface.solid,
+                        }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                        fontSize: 13,
+                        color: glass.text.fg,
+                      }}
+                    >
+                      {nextPacking.checked}/{nextPacking.total}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Action row. Owner precedent (Builds device check): the content
+                  primary stays solid alongside the global create FAB. */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 20 }}>
+                <PhotoPill
+                  variant="solid"
+                  label={t("conventions.dayPlansAction", { defaultValue: "Day plans" })}
+                  onPress={() => router.push(APP_HREF.convention(nextEvent._id))}
+                />
+                <PhotoPill
+                  variant="outline"
+                  label={t("conventions.packingListAction", { defaultValue: "Packing list" })}
+                  onPress={() => router.push(APP_HREF.conventionPacking(nextEvent._id))}
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.sansBold,
+                  fontSize: 9,
+                  letterSpacing: ls(0.26, 9),
+                  textTransform: "uppercase",
+                  color: glass.text.fg,
+                  opacity: 0.75,
+                  marginBottom: 8,
+                }}
+              >
+                {t("conventions.seasonEyebrowPlain", { defaultValue: "The season" })}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.displayItalic,
+                  fontSize: 34,
+                  lineHeight: 38,
+                  letterSpacing: ls(-0.02, 34),
+                  color: glass.text.fg,
+                }}
+              >
+                {t("conventions.noUpcomingHeadline", {
+                  defaultValue: "No events on the calendar.",
+                })}
+              </Text>
+            </>
+          )}
+        </View>
+
+        {/* The season — the one glass panel on this screen. */}
+        <View style={{ paddingHorizontal: 16, marginTop: 28 }}>
+          <GlassPanel>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingTop: 14,
+                paddingBottom: 12,
+                borderBottomWidth: borderWidth.hairline,
+                borderBottomColor: glass.border.divider,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.2, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.fg,
+                    opacity: 0.85,
+                  }}
                 >
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-                    {selectedIds.size === filtered.length && filtered.length > 0
-                      ? t("conventions.bulkDeselectAll")
-                      : t("conventions.bulkSelectAll")}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={clearSelection} className="rounded-full px-4 py-2">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                    {t("conventions.bulkClear")}
-                  </Text>
-                </Pressable>
+                  {t("conventions.seasonEyebrow", {
+                    year: seasonYear,
+                    defaultValue: "The season · {{year}}",
+                  })}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.14, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("conventions.resultsCount", { count: filtered.length })}
+                </Text>
               </View>
 
               <ScrollView
-                className="mt-4 max-h-[42%] rounded-2xl border border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
-                nestedScrollEnabled
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: 8 }}
+                contentContainerStyle={{ gap: 14, paddingRight: 6 }}
               >
-                {filtered.map((c) => {
-                  const id = String(c._id);
-                  const selected = selectedIds.has(id);
+                {FILTER_KEYS.map((value) => {
+                  const active = filter === value;
                   return (
                     <Pressable
-                      key={id}
-                      onPress={() => toggleSelect(id)}
-                      className="flex-row items-center gap-3 border-b border-kyar-borderSubtle px-3 py-3 dark:border-kyar-dark-borderSubtle"
+                      key={value}
+                      onPress={() => setFilter(value)}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      style={{ minHeight: 44, justifyContent: "center" }}
                     >
-                      <Ionicons
-                        name={selected ? "checkbox" : "square-outline"}
-                        size={22}
-                        color={selected ? colors.text : colors.textTertiary}
-                      />
-                      <View className="min-w-0 flex-1">
-                        <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-                          {c.name}
-                        </Text>
-                        <Text className="mt-1 text-[10px] uppercase tracking-wide text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                          {c.startDate} – {c.endDate}
-                          {c.location ? ` · ${c.location}` : ""}
-                        </Text>
-                      </View>
+                      <Text
+                        style={{
+                          fontFamily: active
+                            ? APP_FONT_FAMILIES.sansBold
+                            : APP_FONT_FAMILIES.sansSemiBold,
+                          fontSize: 9,
+                          letterSpacing: ls(0.16, 9),
+                          textTransform: "uppercase",
+                          color: glass.text.fg,
+                          opacity: active ? 1 : 0.55,
+                          borderBottomWidth: 1.5,
+                          borderBottomColor: active ? glass.text.fg : "transparent",
+                          paddingBottom: 2,
+                        }}
+                      >
+                        {t(`conventions.filter.${value}`)}
+                      </Text>
                     </Pressable>
                   );
                 })}
               </ScrollView>
 
-              <Text className="mt-3 text-xs text-kyar-meta dark:text-kyar-dark-meta">
-                {t("conventions.bulkSelectedCount", { count: selectedIds.size })}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
+                <HeaderTextAction
+                  label={t(`conventions.sort.${sortBy}`)}
+                  onPress={() =>
+                    setSortBy(
+                      (value) => SORT_KEYS[(SORT_KEYS.indexOf(value) + 1) % SORT_KEYS.length]!
+                    )
+                  }
+                />
+                <HeaderTextAction
+                  label={order === "asc" ? t("conventions.order.asc") : t("conventions.order.desc")}
+                  onPress={() => setOrder((value) => (value === "asc" ? "desc" : "asc"))}
+                />
+                {filtered.length > 0 ? (
+                  <HeaderTextAction
+                    label={t("conventions.bulkSelectAction")}
+                    onPress={() => setBulkOpen(true)}
+                  />
+                ) : null}
+              </View>
+            </View>
 
-              {selectedIds.size > 0 ? (
-                <View className="mt-4 flex-row flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-                  {filter !== "archived" ? (
-                    <Button
-                      title={t("conventions.bulkArchive")}
-                      variant="secondary"
-                      loading={bulkPending}
-                      onPress={() => void handleArchiveSelected(true)}
-                    />
-                  ) : (
-                    <Button
-                      title={t("conventions.bulkUnarchive")}
-                      variant="secondary"
-                      loading={bulkPending}
-                      onPress={() => void handleArchiveSelected(false)}
-                    />
-                  )}
-                  <Pressable
-                    onPress={confirmBulkDelete}
-                    disabled={bulkPending}
-                    className="rounded-xl border border-kyar-danger/40 px-4 py-3 disabled:opacity-40"
-                  >
-                    <Text className="text-center text-sm font-semibold text-kyar-danger dark:text-kyar-dark-danger">
-                      {t("conventions.bulkDelete")}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              <Button
-                title={t("conventions.bulkDone")}
-                variant="primary"
-                className="mt-6"
-                onPress={dismissBulkModal}
+            {filtered.length === 0 ? (
+              <GlassEmptyState
+                icon="search-outline"
+                message={t("conventions.noMatches", {
+                  defaultValue: "No events match your search or filter.",
+                })}
+                style={{ paddingVertical: 32 }}
               />
+            ) : (
+              filtered.map((item) => {
+                const isNext = nextEvent != null && item._id === nextEvent._id;
+                const upcoming = item.endDate >= today;
+                const plannedBuilds = countPlannedBuilds(item.plans);
+                const countdown = upcoming ? countdownLabel(item.startDate) : null;
+                const metaParts = [
+                  formatDateRange(item.startDate, item.endDate),
+                  item.location,
+                  plannedBuilds > 0
+                    ? t("conventions.rowBuilds", {
+                        count: plannedBuilds,
+                        defaultValue: "{{count}} builds",
+                      })
+                    : null,
+                  countdown,
+                ].filter(Boolean);
+                return (
+                  <Pressable
+                    key={item._id}
+                    onPress={() => router.push(APP_HREF.convention(item._id))}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.name}
+                    className="active:opacity-80"
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      minHeight: 56,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: borderWidth.hairline,
+                      borderBottomColor: glass.border.divider,
+                      opacity: isNext ? 1 : upcoming ? 0.8 : 0.6,
+                    }}
+                  >
+                    <View style={{ minWidth: 0, flex: 1 }}>
+                      <Text
+                        style={{
+                          fontFamily: APP_FONT_FAMILIES.displayItalic,
+                          fontSize: isNext ? 17 : 15,
+                          lineHeight: isNext ? 19 : 17,
+                          color: glass.text.fg,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 3,
+                          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                          fontSize: 9,
+                          letterSpacing: ls(0.14, 9),
+                          textTransform: "uppercase",
+                          color: glass.text.fg55,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {metaParts.join(" · ")}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={glass.text.fg45} />
+                  </Pressable>
+                );
+              })
+            )}
+
+            {/* Footer text-pill: existing create navigation. */}
+            <Pressable
+              onPress={() => router.push(APP_HREF.conventionNew)}
+              accessibilityRole="button"
+              accessibilityLabel={t("conventions.addEventAction", {
+                defaultValue: "Add an event",
+              })}
+              className="active:opacity-80"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                minHeight: 48,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+            >
+              <Ionicons name="add" size={16} color={glass.text.fg55} />
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: APP_FONT_FAMILIES.sansRegular,
+                  fontSize: 12,
+                  color: glass.text.fg55,
+                }}
+              >
+                {t("conventions.addEventAction", { defaultValue: "Add an event" })}
+              </Text>
             </Pressable>
-          </Pressable>
+          </GlassPanel>
         </View>
-      </Modal>
+      </ScrollView>
+
+      {/* Screen chrome: back + search over the photo (this list has no nav header). */}
+      <View
+        style={{ position: "absolute", top: chromeTop, left: 10, right: 22 }}
+        pointerEvents="box-none"
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+          pointerEvents="box-none"
+        >
+          <MobileBackButton surface="glass" fallbackHref={APP_HREF.more} />
+          <IconPill
+            icon="search"
+            active={searchOpen}
+            accessibilityLabel={t("conventions.searchToggle", { defaultValue: "Search events" })}
+            onPress={() => {
+              if (searchOpen) setSearch("");
+              setSearchOpen((open) => !open);
+            }}
+          />
+        </View>
+        {searchOpen ? (
+          <View style={{ marginTop: 10, paddingLeft: 12 }}>
+            <GlassTextField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t("conventions.searchPlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              clearButtonMode="while-editing"
+            />
+          </View>
+        ) : null}
+      </View>
+
+      <FloatingCreateMenu actions={createActions} />
+
+      <GlassSheet open={bulkOpen} onClose={() => setBulkOpen(false)} closeLabel={t("common.cancel")}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 22,
+              lineHeight: 25,
+              color: glass.text.fg,
+            }}
+          >
+            {t("conventions.bulkModalTitle")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 12,
+              lineHeight: 18,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("conventions.bulkModalBody")}
+          </Text>
+          <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <PhotoPill
+              variant="outline"
+              size="sm"
+              label={
+                selectedIds.size === filtered.length && filtered.length > 0
+                  ? t("conventions.bulkDeselectAll")
+                  : t("conventions.bulkSelectAll")
+              }
+              onPress={selectAllInModal}
+            />
+            <PhotoPill
+              variant="text"
+              size="sm"
+              label={t("conventions.bulkClear")}
+              onPress={clearSelection}
+            />
+          </View>
+
+          <View
+            style={{
+              marginTop: 14,
+              maxHeight: 280,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.default,
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
+            <ScrollView nestedScrollEnabled>
+              {filtered.map((c, rowIndex) => {
+                const id = String(c._id);
+                const selected = selectedIds.has(id);
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => toggleSelect(id)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      minHeight: 52,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderBottomWidth:
+                        rowIndex === filtered.length - 1 ? 0 : borderWidth.hairline,
+                      borderBottomColor: glass.border.divider,
+                    }}
+                  >
+                    <Ionicons
+                      name={selected ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={selected ? glass.text.fg : glass.text.fg45}
+                    />
+                    <View style={{ minWidth: 0, flex: 1 }}>
+                      <Text
+                        style={{
+                          fontFamily: APP_FONT_FAMILIES.sansMedium,
+                          fontSize: 14,
+                          color: glass.text.fg,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {c.name}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 2,
+                          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                          fontSize: 9,
+                          letterSpacing: ls(0.14, 9),
+                          textTransform: "uppercase",
+                          color: glass.text.fg55,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {c.startDate} – {c.endDate}
+                        {c.location ? ` · ${c.location}` : ""}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <Text
+            style={{
+              marginTop: 10,
+              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontSize: 9,
+              letterSpacing: ls(0.14, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg55,
+            }}
+          >
+            {t("conventions.bulkSelectedCount", { count: selectedIds.size })}
+          </Text>
+
+          {selectedIds.size > 0 ? (
+            <View
+              style={{
+                marginTop: 14,
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 8,
+                borderTopWidth: borderWidth.hairline,
+                borderTopColor: glass.border.divider,
+                paddingTop: 14,
+              }}
+            >
+              {filter !== "archived" ? (
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkPending}
+                  label={t("conventions.bulkArchive")}
+                  onPress={() => void handleArchiveSelected(true)}
+                />
+              ) : (
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkPending}
+                  label={t("conventions.bulkUnarchive")}
+                  onPress={() => void handleArchiveSelected(false)}
+                />
+              )}
+              <Pressable
+                onPress={confirmBulkDelete}
+                disabled={bulkPending}
+                accessibilityRole="button"
+                style={{
+                  minHeight: 34,
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  borderWidth: borderWidth.hairline,
+                  borderColor: glass.text.danger,
+                  paddingHorizontal: 16,
+                  opacity: bulkPending ? 0.25 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.16, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.danger,
+                  }}
+                >
+                  {t("conventions.bulkDelete")}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <View style={{ marginTop: 18, alignItems: "center" }}>
+            <PhotoPill
+              variant="solid"
+              label={t("conventions.bulkDone")}
+              onPress={() => setBulkOpen(false)}
+            />
+          </View>
+        </View>
+      </GlassSheet>
 
       {deletedForUndo ? (
-        <View className="absolute bottom-28 left-4 right-4 z-20 flex-row items-center justify-between gap-3 rounded-2xl border border-kyar-border bg-kyar-text px-4 py-3 dark:border-kyar-dark-border dark:bg-kyar-dark-text">
-          <Text className="min-w-0 flex-1 text-sm font-medium text-kyar-bg dark:text-kyar-dark-bg">
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: insets.bottom + 96,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            borderRadius: 14,
+            borderWidth: borderWidth.hairline,
+            borderColor: glass.border.overlay,
+            backgroundColor: glass.fallback.overlay,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            style={{
+              minWidth: 0,
+              flex: 1,
+              fontFamily: APP_FONT_FAMILIES.sansMedium,
+              fontSize: 12,
+              color: glass.text.fg,
+            }}
+          >
             {t("conventions.bulkUndoDeleted", { count: deletedForUndo.count })}
           </Text>
-          <Pressable
-            onPress={() => void handleUndoDelete()}
+          <PhotoPill
+            variant="text"
+            size="sm"
             disabled={bulkPending}
-            className="rounded-full border border-kyar-bg/40 px-3 py-2 dark:border-kyar-dark-bg/40"
-          >
-            <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-              {bulkPending ? t("conventions.bulkUndoing") : t("conventions.bulkUndoAction")}
-            </Text>
-          </Pressable>
+            label={bulkPending ? t("conventions.bulkUndoing") : t("conventions.bulkUndoAction")}
+            onPress={() => void handleUndoDelete()}
+          />
         </View>
       ) : null}
     </View>
   );
 }
 
-function EmptyConventionState() {
-  const { t } = useTranslation();
-  const router = useRouter();
+const metricLabelStyle = {
+  fontFamily: APP_FONT_FAMILIES.sansBold,
+  fontSize: 9,
+  letterSpacing: ls(0.2, 9),
+  textTransform: "uppercase" as const,
+  color: glass.text.fg,
+  opacity: 0.6,
+  marginBottom: 4,
+};
 
+function HeadlineMetric({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-1 bg-kyar-bg px-5 py-8 dark:bg-kyar-dark-bg">
-      <SurfaceCard className="px-5 py-6">
-        <SectionHeading eyebrow={t("conventions.eyebrow")} title={t("conventions.emptyTitle")} />
-        <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {t("conventions.emptyBody")}
-        </Text>
-        <Pressable
-          onPress={() => router.push(APP_HREF.conventionNew)}
-          className="mt-5 rounded-full bg-kyar-text px-4 py-3 dark:bg-kyar-dark-text"
-        >
-          <Text className="text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-            {t("conventions.createAction")}
-          </Text>
-        </Pressable>
-      </SurfaceCard>
+    <View>
+      <Text style={metricLabelStyle}>{label}</Text>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+          fontSize: 13,
+          color: glass.text.fg,
+        }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
-function ChoicePill({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
+function HeaderTextAction({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      className={`min-h-[40px] justify-center rounded-full border px-4 ${
-        active
-          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
+      accessibilityRole="button"
+      className="active:opacity-80"
+      style={{ minHeight: 44, justifyContent: "center" }}
     >
       <Text
-        className={`text-xs font-semibold uppercase tracking-wide ${
-          active
-            ? "text-kyar-bg dark:text-kyar-dark-bg"
-            : "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-        }`}
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+          fontSize: 9,
+          letterSpacing: ls(0.14, 9),
+          textTransform: "uppercase",
+          color: glass.text.fg70,
+          borderBottomWidth: 1,
+          borderBottomColor: glass.border.strong,
+          paddingBottom: 2,
+        }}
+        numberOfLines={1}
       >
         {label}
       </Text>
@@ -590,13 +975,65 @@ function ChoicePill({
   );
 }
 
-function ControlPill({ label, onPress }: { label: string; onPress: () => void }) {
+/** 44pt glass-outline icon pill (screen chrome). */
+function IconPill({
+  icon,
+  onPress,
+  accessibilityLabel,
+  active = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  accessibilityLabel: string;
+  active?: boolean;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: active }}
+      className="active:opacity-80"
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: borderWidth.hairline,
+        borderColor: active ? glass.border.strong : glass.border.overlay,
+        backgroundColor: active ? glass.surface.overlay : glass.surface.bar,
+      }}
     >
-      <Text className="text-xs font-semibold text-kyar-text dark:text-kyar-dark-text">{label}</Text>
+      <Ionicons name={icon} size={18} color={glass.text.fg} />
     </Pressable>
+  );
+}
+
+function EmptyConventionState() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={{ flex: 1, justifyContent: "center" }}>
+      <PhotoBackdrop scrim="off" kenBurns={false} />
+      <GlassEmptyState
+        icon="calendar-outline"
+        message={t("conventions.emptyTitle")}
+        secondary={t("conventions.emptyBody")}
+        action={
+          <PhotoPill
+            variant="solid"
+            icon="add"
+            label={t("conventions.createAction")}
+            onPress={() => router.push(APP_HREF.conventionNew)}
+          />
+        }
+      />
+      <View style={{ position: "absolute", top: insets.top + 10, left: 10 }}>
+        <MobileBackButton surface="glass" fallbackHref={APP_HREF.more} />
+      </View>
+    </View>
   );
 }

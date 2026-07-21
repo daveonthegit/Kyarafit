@@ -6,12 +6,15 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { DataBoundary } from "@/ui";
+import { GlassPanel, GlassTextField, PhotoBackdrop } from "@/ui/glass";
 import {
   enumerateConventionDays,
+  formatLongDateLabel,
   groupPackingByDate,
   type ConventionPackingItem,
 } from "@/screens/conventions/utils";
@@ -69,6 +72,16 @@ export default function ConventionPackingScreen() {
   );
 }
 
+function metaTextStyle(size: number, tracking: number, color: string) {
+  return {
+    fontFamily: APP_FONT_FAMILIES.sansBold,
+    fontSize: size,
+    letterSpacing: ls(tracking, size),
+    textTransform: "uppercase" as const,
+    color,
+  };
+}
+
 function ConventionPackingBody({
   userId,
   convention,
@@ -85,9 +98,7 @@ function ConventionPackingBody({
     [convention.endDate, convention.startDate]
   );
   const [selectedDay, setSelectedDay] = useState<string | "all">(initialDay ?? "all");
-  const [newItemOpen, setNewItemOpen] = useState(false);
   const [newItemLabel, setNewItemLabel] = useState("");
-  const [newItemNotes, setNewItemNotes] = useState("");
   const [editingItem, setEditingItem] = useState<ConventionPackingItem | null>(null);
   const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
   const swipeRef = useRef<Swipeable | null>(null);
@@ -98,6 +109,8 @@ function ConventionPackingBody({
   }, [items, selectedDay]);
 
   const grouped = useMemo(() => groupPackingByDate(visibleItems), [visibleItems]);
+  const packedCount = useMemo(() => items.filter((item) => item.checked).length, [items]);
+  const packingPct = items.length > 0 ? Math.round((100 * packedCount) / items.length) : 0;
   const editorCandidates = useMemo(
     () =>
       items
@@ -120,16 +133,13 @@ function ConventionPackingBody({
         userId,
         conventionId: convention._id,
         label,
-        notes: newItemNotes.trim() || undefined,
         date: selectedDay === "all" ? undefined : selectedDay,
       });
       setNewItemLabel("");
-      setNewItemNotes("");
-      setNewItemOpen(false);
     } catch (error) {
       Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));
     }
-  }, [addManualPackingItem, convention._id, newItemLabel, newItemNotes, selectedDay, t, userId]);
+  }, [addManualPackingItem, convention._id, newItemLabel, selectedDay, t, userId]);
 
   const saveEditedItem = useCallback(async () => {
     if (!editingItem) return;
@@ -147,127 +157,255 @@ function ConventionPackingBody({
     }
   }, [editingItem, t, updateItem, userId]);
 
-  return (
-    <>
-      <ScrollView
-        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 40,
-          gap: 20,
-        }}
+  const renderGroup = (heading: string, groupItems: ConventionPackingItem[], first: boolean) => (
+    <View key={heading} style={{ marginTop: first ? 0 : 20 }}>
+      {/* Group header: 9px/700/ls(0.2)/55% over a hairline (ref 8a). */}
+      <Text
+        style={[
+          metaTextStyle(9, 0.2, glass.text.fg55),
+          {
+            paddingBottom: 6,
+            borderBottomWidth: borderWidth.hairline,
+            borderBottomColor: glass.border.divider,
+          },
+        ]}
       >
-        <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {t("conventions.packingSubtitle")}
-        </Text>
+        {heading}
+      </Text>
+      {groupItems.map((item, index) => (
+        <PackingRow
+          key={item._id}
+          item={item}
+          first={index === 0}
+          onToggle={() => updateItem({ id: item._id, userId, checked: !item.checked })}
+          onDelete={() => deletePackingItem({ id: item._id, userId })}
+          onEdit={() => setEditingItem(item)}
+          onOpenTaskEditor={
+            item.workflowItemId ? () => setEditorTaskId(item.workflowItemId!) : undefined
+          }
+          swipeRef={swipeRef}
+        />
+      ))}
+    </View>
+  );
 
-        <SurfaceCard className="px-4 py-4">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2"
+  return (
+    <View style={{ flex: 1 }}>
+      <PhotoBackdrop
+        imageStorageId={convention.imageStorageId}
+        imageUrl={convention.imageUrl}
+        kenBurns={false}
+      />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}
+      >
+        <View style={{ paddingHorizontal: 22 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontStyle: "italic",
+              fontSize: 34,
+              lineHeight: 38,
+              color: glass.text.fg,
+            }}
           >
+            {t("conventions.packingEyebrow")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 13,
+              lineHeight: 19,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("conventions.packingSubtitle")}
+          </Text>
+        </View>
+
+        {/* Day filter — segmented chips (active = solid light + ink; QA-3 exemption). */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 22, gap: 8 }}
+        >
+          <DayPill
+            active={selectedDay === "all"}
+            label={t("conventions.packingAllDays")}
+            onPress={() => setSelectedDay("all")}
+          />
+          {days.map((date, index) => (
             <DayPill
-              active={selectedDay === "all"}
-              label={t("conventions.packingAllDays")}
-              onPress={() => setSelectedDay("all")}
+              key={date}
+              active={selectedDay === date}
+              label={`D${index + 1}`}
+              onPress={() => setSelectedDay(date)}
             />
-            {days.map((date, index) => (
-              <DayPill
-                key={date}
-                active={selectedDay === date}
-                label={`D${index + 1}`}
-                onPress={() => setSelectedDay(date)}
-              />
-            ))}
-          </ScrollView>
+          ))}
+        </ScrollView>
 
-          <View className="mt-4 flex-row gap-3">
-            <Button
-              title={t("conventions.addPackingAction")}
-              variant="secondary"
-              onPress={() => setNewItemOpen(true)}
-              className="flex-1"
-            />
-            <Button
-              title={t("conventions.regeneratePackingAction")}
-              variant="secondary"
-              onPress={() => void regeneratePacking({ userId, conventionId: convention._id })}
-              className="flex-1"
-            />
-          </View>
-        </SurfaceCard>
+        {/* The ONE glass work panel (QA-4 packing anatomy). */}
+        <View style={{ marginTop: 16, paddingHorizontal: 16 }}>
+          <GlassPanel>
+            <View
+              style={{
+                paddingHorizontal: 18,
+                paddingVertical: 14,
+                borderBottomWidth: borderWidth.hairline,
+                borderBottomColor: glass.border.dividerStrong,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <Text style={metaTextStyle(10, 0.24, glass.text.fg)}>
+                  {`${t("conventions.packingListTitle", { defaultValue: "Packing list" })} · ${items.length}`}
+                </Text>
+                <Pressable
+                  onPress={() => void regeneratePacking({ userId, conventionId: convention._id })}
+                  hitSlop={10}
+                  className="active:opacity-80"
+                  style={{ minHeight: 32, justifyContent: "center" }}
+                >
+                  <Text
+                    style={[
+                      metaTextStyle(9, 0.16, glass.text.fg70),
+                      {
+                        borderBottomWidth: 1,
+                        borderBottomColor: glass.border.strong,
+                        paddingBottom: 2,
+                      },
+                    ]}
+                  >
+                    {t("conventions.regeneratePackingAction")}
+                  </Text>
+                </Pressable>
+              </View>
+              {items.length > 0 ? (
+                <View
+                  style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12 }}
+                >
+                  {/* Progress hairline: 2px, solid-light fill. */}
+                  <View
+                    style={{
+                      height: 2,
+                      flex: 1,
+                      borderRadius: 1,
+                      backgroundColor: glass.border.default,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        height: 2,
+                        width: `${packingPct}%`,
+                        borderRadius: 1,
+                        backgroundColor: glass.surface.solid,
+                      }}
+                    />
+                  </View>
+                  <Text style={metaTextStyle(9, 0.16, glass.text.fg55)}>
+                    {t("conventions.packedCountMeta", {
+                      defaultValue: "{{checked}} / {{total}} packed",
+                      checked: packedCount,
+                      total: items.length,
+                    })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
 
-        {grouped.general.length > 0 ? (
-          <PackingSection
-            title={t("conventions.generalPacking")}
-            items={grouped.general}
-            onToggle={(item) => updateItem({ id: item._id, userId, checked: !item.checked })}
-            onDelete={(item) => deletePackingItem({ id: item._id, userId })}
-            onEdit={setEditingItem}
-            onOpenTaskEditor={setEditorTaskId}
-            swipeRef={swipeRef}
-          />
-        ) : null}
+            <View style={{ paddingHorizontal: 18, paddingVertical: 14 }}>
+              {visibleItems.length === 0 ? (
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 13,
+                    lineHeight: 19,
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("conventions.noPackingItems")}
+                </Text>
+              ) : (
+                <>
+                  {grouped.general.length > 0
+                    ? renderGroup(t("conventions.generalPacking"), grouped.general, true)
+                    : null}
+                  {grouped.byDate.map(([date, dateItems], index) =>
+                    renderGroup(
+                      formatLongDateLabel(date),
+                      dateItems,
+                      grouped.general.length === 0 && index === 0
+                    )
+                  )}
+                </>
+              )}
+            </View>
 
-        {grouped.byDate.map(([date, dateItems]) => (
-          <PackingSection
-            key={date}
-            title={date}
-            items={dateItems}
-            onToggle={(item) => updateItem({ id: item._id, userId, checked: !item.checked })}
-            onDelete={(item) => deletePackingItem({ id: item._id, userId })}
-            onEdit={setEditingItem}
-            onOpenTaskEditor={setEditorTaskId}
-            swipeRef={swipeRef}
-          />
-        ))}
+            {/* Footer composer — preserves addManualPackingItem. */}
+            <View
+              style={{
+                borderTopWidth: borderWidth.hairline,
+                borderTopColor: glass.border.dividerStrong,
+                paddingHorizontal: 18,
+                paddingVertical: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <View style={{ minWidth: 0, flex: 1 }}>
+                <GlassTextField
+                  value={newItemLabel}
+                  onChangeText={setNewItemLabel}
+                  placeholder={t("conventions.addPackingPlaceholder", {
+                    defaultValue: "Add packing item…",
+                  })}
+                  onSubmitEditing={() => void saveManualItem()}
+                  returnKeyType="done"
+                />
+              </View>
+              <Pressable
+                onPress={() => void saveManualItem()}
+                disabled={!newItemLabel.trim()}
+                hitSlop={8}
+                accessibilityRole="button"
+                className="active:opacity-80"
+                style={{
+                  minHeight: 44,
+                  justifyContent: "center",
+                  opacity: newItemLabel.trim() ? 1 : 0.4,
+                }}
+              >
+                <Text
+                  style={[
+                    metaTextStyle(9, 0.16, glass.text.fg70),
+                    {
+                      borderBottomWidth: 1,
+                      borderBottomColor: glass.border.strong,
+                      paddingBottom: 2,
+                    },
+                  ]}
+                >
+                  {t("conventions.addPackingAction")}
+                </Text>
+              </Pressable>
+            </View>
+          </GlassPanel>
+        </View>
       </ScrollView>
 
-      <Modal
-        visible={newItemOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setNewItemOpen(false)}
-      >
-        <Pressable
-          className="flex-1 justify-end bg-kyar-text/20 dark:bg-kyar-dark-text/20"
-          onPress={() => setNewItemOpen(false)}
-        >
-          <Pressable
-            className="rounded-t-[32px] bg-kyar-bg px-5 pb-8 pt-5 dark:bg-kyar-dark-bg"
-            onPress={(event) => event.stopPropagation()}
-          >
-            <SectionHeading
-              eyebrow={t("conventions.packingEyebrow")}
-              title={t("conventions.addPackingAction")}
-            />
-            <View className="mt-4 gap-4">
-              <TextField
-                label="Label"
-                value={newItemLabel}
-                onChangeText={setNewItemLabel}
-                placeholder={t("conventions.packingLabelPlaceholder")}
-              />
-              <TextField
-                label="Notes"
-                value={newItemNotes}
-                onChangeText={setNewItemNotes}
-                placeholder={t("conventions.packingNotesPlaceholder")}
-                multiline
-                numberOfLines={3}
-                className="min-h-[88px]"
-              />
-              <Button
-                title={t("conventions.addPackingAction")}
-                onPress={() => void saveManualItem()}
-              />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
+      {/* Edit item — heavier-glass sheet (keeps updatePackingItem). */}
       <Modal
         visible={editingItem !== null}
         animationType="slide"
@@ -275,45 +413,80 @@ function ConventionPackingBody({
         onRequestClose={() => setEditingItem(null)}
       >
         <Pressable
-          className="flex-1 justify-end bg-kyar-text/20 dark:bg-kyar-dark-text/20"
+          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: glass.scrimDim }}
           onPress={() => setEditingItem(null)}
         >
           <Pressable
-            className="rounded-t-[32px] bg-kyar-bg px-5 pb-8 pt-5 dark:bg-kyar-dark-bg"
             onPress={(event) => event.stopPropagation()}
+            style={{
+              borderTopLeftRadius: glass.radius.sheet,
+              borderTopRightRadius: glass.radius.sheet,
+              borderWidth: borderWidth.hairline,
+              borderColor: glass.border.overlay,
+              backgroundColor: glass.fallback.overlay,
+              paddingHorizontal: 20,
+              paddingTop: 18,
+              paddingBottom: 32,
+            }}
           >
-            <SectionHeading
-              eyebrow={t("conventions.packingEyebrow")}
-              title={t("conventions.editPackingAction")}
-            />
+            <Text style={metaTextStyle(9, 0.2, glass.text.fg55)}>
+              {t("conventions.packingEyebrow")}
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontStyle: "italic",
+                fontSize: 24,
+                lineHeight: 28,
+                color: glass.text.fg,
+              }}
+            >
+              {t("conventions.editPackingAction")}
+            </Text>
             {editingItem ? (
-              <View className="mt-4 gap-4">
-                <TextField
-                  label="Label"
+              <View style={{ marginTop: 16, gap: 14 }}>
+                <GlassTextField
+                  label={t("conventions.fieldName")}
                   value={editingItem.label}
                   onChangeText={(value) => setEditingItem({ ...editingItem, label: value })}
                 />
-                <TextField
-                  label="Date"
+                <GlassTextField
+                  label={t("conventions.fieldStartDate")}
                   value={editingItem.date ?? ""}
                   onChangeText={(value) =>
                     setEditingItem({ ...editingItem, date: value || undefined })
                   }
-                  placeholder="YYYY-MM-DD"
+                  placeholder={t("conventions.fieldDatePlaceholder")}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <TextField
-                  label="Notes"
+                <GlassTextField
+                  label={t("conventions.packingNotesLabel", { defaultValue: "Notes" })}
                   value={editingItem.notes ?? ""}
                   onChangeText={(value) =>
                     setEditingItem({ ...editingItem, notes: value || undefined })
                   }
+                  placeholder={t("conventions.packingNotesPlaceholder")}
                   multiline
                   numberOfLines={3}
-                  className="min-h-[88px]"
                 />
-                <Button title={t("conventions.saveAction")} onPress={() => void saveEditedItem()} />
+                <Pressable
+                  onPress={() => void saveEditedItem()}
+                  accessibilityRole="button"
+                  className="active:opacity-80"
+                  style={{
+                    minHeight: 48,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    backgroundColor: glass.surface.solid,
+                  }}
+                >
+                  <Text style={metaTextStyle(10, 0.16, glass.text.ink)}>
+                    {t("conventions.saveAction")}
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
           </Pressable>
@@ -327,51 +500,13 @@ function ConventionPackingBody({
         candidateTasks={editorCandidates}
         onClose={() => setEditorTaskId(null)}
       />
-    </>
-  );
-}
-
-function PackingSection({
-  title,
-  items,
-  onToggle,
-  onDelete,
-  onEdit,
-  onOpenTaskEditor,
-  swipeRef,
-}: {
-  title: string;
-  items: ConventionPackingItem[];
-  onToggle: (item: ConventionPackingItem) => void;
-  onDelete: (item: ConventionPackingItem) => void;
-  onEdit: (item: ConventionPackingItem) => void;
-  onOpenTaskEditor: (id: Id<"workflowItems">) => void;
-  swipeRef: MutableRefObject<Swipeable | null>;
-}) {
-  return (
-    <SurfaceCard className="px-4 py-4">
-      <MetaLabel>{title}</MetaLabel>
-      <View className="mt-4 gap-3">
-        {items.map((item) => (
-          <PackingRow
-            key={item._id}
-            item={item}
-            onToggle={() => onToggle(item)}
-            onDelete={() => onDelete(item)}
-            onEdit={() => onEdit(item)}
-            onOpenTaskEditor={
-              item.workflowItemId ? () => onOpenTaskEditor(item.workflowItemId!) : undefined
-            }
-            swipeRef={swipeRef}
-          />
-        ))}
-      </View>
-    </SurfaceCard>
+    </View>
   );
 }
 
 function PackingRow({
   item,
+  first,
   onToggle,
   onDelete,
   onEdit,
@@ -379,13 +514,14 @@ function PackingRow({
   swipeRef,
 }: {
   item: ConventionPackingItem;
+  first: boolean;
   onToggle: () => void;
   onDelete: () => void;
   onEdit: () => void;
   onOpenTaskEditor?: () => void;
   swipeRef: MutableRefObject<Swipeable | null>;
 }) {
-  const { colors } = useDesignTheme();
+  const { t } = useTranslation();
   const isManual = item.entryKind === "manual";
 
   return (
@@ -396,16 +532,21 @@ function PackingRow({
       renderRightActions={() => (
         <Pressable
           onPress={onToggle}
-          className={`w-24 items-center justify-center rounded-3xl ${
-            item.checked
-              ? "bg-kyar-panel dark:bg-kyar-dark-panel"
-              : "bg-kyar-text dark:bg-kyar-dark-text"
-          }`}
+          className="active:opacity-80"
+          style={{
+            width: 88,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 10,
+            backgroundColor: item.checked ? glass.surface.active : glass.surface.solid,
+          }}
         >
           <Text
-            className={`text-xs font-semibold ${item.checked ? "text-kyar-text dark:text-kyar-dark-text" : "text-kyar-bg dark:text-kyar-dark-bg"}`}
+            style={metaTextStyle(9, 0.16, item.checked ? glass.text.fg : glass.text.ink)}
           >
-            {item.checked ? "Undo" : "Done"}
+            {item.checked
+              ? t("conventions.packedUndoAction", { defaultValue: "Undo" })
+              : t("conventions.packedDoneAction", { defaultValue: "Packed" })}
           </Text>
         </Pressable>
       )}
@@ -414,9 +555,20 @@ function PackingRow({
           ? () => (
               <Pressable
                 onPress={onDelete}
-                className="w-24 items-center justify-center rounded-3xl bg-kyar-danger/85"
+                className="active:opacity-80"
+                style={{
+                  width: 88,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: glass.text.danger,
+                  backgroundColor: glass.surface.bar,
+                }}
               >
-                <Text className="text-xs font-semibold text-white">Delete</Text>
+                <Text style={metaTextStyle(9, 0.16, glass.text.danger)}>
+                  {t("conventions.bulkDelete")}
+                </Text>
               </Pressable>
             )
           : undefined
@@ -425,33 +577,65 @@ function PackingRow({
       <Pressable
         onPress={onToggle}
         onLongPress={onOpenTaskEditor ?? (isManual ? onEdit : undefined)}
-        className="flex-row items-center gap-3 rounded-3xl border border-kyar-borderSubtle bg-kyar-surface px-4 py-4 active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
+        delayLongPress={400}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.checked }}
+        className="active:opacity-80"
+        style={{
+          minHeight: 44,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          borderTopWidth: first ? 0 : borderWidth.hairline,
+          borderTopColor: glass.border.divider,
+          paddingVertical: 10,
+        }}
       >
+        {/* Square checkbox: 18px, radius 4, 1.5px ring at 55%; checked = solid + ink. */}
         <View
-          className={`h-9 w-9 items-center justify-center rounded-full border ${
-            item.checked
-              ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-              : "border-kyar-border dark:border-kyar-dark-border"
-          }`}
+          style={{
+            height: 18,
+            width: 18,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 4,
+            borderWidth: item.checked ? 0 : 1.5,
+            borderColor: glass.text.fg55,
+            backgroundColor: item.checked ? glass.surface.solid : "transparent",
+          }}
         >
-          {item.checked ? <Ionicons name="checkmark" size={16} color={colors.bg} /> : null}
+          {item.checked ? <Ionicons name="checkmark" size={12} color={glass.text.ink} /> : null}
         </View>
-        <View className="min-w-0 flex-1">
-          <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
+        <View style={{ minWidth: 0, flex: 1 }}>
+          {/* Sentence-case 13px body — content is never meta (QA-4). */}
+          <Text
+            numberOfLines={2}
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 13,
+              lineHeight: 18,
+              color: item.checked ? glass.text.fg55 : glass.text.fg,
+              textDecorationLine: item.checked ? "line-through" : "none",
+            }}
+          >
             {item.label}
           </Text>
-          <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {item.notes
-              ? item.notes
-              : onOpenTaskEditor
-                ? "Long-press for task details"
-                : isManual
-                  ? "Long-press to edit"
-                  : "Swipe to mark packed"}
-          </Text>
+          {item.notes ? (
+            <Text
+              numberOfLines={1}
+              style={{
+                marginTop: 2,
+                fontFamily: APP_FONT_FAMILIES.sansRegular,
+                fontSize: 11,
+                color: glass.text.fg55,
+              }}
+            >
+              {item.notes}
+            </Text>
+          ) : null}
         </View>
         {onOpenTaskEditor || isManual ? (
-          <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
+          <Ionicons name="create-outline" size={16} color={glass.text.fg45} />
         ) : null}
       </Pressable>
     </Swipeable>
@@ -470,19 +654,21 @@ function DayPill({
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-full border px-4 py-3 ${
-        active
-          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      className="active:opacity-80"
+      style={{
+        minHeight: 44,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        backgroundColor: active ? glass.surface.solid : glass.surface.bar,
+        borderWidth: active ? 0 : 1,
+        borderColor: glass.border.default,
+      }}
     >
-      <Text
-        className={`text-xs font-semibold uppercase tracking-wide ${
-          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
-        }`}
-      >
-        {label}
-      </Text>
+      <Text style={metaTextStyle(9, 0.16, active ? glass.text.ink : glass.text.fg)}>{label}</Text>
     </Pressable>
   );
 }

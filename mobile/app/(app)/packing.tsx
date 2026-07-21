@@ -2,8 +2,9 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
-import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { APP_HREF } from "@/lib/appRoutes";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineQuery } from "@/offline";
 import {
   countPackingProgress,
@@ -11,7 +12,8 @@ import {
   formatDateRange,
   type ConventionWithDetails,
 } from "@/screens/conventions/utils";
-import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import { GlassPanel, PhotoBackdrop } from "@/ui/glass";
 
 type Ready = { conventions: ConventionWithDetails[] };
 
@@ -41,18 +43,21 @@ export default function PackingOverviewScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("conventions.crossPackingTitle"), headerShown: true }} />
-      <MobilePageHeader
-        eyebrow={t("nav.events")}
-        title={t("conventions.crossPackingTitle")}
-        subtitle={t("conventions.crossPackingSubtitle")}
-        fallbackHref={APP_HREF.home}
-        containerClassName="px-5 pt-4"
-      />
       <DataBoundary status={status} data={data} error={error}>
         {(loaded) => <PackingOverviewBody conventions={loaded.conventions} />}
       </DataBoundary>
     </>
   );
+}
+
+function metaTextStyle(size: number, tracking: number, color: string) {
+  return {
+    fontFamily: APP_FONT_FAMILIES.sansBold,
+    fontSize: size,
+    letterSpacing: ls(tracking, size),
+    textTransform: "uppercase" as const,
+    color,
+  };
 }
 
 function PackingOverviewBody({ conventions }: Ready) {
@@ -61,49 +66,118 @@ function PackingOverviewBody({ conventions }: Ready) {
   const activeConventions = conventions.filter((convention) => convention.archived !== true);
 
   return (
-    <ScrollView
-      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 }}
-    >
-      {activeConventions.map((convention) => {
-        const progress = countPackingProgress(convention.packing);
-        const plannedBuilds = countPlannedBuilds(convention.plans);
-        return (
-          <Pressable
-            key={convention._id}
-            onPress={() => router.push(APP_HREF.conventionPacking(convention._id))}
-            className="active:opacity-90"
-          >
-            <SurfaceCard className="px-4 py-4">
-              <MetaLabel>{formatDateRange(convention.startDate, convention.endDate)}</MetaLabel>
-              <Text className="mt-2 text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-                {convention.name}
-              </Text>
-              <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {convention.location ?? t("conventions.noLocation")}
-              </Text>
-              <View className="mt-4 flex-row gap-3">
-                <MiniStat label={t("conventions.metricBuilds")} value={plannedBuilds} />
-                <MiniStat
-                  label={t("conventions.metricPacking")}
-                  value={`${progress.checked}/${progress.total}`}
-                />
-              </View>
-            </SurfaceCard>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
+    <View style={{ flex: 1 }}>
+      {/* No photo — falls back to the studio wall. */}
+      <PhotoBackdrop scrim="off" kenBurns={false} />
 
-function MiniStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View className="flex-1 rounded-2xl bg-kyar-panel px-3 py-3 dark:bg-kyar-dark-panel">
-      <MetaLabel>{label}</MetaLabel>
-      <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-        {value}
-      </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}
+      >
+        <View style={{ paddingHorizontal: 22 }}>
+          <Text style={metaTextStyle(9, 0.26, glass.text.fg70)}>{t("nav.events")}</Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontStyle: "italic",
+              fontSize: 34,
+              lineHeight: 38,
+              color: glass.text.fg,
+            }}
+          >
+            {t("conventions.crossPackingTitle")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 13,
+              lineHeight: 19,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("conventions.crossPackingSubtitle")}
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 18, paddingHorizontal: 16 }}>
+          <GlassPanel>
+            {activeConventions.map((convention, index) => {
+              const progress = countPackingProgress(convention.packing);
+              const plannedBuilds = countPlannedBuilds(convention.plans);
+              const pct =
+                progress.total > 0 ? Math.round((100 * progress.checked) / progress.total) : 0;
+              return (
+                <Pressable
+                  key={convention._id}
+                  onPress={() => router.push(APP_HREF.conventionPacking(convention._id))}
+                  accessibilityRole="button"
+                  className="active:opacity-80"
+                  style={{
+                    minHeight: 44,
+                    paddingHorizontal: 18,
+                    paddingVertical: 14,
+                    borderTopWidth: index === 0 ? 0 : borderWidth.hairline,
+                    borderTopColor: glass.border.divider,
+                  }}
+                >
+                  <Text style={metaTextStyle(9, 0.2, glass.text.fg55)}>
+                    {`${formatDateRange(convention.startDate, convention.endDate)}${
+                      convention.location ? ` · ${convention.location}` : ""
+                    }`}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      marginTop: 5,
+                      fontFamily: APP_FONT_FAMILIES.displayItalic,
+                      fontStyle: "italic",
+                      fontSize: 20,
+                      lineHeight: 24,
+                      color: glass.text.fg,
+                    }}
+                  >
+                    {convention.name}
+                  </Text>
+                  <View
+                    style={{ marginTop: 10, flexDirection: "row", alignItems: "center", gap: 12 }}
+                  >
+                    <View
+                      style={{
+                        height: 2,
+                        flex: 1,
+                        borderRadius: 1,
+                        backgroundColor: glass.border.default,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          height: 2,
+                          width: `${pct}%`,
+                          borderRadius: 1,
+                          backgroundColor: glass.surface.solid,
+                        }}
+                      />
+                    </View>
+                    <Text style={metaTextStyle(9, 0.16, glass.text.fg55)}>
+                      {t("conventions.packedCountMeta", {
+                        defaultValue: "{{checked}} / {{total}} packed",
+                        checked: progress.checked,
+                        total: progress.total,
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={[metaTextStyle(9, 0.16, glass.text.fg55), { marginTop: 6 }]}>
+                    {`${t("conventions.metricBuilds")} · ${plannedBuilds}`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </GlassPanel>
+        </View>
+      </ScrollView>
     </View>
   );
 }
