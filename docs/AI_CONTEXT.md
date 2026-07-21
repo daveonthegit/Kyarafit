@@ -30,11 +30,14 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 
 ## Key decisions (constraints)
 
-- Tiers: **FREE + PRO + SUPPORTER** (Pro==Supporter). Gate paid by `isPaid`, never a tier.
-- **Only paid levers:** cloud sync + multi-device, cloud image backup, public publishing/share, social posting/discoverability, group creation, priority support. **Everything else is free** (incl. advanced planner, all export/import, social interactions, group join).
+- Tiers — **implemented today:** FREE + PRO + SUPPORTER (Pro==Supporter), paid 2 GB cloud cap,
+  group-cosplay exception. **Decided direction (framed in the Work Graph — `WORK.md`
+  `entitlements-two-tier` → `r2-media-pipeline`, GH #147/#148, ADR-0001/0003, `CONTEXT.md`):**
+  collapse to **free + supporter**, free groups/posting/public-share, **hosted-media cap**
+  free 100 MB / supporter 5 GB on R2 capability URLs, free-tier **BYO sync** via Google Drive
+  snapshots. Until those items land, gate paid by `isPaid`, never a tier.
 - **Local-first:** local store authoritative; UI uses `useOfflineQuery`/`useOfflineMutation` only; sync worker runs **iff `canUseCloudSync && signedIn`** (free → never). Free users make **zero Convex data calls**.
-- Free images = local/external URL only (no cloud upload) except group-cosplay exception (REQ-021).
-- Storage: free unlimited **local** / 0 cloud; paid 2 GB cloud. Over-cap blocks uploads, never deletes.
+- Free images = local/external URL only (no cloud upload) except group-cosplay exception (REQ-021) — the exception is removed by `entitlements-two-tier` when it lands.
 - Conflict: **per-field last-write-wins** by `updatedAt`/`fieldUpdatedAt`. No CRDT.
 - **Elements** = one canonical model (replaces `closetItems`+`cosplayNodes`), **build-scoped** (no Closet page), hierarchy + duplicate-to-build.
 - Tasks = `workflowItems` only (delete `buildTasks`); rich model kept, **UX simplified**.
@@ -49,6 +52,11 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 shell, 7.2 core studio screens + auth/landing are done; 7.3 events, 7.4 social, and 7.5 settings
 remain. Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation phases
 (sync gating, entitlements, storage policy, field-LWW) are complete; see `roadmap.md` for history.
+
+**Open work is tracked on the Work Graph** — consult `WORK.md` (generated board) before starting
+anything, and follow the Agentflow conventions in `AGENTS.md` (Work-Item commit trailers, proposals
+inbox). The framed backlog beyond Glass Studio: the two-tier entitlements collapse + R2 hosted-media
+pipeline (GH #147/#148) and the BYO-sync program (ADR-0003).
 
 ## Commands
 

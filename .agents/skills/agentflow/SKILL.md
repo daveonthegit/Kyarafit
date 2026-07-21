@@ -119,6 +119,65 @@ agentflow approve <run-id> --approved-by <human identity>
 
 Do not translate ordinary conversational agreement into approval.
 
+## Merge an Approved Revision
+
+Merging requires an explicit repository policy: record it when profiling with
+`agentflow profile ... --allow-merge` (optionally `--merge-target-branch`,
+`--merge-strategy fast-forward|merge`, and `--merge-protected`; the target
+branch defaults to the branch checked out when the profile is created) and
+commit the profile. If the profile declares no `merge_policy`, every merge is
+refused. `--merge-protected` marks the target branch as advancing only
+through the gated merge path: a merge is refused if the branch head has
+diverged out of band from the merge candidate's history.
+
+If and only if `agentflow status <run-id>` reports `human_approved` and the
+user explicitly directs the merge, run:
+
+```bash
+agentflow merge <run-id> --merged-by <human identity>
+```
+
+The Merge Agent is deterministically gated engine code: it merges only when
+the Workspace still sits clean at the exact `approved_sha` (any drift makes
+the approval stale), the Target Repository is clean on the policy's target
+branch, a protected target branch has not diverged out of band, and the
+clean-environment CI gate passes — the candidate's committed Repository
+Profile checks are re-run against the exact `approved_sha` in a freshly
+created, isolated checkout (never the Run's Workspace), and every check must
+pass. Each CI execution records an indexed `merge-ci-<n>.json` evidence
+artifact. Every refusal is recorded as a `merge_refused` event; a completed
+merge records a `merge_completed` event plus write-once `merge.json`
+evidence. The merger can never create or modify approval records.
+
+## Deploy a verified revision
+
+Deployment requires explicit repository configuration: record it when
+profiling with `agentflow profile ... --deploy-adapter directory
+--deploy-target <path>` (publish the verified revision's content to a
+directory outside the repository) or `--deploy-adapter command
+--deploy-command <cmd>` (run a deploy command in an isolated checkout of the
+verified revision), and commit the profile. If the profile declares no
+deployment configuration, every deployment is refused.
+
+If and only if the Run is `merged`, `agentflow verify-merge` recorded a
+passing Post-Merge Verification for the exact merged commit, and the user
+explicitly directs the deployment, run:
+
+```bash
+agentflow deploy <run-id> --deployed-by <human identity>
+```
+
+The gates are deterministic engine code: deployment refuses without write-once
+merge evidence, without passing post-merge verification of the exact
+`merged_sha`, while any unresolved shipping stop exists for the repository, or
+without deployment configuration. The adapter receives the revision identity
+and an isolated checkout of exactly the merged commit — never a Run Workspace
+or the primary checkout. Every refusal is recorded as a `deployment_refused`
+event; a completed deployment records a `deployment_completed` event plus
+write-once `deployment.json` evidence. Deployment never changes the Run's
+workflow state and can never create or modify approval, merge, or
+verification records.
+
 ## Record rejection
 
 If the user explicitly rejects a candidate, record it with the
@@ -139,6 +198,7 @@ Rejected Runs cannot advance, approve, abandon, rebase, or be rejected again.
 - Never bypass a failed or unavailable gate by editing run evidence manually.
 - Never let an agent's prose override command exit status or test results.
 - Require explicit human approval before merge.
-- Do not imply that unimplemented merge, post-merge, or deployment stages have
-  executed, and do not claim a tester ran unless Agentflow recorded a
-  `tests_ready` or `tests_failed` event.
+- Do not imply that unimplemented post-merge or deployment stages have
+  executed; do not claim a merge happened unless Agentflow recorded a
+  `merge_completed` event, and do not claim a tester ran unless Agentflow
+  recorded a `tests_ready` or `tests_failed` event.
