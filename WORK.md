@@ -107,9 +107,6 @@ Acceptance criteria:
 - The Drive incremental-consent flow completes on Expo (iOS and Android)
 - No changes to tab bar, headers, sheets, or other chrome surfaces owned by the glass-studio work; the slice rebases on whatever glass-studio has merged
 
-
-## Proposed Work Items
-
 ### proposal-2c3ea118f0064504
 
 Glass Studio 7.3 (mobile) — events: conventions list/detail/edit + packing restyled per refs 6e/8a (day rail, packing panel, square sentence-case checklist rows); every query/mutation and offline path preserved
@@ -158,13 +155,7 @@ Acceptance criteria:
 - Fixes are presentation-only: explorer drag logic, mutations, and navigation params untouched
 - Owner device check passes on the revised screen
 
-### proposal-dfec9cf459ddf582
 
-Resolve the tier/storage model conflict between CONTEXT.md (free/supporter, hosted-media cap 100MB/5GB, BYO sync) and the implemented code + AI_CONTEXT.md (FREE/PRO/SUPPORTER, 2GB paid cloud cap, group exception) — owner decision, then an ADR and aligned docs (and code if the new model is confirmed)
+## Proposed Work Items
 
-Depends on: nothing
-
-Acceptance criteria:
-- Owner states which model is current direction
-- An ADR records the decision; CONTEXT.md, docs/AI_CONTEXT.md, and PRODUCT_SPEC references agree with it
-- If the hosted-media model is confirmed, follow-up work items exist for the entitlements/storage code changes
+_None._
