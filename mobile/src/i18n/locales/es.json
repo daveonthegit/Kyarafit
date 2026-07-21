@@ -708,14 +708,28 @@
     "buildsEmpty": "Todavía no hay builds vinculadas a este grupo.",
     "removeBuildAction": "Quitar del grupo",
     "searchBuilds": "Buscar tus builds…",
-    "availableBuildsEmpty": "No hay builds disponibles que coincidan."
+    "availableBuildsEmpty": "No hay builds disponibles que coincidan.",
+    "featuredEyebrow": "Tus grupos",
+    "openGroupAction": "Abrir grupo",
+    "buildCount": "{{count}} proyectos",
+    "emptyHeadline": "El cosplay es mejor en compañía.",
+    "linkConventionTile": "Vincular un evento",
+    "noDaysPicked": "Sin días elegidos",
+    "addMyBuildAction": "Agregar mi proyecto",
+    "createPaidNotice": "Crear un grupo requiere un plan de pago.",
+    "createPaidAction": "Ver planes"
   },
   "feed": {
     "title": "Feed",
     "subtitle": "Builds públicas de las personas que sigues, pensadas para una lectura rápida en móvil.",
     "signInBody": "Inicia sesión para ver las builds de los creadores que sigues.",
     "emptyTitle": "No hay novedades en tu feed",
-    "emptyBody": "Sigue a más creadores desde Explorar para convertir esto en un tareas real de progreso."
+    "emptyBody": "Sigue a más creadores desde Explorar para convertir esto en un tareas real de progreso.",
+    "latestEyebrow": "Lo último de quienes sigues",
+    "viewBuildAction": "Ver proyecto",
+    "shelfEyebrow": "El feed · {{count}}",
+    "emptyEyebrow": "El feed",
+    "signInHeadline": "Inicia sesión para ver tu feed."
   },
   "discover": {
     "title": "Explorar",
@@ -730,7 +744,10 @@
     "unfollowAction": "Dejar de seguir",
     "buildsTitle": "Builds públicas",
     "loadingBuilds": "Cargando builds…",
-    "emptyBuilds": "Todavía no hay builds públicas."
+    "emptyBuilds": "Todavía no hay builds públicas.",
+    "buildsMeta": "{{count}} proyectos",
+    "followersMeta": "{{count}} seguidores",
+    "followingMeta": "{{count}} siguiendo"
   },
   "social": {
     "commentsTitle": "Comentarios",
@@ -738,7 +755,9 @@
     "commentsSignIn": "Inicia sesión para unirte a la conversación.",
     "commentPlaceholder": "Añade un comentario…",
     "commentAction": "Publicar comentario",
-    "commentPosting": "Publicando…"
+    "commentPosting": "Publicando…",
+    "likeAction": "Me gusta",
+    "cardTasksMeta": "{{checked}}/{{total}} tareas"
   },
   "publicBuild": {
     "title": "Build pública",
@@ -1058,5 +1077,9 @@
     "subcopy": "Cada elemento, tarea y día de convención de tu próximo proyecto, en un estudio silencioso que funciona sin conexión.",
     "ctaPrimary": "Empieza a planificar — gratis",
     "ctaMeta": "Sin cuenta · funciona en tu dispositivo"
+  },
+  "offline": {
+    "onlineOnlyBanner": "Estás sin conexión: esta sección necesita internet.",
+    "retry": "Reintentar"
   }
 }

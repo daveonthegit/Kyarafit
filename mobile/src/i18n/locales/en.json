@@ -708,14 +708,28 @@
     "buildsEmpty": "No builds are linked to this group yet.",
     "removeBuildAction": "Remove from group",
     "searchBuilds": "Search your builds…",
-    "availableBuildsEmpty": "No matching builds are available to add."
+    "availableBuildsEmpty": "No matching builds are available to add.",
+    "featuredEyebrow": "Your groups",
+    "openGroupAction": "Open group",
+    "buildCount": "{{count}} builds",
+    "emptyHeadline": "Cosplay is better together.",
+    "linkConventionTile": "Link a convention",
+    "noDaysPicked": "No days picked",
+    "addMyBuildAction": "Add my build",
+    "createPaidNotice": "Creating a group requires a paid plan.",
+    "createPaidAction": "View plans"
   },
   "feed": {
     "title": "Feed",
     "subtitle": "Public builds from people you follow, tuned for fast mobile scanning.",
     "signInBody": "Sign in to see builds from the creators you follow.",
     "emptyTitle": "Nothing new in your feed",
-    "emptyBody": "Follow more creators from Discover to turn this into a real progress stream."
+    "emptyBody": "Follow more creators from Discover to turn this into a real progress stream.",
+    "latestEyebrow": "Latest from people you follow",
+    "viewBuildAction": "View build",
+    "shelfEyebrow": "The feed · {{count}}",
+    "emptyEyebrow": "The feed",
+    "signInHeadline": "Sign in to see your feed."
   },
   "discover": {
     "title": "Discover",
@@ -730,7 +744,10 @@
     "unfollowAction": "Unfollow",
     "buildsTitle": "Public builds",
     "loadingBuilds": "Loading builds…",
-    "emptyBuilds": "No public builds yet."
+    "emptyBuilds": "No public builds yet.",
+    "buildsMeta": "{{count}} builds",
+    "followersMeta": "{{count}} followers",
+    "followingMeta": "{{count}} following"
   },
   "social": {
     "commentsTitle": "Comments",
@@ -738,7 +755,9 @@
     "commentsSignIn": "Sign in to join the conversation.",
     "commentPlaceholder": "Add a comment…",
     "commentAction": "Post comment",
-    "commentPosting": "Posting…"
+    "commentPosting": "Posting…",
+    "likeAction": "Like",
+    "cardTasksMeta": "{{checked}}/{{total}} tasks"
   },
   "publicBuild": {
     "title": "Public build",
@@ -1058,5 +1077,9 @@
     "subcopy": "Every element, task, and convention day for your next build — tracked in one quiet studio that works offline.",
     "ctaPrimary": "Start planning — free",
     "ctaMeta": "No account · runs on your device"
+  },
+  "offline": {
+    "onlineOnlyBanner": "You're offline — this section needs a connection.",
+    "retry": "Retry"
   }
 }

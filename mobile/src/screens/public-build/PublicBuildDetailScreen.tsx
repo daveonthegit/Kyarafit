@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,16 +10,19 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { FocalCoverImage } from "@/components/FocalCoverImage";
-import { MobilePageHeader } from "@/components/navigation/MobilePageHeader";
+import { MobileBackButton } from "@/components/navigation/MobileBackButton";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { DataBoundary, MetaLabel, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import { GlassPanel, PhotoBackdrop } from "@/ui/glass";
 import {
   BUILD_WORKFLOW_GROUP_KEY,
   flattenWorkflowWithElementGroup,
@@ -123,67 +126,130 @@ function formatBudgetDelta(cents: number) {
   }).format(cents / 100);
 }
 
-function PublicBuildHero({ build }: { build: PublicBuild }) {
-  const storageUrl = useQuery(
-    api.files.getUrl,
-    !build.imageUrl && build.imageStorageId ? { storageId: build.imageStorageId } : "skip"
-  );
-  const resolvedUri = build.imageUrl ?? storageUrl ?? null;
+/* ── Glass presentation atoms private to this viewer screen (8c) ─────────── */
 
-  if (!build.imageUrl && build.imageStorageId && storageUrl === undefined) {
-    return (
-      <View className="aspect-[21/9] items-center justify-center bg-kyar-muted dark:bg-kyar-dark-muted">
-        <ActivityIndicator />
-      </View>
-    );
-  }
+type GlassTone = "fg" | "fg70" | "fg55" | "fg45" | "ink";
 
-  if (!resolvedUri) {
-    return (
-      <View className="aspect-[21/9] items-center justify-center bg-kyar-muted dark:bg-kyar-dark-muted">
-        <Text className="text-5xl text-kyar-textTertiary dark:text-kyar-dark-textTertiary">◇</Text>
-      </View>
-    );
-  }
+const TONE_COLOR: Record<GlassTone, string> = {
+  fg: glass.text.fg,
+  fg70: glass.text.fg70,
+  fg55: glass.text.fg55,
+  fg45: glass.text.fg45,
+  ink: glass.text.ink,
+};
 
-  return (
-    <FocalCoverImage
-      uri={resolvedUri}
-      focalX={build.imageFocalX}
-      focalY={build.imageFocalY}
-      className="aspect-[21/9] w-full"
-      accessibilityLabel={build.name}
-    />
-  );
-}
-
-function PublicMediaRail({
-  title,
-  items,
+function ViewerMeta({
+  children,
+  size = 9,
+  tone = "fg55",
+  tracking = 0.16,
+  bold = false,
+  numberOfLines,
+  style,
 }: {
-  title: string;
-  items: { _id: string; imageStorageId?: Id<"_storage"> | null; imageUrl?: string | null }[];
+  children: ReactNode;
+  size?: number;
+  tone?: GlassTone;
+  tracking?: number;
+  bold?: boolean;
+  numberOfLines?: number;
+  style?: object;
 }) {
-  if (!items.length) return null;
-
   return (
-    <SurfaceCard className="px-4 py-4">
-      <Text className="text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">{title}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
-        <View className="flex-row gap-3">
-          {items.map((item) => (
-            <View
-              key={item._id}
-              className="h-36 w-28 overflow-hidden rounded-2xl bg-kyar-muted dark:bg-kyar-dark-muted"
-            >
-              <PublicMediaImage imageStorageId={item.imageStorageId} imageUrl={item.imageUrl} />
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </SurfaceCard>
+    <Text
+      numberOfLines={numberOfLines}
+      style={[
+        {
+          fontFamily: bold ? APP_FONT_FAMILIES.sansBold : APP_FONT_FAMILIES.sansMedium,
+          fontSize: size,
+          letterSpacing: ls(tracking, size),
+          textTransform: "uppercase",
+          color: TONE_COLOR[tone],
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
   );
 }
+
+function ViewerBody({
+  children,
+  size = 13,
+  tone = "fg70",
+  semiBold = false,
+  numberOfLines,
+  strike = false,
+  style,
+}: {
+  children: ReactNode;
+  size?: number;
+  tone?: GlassTone;
+  semiBold?: boolean;
+  numberOfLines?: number;
+  strike?: boolean;
+  style?: object;
+}) {
+  return (
+    <Text
+      numberOfLines={numberOfLines}
+      style={[
+        {
+          fontFamily: semiBold ? APP_FONT_FAMILIES.sansSemiBold : APP_FONT_FAMILIES.sansRegular,
+          fontSize: size,
+          lineHeight: Math.round(size * 1.45),
+          color: TONE_COLOR[tone],
+          textDecorationLine: strike ? "line-through" : "none",
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
+  );
+}
+
+/** 2px progress hairline: divider track, light fill. */
+function ViewerHairlineProgress({ percent, style }: { percent: number; style?: object }) {
+  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+  return (
+    <View
+      style={[
+        { height: 2, borderRadius: 1, backgroundColor: glass.border.divider, overflow: "hidden" },
+        style,
+      ]}
+    >
+      <View
+        style={{
+          height: 2,
+          width: `${clamped}%`,
+          borderRadius: 1,
+          backgroundColor: glass.text.fg,
+        }}
+      />
+    </View>
+  );
+}
+
+const FIELD_BOX = {
+  borderRadius: 10,
+  borderWidth: borderWidth.hairline,
+  borderColor: glass.border.divider,
+  backgroundColor: glass.surface.field,
+} as const;
+
+const OUTLINE_PILL = {
+  minHeight: 44,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 8,
+  borderRadius: 999,
+  borderWidth: 1,
+  borderColor: glass.border.strong,
+  backgroundColor: glass.surface.bar,
+  paddingHorizontal: 18,
+};
 
 function PublicMediaImage({
   imageStorageId,
@@ -200,21 +266,64 @@ function PublicMediaImage({
 
   if (!imageUrl && imageStorageId && storageUrl === undefined) {
     return (
-      <View className="h-full w-full items-center justify-center">
-        <ActivityIndicator />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={glass.text.fg70} />
       </View>
     );
   }
 
   if (!resolvedUri) {
-    return <View className="h-full w-full bg-kyar-muted dark:bg-kyar-dark-muted" />;
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="image-outline" size={20} color={glass.text.fg45} />
+      </View>
+    );
   }
 
   return <FocalCoverImage uri={resolvedUri} className="h-full w-full" />;
 }
 
+function PublicMediaRail({
+  title,
+  items,
+}: {
+  title: string;
+  items: { _id: string; imageStorageId?: Id<"_storage"> | null; imageUrl?: string | null }[];
+}) {
+  if (!items.length) return null;
+
+  return (
+    <View>
+      <ViewerMeta size={10} tone="fg70" bold>
+        {title}
+      </ViewerMeta>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {items.map((item) => (
+            <View
+              key={item._id}
+              style={{
+                height: 128,
+                width: 100,
+                borderRadius: 12,
+                overflow: "hidden",
+                borderWidth: borderWidth.hairline,
+                borderColor: glass.border.divider,
+                backgroundColor: glass.surface.field,
+              }}
+            >
+              <PublicMediaImage imageStorageId={item.imageStorageId} imageUrl={item.imageUrl} />
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const identity = useQuery(api.auth.getCurrentUser);
   const currentUserId = identity?.subject ?? null;
   const bundleArgs = buildId ? { buildId } : shareToken ? { shareToken } : "skip";
@@ -243,28 +352,46 @@ export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
         : "ready";
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <Stack.Screen
         options={{
           title: bundle?.build.name ?? t("publicBuild.title"),
           headerLargeTitle: false,
         }}
       />
-      <MobilePageHeader
-        eyebrow={t("publicBuild.title")}
-        title={bundle?.build.name ?? t("publicBuild.title")}
-        subtitle={bundle?.build.character ?? undefined}
-        fallbackHref={APP_HREF.home}
-        containerClassName="px-4 pt-4"
+      <PhotoBackdrop
+        imageStorageId={bundle?.build.imageStorageId}
+        imageUrl={bundle?.build.imageUrl}
+        focalX={bundle?.build.imageFocalX}
+        focalY={bundle?.build.imageFocalY}
       />
+
+      {/* Viewer bar (8c): back affordance + eyebrow, no edit chrome. */}
+      <View
+        style={{
+          paddingTop: insets.top + 6,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <MobileBackButton surface="glass" fallbackHref={APP_HREF.home} />
+        <ViewerMeta size={10} tone="fg70" bold tracking={0.2} numberOfLines={1} style={{ flex: 1 }}>
+          {bundle?.build.name
+            ? `${t("publicBuild.title")} ▸ ${bundle.build.name}`
+            : t("publicBuild.title")}
+        </ViewerMeta>
+      </View>
+
       <DataBoundary
         status={status}
         data={bundle ?? undefined}
         empty={
-          <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
-            <Text className="text-center text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
+            <ViewerBody size={13} tone="fg70" style={{ textAlign: "center" }}>
               {t("publicBuild.notFound")}
-            </Text>
+            </ViewerBody>
           </View>
         }
       >
@@ -277,7 +404,7 @@ export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
           />
         )}
       </DataBoundary>
-    </>
+    </View>
   );
 }
 
@@ -293,7 +420,7 @@ function PublicBuildDetailBody({
   shareToken?: string;
 }) {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const build = bundle.build;
   const toggles = bundle.togglesResolved;
   const likeCount = useQuery(
@@ -419,6 +546,17 @@ function PublicBuildDetailBody({
     [bundle.visualNodes]
   );
 
+  /** Board tab: 2-col mini masonry columns (no FlatList — real flex widths, pitfall 5). */
+  const boardColumns = useMemo(() => {
+    const left: VisualNode[] = [];
+    const right: VisualNode[] = [];
+    bundle.visualNodes.forEach((node, index) => {
+      if (index % 2 === 0) left.push(node);
+      else right.push(node);
+    });
+    return [left, right] as const;
+  }, [bundle.visualNodes]);
+
   const handleToggleLike = async () => {
     if (!currentUserId) return;
     try {
@@ -446,365 +584,592 @@ function PublicBuildDetailBody({
     }
   };
 
+  const tasksTotal = build.tasksTotal ?? 0;
+  const tasksChecked = build.tasksChecked ?? 0;
+  const progressPct = tasksTotal > 0 ? Math.round((tasksChecked / tasksTotal) * 100) : 0;
+
+  const eyebrow = [build.character, build.status].filter(Boolean).join(" · ") || build.status;
+
   return (
-    <ScrollView
-      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-      contentContainerClassName="gap-4 px-4 pb-16 pt-4"
-    >
-      <SurfaceCard className="overflow-hidden px-0 py-0">
-        <PublicBuildHero build={build} />
-        <View className="gap-3 px-4 py-4">
-          {build.character ? <MetaLabel>{build.character}</MetaLabel> : null}
-          <View className="flex-row flex-wrap items-center gap-3">
-            <Text className="text-xs uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-              {build.status}
-            </Text>
-            {(build.tasksTotal ?? 0) > 0 ? (
-              <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("buildDetail.summaryTasks", {
-                  checked: build.tasksChecked ?? 0,
-                  total: build.tasksTotal ?? 0,
-                })}
-              </Text>
+    <View style={{ flex: 1 }}>
+      {/* Headline block (8c) */}
+      <View style={{ paddingHorizontal: 22, paddingTop: 10, paddingBottom: 14 }}>
+        <ViewerMeta size={9} tone="fg70" bold tracking={0.26}>
+          {eyebrow}
+        </ViewerMeta>
+        <Text
+          numberOfLines={2}
+          style={{
+            marginTop: 6,
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontStyle: "italic",
+            fontSize: 38,
+            lineHeight: 42,
+            color: glass.text.fg,
+          }}
+        >
+          {build.name}
+        </Text>
+        {tasksTotal > 0 ? (
+          <>
+            <ViewerHairlineProgress percent={progressPct} style={{ marginTop: 12 }} />
+            <ViewerMeta size={9} tone="fg55" style={{ marginTop: 6 }}>
+              {t("buildDetail.headlineTasksMeta", {
+                defaultValue: "{{checked}} / {{total}} tasks · {{pct}}%",
+                checked: tasksChecked,
+                total: tasksTotal,
+                pct: progressPct,
+              })}
+            </ViewerMeta>
+          </>
+        ) : null}
+
+        {/* Social actions: glass-outline pills (favorite + comment counts) */}
+        <View
+          style={{
+            marginTop: 14,
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Pressable
+            onPress={() => void handleToggleLike()}
+            disabled={!currentUserId}
+            accessibilityRole="button"
+            accessibilityLabel={t("social.likeAction", { defaultValue: "Like" })}
+            className="active:opacity-80"
+            style={[OUTLINE_PILL, !currentUserId && { opacity: 0.5 }]}
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={15}
+              color={isLiked ? glass.text.danger : glass.text.fg}
+            />
+            <ViewerMeta size={10} tone="fg" bold>
+              {likeCount ?? 0}
+            </ViewerMeta>
+          </Pressable>
+          <View style={OUTLINE_PILL}>
+            <Ionicons name="chatbubble-outline" size={15} color={glass.text.fg} />
+            <ViewerMeta size={10} tone="fg" bold>
+              {comments.length}
+            </ViewerMeta>
+          </View>
+        </View>
+      </View>
+
+      {/* ONE glass work panel: owner-enabled tabs + comments (8c) */}
+      <View
+        style={{
+          minHeight: 0,
+          flex: 1,
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 12,
+        }}
+      >
+        <GlassPanel style={{ flex: 1 }}>
+          <View
+            style={{
+              borderBottomWidth: borderWidth.hairline,
+              borderBottomColor: glass.border.divider,
+            }}
+          >
+            {/* Online-only surface: offline strip lives in the panel header. */}
+            <OfflineBanner />
+            {visibleTabs.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: 20,
+                    paddingHorizontal: 16,
+                    paddingTop: 12,
+                    paddingBottom: 0,
+                  }}
+                >
+                  {visibleTabs.map((value) => {
+                    const active = tab === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => setTab(value)}
+                        accessibilityRole="button"
+                        className="active:opacity-80"
+                        style={{
+                          minHeight: 44,
+                          justifyContent: "center",
+                          borderBottomWidth: 1.5,
+                          borderBottomColor: active ? glass.text.fg : "transparent",
+                        }}
+                      >
+                        <ViewerMeta size={10} tone={active ? "fg" : "fg55"} bold={active} tracking={0.18}>
+                          {value === "explorer"
+                            ? t("buildDetail.tabExplorer")
+                            : value === "tasks"
+                              ? t("buildDetail.tabTasks")
+                              : value === "board"
+                                ? t("buildDetail.tabBoard")
+                                : t("buildDetail.tabSummary")}
+                        </ViewerMeta>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             ) : null}
           </View>
-          <View className="flex-row flex-wrap items-center gap-3 border-t border-kyar-borderSubtle pt-3 dark:border-kyar-dark-borderSubtle">
-            <Pressable
-              onPress={() => void handleToggleLike()}
-              disabled={!currentUserId}
-              className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 disabled:opacity-50 dark:border-kyar-dark-borderSubtle"
-            >
-              <Ionicons
-                name={isLiked ? "heart" : "heart-outline"}
-                size={16}
-                color={isLiked ? colors.danger : colors.meta}
-              />
-              <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-                {likeCount ?? 0}
-              </Text>
-            </Pressable>
-            <View className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle">
-              <Ionicons name="chatbubble-outline" size={16} color={colors.meta} />
-              <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-                {comments.length}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </SurfaceCard>
 
-      {visibleTabs.length > 0 ? (
-        <View className="flex-row flex-wrap gap-2">
-          {visibleTabs.map((value) => (
-            <Pressable
-              key={value}
-              onPress={() => setTab(value)}
-              className={`rounded-full border px-4 py-2 ${
-                tab === value
-                  ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-                  : "border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
-              }`}
-            >
-              <Text
-                className={`text-[10px] font-semibold uppercase tracking-widest ${
-                  tab === value
-                    ? "text-kyar-bg dark:text-kyar-dark-bg"
-                    : "text-kyar-text dark:text-kyar-dark-text"
-                }`}
-              >
-                {value === "explorer"
-                  ? t("buildDetail.tabExplorer")
-                  : value === "tasks"
-                    ? t("buildDetail.tabTasks")
-                    : value === "board"
-                      ? t("buildDetail.tabBoard")
-                      : t("buildDetail.tabSummary")}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {tab === "explorer" && toggles.showExplorer ? (
-        <View className="gap-4">
-          {toggles.showNotes && build.notes ? (
-            <SurfaceCard className="px-4 py-4">
-              <MetaLabel>{t("buildDetail.notesLabel")}</MetaLabel>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {build.notes}
-              </Text>
-            </SurfaceCard>
-          ) : null}
-
-          <SurfaceCard className="px-4 py-4">
-            <MetaLabel>{t("buildDetail.subElements")}</MetaLabel>
-            {outlineNodes.length === 0 ? (
-              <Text className="mt-3 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("publicBuild.explorerEmpty")}
-              </Text>
-            ) : (
-              <View className="mt-4 gap-2">
-                {outlineNodes.map((node) => (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 14, paddingBottom: 24, gap: 18 }}
+          >
+            {tab === "explorer" && toggles.showExplorer ? (
+              <View style={{ gap: 18 }}>
+                {toggles.showNotes && build.notes ? (
                   <View
-                    key={node._id as string}
-                    className="rounded-2xl bg-kyar-panel px-4 py-3 dark:bg-kyar-dark-panel"
-                    style={{ marginLeft: Math.min(node.depth, 8) * 10 }}
+                    style={{
+                      borderLeftWidth: 2,
+                      borderLeftColor: glass.border.strong,
+                      paddingLeft: 14,
+                    }}
                   >
-                    <View className="flex-row items-center gap-2">
-                      <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                        {node.nodeType === "material"
-                          ? t("elements.typeMaterial")
-                          : t("elements.typeElement")}
-                      </Text>
-                      <Text className="text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                        {node.name}
-                      </Text>
-                    </View>
-                    <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {t("elements.progressPercent", { pct: Math.round(node.progressPercent) })}
-                    </Text>
+                    <ViewerMeta size={10} tone="fg55" bold tracking={0.2}>
+                      {t("buildDetail.notesLabel")}
+                    </ViewerMeta>
+                    <ViewerBody size={13} tone="fg70" style={{ marginTop: 8 }}>
+                      {build.notes}
+                    </ViewerBody>
                   </View>
-                ))}
-              </View>
-            )}
-          </SurfaceCard>
-        </View>
-      ) : null}
+                ) : null}
 
-      {tab === "tasks" && toggles.showTasks ? (
-        <View className="gap-4">
-          {workflowRows.length === 0 ? (
-            <SurfaceCard className="px-4 py-5">
-              <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("publicBuild.tasksEmpty")}
-              </Text>
-            </SurfaceCard>
-          ) : (
-            workflowGrouped.sortedKeys.map((groupKey) => {
-              const rows = workflowGrouped.grouped.get(groupKey);
-              if (!rows?.length) return null;
-
-              const isBuildGroup = groupKey === BUILD_WORKFLOW_GROUP_KEY;
-              const meta = !isBuildGroup ? visualById.get(groupKey) : null;
-
-              return (
-                <SurfaceCard key={groupKey} className="px-0 py-0">
-                  <View
-                    className="border-b border-kyar-borderSubtle bg-kyar-panel px-4 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-                    style={{ paddingLeft: 16 + (meta?.depth ?? 0) * 10 }}
-                  >
-                    <Text className="text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                      {isBuildGroup
-                        ? t("buildDetail.buildWideSteps")
-                        : (meta?.name ?? t("common.elements"))}
-                    </Text>
-                  </View>
-                  <View className="gap-2 px-3 py-3">
-                    {rows.map((row) => (
-                      <View
-                        key={row._id as string}
-                        className="rounded-2xl bg-kyar-panel px-4 py-3 dark:bg-kyar-dark-panel"
-                        style={{ marginLeft: row.depth * 12 }}
-                      >
-                        <View className="flex-row items-start gap-3">
+                <View>
+                  <ViewerMeta size={10} tone="fg55" bold tracking={0.2}>
+                    {t("buildDetail.subElements")}
+                  </ViewerMeta>
+                  {outlineNodes.length === 0 ? (
+                    <ViewerBody size={13} tone="fg55" style={{ marginTop: 10 }}>
+                      {t("publicBuild.explorerEmpty")}
+                    </ViewerBody>
+                  ) : (
+                    <View style={{ marginTop: 12, gap: 8 }}>
+                      {outlineNodes.map((node) => (
+                        <View
+                          key={node._id as string}
+                          style={[
+                            FIELD_BOX,
+                            {
+                              paddingHorizontal: 12,
+                              paddingVertical: 10,
+                              marginLeft: Math.min(node.depth, 8) * 10,
+                            },
+                          ]}
+                        >
                           <View
-                            className="mt-0.5 h-7 w-7 items-center justify-center rounded-full border"
                             style={{
-                              borderColor:
-                                row.status === "done" ? colors.accent : colors.borderSubtle,
-                              backgroundColor:
-                                row.status === "done" ? colors.accent : "transparent",
+                              flexDirection: "row",
+                              alignItems: "baseline",
+                              gap: 8,
+                              flexWrap: "wrap",
                             }}
                           >
-                            {row.status === "done" ? (
-                              <Ionicons name="checkmark" size={16} color={colors.bg} />
-                            ) : null}
+                            <ViewerMeta size={9} tone="fg55" tracking={0.14}>
+                              {node.nodeType === "material"
+                                ? t("elements.typeMaterial")
+                                : t("elements.typeElement")}
+                            </ViewerMeta>
+                            <ViewerBody size={13} tone="fg" semiBold numberOfLines={1}>
+                              {node.name}
+                            </ViewerBody>
                           </View>
-                          <View className="min-w-0 flex-1">
-                            <Text
-                              className={`text-sm ${
-                                row.status === "done"
-                                  ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
-                                  : "text-kyar-text dark:text-kyar-dark-text"
-                              }`}
-                            >
-                              {row.title}
-                            </Text>
-                            <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                              {row.dueDate
-                                ? t("publicBuild.taskDue", { date: row.dueDate })
-                                : t("elements.progressPercent", {
-                                    pct: Math.round(row.progressPercent),
-                                  })}
-                            </Text>
-                          </View>
+                          <ViewerHairlineProgress
+                            percent={node.progressPercent}
+                            style={{ marginTop: 8 }}
+                          />
+                          <ViewerMeta size={9} tone="fg55" style={{ marginTop: 6 }}>
+                            {t("elements.progressPercent", {
+                              pct: Math.round(node.progressPercent),
+                            })}
+                          </ViewerMeta>
                         </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {tab === "tasks" && toggles.showTasks ? (
+              <View style={{ gap: 14 }}>
+                {workflowRows.length === 0 ? (
+                  <ViewerBody size={13} tone="fg55">
+                    {t("publicBuild.tasksEmpty")}
+                  </ViewerBody>
+                ) : (
+                  workflowGrouped.sortedKeys.map((groupKey) => {
+                    const rows = workflowGrouped.grouped.get(groupKey);
+                    if (!rows?.length) return null;
+
+                    const isBuildGroup = groupKey === BUILD_WORKFLOW_GROUP_KEY;
+                    const meta = !isBuildGroup ? visualById.get(groupKey) : null;
+
+                    return (
+                      <View key={groupKey}>
+                        <ViewerMeta
+                          size={10}
+                          tone="fg70"
+                          bold
+                          style={{ marginLeft: (meta?.depth ?? 0) * 10 }}
+                        >
+                          {isBuildGroup
+                            ? t("buildDetail.buildWideSteps")
+                            : (meta?.name ?? t("common.elements"))}
+                        </ViewerMeta>
+                        <View style={{ marginTop: 8, gap: 8 }}>
+                          {rows.map((row) => {
+                            const done = row.status === "done";
+                            return (
+                              <View
+                                key={row._id as string}
+                                style={[
+                                  FIELD_BOX,
+                                  {
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 10,
+                                    marginLeft: row.depth * 12,
+                                  },
+                                ]}
+                              >
+                                <View
+                                  style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}
+                                >
+                                  <View
+                                    style={{
+                                      marginTop: 1,
+                                      height: 22,
+                                      width: 22,
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      borderRadius: 11,
+                                      borderWidth: 1,
+                                      borderColor: done ? glass.surface.solid : glass.border.strong,
+                                      backgroundColor: done ? glass.surface.solid : "transparent",
+                                    }}
+                                  >
+                                    {done ? (
+                                      <Ionicons name="checkmark" size={13} color={glass.text.ink} />
+                                    ) : null}
+                                  </View>
+                                  <View style={{ minWidth: 0, flex: 1 }}>
+                                    <ViewerBody size={13} tone={done ? "fg45" : "fg"} strike={done}>
+                                      {row.title}
+                                    </ViewerBody>
+                                    <ViewerMeta size={9} tone="fg55" style={{ marginTop: 4 }}>
+                                      {row.dueDate
+                                        ? t("publicBuild.taskDue", { date: row.dueDate })
+                                        : t("elements.progressPercent", {
+                                            pct: Math.round(row.progressPercent),
+                                          })}
+                                    </ViewerMeta>
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            ) : null}
+
+            {tab === "board" && toggles.showVisualBoard ? (
+              <View style={{ gap: 18 }}>
+                <PublicMediaRail
+                  title={t("buildDetail.referenceImages")}
+                  items={bundle.referenceImages}
+                />
+                <PublicMediaRail
+                  title={t("buildDetail.processPictures")}
+                  items={bundle.processPictures}
+                />
+                <View>
+                  <ViewerMeta size={10} tone="fg55" bold tracking={0.2}>
+                    {t("buildDetail.tabBoard")}
+                  </ViewerMeta>
+                  {bundle.visualNodes.length === 0 ? (
+                    <ViewerBody size={13} tone="fg55" style={{ marginTop: 10 }}>
+                      {t("buildDetail.boardEmpty")}
+                    </ViewerBody>
+                  ) : (
+                    <View style={{ marginTop: 12, flexDirection: "row", gap: 10 }}>
+                      {boardColumns.map((col, colIndex) => (
+                        <View key={`col-${colIndex}`} style={{ flex: 1, gap: 10 }}>
+                          {col.map((node, rowIndex) => {
+                            const tall = (colIndex + rowIndex) % 2 === 0;
+                            return (
+                              <View
+                                key={node._id as string}
+                                style={{
+                                  borderRadius: 16,
+                                  overflow: "hidden",
+                                  borderWidth: borderWidth.hairline,
+                                  borderColor: glass.border.divider,
+                                  backgroundColor: glass.surface.field,
+                                }}
+                              >
+                                <View style={{ height: tall ? 150 : 110 }}>
+                                  <PublicMediaImage
+                                    imageStorageId={node.imageStorageId}
+                                    imageUrl={node.imageUrl}
+                                  />
+                                </View>
+                                <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+                                  <Text
+                                    numberOfLines={1}
+                                    style={{
+                                      fontFamily: APP_FONT_FAMILIES.displayItalic,
+                                      fontStyle: "italic",
+                                      fontSize: 17,
+                                      lineHeight: 20,
+                                      color: glass.text.fg,
+                                    }}
+                                  >
+                                    {node.name}
+                                  </Text>
+                                  <ViewerHairlineProgress
+                                    percent={node.progressPercent}
+                                    style={{ marginTop: 8 }}
+                                  />
+                                  <ViewerMeta size={9} tone="fg55" style={{ marginTop: 6 }}>
+                                    {t("elements.progressPercent", {
+                                      pct: Math.round(node.progressPercent),
+                                    })}
+                                  </ViewerMeta>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {tab === "summary" && (toggles.showSummary || toggles.showCollaborators) ? (
+              <View style={{ gap: 18 }}>
+                {summaryMetrics.length > 0 ? (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                    {summaryMetrics.map((item) => (
+                      <View
+                        key={item.key}
+                        style={[
+                          FIELD_BOX,
+                          {
+                            minWidth: "46%",
+                            flex: 1,
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                          },
+                        ]}
+                      >
+                        <ViewerBody size={12} tone="fg70">
+                          {item.label}
+                        </ViewerBody>
                       </View>
                     ))}
                   </View>
-                </SurfaceCard>
-              );
-            })
-          )}
-        </View>
-      ) : null}
+                ) : null}
 
-      {tab === "board" && toggles.showVisualBoard ? (
-        <View className="gap-4">
-          <PublicMediaRail
-            title={t("buildDetail.referenceImages")}
-            items={bundle.referenceImages}
-          />
-          <PublicMediaRail
-            title={t("buildDetail.processPictures")}
-            items={bundle.processPictures}
-          />
-          <SurfaceCard className="px-4 py-4">
-            <MetaLabel>{t("buildDetail.tabBoard")}</MetaLabel>
-            {bundle.visualNodes.length === 0 ? (
-              <Text className="mt-3 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("buildDetail.boardEmpty")}
-              </Text>
-            ) : (
-              <View className="mt-4 flex-row flex-wrap gap-3">
-                {bundle.visualNodes.map((node) => (
-                  <View
-                    key={node._id as string}
-                    className="w-[48%] overflow-hidden rounded-3xl bg-kyar-panel dark:bg-kyar-dark-panel"
-                  >
-                    <View className="aspect-square w-full bg-kyar-muted dark:bg-kyar-dark-muted">
-                      <PublicMediaImage
-                        imageStorageId={node.imageStorageId}
-                        imageUrl={node.imageUrl}
-                      />
-                    </View>
-                    <View className="gap-1 px-3 py-3">
-                      <Text className="text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                        {node.name}
-                      </Text>
-                      <Text className="text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("elements.progressPercent", { pct: Math.round(node.progressPercent) })}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </SurfaceCard>
-        </View>
-      ) : null}
-
-      {tab === "summary" && (toggles.showSummary || toggles.showCollaborators) ? (
-        <View className="gap-4">
-          {summaryMetrics.length > 0 ? (
-            <SurfaceCard className="px-4 py-4">
-              <View className="flex-row flex-wrap gap-3">
-                {summaryMetrics.map((item) => (
-                  <View
-                    key={item.key}
-                    className="min-w-[46%] flex-1 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
-                  >
-                    <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {item.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </SurfaceCard>
-          ) : null}
-
-          {toggles.showCollaborators ? (
-            <SurfaceCard className="px-4 py-4">
-              <MetaLabel>{t("buildDetail.collaborators")}</MetaLabel>
-              <Text
-                style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-                className="mt-2 text-[30px] italic text-kyar-text dark:text-kyar-dark-text"
-              >
-                {t("publicBuild.teamTitle")}
-              </Text>
-              {bundle.collaborators.length === 0 ? (
-                <Text className="mt-4 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("publicBuild.collaboratorsEmpty")}
-                </Text>
-              ) : (
-                <View className="mt-4 gap-3">
-                  {bundle.collaborators.map((collaborator) => (
-                    <View
-                      key={collaborator.collaboratorId as string}
-                      className="rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel"
+                {toggles.showCollaborators ? (
+                  <View>
+                    <ViewerMeta size={9} tone="fg55" tracking={0.2} bold>
+                      {t("buildDetail.collaborators")}
+                    </ViewerMeta>
+                    <Text
+                      style={{
+                        marginTop: 4,
+                        fontFamily: APP_FONT_FAMILIES.displayItalic,
+                        fontStyle: "italic",
+                        fontSize: 24,
+                        lineHeight: 28,
+                        color: glass.text.fg,
+                      }}
                     >
-                      <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                        {collaborator.displayLabel}
-                      </Text>
-                      <Text className="mt-1 text-[10px] uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
-                        {collaborator.role === "editor"
-                          ? t("buildDetail.roleEditor")
-                          : collaborator.role === "viewer"
-                            ? t("buildDetail.roleViewer")
-                            : collaborator.role}
-                      </Text>
+                      {t("publicBuild.teamTitle")}
+                    </Text>
+                    {bundle.collaborators.length === 0 ? (
+                      <ViewerBody size={13} tone="fg55" style={{ marginTop: 12 }}>
+                        {t("publicBuild.collaboratorsEmpty")}
+                      </ViewerBody>
+                    ) : (
+                      <View style={{ marginTop: 12, gap: 8 }}>
+                        {bundle.collaborators.map((collaborator) => (
+                          <View
+                            key={collaborator.collaboratorId as string}
+                            style={[
+                              FIELD_BOX,
+                              {
+                                minHeight: 44,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 12,
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                              },
+                            ]}
+                          >
+                            <ViewerBody
+                              size={13}
+                              tone="fg"
+                              numberOfLines={1}
+                              style={{ minWidth: 0, flex: 1 }}
+                            >
+                              {collaborator.displayLabel}
+                            </ViewerBody>
+                            <ViewerMeta size={9} tone="fg55">
+                              {collaborator.role === "editor"
+                                ? t("buildDetail.roleEditor")
+                                : collaborator.role === "viewer"
+                                  ? t("buildDetail.roleViewer")
+                                  : collaborator.role}
+                            </ViewerMeta>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Comments (8c) */}
+            <View
+              style={{
+                borderTopWidth: borderWidth.hairline,
+                borderTopColor: glass.border.divider,
+                paddingTop: 14,
+              }}
+            >
+              <ViewerMeta size={10} tone="fg55" bold tracking={0.2}>
+                {`${t("social.commentsTitle")} · ${comments.length}`}
+              </ViewerMeta>
+              {comments.length === 0 ? (
+                <ViewerBody size={13} tone="fg55" style={{ marginTop: 10 }}>
+                  {t("social.commentsEmpty")}
+                </ViewerBody>
+              ) : (
+                <View style={{ marginTop: 12, gap: 12 }}>
+                  {comments.map((comment) => (
+                    <View
+                      key={comment._id}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        borderBottomWidth: borderWidth.hairline,
+                        borderBottomColor: glass.border.divider,
+                        paddingBottom: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          height: 28,
+                          width: 28,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 14,
+                          borderWidth: borderWidth.hairline,
+                          borderColor: glass.border.divider,
+                          backgroundColor: glass.surface.field,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontFamily: APP_FONT_FAMILIES.displayItalic,
+                            fontSize: 12,
+                            color: glass.text.fg70,
+                          }}
+                        >
+                          {(comment.authorUsername ?? comment.authorName)
+                            .charAt(0)
+                            .toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ minWidth: 0, flex: 1 }}>
+                        <ViewerMeta size={9} tone="fg70" bold tracking={0.14}>
+                          {comment.authorUsername
+                            ? `@${comment.authorUsername}`
+                            : comment.authorName}
+                        </ViewerMeta>
+                        <ViewerBody size={13} tone="fg" style={{ marginTop: 4 }}>
+                          {comment.body}
+                        </ViewerBody>
+                        <ViewerMeta size={9} tone="fg45" style={{ marginTop: 4 }} tracking={0.14}>
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </ViewerMeta>
+                      </View>
                     </View>
                   ))}
                 </View>
               )}
-            </SurfaceCard>
-          ) : null}
-        </View>
-      ) : null}
 
-      <SurfaceCard className="px-4 py-4">
-        <MetaLabel>{t("social.commentsTitle")}</MetaLabel>
-        {comments.length === 0 ? (
-          <Text className="mt-3 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("social.commentsEmpty")}
-          </Text>
-        ) : (
-          <View className="mt-4 gap-3">
-            {comments.map((comment) => (
-              <View
-                key={comment._id}
-                className="rounded-2xl bg-kyar-panel px-4 py-3 dark:bg-kyar-dark-panel"
-              >
-                <Text className="text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                  {comment.authorUsername ? `@${comment.authorUsername}` : comment.authorName}
-                </Text>
-                <Text className="mt-2 text-sm leading-6 text-kyar-text dark:text-kyar-dark-text">
-                  {comment.body}
-                </Text>
-                <Text className="mt-2 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {new Date(comment.createdAt).toLocaleString()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {currentUserId ? (
-          <>
-            <TextInput
-              value={commentBody}
-              onChangeText={setCommentBody}
-              placeholder={t("social.commentPlaceholder")}
-              className="mt-4 min-h-[104px] rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-              multiline
-              textAlignVertical="top"
-            />
-            <Pressable
-              onPress={() => void handleAddComment()}
-              disabled={!commentBody.trim() || commentPending}
-              className="mt-4 items-center rounded-full bg-kyar-text px-4 py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
-            >
-              <Text className="text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                {commentPending ? t("social.commentPosting") : t("social.commentAction")}
-              </Text>
-            </Pressable>
-          </>
-        ) : (
-          <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("social.commentsSignIn")}
-          </Text>
-        )}
-      </SurfaceCard>
-    </ScrollView>
+              {currentUserId ? (
+                <View
+                  style={{
+                    marginTop: 14,
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    gap: 10,
+                  }}
+                >
+                  <TextInput
+                    value={commentBody}
+                    onChangeText={setCommentBody}
+                    placeholder={t("social.commentPlaceholder")}
+                    placeholderTextColor={glass.text.fg55}
+                    multiline
+                    style={{
+                      minWidth: 0,
+                      flex: 1,
+                      minHeight: 40,
+                      paddingVertical: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: glass.border.strong,
+                      fontFamily: APP_FONT_FAMILIES.sansRegular,
+                      fontSize: 13,
+                      color: glass.text.fg,
+                    }}
+                  />
+                  <Pressable
+                    onPress={() => void handleAddComment()}
+                    disabled={!commentBody.trim() || commentPending}
+                    accessibilityRole="button"
+                    className="active:opacity-80"
+                    style={[
+                      { minHeight: 44, justifyContent: "center", paddingHorizontal: 4 },
+                      (!commentBody.trim() || commentPending) && { opacity: 0.4 },
+                    ]}
+                  >
+                    <ViewerMeta size={10} tone="fg" bold>
+                      {commentPending ? t("social.commentPosting") : t("social.commentAction")}
+                    </ViewerMeta>
+                  </Pressable>
+                </View>
+              ) : (
+                <ViewerBody size={13} tone="fg55" style={{ marginTop: 14 }}>
+                  {t("social.commentsSignIn")}
+                </ViewerBody>
+              )}
+            </View>
+          </ScrollView>
+        </GlassPanel>
+      </View>
+    </View>
   );
 }

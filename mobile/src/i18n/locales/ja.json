@@ -708,14 +708,28 @@
     "buildsEmpty": "このグループに紐付いたビルドはまだありません。",
     "removeBuildAction": "グループから外す",
     "searchBuilds": "自分のビルドを検索…",
-    "availableBuildsEmpty": "追加できる一致ビルドがありません。"
+    "availableBuildsEmpty": "追加できる一致ビルドがありません。",
+    "featuredEyebrow": "参加中のグループ",
+    "openGroupAction": "グループを開く",
+    "buildCount": "{{count}}ビルド",
+    "emptyHeadline": "コスプレは一緒がもっと楽しい。",
+    "linkConventionTile": "イベントをリンク",
+    "noDaysPicked": "日程未選択",
+    "addMyBuildAction": "自分のビルドを追加",
+    "createPaidNotice": "グループの作成には有料プランが必要です。",
+    "createPaidAction": "プランを見る"
   },
   "feed": {
     "title": "フィード",
     "subtitle": "フォローしている人の公開ビルドを、モバイルで素早く追いやすい形で表示します。",
     "signInBody": "フォロー中のクリエイターのビルドを見るにはサインインしてください。",
     "emptyTitle": "フィードはまだ静かです",
-    "emptyBody": "発見タブでクリエイターをもっとフォローすると、ここが進捗の流れになります。"
+    "emptyBody": "発見タブでクリエイターをもっとフォローすると、ここが進捗の流れになります。",
+    "latestEyebrow": "フォロー中の最新",
+    "viewBuildAction": "ビルドを見る",
+    "shelfEyebrow": "フィード · {{count}}",
+    "emptyEyebrow": "フィード",
+    "signInHeadline": "サインインしてフィードを見る。"
   },
   "discover": {
     "title": "発見",
@@ -730,7 +744,10 @@
     "unfollowAction": "フォロー解除",
     "buildsTitle": "公開ビルド",
     "loadingBuilds": "ビルドを読み込み中…",
-    "emptyBuilds": "公開ビルドはまだありません。"
+    "emptyBuilds": "公開ビルドはまだありません。",
+    "buildsMeta": "{{count}}ビルド",
+    "followersMeta": "フォロワー{{count}}人",
+    "followingMeta": "フォロー中{{count}}人"
   },
   "social": {
     "commentsTitle": "コメント",
@@ -738,7 +755,9 @@
     "commentsSignIn": "会話に参加するにはサインインしてください。",
     "commentPlaceholder": "コメントを追加…",
     "commentAction": "コメントを投稿",
-    "commentPosting": "投稿中…"
+    "commentPosting": "投稿中…",
+    "likeAction": "いいね",
+    "cardTasksMeta": "{{checked}}/{{total}} タスク"
   },
   "publicBuild": {
     "title": "公開ビルド",
@@ -1058,5 +1077,9 @@
     "subcopy": "次のビルドのエレメント、タスク、イベント当日まで——オフラインでも使える静かなスタジオでまとめて管理。",
     "ctaPrimary": "無料で計画を始める",
     "ctaMeta": "アカウント不要 · 端末上で動作"
+  },
+  "offline": {
+    "onlineOnlyBanner": "オフラインです — このセクションには接続が必要です。",
+    "retry": "再試行"
   }
 }

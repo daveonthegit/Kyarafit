@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useMutation, useQuery } from "convex/react";
+import { Pressable, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
-import { api } from "convex/_generated/api";
-import { BuildPortfolioCard } from "@/components/builds/BuildPortfolioCard";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
+import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { scrimGradientProps } from "@/ui/glass";
+import { BuildSocialActions } from "./BuildSocialActions";
 
 type Props = {
   build: {
@@ -28,6 +28,12 @@ type Props = {
   projectIndex?: number;
 };
 
+/**
+ * Glass Studio public-build tile (ref 12a/12b, web `PublicBuildCard` anatomy):
+ * 4:5 photo, radius 14, scrim, owner chip top-left, serif name + social counts
+ * bottom. Same props/navigation as before; likes/comments run through the
+ * shared BuildSocialActions (unchanged queries/mutations).
+ */
 export function PublicBuildCard({
   build,
   onPress,
@@ -35,187 +41,159 @@ export function PublicBuildCard({
   currentUserId,
   projectIndex = 1,
 }: Props) {
+  // Kept for prop-contract parity with existing callers; the glass tile
+  // carries no project number (web parity).
+  void projectIndex;
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
-  const likeCount = useQuery(api.buildLikes.countByBuild, { buildId: build._id });
-  const comments = useQuery(api.buildComments.listByBuild, { buildId: build._id }) ?? [];
-  const isLiked = useQuery(
-    api.buildLikes.isLikedBy,
-    currentUserId ? { userId: currentUserId, buildId: build._id } : "skip"
-  );
-  const likeBuild = useMutation(api.buildLikes.like);
-  const unlikeBuild = useMutation(api.buildLikes.unlike);
-  const addComment = useMutation(api.buildComments.add);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentBody, setCommentBody] = useState("");
-  const [commentPending, setCommentPending] = useState(false);
   const ownerLabel = build.ownerUsername ? `@${build.ownerUsername}` : (build.ownerName ?? null);
-
-  const handleToggleLike = async () => {
-    if (!currentUserId) return;
-    if (isLiked) {
-      await unlikeBuild({ userId: currentUserId, buildId: build._id });
-      return;
-    }
-    await likeBuild({ userId: currentUserId, buildId: build._id });
-  };
-
-  const handleAddComment = async () => {
-    const body = commentBody.trim();
-    if (!currentUserId || !body || commentPending) return;
-    setCommentPending(true);
-    try {
-      await addComment({ userId: currentUserId, buildId: build._id, body });
-      setCommentBody("");
-    } finally {
-      setCommentPending(false);
-    }
-  };
-
+  const hasImage = build.imageStorageId != null || build.imageUrl != null;
   const tasksTotal = build.tasksTotal ?? 0;
   const tasksChecked = build.tasksChecked ?? 0;
 
   return (
-    <>
-      <View className="gap-2">
-        <Pressable onPress={onPress} className="active:opacity-90">
-          <BuildPortfolioCard
-            variant="comfortable"
-            projectIndex={projectIndex}
-            item={{
-              name: build.name,
-              character: build.character,
-              status: build.status ?? "",
-              imageStorageId: build.imageStorageId,
-              imageUrl: build.imageUrl,
-              tasksTotal,
-              tasksChecked,
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={build.name}
+      className="active:opacity-90"
+      style={{
+        aspectRatio: 4 / 5,
+        borderRadius: glass.radius.panel,
+        overflow: "hidden",
+        borderWidth: borderWidth.hairline,
+        borderColor: glass.border.default,
+        backgroundColor: glass.surface.active,
+      }}
+    >
+      {hasImage ? (
+        <ConvexStorageImage
+          storageId={build.imageStorageId}
+          imageUrl={build.imageUrl}
+          className="absolute inset-0 h-full w-full"
+          accessibilityLabel={build.name}
+        />
+      ) : (
+        <LinearGradient
+          {...scrimGradientProps(glass.scrim.studioWall)}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 34, color: glass.text.fg45 }}>✦</Text>
+        </LinearGradient>
+      )}
+
+      {/* Vertical scrim: keeps the top chip and bottom meta legible over the photo. */}
+      <LinearGradient
+        {...scrimGradientProps(glass.scrim.pageVertical)}
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+        pointerEvents="none"
+      />
+
+      {ownerLabel ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onPressOwner?.();
+          }}
+          disabled={!onPressOwner}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={ownerLabel}
+          className="active:opacity-80"
+          style={{
+            position: "absolute",
+            left: 10,
+            top: 10,
+            maxWidth: "80%",
+            borderRadius: 999,
+            backgroundColor: glass.chip.neutral.bg,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 9,
+              letterSpacing: ls(0.14, 9),
+              textTransform: "uppercase",
+              color: glass.chip.neutral.fg,
             }}
-          />
+          >
+            {ownerLabel}
+          </Text>
         </Pressable>
+      ) : null}
 
-        {ownerLabel ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              onPressOwner?.();
+      <View
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 12 }}
+        pointerEvents="box-none"
+      >
+        {build.character ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 9,
+              letterSpacing: ls(0.2, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg,
+              opacity: 0.8,
+              marginBottom: 3,
             }}
-            disabled={!onPressOwner}
-            className="self-start"
           >
-            <Text className="text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-              {ownerLabel}
-            </Text>
-          </Pressable>
+            {build.character}
+          </Text>
         ) : null}
-
-        <View className="flex-row items-center gap-3 border-t border-kyar-borderSubtle pt-3 dark:border-kyar-dark-borderSubtle">
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              void handleToggleLike();
+        <Text
+          numberOfLines={2}
+          style={{
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontSize: 20,
+            lineHeight: 23,
+            letterSpacing: ls(-0.02, 20),
+            color: glass.text.fg,
+          }}
+        >
+          {build.name}
+        </Text>
+        {tasksTotal > 0 ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              marginTop: 4,
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 10,
+              letterSpacing: ls(0.16, 10),
+              textTransform: "uppercase",
+              color: glass.text.fg,
+              opacity: 0.9,
             }}
-            disabled={!currentUserId}
-            className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 disabled:opacity-50 dark:border-kyar-dark-borderSubtle"
           >
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={16}
-              color={isLiked ? colors.danger : colors.textSecondary}
-            />
-            <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-              {likeCount ?? 0}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              setCommentsOpen(true);
-            }}
-            className="flex-row items-center gap-2 rounded-full border border-kyar-borderSubtle px-3 py-2 active:opacity-80 dark:border-kyar-dark-borderSubtle"
-          >
-            <Ionicons name="chatbubble-outline" size={16} color={colors.textSecondary} />
-            <Text className="text-xs font-semibold uppercase tracking-wide text-kyar-text dark:text-kyar-dark-text">
-              {comments.length}
-            </Text>
-          </Pressable>
+            {t("social.cardTasksMeta", {
+              checked: tasksChecked,
+              total: tasksTotal,
+              defaultValue: "{{checked}}/{{total}} tasks",
+            })}
+          </Text>
+        ) : null}
+        <View style={{ marginTop: 10 }}>
+          <BuildSocialActions
+            buildId={build._id}
+            buildName={build.name}
+            currentUserId={currentUserId}
+            size="tile"
+          />
         </View>
       </View>
-
-      <Modal
-        visible={commentsOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCommentsOpen(false)}
-      >
-        <Pressable
-          className="flex-1 justify-end bg-black/40"
-          onPress={() => setCommentsOpen(false)}
-        >
-          <Pressable
-            className="max-h-[82%] rounded-t-3xl border border-kyar-borderSubtle bg-kyar-surface px-5 pb-8 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-            onPress={(event) => event.stopPropagation()}
-          >
-            <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {t("social.commentsTitle")}
-            </Text>
-            <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {build.name}
-            </Text>
-
-            <ScrollView className="mt-5 max-h-[45%]">
-              {comments.length === 0 ? (
-                <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("social.commentsEmpty")}
-                </Text>
-              ) : (
-                <View className="gap-3">
-                  {comments.map((comment) => (
-                    <View
-                      key={comment._id}
-                      className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-                    >
-                      <Text className="text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                        {comment.authorUsername ? `@${comment.authorUsername}` : comment.authorName}
-                      </Text>
-                      <Text className="mt-2 text-sm leading-6 text-kyar-text dark:text-kyar-dark-text">
-                        {comment.body}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-
-            {currentUserId ? (
-              <>
-                <TextInput
-                  value={commentBody}
-                  onChangeText={setCommentBody}
-                  placeholder={t("social.commentPlaceholder")}
-                  className="mt-5 min-h-[104px] rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
-                  multiline
-                  textAlignVertical="top"
-                />
-                <Pressable
-                  onPress={() => void handleAddComment()}
-                  disabled={!commentBody.trim() || commentPending}
-                  className="mt-4 items-center rounded-full bg-kyar-text px-4 py-3 disabled:opacity-40 dark:bg-kyar-dark-text"
-                >
-                  <Text className="text-sm font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-                    {commentPending ? t("social.commentPosting") : t("social.commentAction")}
-                  </Text>
-                </Pressable>
-              </>
-            ) : (
-              <Text className="mt-5 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("social.commentsSignIn")}
-              </Text>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
+    </Pressable>
   );
 }
