@@ -12,8 +12,9 @@ exhaustive. Seeded during the architecture-deepening session on the builds/close
 - **Closet item** — a wardrobe-inventory item a user owns, linkable to a build (`closetItems` table).
 - **Convention** — a convention event a user plans around (`conventions` table).
 - **Progress update** — a dated entry on a build recording progress (`buildProgressUpdates` table).
-  Keeping a private timeline entry is **free**; **publishing** an update to the social feed is **paid**
-  (gated by `can(tier, "social_post")`).
+  Keeping a private timeline entry is always local and free. **Publishing** an update to the social
+  feed is free for every tier but **rate-limited**; its images count against the publisher's
+  [[hosted-media-cap]].
 - **Workflow item / task** — a to-do or workflow step on a build (`buildTasks` / `workflowItems`).
 
 ## Builds list (local-first slice)
@@ -49,8 +50,26 @@ unit-tested from the web workspace's vitest. Terms pinned in this slice:
 
 ## Tiers & entitlements
 
-- **Tier** — a user's subscription level (free / paid). Resolved server-side from the `users` row;
-  missing rows default to free.
+- **Tier** — a user's subscription level: **free** or **supporter** (the only paid tier; a
+  pay-what-you-want subscription with several fixed price points, $5/mo minimum, all granting the
+  same entitlements — the legacy `pro` tier collapses into supporter). Resolved server-side from the
+  `users` row; missing rows default to free.
+- **Hosted media** — media files Kyarafit itself stores and serves to other users (published
+  feed/group images, publicly shared build pages, collab-shared build media, avatars, group covers;
+  for supporters, also managed-sync personal media). Any feature that requires Kyarafit to serve a
+  file to someone other than its owner makes that file hosted media and meters it against the
+  owner's [[hosted-media-cap]]. Personal media on a free account is local/BYO-synced and is never
+  hosted media.
+- **Hosted-media cap** — the per-user byte limit on hosted media, the single storage lever between
+  tiers: free 100 MB, supporter 5 GB. Meters bytes only (no count-based limits); over-cap blocks new
+  uploads, never deletes. Replaces the old free group-cosplay exception.
+- **BYO sync** — free-tier multi-device sync of personal data through storage the user owns
+  (Google Drive first), merging snapshots by per-record last-writer-wins. Contrast with
+  **managed sync** (supporter): Kyarafit syncs personal data through its own backend.
+- **Sync method** — the single authoritative remote for a user's personal data, chosen explicitly
+  in Settings: **Off**, **Google Drive** (BYO), or **Kyarafit Cloud** (managed, supporter-only —
+  this is exactly what the `cloud_sync` entitlement grants). Never more than one at a time;
+  switching merges-and-pushes through the old method once, then the new one is authoritative.
 - **Entitlement / feature** — a gated capability. The single source of truth is the feature matrix in
   `@kyarafit/design-system/domain/entitlements` (`can(tier, feature)`), shared by web, mobile, and
   Convex. Server-side enforcement is **`requireFeature`** (`convex/lib/entitlements`).
