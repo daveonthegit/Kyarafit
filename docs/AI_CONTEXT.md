@@ -49,8 +49,9 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 
 **Glass Studio redesign rollout.** Web phases 0–6 are implemented (branch
 `feat/glass-studio-phase-0`); the mobile parity pass (phase 7) is underway — 7.0 primitives, 7.1
-shell, 7.2 core studio screens + auth/landing are done; 7.3 events, 7.4 social, and 7.5 settings
-remain. Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation phases
+shell, 7.2 core studio screens + auth/landing, 7.3 events, and 7.4 social are done; 7.5 settings
+and the build-detail feedback round remain (`redesign/HANDOFF.md` has the live status).
+Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation phases
 (sync gating, entitlements, storage policy, field-LWW) are complete; see `roadmap.md` for history.
 
 **Open work is tracked on the Work Graph** — consult `WORK.md` (generated board) before starting

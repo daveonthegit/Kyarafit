@@ -7,9 +7,11 @@ Kyarafit v2 "Glass Studio" redesign. Web phases 0–6 are already implemented on
 
 Run one sub-phase (7.0–7.5) per session/PR. Stop for an owner device-check after 7.1 and 7.2.
 
-> **Progress (July 2026):** 7.0 (primitives + dev gallery), 7.1 (shell), and 7.2 (core studio
-> screens + owner device-check fixes) are DONE, plus the auth screens + signed-out welcome from
-> 7.5 (pulled forward on owner request). Remaining: **7.3 events, 7.4 social, 7.5 settings/legal**.
+> **Progress (July 2026):** 7.0–7.4 are DONE (7.3 events + 7.4 social built and committed,
+> awaiting owner device checks), plus the auth screens + signed-out welcome from 7.5 (pulled
+> forward on owner request). Remaining: **7.5 settings** and the build-detail owner-feedback
+> round. Live status + resume instructions: `docs/redesign/HANDOFF.md`; agent brief:
+> `docs/redesign/GLASS_MOBILE_BRIEF.md`; open items: `WORK.md`.
 > Two normative deltas since this prompt was written: **ADR-0002** (sync status lives in Settings,
 > never a floating chip — supersedes 03/04 where they say otherwise) and the **implementation
 > learnings** section at the bottom of this file (React Native pitfalls that broke on device —
