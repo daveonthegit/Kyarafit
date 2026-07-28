@@ -98,17 +98,13 @@ export async function applyWorkflowTreeDrop(
 
   if (zone === "into") {
     const existingIds = tasks
-      .filter(
-        (task) => sameDragScope(task) && task.parentId === targetId && task._id !== dragId
-      )
+      .filter((task) => sameDragScope(task) && task.parentId === targetId && task._id !== dragId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       .map((task) => task._id);
 
     const oldParent = D.parentId ?? null;
     const oldParentSiblingIds =
-      oldParent !== targetId
-        ? siblingIdsForParent(oldParent).filter((id) => id !== dragId)
-        : [];
+      oldParent !== targetId ? siblingIdsForParent(oldParent).filter((id) => id !== dragId) : [];
 
     await commitMoveAndResequence(
       fns,
