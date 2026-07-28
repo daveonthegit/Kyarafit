@@ -75,16 +75,27 @@ export async function isBuildCollaborator(
   return rows.some((r) => r.userId === viewerId);
 }
 
+/**
+ * The one `by_groupId_userId` lookup. Callers that only need "is this user in the
+ * group" use `isGroupMember`; callers that gate on the role read `role` off the row.
+ */
+export async function getGroupMembership(
+  ctx: QueryCtx | MutationCtx,
+  groupId: Id<"groups">,
+  userId: string
+): Promise<Doc<"groupMembers"> | null> {
+  return await ctx.db
+    .query("groupMembers")
+    .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", userId))
+    .unique();
+}
+
 export async function isGroupMember(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   groupId: Id<"groups">,
   viewerId: string
 ): Promise<boolean> {
-  const membership = await ctx.db
-    .query("groupMembers")
-    .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", viewerId))
-    .unique();
-  return membership != null;
+  return (await getGroupMembership(ctx, groupId, viewerId)) != null;
 }
 
 /** Membership in the group the build was shared into, if it was shared into one. */

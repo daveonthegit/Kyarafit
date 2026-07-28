@@ -2,21 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { validateDateString } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
-import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-
-/** Group membership for the acting user; the gate for every read in this module. */
-async function isGroupMember(
-  ctx: QueryCtx,
-  groupId: Id<"groups">,
-  actorId: string
-): Promise<boolean> {
-  const membership = await ctx.db
-    .query("groupMembers")
-    .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", actorId))
-    .unique();
-  return membership != null;
-}
+import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 
 /**
  * Selected convention days for a group. Takes no actor argument, so the membership
@@ -125,10 +111,7 @@ export const setDays = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can set convention days");
     }
@@ -175,10 +158,7 @@ export const addDay = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can add convention days");
     }
@@ -215,10 +195,7 @@ export const removeDay = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can remove convention days");
     }

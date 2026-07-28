@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 
 const VALID_VISIBILITIES = ["private", "public"] as const;
 const VALID_ROLES = ["admin", "member"] as const;
@@ -60,11 +61,7 @@ export const get = query({
     if (group.visibility === "public") return group;
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return null;
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", actorId))
-      .unique();
-    return membership ? group : null;
+    return (await isGroupMember(ctx, args.id, actorId)) ? group : null;
   },
 });
 
@@ -152,10 +149,7 @@ export const update = mutation({
     const actorId = await requireIdentity(ctx);
     const group = await ctx.db.get(args.id);
     if (!group) throw new Error("Group not found");
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.id, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Not authorized to update this group");
     }
@@ -192,10 +186,7 @@ export const remove = mutation({
     const actorId = await requireIdentity(ctx);
     const group = await ctx.db.get(args.groupId);
     if (!group) throw new Error("Group not found");
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Not authorized to delete this group");
     }
@@ -239,19 +230,11 @@ export const addMember = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can add members");
     }
-    const existing = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.newUserId)
-      )
-      .unique();
+    const existing = await getGroupMembership(ctx, args.groupId, args.newUserId);
     if (existing) throw new Error("User is already a member");
     const role: "admin" | "member" = VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])
       ? (args.role as "admin" | "member")
@@ -272,21 +255,13 @@ export const removeMember = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const actorMembership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const actorMembership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!actorMembership) throw new Error("Not a member");
     const isAdmin = actorMembership.role === "admin";
     if (args.removeUserId !== actorId && !isAdmin) {
       throw new Error("Only admins can remove other members");
     }
-    const target = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.removeUserId)
-      )
-      .unique();
+    const target = await getGroupMembership(ctx, args.groupId, args.removeUserId);
     if (!target) return;
     await ctx.db.delete(target._id);
     if (args.removeUserId === actorId) {
@@ -311,22 +286,14 @@ export const setMemberRole = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can change roles");
     }
     if (!VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])) {
       throw new Error("Invalid role");
     }
-    const target = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.targetUserId)
-      )
-      .unique();
+    const target = await getGroupMembership(ctx, args.groupId, args.targetUserId);
     if (!target) throw new Error("Member not found");
     await ctx.db.patch(target._id, { role: args.role });
   },

@@ -1228,7 +1228,16 @@ describe("legitimate third parties keep their access", () => {
     const taken = await t.query(api.users.checkUsernameAvailability, { username: "bob" });
     const free = await t.query(api.users.checkUsernameAvailability, { username: "nobody" });
     expect(taken).toEqual({ ...free, normalized: "bob" });
-    expect(taken.available).toBe(false);
+    // Neutral, not "taken": the deployed client renders any falsy `available` as the
+    // taken error, which would block a signed-in user during the token-lag window.
+    // Uniqueness stays enforced by users.updateProfile.
+    expect(taken).toEqual({
+      normalized: "bob",
+      valid: true,
+      available: true,
+      reason: "unauthenticated",
+    });
+    expect(free.available).toBe(true);
     expect(taken.reason).not.toBe("taken");
 
     // Authenticated behaviour is unchanged, including the current-user branch.
@@ -1250,5 +1259,10 @@ describe("legitimate third parties keep their access", () => {
       available: true,
       reason: null,
     });
+
+    // The neutral answer leans on this: a name that really is taken cannot be saved.
+    await expect(
+      t.withIdentity({ subject: ALICE }).mutation(api.users.updateProfile, { username: "bob" })
+    ).rejects.toThrow(/already taken/);
   });
 });

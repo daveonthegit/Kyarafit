@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
-import { canUserEditBuild, isBuildGroupMember } from "./lib/buildAccess";
+import { canUserEditBuild, isBuildGroupMember, isGroupMember } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
 import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
@@ -586,11 +586,7 @@ export const listByGroup = query({
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
-      .unique();
-    if (!membership) return [];
+    if (!(await isGroupMember(ctx, args.groupId, actorId))) return [];
     const builds = await ctx.db
       .query("builds")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
@@ -869,11 +865,9 @@ export const setGroupId = mutation({
     const newGroupId =
       args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
     if (newGroupId) {
-      const membership = await ctx.db
-        .query("groupMembers")
-        .withIndex("by_groupId_userId", (q) => q.eq("groupId", newGroupId).eq("userId", actorId))
-        .unique();
-      if (!membership) throw new Error("You must be a member of the group to add this build");
+      if (!(await isGroupMember(ctx, newGroupId, actorId))) {
+        throw new Error("You must be a member of the group to add this build");
+      }
     }
     await ctx.db.patch(args.buildId, { groupId: newGroupId });
     return await ctx.db.get(args.buildId);

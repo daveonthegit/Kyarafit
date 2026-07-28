@@ -61,8 +61,10 @@ export const getByUsername = query({
  * could otherwise enumerate which usernames exist, including those of private
  * profiles. Like every other query it answers rather than throwing — a signed-out
  * caller, or one inside the window before the Convex token has propagated, gets the
- * same "not available" answer whether or not the name actually exists, so nothing is
- * disclosed and the settings screen shows a state instead of a render error.
+ * same neutral answer without the name being looked up at all, so nothing is
+ * disclosed and the settings screen shows a state instead of a render error or a
+ * spurious "taken" message. Uniqueness is enforced authoritatively by
+ * `updateProfile`, which throws on a name that is really taken.
  * `currentExternalId` is retained for deployed clients but ignored — the actor comes
  * from the session.
  */
@@ -99,7 +101,7 @@ export const checkUsernameAvailability = query({
       return {
         normalized,
         valid: true,
-        available: false,
+        available: true,
         reason: "unauthenticated",
       };
     }
