@@ -38,7 +38,7 @@ export function LandingHeroSection() {
       <div ref={photoRef} className="absolute inset-0 will-change-transform">
         {/* Marketing-only imagery: provenance covered by LandingMediaDisclaimer */}
         <img
-          src="/mock/builds/Sunday.jpg"
+          src="/images/mock/builds/Sunday.jpg"
           alt=""
           className="h-full w-full object-cover object-[center_16%]"
         />

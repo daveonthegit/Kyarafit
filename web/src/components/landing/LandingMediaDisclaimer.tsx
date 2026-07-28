@@ -43,7 +43,7 @@ export function LandingMediaDisclaimer({ embedded = false }: { embedded?: boolea
           <p className="mt-4 text-xs text-media-fg-55">
             Assets live under{" "}
             <code className="rounded bg-glass-active px-1 py-0.5 font-mono text-[11px]">
-              web/public/mock
+              web/public/images/mock
             </code>{" "}
             (subfolders <code className="font-mono">builds</code>,{" "}
             <code className="font-mono">elements</code>,{" "}

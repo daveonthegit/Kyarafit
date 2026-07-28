@@ -50,55 +50,55 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
 
   return (
     <div className="space-y-8" data-testid="build-summary-content">
-      <div className="grid gap-6 border-b border-kyar-borderSubtle pb-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+      <div className="grid gap-6 border-b border-glass-divider pb-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+          <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">
               Status
             </p>
-            <p className="mt-3 font-serif text-3xl text-kyar-text">
+            <p className="mt-3 font-serif italic text-3xl">
               {formatBuildStatus(summary.status)}
             </p>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+          <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">
               Progress
             </p>
-            <p className="mt-3 text-2xl font-semibold text-kyar-text">{summary.progressPercent}%</p>
-            <p className="mt-2 text-sm text-kyar-textSecondary">
+            <p className="mt-3 text-2xl font-semibold">{summary.progressPercent}%</p>
+            <p className="mt-2 text-sm text-media-fg-70">
               {summary.tasksChecked} of {summary.tasksTotal} tasks complete
             </p>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+          <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">
               Timeline
             </p>
-            <div className="mt-3 grid gap-3 text-sm text-kyar-text">
+            <div className="mt-3 grid gap-3 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-kyar-textTertiary">Started</span>
+                <span className="text-media-fg-55">Started</span>
                 <span className="font-medium">{formatDate(summary.createdDate)}</span>
               </div>
               {summary.targetDate ? (
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-kyar-textTertiary">Due</span>
+                  <span className="text-media-fg-55">Due</span>
                   <span className="font-medium">{formatDate(summary.targetDate)}</span>
                 </div>
               ) : null}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-kyar-textTertiary">Elapsed</span>
+                <span className="text-media-fg-55">Elapsed</span>
                 <span className="font-medium">
                   {summary.elapsedDays} {summary.elapsedDays === 1 ? "day" : "days"}
                 </span>
               </div>
               {summary.remainingDays !== null ? (
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-kyar-textTertiary">Remaining</span>
+                  <span className="text-media-fg-55">Remaining</span>
                   <span
                     className={`font-medium ${
                       summary.remainingDays < 0
-                        ? "text-red-600"
+                        ? "text-on-glass-danger"
                         : summary.remainingDays <= 7
-                          ? "text-orange-600"
+                          ? "text-on-glass-chip-warn-fg"
                           : ""
                     }`}
                   >
@@ -112,19 +112,19 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
               ) : null}
             </div>
           </div>
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary">
+          <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">
               Linked elements
             </p>
-            <p className="mt-3 text-2xl font-semibold text-kyar-text">
+            <p className="mt-3 text-2xl font-semibold">
               {summary.linkedItemsCompleteCount} / {summary.linkedItemCount}
             </p>
-            <p className="mt-2 text-sm text-kyar-textSecondary">Elements complete in this build</p>
+            <p className="mt-2 text-sm text-media-fg-70">Elements complete in this build</p>
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-4 py-5">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-[10px] border border-glass-border bg-glass-active px-4 py-5">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55 text-center">
               Build progress
             </p>
             <div className="mt-4 flex justify-center">
@@ -132,14 +132,14 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
             </div>
           </div>
           {summary.budgetCents != null && budgetUsedPercent != null ? (
-            <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-4 py-5">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary text-center">
+            <div className="rounded-[10px] border border-glass-border bg-glass-active px-4 py-5">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55 text-center">
                 Budget used
               </p>
               <div className="mt-4 flex justify-center">
                 <EditorialProgressDonut progress={budgetUsedPercent} />
               </div>
-              <p className="mt-3 text-center text-xs text-kyar-textTertiary">
+              <p className="mt-3 text-center text-xs text-media-fg-55">
                 {formatCents(summary.totalCostCents)} of {formatCents(summary.budgetCents)}
               </p>
             </div>
@@ -147,8 +147,8 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
         </div>
       </div>
       {summary.budgetCents != null ? (
-        <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-5">
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
+        <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-5">
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55 block mb-3">
             Budget
           </span>
           <div className="space-y-2 text-sm">
@@ -161,11 +161,11 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
               <span className="font-medium">{formatCents(summary.budgetCents)}</span>
             </div>
             {summary.budgetDifferenceCents != null && (
-              <div className="flex justify-between pt-2 border-t border-kyar-border">
+              <div className="flex justify-between pt-2 border-t border-glass-divider">
                 <span>Difference</span>
                 <span
                   className={`font-medium ${
-                    summary.budgetDifferenceCents < 0 ? "text-red-600" : ""
+                    summary.budgetDifferenceCents < 0 ? "text-on-glass-danger" : ""
                   }`}
                 >
                   {summary.budgetDifferenceCents >= 0 ? "+" : ""}
@@ -176,8 +176,8 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
           </div>
         </div>
       ) : summary.linkedItemCount > 0 ? (
-        <div className="rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface px-5 py-5">
-          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary block mb-3">
+        <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-5">
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55 block mb-3">
             Linked elements cost
           </span>
           <div className="flex justify-between text-sm">

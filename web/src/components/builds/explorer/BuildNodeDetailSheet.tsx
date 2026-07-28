@@ -291,7 +291,7 @@ export function BuildNodeDetailSheet({
         aria-hidden
       />
 
-      {/* Floating bottom sheet */}
+      {/* Floating sheet: bottom on mobile, right sheet at explorer width on desktop (8b) */}
       <div
         ref={sheetRef}
         role="dialog"
@@ -300,10 +300,11 @@ export function BuildNodeDetailSheet({
           "fixed inset-x-0 bottom-0 z-50 overflow-y-auto rounded-t-glass-sheet bg-glass-overlay-on-wall backdrop-blur-glass-overlay border-t border-glass-border-overlay shadow-glass-overlay text-kyar-media-fg",
           sheetHeight === "full" ? "top-4" : "top-[40%]",
           "transition-[top] duration-300 ease-out",
+          "md:inset-y-0 md:left-auto md:right-0 md:top-0 md:w-[460px] md:rounded-t-none md:rounded-l-glass-sheet md:border-l md:border-t-0 md:border-glass-border-overlay",
         ].join(" ")}
       >
-        {/* Drag indicator */}
-        <div className="flex justify-center py-2">
+        {/* Drag indicator (mobile half/full states only) */}
+        <div className="flex justify-center py-2 md:hidden">
           <button
             type="button"
             onClick={() => setSheetHeight((h) => (h === "half" ? "full" : "half"))}

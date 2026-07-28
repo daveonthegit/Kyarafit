@@ -36,7 +36,11 @@ export function LandingClosingCta() {
       aria-label="Get started"
     >
       <div ref={photoRef} className="absolute inset-0 will-change-transform">
-        <img src="/mock/convention/ecaf-hero.jpg" alt="" className="h-full w-full object-cover" />
+        <img
+          src="/images/mock/convention/ecaf-hero.jpg"
+          alt=""
+          className="h-full w-full object-cover"
+        />
       </div>
       <div className="absolute inset-0 bg-scrim-page-vertical" aria-hidden />
 

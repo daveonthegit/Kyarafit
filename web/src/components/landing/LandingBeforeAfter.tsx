@@ -128,7 +128,7 @@ export function LandingBeforeAfter() {
       {/* After — build photo + ONE glass task panel */}
       <div className="relative overflow-hidden">
         <img
-          src="/mock/builds/Hutao.jpg"
+          src="/images/mock/builds/Hutao.jpg"
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
         />

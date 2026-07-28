@@ -187,8 +187,8 @@ export function BuildNodeManagerSection({
   }
 
   return (
-    <div className="space-y-0">
-      <div className="overflow-hidden rounded-[10px] border border-glass-divider text-kyar-media-fg">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col text-kyar-media-fg">
         {/* Toolbar */}
         <BuildExplorerToolbar
           search={search}
@@ -207,10 +207,9 @@ export function BuildNodeManagerSection({
           onNavigateToSegment={handleBreadcrumbNavigate}
         />
 
-        {/* Layout: unified recursive tree + optional desktop panel */}
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-glass-divider">
-          {/* Main content area */}
-          <div className="min-w-0">
+        {/* Single-pane recursive tree; detail opens as the 8b overlay sheet */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* Root drop zone during drag */}
             {drag.draggingNodeId ? (
               <div className="px-3 pt-2">
@@ -231,7 +230,7 @@ export function BuildNodeManagerSection({
               </div>
             ) : null}
 
-            <div className="max-h-[min(640px,78vh)] overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <BuildExplorerTree
                 buildId={buildId}
                 userId={userId}
@@ -244,7 +243,7 @@ export function BuildNodeManagerSection({
             </div>
 
             {/* Status footer */}
-            <div className="font-explorer-mono hidden items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
+            <div className="font-explorer-mono hidden shrink-0 items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
               <span>
                 {searchNeedle
                   ? `${roots.length} match${roots.length === 1 ? "" : "es"}`
@@ -255,49 +254,23 @@ export function BuildNodeManagerSection({
               ) : null}
             </div>
           </div>
-
-          {/* Desktop side panel (persistent detail sheet) */}
-          <div className="hidden min-w-0 lg:block">
-            {sheetOpen && selectedDetail && selected ? (
-              <div className="h-full overflow-y-auto">
-                <BuildNodeDetailSheet
-                  detail={selectedDetail}
-                  selected={selected}
-                  inspectorForm={inspectorForm}
-                  persistStatus={persistStatus}
-                  onFormChange={setInspectorForm}
-                  onFlushSave={() => void flushSave()}
-                  onCreateChild={onCreateChild}
-                  onUnlink={handleUnlink}
-                  onClose={handleCloseSheet}
-                  inline
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-[320px] items-center justify-center p-5 text-center text-sm text-media-fg-55">
-                Select an element to view details
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Mobile bottom sheet */}
-      <div className="lg:hidden">
-        {sheetOpen ? (
-          <BuildNodeDetailSheet
-            detail={selectedDetail}
-            selected={selected}
-            inspectorForm={inspectorForm}
-            persistStatus={persistStatus}
-            onFormChange={setInspectorForm}
-            onFlushSave={() => void flushSave()}
-            onCreateChild={onCreateChild}
-            onUnlink={handleUnlink}
-            onClose={handleCloseSheet}
-          />
-        ) : null}
-      </div>
+      {/* Detail sheet — bottom sheet on mobile, right sheet on desktop (8b overlay) */}
+      {sheetOpen ? (
+        <BuildNodeDetailSheet
+          detail={selectedDetail}
+          selected={selected}
+          inspectorForm={inspectorForm}
+          persistStatus={persistStatus}
+          onFormChange={setInspectorForm}
+          onFlushSave={() => void flushSave()}
+          onCreateChild={onCreateChild}
+          onUnlink={handleUnlink}
+          onClose={handleCloseSheet}
+        />
+      ) : null}
 
       {/* Floating drag preview */}
       {drag.draggingMeta &&

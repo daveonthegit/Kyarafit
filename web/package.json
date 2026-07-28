@@ -17,7 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
-    "render:landing-hero": "remotion render src/remotion/index.ts LandingHero public/landing/hero-loop.mp4 --codec=h264 && remotion still src/remotion/index.ts LandingHero public/landing/hero-loop-poster.png --frame=45"
+    "render:landing-hero": "remotion render src/remotion/index.ts LandingHero public/images/landing/hero-loop.mp4 --codec=h264 && remotion still src/remotion/index.ts LandingHero public/images/landing/hero-loop-poster.png --frame=45"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.13",

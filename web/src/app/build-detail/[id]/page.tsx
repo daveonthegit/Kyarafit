@@ -7,18 +7,18 @@ import { useQuery, useMutation } from "convex/react";
 import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
+import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { WorkflowTree } from "@/components/builds/WorkflowTree";
 import { BuildNotesModal } from "@/components/builds/BuildNotesModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { ClosetCarouselCardContent } from "@/components/ui/closet-items-carousel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import type { BuildStatus } from "@kyarafit/design-system/types";
 import { BuildVisualBoard, type BuildVisualBoardNode } from "@/components/builds/BuildVisualBoard";
-import { BuildDetailFab, type BuildDetailFabModal } from "@/components/builds/BuildDetailFab";
+import type { BuildDetailFabModal } from "@/components/builds/BuildDetailFab";
 import { BuildPhotoBatchModal } from "@/components/builds/BuildPhotoBatchModal";
 import { BuildLinkClosetModal } from "@/components/builds/BuildLinkClosetModal";
 import { BuildAddTaskModal } from "@/components/builds/BuildAddTaskModal";
@@ -88,6 +88,10 @@ export default function BuildDetailPage() {
     id ? { buildId: id } : "skip"
   ) ?? []) as BuildVisualBoardNode[];
   const tasks = useOfflineQuery(api.buildTasks.listByBuild, id ? { buildId: id } : "skip") ?? [];
+  const boardReferenceImages =
+    useOfflineQuery(api.buildReferenceImages.listByBuild, id ? { buildId: id } : "skip") ?? [];
+  const boardProcessPictures =
+    useOfflineQuery(api.buildProcessPictures.listByBuild, id ? { buildId: id } : "skip") ?? [];
 
   // Linked node objects for this build, resolved from the catalog by their linked ids (hierarchy +
   // drag/drop linking live in BuildNodeManagerSection).
@@ -148,9 +152,19 @@ export default function BuildDetailPage() {
   const [publicViewerToggles, setPublicViewerToggles] =
     useState<PublicViewerToggleState>(defaultPublicViewer);
   const [fabModal, setFabModal] = useState<BuildDetailFabModal | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "explorer" | "tasks" | "board" | "progress" | "summary"
-  >("explorer");
+  const [activeTab, setActiveTab] = useState<"explorer" | "tasks" | "progress" | "summary">(
+    "explorer"
+  );
+  const [boardOpen, setBoardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!boardOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBoardOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [boardOpen]);
 
   useEffect(() => {
     if (build && isEditing) {
@@ -349,8 +363,8 @@ export default function BuildDetailPage() {
   const detailFrameClass = "w-full";
 
   return (
-    <WebAppShell fullBleed>
-      <div className="relative flex-1 flex flex-col text-kyar-media-fg">
+    <WebAppShell fullBleed lockViewport>
+      <div className="relative flex-1 flex flex-col min-h-0 text-kyar-media-fg">
         <PhotoBackdrop
           imageStorageId={build.imageStorageId}
           imageUrl={build.imageUrl}
@@ -370,10 +384,7 @@ export default function BuildDetailPage() {
           >
             <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
           </Link>
-          <span className="flex-1 truncate text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-70">
-            The archive ▸ {build.name}
-            {build.character ? ` · ${build.character}` : ""}
-          </span>
+          <span className="flex-1" />
           {!isEditing ? (
             <div className="flex items-center gap-2">
               <button
@@ -414,9 +425,9 @@ export default function BuildDetailPage() {
           )}
         </div>
 
-        <main className="relative z-10 mx-auto mb-16 mt-4 w-full max-w-[1600px] px-4 sm:px-6 lg:px-10">
+        <main className="relative z-10 mx-auto mb-6 mt-4 flex w-full min-h-0 max-w-[1600px] flex-1 flex-col px-4 sm:px-6 lg:px-10">
           {isEditing ? (
-            <div className="mx-auto max-w-3xl space-y-10 bg-glass backdrop-blur-glass border border-glass-border rounded-glass p-6 sm:p-8">
+            <div className="mx-auto w-full max-w-3xl space-y-10 bg-glass backdrop-blur-glass border border-glass-border rounded-glass p-6 sm:p-8 lg:max-h-full lg:overflow-y-auto">
               <div className="border-b border-glass-divider-strong pb-8 text-center">
                 <h1 className="font-serif italic text-4xl tracking-tight">Edit Project</h1>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-media-fg-55">
@@ -617,55 +628,93 @@ export default function BuildDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="w-full space-y-6">
-              {/* Identity block over the backdrop (6b) */}
-              <div className="max-w-[720px]">
-                <h1 className="font-serif italic font-normal text-[40px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)] sm:text-[56px] lg:text-[72px]">
-                  {build.name}
-                </h1>
-                <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-                  {build.character && (
-                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
-                      Character · {build.character}
-                    </span>
-                  )}
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
-                    Status · {build.status}
-                  </span>
-                  {build.targetDate && daysRemaining !== null && (
-                    <span
-                      className={`text-[9px] font-bold uppercase tracking-[0.2em] ${
-                        daysRemaining < 0
-                          ? "text-on-glass-danger"
-                          : daysRemaining <= 7
-                            ? "text-on-glass-chip-warn-fg"
-                            : "opacity-70"
-                      }`}
-                    >
-                      Deadline ·{" "}
-                      {new Date(build.targetDate).toLocaleDateString(undefined, {
-                        month: "long",
-                        day: "numeric",
-                      })}{" "}
-                      ·{" "}
-                      {daysRemaining < 0
-                        ? `${Math.abs(daysRemaining)} days overdue`
-                        : daysRemaining === 0
-                          ? "Due today"
-                          : `${daysRemaining} days left`}
-                    </span>
-                  )}
-                </div>
-              </div>
+            <div className="flex w-full min-h-0 flex-1 flex-col gap-6">
+              <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,560px)] lg:items-stretch">
+                {/* Identity on the photo, left (6b) */}
+                <div className="max-w-[720px] pt-2 lg:pt-8">
+                  <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.28em] opacity-75">
+                    The archive ▸ {build.character || build.name} · {build.status}
+                  </p>
+                  <h1 className="font-serif italic font-normal text-[40px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)] sm:text-[56px] lg:text-[72px]">
+                    {build.name}
+                  </h1>
 
-              {/* Work panel with tabs (6b) */}
-              <section className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
-                <nav className="flex flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong">
+                  {summary && (
+                    <div className="mt-7 flex items-center gap-4">
+                      <span
+                        className="relative h-px w-40 bg-kyar-media-fg/25 sm:w-52"
+                        aria-hidden
+                      >
+                        <span
+                          className="absolute inset-y-0 left-0 bg-kyar-media-fg"
+                          style={{ width: `${Math.min(100, Math.max(0, summary.progressPercent))}%` }}
+                        />
+                      </span>
+                      <span className="text-[11px] font-bold tabular-nums">
+                        {summary.progressPercent}%
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+                        {summary.tasksChecked} / {summary.tasksTotal} tasks
+                      </span>
+                    </div>
+                  )}
+
+                  <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
+                    {build.character && (
+                      <div>
+                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                          Character
+                        </dt>
+                        <dd className="text-[15px]">{build.character}</dd>
+                      </div>
+                    )}
+                    {build.targetDate && daysRemaining !== null && (
+                      <div>
+                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                          Deadline
+                        </dt>
+                        <dd
+                          className={`text-[15px] ${
+                            daysRemaining < 0
+                              ? "text-on-glass-danger"
+                              : daysRemaining <= 7
+                                ? "text-on-glass-chip-warn-fg"
+                                : ""
+                          }`}
+                        >
+                          {new Date(build.targetDate).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })}{" "}
+                          ·{" "}
+                          {daysRemaining < 0
+                            ? `${Math.abs(daysRemaining)}d overdue`
+                            : daysRemaining === 0
+                              ? "Due today"
+                              : `${daysRemaining}d left`}
+                        </dd>
+                      </div>
+                    )}
+                    {summary && (
+                      <div>
+                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                          Spend
+                        </dt>
+                        <dd className="text-[15px] tabular-nums">
+                          {formatCents(summary.totalCostCents)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+
+                {/* Work panel with tabs, anchored right (6b) */}
+                <section className="flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
+                <nav className="flex shrink-0 flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong overflow-x-auto">
                   {(
                     [
                       ["explorer", "Elements"],
                       ["tasks", "Tasks"],
-                      ["board", "Board"],
                       ["progress", "Updates"],
                       ["summary", "Summary"],
                     ] as const
@@ -685,11 +734,11 @@ export default function BuildDetailPage() {
                     </button>
                   ))}
                 </nav>
-                <div className="p-4 sm:p-5">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
                   {activeTab === "explorer" && (
-                    <div className={`${detailFrameClass} space-y-8`}>
+                    <div className={`${detailFrameClass} flex min-h-0 flex-1 flex-col gap-8`}>
                       {build.notes && (
-                        <section className="border-l-2 border-glass-border-strong pl-5">
+                        <section className="shrink-0 border-l-2 border-glass-border-strong pl-5">
                           <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
                             Notes
                           </p>
@@ -698,7 +747,7 @@ export default function BuildDetailPage() {
                           </p>
                         </section>
                       )}
-                      <section className="border-t border-glass-divider pt-4">
+                      <section className="flex min-h-0 flex-1 flex-col border-t border-glass-divider pt-4">
                         <BuildNodeManagerSection
                           buildId={id}
                           buildName={build.name}
@@ -748,36 +797,6 @@ export default function BuildDetailPage() {
                     </section>
                   )}
 
-                  {activeTab === "board" && (
-                    <section className={detailFrameClass}>
-                      <DndContext onDragEnd={handleDragEnd}>
-                        <BuildVisualBoard
-                          buildId={id}
-                          userId={userId}
-                          linkedNodes={visualBoardNodes}
-                          onOpenLinkNodes={() => {
-                            if (userId) setFabModal("linkNodes");
-                          }}
-                          renderNodeCard={(item) => {
-                            const nodeItem = item as LinkedNode;
-                            return (
-                              <DroppableNodeCard item={nodeItem} justDroppedRef={justDroppedRef}>
-                                <ClosetCarouselCardContent
-                                  item={{
-                                    ...nodeItem,
-                                    costCents:
-                                      nodeItem.totalCostCents ?? nodeItem.directCostCents ?? null,
-                                  }}
-                                  formatCents={formatCents}
-                                />
-                              </DroppableNodeCard>
-                            );
-                          }}
-                        />
-                      </DndContext>
-                    </section>
-                  )}
-
                   {activeTab === "progress" && (
                     <section className={detailFrameClass}>
                       <BuildProgressTimeline buildId={id} userId={userId} />
@@ -786,7 +805,7 @@ export default function BuildDetailPage() {
 
                   {activeTab === "summary" && (
                     <section className={detailFrameClass}>
-                      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                      <div className="grid gap-6">
                         <div>
                           <BuildSummarySection
                             summary={summary ?? null}
@@ -857,10 +876,148 @@ export default function BuildDetailPage() {
                     </section>
                   )}
                 </div>
-              </section>
+                </section>
+              </div>
+
+              {/* Board gallery strip along the bottom (6b) */}
+              {(() => {
+                const stripImages = [
+                  ...boardReferenceImages.map((img) => ({
+                    key: `ref-${img._id}`,
+                    imageStorageId: img.imageStorageId,
+                    imageUrl: img.imageUrl,
+                  })),
+                  ...boardProcessPictures.map((img) => ({
+                    key: `proc-${img._id}`,
+                    imageStorageId: img.imageStorageId,
+                    imageUrl: img.imageUrl,
+                  })),
+                ].slice(0, 6);
+                const pinCount = boardReferenceImages.length + boardProcessPictures.length;
+                return (
+                  <div className="shrink-0 pt-2">
+                    <div className="mb-3 flex items-baseline justify-between gap-4">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+                        Board · References + process · {pinCount}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setBoardOpen(true)}
+                        className="border-b border-glass-border-strong pb-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 transition-colors hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                      >
+                        Open board
+                      </button>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {stripImages.map((img) => (
+                        <button
+                          key={img.key}
+                          type="button"
+                          onClick={() => setBoardOpen(true)}
+                          className="relative h-[88px] w-[124px] shrink-0 overflow-hidden rounded-[10px] border border-glass-border focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                          aria-label="Open board"
+                        >
+                          <ResolvedImage
+                            imageStorageId={img.imageStorageId ?? undefined}
+                            imageUrl={img.imageUrl ?? undefined}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ))}
+                      {userId && (
+                        <button
+                          type="button"
+                          onClick={() => setFabModal("reference")}
+                          className="flex h-[88px] w-[124px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-kyar-media-ring text-media-fg-70 transition-colors hover:border-glass-border-strong hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                          aria-label="Add a board image"
+                        >
+                          <span className="material-symbols-outlined text-xl" aria-hidden>
+                            add
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </main>
+
+        {/* Board — full-screen overlay over the dimmed studio (opened from the gallery strip) */}
+        {boardOpen && (
+          <div className="fixed inset-0 z-50 flex flex-col">
+            <div
+              className="absolute inset-0 bg-scrim-dim backdrop-blur-[2px]"
+              onClick={() => setBoardOpen(false)}
+              aria-hidden
+            />
+            <div
+              role="dialog"
+              aria-label="Visual board"
+              className="relative z-10 m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-glass-overlay border border-glass-border-overlay bg-glass-overlay-on-wall shadow-glass-overlay backdrop-blur-glass-overlay text-kyar-media-fg sm:m-6"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-4 border-b border-glass-divider px-5 py-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-70">
+                  Board · References + process
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setBoardOpen(false)}
+                  aria-label="Close board"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-media-fg-55 transition-colors hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                <DndContext onDragEnd={handleDragEnd}>
+                  <BuildVisualBoard
+                    buildId={id}
+                    userId={userId}
+                    prefetchedReferenceImages={boardReferenceImages}
+                    prefetchedProcessPictures={boardProcessPictures}
+                    linkedNodes={visualBoardNodes}
+                    onOpenLinkNodes={() => {
+                      if (userId) setFabModal("linkNodes");
+                    }}
+                    renderNodeCard={(item) => {
+                      const nodeItem = item as LinkedNode;
+                      return (
+                        <DroppableNodeCard item={nodeItem} justDroppedRef={justDroppedRef}>
+                          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[12px] border border-glass-border bg-glass-active">
+                            {nodeItem.imageStorageId || nodeItem.imageUrl ? (
+                              <ResolvedImage
+                                imageStorageId={nodeItem.imageStorageId ?? undefined}
+                                imageUrl={nodeItem.imageUrl ?? undefined}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-media-fg-45">
+                                <span className="material-symbols-outlined text-3xl" aria-hidden>
+                                  {nodeItem.nodeType === "material" ? "science" : "checkroom"}
+                                </span>
+                              </span>
+                            )}
+                            <span
+                              className="absolute inset-0 bg-kyar-media-scrim-heavy"
+                              aria-hidden
+                            />
+                            <span className="absolute inset-x-3 bottom-2.5 truncate font-serif text-[15px] italic text-kyar-media-fg">
+                              {nodeItem.name}
+                            </span>
+                          </div>
+                        </DroppableNodeCard>
+                      );
+                    }}
+                  />
+                </DndContext>
+              </div>
+            </div>
+          </div>
+        )}
 
         <BuildNotesModal
           open={notesModalOpen}
@@ -872,13 +1029,6 @@ export default function BuildDetailPage() {
           saving={notesSavePending}
           error={notesError}
         />
-        <BuildDetailFab
-          hidden={isEditing}
-          userId={userId}
-          showInviteCollaborator={!!userId && build.userId === userId}
-          onOpenModal={setFabModal}
-        />
-
         <BuildPhotoBatchModal
           open={photoKind != null}
           kind={photoKind}

@@ -2,10 +2,10 @@
  * Fictional demo account for marketing only (landing page, Remotion hero, static previews).
  * Not loaded from Convex and not tied to any real user.
  *
- * Static assets live under `public/mock/` in subfolders:
- * - `mock/builds/` — build cover images
- * - `mock/elements/` — cosplay element / “closet” piece photos (elements are your wardrobe in-app)
- * - `mock/convention/` — convention hero / key art (see `ecaf-hero.jpg`)
+ * Static assets live under `public/images/mock/` in subfolders:
+ * - `images/mock/builds/` — build cover images
+ * - `images/mock/elements/` — cosplay element / “closet” piece photos
+ * - `images/mock/convention/` — convention hero / key art (see `ecaf-hero.jpg`)
  */
 import { mockAssetUrl } from "@/lib/mockAssetUrl";
 
@@ -77,8 +77,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "Complete",
       progressPercent: 100,
       childCount: 1,
-      imageSrc: mockAssetUrl("mock", "elements", "Zhongli Spear.jpg"),
-      remotionPublicPath: "mock/elements/Zhongli Spear.jpg",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "Zhongli Spear.jpg"),
+      remotionPublicPath: "images/mock/elements/Zhongli Spear.jpg",
     },
     {
       id: "el-2",
@@ -88,8 +88,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "In progress",
       progressPercent: 65,
       childCount: 0,
-      imageSrc: mockAssetUrl("mock", "elements", "Maka Scythe.jpg"),
-      remotionPublicPath: "mock/elements/Maka Scythe.jpg",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "Maka Scythe.jpg"),
+      remotionPublicPath: "images/mock/elements/Maka Scythe.jpg",
     },
     {
       id: "el-3",
@@ -99,8 +99,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "Complete",
       progressPercent: 100,
       childCount: 0,
-      imageSrc: mockAssetUrl("mock", "elements", "Heels.jpg"),
-      remotionPublicPath: "mock/elements/Heels.jpg",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "Heels.jpg"),
+      remotionPublicPath: "images/mock/elements/Heels.jpg",
     },
     {
       id: "el-4",
@@ -110,8 +110,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "Complete",
       progressPercent: 100,
       childCount: 0,
-      imageSrc: mockAssetUrl("mock", "elements", "Blue Contacts.jpg"),
-      remotionPublicPath: "mock/elements/Blue Contacts.jpg",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "Blue Contacts.jpg"),
+      remotionPublicPath: "images/mock/elements/Blue Contacts.jpg",
     },
     {
       id: "el-5",
@@ -121,8 +121,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "Incomplete",
       progressPercent: 20,
       childCount: 0,
-      imageSrc: mockAssetUrl("mock", "elements", "red_scarf.png"),
-      remotionPublicPath: "mock/elements/red_scarf.png",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "red_scarf.png"),
+      remotionPublicPath: "images/mock/elements/red_scarf.png",
     },
     {
       id: "el-6",
@@ -132,8 +132,8 @@ export const MOCK_ACCOUNT = {
       statusLabel: "Complete",
       progressPercent: 100,
       childCount: 2,
-      imageSrc: mockAssetUrl("mock", "elements", "blonde_wig.jpg"),
-      remotionPublicPath: "mock/elements/blonde_wig.jpg",
+      imageSrc: mockAssetUrl("images", "mock", "elements", "blonde_wig.jpg"),
+      remotionPublicPath: "images/mock/elements/blonde_wig.jpg",
     },
   ] satisfies MockElementNode[],
 
@@ -144,7 +144,7 @@ export const MOCK_ACCOUNT = {
       character: "One-Punch Man",
       status: "wip",
       progress: 72,
-      imageSrc: mockAssetUrl("mock", "builds", "Fubuki.jpg"),
+      imageSrc: mockAssetUrl("images", "mock", "builds", "Fubuki.jpg"),
       projectIndex: 1,
     },
     {
@@ -153,7 +153,7 @@ export const MOCK_ACCOUNT = {
       character: "League of Legends",
       status: "ready",
       progress: 100,
-      imageSrc: mockAssetUrl("mock", "builds", "Gwen.jpg"),
+      imageSrc: mockAssetUrl("images", "mock", "builds", "Gwen.jpg"),
       projectIndex: 2,
     },
     {
@@ -162,7 +162,7 @@ export const MOCK_ACCOUNT = {
       character: "Genshin Impact",
       status: "wip",
       progress: 35,
-      imageSrc: mockAssetUrl("mock", "builds", "Hutao.jpg"),
+      imageSrc: mockAssetUrl("images", "mock", "builds", "Hutao.jpg"),
       projectIndex: 3,
     },
     {
@@ -171,7 +171,7 @@ export const MOCK_ACCOUNT = {
       character: "Honkai: Star Rail",
       status: "idea",
       progress: 0,
-      imageSrc: mockAssetUrl("mock", "builds", "Sunday.jpg"),
+      imageSrc: mockAssetUrl("images", "mock", "builds", "Sunday.jpg"),
       projectIndex: 4,
     },
   ] satisfies MockBuild[],
@@ -191,7 +191,7 @@ export const MOCK_ACCOUNT = {
     title: "East Coast Anime Fest",
     subtitle: "ECAF 2026",
     location: "New York, NY",
-    heroImageSrc: mockAssetUrl("mock", "convention", "ecaf-hero.jpg"),
+    heroImageSrc: mockAssetUrl("images", "mock", "convention", "ecaf-hero.jpg"),
     startDateLabel: "Nov 7",
     endDateLabel: "Nov 9",
     days: [
