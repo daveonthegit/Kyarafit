@@ -83,6 +83,7 @@ The following documentation remains at the root `/docs` level:
 
 - `architecture.md` - System architecture overview (Convex + Better Auth)
 - `auth.md` - **Better Auth** setup, CORS, trusted origins, troubleshooting
+- `backend-authorization.md` - **Convex authorization contract** — session-derived actor, public-by-design endpoints, media rule
 - `CONTEXT.md` - Project context, tech stack, data model, Convex function reference
 - `CONTRIBUTING.md` - Contribution guidelines
 - `CODE_OF_CONDUCT.md` - Code of conduct
