@@ -3,13 +3,14 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 const VALID_VISIBILITIES = ["private", "public"] as const;
 const VALID_ROLES = ["admin", "member"] as const;
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -17,8 +18,9 @@ export const create = mutation({
     visibility: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
     }
     const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
     const description = sanitizeOptional(args.description, MAX_LENGTH.notes, "Description");
@@ -32,55 +34,77 @@ export const create = mutation({
       description,
       imageUrl: args.imageUrl,
       imageStorageId: args.imageStorageId,
-      createdBy: args.userId,
+      createdBy: actorId,
       visibility,
       createdAt: Date.now(),
     });
     await ctx.db.insert("groupMembers", {
       groupId,
-      userId: args.userId,
+      userId: actorId,
       role: "admin",
     });
     return await ctx.db.get(groupId);
   },
 });
 
+/**
+ * One group. Takes no actor argument, so the visibility rule is written out;
+ * it previously returned any group document, `private` included, to anyone.
+ * Public groups stay readable without a session.
+ */
 export const get = query({
   args: { id: v.id("groups") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const group = await ctx.db.get(args.id);
+    if (!group) return null;
+    if (group.visibility === "public") return group;
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
+    const membership = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", actorId))
+      .unique();
+    return membership ? group : null;
   },
 });
 
-/** List groups the user is a member of. */
+/** Groups the acting user is a member of. `userId` is retained for deployed clients but ignored. */
 export const listForUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const memberships = await ctx.db
       .query("groupMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     const groups = await Promise.all(memberships.map((m) => ctx.db.get(m.groupId)));
     return groups.filter((g): g is NonNullable<typeof g> => g != null);
   },
 });
 
-/** Get group with member list and current user's role. Returns null if group not found or not visible to user. */
+/**
+ * Group with its member list and the acting user's role. Returns null when the
+ * group is private and the caller is not a member — membership is established from
+ * the session, so a caller-supplied id can no longer read a private group's roster.
+ * `userId` is retained for deployed clients but ignored.
+ */
 export const getWithMembers = query({
   args: {
     groupId: v.id("groups"),
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
     const group = await ctx.db.get(args.groupId);
     if (!group) return null;
     const members = await ctx.db
       .query("groupMembers")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    const isMember = args.userId ? members.some((m) => m.userId === args.userId) : false;
+    const isMember = actorId ? members.some((m) => m.userId === actorId) : false;
     if (!isMember && group.visibility !== "public") return null;
-    const myMembership = args.userId ? members.find((m) => m.userId === args.userId) : undefined;
+    const myMembership = actorId ? members.find((m) => m.userId === actorId) : undefined;
     const memberUserIds = members.map((m) => m.userId);
     const users = await Promise.all(
       memberUserIds.map((id) =>
@@ -94,10 +118,17 @@ export const getWithMembers = query({
       group,
       members: members.map((m) => {
         const u = users.find((x) => x?.externalId === m.userId);
+        // Never fall back to `email`: this list is readable by every member (and by
+        // anyone for a public group), which made it an email-harvesting surface.
+        const username = u?.username?.trim();
         return {
           userId: m.userId,
           role: m.role,
-          name: u?.name ?? u?.displayName ?? u?.email ?? "Unknown",
+          name:
+            u?.name?.trim() ||
+            u?.displayName?.trim() ||
+            (username ? `@${username}` : null) ||
+            "Unknown",
           image: u?.image,
           imageStorageId: u?.imageStorageId,
         };
@@ -110,7 +141,7 @@ export const getWithMembers = query({
 export const update = mutation({
   args: {
     id: v.id("groups"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -118,11 +149,12 @@ export const update = mutation({
     visibility: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const group = await ctx.db.get(args.id);
     if (!group) throw new Error("Group not found");
     const membership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", args.userId))
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.id).eq("userId", actorId))
       .unique();
     if (!membership || membership.role !== "admin") {
       throw new Error("Not authorized to update this group");
@@ -130,10 +162,10 @@ export const update = mutation({
     const newStorageId = args.imageStorageId;
     const oldStorageId = group.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
-      await subtractUsageForStorageId(ctx, args.userId, oldStorageId);
+      await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
     if (args.name !== undefined) patch.name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
@@ -155,21 +187,20 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { groupId: v.id("groups"), userId: v.string() },
+  args: { groupId: v.id("groups"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const group = await ctx.db.get(args.groupId);
     if (!group) throw new Error("Group not found");
     const membership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
       .unique();
     if (!membership || membership.role !== "admin") {
       throw new Error("Not authorized to delete this group");
     }
     if (group.imageStorageId) {
-      await subtractUsageForStorageId(ctx, args.userId, group.imageStorageId);
+      await subtractUsageForStorageId(ctx, actorId, group.imageStorageId);
     }
     const members = await ctx.db
       .query("groupMembers")
@@ -192,19 +223,25 @@ export const remove = mutation({
   },
 });
 
+/**
+ * Add a member. Admin membership is established from the session: a caller-supplied
+ * `userId` let anyone insert themselves into any group as `admin`, and the resulting
+ * row is indistinguishable from a legitimate grant. `userId` is retained for
+ * deployed clients but ignored; `newUserId` names the member being added and stays
+ * required.
+ */
 export const addMember = mutation({
   args: {
     groupId: v.id("groups"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     newUserId: v.string(),
     role: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const membership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
       .unique();
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can add members");
@@ -230,19 +267,18 @@ export const addMember = mutation({
 export const removeMember = mutation({
   args: {
     groupId: v.id("groups"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     removeUserId: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const actorMembership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
       .unique();
     if (!actorMembership) throw new Error("Not a member");
     const isAdmin = actorMembership.role === "admin";
-    if (args.removeUserId !== args.userId && !isAdmin) {
+    if (args.removeUserId !== actorId && !isAdmin) {
       throw new Error("Only admins can remove other members");
     }
     const target = await ctx.db
@@ -253,12 +289,12 @@ export const removeMember = mutation({
       .unique();
     if (!target) return;
     await ctx.db.delete(target._id);
-    if (args.removeUserId === args.userId) {
+    if (args.removeUserId === actorId) {
       const buildsWithGroup = await ctx.db
         .query("builds")
         .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
         .collect();
-      const myBuilds = buildsWithGroup.filter((b) => b.userId === args.userId);
+      const myBuilds = buildsWithGroup.filter((b) => b.userId === actorId);
       for (const b of myBuilds) {
         await ctx.db.patch(b._id, { groupId: undefined });
       }
@@ -269,16 +305,15 @@ export const removeMember = mutation({
 export const setMemberRole = mutation({
   args: {
     groupId: v.id("groups"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     targetUserId: v.string(),
     role: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const membership = await ctx.db
       .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
+      .withIndex("by_groupId_userId", (q) => q.eq("groupId", args.groupId).eq("userId", actorId))
       .unique();
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can change roles");

@@ -25,7 +25,8 @@ export default defineSchema({
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   closetItems: defineTable({
     userId: v.string(),
@@ -44,7 +45,8 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_category", ["userId", "category"])
     .index("by_completionTaskId", ["completionTaskId"])
-    .index("by_parentItemId", ["parentItemId"]),
+    .index("by_parentItemId", ["parentItemId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodes: defineTable({
     userId: v.string(),
@@ -76,7 +78,8 @@ export default defineSchema({
     .index("by_userId_nodeType", ["userId", "nodeType"])
     .index("by_userId_category", ["userId", "category"])
     .index("by_legacyClosetItemId", ["legacyClosetItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),
@@ -159,7 +162,8 @@ export default defineSchema({
     .index("by_shareToken", ["shareToken"])
     .index("by_groupId", ["groupId"])
     .index("by_visibility", ["visibility"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildItemLinks: defineTable({
     userId: v.string(),
@@ -305,7 +309,8 @@ export default defineSchema({
     version: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   conventionDayPlans: defineTable({
     userId: v.string(),
@@ -353,7 +358,8 @@ export default defineSchema({
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildProcessPictures: defineTable({
     userId: v.string(),
@@ -366,7 +372,8 @@ export default defineSchema({
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   groups: defineTable({
     name: v.string(),
@@ -378,7 +385,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_createdBy", ["createdBy"])
-    .index("by_visibility", ["visibility"]),
+    .index("by_visibility", ["visibility"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   groupMembers: defineTable({
     groupId: v.id("groups"),

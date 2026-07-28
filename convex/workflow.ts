@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import {
   buildWorkflowTree,
@@ -812,26 +813,33 @@ export async function removeWorkflowItemCascade(
   }
 }
 
+/**
+ * Built-in templates plus the acting user's own. `userId` is retained for deployed
+ * clients but ignored: passing another user's id used to return their private templates.
+ */
 export const listTemplates = query({
   args: { userId: v.optional(v.string()) },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
     const builtIns = await ctx.db
       .query("workflowTemplates")
       .withIndex("by_isBuiltIn", (q) => q.eq("isBuiltIn", true))
       .collect();
-    const userTemplates = args.userId
+    const userTemplates = actorId
       ? await ctx.db
           .query("workflowTemplates")
-          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .withIndex("by_userId", (q) => q.eq("userId", actorId))
           .collect()
       : [];
     return [...builtIns, ...userTemplates].sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 
+/** Idempotent built-in template seeding. Authentication required so it is not a free write. */
 export const seedBuiltinTemplates = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireIdentity(ctx);
     await ensureBuiltInTemplates(ctx);
     return await ctx.db
       .query("workflowTemplates")
@@ -842,7 +850,7 @@ export const seedBuiltinTemplates = mutation({
 
 export const createTemplate = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.string(),
     description: v.optional(v.string()),
     category: v.optional(v.string()),
@@ -860,11 +868,12 @@ export const createTemplate = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const slug = `${args.userId}:${sanitizeString(args.name)
+    const actorId = await requireIdentity(ctx);
+    const slug = `${actorId}:${sanitizeString(args.name)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")}`;
     const templateId = await ctx.db.insert("workflowTemplates", {
-      userId: args.userId,
+      userId: actorId,
       slug,
       name: sanitizeAndLimit(args.name, MAX_LENGTH.name, "Template name"),
       description: sanitizeOptional(args.description, MAX_LENGTH.notes, "Template description"),
@@ -896,17 +905,18 @@ export const createTemplate = mutation({
 
 export const applyTemplate = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     templateId: v.id("workflowTemplates"),
     attachments: v.array(attachmentValidator),
     buildContextId: v.optional(v.id("builds")),
     scopeKind: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     await ensureBuiltInTemplates(ctx);
     const template = await ctx.db.get(args.templateId);
     if (!template) throw new Error("Template not found");
-    if (template.userId && template.userId !== args.userId) throw new Error("Not authorized");
+    if (template.userId && template.userId !== actorId) throw new Error("Not authorized");
 
     const templateItems = await ctx.db
       .query("workflowTemplateItems")
@@ -921,7 +931,7 @@ export const applyTemplate = mutation({
         : undefined;
       const parent = parentId ? await ctx.db.get(parentId) : null;
       const workflowItemId = await ctx.db.insert("workflowItems", {
-        userId: args.userId,
+        userId: actorId,
         title: templateItem.title,
         notes: templateItem.notes,
         kind: templateItem.kind,
@@ -939,7 +949,7 @@ export const applyTemplate = mutation({
       if (!parentId) {
         await replaceAttachments(
           ctx,
-          args.userId,
+          actorId,
           workflowItemId,
           args.attachments.map((attachment) => ({
             ...attachment,
@@ -958,8 +968,7 @@ export const listBuildTree = query({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return null;
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerUserId = identity?.subject ?? undefined;
+    const viewerUserId = await optionalIdentity(ctx);
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
@@ -1002,8 +1011,12 @@ export const listNodeWorkflow = query({
     buildId: v.optional(v.id("builds")),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const node = await ctx.db.get(args.cosplayNodeId);
-    if (!node) return null;
+    // Takes no actor argument, so the owner check is written out; `node.userId` was
+    // read straight off the row, which authorized nothing.
+    if (!node || node.userId !== actorId) return null;
 
     const sharedScoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
       entityKey("cosplayNode", args.cosplayNodeId),
@@ -1036,15 +1049,12 @@ export const listNodeWorkflow = query({
 });
 
 export const listPlanner = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.subject !== args.userId) {
-      throw new Error("Unauthorized");
-    }
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await requireIdentity(ctx);
 
-    const items = await getWorkflowItemsForUser(ctx, args.userId);
-    const attachments = await getWorkflowAttachmentsForUser(ctx, args.userId);
+    const items = await getWorkflowItemsForUser(ctx, actorId);
+    const attachments = await getWorkflowAttachmentsForUser(ctx, actorId);
     const buildById = new Map<string, Doc<"builds">>();
     const conventionById = new Map<string, Doc<"conventions">>();
     for (const attachment of attachments) {
@@ -1058,7 +1068,7 @@ export const listPlanner = query({
       }
     }
 
-    const dependencies = await getWorkflowDependenciesForUser(ctx, args.userId);
+    const dependencies = await getWorkflowDependenciesForUser(ctx, actorId);
     const itemMap = new Map(items.map((item) => [item._id, item]));
     const blockedByMap = new Map<string, number>();
     const blockedByTitlesMap = new Map<string, string[]>();
@@ -1139,16 +1149,13 @@ export const listPlanner = query({
 });
 
 export const getItemEditorState = query({
-  args: { id: v.id("workflowItems"), userId: v.string() },
+  args: { id: v.id("workflowItems"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.subject !== args.userId) {
-      throw new Error("Unauthorized");
-    }
+    const actorId = await requireIdentity(ctx);
 
     const item = await ctx.db.get(args.id);
     if (!item) return null;
-    const allowed = await canEditWorkflowItem(ctx, item, args.userId);
+    const allowed = await canEditWorkflowItem(ctx, item, actorId);
     if (!allowed) {
       throw new Error("Not authorized");
     }
@@ -1173,7 +1180,7 @@ export const getItemEditorState = query({
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     title: v.string(),
     notes: v.optional(v.string()),
     kind: v.optional(v.string()),
@@ -1204,16 +1211,13 @@ export const create = mutation({
     attachments: v.optional(v.array(attachmentValidator)),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
-    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+    if (parent && parent.userId !== actorId) throw new Error("Parent not found");
     if (args.attachments) {
       for (const attachment of args.attachments) {
         if (attachment.entityType === "build") {
-          const allowed = await canUserEditBuild(
-            ctx,
-            attachment.entityId as Id<"builds">,
-            args.userId
-          );
+          const allowed = await canUserEditBuild(ctx, attachment.entityId as Id<"builds">, actorId);
           if (!allowed) throw new Error("Not authorized");
         }
       }
@@ -1221,7 +1225,7 @@ export const create = mutation({
 
     const sanitized = sanitizeWorkflowInput(args);
     const workflowItemId = await ctx.db.insert("workflowItems", {
-      userId: args.userId,
+      userId: actorId,
       title: sanitized.title ?? "",
       notes: sanitized.notes,
       kind: sanitized.kind ?? "task",
@@ -1229,7 +1233,7 @@ export const create = mutation({
       status: sanitized.status ?? "not_started",
       parentId: args.parentId,
       ancestorIds: parentAncestorIds(parent),
-      sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, args.userId, args.parentId)),
+      sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, actorId, args.parentId)),
       scopeKind: sanitized.scopeKind ?? "build_specific",
       sourceKind: sanitized.sourceKind ?? "manual",
       priority: args.priority,
@@ -1243,8 +1247,9 @@ export const create = mutation({
       actualMinutes: args.actualMinutes,
       estimatedCostCents: args.estimatedCostCents,
       actualCostCents: args.actualCostCents,
-      creatorUserId: args.creatorUserId ?? args.userId,
-      ownerUserId: args.ownerUserId ?? args.userId,
+      // The creator is always the session; a client-supplied creatorUserId is ignored.
+      creatorUserId: actorId,
+      ownerUserId: args.ownerUserId ?? actorId,
       assigneeUserId: args.assigneeUserId,
       templateId: args.templateId,
       recurrenceRule: sanitized.recurrenceRule,
@@ -1252,7 +1257,7 @@ export const create = mutation({
       dedupeKey: sanitized.dedupeKey,
     });
     if (args.attachments?.length) {
-      await replaceAttachments(ctx, args.userId, workflowItemId, args.attachments);
+      await replaceAttachments(ctx, actorId, workflowItemId, args.attachments);
     }
     return await ctx.db.get(workflowItemId);
   },
@@ -1261,7 +1266,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("workflowItems"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     title: v.optional(v.string()),
     notes: v.optional(v.union(v.string(), v.null())),
     kind: v.optional(v.string()),
@@ -1287,9 +1292,10 @@ export const update = mutation({
     attachments: v.optional(v.array(attachmentValidator)),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+    await assertWorkflowEditable(ctx, item, actorId);
     const sanitized = sanitizeWorkflowInput({
       title: args.title,
       notes: args.notes === null ? undefined : args.notes,
@@ -1338,7 +1344,7 @@ export const update = mutation({
     }
     await ctx.db.patch(args.id, patch);
     if (args.attachments) {
-      await replaceAttachments(ctx, args.userId, args.id, args.attachments);
+      await replaceAttachments(ctx, item.userId, args.id, args.attachments);
     }
     const updated = await ctx.db.get(args.id);
     if (updated) {
@@ -1351,14 +1357,15 @@ export const update = mutation({
 export const move = mutation({
   args: {
     id: v.id("workflowItems"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     parentId: v.optional(v.union(v.id("workflowItems"), v.null())),
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+    await assertWorkflowEditable(ctx, item, actorId);
 
     const parentId = args.parentId ?? undefined;
     if (parentId && parentId === args.id)
@@ -1367,21 +1374,21 @@ export const move = mutation({
       throw new Error("Workflow items cannot move under a descendant");
     }
     const parent = parentId ? await ctx.db.get(parentId) : null;
-    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+    if (parent && parent.userId !== actorId) throw new Error("Parent not found");
     const ancestorIds = parentAncestorIds(parent);
     await ctx.db.patch(args.id, {
       parentId,
       ancestorIds,
       sortOrder: args.sortOrder ?? item.sortOrder,
     });
-    await patchDescendantAncestors(ctx, args.userId, args.id, ancestorIds);
+    await patchDescendantAncestors(ctx, item.userId, args.id, ancestorIds);
     return await ctx.db.get(args.id);
   },
 });
 
 export const moveAndResequence = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     move: v.object({
       id: v.id("workflowItems"),
       parentId: v.optional(v.union(v.id("workflowItems"), v.null())),
@@ -1395,9 +1402,10 @@ export const moveAndResequence = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.move.id);
     if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+    await assertWorkflowEditable(ctx, item, actorId);
 
     const parentId = args.move.parentId ?? undefined;
     if (parentId && parentId === args.move.id) {
@@ -1409,14 +1417,14 @@ export const moveAndResequence = mutation({
 
     const parent = parentId ? await ctx.db.get(parentId) : null;
     if (parentId && !parent) throw new Error("Parent not found");
-    if (parent && parent.userId !== args.userId) throw new Error("Parent not found");
+    if (parent && parent.userId !== actorId) throw new Error("Parent not found");
 
     const resequenceItems = new Map<string, Doc<"workflowItems">>();
     for (const row of args.resequence) {
       if (resequenceItems.has(row.id)) continue;
       const rowItem = row.id === item._id ? item : await ctx.db.get(row.id);
       if (!rowItem) throw new Error("Workflow item not found");
-      await assertWorkflowEditable(ctx, rowItem, args.userId);
+      await assertWorkflowEditable(ctx, rowItem, actorId);
       resequenceItems.set(row.id, rowItem);
     }
 
@@ -1426,7 +1434,7 @@ export const moveAndResequence = mutation({
       ancestorIds,
       sortOrder: args.move.sortOrder ?? item.sortOrder,
     });
-    await patchDescendantAncestors(ctx, args.userId, args.move.id, ancestorIds);
+    await patchDescendantAncestors(ctx, item.userId, args.move.id, ancestorIds);
 
     for (const row of args.resequence) {
       const rowItem = resequenceItems.get(row.id);
@@ -1443,7 +1451,7 @@ export const moveAndResequence = mutation({
 
 export const setDependencies = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     workflowItemId: v.id("workflowItems"),
     dependencies: v.array(
       v.object({
@@ -1453,9 +1461,10 @@ export const setDependencies = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.workflowItemId);
     if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+    await assertWorkflowEditable(ctx, item, actorId);
     const existing = await ctx.db
       .query("workflowDependencies")
       .withIndex("by_successorWorkflowItemId", (q) =>
@@ -1475,7 +1484,7 @@ export const setDependencies = mutation({
         throw new Error("Workflow item cannot depend on itself");
       }
       await ctx.db.insert("workflowDependencies", {
-        userId: args.userId,
+        userId: item.userId,
         predecessorWorkflowItemId: dependency.predecessorWorkflowItemId,
         successorWorkflowItemId: args.workflowItemId,
         relationKind: dependency.relationKind,
@@ -1491,18 +1500,32 @@ export const setDependencies = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("workflowItems"), userId: v.string() },
+  args: { id: v.id("workflowItems"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, args.userId);
+    await assertWorkflowEditable(ctx, item, actorId);
     await removeWorkflowItemCascade(ctx, args.id);
   },
 });
 
+/**
+ * Progress metrics for a build. Takes no actor argument, so the visibility rule is
+ * written out — the same one the other build-scoped reads use. `shareToken` is
+ * additive for deployed clients that never sent one.
+ */
 export const getBuildProgressSnapshot = query({
-  args: { buildId: v.id("builds") },
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    const viewerUserId = await optionalIdentity(ctx);
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return null;
     const scoped = await getBuildScopedWorkflow(ctx, args.buildId);
     if (!scoped) return null;
     const { total, done } = deriveDoneCounts(scoped.items);

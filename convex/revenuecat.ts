@@ -30,14 +30,20 @@ export const revenuecatWebhook = httpAction(async (ctx, request) => {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
+  // Fail closed. When the secret is unset this used to skip the check entirely, so
+  // anyone could force tier re-syncs for a guessable app_user_id, burn the RevenueCat
+  // API quota, and create junk subscriber records.
   const configuredSecret = process.env.REVENUECAT_WEBHOOK_AUTHORIZATION;
+  if (!configuredSecret) {
+    console.error(
+      "[revenuecat] REVENUECAT_WEBHOOK_AUTHORIZATION is not set; rejecting webhook. Set it in Convex Dashboard → Settings → Environment Variables."
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
   const authHeader = request.headers.get("Authorization");
-  if (configuredSecret) {
-    const bearer = `Bearer ${configuredSecret}`;
-    const ok = authHeader === bearer || authHeader === configuredSecret;
-    if (!ok) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  const bearer = `Bearer ${configuredSecret}`;
+  if (authHeader !== bearer && authHeader !== configuredSecret) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const apiKey = process.env.REVENUECAT_SECRET_API_KEY;

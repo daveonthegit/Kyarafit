@@ -3,6 +3,7 @@
  * Importable from both Convex actions ("use node") and Better Auth callbacks.
  * No Convex-specific imports — safe to call from any async context.
  */
+import { escapeHtml } from "./lib/validation";
 
 // Resend: use EMAIL_FROM in Convex env. For testing use "Kyarafit <onboarding@resend.dev>" (Resend allows this without domain verification).
 const FROM_ADDRESS = () => process.env.EMAIL_FROM ?? "Kyarafit <onboarding@resend.dev>";
@@ -79,7 +80,9 @@ function ctaButton(label: string, href: string, color = "#000"): string {
 }
 
 export async function sendWelcomeEmail(to: string, name?: string): Promise<void> {
-  const displayName = name ?? to.split("@")[0];
+  // `name` originates from user input; it must be escaped before it is interpolated
+  // into the HTML body, or the mail becomes an HTML-injection sink.
+  const displayName = escapeHtml(name ?? to.split("@")[0]);
   await sendViaResend({
     to,
     subject: "Welcome to Kyarafit! 🎭",
@@ -146,6 +149,6 @@ export async function sendNotificationEmail(
   await sendViaResend({
     to,
     subject,
-    html: baseLayout(`<p style="font-size: 15px; color: #444;">${message}</p>`),
+    html: baseLayout(`<p style="font-size: 15px; color: #444;">${escapeHtml(message)}</p>`),
   });
 }

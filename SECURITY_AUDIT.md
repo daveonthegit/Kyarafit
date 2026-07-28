@@ -4,6 +4,24 @@
 **Date:** 2025-03-05  
 **Scope:** API protection, auth/session security, secret handling, input sanitization.
 
+> **Read this first.** This document is a snapshot of one pass on 2025-03-05, not a
+> standing guarantee, and **authorization was never in its scope.** It did not examine
+> whether Convex functions check that the caller owns the data they touch — and at the time
+> this document was written, they did not: they authorized on a client-supplied `userId`,
+> which allowed unauthenticated cross-tenant read, write and delete. That is fixed
+> separately; the model and its invariant are documented in
+> [`docs/backend-authorization.md`](docs/backend-authorization.md).
+>
+> Section A below is titled "API rate limiting" but covers only the two `/api/auth/*` proxy
+> routes. The application's actual API is the Convex function set, which has no rate
+> limiting and is reachable directly. Read it as "auth-proxy rate limiting".
+>
+> The "no hardcoded API keys" and "no rotation required" conclusions (§1.C) and
+> "Manual steps: None required" (§3) are **not** current: a `test_`-prefixed RevenueCat
+> publishable SDK key literal ships as a `??` fallback in `mobile/src/config/env.ts`, and
+> `REVENUECAT_WEBHOOK_AUTHORIZATION` is now required (the webhook returns 401 when it is
+> unset) rather than optional.
+
 ---
 
 ## 1. Findings and Fixes Implemented

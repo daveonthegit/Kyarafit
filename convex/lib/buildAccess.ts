@@ -1,9 +1,17 @@
+/**
+ * Build permission predicates.
+ *
+ * `userId` here is the **acting** user and must always come from
+ * `lib/authz.requireIdentity`, never from a mutation argument. These functions
+ * only compare the resource owner against whatever id they are handed, so passing
+ * a caller-supplied id satisfies them for any build.
+ */
 import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /** Returns true if the user can edit the build (owner or collaborator with role editor). */
 export async function canUserEditBuild(
-  ctx: MutationCtx,
+  ctx: QueryCtx | MutationCtx,
   buildId: Id<"builds">,
   userId: string
 ): Promise<boolean> {
@@ -20,7 +28,7 @@ export async function canUserEditBuild(
 
 /** Returns true if the user can view the build (owner, any collaborator, or public/unlisted). For mutations we only need to allow owner or collaborator for protected ops. */
 export async function canUserViewBuild(
-  ctx: MutationCtx,
+  ctx: QueryCtx | MutationCtx,
   buildId: Id<"builds">,
   userId: string
 ): Promise<boolean> {

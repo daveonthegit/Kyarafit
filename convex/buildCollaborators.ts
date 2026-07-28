@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 
 const VALID_ROLES = ["viewer", "editor"] as const;
 
@@ -7,9 +9,11 @@ const VALID_ROLES = ["viewer", "editor"] as const;
 export const listByBuild = query({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const build = await ctx.db.get(args.buildId);
     if (!build) return [];
 
@@ -18,7 +22,7 @@ export const listByBuild = query({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
 
-    const allowed = build.userId === args.userId || rows.some((r) => r.userId === args.userId);
+    const allowed = build.userId === actorId || rows.some((r) => r.userId === actorId);
     if (!allowed) return [];
 
     const withUser = await Promise.all(
@@ -40,20 +44,27 @@ export const listByBuild = query({
   },
 });
 
-/** Add or update collaborator. Caller must be build owner. */
+/**
+ * Add or update a collaborator. The caller must be the build owner, established from
+ * the session: a caller-supplied `ownerId` let anyone grant themselves `editor` on
+ * any build, and such a row is indistinguishable from a legitimate grant afterwards.
+ * `ownerId` is retained for deployed clients but ignored. `userId` names the grantee,
+ * a different user, so it stays required.
+ */
 export const set = mutation({
   args: {
     buildId: v.id("builds"),
-    ownerId: v.string(),
+    ownerId: v.optional(v.string()),
     userId: v.string(),
     role: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.ownerId) {
+    if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    if (args.userId === args.ownerId) throw new Error("Cannot add owner as collaborator");
+    if (args.userId === actorId) throw new Error("Cannot add owner as collaborator");
     if (!VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])) {
       throw new Error("Role must be viewer or editor");
     }
@@ -74,17 +85,22 @@ export const set = mutation({
   },
 });
 
-/** Add collaborator by email. Caller must be build owner. Finds user by email and adds as viewer or editor. */
+/**
+ * Add a collaborator by email. Caller must be the build owner, from the session —
+ * this was both an escalation path and, via its distinct "no user found" error, a
+ * free email-existence oracle. `ownerId` is retained for deployed clients but ignored.
+ */
 export const addByEmail = mutation({
   args: {
     buildId: v.id("builds"),
-    ownerId: v.string(),
+    ownerId: v.optional(v.string()),
     email: v.string(),
     role: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.ownerId) {
+    if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const email = args.email.trim().toLowerCase();
@@ -95,7 +111,7 @@ export const addByEmail = mutation({
       .unique();
     if (!user) throw new Error("No user found with that email");
     const targetUserId = user.externalId;
-    if (targetUserId === args.ownerId) throw new Error("Cannot add owner as collaborator");
+    if (targetUserId === actorId) throw new Error("Cannot add owner as collaborator");
     const role = VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])
       ? (args.role as "viewer" | "editor")
       : "viewer";
@@ -114,16 +130,21 @@ export const addByEmail = mutation({
   },
 });
 
-/** Remove collaborator. Caller must be build owner. */
+/**
+ * Remove a collaborator. Caller must be the build owner, from the session.
+ * `ownerId` is retained for deployed clients but ignored; `userId` names the
+ * collaborator being removed and stays required.
+ */
 export const remove = mutation({
   args: {
     buildId: v.id("builds"),
-    ownerId: v.string(),
+    ownerId: v.optional(v.string()),
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.ownerId) {
+    if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const rows = await ctx.db
@@ -137,46 +158,58 @@ export const remove = mutation({
 
 /** List build IDs shared with this user (as collaborator). For "shared with me" list. */
 export const listBuildIdsSharedWithUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const rows = await ctx.db
       .query("buildCollaborators")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     return rows.map((r) => r.buildId);
   },
 });
 
-/** Check if user can edit build (owner or editor collaborator). */
+/**
+ * Whether the acting user can edit the build. Answers only about the session's own
+ * permissions; answering about an arbitrary id made this a free permission oracle.
+ */
 export const canEdit = query({
-  args: { buildId: v.id("builds"), userId: v.string() },
+  args: { buildId: v.id("builds"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return false;
     const build = await ctx.db.get(args.buildId);
     if (!build) return false;
-    if (build.userId === args.userId) return true;
+    if (build.userId === actorId) return true;
     const row = await ctx.db
       .query("buildCollaborators")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
-    const collab = row.find((r) => r.userId === args.userId);
+    const collab = row.find((r) => r.userId === actorId);
     return collab?.role === "editor";
   },
 });
 
-/** Check if user can view build (owner, any collaborator, or public/unlisted). */
+/**
+ * Whether the acting user can view the build. Delegates to the same predicate the
+ * public-viewer paths use, so `unlisted` requires a matching share token here too —
+ * this query used to answer `true` for unlisted to any caller, a looser rule than
+ * `canReadBuildWorkflowData` gave for the same question.
+ */
 export const canView = query({
-  args: { buildId: v.id("builds"), userId: v.optional(v.string()) },
+  args: {
+    buildId: v.id("builds"),
+    userId: v.optional(v.string()),
+    shareToken: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) return false;
-    if (build.visibility === "public") return true;
-    if (build.visibility === "unlisted") return true; // link holder can view
-    if (args.userId === build.userId) return true;
-    if (!args.userId) return false;
-    const row = await ctx.db
-      .query("buildCollaborators")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    return row.some((r) => r.userId === args.userId);
+    return await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId: actorId,
+      shareToken: args.shareToken ?? null,
+    });
   },
 });
