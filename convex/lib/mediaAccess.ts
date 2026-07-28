@@ -17,7 +17,18 @@
  *   `unlisted` is treated as readable to match `getPublicViewerBundle`, which
  *   serves unlisted builds to anonymous share-link holders that then resolve each
  *   image through `getUrl` without a token.
- * - the caller is a collaborator on the owning build.
+ * - the caller is related to the owning build — collaborator or member of the group
+ *   the build was shared into (`lib/buildAccess.hasBuildRelationship`), which is the
+ *   same set of callers that can read the build itself through `builds.get`; or
+ * - for a profile picture, the caller shares a group with that user, because the
+ *   group roster renders every member's avatar.
+ *
+ * A storage id can be referenced by more than one row: `builds.duplicate` copies
+ * `imageStorageId` onto the new (private) build and clones the reference-image and
+ * process-picture rows verbatim. So every referencing row is considered, and access
+ * is granted when *any* of them grants it. A blob that is referenced but by no row
+ * that grants access is denied — it must not fall through to the unattached-blob
+ * rule below.
  *
  * A blob that no row references is readable by any *authenticated* caller. That
  * is required by the creation flow: every "new build/convention/element" modal
@@ -28,77 +39,49 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-
-/** Guard against a pathological element graph; real trees are a handful of levels deep. */
-const MAX_GRAPH_NODES = 200;
-
-async function isBuildCollaborator(
-  ctx: QueryCtx,
-  buildId: Id<"builds">,
-  viewerId: string
-): Promise<boolean> {
-  const rows = await ctx.db
-    .query("buildCollaborators")
-    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
-    .collect();
-  return rows.some((r) => r.userId === viewerId);
-}
-
-/** True when the build is served to link holders and anonymous visitors by design. */
-function isBuildPublic(build: Doc<"builds">): boolean {
-  const visibility = build.visibility ?? "private";
-  return visibility === "public" || visibility === "unlisted";
-}
+import {
+  hasBuildRelationship,
+  isBuildPublic,
+  isGroupMember,
+  sharesAnyGroup,
+  someAncestorBuild,
+} from "./buildAccess";
 
 async function canReadBuildMedia(
+  ctx: QueryCtx,
+  build: Doc<"builds">,
+  viewerId: string | null
+): Promise<boolean> {
+  if (isBuildPublic(build)) return true;
+  return await hasBuildRelationship(ctx, build, viewerId);
+}
+
+async function canReadBuildMediaById(
   ctx: QueryCtx,
   buildId: Id<"builds">,
   viewerId: string | null
 ): Promise<boolean> {
   const build = await ctx.db.get(buildId);
   if (!build) return false;
-  if (isBuildPublic(build)) return true;
-  if (!viewerId) return false;
-  if (build.userId === viewerId) return true;
-  return await isBuildCollaborator(ctx, buildId, viewerId);
+  return await canReadBuildMedia(ctx, build, viewerId);
 }
 
 /**
- * True when the element (or any of its ancestors) is attached to a build that is
- * public by design. Public build pages render the element tree, including nested
- * descendants, so the check has to walk up the graph rather than only look at the
+ * True when the element (or any of its ancestors) hangs off a build that is public
+ * by design, or off one the viewer is related to. Public build pages render the
+ * element tree including nested descendants, and so does the authenticated
+ * explorer, so the check walks up the graph rather than only looking at the
  * element's own build links.
  */
-async function isNodeOnPublicBuild(ctx: QueryCtx, nodeId: Id<"cosplayNodes">): Promise<boolean> {
-  const seen = new Set<string>([nodeId]);
-  let frontier: Id<"cosplayNodes">[] = [nodeId];
-
-  while (frontier.length > 0 && seen.size <= MAX_GRAPH_NODES) {
-    const next: Id<"cosplayNodes">[] = [];
-    for (const current of frontier) {
-      const buildLinks = await ctx.db
-        .query("buildCosplayLinks")
-        .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", current))
-        .collect();
-      for (const link of buildLinks) {
-        const build = await ctx.db.get(link.buildId);
-        if (build && isBuildPublic(build)) return true;
-      }
-
-      const parentLinks = await ctx.db
-        .query("cosplayNodeLinks")
-        .withIndex("by_childNodeId", (q) => q.eq("childNodeId", current))
-        .collect();
-      for (const link of parentLinks) {
-        if (seen.has(link.parentNodeId)) continue;
-        seen.add(link.parentNodeId);
-        next.push(link.parentNodeId);
-      }
-    }
-    frontier = next;
-  }
-
-  return false;
+async function canReadNodeMedia(
+  ctx: QueryCtx,
+  nodeId: Id<"cosplayNodes">,
+  viewerId: string | null
+): Promise<boolean> {
+  return await someAncestorBuild(ctx, nodeId, async (build) => {
+    if (isBuildPublic(build)) return true;
+    return await hasBuildRelationship(ctx, build, viewerId);
+  });
 }
 
 /**
@@ -110,76 +93,90 @@ export async function canReadStorageId(
   storageId: Id<"_storage">,
   viewerId: string | null
 ): Promise<boolean> {
-  const build = await ctx.db
+  let referenced = false;
+
+  const builds = await ctx.db
     .query("builds")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (build) return await canReadBuildMedia(ctx, build._id, viewerId);
+    .collect();
+  referenced ||= builds.length > 0;
+  for (const build of builds) {
+    if (await canReadBuildMedia(ctx, build, viewerId)) return true;
+  }
 
-  const referenceImage = await ctx.db
+  const referenceImages = await ctx.db
     .query("buildReferenceImages")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (referenceImage) {
+    .collect();
+  referenced ||= referenceImages.length > 0;
+  for (const referenceImage of referenceImages) {
     if (viewerId && referenceImage.userId === viewerId) return true;
-    return await canReadBuildMedia(ctx, referenceImage.buildId, viewerId);
+    if (await canReadBuildMediaById(ctx, referenceImage.buildId, viewerId)) return true;
   }
 
-  const processPicture = await ctx.db
+  const processPictures = await ctx.db
     .query("buildProcessPictures")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (processPicture) {
+    .collect();
+  referenced ||= processPictures.length > 0;
+  for (const processPicture of processPictures) {
     if (viewerId && processPicture.userId === viewerId) return true;
-    return await canReadBuildMedia(ctx, processPicture.buildId, viewerId);
+    if (await canReadBuildMediaById(ctx, processPicture.buildId, viewerId)) return true;
   }
 
-  const node = await ctx.db
+  const nodes = await ctx.db
     .query("cosplayNodes")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (node) {
+    .collect();
+  referenced ||= nodes.length > 0;
+  for (const node of nodes) {
     if (viewerId && node.userId === viewerId) return true;
-    return await isNodeOnPublicBuild(ctx, node._id);
+    if (await canReadNodeMedia(ctx, node._id, viewerId)) return true;
   }
 
   // Legacy closet items predate the element graph and have no public surface.
-  const closetItem = await ctx.db
+  const closetItems = await ctx.db
     .query("closetItems")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (closetItem) return viewerId != null && closetItem.userId === viewerId;
+    .collect();
+  referenced ||= closetItems.length > 0;
+  if (viewerId && closetItems.some((item) => item.userId === viewerId)) return true;
 
   // Conventions are private throughout the product: name, location and dates are
   // never rendered on a public surface, so neither is the cover image.
-  const convention = await ctx.db
+  const conventions = await ctx.db
     .query("conventions")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (convention) return viewerId != null && convention.userId === viewerId;
+    .collect();
+  referenced ||= conventions.length > 0;
+  if (viewerId && conventions.some((convention) => convention.userId === viewerId)) return true;
 
-  const user = await ctx.db
+  const users = await ctx.db
     .query("users")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (user) {
+    .collect();
+  referenced ||= users.length > 0;
+  for (const user of users) {
     if (user.profileVisibility === "public") return true;
-    return viewerId != null && user.externalId === viewerId;
+    if (!viewerId) continue;
+    if (user.externalId === viewerId) return true;
+    // The group roster renders every member's avatar, and `profileVisibility` is
+    // unset by default, so co-membership has to grant the avatar.
+    if (await sharesAnyGroup(ctx, viewerId, user.externalId)) return true;
   }
 
-  const group = await ctx.db
+  const groups = await ctx.db
     .query("groups")
     .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
-    .first();
-  if (group) {
+    .collect();
+  referenced ||= groups.length > 0;
+  for (const group of groups) {
     if (group.visibility === "public") return true;
-    if (!viewerId) return false;
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) => q.eq("groupId", group._id).eq("userId", viewerId))
-      .unique();
-    return membership != null;
+    if (viewerId && (await isGroupMember(ctx, group._id, viewerId))) return true;
   }
+
+  // Referenced, but by no row that grants access.
+  if (referenced) return false;
 
   // Unattached blob — see the module comment. Authentication is required.
   return viewerId != null;

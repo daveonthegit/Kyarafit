@@ -1055,3 +1055,200 @@ describe("the owner's own flows still work", () => {
     ).rejects.toThrow(/Only group admins/);
   });
 });
+
+/**
+ * The relationships that must keep working. The owner-vs-attacker cases above pass
+ * whether or not these do, which is how four read regressions got through: a
+ * collaborator and a group co-member are neither the owner nor an attacker.
+ */
+describe("legitimate third parties keep their access", () => {
+  test("a build collaborator can read the build's elements and their images", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const { childNode, nodeImage, childImage } = await t.run(async (ctx) => {
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobPrivateBuild,
+        userId: ALICE,
+        role: "viewer",
+      });
+      const nodeImage = await ctx.storage.store(new Blob(["collab-node"]));
+      await ctx.db.patch(f.bobNode, { imageStorageId: nodeImage });
+
+      // Nested: the child is not linked to the build directly, only through its parent.
+      const childImage = await ctx.storage.store(new Blob(["collab-child"]));
+      const childNode = await ctx.db.insert("cosplayNodes", {
+        userId: BOB,
+        nodeType: "material",
+        name: "Worbla",
+        tags: [],
+        imageStorageId: childImage,
+      });
+      await ctx.db.insert("cosplayNodeLinks", {
+        userId: BOB,
+        parentNodeId: f.bobNode,
+        childNodeId: childNode,
+        sortOrder: 0,
+        linkMode: "owned",
+      });
+      return { childNode, nodeImage, childImage };
+    });
+
+    const asAlice = t.withIdentity({ subject: ALICE });
+    // The explorer passes buildId; the inspector does not. Both must work.
+    expect(
+      await asAlice.query(api.cosplayNodes.get, { id: f.bobNode, buildId: f.bobPrivateBuild })
+    ).not.toBeNull();
+    expect((await asAlice.query(api.cosplayNodes.get, { id: f.bobNode }))?.name).toBe(
+      "Bob's helmet"
+    );
+    expect(await asAlice.query(api.cosplayNodes.get, { id: childNode })).not.toBeNull();
+    expect(
+      await asAlice.query(api.cosplayNodes.listChildren, { parentNodeId: f.bobNode })
+    ).toHaveLength(1);
+    expect(await asAlice.query(api.files.getUrl, { storageId: nodeImage })).not.toBeNull();
+    expect(await asAlice.query(api.files.getUrl, { storageId: childImage })).not.toBeNull();
+
+    // Carol collaborates on nothing.
+    const asCarol = t.withIdentity({ subject: CAROL });
+    expect(await asCarol.query(api.cosplayNodes.get, { id: f.bobNode })).toBeNull();
+    expect(await asCarol.query(api.cosplayNodes.get, { id: childNode })).toBeNull();
+    expect(await asCarol.query(api.cosplayNodes.listChildren, { parentNodeId: f.bobNode })).toEqual(
+      []
+    );
+    expect(await asCarol.query(api.files.getUrl, { storageId: nodeImage })).toBeNull();
+    expect(await asCarol.query(api.files.getUrl, { storageId: childImage })).toBeNull();
+    // And still nothing anonymously.
+    expect(await t.query(api.cosplayNodes.get, { id: f.bobNode })).toBeNull();
+    expect(await t.query(api.files.getUrl, { storageId: nodeImage })).toBeNull();
+  });
+
+  test("a group co-member can open a co-member's private group build and see its image", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("groupMembers", { groupId: f.bobGroup, userId: ALICE, role: "member" });
+      await ctx.db.patch(f.bobPrivateBuild, { groupId: f.bobGroup });
+    });
+
+    const asAlice = t.withIdentity({ subject: ALICE });
+    // The card comes from listByGroup, which already listed it...
+    expect(await asAlice.query(api.builds.listByGroup, { groupId: f.bobGroup })).toHaveLength(1);
+    // ...so the link it points at and the thumbnail on it have to work too.
+    const build = await asAlice.query(api.builds.get, { id: f.bobPrivateBuild });
+    expect(build?.name).toBe("Bob secret build");
+    // Non-owners still get no share token or offline-sync metadata.
+    expect(build?.shareToken).toBeUndefined();
+    expect(build?.clientId).toBeUndefined();
+    expect(build?.version).toBeUndefined();
+    expect(await asAlice.query(api.files.getUrl, { storageId: f.bobPrivateImage })).not.toBeNull();
+
+    // Carol is in no group with Bob.
+    const asCarol = t.withIdentity({ subject: CAROL });
+    expect(await asCarol.query(api.builds.listByGroup, { groupId: f.bobGroup })).toEqual([]);
+    expect(await asCarol.query(api.builds.get, { id: f.bobPrivateBuild })).toBeNull();
+    expect(await asCarol.query(api.files.getUrl, { storageId: f.bobPrivateImage })).toBeNull();
+    expect(await t.query(api.builds.get, { id: f.bobPrivateBuild })).toBeNull();
+    expect(await t.query(api.files.getUrl, { storageId: f.bobPrivateImage })).toBeNull();
+  });
+
+  test("group co-members resolve each other's avatars without a public profile", async () => {
+    const t = harness();
+    const f = await seed(t);
+    // Carol's profileVisibility is unset, which is the default for every account.
+    const carolAvatar = await t.run(async (ctx) => {
+      const carolAvatar = await ctx.storage.store(new Blob(["carol-avatar"]));
+      const carol = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", CAROL))
+        .unique();
+      await ctx.db.patch(carol!._id, { imageStorageId: carolAvatar });
+      await ctx.db.insert("groupMembers", { groupId: f.bobGroup, userId: CAROL, role: "member" });
+      return carolAvatar;
+    });
+
+    // Bob shares the group with Carol; Alice does not; anonymous never does.
+    expect(
+      await t.withIdentity({ subject: BOB }).query(api.files.getUrl, { storageId: carolAvatar })
+    ).not.toBeNull();
+    expect(
+      await t.withIdentity({ subject: ALICE }).query(api.files.getUrl, { storageId: carolAvatar })
+    ).toBeNull();
+    expect(await t.query(api.files.getUrl, { storageId: carolAvatar })).toBeNull();
+    // Carol still sees her own.
+    expect(
+      await t.withIdentity({ subject: CAROL }).query(api.files.getUrl, { storageId: carolAvatar })
+    ).not.toBeNull();
+  });
+
+  test("an image shared by a private copy and a public original still resolves", async () => {
+    // builds.duplicate copies imageStorageId onto a new private build and clones the
+    // reference-image rows verbatim, so one blob is referenced at two visibilities.
+    const t = harness();
+    const f = await seed(t);
+    const { sharedBuildImage, sharedReferenceImage } = await t.run(async (ctx) => {
+      const publicBuild = await ctx.db.get(f.bobPublicBuild);
+      const sharedBuildImage = publicBuild!.imageStorageId!;
+      // The private duplicate is inserted after the public original.
+      await ctx.db.insert("builds", {
+        userId: BOB,
+        name: "Copy of Bob public build",
+        status: "wip",
+        visibility: "private",
+        imageStorageId: sharedBuildImage,
+      });
+
+      const sharedReferenceImage = await ctx.storage.store(new Blob(["shared-reference"]));
+      await ctx.db.insert("buildReferenceImages", {
+        userId: BOB,
+        buildId: f.bobPublicBuild,
+        imageStorageId: sharedReferenceImage,
+        sortOrder: 0,
+      });
+      await ctx.db.insert("buildReferenceImages", {
+        userId: BOB,
+        buildId: f.bobPrivateBuild,
+        imageStorageId: sharedReferenceImage,
+        sortOrder: 0,
+      });
+      return { sharedBuildImage, sharedReferenceImage };
+    });
+
+    expect(await t.query(api.files.getUrl, { storageId: sharedBuildImage })).not.toBeNull();
+    expect(await t.query(api.files.getUrl, { storageId: sharedReferenceImage })).not.toBeNull();
+    // A blob referenced only by private rows is still denied, and must not fall
+    // through to the unattached-blob rule.
+    expect(await t.query(api.files.getUrl, { storageId: f.bobPrivateImage })).toBeNull();
+  });
+
+  test("checkUsernameAvailability answers instead of throwing without a session", async () => {
+    const t = harness();
+    await seed(t);
+
+    // "bob" is taken, "nobody" is free: an anonymous caller cannot tell them apart.
+    const taken = await t.query(api.users.checkUsernameAvailability, { username: "bob" });
+    const free = await t.query(api.users.checkUsernameAvailability, { username: "nobody" });
+    expect(taken).toEqual({ ...free, normalized: "bob" });
+    expect(taken.available).toBe(false);
+    expect(taken.reason).not.toBe("taken");
+
+    // Authenticated behaviour is unchanged, including the current-user branch.
+    const asBob = t.withIdentity({ subject: BOB });
+    expect(await asBob.query(api.users.checkUsernameAvailability, { username: "bob" })).toEqual({
+      normalized: "bob",
+      valid: true,
+      available: true,
+      reason: "current_user",
+    });
+    expect(
+      await t
+        .withIdentity({ subject: ALICE })
+        .query(api.users.checkUsernameAvailability, { username: "bob" })
+    ).toEqual({ normalized: "bob", valid: true, available: false, reason: "taken" });
+    expect(await asBob.query(api.users.checkUsernameAvailability, { username: "nobody" })).toEqual({
+      normalized: "nobody",
+      valid: true,
+      available: true,
+      reason: null,
+    });
+  });
+});

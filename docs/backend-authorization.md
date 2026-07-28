@@ -71,12 +71,45 @@ These serve signed-out visitors and must stay that way. Do not "fix" them:
   for "may this viewer read this build" — owner, collaborator, `public`, or `unlisted`
   with a matching share token. Use it rather than writing a new rule.
 
+## Relationships that grant a read
+
+`lib/buildAccess.ts` holds the relationship predicates, so the build read, the element
+reads and the media rule cannot drift apart. `hasBuildRelationship` is the one to reach
+for: **owner, collaborator, or member of the group the build was shared into.**
+
+Group membership is part of it because `builds.listByGroup` deliberately lists a group's
+builds — private ones included — to that group's members. The card, the thumbnail behind
+it and the `/build-detail/<id>` link it points at therefore all have to work for a
+co-member, so `builds.get` and `lib/mediaAccess.ts` both accept it. Do not narrow
+`listByGroup` to "fix" this asymmetry; extend the reader instead.
+
+Element reads (`cosplayNodes.get`, `cosplayNodes.listChildren`) use
+`canReadElementData`: the owner, or anyone with a `hasBuildRelationship` to a build the
+element or one of its ancestors hangs off — the explorer and the inspector read the tree
+one element at a time. A `public` / `unlisted` build deliberately does **not** grant
+element reads here; the public viewer has its own paths
+(`builds.getPublicViewerBundle`, `cosplayNodes.listBuildVisualNodes`) which honour the
+viewer-settings toggles. The `buildId` argument on those queries is a costing scope hint,
+not part of the check — the inspector does not always send it.
+
 ## Media
 
 Storage ids are not a security boundary: they are returned on build, element, convention,
 reference-image, process-picture, group and user rows. `files.getUrl` therefore resolves
 the id back to the row that references it and applies that row's visibility — see
 `lib/mediaAccess.ts`. The `by_imageStorageId` indexes exist for that lookup.
+
+One storage id can be referenced by several rows of differing visibility, because
+`builds.duplicate` copies `imageStorageId` onto the new (private) build and clones the
+reference-image and process-picture rows verbatim. So every referencing row is considered
+and access is granted when **any** of them grants it; a blob referenced only by rows that
+deny is denied, never falling through to the unattached-blob rule below.
+
+Beyond the owner and the public surfaces, a blob is readable when the caller has a
+`hasBuildRelationship` to the owning build (so collaborator and group-co-member
+thumbnails resolve), and a profile picture is readable when the caller shares a group with
+that user — the group roster renders every member's avatar and `profileVisibility` is
+unset by default.
 
 Two deliberate looseness points, both documented in that file:
 

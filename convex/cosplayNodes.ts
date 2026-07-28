@@ -14,6 +14,7 @@ import {
 import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
 import { syncGeneratedWorkflowForNode } from "./workflow";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { canReadElementData } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import {
   MAX_LENGTH,
@@ -379,9 +380,15 @@ export const list = query({
 
 /**
  * One element with its children, parents and cost rollup. Takes no actor argument,
- * so the owner check is written out; it previously returned any element to anyone.
+ * so the rule is written out; it previously returned any element to anyone. The
+ * owner may read it, and so may anyone related to a build it hangs off — the
+ * explorer and the inspector walk the tree one element at a time, and collaborators
+ * and group co-members open that page. `buildId` is only a costing scope hint and is
+ * not part of the check, because the inspector does not always pass it.
+ *
  * Public build pages read element data through `getPublicViewerBundle` /
- * `listBuildVisualNodes`, not through this query, so owner-only is the right rule.
+ * `listBuildVisualNodes`, not through this query, so a public build deliberately
+ * does not grant access here.
  */
 export const get = query({
   args: { id: v.id("cosplayNodes"), buildId: v.optional(v.id("builds")) },
@@ -389,7 +396,8 @@ export const get = query({
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return null;
     const node = await ctx.db.get(args.id);
-    if (!node || node.userId !== actorId) return null;
+    if (!node) return null;
+    if (!(await canReadElementData(ctx, node, actorId))) return null;
 
     const [summary, childLinks, parentLinks] = await Promise.all([
       deriveNodeSummary(ctx, args.id, args.buildId),
@@ -432,14 +440,15 @@ export const get = query({
   },
 });
 
-/** Children of an element. Owner-only, for the same reason as `get`. */
+/** Children of an element. Same rule as `get`. */
 export const listChildren = query({
   args: { parentNodeId: v.id("cosplayNodes"), buildId: v.optional(v.id("builds")) },
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
     const parent = await ctx.db.get(args.parentNodeId);
-    if (!parent || parent.userId !== actorId) return [];
+    if (!parent) return [];
+    if (!(await canReadElementData(ctx, parent, actorId))) return [];
     const links = await getChildLinks(ctx, args.parentNodeId);
     return (
       await Promise.all(

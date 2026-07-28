@@ -57,9 +57,14 @@ export const getByUsername = query({
 });
 
 /**
- * Authentication required: an anonymous caller could otherwise enumerate which
- * usernames exist, including those of private profiles. `currentExternalId` is
- * retained for deployed clients but ignored — the actor comes from the session.
+ * A session is required to learn whether a username is taken: an anonymous caller
+ * could otherwise enumerate which usernames exist, including those of private
+ * profiles. Like every other query it answers rather than throwing — a signed-out
+ * caller, or one inside the window before the Convex token has propagated, gets the
+ * same "not available" answer whether or not the name actually exists, so nothing is
+ * disclosed and the settings screen shows a state instead of a render error.
+ * `currentExternalId` is retained for deployed clients but ignored — the actor comes
+ * from the session.
  */
 export const checkUsernameAvailability = query({
   args: {
@@ -67,7 +72,7 @@ export const checkUsernameAvailability = query({
     currentExternalId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const actorId = await requireIdentity(ctx);
+    const actorId = await optionalIdentity(ctx);
     const raw = args.username.trim();
     if (!raw) {
       return {
@@ -87,6 +92,15 @@ export const checkUsernameAvailability = query({
         valid: false,
         available: false,
         reason: error instanceof Error ? error.message : "invalid",
+      };
+    }
+
+    if (!actorId) {
+      return {
+        normalized,
+        valid: true,
+        available: false,
+        reason: "unauthenticated",
       };
     }
 

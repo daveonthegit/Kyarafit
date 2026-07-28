@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
-import { canUserEditBuild } from "./lib/buildAccess";
+import { canUserEditBuild, isBuildGroupMember } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
 import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
@@ -362,9 +362,14 @@ export const getFocusedOrMostRecentForUser = query({
 
 /**
  * One build. Takes no actor argument, so the visibility rule is written out: owner,
- * collaborator, `public`, or `unlisted` with a matching share token. Previously
- * returned any build document to anyone. The optional `shareToken` is additive —
- * deployed clients that omit it keep the owner/collaborator path.
+ * collaborator, member of the group the build was shared into, `public`, or
+ * `unlisted` with a matching share token. Previously returned any build document to
+ * anyone. The optional `shareToken` is additive — deployed clients that omit it keep
+ * the owner/collaborator path.
+ *
+ * Group membership is checked here rather than inside `canReadBuildWorkflowData`
+ * because it exists for the group build cards: `listByGroup` lists a group's builds
+ * to its members, so the `/build-detail/<id>` link on each card has to open.
  */
 export const get = query({
   args: { id: v.id("builds"), shareToken: v.optional(v.string()) },
@@ -372,10 +377,12 @@ export const get = query({
     const build = await ctx.db.get(args.id);
     if (!build) return null;
     const viewerUserId = await optionalIdentity(ctx);
-    const allowed = await canReadBuildWorkflowData(ctx, build, {
-      viewerUserId,
-      shareToken: args.shareToken ?? null,
-    });
+    const allowed =
+      (await canReadBuildWorkflowData(ctx, build, {
+        viewerUserId,
+        shareToken: args.shareToken ?? null,
+      })) ||
+      (viewerUserId != null && (await isBuildGroupMember(ctx, build, viewerUserId)));
     if (!allowed) return null;
     const isOwner = build.userId === viewerUserId;
     const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
