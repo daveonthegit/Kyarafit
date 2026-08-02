@@ -33,10 +33,10 @@ The mobile app should call `Purchases.logIn(appUserId)` with the same id Convex 
 
 ### Convex environment variables
 
-| Variable                           | Purpose                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------ |
-| `REVENUECAT_SECRET_API_KEY`        | Secret API key; used to call `GET /v1/subscribers/{app_user_id}` after each webhook. |
-| `REVENUECAT_WEBHOOK_AUTHORIZATION` | Optional. If set, `Authorization` must be `Bearer <value>` or exactly `<value>`.     |
+| Variable                           | Purpose                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REVENUECAT_SECRET_API_KEY`        | Secret API key; used to call `GET /v1/subscribers/{app_user_id}` after each webhook.                                                        |
+| `REVENUECAT_WEBHOOK_AUTHORIZATION` | **Required.** `Authorization` must be `Bearer <value>` or exactly `<value>`; the webhook fails closed with 401 when this variable is unset. |
 
 If `REVENUECAT_SECRET_API_KEY` is missing, the handler returns 200 and skips tier sync (logged).
 

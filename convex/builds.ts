@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, getStorageSizeMb, subtractUsageForStorageId } from "./storageUsage";
-import { canUserEditBuild } from "./lib/buildAccess";
+import { canUserEditBuild, isBuildGroupMember, isGroupMember } from "./lib/buildAccess";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
 import { entityKey, getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
 import { workflowTasksForBuildOwner } from "./buildTasks";
@@ -302,15 +303,18 @@ async function getBuildWorkflowMetrics(
   };
 }
 
+/** The acting user's own builds. `userId` is retained for deployed clients but ignored. */
 export const list = query({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     status: v.optional(v.string()),
     search: v.optional(v.string()),
     sortBy: sortByValidator,
     order: orderValidator,
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const order = args.order ?? "asc";
     const sortBy = args.sortBy ?? "name";
 
@@ -322,13 +326,11 @@ export const list = query({
     const builds = await (statusFilter
       ? ctx.db
           .query("builds")
-          .withIndex("by_userId_status", (q) =>
-            q.eq("userId", args.userId).eq("status", statusFilter)
-          )
+          .withIndex("by_userId_status", (q) => q.eq("userId", actorId).eq("status", statusFilter))
           .collect()
       : ctx.db
           .query("builds")
-          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .withIndex("by_userId", (q) => q.eq("userId", actorId))
           .collect());
 
     const withCounts = await Promise.all(
@@ -383,11 +385,13 @@ export const list = query({
 
 /** Returns the user's most recently created build (for home hero). Includes task counts. */
 export const getMostRecentForUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const builds = await ctx.db
       .query("builds")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     if (builds.length === 0) return null;
     const sorted = [...builds].sort((a, b) => b._creationTime - a._creationTime);
@@ -407,23 +411,25 @@ export const getMostRecentForUser = query({
  * if set and valid, otherwise the most recently created build. Includes task counts.
  */
 export const getFocusedOrMostRecentForUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.userId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
 
     let build: Doc<"builds"> | null = null;
     if (user?.focusedBuildId) {
       const candidate = await ctx.db.get(user.focusedBuildId);
-      if (candidate && "name" in candidate && candidate.userId === args.userId)
+      if (candidate && "name" in candidate && candidate.userId === actorId)
         build = candidate as Doc<"builds">;
     }
     if (!build) {
       const builds = await ctx.db
         .query("builds")
-        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .withIndex("by_userId", (q) => q.eq("userId", actorId))
         .collect();
       if (builds.length === 0) return null;
       const sorted = [...builds].sort((a, b) => b._creationTime - a._creationTime);
@@ -440,15 +446,40 @@ export const getFocusedOrMostRecentForUser = query({
   },
 });
 
+/**
+ * One build. Takes no actor argument, so the visibility rule is written out: owner,
+ * collaborator, member of the group the build was shared into, `public`, or
+ * `unlisted` with a matching share token. Previously returned any build document to
+ * anyone. The optional `shareToken` is additive — deployed clients that omit it keep
+ * the owner/collaborator path.
+ *
+ * Group membership is checked here rather than inside `canReadBuildWorkflowData`
+ * because it exists for the group build cards: `listByGroup` lists a group's builds
+ * to its members, so the `/build-detail/<id>` link on each card has to open.
+ */
 export const get = query({
-  args: { id: v.id("builds") },
+  args: { id: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.id);
     if (!build) return null;
+    const viewerUserId = await optionalIdentity(ctx);
+    const allowed =
+      (await canReadBuildWorkflowData(ctx, build, {
+        viewerUserId,
+        shareToken: args.shareToken ?? null,
+      })) ||
+      (viewerUserId != null && (await isBuildGroupMember(ctx, build, viewerUserId)));
+    if (!allowed) return null;
+    const isOwner = build.userId === viewerUserId;
     const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
       await getBuildWorkflowMetrics(ctx, build);
     return {
       ...build,
+      // The share token and the offline-sync metadata belong to the owner. Blanking
+      // them rather than deleting the keys keeps one return shape for callers.
+      shareToken: isOwner ? build.shareToken : undefined,
+      clientId: isOwner ? build.clientId : undefined,
+      version: isOwner ? build.version : undefined,
       tasksTotal,
       tasksChecked,
       progress,
@@ -605,7 +636,12 @@ export const getPublicViewerBundle = query({
   },
 });
 
-/** List public builds for a user (for public profile page). */
+/**
+ * Public builds for a user, for the public profile page. Public by design and
+ * intentionally unauthenticated: `userId` names the *profile owner*, not the
+ * actor, so it stays required and must not become identity-derived. Only
+ * `visibility === "public"` rows are returned, with share/sync secrets stripped.
+ */
 export const listPublicByUser = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -626,9 +662,17 @@ export const listPublicByUser = query({
 });
 
 /** List builds in a group (for group page). Returns builds with task counts. */
+/**
+ * Builds in a group. Group membership required: this returned every build in any
+ * group, private ones included, as raw documents. Share tokens are stripped from
+ * builds the caller does not own.
+ */
 export const listByGroup = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    if (!(await isGroupMember(ctx, args.groupId, actorId))) return [];
     const builds = await ctx.db
       .query("builds")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
@@ -636,7 +680,7 @@ export const listByGroup = query({
     return await Promise.all(
       builds.map(async (b) => {
         return {
-          ...b,
+          ...(b.userId === actorId ? b : stripBuildSyncSecrets(b)),
           ...(await getBuildWorkflowMetrics(ctx, b)),
         };
       })
@@ -674,11 +718,13 @@ export const listDiscover = query({
 
 /** Feed: public builds from people the current user follows. */
 export const listFeedFromFollowing = query({
-  args: { userId: v.string(), limit: v.optional(v.number()) },
+  args: { userId: v.optional(v.string()), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const following = await ctx.db
       .query("follows")
-      .withIndex("by_follower", (q) => q.eq("followerId", args.userId))
+      .withIndex("by_follower", (q) => q.eq("followerId", actorId))
       .collect();
     const followingIds = Array.from(new Set(following.map((f) => f.followingId)));
     if (followingIds.length === 0) return [];
@@ -711,11 +757,13 @@ export const listFeedFromFollowing = query({
 
 /** List builds shared with the current user (as collaborator). For "Shared with me" on Builds page. */
 export const listSharedWithUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const rows = await ctx.db
       .query("buildCollaborators")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     const buildIds = rows.map((r) => r.buildId);
     const withDetails = await Promise.all(
@@ -724,7 +772,7 @@ export const listSharedWithUser = query({
         if (!build) return null;
         const row = rows.find((r) => r.buildId === buildId);
         return {
-          ...build,
+          ...stripBuildSyncSecrets(build),
           ...(await getBuildWorkflowMetrics(ctx, build)),
           myRole: row?.role ?? null,
         };
@@ -736,7 +784,7 @@ export const listSharedWithUser = query({
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.string(),
     character: v.optional(v.string()),
     status: v.string(),
@@ -749,8 +797,9 @@ export const create = mutation({
     /** Offline replay dedupe key (optional); see convex/lib/idempotency.ts. */
     idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) =>
-    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+  handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
+    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
       const visibility = VALID_VISIBILITIES.includes(
         args.visibility as (typeof VALID_VISIBILITIES)[number]
       )
@@ -759,10 +808,10 @@ export const create = mutation({
       // REQ-017: new builds can't carry a groupId yet, so the REQ-021 exception can't apply here —
       // publishing publicly/unlisted on create always requires a paid tier.
       if (isPublicVisibility(visibility)) {
-        await requireFeature(ctx, args.userId, "public_share");
+        await requireFeature(ctx, actorId, "public_share");
       }
       if (args.imageStorageId) {
-        await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+        await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
       }
       const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
       const character = sanitizeOptional(args.character, MAX_LENGTH.character, "Character");
@@ -777,7 +826,7 @@ export const create = mutation({
       const id = await ctx.db.insert(
         "builds",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           name,
           character,
           status,
@@ -791,13 +840,14 @@ export const create = mutation({
         })
       );
       return await ctx.db.get(id);
-    }),
+    });
+  },
 });
 
 export const update = mutation({
   args: {
     id: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.optional(v.string()),
     character: v.optional(v.string()),
     status: v.optional(v.string()),
@@ -824,27 +874,29 @@ export const update = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, idempotencyKey, ...fields } = args;
+    const actorId = await requireIdentity(ctx);
+    const { id, userId: _userId, idempotencyKey, ...fields } = args;
     const replay = await idempotentReplay(ctx, idempotencyKey);
     if (replay.hit) return replay.result as Doc<"builds"> | null;
     const build = await ctx.db.get(id);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, id, userId);
+    const canEdit = await canUserEditBuild(ctx, id, actorId);
     if (!canEdit) throw new Error("Not authorized to update this build");
     // REQ-017/REQ-021: gate transitions to public/unlisted against the build's *effective* group
     // link (an explicit groupId in this update wins, otherwise the build's current groupId).
     if (isPublicVisibility(fields.visibility)) {
       const effectiveGroupId =
         fields.groupId !== undefined ? (fields.groupId ?? undefined) : build.groupId;
-      await enforcePublicShareForBuild(ctx, userId, effectiveGroupId, build);
+      await enforcePublicShareForBuild(ctx, actorId, effectiveGroupId, build);
     }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
+    // Storage accounting follows the build's owner, not whoever is editing.
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
-      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+      await subtractUsageForStorageId(ctx, build.userId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, build.userId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
@@ -901,7 +953,7 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, withUpdateMeta(build, patch));
     }
-    return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
+    return idempotentRecord(ctx, idempotencyKey, actorId, await ctx.db.get(id));
   },
 });
 
@@ -909,24 +961,21 @@ export const update = mutation({
 export const setGroupId = mutation({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     groupId: v.optional(v.union(v.id("groups"), v.null())),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
     const newGroupId =
       args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
     if (newGroupId) {
-      const membership = await ctx.db
-        .query("groupMembers")
-        .withIndex("by_groupId_userId", (q) =>
-          q.eq("groupId", newGroupId).eq("userId", args.userId)
-        )
-        .unique();
-      if (!membership) throw new Error("You must be a member of the group to add this build");
+      if (!(await isGroupMember(ctx, newGroupId, actorId))) {
+        throw new Error("You must be a member of the group to add this build");
+      }
     }
     await ctx.db.patch(args.buildId, withUpdateMeta(build, { groupId: newGroupId }));
     return await ctx.db.get(args.buildId);
@@ -934,26 +983,27 @@ export const setGroupId = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("builds"), userId: v.string() },
+  args: { id: v.id("builds"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.id);
-    if (!build || build.userId !== args.userId) {
+    if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await subtractUsageForStorageId(ctx, args.userId, build.imageStorageId);
+    await subtractUsageForStorageId(ctx, actorId, build.imageStorageId);
     const refImages = await ctx.db
       .query("buildReferenceImages")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
     for (const r of refImages) {
-      await subtractUsageForStorageId(ctx, args.userId, r.imageStorageId);
+      await subtractUsageForStorageId(ctx, actorId, r.imageStorageId);
     }
     const processPics = await ctx.db
       .query("buildProcessPictures")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
       .collect();
     for (const p of processPics) {
-      await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
+      await subtractUsageForStorageId(ctx, actorId, p.imageStorageId);
     }
     // Cascade: delete legacy tasks, workflow attachments/items, root links, and build-node states.
     const tasks = await ctx.db
@@ -964,7 +1014,7 @@ export const remove = mutation({
     const workflowAttachments = (
       await ctx.db
         .query("workflowAttachments")
-        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .withIndex("by_userId", (q) => q.eq("userId", actorId))
         .collect()
     ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === args.id);
     for (const attachment of workflowAttachments) {
@@ -995,19 +1045,20 @@ export const remove = mutation({
 export const removeMany = mutation({
   args: {
     ids: v.array(v.id("builds")),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     for (const id of args.ids) {
       const build = await ctx.db.get(id);
-      if (!build || build.userId !== args.userId) continue;
-      await subtractUsageForStorageId(ctx, args.userId, build.imageStorageId);
+      if (!build || build.userId !== actorId) continue;
+      await subtractUsageForStorageId(ctx, actorId, build.imageStorageId);
       const refImages = await ctx.db
         .query("buildReferenceImages")
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
       for (const r of refImages) {
-        await subtractUsageForStorageId(ctx, args.userId, r.imageStorageId);
+        await subtractUsageForStorageId(ctx, actorId, r.imageStorageId);
         await ctx.db.delete(r._id);
       }
       const processPics = await ctx.db
@@ -1015,7 +1066,7 @@ export const removeMany = mutation({
         .withIndex("by_buildId", (q) => q.eq("buildId", id))
         .collect();
       for (const p of processPics) {
-        await subtractUsageForStorageId(ctx, args.userId, p.imageStorageId);
+        await subtractUsageForStorageId(ctx, actorId, p.imageStorageId);
         await ctx.db.delete(p._id);
       }
       const tasks = await ctx.db
@@ -1026,7 +1077,7 @@ export const removeMany = mutation({
       const workflowAttachments = (
         await ctx.db
           .query("workflowAttachments")
-          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .withIndex("by_userId", (q) => q.eq("userId", actorId))
           .collect()
       ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === id);
       for (const attachment of workflowAttachments) {
@@ -1053,11 +1104,12 @@ export const removeMany = mutation({
 export const updateStatusMany = mutation({
   args: {
     ids: v.array(v.id("builds")),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     status: v.string(),
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return;
     if (!VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])) {
@@ -1065,10 +1117,10 @@ export const updateStatusMany = mutation({
     }
     for (const id of args.ids) {
       const build = await ctx.db.get(id);
-      if (!build || build.userId !== args.userId) continue;
+      if (!build || build.userId !== actorId) continue;
       await ctx.db.patch(id, withUpdateMeta(build, { status: args.status }));
     }
-    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
   },
 });
 
@@ -1077,8 +1129,7 @@ export const getNodes = query({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return [];
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerUserId = identity?.subject ?? undefined;
+    const viewerUserId = await optionalIdentity(ctx);
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
@@ -1088,9 +1139,24 @@ export const getNodes = query({
   },
 });
 
+/**
+ * Legacy alias for `getNodes`. It took only a build id and had no check at all,
+ * making it a straight bypass of its own sibling; it now applies the same rule.
+ * `shareToken` is additive for deployed clients that never sent one.
+ */
 export const getItems = query({
-  args: { buildId: v.id("builds") },
-  handler: async (ctx, args) => await getBuildRootNodeIds(ctx, args.buildId),
+  args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return [];
+    const viewerUserId = await optionalIdentity(ctx);
+    const allowed = await canReadBuildWorkflowData(ctx, build, {
+      viewerUserId,
+      shareToken: args.shareToken ?? null,
+    });
+    if (!allowed) return [];
+    return await getBuildRootNodeIds(ctx, args.buildId);
+  },
 });
 
 async function computeBuildSummaryPayload(
@@ -1152,22 +1218,26 @@ async function computeBuildSummaryPayload(
 export const getSummary = query({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) return null;
+    if (!build || build.userId !== actorId) return null;
     return await computeBuildSummaryPayload(ctx, build);
   },
 });
 
 /** Returns builds with their tasks and linked cosplay-node IDs — used by mobile sync. */
 export const listWithDetails = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const builds = await ctx.db
       .query("builds")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
 
     return await Promise.all(
@@ -1283,13 +1353,14 @@ async function removeBuildRootLink(
 
 async function listBuildsUsingNode(
   ctx: import("./_generated/server").QueryCtx,
-  cosplayNodeId: Id<"cosplayNodes">
+  cosplayNodeId: Id<"cosplayNodes">,
+  ownerId: string
 ) {
   // Step 2c: a node belongs to a single build via its own `buildId`.
   const node = await ctx.db.get(cosplayNodeId);
   if (!node || node.buildId === undefined) return [];
   const build = await ctx.db.get(node.buildId);
-  return build && "name" in build
+  return build && "name" in build && build.userId === ownerId
     ? [
         {
           _id: build._id,
@@ -1304,36 +1375,38 @@ async function listBuildsUsingNode(
 
 export const linkNodes = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     cosplayNodeIds: v.array(v.id("cosplayNodes")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
 
     const validIds: Id<"cosplayNodes">[] = [];
     for (const cosplayNodeId of Array.from(new Set(args.cosplayNodeIds))) {
       const node = await ctx.db.get(cosplayNodeId);
-      if (node && node.userId === args.userId) validIds.push(cosplayNodeId);
+      if (node && node.userId === actorId) validIds.push(cosplayNodeId);
     }
-    await replaceBuildRootLinks(ctx, args.userId, args.buildId, validIds);
+    await replaceBuildRootLinks(ctx, actorId, args.buildId, validIds);
   },
 });
 
 /** Re-order root-linked cosplay nodes for a build (outline tab drag). */
 export const reorderRootLinks = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     orderedCosplayNodeIds: v.array(v.id("cosplayNodes")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
 
     const roots = await getBuildRootNodes(ctx, args.buildId);
@@ -1372,16 +1445,17 @@ export const reorderRootLinks = mutation({
 /** Clone an outfit owned by the caller: new private build + linked nodes, per-build state, galleries, and planner tasks. */
 export const duplicate = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     sourceBuildId: v.id("builds"),
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return replay.result as Id<"builds">;
     const source = await ctx.db.get(args.sourceBuildId);
     if (!source) throw new Error("Build not found");
-    if (source.userId !== args.userId) {
+    if (source.userId !== actorId) {
       throw new Error("Only the outfit owner can duplicate it");
     }
 
@@ -1390,7 +1464,7 @@ export const duplicate = mutation({
     const newBuildId = await ctx.db.insert(
       "builds",
       withCreateMeta({
-        userId: args.userId,
+        userId: actorId,
         name: dupName,
         character: source.character,
         status: "idea",
@@ -1419,7 +1493,7 @@ export const duplicate = mutation({
       const newId = await ctx.db.insert(
         "cosplayNodes",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           nodeType: n.nodeType,
           name: n.name,
           category: n.category,
@@ -1463,7 +1537,7 @@ export const duplicate = mutation({
       await ctx.db.insert(
         "buildReferenceImages",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           buildId: newBuildId,
           imageStorageId: r.imageStorageId,
           imageUrl: r.imageUrl,
@@ -1480,7 +1554,7 @@ export const duplicate = mutation({
       await ctx.db.insert(
         "buildProcessPictures",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           buildId: newBuildId,
           imageStorageId: p.imageStorageId,
           imageUrl: p.imageUrl,
@@ -1491,7 +1565,7 @@ export const duplicate = mutation({
 
     const scoped = await getWorkflowItemsByAttachmentKey(
       ctx,
-      args.userId,
+      actorId,
       [entityKey("build", args.sourceBuildId)],
       args.sourceBuildId
     );
@@ -1512,7 +1586,7 @@ export const duplicate = mutation({
       const newItemId = await ctx.db.insert(
         "workflowItems",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           title: item.title,
           notes: item.notes,
           kind: "task",
@@ -1540,7 +1614,7 @@ export const duplicate = mutation({
       await ctx.db.insert(
         "workflowAttachments",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           workflowItemId: newItemId,
           entityType: "build",
           entityId: newBuildId as string,
@@ -1556,7 +1630,7 @@ export const duplicate = mutation({
         await ctx.db.insert(
           "workflowAttachments",
           withCreateMeta({
-            userId: args.userId,
+            userId: actorId,
             workflowItemId: newItemId,
             entityType: "cosplayNode",
             entityId: mappedNodeId as string,
@@ -1568,122 +1642,145 @@ export const duplicate = mutation({
       }
     }
 
-    return idempotentRecord(ctx, args.idempotencyKey, args.userId, newBuildId);
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, newBuildId);
   },
 });
 
 export const linkItems = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
-    const validIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
-    await replaceBuildRootLinks(ctx, args.userId, args.buildId, validIds);
+    const validIds = await resolveLegacyNodeIds(ctx, actorId, args.closetItemIds);
+    await replaceBuildRootLinks(ctx, actorId, args.buildId, validIds);
   },
 });
 
 export const addNodesToBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     cosplayNodeIds: v.array(v.id("cosplayNodes")),
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return;
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
 
-    await addBuildRootLinks(ctx, args.userId, args.buildId, args.cosplayNodeIds);
-    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
+    await addBuildRootLinks(ctx, actorId, args.buildId, args.cosplayNodeIds);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
   },
 });
 
 export const addItemsToBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
-    const resolvedIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
-    await addBuildRootLinks(ctx, args.userId, args.buildId, resolvedIds);
+    const resolvedIds = await resolveLegacyNodeIds(ctx, actorId, args.closetItemIds);
+    await addBuildRootLinks(ctx, actorId, args.buildId, resolvedIds);
   },
 });
 
 export const removeNodeFromBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     cosplayNodeId: v.id("cosplayNodes"),
   },
-  handler: async (ctx, args) =>
-    await removeBuildRootLink(ctx, args.userId, args.buildId, args.cosplayNodeId),
+  handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
+    await removeBuildRootLink(ctx, actorId, args.buildId, args.cosplayNodeId);
+  },
 });
 
 export const removeItemFromBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     closetItemId: legacyNodeIdValidator,
   },
   handler: async (ctx, args) => {
-    const [resolvedId] = await resolveLegacyNodeIds(ctx, args.userId, [args.closetItemId]);
+    const actorId = await requireIdentity(ctx);
+    const [resolvedId] = await resolveLegacyNodeIds(ctx, actorId, [args.closetItemId]);
     if (!resolvedId) return;
-    await removeBuildRootLink(ctx, args.userId, args.buildId, resolvedId);
+    await removeBuildRootLink(ctx, actorId, args.buildId, resolvedId);
   },
 });
 
 export const removeNodesFromBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     cosplayNodeIds: v.array(v.id("cosplayNodes")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     for (const cosplayNodeId of args.cosplayNodeIds) {
-      await removeBuildRootLink(ctx, args.userId, args.buildId, cosplayNodeId);
+      await removeBuildRootLink(ctx, actorId, args.buildId, cosplayNodeId);
     }
   },
 });
 
 export const removeItemsFromBuild = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     closetItemIds: v.array(legacyNodeIdValidator),
   },
   handler: async (ctx, args) => {
-    const resolvedIds = await resolveLegacyNodeIds(ctx, args.userId, args.closetItemIds);
+    const actorId = await requireIdentity(ctx);
+    const resolvedIds = await resolveLegacyNodeIds(ctx, actorId, args.closetItemIds);
     for (const cosplayNodeId of resolvedIds) {
-      await removeBuildRootLink(ctx, args.userId, args.buildId, cosplayNodeId);
+      await removeBuildRootLink(ctx, actorId, args.buildId, cosplayNodeId);
     }
   },
 });
 
+/**
+ * Reverse lookup: which of the caller's builds use this element. Takes no actor
+ * argument, so the check is written out — the element must belong to the caller.
+ * It used to expose build names, characters and image ids for private builds of
+ * any user.
+ */
 export const getBuildsUsingNode = query({
   args: { cosplayNodeId: v.id("cosplayNodes") },
-  handler: async (ctx, args) => await listBuildsUsingNode(ctx, args.cosplayNodeId),
+  handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const node = await ctx.db.get(args.cosplayNodeId);
+    if (!node || node.userId !== actorId) return [];
+    return await listBuildsUsingNode(ctx, args.cosplayNodeId, actorId);
+  },
 });
 
+/** Legacy id path for `getBuildsUsingNode`, with the same rule. */
 export const getBuildsUsingClosetItem = query({
   args: { closetItemId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
-    const [resolvedId] = await resolveLegacyNodeIds(ctx, undefined, [args.closetItemId]);
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const [resolvedId] = await resolveLegacyNodeIds(ctx, actorId, [args.closetItemId]);
     if (!resolvedId) return [];
-    return await listBuildsUsingNode(ctx, resolvedId);
+    return await listBuildsUsingNode(ctx, resolvedId, actorId);
   },
 });

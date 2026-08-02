@@ -108,7 +108,9 @@ describe("owner effective tier/storage via getMe", () => {
   it("should_surface_owner_as_top_tier_with_unlimited_storage", async () => {
     const t = convexTest(schema, modules);
     await seedUser(t, "owner1", "FREE", "owner");
-    const me = await t.query(api.users.getMe, { externalId: "owner1" });
+    const me = await t.withIdentity({ subject: "owner1" }).query(api.users.getMe, {
+      externalId: "owner1",
+    });
     expect(me?.tier).toBe("SUPPORTER");
     expect(me?.role).toBe("owner");
     expect(me?.storageLimitMb).toBeGreaterThan(2048);
@@ -118,12 +120,13 @@ describe("owner effective tier/storage via getMe", () => {
     const t = convexTest(schema, modules);
     await seedUser(t, "owner1", "FREE", "owner");
     await seedUser(t, "u2", "FREE");
-    const before = await t.query(api.users.getMe, { externalId: "u2" });
+    const asU2 = t.withIdentity({ subject: "u2" });
+    const before = await asU2.query(api.users.getMe, { externalId: "u2" });
     expect(before?.tier).toBe("FREE");
     await t
       .withIdentity({ subject: "owner1" })
       .mutation(api.users.grantRole, { targetExternalId: "u2", role: "owner" });
-    const after = await t.query(api.users.getMe, { externalId: "u2" });
+    const after = await asU2.query(api.users.getMe, { externalId: "u2" });
     expect(after?.tier).toBe("SUPPORTER");
     expect(after?.storageLimitMb).toBeGreaterThan(2048);
     expect(after?.role).toBe("owner");
@@ -169,12 +172,13 @@ describe("owner treated as paid in the publish gate", () => {
   it("should_let_an_owner_publish_a_progress_update_to_the_feed", async () => {
     const t = convexTest(schema, modules);
     await seedUser(t, "owner1", "FREE", "owner");
-    const build = await t.mutation(api.builds.create, {
+    const asOwner = t.withIdentity({ subject: "owner1" });
+    const build = await asOwner.mutation(api.builds.create, {
       userId: "owner1",
       name: "B",
       status: "idea",
     });
-    const update = await t.mutation(api.buildProgressUpdates.add, {
+    const update = await asOwner.mutation(api.buildProgressUpdates.add, {
       buildId: build!._id,
       userId: "owner1",
       note: "shipping it",
@@ -186,13 +190,14 @@ describe("owner treated as paid in the publish gate", () => {
   it("should_still_block_a_free_user_from_publishing", async () => {
     const t = convexTest(schema, modules);
     await seedUser(t, "free1", "FREE");
-    const build = await t.mutation(api.builds.create, {
+    const asFree = t.withIdentity({ subject: "free1" });
+    const build = await asFree.mutation(api.builds.create, {
       userId: "free1",
       name: "B",
       status: "idea",
     });
     await expect(
-      t.mutation(api.buildProgressUpdates.add, {
+      asFree.mutation(api.buildProgressUpdates.add, {
         buildId: build!._id,
         userId: "free1",
         note: "nope",

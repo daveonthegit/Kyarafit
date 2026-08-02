@@ -69,8 +69,8 @@ Web: **Next.js 16 (App Router)** + Convex. Mobile: **Expo (React Native)** + Con
 
 1. Add `web/src/app/my-feature/page.tsx` with `"use client"`.
 2. Import useQuery/useMutation from convex/react and api from convex/_generated/api.
-3. Get userId from useCurrentUser(); if required and no user, redirect or show AuthGate.
-4. useQuery(api.myResource.list, { userId }) and useMutation(api.myResource.create).
+3. If the page requires a session, redirect or show AuthGate; the backend derives the acting user from the session itself, so don't pass a userId as an argument (see [docs/backend-authorization.md](../docs/backend-authorization.md)).
+4. useQuery(api.myResource.list, {}) and useMutation(api.myResource.create).
 5. Render form (controlled state) and list; onSubmit parse, then mutation(args); show loading/error.
 6. Use Tailwind and design-system components. Add link from nav or existing page.
 

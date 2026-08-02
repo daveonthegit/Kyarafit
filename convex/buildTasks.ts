@@ -9,6 +9,7 @@ import {
   getWorkflowItemsForUser,
 } from "./lib/workflowDomain";
 import { sanitizeAndLimit, validateDateString, MAX_LENGTH } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 
@@ -67,8 +68,7 @@ export const listByBuild = query({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return [];
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerUserId = identity?.subject ?? undefined;
+    const viewerUserId = await optionalIdentity(ctx);
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
@@ -78,13 +78,19 @@ export const listByBuild = query({
   },
 });
 
+/**
+ * Tasks attached to an element. Takes no actor argument, so the owner check is
+ * written out; it previously returned any element's task list to anyone.
+ */
 export const listByCosplayNode = query({
   args: { cosplayNodeId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const cosplayNodeId = await resolveCosplayNodeId(ctx, args.cosplayNodeId);
     if (!cosplayNodeId) return [];
     const node = await ctx.db.get(cosplayNodeId);
-    if (!node) return [];
+    if (!node || node.userId !== actorId) return [];
     const scoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
       entityKey("cosplayNode", cosplayNodeId),
     ]);
@@ -96,13 +102,16 @@ export const listByCosplayNode = query({
   },
 });
 
+/** Legacy id path for `listByCosplayNode`, with the same owner-only rule. */
 export const listByClosetItem = query({
   args: { closetItemId: legacyNodeIdValidator },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const cosplayNodeId = await resolveCosplayNodeId(ctx, args.closetItemId);
     if (!cosplayNodeId) return [];
     const node = await ctx.db.get(cosplayNodeId);
-    if (!node) return [];
+    if (!node || node.userId !== actorId) return [];
     const scoped = await getWorkflowItemsByAttachmentKey(ctx, node.userId, [
       entityKey("cosplayNode", cosplayNodeId),
     ]);
@@ -117,8 +126,7 @@ export const listByClosetItem = query({
 export const listByBuilds = query({
   args: { buildIds: v.array(v.id("builds")) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerUserId = identity?.subject ?? undefined;
+    const viewerUserId = await optionalIdentity(ctx);
     const results = [];
     for (const buildId of args.buildIds) {
       const build = await ctx.db.get(buildId);
@@ -154,19 +162,16 @@ export const listByBuilds = query({
 });
 
 export const listForPlanner = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.subject !== args.userId) {
-      throw new Error("Unauthorized");
-    }
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await requireIdentity(ctx);
 
-    const items = await getWorkflowItemsForUser(ctx, args.userId);
+    const items = await getWorkflowItemsForUser(ctx, actorId);
     const tasks = items.filter((item) => item.kind === "task");
     return await Promise.all(
       tasks.map(async (item) => {
-        const legacy = await mapLegacyTaskShape(ctx, item, args.userId);
-        const conventionAttachment = (await getWorkflowAttachmentsForUser(ctx, args.userId)).find(
+        const legacy = await mapLegacyTaskShape(ctx, item, actorId);
+        const conventionAttachment = (await getWorkflowAttachmentsForUser(ctx, actorId)).find(
           (attachment) =>
             attachment.workflowItemId === item._id && attachment.entityType === "convention"
         );
@@ -190,7 +195,7 @@ export const listForPlanner = query({
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
     label: v.string(),
     cosplayNodeId: v.optional(legacyNodeIdValidator),
@@ -199,6 +204,7 @@ export const create = mutation({
     dueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const dueDate = args.dueDate ? validateDateString(args.dueDate, "Due date") : undefined;
     const resolvedNodeId = await resolveCosplayNodeId(
@@ -209,12 +215,12 @@ export const create = mutation({
     if (args.buildId) {
       const build = await ctx.db.get(args.buildId);
       if (!build) throw new Error("Build not found");
-      const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+      const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
       if (!canEdit) throw new Error("Not authorized");
       const id = await ctx.db.insert(
         "workflowItems",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           title: label,
           kind: "task",
           category: "craft",
@@ -230,7 +236,7 @@ export const create = mutation({
       await ctx.db.insert(
         "workflowAttachments",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           workflowItemId: id,
           entityType: "build",
           entityId: args.buildId,
@@ -242,7 +248,7 @@ export const create = mutation({
         await ctx.db.insert(
           "workflowAttachments",
           withCreateMeta({
-            userId: args.userId,
+            userId: actorId,
             workflowItemId: id,
             entityType: "cosplayNode",
             entityId: resolvedNodeId,
@@ -253,20 +259,20 @@ export const create = mutation({
         );
       }
       const created = await ctx.db.get(id);
-      return created ? await mapLegacyTaskShape(ctx, created, args.userId) : null;
+      return created ? await mapLegacyTaskShape(ctx, created, actorId) : null;
     }
 
     if (!resolvedNodeId) {
       throw new Error("Either buildId or cosplayNodeId is required");
     }
     const node = await ctx.db.get(resolvedNodeId);
-    if (!node || node.userId !== args.userId) {
+    if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const id = await ctx.db.insert(
       "workflowItems",
       withCreateMeta({
-        userId: args.userId,
+        userId: actorId,
         title: label,
         kind: "task",
         category: "craft",
@@ -282,7 +288,7 @@ export const create = mutation({
     await ctx.db.insert(
       "workflowAttachments",
       withCreateMeta({
-        userId: args.userId,
+        userId: actorId,
         workflowItemId: id,
         entityType: "cosplayNode",
         entityId: resolvedNodeId,
@@ -291,14 +297,14 @@ export const create = mutation({
       })
     );
     const created = await ctx.db.get(id);
-    return created ? await mapLegacyTaskShape(ctx, created, args.userId) : null;
+    return created ? await mapLegacyTaskShape(ctx, created, actorId) : null;
   },
 });
 
 export const update = mutation({
   args: {
     id: v.id("workflowItems"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     label: v.optional(v.string()),
     cosplayNodeId: v.optional(v.union(legacyNodeIdValidator, v.null())),
     closetItemId: v.optional(v.union(legacyNodeIdValidator, v.null())),
@@ -307,6 +313,7 @@ export const update = mutation({
     dueDate: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Task not found");
     const attachments = await ctx.db
@@ -314,12 +321,12 @@ export const update = mutation({
       .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", args.id))
       .collect();
     const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
-    if (item.userId !== args.userId) {
+    if (item.userId !== actorId) {
       if (!buildAttachment) throw new Error("Not authorized");
       const allowed = await canUserEditBuild(
         ctx,
         buildAttachment.entityId as Id<"builds">,
-        args.userId
+        actorId
       );
       if (!allowed) throw new Error("Not authorized");
     }
@@ -351,7 +358,7 @@ export const update = mutation({
         await ctx.db.insert(
           "workflowAttachments",
           withCreateMeta({
-            userId: args.userId,
+            userId: item.userId,
             workflowItemId: args.id,
             entityType: "cosplayNode",
             entityId: resolvedNodeId,
@@ -369,8 +376,9 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("workflowItems"), userId: v.string() },
+  args: { id: v.id("workflowItems"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Task not found");
     const attachments = await ctx.db
@@ -378,12 +386,12 @@ export const remove = mutation({
       .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", args.id))
       .collect();
     const buildAttachment = attachments.find((attachment) => attachment.entityType === "build");
-    if (item.userId !== args.userId) {
+    if (item.userId !== actorId) {
       if (!buildAttachment) throw new Error("Not authorized");
       const allowed = await canUserEditBuild(
         ctx,
         buildAttachment.entityId as Id<"builds">,
-        args.userId
+        actorId
       );
       if (!allowed) throw new Error("Not authorized");
     }

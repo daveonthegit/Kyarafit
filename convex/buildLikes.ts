@@ -1,55 +1,56 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
-/** Like a build. User must be able to see the build (public, unlisted with link, or shared). */
+/**
+ * Like a build as the acting user. The like must be attributable to the session,
+ * or likes can be forged as anyone. `userId` is retained for deployed clients but
+ * ignored.
+ */
 export const like = mutation({
-  args: { userId: v.string(), buildId: v.id("builds") },
+  args: { userId: v.optional(v.string()), buildId: v.id("builds") },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canSee =
-      build.visibility === "public" ||
-      build.visibility === "unlisted" ||
-      build.userId === args.userId;
+      build.visibility === "public" || build.visibility === "unlisted" || build.userId === actorId;
     if (!canSee) throw new Error("Cannot like this build");
     const existing = await ctx.db
       .query("buildLikes")
-      .withIndex("by_userId_buildId", (q) =>
-        q.eq("userId", args.userId).eq("buildId", args.buildId)
-      )
+      .withIndex("by_userId_buildId", (q) => q.eq("userId", actorId).eq("buildId", args.buildId))
       .unique();
     if (existing) return existing._id;
     return await ctx.db.insert("buildLikes", {
-      userId: args.userId,
+      userId: actorId,
       buildId: args.buildId,
     });
   },
 });
 
-/** Remove like. */
+/** Remove the acting user's own like. Had no authorization check at all. */
 export const unlike = mutation({
-  args: { userId: v.string(), buildId: v.id("builds") },
+  args: { userId: v.optional(v.string()), buildId: v.id("builds") },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const row = await ctx.db
       .query("buildLikes")
-      .withIndex("by_userId_buildId", (q) =>
-        q.eq("userId", args.userId).eq("buildId", args.buildId)
-      )
+      .withIndex("by_userId_buildId", (q) => q.eq("userId", actorId).eq("buildId", args.buildId))
       .unique();
     if (row) await ctx.db.delete(row._id);
   },
 });
 
-/** Whether the current user has liked the build. */
+/** Whether the acting user has liked the build. */
 export const isLikedBy = query({
-  args: { userId: v.string(), buildId: v.id("builds") },
+  args: { userId: v.optional(v.string()), buildId: v.id("builds") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return false;
     const row = await ctx.db
       .query("buildLikes")
-      .withIndex("by_userId_buildId", (q) =>
-        q.eq("userId", args.userId).eq("buildId", args.buildId)
-      )
+      .withIndex("by_userId_buildId", (q) => q.eq("userId", actorId).eq("buildId", args.buildId))
       .unique();
     return !!row;
   },

@@ -61,7 +61,8 @@ export default defineSchema({
     .index("by_username", ["username"])
     .index("by_role", ["role"])
     // Retention cron scans downgraded users by their downgrade timestamp (REQ-D96/D97).
-    .index("by_downgradedAt", ["downgradedAt"]),
+    .index("by_downgradedAt", ["downgradedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodes: defineTable({
     userId: v.string(),
@@ -102,7 +103,8 @@ export default defineSchema({
     .index("by_userId_clientId", ["userId", "clientId"])
     .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_buildId", ["buildId"])
-    .index("by_parentNodeId", ["parentNodeId"]),
+    .index("by_parentNodeId", ["parentNodeId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   // DEPRECATED tables — superseded by build-scoped cosplayNodes (Step 2c). No live code reads them;
   // their data is redundant with cosplayNodes.buildId/parentNodeId/node-fields. Kept in the schema
@@ -128,7 +130,8 @@ export default defineSchema({
     .index("by_userId_category", ["userId", "category"])
     .index("by_completionTaskId", ["completionTaskId"])
     .index("by_parentItemId", ["parentItemId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),
@@ -217,7 +220,8 @@ export default defineSchema({
     .index("by_groupId", ["groupId"])
     .index("by_visibility", ["visibility"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildTasks: defineTable({
     userId: v.string(),
@@ -361,7 +365,8 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   conventionDayPlans: defineTable({
     userId: v.string(),
@@ -412,7 +417,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildProcessPictures: defineTable({
     userId: v.string(),
@@ -425,7 +431,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   /**
    * Dated build progress-update timeline (DATA_AND_SYNC.md §3.3, REQ-049). `publishedToFeed` is the
@@ -456,7 +463,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_createdBy", ["createdBy"])
-    .index("by_visibility", ["visibility"]),
+    .index("by_visibility", ["visibility"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   groupMembers: defineTable({
     groupId: v.id("groups"),

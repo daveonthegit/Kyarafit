@@ -11,6 +11,7 @@ import {
   sanitizeOptional,
   validateDateString,
 } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 async function getPackingWorkflowStatus(
   ctx: QueryCtx | MutationCtx,
@@ -22,20 +23,36 @@ async function getPackingWorkflowStatus(
   return workflowItem.status === "done";
 }
 
+/**
+ * The acting user's conventions. These rows carry name, location and dates — where
+ * a named person will physically be, on which dates — so they are owner-only.
+ * `userId` is retained for deployed clients but ignored.
+ */
 export const list = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     return await ctx.db
       .query("conventions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
   },
 });
 
+/**
+ * One convention. Takes no actor argument, so the owner check is written out;
+ * it previously returned any convention document to anyone. Conventions have no
+ * public surface, so the rule is owner-only.
+ */
 export const get = query({
   args: { id: v.id("conventions") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
+    const convention = await ctx.db.get(args.id);
+    if (!convention || convention.userId !== actorId) return null;
+    return convention;
   },
 });
 
@@ -43,12 +60,14 @@ export const get = query({
 export const getEventForBuild = query({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const conventions = await ctx.db
       .query("conventions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     const notArchived = conventions.filter((c) => c.archived !== true);
     const withPlans: Array<{ name: string; startDate: string }> = [];
@@ -69,14 +88,16 @@ export const getEventForBuild = query({
 /** Returns upcoming conventions (endDate >= today, not archived) with outfit count, sorted by startDate. */
 export const listUpcomingWithPlanCounts = query({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const today = new Date().toISOString().slice(0, 10);
     const conventions = await ctx.db
       .query("conventions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
     const upcoming = conventions
       .filter((c) => c.archived !== true && c.endDate >= today)
@@ -99,7 +120,7 @@ export const listUpcomingWithPlanCounts = query({
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.string(),
     location: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -109,10 +130,11 @@ export const create = mutation({
     /** Offline replay dedupe key (optional); see convex/lib/idempotency.ts. */
     idempotencyKey: v.optional(v.string()),
   },
-  handler: async (ctx, args) =>
-    runIdempotent(ctx, args.idempotencyKey, args.userId, async () => {
+  handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
+    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
       if (args.imageStorageId) {
-        await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+        await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
       }
       const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
       const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
@@ -121,7 +143,7 @@ export const create = mutation({
       const id = await ctx.db.insert(
         "conventions",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           name,
           location,
           imageUrl: args.imageUrl,
@@ -131,13 +153,14 @@ export const create = mutation({
         })
       );
       return await ctx.db.get(id);
-    }),
+    });
+  },
 });
 
 export const update = mutation({
   args: {
     id: v.id("conventions"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.optional(v.string()),
     location: v.optional(v.string()),
     imageUrl: v.optional(v.union(v.string(), v.null())),
@@ -148,20 +171,21 @@ export const update = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, idempotencyKey, ...fields } = args;
+    const actorId = await requireIdentity(ctx);
+    const { id, userId: _userId, idempotencyKey, ...fields } = args;
     const replay = await idempotentReplay(ctx, idempotencyKey);
     if (replay.hit) return replay.result as Doc<"conventions"> | null;
     const convention = await ctx.db.get(id);
-    if (!convention || convention.userId !== userId) {
+    if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = convention.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
-      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+      await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {
@@ -179,36 +203,38 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, withUpdateMeta(convention, patch));
     }
-    return idempotentRecord(ctx, idempotencyKey, userId, await ctx.db.get(id));
+    return idempotentRecord(ctx, idempotencyKey, actorId, await ctx.db.get(id));
   },
 });
 
 export const archiveMany = mutation({
   args: {
     ids: v.array(v.id("conventions")),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     archived: v.boolean(),
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return;
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
-      if (!convention || convention.userId !== args.userId) continue;
+      if (!convention || convention.userId !== actorId) continue;
       await ctx.db.patch(id, withUpdateMeta(convention, { archived: args.archived }));
     }
-    await idempotentRecord(ctx, args.idempotencyKey, args.userId, undefined);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
   },
 });
 
 export const removeMany = mutation({
-  args: { ids: v.array(v.id("conventions")), userId: v.string() },
+  args: { ids: v.array(v.id("conventions")), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
-      if (!convention || convention.userId !== args.userId) continue;
-      await subtractUsageForStorageId(ctx, args.userId, convention.imageStorageId);
+      if (!convention || convention.userId !== actorId) continue;
+      await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
       const plans = await ctx.db
         .query("conventionDayPlans")
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
@@ -228,13 +254,14 @@ export const removeMany = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("conventions"), userId: v.string() },
+  args: { id: v.id("conventions"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const convention = await ctx.db.get(args.id);
-    if (!convention || convention.userId !== args.userId) {
+    if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await subtractUsageForStorageId(ctx, args.userId, convention.imageStorageId);
+    await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
     // Cascade: delete day plans and packing items
     const plans = await ctx.db
       .query("conventionDayPlans")
@@ -255,9 +282,17 @@ export const remove = mutation({
   },
 });
 
+/**
+ * A convention's day-by-day plan. Takes no actor argument, so the owner check on
+ * the parent convention is written out; it previously returned any plan to anyone.
+ */
 export const getPlan = query({
   args: { conventionId: v.id("conventions") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const convention = await ctx.db.get(args.conventionId);
+    if (!convention || convention.userId !== actorId) return [];
     return await ctx.db
       .query("conventionDayPlans")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
@@ -267,7 +302,7 @@ export const getPlan = query({
 
 export const replacePlan = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     conventionId: v.id("conventions"),
     plan: v.array(
       v.object({
@@ -279,10 +314,11 @@ export const replacePlan = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return replay.result as (Doc<"conventionDayPlans"> | null)[];
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention || convention.userId !== args.userId) {
+    if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     // Delete existing plans
@@ -301,7 +337,7 @@ export const replacePlan = mutation({
       const id = await ctx.db.insert(
         "conventionDayPlans",
         withCreateMeta({
-          userId: args.userId,
+          userId: actorId,
           conventionId: args.conventionId,
           date,
           buildId: entry.buildId,
@@ -310,13 +346,21 @@ export const replacePlan = mutation({
       );
       results.push(await ctx.db.get(id));
     }
-    return idempotentRecord(ctx, args.idempotencyKey, args.userId, results);
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, results);
   },
 });
 
+/**
+ * A convention's packing list. Takes no actor argument, so the owner check on the
+ * parent convention is written out; it previously returned any packing list to anyone.
+ */
 export const getPacking = query({
   args: { conventionId: v.id("conventions") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const convention = await ctx.db.get(args.conventionId);
+    if (!convention || convention.userId !== actorId) return [];
     const items = await ctx.db
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
@@ -333,16 +377,17 @@ export const getPacking = query({
 export const updatePackingItem = mutation({
   args: {
     id: v.id("packingListItems"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     checked: v.optional(v.boolean()),
     label: v.optional(v.string()),
     date: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
+    const actorId = await requireIdentity(ctx);
+    const { id, userId: _userId, ...fields } = args;
     const item = await ctx.db.get(id);
-    if (!item || item.userId !== userId) {
+    if (!item || item.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const patch: Record<string, unknown> = {};
@@ -361,7 +406,7 @@ export const updatePackingItem = mutation({
     const updated = await ctx.db.get(id);
     if (updated) {
       await ensurePackingWorkflowItem(ctx, {
-        userId,
+        userId: actorId,
         packingListItemId: updated._id,
         conventionId: updated.conventionId,
         buildId: updated.buildId,
@@ -388,7 +433,7 @@ export const updatePackingItem = mutation({
 
 export const addManualPackingItem = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     conventionId: v.id("conventions"),
     label: v.string(),
     date: v.optional(v.string()),
@@ -397,10 +442,11 @@ export const addManualPackingItem = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const replay = await idempotentReplay(ctx, args.idempotencyKey);
     if (replay.hit) return replay.result as Doc<"packingListItems"> | null;
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention || convention.userId !== args.userId) {
+    if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
@@ -409,7 +455,7 @@ export const addManualPackingItem = mutation({
     const id = await ctx.db.insert(
       "packingListItems",
       withCreateMeta({
-        userId: args.userId,
+        userId: actorId,
         conventionId: args.conventionId,
         label,
         date,
@@ -422,7 +468,7 @@ export const addManualPackingItem = mutation({
       })
     );
     await ensurePackingWorkflowItem(ctx, {
-      userId: args.userId,
+      userId: actorId,
       packingListItemId: id,
       conventionId: args.conventionId,
       buildId: args.buildId,
@@ -432,18 +478,19 @@ export const addManualPackingItem = mutation({
       checked: false,
       manual: true,
     });
-    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(id));
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(id));
   },
 });
 
 export const deletePackingItem = mutation({
   args: {
     id: v.id("packingListItems"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const item = await ctx.db.get(args.id);
-    if (!item || item.userId !== args.userId) {
+    if (!item || item.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     if (item.workflowItemId) {
@@ -456,11 +503,13 @@ export const deletePackingItem = mutation({
 
 /** Returns conventions with their day plans and packing items — used by mobile sync. */
 export const listWithDetails = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const conventions = await ctx.db
       .query("conventions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
 
     return await Promise.all(
@@ -487,12 +536,13 @@ export const listWithDetails = query({
 
 export const regeneratePacking = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     conventionId: v.id("conventions"),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention || convention.userId !== args.userId) {
+    if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
 
@@ -544,7 +594,7 @@ export const regeneratePacking = mutation({
         const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert(
           "packingListItems",
           withCreateMeta({
-            userId: args.userId,
+            userId: actorId,
             conventionId: args.conventionId,
             date: plan.date,
             buildId: plan.buildId,
@@ -557,7 +607,7 @@ export const regeneratePacking = mutation({
           })
         );
         await ensurePackingWorkflowItem(ctx, {
-          userId: args.userId,
+          userId: actorId,
           packingListItemId: packingItemId,
           conventionId: args.conventionId,
           buildId: plan.buildId,

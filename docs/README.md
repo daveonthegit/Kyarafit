@@ -24,3 +24,6 @@ Start with [`AI_CONTEXT.md`](AI_CONTEXT.md) — the compact, high-signal entry p
 `setup/`, `runbooks/`, `integrations/`, `billing/REVENUECAT_SETUP.md`, legal (`PRIVACY_POLICY.md`,
 `TERMS_OF_SERVICE.md`, `APP_STORE_PRIVACY_REQUIREMENTS.md`), `changelog/`. Repo root keeps
 `README.md`, `CI_LOCAL.md`, `SECURITY_AUDIT.md`.
+
+[`backend-authorization.md`](backend-authorization.md) owns the Convex authorization contract:
+session-derived actor, the public-by-design endpoints, and the media rule.

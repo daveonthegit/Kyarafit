@@ -15,6 +15,8 @@ import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { syncGeneratedWorkflowForNode } from "./workflow";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { canReadElementData } from "./lib/buildAccess";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -243,7 +245,7 @@ function sanitizeNodeFields(fields: {
 
 export const list = query({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     nodeType: v.optional(v.string()),
     category: v.optional(v.string()),
     search: v.optional(v.string()),
@@ -263,6 +265,8 @@ export const list = query({
     rootsOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const order = args.order ?? "asc";
     const sortBy = args.sortBy ?? "name";
     const requestedNodeType = isNodeType(args.nodeType) ? args.nodeType : undefined;
@@ -271,12 +275,12 @@ export const list = query({
       ? ctx.db
           .query("cosplayNodes")
           .withIndex("by_userId_nodeType", (q) =>
-            q.eq("userId", args.userId).eq("nodeType", requestedNodeType)
+            q.eq("userId", actorId).eq("nodeType", requestedNodeType)
           )
           .collect()
       : ctx.db
           .query("cosplayNodes")
-          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .withIndex("by_userId", (q) => q.eq("userId", actorId))
           .collect());
 
     if (args.rootsOnly) {
@@ -340,11 +344,26 @@ export const list = query({
   },
 });
 
+/**
+ * One element with its children, parents and cost rollup. Takes no actor argument,
+ * so the rule is written out; it previously returned any element to anyone. The
+ * owner may read it, and so may anyone related to a build it hangs off — the
+ * explorer and the inspector walk the tree one element at a time, and collaborators
+ * and group co-members open that page. `buildId` is only a costing scope hint and is
+ * not part of the check, because the inspector does not always pass it.
+ *
+ * Public build pages read element data through `getPublicViewerBundle` /
+ * `listBuildVisualNodes`, not through this query, so a public build deliberately
+ * does not grant access here.
+ */
 export const get = query({
   args: { id: v.id("cosplayNodes"), buildId: v.optional(v.id("builds")) },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const node = await ctx.db.get(args.id);
     if (!node) return null;
+    if (!(await canReadElementData(ctx, node, actorId))) return null;
 
     const [summary, childNodes] = await Promise.all([
       deriveNodeSummary(ctx, args.id, args.buildId),
@@ -387,9 +406,15 @@ export const get = query({
   },
 });
 
+/** Children of an element. Same rule as `get`. */
 export const listChildren = query({
   args: { parentNodeId: v.id("cosplayNodes"), buildId: v.optional(v.id("builds")) },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const parent = await ctx.db.get(args.parentNodeId);
+    if (!parent) return [];
+    if (!(await canReadElementData(ctx, parent, actorId))) return [];
     const children = await getChildNodes(ctx, args.parentNodeId);
     return await Promise.all(
       children.map(async (child) => ({
@@ -497,7 +522,7 @@ export const listBuildVisualNodes = query({
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     nodeType: v.string(),
     name: v.string(),
     category: v.optional(v.string()),
@@ -520,9 +545,10 @@ export const create = mutation({
     consumable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     if (!isNodeType(args.nodeType)) throw new Error("Invalid cosplay node type");
     if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
     }
     const sanitized = sanitizeNodeFields(args);
     const tags = args.tags
@@ -531,7 +557,7 @@ export const create = mutation({
     const id = await ctx.db.insert(
       "cosplayNodes",
       withCreateMeta({
-        userId: args.userId,
+        userId: actorId,
         nodeType: args.nodeType,
         name: sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name"),
         category: sanitized.category,
@@ -557,7 +583,7 @@ export const create = mutation({
     const created = await ctx.db.get(id);
     if (created) {
       await syncGeneratedWorkflowForNode(ctx, {
-        userId: args.userId,
+        userId: actorId,
         cosplayNodeId: id,
         nodeName: created.name,
         category: created.category,
@@ -573,7 +599,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("cosplayNodes"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     nodeType: v.optional(v.string()),
     name: v.optional(v.string()),
     category: v.optional(v.union(v.string(), v.null())),
@@ -596,19 +622,20 @@ export const update = mutation({
     consumable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, tags, ...fields } = args;
+    const actorId = await requireIdentity(ctx);
+    const { id, userId: _userId, tags, ...fields } = args;
     const existing = await ctx.db.get(id);
-    if (!existing || existing.userId !== userId) {
+    if (!existing || existing.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
 
     const oldStorageId = existing.imageStorageId;
     const newStorageId = args.imageStorageId ?? undefined;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
-      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+      await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, newStorageId);
     }
 
     const patch: Record<string, unknown> = {};
@@ -650,7 +677,7 @@ export const update = mutation({
     const updated = await ctx.db.get(id);
     if (updated) {
       await syncGeneratedWorkflowForNode(ctx, {
-        userId,
+        userId: actorId,
         cosplayNodeId: id,
         nodeName: updated.name,
         category: updated.category,
@@ -716,18 +743,19 @@ async function maybeCascadeOwnedMaterialChildren(
 export const remove = mutation({
   args: {
     id: v.id("cosplayNodes"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     cascade: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const node = await ctx.db.get(args.id);
-    if (!node || node.userId !== args.userId) {
+    if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
 
     await removeRootLinkReferences(ctx, args.id);
-    await maybeCascadeOwnedMaterialChildren(ctx, args.userId, args.id, args.cascade ?? false);
-    await subtractUsageForStorageId(ctx, args.userId, node.imageStorageId);
+    await maybeCascadeOwnedMaterialChildren(ctx, actorId, args.id, args.cascade ?? false);
+    await subtractUsageForStorageId(ctx, actorId, node.imageStorageId);
     await ctx.db.delete(args.id);
   },
 });
@@ -735,16 +763,17 @@ export const remove = mutation({
 export const removeMany = mutation({
   args: {
     ids: v.array(v.id("cosplayNodes")),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     cascade: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     for (const id of args.ids) {
       const node = await ctx.db.get(id);
-      if (!node || node.userId !== args.userId) continue;
+      if (!node || node.userId !== actorId) continue;
       await removeRootLinkReferences(ctx, id);
-      await maybeCascadeOwnedMaterialChildren(ctx, args.userId, id, args.cascade ?? false);
-      await subtractUsageForStorageId(ctx, args.userId, node.imageStorageId);
+      await maybeCascadeOwnedMaterialChildren(ctx, actorId, id, args.cascade ?? false);
+      await subtractUsageForStorageId(ctx, actorId, node.imageStorageId);
       await ctx.db.delete(id);
     }
   },
@@ -753,12 +782,13 @@ export const removeMany = mutation({
 export const convertType = mutation({
   args: {
     id: v.id("cosplayNodes"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     nodeType: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const node = await ctx.db.get(args.id);
-    if (!node || node.userId !== args.userId) {
+    if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     if (!isNodeType(args.nodeType)) throw new Error("Invalid cosplay node type");
@@ -785,18 +815,19 @@ export const convertType = mutation({
 
 export const addChildLink = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     parentNodeId: v.id("cosplayNodes"),
     childNodeId: v.id("cosplayNodes"),
     linkMode: v.optional(v.string()),
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const [parent, child] = await Promise.all([
       ctx.db.get(args.parentNodeId),
       ctx.db.get(args.childNodeId),
     ]);
-    if (!parent || !child || parent.userId !== args.userId || child.userId !== args.userId) {
+    if (!parent || !child || parent.userId !== actorId || child.userId !== actorId) {
       throw new Error("Parent or child not found");
     }
     if (!isAllowedLink(parent.nodeType as NodeType, child.nodeType as NodeType)) {
@@ -825,11 +856,12 @@ export const removeChildLink = mutation({
   args: {
     // Step 2c: the "link id" is the child node's own id; removing it clears the child's parentNodeId.
     id: v.id("cosplayNodes"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const child = await ctx.db.get(args.id);
-    if (!child || child.userId !== args.userId) {
+    if (!child || child.userId !== actorId) {
       throw new Error("Link not found");
     }
     await ctx.db.patch(args.id, withUpdateMeta(child, { parentNodeId: undefined }));
@@ -839,21 +871,21 @@ export const removeChildLink = mutation({
 export const reorderChildren = mutation({
   args: {
     parentNodeId: v.id("cosplayNodes"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     // Step 2c: ordered child node ids (each child carries its own sortOrder).
     orderedLinkIds: v.array(v.id("cosplayNodes")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const parent = await ctx.db.get(args.parentNodeId);
-    if (!parent || parent.userId !== args.userId) {
+    if (!parent || parent.userId !== actorId) {
       throw new Error("Parent not found");
     }
 
     for (let index = 0; index < args.orderedLinkIds.length; index += 1) {
       const childId = args.orderedLinkIds[index];
       const child = await ctx.db.get(childId);
-      if (!child || child.parentNodeId !== args.parentNodeId || child.userId !== args.userId)
-        continue;
+      if (!child || child.parentNodeId !== args.parentNodeId || child.userId !== actorId) continue;
       await ctx.db.patch(childId, withUpdateMeta(child, { sortOrder: index }));
     }
   },

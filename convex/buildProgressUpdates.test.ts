@@ -8,7 +8,9 @@ import { api } from "./_generated/api";
 const modules = import.meta.glob(["./**/*.*s", "!./betterAuth/**"]);
 
 async function makeBuild(t: ReturnType<typeof convexTest>, userId: string, name: string) {
-  const build = await t.mutation(api.builds.create, { userId, name, status: "idea" });
+  const build = await t
+    .withIdentity({ subject: userId })
+    .mutation(api.builds.create, { userId, name, status: "idea" });
   if (!build) throw new Error("build create failed");
   return build._id;
 }
