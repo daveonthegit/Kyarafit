@@ -37,11 +37,15 @@ clients keep working, and are removed in a later cosmetic pass.
 Read [`docs/backend-authorization.md`](docs/backend-authorization.md) before touching
 anything in `convex/`. It covers which arguments are _not_ actor arguments, which endpoints
 are public by design and must not be locked down, the media rule in `lib/mediaAccess.ts`,
-and the shared build-visibility predicate `canReadBuildWorkflowData`.
+the shared build-visibility predicate `canReadBuildWorkflowData`, and its **Known gaps**
+section — one module still authorizes on a client-supplied id.
 
 ## Commands
 
 - `npm run validate` — the full gate (format, i18n keys, lint, typecheck, backend tests, web build).
+  It currently **fails at the first step** on pre-existing `format:check` debt (~36 files
+  untouched by recent work). Run the individual gates below, and reformat only files you
+  changed — a blanket `npm run format` buries your diff.
 - `npm run test:convex` — backend authorization tests (`convex/authz.test.ts`, via `convex-test`).
 - `npm run test -w web` — web unit tests.
 - `npx tsc -p convex/tsconfig.json --noEmit` — typecheck the Convex functions alone; much

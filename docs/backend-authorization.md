@@ -92,6 +92,21 @@ element reads here; the public viewer has its own paths
 viewer-settings toggles. The `buildId` argument on those queries is a costing scope hint,
 not part of the check — the inspector does not always send it.
 
+### The graph walk reads the node row, not the join tables
+
+`someAncestorBuild` walks up via `cosplayNodes.parentNodeId` and tests each
+`cosplayNodes.buildId` it passes. Both relations live on the node row (Step 2c).
+
+`cosplayNodeLinks`, `buildCosplayLinks`, `buildItemLinks`, `closetItems` and
+`buildNodeStates` are still **in `convex/schema.ts`** so non-empty deployments validate on
+deploy, and `migrations:purgeLegacyBuildScopingData` empties them. Nothing writes them any
+more. **Authorization code must never read them:** a predicate answering from a table
+nothing writes returns `false` for every non-owner, which silently breaks collaborator and
+group-co-member element reads and thumbnails while still compiling, type-checking and
+reading correctly. That is exactly the bug the containment merge had to fix in
+`someAncestorBuild`. Delete these table defs only after the purge migration has run
+everywhere.
+
 ## Media
 
 Storage ids are not a security boundary: they are returned on build, element, convention,
@@ -129,3 +144,32 @@ about the media access model. Do not change the model here without that decision
 matter — a caller passing someone else's id cannot act as them, and an unauthenticated
 caller is rejected — for a representative function in every module, plus a group pinning
 down what must stay public. Add to it when you add a public function.
+
+The other `convex/*.test.ts` files exercise product behaviour, not authorization, but they
+all have to call through a session now: use `t.withIdentity({ subject: userId })` rather
+than bare `t.mutation(...)`, or the handler rejects with `Unauthorized`.
+
+## Known gaps
+
+The invariant at the top of this file holds for every public Convex function **except
+`convex/buildProgressUpdates.ts`**.
+
+Its `listByBuild`, `add`, `update` and `remove` take `userId: v.string()` and compare that
+argument against the row owner, so passing another user's id authorizes you as them — the
+same hole the rest of the backend closed. The module was added on the glass-studio line
+after the containment work was cut, so no merge conflict flagged it and nothing has fixed
+it. Tracked as a proposal in `.agentflow/proposals/`; see that file for the acceptance
+criteria. **Do not copy its argument shape into new modules.**
+
+Two things are deliberately still open rather than broken:
+
+- **Phase B** — the inert actor arguments described above are still in the validators. Grep
+  `retained for deployed clients but ignored` for the removal sites. Nothing depends on it.
+- **The media access model** — the two looseness points above stand until the
+  owner-indexed media table decision lands.
+
+To re-check the invariant after a change, the cheap version is: every `export const` that
+is a `query`/`mutation`/`action` in `convex/*.ts` must reach a session guard
+(`requireIdentity`, `optionalIdentity`, `getUserIdentity`, `requireAdmin`, `requireOwner`),
+directly or through a helper. The only intended exceptions are the public-by-design
+endpoints listed above.
