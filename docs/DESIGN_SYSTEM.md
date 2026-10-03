@@ -27,11 +27,11 @@ and web/mobile parity**. Product → [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md)._
 **`design-system/navConfig.ts` is the single source of truth** for sections, order, icons, and the
 add-menu; both platforms read it. As shipped:
 
-| Surface                    | Sections                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| Mobile bottom tabs         | Home · Builds · Elements · Planner · **Menu** (`NAV_SECTIONS_BOTTOM`)                              |
-| Mobile menu drawer (13e)   | Full `NAV_SECTIONS_PRIMARY` (adds Events · Groups · Discover · Feed) + Settings + profile footer   |
-| Web glass top bar          | Studio sections inline left, social sections right (`NAV_SECTIONS_TOPBAR_*`)                       |
+| Surface                  | Sections                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Mobile bottom tabs       | Home · Builds · Elements · Planner · **Menu** (`NAV_SECTIONS_BOTTOM`)                            |
+| Mobile menu drawer (13e) | Full `NAV_SECTIONS_PRIMARY` (adds Events · Groups · Discover · Feed) + Settings + profile footer |
+| Web glass top bar        | Studio sections inline left, social sections right (`NAV_SECTIONS_TOPBAR_*`)                     |
 
 - Elements **is** a top-level destination on both platforms (this supersedes the earlier
   "per-build only" proposal); the per-build element explorer also remains inside build detail.
@@ -42,23 +42,23 @@ add-menu; both platforms read it. As shipped:
 
 ## 3. Component spec (shared contract, platform-native impl)
 
-Same name + prop shape on web and mobile (B3/N1 in [`architecture.md`](architecture.md)). UI is
+Same name + prop shape on web and mobile (B3/N1 in [`ARCHITECTURE.md`](ARCHITECTURE.md)). UI is
 platform-native; the **contract** is shared.
 
-| Primitive              | Role                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `PageHeader`           | Title + meta + primary action                                                       |
-| `EmptyState`           | Icon + message + primary CTA (`surface="glass"` on photo/glass)                     |
-| `DataBoundary`         | Wraps async/local data: handles loading / empty / error uniformly                   |
-| `OfflineBanner`        | Online-only surfaces when disconnected                                              |
+| Primitive              | Role                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PageHeader`           | Title + meta + primary action                                                                                                                                      |
+| `EmptyState`           | Icon + message + primary CTA (`surface="glass"` on photo/glass)                                                                                                    |
+| `DataBoundary`         | Wraps async/local data: handles loading / empty / error uniformly                                                                                                  |
+| `OfflineBanner`        | Online-only surfaces when disconnected                                                                                                                             |
 | `SyncStatus`           | Connectivity + pending count + last-synced + manual sync (paid) — **lives in Settings** (web: Backup & data; mobile: Offline), never as floating chrome (ADR-0002) |
-| `PendingBadge`         | Per-row "not yet synced" indicator                                                  |
-| `UpgradePrompt`        | Non-blocking paywall for paid actions (REQ-022)                                     |
-| `Gallery`              | Ordered, reorderable image grid (reference / process photos)                        |
-| `ProgressTimeline`     | Dated progress-update entries (REQ-049)                                             |
-| `TaskList` / `TaskRow` | Planner list with progressive disclosure (REQ-063)                                  |
-| `FormField`            | Labeled input with validation message slot (glass: `.glass-field` / `GlassTextField`) |
-| Buttons                | Cream surfaces: `primary/secondary/ghost/destructive`. Glass/photo surfaces: `PhotoPill` `solid/outline/text` — **exactly one solid per view** (QA-3) |
+| `PendingBadge`         | Per-row "not yet synced" indicator                                                                                                                                 |
+| `UpgradePrompt`        | Non-blocking paywall for paid actions (REQ-022)                                                                                                                    |
+| `Gallery`              | Ordered, reorderable image grid (reference / process photos)                                                                                                       |
+| `ProgressTimeline`     | Dated progress-update entries (REQ-049)                                                                                                                            |
+| `TaskList` / `TaskRow` | Planner list with progressive disclosure (REQ-063)                                                                                                                 |
+| `FormField`            | Labeled input with validation message slot (glass: `.glass-field` / `GlassTextField`)                                                                              |
+| Buttons                | Cream surfaces: `primary/secondary/ghost/destructive`. Glass/photo surfaces: `PhotoPill` `solid/outline/text` — **exactly one solid per view** (QA-3)              |
 
 Retired: **`SectionCard`** — the glass language replaced stacked cream cards with "photo, scrim,
 ONE glass panel" (see `redesign/02-surface-rules.md`, rule 3).

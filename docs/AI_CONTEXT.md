@@ -11,8 +11,9 @@ Compact, high-signal context for AI coding agents. Load this before anything els
 
 ## Current goal
 
-Spec-driven **full-app refactor restart**. The spec is the source of truth; existing code is
-**reference only** — rewrite/delete what conflicts.
+Continue the implemented local-first app and Glass Studio rollout through focused, validated
+changes. Preserve working behavior; distinguish accepted requirements from shipped enforcement.
+This is not a greenfield restart or permission to delete populated schema definitions.
 
 ## Source-of-truth docs (in `docs/`)
 
@@ -20,10 +21,10 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 | -------------------------------------------- | ----------------------------------------------------------------- |
 | `PRODUCT_SPEC.md`                            | product behavior, modules, REQ IDs, freemium, acceptance criteria |
 | `DATA_AND_SYNC.md`                           | data model, local-first, sync, conflict, migration, quotas        |
-| `architecture.md`                            | structure, shared logic, boundaries, conventions                  |
+| `ARCHITECTURE.md`                            | structure, shared logic, boundaries, conventions                  |
 | `DESIGN_SYSTEM.md`                           | UI principles, IA/nav, components, states, a11y, parity           |
 | `TESTING.md` + `specs/refactor-test-plan.md` | how/what to test (REQ→tests)                                      |
-| `roadmap.md`                                 | phased implementation order                                       |
+| `ROADMAP.md`                                 | phased implementation order                                       |
 | `ai/IMPLEMENTATION_HANDOFF.md`               | the Composer handoff prompt                                       |
 | `redesign/` (README → 01–05 + tokens.css)    | the approved "Glass Studio" v2 visual language + per-screen specs |
 | `../CONTEXT.md` (repo root)                  | ubiquitous domain language (grown lazily; see `agents/domain.md`) |
@@ -31,18 +32,24 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 ## Key decisions (constraints)
 
 - Tiers — **implemented today:** FREE + PRO + SUPPORTER (Pro==Supporter), paid 2 GB cloud cap,
-  group-cosplay exception. **Decided direction (framed in the Work Graph — `WORK.md`
-  `entitlements-two-tier` → `r2-media-pipeline`, GH #147/#148, ADR-0001/0003, `CONTEXT.md`):**
+  group-cosplay exception. **Accepted, unbuilt direction (GH #147/#148,
+  ADR-0001/0003, `CONTEXT.md`):**
   collapse to **free + supporter**, free groups/posting/public-share, **hosted-media cap**
   free 100 MB / supporter 5 GB on R2 capability URLs, free-tier **BYO sync** via Google Drive
   snapshots. Until those items land, gate paid by `isPaid`, never a tier.
-- **Local-first:** local store authoritative; UI uses `useOfflineQuery`/`useOfflineMutation` only; sync worker runs **iff `canUseCloudSync && signedIn`** (free → never). Free users make **zero Convex data calls**.
+- **Local-first personal data:** use `useOfflineQuery`/`useOfflineMutation`; managed-sync workers
+  are gated by `canUseCloudSync && signedIn`. This does not prohibit online-only social,
+  account, group, or public-read calls available to free users.
 - Free images = local/external URL only (no cloud upload) except group-cosplay exception (REQ-021) — the exception is removed by `entitlements-two-tier` when it lands.
 - Conflict: **per-field last-write-wins** by `updatedAt`/`fieldUpdatedAt`. No CRDT.
 - **Elements** = one canonical model (replaces `closetItems`+`cosplayNodes`), **build-scoped** (no Closet page), hierarchy + duplicate-to-build.
-- Tasks = `workflowItems` only (delete `buildTasks`); rich model kept, **UX simplified**.
-- New: **progress updates** (dated build timeline, paid can publish to feed); richer reference/process photos.
-- Greenfield migration (no heavy prod data migration). Background-removal service dropped.
+- Workflow UX uses `workflowItems`; legacy schema definitions such as `buildTasks` remain for
+  deployment compatibility. Product elements still persist as `cosplayNodes`; do not assume an
+  `elements` Convex table exists. See `ARCHITECTURE.md`.
+- **Progress updates** are implemented; publishing is an explicit `publish` input. Current paid
+  publishing gates differ from the accepted free-posting direction.
+- Background-removal service code is dropped. External infrastructure retirement and live
+  migration state are not established by repository deletions.
 - Full web/mobile parity; shared logic in `design-system/`.
 
 ## Current phase
@@ -51,24 +58,27 @@ Spec-driven **full-app refactor restart**. The spec is the source of truth; exis
 `feat/glass-studio-phase-0`); the mobile parity pass (phase 7) is underway — 7.0 primitives, 7.1
 shell, 7.2 core studio screens + auth/landing, 7.3 events, and 7.4 social are done; 7.5 settings
 and the build-detail feedback round remain (`redesign/HANDOFF.md` has the live status).
-Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation phases
-(sync gating, entitlements, storage policy, field-LWW) are complete; see `roadmap.md` for history.
+Specs: `redesign/README.md` → `redesign/AGENT_PROMPT_MOBILE.md`. Earlier foundation helpers
+(sync gating, legacy entitlements/storage policy, field-LWW) exist; they do not implement the new
+two-tier/R2/BYO program. See `ROADMAP.md` for status and history.
 
-**Open work is tracked on the Work Graph** — consult `WORK.md` (generated board) before starting
-anything, and follow the Agentflow conventions in `AGENTS.md` (Work-Item commit trailers, proposals
-inbox). The framed backlog beyond Glass Studio: the two-tier entitlements collapse + R2 hosted-media
-pipeline (GH #147/#148) and the BYO-sync program (ADR-0003).
+Agentflow is deprecated. `WORK.md` is a historical generated board, not current execution
+authority. Use the current assigned brief and its file-ownership boundaries; do not invoke
+Agentflow or edit `.agentflow/` / `WORK.md`. Accepted backlog includes two-tier entitlements,
+R2 hosted media (GH #147/#148), and BYO sync (ADR-0003). Current authorization documentation is
+`backend-authorization.md`; remediation is ongoing, and passing tests do not certify deployment.
 
 ## Commands
 
 ```bash
-npm install
-npx convex dev                 # backend
+npm ci
+npx convex dev                 # authorized development deployment only
 npm run dev:web                # web @ :3000
 npm run start -w mobile        # Expo
 npm test -w web                # vitest (web + shared domain)
 npx tsc --noEmit -p convex/tsconfig.json
-make validate                  # full local CI (run before done)
+npm run validate               # aggregate gate; also run web/mobile tests explicitly
+npm test -w mobile
 ```
 
 ## Testing expectations
@@ -95,7 +105,8 @@ lives in `design-system/domain/*` and is tested via web vitest.
 
 ## Open questions
 
-OQ-3 moderation depth, OQ-4 group-exception limits, OQ-5 progress-update publish trigger. See
-`PRODUCT_SPEC.md` §9. **Resolved:** OQ-1 visual direction → the "Glass Studio" language
-(`redesign/`); OQ-2 nav/IA → `design-system/navConfig.ts` is the single source of truth (mobile
-bottom tabs: Home · Builds · Elements · Planner · Menu; web glass top bar).
+OQ-3 broader moderation depth remains open beyond the accepted hosted-media takedown minimum.
+The question list in `PRODUCT_SPEC.md` §9 is historical: OQ-4's group exception is superseded by
+GH #147; OQ-5 uses explicit publishing today (do not invent auto-posting). OQ-1 visual direction
+is settled by Glass Studio (`redesign/`); OQ-2 navigation is settled by
+`design-system/navConfig.ts`. Requirement amendments belong to their implementation packages.

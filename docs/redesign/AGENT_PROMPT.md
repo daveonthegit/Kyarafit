@@ -1,12 +1,13 @@
 # AGENT_PROMPT — implement Kyarafit v2 "Glass Studio" in the real codebase
 
-This file is a ready-to-run operating prompt for a coding agent (Claude Code etc.) working inside the Kyarafit monorepo. Two steps for the human:
+This is the original web implementation prompt, retained for design provenance. The package and
+HTML references are already committed in `docs/redesign/`; do not copy the retired root
+`handoff/` over them. Check [HANDOFF.md](HANDOFF.md) and the assigned brief before selecting work:
+web phases are implemented, and remaining mobile work has its own brief.
 
-1. **Copy the design package into the repo** so the agent can read everything locally:
-   - this whole `handoff/` folder → `docs/redesign/`
-   - `explorations/Kyarafit Prototype.dc.html` and `explorations/Kyarafit Redesign.dc.html` → `docs/redesign/reference/` (they are single-file HTML; the agent reads the inline styles for exact values — it does not need to render them)
-   - `assets/photos/` is NOT needed — those are placeholder cosplay shots; the app uses real user imagery via `ResolvedImage`.
-2. **Paste the prompt below** into the agent, working from the repo root. Run one phase per session/PR.
+[ADR-0002](../adr/0002-status-surfaces-live-in-settings.md) wins over any older sync-status
+placement instruction. No persistent floating sync chip; use Settings. Placeholder design
+photos are not production assets; the app uses user imagery via `ResolvedImage`.
 
 ---
 

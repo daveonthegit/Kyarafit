@@ -1,5 +1,10 @@
 # BYO sync uses a merged snapshot file with per-record LWW, not an op-log or CRDT
 
+Decision status: **accepted**. Implementation status: **unbuilt** on the reconciled baseline.
+The versioned snapshot merge engine, Drive transport/consent, and mutually exclusive sync-method
+settings remain outstanding. Existing per-field managed-sync helpers and export/import bundles
+are not this BYO program. The text below records the accepted design, not an available integration.
+
 Free-tier multi-device sync ("BYO sync") writes a single versioned snapshot (`kyarafit.json`,
 `schemaVersion` field, every record carrying `updatedAt`) plus a sibling folder of immutable
 original media files named by content hash into storage the user owns (Google Drive first, via the
