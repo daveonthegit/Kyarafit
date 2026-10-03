@@ -74,15 +74,9 @@ export function getAuthOrigins() {
   };
 }
 
+// Also consumed by Convex's createApi during module analysis, before deployment env
+// is available. Building schema/options must not initialize auth or require secrets.
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
-  const secret = process.env.BETTER_AUTH_SECRET;
-  if (
-    !secret ||
-    secret.trim().length < 32 ||
-    secret === "better-auth-secret-12345678901234567890"
-  ) {
-    throw new Error("BETTER_AUTH_SECRET must be explicitly configured with at least 32 characters");
-  }
   const siteUrl = process.env.SITE_URL;
   const convexSiteUrl = process.env.CONVEX_SITE_URL;
   // OAuth redirect_uri must match the host the clients use (`NEXT_PUBLIC_CONVEX_SITE_URL` / mobile
@@ -95,12 +89,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     : siteUrl
       ? `${siteUrl.replace(/\/$/, "")}/auth`
       : undefined;
-  const { trustedOrigins } = getAuthOrigins();
   return {
     appName: "Kyarafit",
     baseURL,
     basePath: "/auth", // Must match client baseURL path so Convex registers /auth/* not /api/auth/*
-    secret,
+    secret: process.env.BETTER_AUTH_SECRET,
     // Apple uses form_post → cross-site POST to *.convex.site; Lax session cookies are unreliable
     // on that navigation. None + Secure matches HTTPS Convex URLs and avoids OAuth edge cases
     // (see better-auth discussions on Apple / POST callbacks).
@@ -110,8 +103,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         secure: true,
       },
     },
-    // CORS: registerRoutes merges these with http.ts cors.allowedOrigins (localhost, Expo, etc.)
-    trustedOrigins,
+    // Resolve the shared origin policy only at runtime, not during schema analysis.
+    trustedOrigins: () => getAuthOrigins().trustedOrigins,
     database: authComponent.adapter(ctx),
 
     emailAndPassword: {
@@ -186,9 +179,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   } satisfies BetterAuthOptions;
 };
 
-// For `npx auth` CLI commands
+// Static schema options for `npx auth` CLI commands; never an initialized auth instance.
 export const options = createAuthOptions({} as GenericCtx<DataModel>);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth(createAuthOptions(ctx));
+  // Only request-time initialization reaches this path. Convex module analysis
+  // imports schema/options without runtime environment variables.
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("BETTER_AUTH_SECRET must be explicitly configured with at least 32 characters");
+  }
+  getAuthOrigins();
+  return betterAuth({ ...createAuthOptions(ctx), secret });
 };

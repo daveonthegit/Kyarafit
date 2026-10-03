@@ -10,9 +10,12 @@ http.route({
   handler: revenuecatWebhook,
 });
 
-// CORS and CSRF derive from the same configuration, including dev-only origins.
-authComponent.registerRoutes(http, createAuth, {
-  cors: { allowedOrigins: getAuthOrigins().corsOrigins },
+// Convex analyzes this module without runtime env; do not initialize auth here.
+// Both CORS and CSRF resolve the same origin policy when handling a request.
+authComponent.registerRoutesLazy(http, createAuth, {
+  basePath: "/auth",
+  cors: true,
+  trustedOrigins: () => getAuthOrigins().trustedOrigins,
 });
 
 export default http;
