@@ -523,6 +523,60 @@ describe("a caller passing another user's id cannot act as them", () => {
     });
   });
 
+  test("a build cannot be moved into a group the caller is not a member of", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    const aliceBuild = await asAlice.mutation(api.builds.create, { name: "Alice", status: "wip" });
+
+    await expect(
+      asAlice.mutation(api.builds.update, { id: aliceBuild!._id, groupId: f.bobGroup })
+    ).rejects.toThrow(/member of the group/);
+    await expect(
+      asAlice.mutation(api.builds.setGroupId, { buildId: aliceBuild!._id, groupId: f.bobGroup })
+    ).rejects.toThrow(/member of the group/);
+    await t.run(async (ctx) => {
+      expect((await ctx.db.get(aliceBuild!._id))?.groupId).toBeUndefined();
+    });
+    expect(
+      await t.withIdentity({ subject: BOB }).query(api.builds.listByGroup, { groupId: f.bobGroup })
+    ).toEqual([]);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("groupMembers", { groupId: f.bobGroup, userId: ALICE, role: "member" });
+    });
+    const moved = await asAlice.mutation(api.builds.update, {
+      id: aliceBuild!._id,
+      groupId: f.bobGroup,
+    });
+    expect(moved?.groupId).toBe(f.bobGroup);
+    const cleared = await asAlice.mutation(api.builds.update, {
+      id: aliceBuild!._id,
+      groupId: null,
+    });
+    expect(cleared?.groupId).toBeUndefined();
+  });
+
+  test("an editor outside the build's group can still save it with its group unchanged", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(f.bobPrivateBuild, { groupId: f.bobGroup });
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobPrivateBuild,
+        userId: ALICE,
+        role: "editor",
+      });
+    });
+    const updated = await t.withIdentity({ subject: ALICE }).mutation(api.builds.update, {
+      id: f.bobPrivateBuild,
+      name: "Renamed",
+      groupId: f.bobGroup,
+    });
+    expect(updated?.name).toBe("Renamed");
+    expect(updated?.groupId).toBe(f.bobGroup);
+  });
+
   test("privilege escalation into a build or group is refused", async () => {
     const t = harness();
     const f = await seed(t);

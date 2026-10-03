@@ -781,6 +781,9 @@ export const update = mutation({
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, id, actorId);
     if (!canEdit) throw new Error("Not authorized to update this build");
+    if (fields.groupId && fields.groupId !== build.groupId) {
+      await assertCanAssignGroup(ctx, fields.groupId, actorId);
+    }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
     // Storage accounting follows the build's owner, not whoever is editing.
@@ -849,6 +852,12 @@ export const update = mutation({
   },
 });
 
+async function assertCanAssignGroup(ctx: MutationCtx, groupId: Id<"groups">, actorId: string) {
+  if (!(await isGroupMember(ctx, groupId, actorId))) {
+    throw new Error("You must be a member of the group to add this build");
+  }
+}
+
 /** Set or clear build's group. User must own the build and be a member of the group (if setting). */
 export const setGroupId = mutation({
   args: {
@@ -864,11 +873,7 @@ export const setGroupId = mutation({
     if (!canEdit) throw new Error("Not authorized");
     const newGroupId =
       args.groupId === null || args.groupId === undefined ? undefined : args.groupId;
-    if (newGroupId) {
-      if (!(await isGroupMember(ctx, newGroupId, actorId))) {
-        throw new Error("You must be a member of the group to add this build");
-      }
-    }
+    if (newGroupId) await assertCanAssignGroup(ctx, newGroupId, actorId);
     await ctx.db.patch(args.buildId, { groupId: newGroupId });
     return await ctx.db.get(args.buildId);
   },
