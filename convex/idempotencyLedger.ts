@@ -3,9 +3,9 @@ import { internalMutation } from "./_generated/server";
 /**
  * Maintenance for the offline replay dedupe ledger (see convex/lib/idempotency.ts).
  *
- * Each offline-replayed idempotent mutation records a row keyed by its idempotency key. Replay
- * windows are short (a queued mutation drains within minutes of reconnect), so keys older than the
- * retention window can never be re-sent and are safe to drop. A daily cron calls `prune`.
+ * Each offline-replayed mutation records a session/operation-scoped key. A daily cron calls
+ * `prune` for both scoped and legacy rows. Dedupe lasts only for the retention window: a retry
+ * after expiration executes again, so clients must not rely on permanent deduplication.
  */
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

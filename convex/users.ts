@@ -360,10 +360,8 @@ export const updateProfileImage = mutation({
 export const setFocusedBuild = mutation({
   args: { buildId: v.optional(v.id("builds")), idempotencyKey: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const externalId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "users.setFocusedBuild");
     if (replay.hit) return replay.result as Id<"users"> | null;
     const user = await ctx.db
       .query("users")
@@ -377,7 +375,13 @@ export const setFocusedBuild = mutation({
     }
 
     await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
-    return idempotentRecord(ctx, args.idempotencyKey, externalId, user._id);
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      externalId,
+      user._id,
+      "users.setFocusedBuild"
+    );
   },
 });
 

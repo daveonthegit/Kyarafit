@@ -37,7 +37,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "buildProcessPictures.add");
     if (replay.hit) return replay.result as Doc<"buildProcessPictures"> | null;
 
     const build = await ctx.db.get(args.buildId);
@@ -66,7 +66,13 @@ export const add = mutation({
         sortOrder: maxOrder + 1,
       })
     );
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(id));
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "buildProcessPictures.add"
+    );
   },
 });
 
