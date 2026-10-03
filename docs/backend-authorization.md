@@ -81,7 +81,9 @@ Group membership is part of it because `builds.listByGroup` deliberately lists a
 builds — private ones included — to that group's members. The card, the thumbnail behind
 it and the `/build-detail/<id>` link it points at therefore all have to work for a
 co-member, so `builds.get` and `lib/mediaAccess.ts` both accept it. Do not narrow
-`listByGroup` to "fix" this asymmetry; extend the reader instead.
+`listByGroup` to "fix" this asymmetry; extend the reader instead. The flip side is that
+sharing a build into a group requires membership of that group, on every path that sets
+`groupId` (`builds.setGroupId` and `builds.update`).
 
 Element reads (`cosplayNodes.get`, `cosplayNodes.listChildren`) use
 `canReadElementData`: the owner, or anyone with a `hasBuildRelationship` to a build the
