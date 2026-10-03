@@ -2,38 +2,69 @@ import type { BetterAuthClientPlugin } from "better-auth";
 import * as SecureStore from "expo-secure-store";
 
 const BEARER_TOKEN_KEY = "better_auth_bearer_token";
+const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
-/** In-memory cache so the fetch hook can attach the header without awaiting every request after hydration. */
+/** A hydrated null is authoritative: logout must not re-read an old persisted token. */
 let memoryToken: string | null = null;
+let hydrated = false;
+let revision = 0;
+let storageQueue: Promise<void> = Promise.resolve();
 
-export async function hydrateBearerFromSecureStore(): Promise<void> {
-  try {
-    memoryToken = await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
-  } catch {
-    memoryToken = null;
-  }
+function serializeStorage(operation: () => Promise<void>): Promise<void> {
+  const pending = storageQueue.then(operation);
+  storageQueue = pending.catch(() => {});
+  return pending;
 }
 
-/**
- * Persist Bearer session token (opaque to the client). Call after sign-in; pass null on sign-out.
- */
+export async function hydrateBearerFromSecureStore(): Promise<void> {
+  if (hydrated) return;
+  const startedAt = revision;
+  await serializeStorage(async () => {
+    if (hydrated || startedAt !== revision) return;
+    try {
+      const token = await SecureStore.getItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+      if (startedAt !== revision) return;
+      // Rewrite existing items to apply the device-only policy, without changing the key/service.
+      if (token) await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      if (startedAt === revision) memoryToken = token;
+    } catch {
+      if (startedAt === revision) memoryToken = null;
+    } finally {
+      if (startedAt === revision) hydrated = true;
+    }
+  });
+}
+
+/** Persist after sign-in; null immediately clears memory even if disk deletion fails. */
 export async function setStoredBearerToken(token: string | null): Promise<void> {
-  memoryToken = token;
-  if (token) {
-    await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token);
-  } else {
-    await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY);
-  }
+  const changedAt = ++revision;
+  hydrated = true;
+  memoryToken = null;
+  await serializeStorage(async () => {
+    if (token) {
+      try {
+        await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      } catch (error) {
+        // Do not keep using an older session after a failed account switch.
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS).catch(() => {});
+        throw error;
+      }
+    } else {
+      await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+    }
+    if (changedAt === revision) memoryToken = token;
+  });
 }
 
 async function getStoredBearerToken(): Promise<string | null> {
-  if (memoryToken !== null) return memoryToken;
-  try {
-    memoryToken = await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
-  } catch {
-    memoryToken = null;
-  }
+  await hydrateBearerFromSecureStore();
   return memoryToken;
+}
+
+function isAuthEndpoint(url: string, endpoint: string): boolean {
+  return new URL(url, "https://auth.invalid").pathname.endsWith(`/${endpoint}`);
 }
 
 /**
@@ -68,19 +99,24 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
       {
         id: "bearer-storage-fetch",
         name: "BearerStorage",
-        async init(url, options) {
-          if (url.includes("/sign-out")) {
-            await setStoredBearerToken(null);
-          }
-          const token = await getStoredBearerToken();
-          const headers = toHeaders(options?.headers);
-          if (token) {
-            headers.set("Authorization", `Bearer ${token}`);
-          }
-          return {
-            url,
-            options: { ...options, headers },
-          };
+        hooks: {
+          async onRequest(context) {
+            const token = await getStoredBearerToken();
+            const headers = toHeaders(context.headers);
+            if (token) {
+              headers.set("Authorization", `Bearer ${token}`);
+            }
+            // Keep authentication on the outgoing revocation request, then clear locally.
+            if (isAuthEndpoint(context.url.toString(), "sign-out")) {
+              await setStoredBearerToken(null);
+            }
+            return { ...context, headers };
+          },
+          async onSuccess(context) {
+            if (isAuthEndpoint(context.request.url.toString(), "reset-password")) {
+              await setStoredBearerToken(null);
+            }
+          },
         },
       },
     ],
