@@ -216,16 +216,19 @@ describe("scoped offline replay", () => {
     ).rejects.toThrow("Unauthorized");
   });
 
-  it("checks record actor and never reads/writes unscoped compatibility calls", async () => {
+  it("checks record actor and rejects empty operation scopes", async () => {
     const t = convexTest(schema, modules);
     const actor = t.withIdentity({ subject: "owner" });
     await actor.mutation(api.builds.create, createArgs);
-    expect(await actor.run((ctx) => idempotentReplay(ctx, createArgs.idempotencyKey))).toEqual({
-      hit: false,
-    });
-    expect(await actor.run((ctx) => idempotentRecord(ctx, "legacy-call", "owner", "value"))).toBe(
-      "value"
-    );
+    await expect(
+      actor.run((ctx) => idempotentReplay(ctx, createArgs.idempotencyKey, ""))
+    ).rejects.toThrow("Missing idempotency operation");
+    await expect(
+      actor.run((ctx) => idempotentRecord(ctx, "unscoped", "owner", "value", ""))
+    ).rejects.toThrow("Missing idempotency operation");
+    await expect(
+      actor.run((ctx) => runIdempotent(ctx, "unscoped", "owner", "", async () => "value"))
+    ).rejects.toThrow("Missing idempotency operation");
     await expect(
       actor.run((ctx) => idempotentRecord(ctx, "forged", "other", "value", "test.record"))
     ).rejects.toThrow("Unauthorized");

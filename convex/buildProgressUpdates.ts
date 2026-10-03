@@ -79,9 +79,8 @@ export const add = mutation({
       throw new Error("Build not found or not authorized");
     }
 
-    // Session and resource checks must precede even a cached response. S2 owns the
-    // tenant/operation-scoped replay helper and its serialized call-site integration.
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    // Session and resource checks must precede even a cached response.
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "buildProgressUpdates.add");
     if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
 
     let publishedToFeed = false;
@@ -104,7 +103,13 @@ export const add = mutation({
         publishedToFeed,
       })
     );
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(id));
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "buildProgressUpdates.add"
+    );
   },
 });
 
@@ -126,7 +131,7 @@ export const update = mutation({
       throw new Error("Progress update not found or not authorized");
     }
 
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "buildProgressUpdates.update");
     if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
 
     const patch: Record<string, unknown> = {};
@@ -163,7 +168,13 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(args.id, withUpdateMeta(doc, patch));
     }
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(args.id));
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(args.id),
+      "buildProgressUpdates.update"
+    );
   },
 });
 

@@ -27,16 +27,15 @@ export async function runIdempotent<T>(
 
 /**
  * Two-part variant: authenticate before calling; return on a hit and record once at the end.
- * An omitted operation is a temporary fail-closed bridge for progress call sites owned by
- * another package: it never reads a ledger row. Remove the bridge after their serialized update.
+ * Every caller must supply a nonempty server-selected operation, even for unkeyed writes.
  */
 export async function idempotentReplay(
   ctx: MutationCtx,
   key: string | undefined,
-  operation?: string
+  operation: string
 ): Promise<{ hit: true; result: unknown } | { hit: false }> {
-  if (!operation) return { hit: false };
   const actorId = await requireIdentity(ctx);
+  if (!operation) throw new Error("Missing idempotency operation");
   if (!key) return { hit: false };
   const existing = await ctx.db
     .query("idempotencyLedger")
@@ -47,17 +46,17 @@ export async function idempotentReplay(
   return existing ? { hit: true, result: existing.result } : { hit: false };
 }
 
-/** Omitted operations never write unscoped rows; see the temporary bridge above. */
+/** Verify the session actor and record only operation-scoped results. */
 export async function idempotentRecord<T>(
   ctx: MutationCtx,
   key: string | undefined,
   userId: string,
   result: T,
-  operation?: string
+  operation: string
 ): Promise<T> {
-  if (!operation) return result;
   const actorId = await requireIdentity(ctx);
   if (actorId !== userId) throw new Error("Unauthorized");
+  if (!operation) throw new Error("Missing idempotency operation");
   if (key) {
     await ctx.db.insert("idempotencyLedger", {
       key,
