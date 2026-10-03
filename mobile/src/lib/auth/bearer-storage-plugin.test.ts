@@ -187,6 +187,33 @@ describe("device-only bearer storage", () => {
     expect(store.deleteItemAsync).not.toHaveBeenCalled();
   });
 
+  it("binds reset cleanup to the token snapshot if sign-in occurs while its hook resumes", async () => {
+    await storage.setStoredBearerToken("old-session");
+    store.deleteItemAsync.mockClear();
+    const hooks = storage.bearerStoragePlugin().fetchPlugins![0].hooks!;
+    const preparing = hooks.onRequest!({
+      url: new URL("https://auth.example.test/auth/reset-password"),
+      headers: new Headers(),
+      method: "POST",
+      body: undefined,
+      signal: new AbortController().signal,
+    });
+    let newSignIn: Promise<void> | undefined;
+    // Runs between the async getter's snapshot and the request hook's continuation.
+    queueMicrotask(() => {
+      newSignIn = storage.setStoredBearerToken("new-session");
+    });
+    const request = await preparing;
+    await newSignIn;
+    if (!request) throw new Error("Expected request hook to return its context");
+    expect(request.headers.get("Authorization")).toBe("Bearer old-session");
+    store.deleteItemAsync.mockClear();
+    await hooks.onSuccess!({ request, response: Response.json({ success: true }), data: {} });
+    await client.getSession();
+    expect(requests[0].get("Authorization")).toBe("Bearer new-session");
+    expect(store.deleteItemAsync).not.toHaveBeenCalled();
+  });
+
   it("retries hydration after unlock and after a transient policy recreation failure", async () => {
     store.getItemAsync.mockRejectedValueOnce(new Error("locked"));
     await client.getSession();

@@ -67,9 +67,10 @@ export async function setStoredBearerToken(token: string | null): Promise<void> 
   });
 }
 
-async function getStoredBearerToken(): Promise<string | null> {
+async function getStoredBearerSnapshot(): Promise<{ token: string | null; revision: number }> {
   await hydrateBearerFromSecureStore();
-  return memoryToken;
+  // Capture both fields synchronously, before the requesting hook resumes after its await.
+  return { token: memoryToken, revision };
 }
 
 function isAuthEndpoint(url: string, endpoint: string): boolean {
@@ -112,18 +113,21 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
         name: "BearerStorage",
         hooks: {
           async onRequest(context) {
-            const token = await getStoredBearerToken();
+            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
             const headers = toHeaders(context.headers);
             if (token) {
               headers.set("Authorization", `Bearer ${token}`);
             }
             const request = { ...context, headers };
             if (isAuthEndpoint(context.url.toString(), "reset-password")) {
-              resetRevisions.set(request, revision);
+              resetRevisions.set(request, requestRevision);
             }
             // A disk failure must not prevent the authenticated server revocation request.
             // Memory clears immediately; persistence is retried after the server responds.
-            if (isAuthEndpoint(context.url.toString(), "sign-out")) {
+            if (
+              isAuthEndpoint(context.url.toString(), "sign-out") &&
+              requestRevision === revision
+            ) {
               const logoutRevision = revision + 1;
               await setStoredBearerToken(null).catch(() => {
                 logoutRevisions.set(request, logoutRevision);
