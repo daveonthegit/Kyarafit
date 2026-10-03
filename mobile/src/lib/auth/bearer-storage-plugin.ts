@@ -118,7 +118,10 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
             if (token) {
               headers.set("Authorization", `Bearer ${token}`);
             }
-            const request = { ...context, headers };
+            // Better Fetch merges a hook's return value into this original context.
+            // Response hooks receive the original, not a separately returned object.
+            const request = context;
+            request.headers = headers;
             if (isAuthEndpoint(context.url.toString(), "reset-password")) {
               resetRevisions.set(request, requestRevision);
             }

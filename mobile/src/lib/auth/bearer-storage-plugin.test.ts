@@ -30,9 +30,29 @@ beforeEach(async () => {
   requests = [];
   responseStatus = 200;
   responseWait = undefined;
-  client = createAuthClient({
+});
+
+function createTestClient(composed: boolean) {
+  const data = new Map<string, string>();
+  return createAuthClient({
     baseURL: "https://auth.example.test/auth",
-    plugins: [storage.bearerStoragePlugin()],
+    plugins: [
+      ...(composed
+        ? [
+            convexClient(),
+            crossDomainClient({
+              storage: {
+                getItem: (key) => data.get(key) ?? null,
+                setItem: (key, value) => {
+                  data.set(key, value);
+                },
+              },
+            }),
+            usernameClient(),
+          ]
+        : []),
+      storage.bearerStoragePlugin(),
+    ],
     fetchOptions: {
       customFetchImpl: async (_url: RequestInfo | URL, init?: RequestInit) => {
         requests.push(new Headers(init?.headers));
@@ -44,9 +64,12 @@ beforeEach(async () => {
       },
     },
   });
-});
+}
 
-describe("device-only bearer storage", () => {
+describe.each([false, true])("device-only bearer storage (composed=%s)", (composed) => {
+  beforeEach(() => {
+    client = createTestClient(composed);
+  });
   it("hydrates and upgrades existing persistence, then caches for subsequent requests", async () => {
     store.getItemAsync.mockResolvedValue("existing-session");
     await storage.hydrateBearerFromSecureStore();
