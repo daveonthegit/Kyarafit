@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { Stack } from "expo-router";
+import { Text } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useTranslation } from "react-i18next";
 
 import { usePendingQueueCount } from "@/offline";
 import { SyncStatusSection } from "@/components/settings/SyncStatusSection";
-import { MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import {
+  SettingsGlassFrame,
+  SettingsGlassSection,
+  settingsGlassStyles as styles,
+} from "@/screens/settings/glassSettings";
 
 export default function SettingsOfflineScreen() {
   const { t } = useTranslation();
@@ -23,43 +26,29 @@ export default function SettingsOfflineScreen() {
   }, []);
 
   return (
-    <>
-      <Stack.Screen options={{ title: t("settings.offlineCapability"), headerLargeTitle: false }} />
-      <ScrollView
-        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-        contentContainerClassName="px-5 pb-12 pt-4"
-      >
-        <SectionHeading eyebrow={t("common.settings")} title={t("settings.offlineCapability")} />
-        <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {t("settings.offlineCapabilityIntro")}
+    <SettingsGlassFrame
+      eyebrow={t("common.settings")}
+      title={t("settings.offlineCapability")}
+      description={t("settings.offlineCapabilityIntro")}
+    >
+      <SettingsGlassSection label={t("settings.connectionStatus")}>
+        <Text accessibilityLiveRegion="polite" style={styles.value}>
+          {offline ? t("settings.connectionOffline") : t("settings.connectionOnline")}
         </Text>
+      </SettingsGlassSection>
 
-        <SurfaceCard className="mt-5 px-4 py-4">
-          <MetaLabel>{t("settings.connectionStatus")}</MetaLabel>
-          <Text className="mt-3 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-            {offline ? t("settings.connectionOffline") : t("settings.connectionOnline")}
-          </Text>
-        </SurfaceCard>
+      {/* Placement and implementation are reserved by the existing sync contract (ADR-0002). */}
+      <SyncStatusSection offline={offline} />
 
-        <SyncStatusSection offline={offline} />
-
-        <SurfaceCard className="mt-4 px-4 py-4">
-          <MetaLabel>{t("settings.pendingMutations")}</MetaLabel>
-          <Text className="mt-3 font-serif text-4xl italic text-kyar-text dark:text-kyar-dark-text">
-            {pending}
-          </Text>
-          <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("settings.pendingMutationsHint")}
-          </Text>
-        </SurfaceCard>
-
-        <View className="mt-5 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel">
-          <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("settings.offlineCapabilityFootnote")}
-          </Text>
-        </View>
-      </ScrollView>
-    </>
+      <SettingsGlassSection label={t("settings.pendingMutations")}>
+        <Text accessibilityLiveRegion="polite" style={styles.count}>
+          {pending}
+        </Text>
+        <Text style={styles.body}>{t("settings.pendingMutationsHint")}</Text>
+      </SettingsGlassSection>
+      <SettingsGlassSection>
+        <Text style={styles.body}>{t("settings.offlineCapabilityFootnote")}</Text>
+      </SettingsGlassSection>
+    </SettingsGlassFrame>
   );
 }
-
