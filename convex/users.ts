@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getStorageSizeMb } from "./storageUsage";
+import { getStorageSizeMb, checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { storageClaim } from "./lib/storageOwnership";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
   effectiveConvexTier,
@@ -287,8 +288,15 @@ export const recalculateUsage = mutation({
     if (!user) return null;
 
     let totalMb = 0;
-    const addSize = async (doc: { imageStorageId?: Id<"_storage"> } | undefined) => {
-      if (!doc?.imageStorageId) return;
+    const seen = new Set<string>();
+    const addSize = async (
+      doc: { imageStorageId?: Id<"_storage">; deletedAt?: number } | undefined
+    ) => {
+      if (!doc?.imageStorageId || doc.deletedAt != null || seen.has(doc.imageStorageId)) return;
+      seen.add(doc.imageStorageId);
+      const claim = await storageClaim(ctx, doc.imageStorageId);
+      // Claimed bytes are attributed to their uploader, not every shared reference owner.
+      if (claim && claim.userId !== externalId) return;
       totalMb += await getStorageSizeMb(ctx, doc.imageStorageId);
     };
 
@@ -323,6 +331,26 @@ export const recalculateUsage = mutation({
     for (const p of processPics) await addSize(p);
 
     await addSize(user);
+    const groups = await ctx.db
+      .query("groups")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", externalId))
+      .collect();
+    for (const group of groups) await addSize(group);
+    const progress = await ctx.db
+      .query("buildProgressUpdates")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const row of progress) {
+      if (row.deletedAt != null) continue;
+      for (const ref of row.imageRefs)
+        if (ref.kind === "cloud") await addSize({ imageStorageId: ref.storageId });
+    }
+    // Pending uploads are already hosted bytes. Recalculation must not erase their charge.
+    const claims = await ctx.db
+      .query("storageClaims")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const claim of claims) await addSize({ imageStorageId: claim.storageId });
 
     await ctx.db.patch(user._id, { currentUsageMb: totalMb });
     return totalMb;
@@ -336,14 +364,16 @@ export const recalculateUsage = mutation({
 export const updateProfileImage = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
+    const externalId = await requireIdentity(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
       .unique();
-    if (!user) return null;
+    if (!user) throw new Error("Upload account not found");
+    if (user.imageStorageId !== args.storageId) {
+      await checkLimitAndAddUsage(ctx, externalId, args.storageId);
+      await subtractUsageForStorageId(ctx, externalId, user.imageStorageId);
+    }
     await ctx.db.patch(user._id, {
       imageStorageId: args.storageId,
       // Keep image for OAuth fallback; storage takes precedence when present

@@ -14,6 +14,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
+import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
@@ -728,23 +729,24 @@ describe("media access", () => {
   test("uploading requires a session", async () => {
     const t = harness();
     await expect(t.mutation(api.files.generateUploadUrl, {})).rejects.toThrow(/Unauthorized/);
-    await expect(
-      t.withIdentity({ subject: ALICE }).mutation(api.files.generateUploadUrl, {})
-    ).resolves.toBeTruthy();
+    await expect(t.mutation(api.files.generateUploadUrlForSize, { sizeBytes: 1 })).rejects.toThrow(
+      /Unauthorized/
+    );
+    await seed(t);
+    await expect(uploadTestBlob(t, ALICE, new Blob(["photo"]))).resolves.toBeTruthy();
   });
 
-  test("a freshly uploaded, not-yet-attached blob needs a session but no owner", async () => {
-    // Documented residual: the creation modals upload first and preview via getUrl
-    // before the owning row exists, so an unattached blob stays readable to any
-    // signed-in caller. It is no longer readable anonymously.
+  test("a freshly uploaded, not-yet-attached blob is previewable only by its uploader", async () => {
     const t = harness();
-    const unattached = await t.run(
-      async (ctx) => await ctx.storage.store(new Blob(["just-uploaded"]))
-    );
+    await seed(t);
+    const unattached = await uploadTestBlob(t, ALICE, new Blob(["just-uploaded"]));
     expect(await t.query(api.files.getUrl, { storageId: unattached })).toBeNull();
     expect(
       await t.withIdentity({ subject: ALICE }).query(api.files.getUrl, { storageId: unattached })
     ).not.toBeNull();
+    expect(
+      await t.withIdentity({ subject: BOB }).query(api.files.getUrl, { storageId: unattached })
+    ).toBeNull();
   });
 });
 

@@ -20,6 +20,36 @@ const syncMetaFields = {
 };
 
 export default defineSchema({
+  /** One-time upload capabilities reserve quota before accepting any bytes. */
+  storageUploadReservations: defineTable({
+    userId: v.string(),
+    token: v.string(),
+    uploadTag: v.string(),
+    reservedBytes: v.number(),
+    expiresAt: v.number(),
+    consumed: v.boolean(),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"]),
+
+  /** Actual verified size; charged once at upload, not once per reference. */
+  storageClaims: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.string(),
+    sizeBytes: v.number(),
+    expiresAt: v.number(),
+    attached: v.boolean(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_userId", ["userId"]),
+
+  progressMediaReferences: defineTable({
+    storageId: v.id("_storage"),
+    progressUpdateId: v.id("buildProgressUpdates"),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_progressUpdateId", ["progressUpdateId"]),
   users: defineTable({
     externalId: v.string(),
     email: v.string(),
@@ -444,6 +474,7 @@ export default defineSchema({
     createdAt: v.number(),
     note: v.optional(v.string()),
     imageRefs: v.array(imageRefValidator),
+    mediaIndexed: v.optional(v.boolean()),
     progressPercent: v.optional(v.number()),
     publishedToFeed: v.boolean(),
     ...syncMetaFields,
@@ -451,7 +482,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_mediaIndexed", ["mediaIndexed"]),
 
   groups: defineTable({
     name: v.string(),

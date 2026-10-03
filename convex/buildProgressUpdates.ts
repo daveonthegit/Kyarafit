@@ -7,7 +7,8 @@ import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
 import { sortProgressUpdates } from "@kyarafit/design-system/domain/mediaGallery";
 import { MAX_LENGTH, clampNumber, sanitizeOptional } from "./lib/validation";
 import { imageRefValidator } from "./lib/imageRef";
-import { checkLimitAndAddUsage } from "./storageUsage";
+import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { indexProgressMedia } from "./lib/storageOwnership";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 /**
@@ -91,6 +92,15 @@ export const add = mutation({
       publishedToFeed = true;
     }
 
+    const imageRefs = args.imageRefs ?? [];
+    if (imageRefs.length > 20) throw new Error("Too many progress images");
+    const charged = new Set<string>();
+    for (const ref of imageRefs) {
+      if (ref.kind === "cloud" && !charged.has(ref.storageId)) {
+        await checkLimitAndAddUsage(ctx, actorId, ref.storageId);
+        charged.add(ref.storageId);
+      }
+    }
     const id = await ctx.db.insert(
       "buildProgressUpdates",
       withCreateMeta({
@@ -98,11 +108,12 @@ export const add = mutation({
         userId: actorId,
         createdAt: Date.now(),
         note: sanitizeOptional(args.note, MAX_LENGTH.notes, "Note"),
-        imageRefs: args.imageRefs ?? [],
+        imageRefs,
         progressPercent: clampNumber(args.progressPercent, 0, 100, "Progress percent"),
         publishedToFeed,
       })
     );
+    await indexProgressMedia(ctx, id);
     return idempotentRecord(
       ctx,
       args.idempotencyKey,
@@ -139,6 +150,7 @@ export const update = mutation({
       patch.note =
         args.note === null ? undefined : sanitizeOptional(args.note, MAX_LENGTH.notes, "Note");
     if (args.imageRefs !== undefined) {
+      if (args.imageRefs.length > 20) throw new Error("Too many progress images");
       // Paid image upload-on-sync flips a `local` ref to `cloud` here (REQ-D71). A newly-stored
       // blob must go through the same cloud-storage accounting as the normal upload path so a paid
       // user cannot exceed the REQ-D90 cap. Only storage ids that were NOT already cloud on this doc
@@ -149,6 +161,14 @@ export const update = mutation({
       for (const ref of args.imageRefs) {
         if (ref.kind === "cloud" && !before.has(ref.storageId)) {
           await checkLimitAndAddUsage(ctx, actorId, ref.storageId);
+          before.add(ref.storageId);
+        }
+      }
+      const after = cloudStorageIds(args.imageRefs);
+      for (const ref of doc.imageRefs) {
+        if (ref.kind === "cloud" && !after.has(ref.storageId)) {
+          await subtractUsageForStorageId(ctx, actorId, ref.storageId);
+          after.add(ref.storageId);
         }
       }
       patch.imageRefs = args.imageRefs;
@@ -167,6 +187,7 @@ export const update = mutation({
 
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(args.id, withUpdateMeta(doc, patch));
+      if (args.imageRefs !== undefined) await indexProgressMedia(ctx, args.id);
     }
     return idempotentRecord(
       ctx,
@@ -187,6 +208,11 @@ export const remove = mutation({
       throw new Error("Progress update not found or not authorized");
     }
     if (doc.deletedAt != null) return;
+    for (const storageId of new Set(
+      doc.imageRefs.filter((ref) => ref.kind === "cloud").map((ref) => ref.storageId)
+    )) {
+      await subtractUsageForStorageId(ctx, actorId, storageId);
+    }
     // Keep the row so incremental pull can propagate deletion to offline clients.
     await ctx.db.patch(args.id, withUpdateMeta(doc, { deletedAt: Date.now() }));
   },

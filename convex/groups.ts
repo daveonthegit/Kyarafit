@@ -158,7 +158,7 @@ export const update = mutation({
     }
     const newStorageId = args.imageStorageId;
     const oldStorageId = group.imageStorageId;
-    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+    if (newStorageId !== undefined && oldStorageId !== undefined && oldStorageId !== newStorageId) {
       await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
