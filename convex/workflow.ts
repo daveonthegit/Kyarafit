@@ -1241,7 +1241,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "workflow.create", async () => {
       const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
       if (parent && parent.userId !== actorId) throw new Error("Parent not found");
       if (args.attachments) {
@@ -1332,7 +1332,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "workflow.update");
     if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
@@ -1391,7 +1391,7 @@ export const update = mutation({
     if (updated) {
       await syncPackingItemsFromWorkflowItem(ctx, updated);
     }
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, updated);
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, updated, "workflow.update");
   },
 });
 
@@ -1405,7 +1405,7 @@ export const move = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "workflow.move", async () => {
       const item = await ctx.db.get(args.id);
       if (!item) throw new Error("Workflow item not found");
       await assertWorkflowEditable(ctx, item, actorId);
@@ -1451,7 +1451,7 @@ export const moveAndResequence = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "workflow.moveAndResequence");
     if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.move.id);
     if (!item) throw new Error("Workflow item not found");
@@ -1498,7 +1498,13 @@ export const moveAndResequence = mutation({
       await ctx.db.patch(row.id, withUpdateMeta(rowItem, { sortOrder: row.sortOrder }));
     }
 
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(args.move.id));
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(args.move.id),
+      "workflow.moveAndResequence"
+    );
   },
 });
 

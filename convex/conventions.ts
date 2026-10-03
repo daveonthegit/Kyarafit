@@ -132,7 +132,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "conventions.create", async () => {
       if (args.imageStorageId) {
         await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
       }
@@ -173,7 +173,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
     const { id, userId: _userId, idempotencyKey, ...fields } = args;
-    const replay = await idempotentReplay(ctx, idempotencyKey);
+    const replay = await idempotentReplay(ctx, idempotencyKey, "conventions.update");
     if (replay.hit) return replay.result as Doc<"conventions"> | null;
     const convention = await ctx.db.get(id);
     if (!convention || convention.userId !== actorId) {
@@ -203,7 +203,13 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, withUpdateMeta(convention, patch));
     }
-    return idempotentRecord(ctx, idempotencyKey, actorId, await ctx.db.get(id));
+    return idempotentRecord(
+      ctx,
+      idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "conventions.update"
+    );
   },
 });
 
@@ -216,14 +222,14 @@ export const archiveMany = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "conventions.archiveMany");
     if (replay.hit) return;
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
       if (!convention || convention.userId !== actorId) continue;
       await ctx.db.patch(id, withUpdateMeta(convention, { archived: args.archived }));
     }
-    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined, "conventions.archiveMany");
   },
 });
 
@@ -315,7 +321,7 @@ export const replacePlan = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "conventions.replacePlan");
     if (replay.hit) return replay.result as (Doc<"conventionDayPlans"> | null)[];
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== actorId) {
@@ -346,7 +352,7 @@ export const replacePlan = mutation({
       );
       results.push(await ctx.db.get(id));
     }
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, results);
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, results, "conventions.replacePlan");
   },
 });
 
@@ -443,7 +449,11 @@ export const addManualPackingItem = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(
+      ctx,
+      args.idempotencyKey,
+      "conventions.addManualPackingItem"
+    );
     if (replay.hit) return replay.result as Doc<"packingListItems"> | null;
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== actorId) {
@@ -478,7 +488,13 @@ export const addManualPackingItem = mutation({
       checked: false,
       manual: true,
     });
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(id));
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "conventions.addManualPackingItem"
+    );
   },
 });
 

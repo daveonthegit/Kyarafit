@@ -799,7 +799,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    return runIdempotent(ctx, args.idempotencyKey, actorId, async () => {
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "builds.create", async () => {
       const visibility = VALID_VISIBILITIES.includes(
         args.visibility as (typeof VALID_VISIBILITIES)[number]
       )
@@ -876,7 +876,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
     const { id, userId: _userId, idempotencyKey, ...fields } = args;
-    const replay = await idempotentReplay(ctx, idempotencyKey);
+    const replay = await idempotentReplay(ctx, idempotencyKey, "builds.update");
     if (replay.hit) return replay.result as Doc<"builds"> | null;
     const build = await ctx.db.get(id);
     if (!build) throw new Error("Build not found");
@@ -953,7 +953,7 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, withUpdateMeta(build, patch));
     }
-    return idempotentRecord(ctx, idempotencyKey, actorId, await ctx.db.get(id));
+    return idempotentRecord(ctx, idempotencyKey, actorId, await ctx.db.get(id), "builds.update");
   },
 });
 
@@ -1110,7 +1110,7 @@ export const updateStatusMany = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "builds.updateStatusMany");
     if (replay.hit) return;
     if (!VALID_STATUSES.includes(args.status as (typeof VALID_STATUSES)[number])) {
       throw new Error("Invalid status");
@@ -1120,7 +1120,7 @@ export const updateStatusMany = mutation({
       if (!build || build.userId !== actorId) continue;
       await ctx.db.patch(id, withUpdateMeta(build, { status: args.status }));
     }
-    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined, "builds.updateStatusMany");
   },
 });
 
@@ -1451,7 +1451,7 @@ export const duplicate = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "builds.duplicate");
     if (replay.hit) return replay.result as Id<"builds">;
     const source = await ctx.db.get(args.sourceBuildId);
     if (!source) throw new Error("Build not found");
@@ -1642,7 +1642,7 @@ export const duplicate = mutation({
       }
     }
 
-    return idempotentRecord(ctx, args.idempotencyKey, actorId, newBuildId);
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, newBuildId, "builds.duplicate");
   },
 });
 
@@ -1672,7 +1672,7 @@ export const addNodesToBuild = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "builds.addNodesToBuild");
     if (replay.hit) return;
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
@@ -1680,7 +1680,7 @@ export const addNodesToBuild = mutation({
     if (!canEdit) throw new Error("Not authorized");
 
     await addBuildRootLinks(ctx, actorId, args.buildId, args.cosplayNodeIds);
-    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined);
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined, "builds.addNodesToBuild");
   },
 });
 

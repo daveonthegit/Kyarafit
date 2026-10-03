@@ -531,10 +531,13 @@ export default defineSchema({
   idempotencyLedger: defineTable({
     key: v.string(),
     userId: v.string(),
+    // Optional only for deployment compatibility; unscoped legacy rows are never replayed.
+    operation: v.optional(v.string()),
     createdAt: v.number(),
     result: v.optional(v.any()),
   })
-    .index("by_key", ["key"])
+    .index("by_userId_operation_key", ["userId", "operation", "key"])
+    .index("by_userId", ["userId"])
     .index("by_createdAt", ["createdAt"]),
 
   broadcasts: defineTable({
