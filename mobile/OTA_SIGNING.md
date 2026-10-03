@@ -1,10 +1,13 @@
 # Mobile credential and update release checks
 
 The mobile bearer store uses `WHEN_UNLOCKED_THIS_DEVICE_ONLY` on iOS. Reads, writes,
-rewrites of existing entries, and deletion use the same key and options. Android
+recreation of existing entries, and deletion use the same key and options. Android
 SecureStore backup exclusions are enabled through its Expo config plugin; no biometric
-prompt is added. Existing credentials are rewritten on hydration, but backups made by
-older binaries cannot be retroactively changed. Failed storage operations never authorize
+prompt is added. Existing credentials are deleted and recreated on hydration/sign-in:
+iOS SecureStore updates the value but not an existing item's accessibility. Migration is
+serialized with logout and account switching; if recreation fails after deletion, sign-in
+is required again. Backups made by older binaries cannot be retroactively changed. Failed
+storage operations never authorize
 requests from the in-memory cache. A deletion failure must be resolved before treating
 logout as durable across process restarts.
 
@@ -44,7 +47,7 @@ Expo references: [update code signing](https://docs.expo.dev/eas-update/code-sig
 
 ## Required development-device acceptance (operator/release lane)
 
-Unit tests cover storage races, headers, reset cleanup, missing/invalid config, and signing
+Unit tests cover keychain recreation, storage races, headers, reset cleanup, missing/invalid config, and signing
 policy over a parsed certificate model. They **do not** prove native signature verification.
 Do not mark OTA rollout accepted until the following checks are recorded for both iOS and
 Android, using an operator-authorized disposable update channel and no production data.

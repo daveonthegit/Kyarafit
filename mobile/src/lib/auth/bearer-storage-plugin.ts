@@ -26,8 +26,12 @@ export async function hydrateBearerFromSecureStore(): Promise<void> {
     try {
       const token = await SecureStore.getItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
       if (hydrationRevision !== revision) return;
-      // Rewrite existing items to apply the device-only policy, without changing the key/service.
-      if (token) await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      // iOS updates do not change an existing item's accessibility: recreate it instead.
+      if (token) {
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+        if (hydrationRevision !== revision) return;
+        await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      }
       if (hydrationRevision === revision) {
         memoryToken = token;
         hydrated = true;
@@ -48,6 +52,8 @@ export async function setStoredBearerToken(token: string | null): Promise<void> 
   await serializeStorage(async () => {
     if (token) {
       try {
+        // Recreate even if sign-in occurs before hydration of an older installed client.
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
         await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
       } catch (error) {
         // Do not keep using an older session after a failed account switch.

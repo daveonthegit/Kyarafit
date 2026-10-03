@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createAuthClient } from "better-auth/client";
+import { createAuthClient } from "better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 
@@ -34,7 +34,7 @@ beforeEach(async () => {
     baseURL: "https://auth.example.test/auth",
     plugins: [storage.bearerStoragePlugin()],
     fetchOptions: {
-      customFetchImpl: async (_url, init) => {
+      customFetchImpl: async (_url: RequestInfo | URL, init?: RequestInit) => {
         requests.push(new Headers(init?.headers));
         if (responseWait) await responseWait;
         return new Response(JSON.stringify(responseStatus === 200 ? { success: true } : {}), {
@@ -53,11 +53,58 @@ describe("device-only bearer storage", () => {
     await client.getSession();
     await client.getSession();
     expect(store.getItemAsync).toHaveBeenCalledExactlyOnceWith(key, options);
+    expect(store.deleteItemAsync).toHaveBeenCalledExactlyOnceWith(key, options);
     expect(store.setItemAsync).toHaveBeenCalledExactlyOnceWith(key, "existing-session", options);
     expect(requests.map((headers) => headers.get("Authorization"))).toEqual([
       "Bearer existing-session",
       "Bearer existing-session",
     ]);
+  });
+
+  it.each(["hydrate", "sign-in"])(
+    "recreates existing keychain items rather than updating their accessibility (%s)",
+    async (action) => {
+      // Model iOS: updating an existing value leaves its original accessibility unchanged.
+      let item: { token: string; deviceOnly: boolean } | null = {
+        token: "legacy-session",
+        deviceOnly: false,
+      };
+      store.getItemAsync.mockImplementation(async () => item?.token ?? null);
+      store.deleteItemAsync.mockImplementation(async () => {
+        item = null;
+      });
+      store.setItemAsync.mockImplementation(async (_key, token, options) => {
+        item = {
+          token,
+          deviceOnly:
+            item?.deviceOnly ?? options.keychainAccessible === store.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        };
+      });
+      if (action === "hydrate") await storage.hydrateBearerFromSecureStore();
+      else await storage.setStoredBearerToken("new-session");
+      expect(item).toEqual({
+        token: action === "hydrate" ? "legacy-session" : "new-session",
+        deviceOnly: true,
+      });
+      await client.getSession();
+      expect(requests[0].get("Authorization")).toBe(
+        `Bearer ${action === "hydrate" ? "legacy-session" : "new-session"}`
+      );
+    }
+  );
+
+  it("requires sign-in if hydration recreation cannot persist after deletion", async () => {
+    let persisted: string | null = "legacy-session";
+    store.getItemAsync.mockImplementation(async () => persisted);
+    store.deleteItemAsync.mockImplementation(async () => {
+      persisted = null;
+    });
+    store.setItemAsync.mockRejectedValueOnce(new Error("recreation write failed"));
+    await client.getSession();
+    expect(persisted).toBeNull();
+    expect(requests[0].get("Authorization")).toBeNull();
+    await client.getSession();
+    expect(requests[1].get("Authorization")).toBeNull();
   });
 
   it("persists a sign-in token with device-only options", async () => {
@@ -69,6 +116,7 @@ describe("device-only bearer storage", () => {
 
   it("authenticates sign-out revocation but never rehydrates the cleared session", async () => {
     await storage.setStoredBearerToken("session-to-revoke");
+    store.deleteItemAsync.mockClear();
     await client.signOut();
     store.getItemAsync.mockResolvedValue("stale-disk-copy");
     await client.getSession();
@@ -80,6 +128,7 @@ describe("device-only bearer storage", () => {
 
   it("still attempts authenticated revocation after disk deletion fails, then retries cleanup", async () => {
     await storage.setStoredBearerToken("session-to-revoke");
+    store.deleteItemAsync.mockClear();
     store.deleteItemAsync.mockRejectedValueOnce(new Error("transient delete failure"));
     await client.signOut();
     expect(requests[0].get("Authorization")).toBe("Bearer session-to-revoke");
@@ -90,6 +139,7 @@ describe("device-only bearer storage", () => {
 
   it("surfaces persistent deletion failure only after server revocation was attempted", async () => {
     await storage.setStoredBearerToken("session-to-revoke");
+    store.deleteItemAsync.mockClear();
     store.deleteItemAsync.mockRejectedValue(new Error("persistent delete failure"));
     await expect(client.signOut()).rejects.toThrow("persistent delete failure");
     expect(requests[0].get("Authorization")).toBe("Bearer session-to-revoke");
@@ -108,6 +158,7 @@ describe("device-only bearer storage", () => {
 
   it("clears after successful password reset, but not after failed reset", async () => {
     await storage.setStoredBearerToken("old-session");
+    store.deleteItemAsync.mockClear();
     responseStatus = 400;
     await client.resetPassword({ newPassword: "test-password", token: "reset-token" });
     expect(store.deleteItemAsync).not.toHaveBeenCalled();
@@ -127,6 +178,7 @@ describe("device-only bearer storage", () => {
     const reset = client.resetPassword({ newPassword: "test-password", token: "reset-token" });
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     await storage.setStoredBearerToken("new-session");
+    store.deleteItemAsync.mockClear();
     responseWait = undefined;
     finishReset();
     await reset;
@@ -135,12 +187,12 @@ describe("device-only bearer storage", () => {
     expect(store.deleteItemAsync).not.toHaveBeenCalled();
   });
 
-  it("retries hydration after unlock and after a transient policy rewrite failure", async () => {
+  it("retries hydration after unlock and after a transient policy recreation failure", async () => {
     store.getItemAsync.mockRejectedValueOnce(new Error("locked"));
     await client.getSession();
     expect(requests[0].get("Authorization")).toBeNull();
     store.getItemAsync.mockResolvedValue("existing-session");
-    store.setItemAsync.mockRejectedValueOnce(new Error("rewrite failed"));
+    store.deleteItemAsync.mockRejectedValueOnce(new Error("recreation delete failed"));
     await client.getSession();
     expect(requests[1].get("Authorization")).toBeNull();
     await storage.hydrateBearerFromSecureStore();
@@ -211,7 +263,7 @@ describe("device-only bearer storage", () => {
         storage.bearerStoragePlugin(),
       ],
       fetchOptions: {
-        customFetchImpl: async (_url, init) => {
+        customFetchImpl: async (_url: RequestInfo | URL, init?: RequestInit) => {
           requests.push(new Headers(init?.headers));
           return Response.json({ success: true });
         },
@@ -228,11 +280,28 @@ describe("device-only bearer storage", () => {
     ]);
   });
 
+  it("does not recreate a legacy item when logout occurs during migration deletion", async () => {
+    store.getItemAsync.mockResolvedValue("legacy-session");
+    let finishDelete!: () => void;
+    store.deleteItemAsync.mockReturnValueOnce(
+      new Promise<void>((resolve) => (finishDelete = resolve))
+    );
+    const hydration = storage.hydrateBearerFromSecureStore();
+    await vi.waitFor(() => expect(store.deleteItemAsync).toHaveBeenCalled());
+    const clear = storage.setStoredBearerToken(null);
+    finishDelete();
+    await Promise.all([hydration, clear]);
+    expect(store.setItemAsync).not.toHaveBeenCalled();
+    await client.getSession();
+    expect(requests[0].get("Authorization")).toBeNull();
+  });
+
   it("serializes a pending token write before clearing persistence", async () => {
     let completeWrite!: () => void;
     store.setItemAsync.mockReturnValue(new Promise<void>((resolve) => (completeWrite = resolve)));
     const save = storage.setStoredBearerToken("old-session");
     await vi.waitFor(() => expect(store.setItemAsync).toHaveBeenCalled());
+    store.deleteItemAsync.mockClear();
     const clear = storage.setStoredBearerToken(null);
     expect(store.deleteItemAsync).not.toHaveBeenCalled();
     completeWrite();
