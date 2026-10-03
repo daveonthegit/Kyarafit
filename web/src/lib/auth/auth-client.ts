@@ -1,26 +1,25 @@
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import type { AuthClient as ConvexAuthClient } from "@convex-dev/better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
-import type { BetterAuthClientPlugin } from "better-auth";
 import { bearerStoragePlugin } from "./bearer-storage-plugin";
-
-// `crossDomainClient` ships client-action generics that don't satisfy `BetterAuthClientPlugin`
-// under our pinned better-auth version; widening just this entry keeps the tuple well-typed so the
-// other plugins' actions (username sign-in, etc.) still infer. Its own extra actions (updateSession)
-// are accessed via explicit casts where used.
-const crossDomain = crossDomainClient() as unknown as BetterAuthClientPlugin;
 
 const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
 
-export const authClient = createAuthClient({
+const client = createAuthClient({
   baseURL: convexSiteUrl ? `${convexSiteUrl}/auth` : undefined,
   // crossDomainClient stores the Set-Better-Auth-Cookie cookie in localStorage and
   // sends it on every request, enabling OAuth session persistence cross-origin.
   // It also exposes updateSession() used by ConvexBetterAuthProvider after OTT exchange.
   // bearerStoragePlugin handles credential sign-in Bearer tokens (the two coexist safely).
   // usernameClient adds signIn.username() for username-based login.
-  plugins: [convexClient(), crossDomain, usernameClient(), bearerStoragePlugin()],
+  plugins: [convexClient(), crossDomainClient(), usernameClient(), bearerStoragePlugin()],
 });
+
+// The integration's provider type still widens plugins to BetterAuthClientPlugin[],
+// which infers a `never` session in Better Auth 1.6. Preserve concrete client inference
+// at call sites while bridging only that upstream provider type; runtime is unchanged.
+export const authClient = client as typeof client & ConvexAuthClient;
 
 type DeleteUserArgs = {
   callbackURL?: string;
