@@ -65,6 +65,7 @@ describe("progress session authorization", () => {
       await check(t, true);
       await check(t.withIdentity({ subject: OTHER }), false);
     }
+    expect(await owner.query(api.buildProgressUpdates.listByBuild, { buildId })).toHaveLength(1);
     expect(await t.run((ctx) => ctx.db.get(row._id))).toEqual(row);
     expect(await t.run((ctx) => ctx.db.query("buildProgressUpdates").collect())).toHaveLength(1);
   });
