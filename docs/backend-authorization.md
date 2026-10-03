@@ -111,6 +111,11 @@ thumbnails resolve), and a profile picture is readable when the caller shares a 
 that user — the group roster renders every member's avatar and `profileVisibility` is
 unset by default.
 
+Because readability follows the referencing rows, attaching an id is gated by the same
+rule: `checkLimitAndAddUsage` (every metered attach path) and `users.updateProfileImage`
+call `assertCanAttachStorageId`, so a caller can only attach a blob that is unattached or
+already readable to them. New attach paths must go through one of them.
+
 Two deliberate looseness points, both documented in that file:
 
 1. A blob that **no row references** is readable by any authenticated caller. The

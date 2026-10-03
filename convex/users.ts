@@ -3,6 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
+import { assertCanAttachStorageId } from "./lib/mediaAccess";
 import {
   convexTierStorageLimitMb,
   normalizeConvexTier,
@@ -332,6 +333,9 @@ export const updateProfileImage = mutation({
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
       .unique();
     if (!user) return null;
+    if (user.imageStorageId !== args.storageId) {
+      await assertCanAttachStorageId(ctx, args.storageId, externalId);
+    }
     await ctx.db.patch(user._id, {
       imageStorageId: args.storageId,
       // Keep image for OAuth fallback; storage takes precedence when present

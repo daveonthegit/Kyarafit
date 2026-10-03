@@ -788,7 +788,7 @@ export const update = mutation({
       await subtractUsageForStorageId(ctx, build.userId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, build.userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, build.userId, newStorageId, actorId);
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {

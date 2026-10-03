@@ -36,9 +36,14 @@
  * so a strict deny would break image upload in all four modals. It is a known,
  * documented residual — narrowing it needs an owner-indexed media table, which is
  * part of the open media-access-model decision and out of scope here.
+ *
+ * Because access follows the referencing rows, attaching a storage id to a row is
+ * itself gated by this rule (`assertCanAttachStorageId`): a caller may only attach a
+ * blob they can already read. Otherwise anyone who learned an id could attach it to
+ * their own public row and publish it.
  */
 import type { Doc, Id } from "../_generated/dataModel";
-import type { QueryCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   hasBuildRelationship,
   isBuildPublic,
@@ -180,4 +185,18 @@ export async function canReadStorageId(
 
   // Unattached blob — see the module comment. Authentication is required.
   return viewerId != null;
+}
+
+/**
+ * Throws unless `actorId` may attach `storageId` to a row: the blob must be
+ * unattached or already readable by the actor. Call before writing the id.
+ */
+export async function assertCanAttachStorageId(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+  actorId: string
+): Promise<void> {
+  if (!(await canReadStorageId(ctx, storageId, actorId))) {
+    throw new Error("Not authorized to use this file");
+  }
 }

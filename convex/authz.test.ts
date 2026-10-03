@@ -759,6 +759,132 @@ describe("media access", () => {
   });
 });
 
+describe("attaching media requires being able to read it", () => {
+  test("another user's private blob cannot be attached to the caller's own rows", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    await t.run(async (ctx) => {
+      const alice = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", ALICE))
+        .unique();
+      await ctx.db.patch(alice!._id, { profileVisibility: "public" });
+    });
+    const aliceBuild = await asAlice.mutation(api.builds.create, { name: "Alice", status: "wip" });
+    const aliceNode = await asAlice.mutation(api.cosplayNodes.create, {
+      nodeType: "element",
+      name: "Alice's prop",
+      tags: [],
+    });
+    const aliceConvention = await asAlice.mutation(api.conventions.create, {
+      name: "Alice's con",
+      startDate: "2026-09-01",
+      endDate: "2026-09-02",
+    });
+    const aliceGroup = await asAlice.mutation(api.groups.create, {
+      name: "Alice's group",
+      visibility: "public",
+    });
+    const storageId = f.bobPrivateImage;
+
+    await expect(asAlice.mutation(api.users.updateProfileImage, { storageId })).rejects.toThrow(
+      /Not authorized to use this file/
+    );
+    const attempts = [
+      () =>
+        asAlice.mutation(api.builds.create, {
+          name: "x",
+          status: "wip",
+          visibility: "public",
+          imageStorageId: storageId,
+        }),
+      () => asAlice.mutation(api.builds.update, { id: aliceBuild!._id, imageStorageId: storageId }),
+      () =>
+        asAlice.mutation(api.buildReferenceImages.add, {
+          buildId: aliceBuild!._id,
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.buildProcessPictures.add, {
+          buildId: aliceBuild!._id,
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.cosplayNodes.create, {
+          nodeType: "element",
+          name: "x",
+          tags: [],
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.cosplayNodes.update, {
+          id: aliceNode!._id,
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.conventions.create, {
+          name: "x",
+          startDate: "2026-09-01",
+          endDate: "2026-09-02",
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.conventions.update, {
+          id: aliceConvention!._id,
+          imageStorageId: storageId,
+        }),
+      () =>
+        asAlice.mutation(api.groups.create, {
+          name: "x",
+          visibility: "public",
+          imageStorageId: storageId,
+        }),
+      () => asAlice.mutation(api.groups.update, { id: aliceGroup!._id, imageStorageId: storageId }),
+    ];
+    for (const attempt of attempts) {
+      await expect(attempt()).rejects.toThrow(/Not authorized to use this file/);
+    }
+
+    expect(await t.query(api.files.getUrl, { storageId })).toBeNull();
+    expect(await asAlice.query(api.files.getUrl, { storageId })).toBeNull();
+  });
+
+  test("fresh uploads, readable blobs and collaborator edits can still be attached", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    const [fresh, forBob] = await t.run(async (ctx) => [
+      await ctx.storage.store(new Blob(["alice-upload"])),
+      await ctx.storage.store(new Blob(["alice-upload-for-bob"])),
+    ]);
+
+    await asAlice.mutation(api.users.updateProfileImage, { storageId: fresh });
+    await asAlice.mutation(api.builds.create, {
+      name: "Alice",
+      status: "wip",
+      imageStorageId: f.bobPublicBuildImage,
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobPrivateBuild,
+        userId: ALICE,
+        role: "editor",
+      });
+    });
+    const updated = await asAlice.mutation(api.builds.update, {
+      id: f.bobPrivateBuild,
+      imageStorageId: forBob,
+    });
+    expect(updated?.imageStorageId).toBe(forBob);
+    await asAlice.mutation(api.buildReferenceImages.add, {
+      buildId: f.bobPrivateBuild,
+      imageStorageId: f.bobPrivateImage,
+    });
+  });
+});
+
 describe("endpoints that are public by design stay public", () => {
   test("discover, public profiles and public build listings serve anonymous callers", async () => {
     const t = harness();
