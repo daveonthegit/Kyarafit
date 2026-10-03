@@ -2,38 +2,79 @@ import type { BetterAuthClientPlugin } from "better-auth";
 import * as SecureStore from "expo-secure-store";
 
 const BEARER_TOKEN_KEY = "better_auth_bearer_token";
+const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
-/** In-memory cache so the fetch hook can attach the header without awaiting every request after hydration. */
+/** A hydrated null is authoritative: logout must not re-read an old persisted token. */
 let memoryToken: string | null = null;
+let hydrated = false;
+let revision = 0;
+let storageQueue: Promise<void> = Promise.resolve();
+
+function serializeStorage(operation: () => Promise<void>): Promise<void> {
+  const pending = storageQueue.then(operation);
+  storageQueue = pending.catch(() => {});
+  return pending;
+}
 
 export async function hydrateBearerFromSecureStore(): Promise<void> {
-  try {
-    memoryToken = await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
-  } catch {
-    memoryToken = null;
-  }
+  if (hydrated) return;
+  const hydrationRevision = revision;
+  await serializeStorage(async () => {
+    if (hydrated || hydrationRevision !== revision) return;
+    try {
+      const token = await SecureStore.getItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+      if (hydrationRevision !== revision) return;
+      // iOS updates do not change an existing item's accessibility: recreate it instead.
+      if (token) {
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+        if (hydrationRevision !== revision) return;
+        await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      }
+      if (hydrationRevision === revision) {
+        memoryToken = token;
+        hydrated = true;
+      }
+    } catch {
+      // A locked device or transient rewrite failure may recover on a later request.
+      // Explicit logout/account-switch nulls remain authoritative via the revision guard.
+      if (hydrationRevision === revision) memoryToken = null;
+    }
+  });
 }
 
-/**
- * Persist Bearer session token (opaque to the client). Call after sign-in; pass null on sign-out.
- */
+/** Persist after sign-in; null immediately clears memory even if disk deletion fails. */
 export async function setStoredBearerToken(token: string | null): Promise<void> {
-  memoryToken = token;
-  if (token) {
-    await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token);
-  } else {
-    await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY);
-  }
+  const writeRevision = ++revision;
+  hydrated = true;
+  memoryToken = null;
+  await serializeStorage(async () => {
+    if (token) {
+      try {
+        // Recreate even if sign-in occurs before hydration of an older installed client.
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+        await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
+      } catch (error) {
+        // Do not keep using an older session after a failed account switch.
+        await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS).catch(() => {});
+        throw error;
+      }
+    } else {
+      await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
+    }
+    if (writeRevision === revision) memoryToken = token;
+  });
 }
 
-async function getStoredBearerToken(): Promise<string | null> {
-  if (memoryToken !== null) return memoryToken;
-  try {
-    memoryToken = await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
-  } catch {
-    memoryToken = null;
-  }
-  return memoryToken;
+async function getStoredBearerSnapshot(): Promise<{ token: string | null; revision: number }> {
+  await hydrateBearerFromSecureStore();
+  // Capture both fields synchronously, before the requesting hook resumes after its await.
+  return { token: memoryToken, revision };
+}
+
+function isAuthEndpoint(url: string, endpoint: string): boolean {
+  return new URL(url, "https://auth.invalid").pathname.endsWith(`/${endpoint}`);
 }
 
 /**
@@ -62,25 +103,49 @@ function toHeaders(input: unknown): Headers {
 }
 
 export function bearerStoragePlugin(): BetterAuthClientPlugin {
+  const resetRevisions = new WeakMap<object, number>();
+  const logoutRevisions = new WeakMap<object, number>();
   return {
     id: "bearer-storage",
     fetchPlugins: [
       {
         id: "bearer-storage-fetch",
         name: "BearerStorage",
-        async init(url, options) {
-          if (url.includes("/sign-out")) {
-            await setStoredBearerToken(null);
-          }
-          const token = await getStoredBearerToken();
-          const headers = toHeaders(options?.headers);
-          if (token) {
-            headers.set("Authorization", `Bearer ${token}`);
-          }
-          return {
-            url,
-            options: { ...options, headers },
-          };
+        hooks: {
+          async onRequest(context) {
+            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
+            const headers = toHeaders(context.headers);
+            if (token) {
+              headers.set("Authorization", `Bearer ${token}`);
+            }
+            const request = { ...context, headers };
+            if (isAuthEndpoint(context.url.toString(), "reset-password")) {
+              resetRevisions.set(request, requestRevision);
+            }
+            // A disk failure must not prevent the authenticated server revocation request.
+            // Memory clears immediately; persistence is retried after the server responds.
+            if (
+              isAuthEndpoint(context.url.toString(), "sign-out") &&
+              requestRevision === revision
+            ) {
+              const logoutRevision = revision + 1;
+              await setStoredBearerToken(null).catch(() => {
+                logoutRevisions.set(request, logoutRevision);
+              });
+            }
+            return request;
+          },
+          async onResponse(context) {
+            if (logoutRevisions.get(context.request) === revision) {
+              // If this still fails, surface non-durable logout, but revocation was attempted.
+              await setStoredBearerToken(null);
+            }
+          },
+          async onSuccess(context) {
+            if (resetRevisions.get(context.request) === revision) {
+              await setStoredBearerToken(null);
+            }
+          },
         },
       },
     ],
