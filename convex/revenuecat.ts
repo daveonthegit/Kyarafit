@@ -19,7 +19,7 @@ function tierFromSubscriberJson(data: {
  * URL: `https://<your-deployment>.convex.site/webhooks/revenuecat`
  *
  * Set Convex env: `REVENUECAT_SECRET_API_KEY` (Secret API key from RevenueCat).
- * Optional: `REVENUECAT_WEBHOOK_AUTHORIZATION` — same value as the Authorization header
+ * Required: `REVENUECAT_WEBHOOK_AUTHORIZATION` — same value as the Authorization header
  * you configure in RevenueCat (we accept `Bearer <token>` or the raw token).
  *
  * On each event we call GET /v1/subscribers/{app_user_id} (recommended by RevenueCat)
@@ -48,8 +48,8 @@ export const revenuecatWebhook = httpAction(async (ctx, request) => {
 
   const apiKey = process.env.REVENUECAT_SECRET_API_KEY;
   if (!apiKey) {
-    console.warn("[revenuecat] REVENUECAT_SECRET_API_KEY not set; skipping tier sync");
-    return new Response("OK", { status: 200 });
+    console.error("[revenuecat] server billing configuration missing");
+    return new Response("Service Unavailable", { status: 503, headers: { "Retry-After": "60" } });
   }
 
   let body: unknown;
@@ -73,24 +73,27 @@ export const revenuecatWebhook = httpAction(async (ctx, request) => {
     return new Response("OK", { status: 200 });
   }
 
-  const subRes = await fetch(
-    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+  let tier: string;
+  try {
+    const subRes = await fetch(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (!subRes.ok) {
+      console.error("[revenuecat] subscriber fetch failed", subRes.status);
+      return new Response("Upstream error", { status: 503 });
     }
-  );
-
-  if (!subRes.ok) {
-    const text = await subRes.text();
-    console.error("[revenuecat] subscriber fetch failed", subRes.status, text);
-    return new Response("Upstream error", { status: 500 });
+    const subscriberJson = (await subRes.json()) as Parameters<typeof tierFromSubscriberJson>[0];
+    tier = tierFromSubscriberJson(subscriberJson);
+  } catch {
+    console.error("[revenuecat] subscriber request failed");
+    return new Response("Upstream error", { status: 503 });
   }
-
-  const subscriberJson = (await subRes.json()) as Parameters<typeof tierFromSubscriberJson>[0];
-  const tier = tierFromSubscriberJson(subscriberJson);
 
   await ctx.runMutation(internal.users.setTier, {
     externalId: appUserId,
