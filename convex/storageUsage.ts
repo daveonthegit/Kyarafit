@@ -6,6 +6,13 @@
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { effectiveStorageLimitMb } from "@kyarafit/design-system/domain/accessPolicy";
+import { internal } from "./_generated/api";
+import { assertCanAttachStorage, storageClaim } from "./lib/storageOwnership";
+import {
+  storageReferences,
+  hasOwnLiveReference,
+  ownLiveReferenceCount,
+} from "./lib/storageReferences";
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -44,14 +51,18 @@ export async function checkLimitAndAddUsage(
   externalId: string,
   storageId: Id<"_storage">
 ): Promise<void> {
+  await assertCanAttachStorage(ctx, externalId, storageId);
+  // Upload claims are metered once at verified ingress; reference copies are not new bytes.
+  if (await storageClaim(ctx, storageId)) return;
+  // Legacy referenced objects were charged on attachment. Do not charge a duplicate again.
+  if (hasOwnLiveReference(await storageReferences(ctx, storageId), externalId)) return;
   const sizeMb = await getStorageSizeMb(ctx, storageId);
-  if (sizeMb <= 0) return;
 
   const user = await ctx.db
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
     .unique();
-  if (!user) return;
+  if (!user) throw new Error("Upload account not found");
 
   // Role-aware, enforced from the DB row: owners get the unlimited sentinel cap (never trusted from
   // client input). Everyone else keeps their tier's bounded cap.
@@ -77,6 +88,14 @@ export async function subtractUsageForStorageId(
   storageId: Id<"_storage"> | undefined
 ): Promise<void> {
   if (!storageId) return;
-  const sizeMb = await getStorageSizeMb(ctx, storageId);
-  if (sizeMb > 0) await addUsageDelta(ctx, externalId, -sizeMb);
+  // This runs before the row is patched/deleted. Reconcile after commit so removing one of
+  // several references cannot undercount usage or delete a still-shared blob.
+  if (await storageClaim(ctx, storageId)) {
+    await ctx.scheduler.runAfter(0, internal.files.cleanupClaim, { storageId });
+  } else {
+    if (ownLiveReferenceCount(await storageReferences(ctx, storageId), externalId) <= 1) {
+      const sizeMb = await getStorageSizeMb(ctx, storageId);
+      await addUsageDelta(ctx, externalId, -sizeMb);
+    }
+  }
 }

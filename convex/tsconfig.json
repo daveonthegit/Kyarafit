@@ -21,7 +21,7 @@
     "noEmit": true
   },
   "include": ["./**/*"],
-  /* Test files use the Vitest runtime (`import.meta.glob`, convex-test) and are typechecked/run by
+  /* Test files and fixtures use the Vitest runtime (`import.meta.glob`, convex-test) and are run by
    * `npm run test:convex` under vitest.config.ts — not by the Convex CLI deploy typecheck. */
-  "exclude": ["./_generated", "./**/*.test.ts"]
+  "exclude": ["./_generated", "./**/*.test.ts", "./**/*.fixture.ts"]
 }

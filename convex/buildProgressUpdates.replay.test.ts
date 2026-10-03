@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
+import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 import schema from "./schema";
 
 const modules = import.meta.glob(["./**/*.*s", "!./betterAuth/**"]);
@@ -103,15 +104,15 @@ describe("progress scoped replay", () => {
 
   it("charges a keyed cloud-mirror update once after a lost response", async () => {
     const { t, owner, buildId } = await fixture();
-    const storageId = await t.run(async (ctx) => {
+    await t.run(async (ctx) => {
       await ctx.db.insert("users", {
         externalId: "owner",
         email: "owner@example.test",
         tier: "PRO",
         currentUsageMb: 0,
       });
-      return ctx.storage.store(new Blob([new Uint8Array(1024 * 1024)]));
     });
+    const storageId = await uploadTestBlob(t, "owner", new Blob([new Uint8Array(1024 * 1024)]));
     const row = await owner.mutation(api.buildProgressUpdates.add, { buildId, idempotencyKey });
     const args = {
       id: row!._id,

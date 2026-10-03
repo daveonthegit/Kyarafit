@@ -891,12 +891,16 @@ export const update = mutation({
     }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = build.imageStorageId;
-    // Storage accounting follows the build's owner, not whoever is editing.
-    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+    // Removing a reference follows its old owner; new uploads belong to the verified editor.
+    if (
+      fields.imageStorageId !== undefined &&
+      oldStorageId !== undefined &&
+      oldStorageId !== newStorageId
+    ) {
       await subtractUsageForStorageId(ctx, build.userId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, build.userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, newStorageId);
     }
     const patch: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(fields)) {

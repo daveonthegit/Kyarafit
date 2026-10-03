@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
+import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 
 // SECURITY-SENSITIVE: the owner role grants UNLIMITED access and is enforced server-side from the
 // user's DB row. These tests assert bootstrap, owner-only granting, admin acceptance, and that owner
@@ -137,14 +138,15 @@ describe("owner bypasses storage cap (checkLimitAndAddUsage via updateProfileIma
   // Seed usage already at the paid cap, then attach a file. A FREE/paid user would be blocked once
   // over their cap; an owner has the unlimited sentinel cap and is allowed.
   async function attachBigFile(t: ReturnType<typeof convexTest>, externalId: string) {
-    const storageId = await t.run(async (ctx) => {
-      const blob = new Blob(["x".repeat(2 * 1024 * 1024)]); // ~2 MB
-      return ctx.storage.store(blob);
-    });
-    // Exercise the shared server enforcer directly (the same helper every upload path calls).
+    const storageId = await uploadTestBlob(
+      t,
+      externalId,
+      new Blob([new Uint8Array(2 * 1024 * 1024)])
+    );
+    await t
+      .withIdentity({ subject: externalId })
+      .mutation(api.users.updateProfileImage, { storageId });
     return t.run(async (ctx) => {
-      const { checkLimitAndAddUsage } = await import("./storageUsage");
-      await checkLimitAndAddUsage(ctx, externalId, storageId);
       const user = await ctx.db
         .query("users")
         .withIndex("by_externalId", (q) => q.eq("externalId", externalId))

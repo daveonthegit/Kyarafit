@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
+import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 import * as progressModule from "./buildProgressUpdates";
 import schema from "./schema";
 
@@ -202,7 +203,7 @@ describe("progress session authorization", () => {
 
   it("attributes cloud-mirror quota to the session rather than the compatibility argument", async () => {
     const { t, owner, row } = await fixture();
-    const storageId = await t.run(async (ctx) => {
+    await t.run(async (ctx) => {
       for (const externalId of [OWNER, OTHER]) {
         await ctx.db.insert("users", {
           externalId,
@@ -211,8 +212,8 @@ describe("progress session authorization", () => {
           currentUsageMb: 0,
         });
       }
-      return ctx.storage.store(new Blob([new Uint8Array(1024 * 1024)]));
     });
+    const storageId = await uploadTestBlob(t, OWNER, new Blob([new Uint8Array(1024 * 1024)]));
     await owner.mutation(api.buildProgressUpdates.update, {
       id: row._id,
       userId: OTHER,

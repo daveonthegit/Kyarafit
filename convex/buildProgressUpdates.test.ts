@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
+import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 
 // Backend spec tests for the build progress-update timeline (PRODUCT_SPEC.md §4.3,
 // DATA_AND_SYNC.md §3.3, REQ-049): ownership, newest-first ordering, and the paid-only publish gate.
@@ -152,7 +153,7 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
       imageRefs: [localRef("k1")],
     });
 
-    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
+    const storageId = await uploadTestBlob(t, "pro1", new Blob([new Uint8Array(5 * MB)]));
     const flipped = await t.mutation(api.buildProgressUpdates.update, {
       id: created!._id,
       userId: "pro1",
@@ -182,14 +183,10 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
       imageRefs: [localRef("k1")],
     });
 
-    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
-    await expect(
-      t.mutation(api.buildProgressUpdates.update, {
-        id: created!._id,
-        userId: "pro2",
-        imageRefs: [{ kind: "cloud", storageId, imageKey: "k1" }],
-      })
-    ).rejects.toThrow(/storage limit/i);
+    // Quota is now enforced before bytes are hosted, rather than waiting for attachment.
+    await expect(uploadTestBlob(t, "pro2", new Blob([new Uint8Array(5 * MB)]))).rejects.toThrow(
+      /storage limit/i
+    );
 
     // The row keeps its local ref (the local binary is never lost) and usage is unchanged.
     const stored = await t.run((ctx) => ctx.db.get(created!._id));
@@ -208,7 +205,7 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
       imageRefs: [localRef("k1")],
     });
 
-    const storageId = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(5 * MB)])));
+    const storageId = await uploadTestBlob(t, "pro3", new Blob([new Uint8Array(5 * MB)]));
     const cloudRefs = [{ kind: "cloud" as const, storageId, imageKey: "k1" }];
     await t.mutation(api.buildProgressUpdates.update, {
       id: created!._id,
