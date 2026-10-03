@@ -7,15 +7,15 @@ import { api } from "./_generated/api";
 // DATA_AND_SYNC.md §3.3, REQ-049): ownership, newest-first ordering, and the paid-only publish gate.
 const modules = import.meta.glob(["./**/*.*s", "!./betterAuth/**"]);
 
-async function makeBuild(t: ReturnType<typeof convexTest>, userId: string, name: string) {
-  const build = await t
-    .withIdentity({ subject: userId })
-    .mutation(api.builds.create, { userId, name, status: "idea" });
+type SessionHarness = ReturnType<ReturnType<typeof convexTest>["withIdentity"]>;
+
+async function makeBuild(t: SessionHarness, userId: string, name: string) {
+  const build = await t.mutation(api.builds.create, { userId, name, status: "idea" });
   if (!build) throw new Error("build create failed");
   return build._id;
 }
 
-async function seedUser(t: ReturnType<typeof convexTest>, externalId: string, tier: string) {
+async function seedUser(t: SessionHarness, externalId: string, tier: string) {
   await t.run(async (ctx) => {
     await ctx.db.insert("users", {
       externalId,
@@ -28,7 +28,7 @@ async function seedUser(t: ReturnType<typeof convexTest>, externalId: string, ti
 
 describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
   it("should_list_updates_newest_first", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "u1" });
     const buildId = await makeBuild(t, "u1", "A");
     const first = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
@@ -54,28 +54,33 @@ describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
 
   it("should_not_list_updates_for_a_non_owner", async () => {
     const t = convexTest(schema, modules);
-    const buildId = await makeBuild(t, "u1", "A");
-    await t.mutation(api.buildProgressUpdates.add, { buildId, userId: "u1", note: "mine" });
+    const owner = t.withIdentity({ subject: "u1" });
+    const buildId = await makeBuild(owner, "u1", "A");
+    await owner.mutation(api.buildProgressUpdates.add, { buildId, userId: "u1", note: "mine" });
 
-    const otherView = await t.query(api.buildProgressUpdates.listByBuild, {
-      buildId,
-      userId: "u2",
-    });
+    const otherView = await t
+      .withIdentity({ subject: "u2" })
+      .query(api.buildProgressUpdates.listByBuild, {
+        buildId,
+        userId: "u2",
+      });
     expect(otherView).toHaveLength(0);
   });
 
   it("should_reject_adding_an_update_to_another_users_build", async () => {
     const t = convexTest(schema, modules);
-    const buildId = await makeBuild(t, "u1", "A");
+    const buildId = await makeBuild(t.withIdentity({ subject: "u1" }), "u1", "A");
     await expect(
-      t.mutation(api.buildProgressUpdates.add, { buildId, userId: "u2", note: "nope" })
+      t
+        .withIdentity({ subject: "u2" })
+        .mutation(api.buildProgressUpdates.add, { buildId, userId: "u1", note: "nope" })
     ).rejects.toThrow(/not found or not authorized/i);
   });
 });
 
 describe("buildProgressUpdates publish gate (REQ-049)", () => {
   it("should_block_a_free_user_from_publishing_to_the_feed", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "free1" });
     await seedUser(t, "free1", "FREE");
     const buildId = await makeBuild(t, "free1", "A");
 
@@ -90,7 +95,7 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
   });
 
   it("should_default_publishedToFeed_to_false_without_publish_flag", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "free1" });
     await seedUser(t, "free1", "FREE");
     const buildId = await makeBuild(t, "free1", "A");
     const update = await t.mutation(api.buildProgressUpdates.add, {
@@ -102,7 +107,7 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
   });
 
   it("should_allow_a_paid_user_to_publish_to_the_feed", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "pro1" });
     await seedUser(t, "pro1", "PRO");
     const buildId = await makeBuild(t, "pro1", "A");
     const update = await t.mutation(api.buildProgressUpdates.add, {
@@ -122,7 +127,7 @@ const localRef = (imageKey: string) => ({
   imageKey,
 });
 
-async function usageMb(t: ReturnType<typeof convexTest>, externalId: string): Promise<number> {
+async function usageMb(t: SessionHarness, externalId: string): Promise<number> {
   return t.run(async (ctx) => {
     const user = await ctx.db
       .query("users")
@@ -137,7 +142,7 @@ async function usageMb(t: ReturnType<typeof convexTest>, externalId: string): Pr
 // accounting as the normal upload path, without double-counting on replay.
 describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
   it("should_count_cloud_usage_when_a_paid_user_flips_a_local_ref_to_cloud", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "pro1" });
     await seedUser(t, "pro1", "PRO");
     const buildId = await makeBuild(t, "pro1", "A");
     const created = await t.mutation(api.buildProgressUpdates.add, {
@@ -159,7 +164,7 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
   });
 
   it("should_block_the_flip_over_cap_and_preserve_the_local_ref", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "pro2" });
     // Seed a paid user already near the 2048 MB cap so a 5 MB blob would exceed it.
     await t.run(async (ctx) => {
       await ctx.db.insert("users", {
@@ -193,7 +198,7 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
   });
 
   it("should_not_double_count_when_the_flip_is_replayed", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest(schema, modules).withIdentity({ subject: "pro3" });
     await seedUser(t, "pro3", "PRO");
     const buildId = await makeBuild(t, "pro3", "A");
     const created = await t.mutation(api.buildProgressUpdates.add, {

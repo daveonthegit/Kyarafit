@@ -8,6 +8,7 @@ import { sortProgressUpdates } from "@kyarafit/design-system/domain/mediaGallery
 import { MAX_LENGTH, clampNumber, sanitizeOptional } from "./lib/validation";
 import { imageRefValidator } from "./lib/imageRef";
 import { checkLimitAndAddUsage } from "./storageUsage";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 /**
  * Build progress-update timeline (DATA_AND_SYNC.md §3.3, PRODUCT_SPEC.md §4.3 — REQ-049). Dated,
@@ -44,10 +45,12 @@ function cloudStorageIds(refs: unknown): Set<string> {
 }
 
 export const listByBuild = query({
-  args: { buildId: v.id("builds"), userId: v.string() },
+  args: { buildId: v.id("builds"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) return [];
+    if (!build || build.userId !== actorId || build.deletedAt != null) return [];
     const rows = await ctx.db
       .query("buildProgressUpdates")
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
@@ -61,7 +64,7 @@ export const listByBuild = query({
 export const add = mutation({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()), // retained for deployed clients but ignored
     note: v.optional(v.string()),
     imageRefs: v.optional(v.array(imageRefValidator)),
     progressPercent: v.optional(v.number()),
@@ -70,17 +73,20 @@ export const add = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
-    if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
-
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
-    if (!build || build.userId !== args.userId) {
+    if (!build || build.userId !== actorId || build.deletedAt != null) {
       throw new Error("Build not found or not authorized");
     }
 
+    // Session and resource checks must precede even a cached response. S2 owns the
+    // tenant/operation-scoped replay helper and its serialized call-site integration.
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
+
     let publishedToFeed = false;
     if (args.publish === true) {
-      if (!(await isPaidUser(ctx, args.userId))) {
+      if (!(await isPaidUser(ctx, actorId))) {
         throw new Error("Publishing a progress update to the feed requires a paid plan");
       }
       publishedToFeed = true;
@@ -90,7 +96,7 @@ export const add = mutation({
       "buildProgressUpdates",
       withCreateMeta({
         buildId: args.buildId,
-        userId: args.userId,
+        userId: actorId,
         createdAt: Date.now(),
         note: sanitizeOptional(args.note, MAX_LENGTH.notes, "Note"),
         imageRefs: args.imageRefs ?? [],
@@ -98,14 +104,14 @@ export const add = mutation({
         publishedToFeed,
       })
     );
-    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(id));
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(id));
   },
 });
 
 export const update = mutation({
   args: {
     id: v.id("buildProgressUpdates"),
-    userId: v.string(),
+    userId: v.optional(v.string()), // retained for deployed clients but ignored
     note: v.optional(v.union(v.string(), v.null())),
     imageRefs: v.optional(v.array(imageRefValidator)),
     progressPercent: v.optional(v.union(v.number(), v.null())),
@@ -114,13 +120,14 @@ export const update = mutation({
     idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
-    if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
-
+    const actorId = await requireIdentity(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== args.userId) {
+    if (!doc || doc.userId !== actorId || doc.deletedAt != null) {
       throw new Error("Progress update not found or not authorized");
     }
+
+    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    if (replay.hit) return replay.result as Doc<"buildProgressUpdates"> | null;
 
     const patch: Record<string, unknown> = {};
     if (args.note !== undefined)
@@ -136,7 +143,7 @@ export const update = mutation({
       const before = cloudStorageIds(doc.imageRefs);
       for (const ref of args.imageRefs) {
         if (ref.kind === "cloud" && !before.has(ref.storageId)) {
-          await checkLimitAndAddUsage(ctx, args.userId, ref.storageId);
+          await checkLimitAndAddUsage(ctx, actorId, ref.storageId);
         }
       }
       patch.imageRefs = args.imageRefs;
@@ -147,7 +154,7 @@ export const update = mutation({
           ? undefined
           : clampNumber(args.progressPercent, 0, 100, "Progress percent");
     if (args.publish !== undefined) {
-      if (args.publish === true && !(await isPaidUser(ctx, args.userId))) {
+      if (args.publish === true && !(await isPaidUser(ctx, actorId))) {
         throw new Error("Publishing a progress update to the feed requires a paid plan");
       }
       patch.publishedToFeed = args.publish;
@@ -156,17 +163,20 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(args.id, withUpdateMeta(doc, patch));
     }
-    return idempotentRecord(ctx, args.idempotencyKey, args.userId, await ctx.db.get(args.id));
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, await ctx.db.get(args.id));
   },
 });
 
 export const remove = mutation({
-  args: { id: v.id("buildProgressUpdates"), userId: v.string() },
+  args: { id: v.id("buildProgressUpdates"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== args.userId) {
+    if (!doc || doc.userId !== actorId) {
       throw new Error("Progress update not found or not authorized");
     }
-    await ctx.db.delete(args.id);
+    if (doc.deletedAt != null) return;
+    // Keep the row so incremental pull can propagate deletion to offline clients.
+    await ctx.db.patch(args.id, withUpdateMeta(doc, { deletedAt: Date.now() }));
   },
 });
