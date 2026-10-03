@@ -675,7 +675,102 @@
     "devGallerySubtitle": "デザインシステムのプレビュー（構築中）",
     "pendingMutations": "保留中の変更",
     "homeLink": "ホームへ",
-    "cloudSync": "クラウド同期"
+    "cloudSync": "クラウド同期",
+    "cloudBackupUpgrade": "アップグレードすると、クラウド同期とバックアップが自動で行われます。",
+    "signOutError": "サインアウトできませんでした。もう一度お試しください。",
+    "signOutConfirmTitle": "Kyarafit からサインアウトしますか？",
+    "signOutExportWarning": "データはこの端末に残ります。別のアカウントでこの端末にサインインすると上書きされる可能性があるため、サインアウト前にエクスポートしてください。",
+    "signOutConfirmBody": "ローカルデータはこの端末に残ります。サインアウトしてもよろしいですか？",
+    "accountGlass": {
+      "editDisplayName": "表示名を編集",
+      "editUsername": "ユーザー名を編集",
+      "editBio": "自己紹介を編集",
+      "disconnectProvider": "{{provider}}を切断"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "サブスクリプションはすでに有効です。",
+      "paywallUnlocked": "RevenueCat の購入画面が終了しました。Pro は有効、またはすでに利用可能です。",
+      "paywallClosed": "購入せずに RevenueCat の購入画面を閉じました。",
+      "perYear": "{{price}} / 年",
+      "perMonth": "{{price}} / 月",
+      "opening": "開いています…",
+      "notConfigured": "未設定",
+      "fromMonthly": "月額 {{price}} から",
+      "monthly": "{{price}} / 月",
+      "payWhatYouWant": "金額を自由に選択、毎月お支払い",
+      "annual": "{{price}} / 年{{savings}}",
+      "annualSavings": "2か月分お得",
+      "noPayment": "お支払い不要",
+      "storage": "ストレージ",
+      "unlimited": "無制限",
+      "sync": "同期",
+      "localOnly": "ローカルのみ",
+      "allDevices": "すべての端末",
+      "included": "含まれる機能",
+      "upgradeUnlocks": "アップグレードで使える機能",
+      "active": "サブスクリプション: 有効",
+      "inactive": "サブスクリプション: 無効",
+      "openPaywall": "購入画面を開く",
+      "customerCenter": "カスタマーセンター",
+      "plans": {
+        "free": {
+          "name": "無料",
+          "tagline": "ビルド計画に必要なものを、この端末で。",
+          "audience": "コスプレのビルド、コンベンション、持ち物を整理したい方に。",
+          "highlights": {
+            "0": "ビルド数は無制限",
+            "1": "端末でオフラインでも使える",
+            "2": "いつでもエクスポート（CSV、JSON、PDF）"
+          },
+          "features": {
+            "0": "デジタルクローゼットと無制限のビルド管理",
+            "1": "コンベンション、日ごとの予定、持ち物リスト",
+            "2": "ビルドの公開共有",
+            "3": "ローカル優先 — データはこの端末に保存",
+            "4": "すべてのデータをエクスポート・インポート（CSV、画像付き JSON バックアップ、PDF）"
+          },
+          "notIncluded": {
+            "0": "自動クラウド同期",
+            "1": "複数端末からのアクセス",
+            "2": "共同編集者の招待"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "バックアップはおまかせ。どの端末からでも作業できます。",
+          "audience": "ビルドを同期・バックアップして、いつでも使いたい制作者に。",
+          "highlights": {
+            "0": "自動クラウド同期",
+            "1": "どの端末からでも作業できる",
+            "2": "画像ストレージ 2 GB"
+          },
+          "features": {
+            "0": "無料プランの全機能",
+            "1": "クラウドに自動でバックアップ・同期 — 手動エクスポート不要",
+            "2": "すべての端末からスムーズにアクセス",
+            "3": "共同編集者の招待",
+            "4": "締切と入れ子のビルドタスクを管理する高度なプランナー",
+            "5": "優先サポート"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "Kyarafit をもっと応援。Pro と同じ機能に、感謝を添えて。",
+          "audience": "Pro の料金以上に Kyarafit の開発を支援したい方に。",
+          "highlights": {
+            "0": "Pro の全機能",
+            "1": "支援額を選べる",
+            "2": "継続的な開発を支援"
+          },
+          "features": {
+            "0": "Pro の全機能 — 機能は同じ",
+            "1": "無理のない金額を選択（月額 $5 以上）",
+            "2": "Kyarafit の開発を直接支援",
+            "3": "心からの感謝を"
+          }
+        }
+      }
+    }
   },
   "groups": {
     "title": "グループ",
