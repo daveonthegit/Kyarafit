@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "tables": {
+    "builds": [
+      {
+        "id": "build-local-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "title": "Fixture build", "labels": ["planned"] },
+        "mediaHashes": []
+      }
+    ],
+    "conventions": [
+      {
+        "id": "convention-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "name": "Fixture convention" },
+        "mediaHashes": []
+      }
+    ],
+    "cosplayNodes": [
+      {
+        "id": "element-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "buildId": "build-local-1", "name": "Hat" },
+        "mediaHashes": []
+      }
+    ],
+    "workflowItems": [
+      {
+        "id": "task-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "buildId": "build-local-1", "title": "Sew" },
+        "mediaHashes": []
+      }
+    ],
+    "packingListItems": [
+      {
+        "id": "packing-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "conventionId": "convention-1", "name": "Hat" },
+        "mediaHashes": []
+      }
+    ],
+    "buildTasks": [
+      {
+        "id": "legacy-task-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "buildId": "build-local-1", "title": "Cut fabric" },
+        "mediaHashes": []
+      }
+    ],
+    "workflowAttachments": [
+      {
+        "id": "attachment-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "workflowItemId": "task-1", "entityType": "build", "entityId": "build-local-1" },
+        "mediaHashes": []
+      }
+    ],
+    "workflowDependencies": [
+      {
+        "id": "dependency-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "predecessorWorkflowItemId": "task-1", "successorWorkflowItemId": "task-2" },
+        "mediaHashes": []
+      }
+    ],
+    "conventionDayPlans": [
+      {
+        "id": "day-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "conventionId": "convention-1", "buildId": "build-local-1", "dayIndex": 0 },
+        "mediaHashes": []
+      }
+    ],
+    "buildReferenceImages": [
+      {
+        "id": "reference-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "buildId": "build-local-1" },
+        "mediaHashes": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      }
+    ],
+    "buildProcessPictures": [
+      {
+        "id": "picture-1",
+        "updatedAt": 100,
+        "deletedAt": null,
+        "data": { "buildId": "build-local-1" },
+        "mediaHashes": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      }
+    ],
+    "buildProgressUpdates": [
+      {
+        "id": "progress-1",
+        "updatedAt": 100,
+        "deletedAt": 100,
+        "data": { "buildId": "build-local-1", "note": "Deleted fixture entry", "progress": 50 },
+        "mediaHashes": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      }
+    ]
+  },
+  "retired": {
+    "builds": [{ "id": "retired-build", "updatedAt": 50, "deletedAt": 50 }],
+    "conventions": [],
+    "cosplayNodes": [],
+    "workflowItems": [],
+    "packingListItems": [],
+    "buildTasks": [],
+    "workflowAttachments": [],
+    "workflowDependencies": [],
+    "conventionDayPlans": [],
+    "buildReferenceImages": [],
+    "buildProcessPictures": [],
+    "buildProgressUpdates": []
+  },
+  "media": [
+    { "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "byteLength": 4 }
+  ]
+}
