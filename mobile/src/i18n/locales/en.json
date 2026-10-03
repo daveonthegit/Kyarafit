@@ -675,7 +675,102 @@
     "devGallerySubtitle": "App screen previews",
     "pendingMutations": "Pending changes",
     "homeLink": "Back to home",
-    "cloudSync": "Cloud sync"
+    "cloudSync": "Cloud sync",
+    "cloudBackupUpgrade": "Upgrade for automatic cloud sync and backup.",
+    "signOutError": "Could not sign out. Please try again.",
+    "signOutConfirmTitle": "Sign out of Kyarafit?",
+    "signOutExportWarning": "Your data stays on this device. Export it before signing out: another account signing in on this device may replace it.",
+    "signOutConfirmBody": "Your local data stays on this device. Are you sure you want to sign out?",
+    "accountGlass": {
+      "editDisplayName": "Edit display name",
+      "editUsername": "Edit username",
+      "editBio": "Edit bio",
+      "disconnectProvider": "Disconnect {{provider}}"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "Your subscription is already active.",
+      "paywallUnlocked": "RevenueCat paywall finished. Your Pro access is active or already unlocked.",
+      "paywallClosed": "RevenueCat paywall closed without a purchase.",
+      "perYear": "{{price}} / year",
+      "perMonth": "{{price}} / month",
+      "opening": "Opening...",
+      "notConfigured": "Not configured",
+      "fromMonthly": "From {{price}} / mo",
+      "monthly": "{{price}} / mo",
+      "payWhatYouWant": "Pay what you want, billed monthly",
+      "annual": "{{price}} / year{{savings}}",
+      "annualSavings": "Save 2 months",
+      "noPayment": "No payment required",
+      "storage": "Storage",
+      "unlimited": "Unlimited",
+      "sync": "Sync",
+      "localOnly": "Local only",
+      "allDevices": "All devices",
+      "included": "Included",
+      "upgradeUnlocks": "Upgrade unlocks",
+      "active": "Subscription: active",
+      "inactive": "Subscription: not active",
+      "openPaywall": "Open Paywall",
+      "customerCenter": "Customer Center",
+      "plans": {
+        "free": {
+          "name": "Free",
+          "tagline": "Everything you need to plan builds — on your device.",
+          "audience": "Best for anyone organizing cosplay builds, conventions, and packing.",
+          "highlights": {
+            "0": "Unlimited builds",
+            "1": "Works offline on your device",
+            "2": "Export anytime (CSV, JSON, PDF)"
+          },
+          "features": {
+            "0": "Digital closet and unlimited build tracking",
+            "1": "Conventions, day plans, and packing lists",
+            "2": "Public build sharing",
+            "3": "Local-first — your data lives on this device",
+            "4": "Full export and import (CSV, JSON backup with images, PDF)"
+          },
+          "notIncluded": {
+            "0": "Automatic cloud sync",
+            "1": "Multi-device access",
+            "2": "Collaboration invites"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "Stop thinking about backups. Work from any device.",
+          "audience": "Best for makers who want their builds synced, backed up, and always available.",
+          "highlights": {
+            "0": "Automatic cloud sync",
+            "1": "Work from any device",
+            "2": "2 GB image storage"
+          },
+          "features": {
+            "0": "Everything in Free",
+            "1": "Automatic cloud backup & sync — no manual exports",
+            "2": "Seamless access across all your devices",
+            "3": "Collaboration invites",
+            "4": "Advanced planner for deadlines & nested build tasks",
+            "5": "Priority support"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "Love Kyarafit? Chip in more — same Pro features, extra thanks.",
+          "audience": "Best for people who want to back Kyarafit's development beyond the Pro price.",
+          "highlights": {
+            "0": "Everything in Pro",
+            "1": "Choose your contribution",
+            "2": "Support ongoing development"
+          },
+          "features": {
+            "0": "Everything in Pro — identical features",
+            "1": "Pick the amount that feels right (min $5 / mo)",
+            "2": "Directly funds Kyarafit's development",
+            "3": "Our heartfelt thanks"
+          }
+        }
+      }
+    }
   },
   "groups": {
     "title": "Groups",
