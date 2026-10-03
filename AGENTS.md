@@ -2,6 +2,10 @@
 
 The canonical agent instructions for this repo live in [`CLAUDE.md`](./CLAUDE.md). Read that file, including its `## Agent skills` section and the referenced `docs/agents/*.md`.
 
+> Agentflow is deprecated. The managed block below is historical, not current execution
+> authority. Follow the assigned brief and file-ownership contract; do not invoke Agentflow
+> or edit `.agentflow/` / `WORK.md`.
+
 <!-- agentflow:start -->
 
 ## Agentflow
@@ -40,12 +44,18 @@ are public by design and must not be locked down, the media rule in `lib/mediaAc
 the shared build-visibility predicate `canReadBuildWorkflowData`, and its **Known gaps**
 section — one module still authorizes on a client-supplied id.
 
+## Documentation map
+
+[`docs/README.md`](docs/README.md) indexes the canonical docs. Architecture and roadmap paths are
+case-sensitive: `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`. ADR acceptance is not implementation
+completion; use their status annotations and the roadmap before describing a feature as shipped.
+
 ## Commands
 
-- `npm run validate` — the full gate (format, i18n keys, lint, typecheck, backend tests, web build).
-  It currently **fails at the first step** on pre-existing `format:check` debt (~36 files
-  untouched by recent work). Run the individual gates below, and reformat only files you
-  changed — a blanket `npm run format` buries your diff.
+- `npm run validate` — aggregate gate (format, i18n keys, lint, typecheck, backend tests, web build).
+  Also run web/mobile tests explicitly; see `CI_LOCAL.md` for aggregate differences.
+  Report pre-existing `format:check` debt separately and reformat only touched files —
+  a blanket `npm run format` buries your diff.
 - `npm run test:convex` — backend authorization tests (`convex/authz.test.ts`, via `convex-test`).
 - `npm run test -w web` — web unit tests.
 - `npx tsc -p convex/tsconfig.json --noEmit` — typecheck the Convex functions alone; much

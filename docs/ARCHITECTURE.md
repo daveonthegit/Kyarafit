@@ -3,6 +3,24 @@
 _Source of truth for **code structure, shared logic, boundaries, and conventions**. Product behavior
 → [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); data/sync → [`DATA_AND_SYNC.md`](DATA_AND_SYNC.md)._
 
+## Implementation scope
+
+This document mixes implemented boundaries with engineering requirements; a requirement is not
+proof of complete enforcement. The [roadmap](ROADMAP.md) separates shipped foundations from
+accepted, unbuilt programs. Current storage is Convex `_storage`; R2 and Drive are accepted
+future integrations, not current adapters. Live deployment lineage must be verified separately.
+
+Product **elements** persist in `cosplayNodes`, with membership on the node (`buildId`,
+`parentNodeId`, `sortOrder`). There is no current Convex `elements` table. Workflow UX uses
+`workflowItems`; legacy tables (`closetItems`, `buildTasks`, and retired build-scoping joins)
+remain defined for schema compatibility. Never remove populated definitions based on product
+terminology alone; follow the purge preconditions in `convex/schema.ts`.
+
+Legacy policy helpers disagree: `entitlements.ts` / `subscriptionTierPolicy.ts` use a free
+50 MB soft/server cap, while `cloudStoragePolicy.ts` uses 0 MB for personal cloud uploads plus
+a group exception. The accepted entitlement program must reconcile them; this doc does not
+change product requirements or certify quota consistency.
+
 ---
 
 ## 1. Stack
@@ -53,7 +71,7 @@ _Source of truth for **code structure, shared logic, boundaries, and conventions
 | Domain logic            | `domain/workflowDomain.ts`, `workflowProgress.ts`, `cosplay*`, planner overlays                                                                                                                  |
 | Entitlements            | `domain/entitlements.ts`, `subscriptionTierPolicy.ts`, `subscriptionPlans.ts`                                                                                                                    |
 | Sync (pure)             | `domain/offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, `offlineEntityOverlay.ts`, planner/build-tree overlays                                                              |
-| **New (this refactor)** | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared `LocalStore` interface, shared validators |
+| Implemented foundations | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared `LocalStore` interface, shared validators |
 | Tokens                  | `design_tokens.json`, `rn_tokens.ts`, Tailwind config                                                                                                                                            |
 
 - **A1** `design-system/domain/*` must be **pure** (no React, no platform imports) so it runs in web vitest, mobile, and Convex.
@@ -63,24 +81,29 @@ _Source of truth for **code structure, shared logic, boundaries, and conventions
 
 ## 4. Platform adapters (the only platform-specific glue)
 
-| Adapter       | Mobile                            | Web                         |
-| ------------- | --------------------------------- | --------------------------- |
-| `LocalStore`  | `expo-sqlite`                     | OPFS+wa-sqlite / Dexie      |
-| Connectivity  | `@react-native-community/netinfo` | `navigator.onLine` + events |
-| Image capture | camera / picker (`expo-*`)        | `<input type=file>`         |
-| Secure token  | `expo-secure-store`               | `localStorage`              |
+| Adapter       | Mobile                            | Web                                   |
+| ------------- | --------------------------------- | ------------------------------------- |
+| `LocalStore`  | `expo-sqlite`                     | OPFS + wa-sqlite / IndexedDB fallback |
+| Connectivity  | `@react-native-community/netinfo` | `navigator.onLine` + events           |
+| Image capture | camera / picker (`expo-*`)        | `<input type=file>`                   |
+| Secure token  | `expo-secure-store`               | `localStorage`                        |
 
-Both expose the **same interface** consumed by shared sync logic.
+Both expose the **same interface** consumed by shared sync logic. Web engine selection lives in
+`web/src/lib/offline/engineSelection.ts`; Dexie is not the current fallback.
 
 ---
 
 ## 5. Convex backend conventions
 
 - **C1** Thin function wrappers; logic in plain TS helpers (import from `design-system` where shared). Validate args + return types with `v.*` / shared validators.
-- **C2** Auth in every public function via `ctx.auth.getUserIdentity()`; scope rows by `identity.subject`.
+- **C2** Acting identity must come from the verified session, not caller arguments. Preserve
+  legitimate public-by-design reads. The current contract and exceptions are documented in
+  [`backend-authorization.md`](backend-authorization.md); remediation remains open, so this
+  convention is not a claim that every endpoint already satisfies it.
 - **C3** Offline-replayable mutations use the idempotency pattern (`convex/lib/idempotency.ts`) and are registered in the offline bridge's idempotent-mutation list.
 - **C4** Use indexes, never `filter()`, for queries; paginate large datasets.
-- **C5** Custom function wrappers enforce per-user data protection (Convex's RLS equivalent).
+- **C5** Function-level authorization and shared resource-access helpers protect user data;
+  Convex tables do not acquire automatic row-level isolation from the schema alone.
 - **C6** Schedule only internal functions; never `Date.now()` inside queries.
 
 ---
@@ -120,5 +143,6 @@ docs/                   # consolidated docs (this set)
 - **P1** Local reads/writes feel instant (<~100 ms); never block on network (REQ-100).
 - **P2** Cold start interactive < ~2 s on mid-tier mobile.
 - **P3** Lists of 1000+ items paginate/virtualize and stay smooth.
-- **P4** Free users make **zero** Convex data calls (REQ-D10) — verified by assertion/test.
+- **P4** Free personal-data CRUD must not start managed cloud sync (REQ-D10). Online social,
+  group, account, and public-read calls are a separate boundary, not prohibited by this rule.
 - **P5** Web bundle + image payload budgets enforced (lazy-load heavy/social routes; responsive images).
