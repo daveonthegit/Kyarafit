@@ -8,9 +8,13 @@ older binaries cannot be retroactively changed. Failed storage operations never 
 requests from the in-memory cache. A deletion failure must be resolved before treating
 logout as durable across process restarts.
 
-Sign-out retains the bearer header on the outgoing session-revocation request, then clears
-local persistence. Successful password reset clears local bearer persistence; failed reset
-leaves the session alone. Server-side session revocation remains the backend's responsibility.
+Sign-out captures the bearer header for server revocation and immediately clears memory.
+A failed persistence deletion does not prevent that authenticated request: cleanup is retried
+after the response, with persistent failure surfaced as non-durable logout. Failed hydration
+can retry after device unlock, without rehydrating an explicitly cleared session. Successful
+password reset clears the initiating session's bearer persistence; failed or delayed reset
+responses do not clear a newer sign-in. Server-side session revocation remains the backend's
+responsibility.
 
 ## Operator inputs (no private material in the app)
 

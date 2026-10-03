@@ -20,26 +20,29 @@ function serializeStorage(operation: () => Promise<void>): Promise<void> {
 
 export async function hydrateBearerFromSecureStore(): Promise<void> {
   if (hydrated) return;
-  const startedAt = revision;
+  const hydrationRevision = revision;
   await serializeStorage(async () => {
-    if (hydrated || startedAt !== revision) return;
+    if (hydrated || hydrationRevision !== revision) return;
     try {
       const token = await SecureStore.getItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
-      if (startedAt !== revision) return;
+      if (hydrationRevision !== revision) return;
       // Rewrite existing items to apply the device-only policy, without changing the key/service.
       if (token) await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
-      if (startedAt === revision) memoryToken = token;
+      if (hydrationRevision === revision) {
+        memoryToken = token;
+        hydrated = true;
+      }
     } catch {
-      if (startedAt === revision) memoryToken = null;
-    } finally {
-      if (startedAt === revision) hydrated = true;
+      // A locked device or transient rewrite failure may recover on a later request.
+      // Explicit logout/account-switch nulls remain authoritative via the revision guard.
+      if (hydrationRevision === revision) memoryToken = null;
     }
   });
 }
 
 /** Persist after sign-in; null immediately clears memory even if disk deletion fails. */
 export async function setStoredBearerToken(token: string | null): Promise<void> {
-  const changedAt = ++revision;
+  const writeRevision = ++revision;
   hydrated = true;
   memoryToken = null;
   await serializeStorage(async () => {
@@ -54,7 +57,7 @@ export async function setStoredBearerToken(token: string | null): Promise<void> 
     } else {
       await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
     }
-    if (changedAt === revision) memoryToken = token;
+    if (writeRevision === revision) memoryToken = token;
   });
 }
 
@@ -93,6 +96,8 @@ function toHeaders(input: unknown): Headers {
 }
 
 export function bearerStoragePlugin(): BetterAuthClientPlugin {
+  const resetRevisions = new WeakMap<object, number>();
+  const logoutRevisions = new WeakMap<object, number>();
   return {
     id: "bearer-storage",
     fetchPlugins: [
@@ -106,14 +111,28 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
             if (token) {
               headers.set("Authorization", `Bearer ${token}`);
             }
-            // Keep authentication on the outgoing revocation request, then clear locally.
+            const request = { ...context, headers };
+            if (isAuthEndpoint(context.url.toString(), "reset-password")) {
+              resetRevisions.set(request, revision);
+            }
+            // A disk failure must not prevent the authenticated server revocation request.
+            // Memory clears immediately; persistence is retried after the server responds.
             if (isAuthEndpoint(context.url.toString(), "sign-out")) {
+              const logoutRevision = revision + 1;
+              await setStoredBearerToken(null).catch(() => {
+                logoutRevisions.set(request, logoutRevision);
+              });
+            }
+            return request;
+          },
+          async onResponse(context) {
+            if (logoutRevisions.get(context.request) === revision) {
+              // If this still fails, surface non-durable logout, but revocation was attempted.
               await setStoredBearerToken(null);
             }
-            return { ...context, headers };
           },
           async onSuccess(context) {
-            if (isAuthEndpoint(context.request.url.toString(), "reset-password")) {
+            if (resetRevisions.get(context.request) === revision) {
               await setStoredBearerToken(null);
             }
           },
