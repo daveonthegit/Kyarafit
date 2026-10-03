@@ -8,6 +8,12 @@ import {
 } from "./_generated/server";
 import { withCreateMeta } from "./lib/syncMeta";
 import {
+  prepareBackfillRow,
+  resolveBackfillId,
+  validateBackfillBatch,
+  type BackfillRow,
+} from "./lib/backfillValidation";
+import {
   DOWNGRADE_RETENTION_MS,
   isCloudPurgeable,
   selectBackfillRows,
@@ -116,9 +122,11 @@ async function resolvePaidUserId(ctx: MutationCtx | QueryCtx): Promise<string> {
  * `{ inserted, skipped, total, cloudCount }` where `cloudCount` is the number of rows this table now
  * holds in the cloud for the user.
  *
- * Rows must be schema-shaped for `table` (the same shape the client's normal create mutations send);
- * `userId` is always forced to the authenticated caller. Rows without a `clientId` are left to the
- * normal sync push (they can't be safely deduped across devices) and counted as skipped.
+ * Rows are bounded and validated per table; ownership, publication and sync metadata are derived
+ * server-side. Related ids may be server ids or actor-scoped clientIds from earlier chunks. Same-
+ * table parents in this chunk are inserted first; cross-table dependencies must already exist.
+ * Rows without a `clientId` are left to normal sync push and counted as skipped.
+ * Cloud media is fail-closed at the S4 ownership/quota integration seam in backfillValidation.ts.
  */
 export const backfillRows = mutation({
   args: {
@@ -132,32 +140,59 @@ export const backfillRows = mutation({
     const table = args.table;
     const userId = await resolvePaidUserId(ctx);
 
+    const candidates = validateBackfillBatch(table, args.rows);
     const existing = await userRowsInTable(ctx, table, userId);
     const serverClientIds = existing
       .map((row) => row.clientId)
       .filter((id): id is string => typeof id === "string");
 
-    const candidates = args.rows.filter(
-      (row): row is Record<string, unknown> & { clientId: string } =>
-        typeof (row as { clientId?: unknown }).clientId === "string"
-    );
-    const toInsert = selectBackfillRows(candidates, serverClientIds);
-
+    // selectBackfillRows handles prior chunks/devices; this map also dedupes within the chunk.
+    const pending = new Map<string, BackfillRow>();
+    for (const row of selectBackfillRows(candidates, serverClientIds))
+      if (!pending.has(row.clientId)) pending.set(row.clientId, row);
+    const insertedIds = new Map<string, string>();
+    const visiting = new Set<string>();
     const now = Date.now();
-    for (const row of toInsert) {
-      // Strip system fields; force ownership to the authenticated caller; stamp sync metadata.
-      const { _id: _ignoredId, _creationTime: _ignoredCreationTime, ...rest } = row;
-      void _ignoredId;
-      void _ignoredCreationTime;
-      await looseDb(ctx).insert(table, withCreateMeta({ ...rest, userId }, now));
+    async function insertRow(row: BackfillRow): Promise<string> {
+      const inserted = insertedIds.get(row.clientId);
+      if (inserted) return inserted;
+      if (visiting.has(row.clientId)) throw new Error("Cyclic backfill relationship");
+      visiting.add(row.clientId);
+      const prepared = await prepareBackfillRow(ctx, table, row, userId, async (target, value) => {
+        // Never shadow an actual server id with client input, including a foreign server id.
+        if (target === table && !ctx.db.normalizeId(target, value)) {
+          const dependency = pending.get(value);
+          if (dependency) return await insertRow(dependency);
+        }
+        return await resolveBackfillId(ctx, target, value, userId);
+      });
+      const id = await looseDb(ctx).insert(table, withCreateMeta({ ...prepared, userId }, now));
+      insertedIds.set(row.clientId, id);
+      visiting.delete(row.clientId);
+      return id;
+    }
+    // One Convex transaction: a bad relationship/media seam failure rolls back the whole chunk.
+    for (const row of pending.values()) await insertRow(row);
+    // Additive response contract: installed clients can ignore ids; newer clients remap local
+    // references without modifying local records. Include deduped rows for lost-response retries.
+    const ids: Array<{ clientId: string; id: string }> = [];
+    const mapped = new Set<string>();
+    for (const row of candidates) {
+      if (mapped.has(row.clientId)) continue;
+      const id =
+        insertedIds.get(row.clientId) ??
+        existing.find((existingRow) => existingRow.clientId === row.clientId)?._id;
+      if (id) ids.push({ clientId: row.clientId, id });
+      mapped.add(row.clientId);
     }
 
     return {
       table,
       total: args.rows.length,
-      inserted: toInsert.length,
-      skipped: args.rows.length - toInsert.length,
-      cloudCount: existing.length + toInsert.length,
+      inserted: insertedIds.size,
+      skipped: args.rows.length - insertedIds.size,
+      cloudCount: existing.length + insertedIds.size,
+      ids,
     };
   },
 });

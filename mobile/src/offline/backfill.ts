@@ -20,15 +20,15 @@
  * the server's `LOCAL_FIRST_TABLES`. Keep in parity with `syncWorker`'s `WARMUP_TABLES`.
  */
 export const BACKFILL_TABLES = [
-  "cosplayNodes",
   "builds",
-  "buildTasks",
+  "conventions",
+  "cosplayNodes",
   "workflowItems",
+  "packingListItems",
+  "buildTasks",
   "workflowAttachments",
   "workflowDependencies",
-  "conventions",
   "conventionDayPlans",
-  "packingListItems",
   "buildReferenceImages",
   "buildProcessPictures",
   "buildProgressUpdates",
@@ -51,6 +51,8 @@ export interface BackfillChunkResult {
   inserted: number;
   skipped: number;
   cloudCount: number;
+  /** Additive server response; absent on older backends. Includes clientId-deduped retries. */
+  ids?: { clientId: string; id: string }[];
 }
 
 export interface BackfillDeps {
@@ -77,6 +79,84 @@ export const BACKFILL_CHUNK_SIZE = 100;
 
 let running = false;
 
+type LocalRow = Record<string, unknown> & { clientId: string };
+type Entry = { table: BackfillTable; row: LocalRow };
+const REFERENCE_TABLES: Record<string, BackfillTable> = {
+  buildId: "builds",
+  buildContextId: "builds",
+  parentNodeId: "cosplayNodes",
+  cosplayNodeId: "cosplayNodes",
+  conventionId: "conventions",
+  packingListItemId: "packingListItems",
+  workflowItemId: "workflowItems",
+  parentId: "workflowItems",
+  predecessorWorkflowItemId: "workflowItems",
+  successorWorkflowItemId: "workflowItems",
+  legacyBuildTaskId: "buildTasks",
+};
+const ENTITY_TABLES: Record<string, BackfillTable> = {
+  build: "builds",
+  cosplayNode: "cosplayNodes",
+  convention: "conventions",
+  packingItem: "packingListItems",
+};
+function references(entry: Entry): [string, BackfillTable][] {
+  const refs = Object.entries(REFERENCE_TABLES) as [string, BackfillTable][];
+  if (entry.table === "workflowAttachments" && typeof entry.row.entityType === "string") {
+    const table = ENTITY_TABLES[entry.row.entityType];
+    if (table) refs.push(["entityId", table]);
+  }
+  return refs;
+}
+
+/** Plan the whole snapshot before writes; hierarchies and cross-table dependencies may span chunks. */
+function planBackfill(entries: Entry[]) {
+  const aliases = new Map<BackfillTable, Map<string, Entry>>();
+  for (const entry of entries) {
+    let tableAliases = aliases.get(entry.table);
+    if (!tableAliases) aliases.set(entry.table, (tableAliases = new Map()));
+    for (const alias of [entry.row.clientId, entry.row._id]) {
+      if (typeof alias !== "string") continue;
+      const previous = tableAliases.get(alias);
+      if (previous && previous.row.clientId !== entry.row.clientId)
+        throw new Error("Ambiguous local backfill id");
+      if (!previous) tableAliases.set(alias, entry);
+    }
+  }
+  const ordered: Entry[] = [];
+  const visited = new Set<Entry>();
+  const visiting = new Set<Entry>();
+  // Iterative traversal avoids a device stack overflow for a large/deep local library.
+  for (const entry of entries) {
+    const stack: { entry: Entry; finish: boolean }[] = [{ entry, finish: false }];
+    while (stack.length) {
+      const frame = stack.pop()!;
+      if (visited.has(frame.entry)) continue;
+      if (frame.finish) {
+        visiting.delete(frame.entry);
+        visited.add(frame.entry);
+        ordered.push(frame.entry);
+        continue;
+      }
+      if (visiting.has(frame.entry)) throw new Error("Cyclic local backfill relationship");
+      visiting.add(frame.entry);
+      stack.push({ entry: frame.entry, finish: true });
+      for (const [field, target] of references(frame.entry).reverse()) {
+        const value = frame.entry.row[field];
+        const dependency = typeof value === "string" ? aliases.get(target)?.get(value) : undefined;
+        if (dependency) stack.push({ entry: dependency, finish: false });
+      }
+    }
+  }
+  return { ordered, aliases };
+}
+
+// encodeURIComponent is available on both web and native (unlike TextEncoder on some devices).
+function rowBytes(row: LocalRow): number {
+  return encodeURIComponent(JSON.stringify(row)).replace(/%[0-9A-F]{2}/g, "x").length;
+}
+const MAX_CHUNK_BYTES = 512 * 1024;
+
 /** In-memory progress mirror polled by `useSyncStatus` (no synchronous store hub on mobile). */
 let currentProgress: BackfillProgress = IDLE_BACKFILL;
 
@@ -102,8 +182,23 @@ export async function runUpgradeBackfill(deps: BackfillDeps): Promise<BackfillPr
   running = true;
   try {
     // Snapshot all rows up-front so `total` is stable while chunks stream (no re-scan per chunk).
-    const perTable = BACKFILL_TABLES.map((table) => ({ table, rows: deps.listLocalRows(table) }));
-    const total = perTable.reduce((n, t) => n + t.rows.length, 0);
+    const entries = BACKFILL_TABLES.flatMap((table) =>
+      deps.listLocalRows(table).map((row) => ({ table, row }))
+    );
+    const { ordered, aliases } = planBackfill(entries);
+    const serverIds = new Map<Entry, string>();
+    const remap = (entry: Entry): LocalRow => {
+      const row = { ...entry.row };
+      for (const [field, target] of references(entry)) {
+        const value = row[field];
+        const dependency = typeof value === "string" ? aliases.get(target)?.get(value) : undefined;
+        if (dependency) row[field] = serverIds.get(dependency) ?? dependency.row.clientId;
+      }
+      // Cached ancestry is derived on the server; keep the snapshot untouched on the device.
+      if (entry.table === "workflowItems") row.ancestorIds = [];
+      return row;
+    };
+    const total = entries.length;
     let done = 0;
     const report = (isRunning: boolean) => deps.onProgress?.({ running: isRunning, done, total });
 
@@ -114,13 +209,35 @@ export async function runUpgradeBackfill(deps: BackfillDeps): Promise<BackfillPr
     }
 
     report(true);
-    for (const { table, rows } of perTable) {
-      for (let i = 0; i < rows.length; i += BACKFILL_CHUNK_SIZE) {
-        const chunk = rows.slice(i, i + BACKFILL_CHUNK_SIZE);
-        await deps.pushChunk(table, chunk);
-        done += chunk.length;
-        report(true);
+    for (let i = 0; i < ordered.length; ) {
+      const table = ordered[i].table;
+      const chunk: LocalRow[] = [];
+      let bytes = 2; // array brackets
+      while (i + chunk.length < ordered.length && chunk.length < BACKFILL_CHUNK_SIZE) {
+        const entry = ordered[i + chunk.length];
+        if (entry.table !== table) break;
+        const row = remap(entry);
+        const size = rowBytes(row) + (chunk.length ? 1 : 0);
+        if (bytes + size > MAX_CHUNK_BYTES) {
+          if (!chunk.length) throw new Error("Local backfill row exceeds chunk byte limit");
+          break;
+        }
+        chunk.push(row);
+        bytes += size;
       }
+      const result = await deps.pushChunk(table, chunk);
+      if (result.ids) {
+        const mapping = new Map(result.ids.map(({ clientId, id }) => [clientId, id]));
+        for (let offset = 0; offset < chunk.length; offset++) {
+          const id = mapping.get(chunk[offset].clientId);
+          if (typeof id !== "string" || !id.length)
+            throw new Error("Incomplete backfill id mapping");
+          serverIds.set(ordered[i + offset], id);
+        }
+      }
+      i += chunk.length;
+      done += chunk.length;
+      report(true);
     }
     await deps.markComplete();
     report(false);
