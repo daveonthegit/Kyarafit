@@ -24,8 +24,9 @@ and the shared build-visibility predicate `canReadBuildWorkflowData`.
 - `npm run test -w web` — web unit tests.
 - `npx tsc -p convex/tsconfig.json --noEmit` — typecheck the Convex functions alone; much
   faster than the full `typecheck` when iterating on `convex/`.
-- `npm run build:web` needs `CONVEX_SITE_URL` and the `NEXT_PUBLIC_CONVEX_*` vars set, or it
-  fails collecting page data. See `.env.example`.
+- `npm run build:web` needs both Convex URLs, as `CONVEX_URL` / `CONVEX_SITE_URL` (what
+  `convex deploy --cmd` supplies on Vercel) or `NEXT_PUBLIC_CONVEX_*`, or it fails collecting
+  page data. `web/next.config.js` maps them; see `.env.example`.
 
 ## Maintaining this file
 
