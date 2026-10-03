@@ -60,8 +60,9 @@ completion; use their status annotations and the roadmap before describing a fea
 - `npm run test -w web` — web unit tests.
 - `npx tsc -p convex/tsconfig.json --noEmit` — typecheck the Convex functions alone; much
   faster than the full `typecheck` when iterating on `convex/`.
-- `npm run build:web` needs `CONVEX_SITE_URL` and the `NEXT_PUBLIC_CONVEX_*` vars set, or it
-  fails collecting page data. See `.env.example`.
+- `npm run build:web` needs both Convex URLs: CLI-provided `CONVEX_URL` / `CONVEX_SITE_URL`
+  or public-only `NEXT_PUBLIC_CONVEX_*` vars. `web/next.config.js` maps the selected deployment
+  URLs into Next's public build environment; see `web/src/test/convex-build-env.test.ts`.
 
 ## Maintaining this file
 
