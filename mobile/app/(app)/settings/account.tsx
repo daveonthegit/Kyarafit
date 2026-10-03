@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
@@ -16,6 +8,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "convex/_generated/api";
+import { glass } from "@kyarafit/design-system/rn";
 import {
   authClient,
   deleteAccount,
@@ -27,38 +20,39 @@ import { startSocialLink } from "@/lib/auth/startSocialSignIn";
 import { APP_HREF } from "@/lib/appRoutes";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { ProfileAvatar } from "@/components/social/ProfileAvatar";
-import { Button, DataBoundary, TextField } from "@/ui";
+import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { DataBoundary } from "@/ui";
+import { GlassOverlay, GlassPanel, GlassTextField, PhotoPill } from "@/ui/glass";
+import {
+  AccountAction,
+  AccountFrame,
+  AccountHeading,
+  AccountLoading,
+  AccountScroll,
+  AccountSection,
+  AccountText,
+  SectionLabel,
+  accountStyles as styles,
+} from "@/screens/settings/accountGlass";
 
 const SESSION_EMAIL_VISIBLE_KEY = "kyar_account_email_visible";
-
 const LINKABLE_SOCIAL_PROVIDERS = [{ id: "google" as const }, { id: "apple" as const }];
 
-type LinkedAccountRow = {
-  id: string;
-  providerId: string;
-  accountId: string;
-};
-
+type LinkedAccountRow = { id: string; providerId: string; accountId: string };
 type AuthAccountExtensions = typeof authClient & {
-  updateUser: (input: { name?: string; username?: string }) => Promise<{
-    error?: { message?: string } | null;
-  }>;
-  isUsernameAvailable: (input: { username: string }) => Promise<{
-    error?: { message?: string } | null;
-    data?: { available?: boolean };
-  }>;
-  listAccounts: () => Promise<{
-    error?: { message?: string } | null;
-    data?: LinkedAccountRow[];
-  }>;
-  unlinkAccount: (input: { providerId: string; accountId: string }) => Promise<{
-    error?: { message?: string } | null;
-  }>;
+  updateUser: (input: {
+    name?: string;
+    username?: string;
+  }) => Promise<{ error?: { message?: string } | null }>;
+  isUsernameAvailable: (input: {
+    username: string;
+  }) => Promise<{ error?: { message?: string } | null; data?: { available?: boolean } }>;
+  listAccounts: () => Promise<{ error?: { message?: string } | null; data?: LinkedAccountRow[] }>;
+  unlinkAccount: (input: {
+    providerId: string;
+    accountId: string;
+  }) => Promise<{ error?: { message?: string } | null }>;
 };
-
 const authX = authClient as AuthAccountExtensions;
 
 function labelForProvider(t: TFunction, providerId: string): string {
@@ -86,49 +80,10 @@ function oauthLinkErrorMessage(t: TFunction, error: string, description: string 
   }
 }
 
-function AccountSection({ children }: { children: import("react").ReactNode }) {
-  return (
-    <View className="border-b border-kyar-borderSubtle py-4 dark:border-kyar-dark-borderSubtle">
-      {children}
-    </View>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <Text className="mb-1 text-[11px] uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-      {children}
-    </Text>
-  );
-}
-
-function LinkText({
-  children,
-  onPress,
-  disabled,
-}: {
-  children: import("react").ReactNode;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      className="min-h-[44px] justify-center active:opacity-80"
-    >
-      <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-        {children}
-      </Text>
-    </Pressable>
-  );
-}
-
 export default function SettingsAccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ error?: string; error_description?: string }>();
-  const { colors } = useDesignTheme();
   const { session } = useSession();
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
@@ -140,7 +95,6 @@ export default function SettingsAccountScreen() {
     identity === undefined || (userId && profile === undefined) || session === undefined
       ? "loading"
       : "ready";
-
   const sessionUser = session?.user as
     | {
         name?: string | null;
@@ -161,23 +115,19 @@ export default function SettingsAccountScreen() {
   const [bioLoading, setBioLoading] = useState(false);
   const [profileVisibilityEdit, setProfileVisibilityEdit] = useState<string | null>(null);
   const [profileVisibilityError, setProfileVisibilityError] = useState<string | null>(null);
-
   const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccountRow[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsActionError, setAccountsActionError] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState<string | null>(null);
   const [unlinkBusy, setUnlinkBusy] = useState<string | null>(null);
-
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSetupLoading, setPasswordSetupLoading] = useState(false);
   const [passwordSetupError, setPasswordSetupError] = useState<string | null>(null);
-
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
   const [updatingPhoto, setUpdatingPhoto] = useState(false);
 
   const usernameEditTrimmed = (usernameEdit ?? "").trim().toLowerCase();
@@ -187,7 +137,6 @@ export default function SettingsAccountScreen() {
       ? { username: usernameEditTrimmed, currentExternalId: userId ?? undefined }
       : "skip"
   );
-
   const loadLinkedAccounts = useCallback(async () => {
     setAccountsLoading(true);
     setAccountsActionError(null);
@@ -209,7 +158,6 @@ export default function SettingsAccountScreen() {
       setAccountsLoading(false);
     }
   }, [t]);
-
   useEffect(() => {
     void (async () => {
       try {
@@ -220,18 +168,15 @@ export default function SettingsAccountScreen() {
       }
     })();
   }, []);
-
   useEffect(() => {
     if (!userId) return;
     void loadLinkedAccounts();
   }, [userId, loadLinkedAccounts]);
-
   useFocusEffect(
     useCallback(() => {
       if (userId) void loadLinkedAccounts();
     }, [userId, loadLinkedAccounts])
   );
-
   useEffect(() => {
     const err = typeof params.error === "string" ? params.error : undefined;
     if (!err) return;
@@ -244,21 +189,18 @@ export default function SettingsAccountScreen() {
   const oauthAccountRows = linkedAccounts.filter((a) => a.providerId !== "credential");
   const canUnlinkOAuth =
     oauthAccountRows.length === 0 ? false : hasCredentialAccount || oauthAccountRows.length > 1;
-
   const displayLabel =
     profile?.displayName ??
     sessionUser?.name ??
     profile?.username ??
     sessionUser?.email ??
     t("settings.accountFallback");
-
   const usernameForDisplay =
     sessionUser?.username != null && sessionUser.username !== ""
       ? sessionUser.username
       : profile?.username != null && profile.username !== ""
         ? profile.username
         : null;
-
   const userEmail = sessionUser?.email ?? null;
 
   const handlePickProfileImage = async () => {
@@ -270,7 +212,6 @@ export default function SettingsAccountScreen() {
         Alert.alert(t("common.errorTitle"), t("settings.profileImagePermission"));
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
@@ -278,7 +219,6 @@ export default function SettingsAccountScreen() {
         quality: 0.85,
       });
       if (result.canceled || !result.assets[0]) return;
-
       const asset = result.assets[0];
       const uploadUrl = await generateUploadUrl();
       const storageId = await uploadUriToConvexStorage(
@@ -294,16 +234,15 @@ export default function SettingsAccountScreen() {
       setUpdatingPhoto(false);
     }
   };
-
   const handleSaveDisplayName = async () => {
     const trimmed = (displayNameEdit ?? "").trim();
     setDisplayNameError(null);
     setDisplayNameLoading(true);
     try {
       const { error } = await authX.updateUser({ name: trimmed || undefined });
-      if (error) {
+      if (error)
         setDisplayNameError(error.message ?? t("settings.accountPage.displayNameUpdateError"));
-      } else {
+      else {
         await updateProfile({ displayName: trimmed || undefined });
         setDisplayNameEdit(null);
         await getSession();
@@ -314,11 +253,9 @@ export default function SettingsAccountScreen() {
       setDisplayNameLoading(false);
     }
   };
-
   const handleSaveUsername = async () => {
     const raw = (usernameEdit ?? "").trim().toLowerCase();
     setUsernameError(null);
-
     const sessionUsername = (sessionUser?.username ?? "").trim().toLowerCase();
     if (raw.length === 0) {
       if (profile?.username || sessionUsername) {
@@ -328,7 +265,6 @@ export default function SettingsAccountScreen() {
       setUsernameEdit(null);
       return;
     }
-
     setUsernameLoading(true);
     try {
       if (raw !== sessionUsername) {
@@ -343,13 +279,11 @@ export default function SettingsAccountScreen() {
           return;
         }
       }
-
       const authRes = await authX.updateUser({ username: raw });
       if (authRes?.error) {
         setUsernameError(authRes.error.message ?? t("settings.accountPage.usernameUpdateError"));
         return;
       }
-
       await updateProfile({ username: raw });
       setUsernameEdit(null);
       await getSession();
@@ -361,7 +295,6 @@ export default function SettingsAccountScreen() {
       setUsernameLoading(false);
     }
   };
-
   const handleLinkSocial = async (provider: "google" | "apple") => {
     setAccountsActionError(null);
     setLinkBusy(provider);
@@ -375,7 +308,6 @@ export default function SettingsAccountScreen() {
       setLinkBusy(null);
     }
   };
-
   const handleUnlink = async (providerId: string, accountId: string, rowId: string) => {
     setAccountsActionError(null);
     setUnlinkBusy(rowId);
@@ -395,7 +327,6 @@ export default function SettingsAccountScreen() {
       setUnlinkBusy(null);
     }
   };
-
   const handleCreatePassword = async () => {
     setPasswordSetupError(null);
     if (newPassword.length < 8) {
@@ -423,7 +354,6 @@ export default function SettingsAccountScreen() {
       setPasswordSetupLoading(false);
     }
   };
-
   const handleSaveBio = async () => {
     const trimmed = (bioEdit ?? "").trim();
     setBioLoading(true);
@@ -434,7 +364,6 @@ export default function SettingsAccountScreen() {
       setBioLoading(false);
     }
   };
-
   const handleSaveProfileVisibility = async (value: "private" | "public") => {
     setProfileVisibilityError(null);
     try {
@@ -447,7 +376,6 @@ export default function SettingsAccountScreen() {
       setProfileVisibilityEdit(null);
     }
   };
-
   const handleDeleteAccount = async () => {
     if (deleteConfirmation !== "DELETE") {
       setDeleteError(t("settings.accountPage.typeDeleteError"));
@@ -457,18 +385,14 @@ export default function SettingsAccountScreen() {
     setDeleteError(null);
     try {
       const { error } = await deleteAccount();
-      if (error) {
-        setDeleteError(error.message ?? t("settings.accountDeleteError"));
-      } else {
-        router.replace(APP_HREF.signIn);
-      }
+      if (error) setDeleteError(error.message ?? t("settings.accountDeleteError"));
+      else router.replace(APP_HREF.signIn);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : t("settings.accountDeleteError"));
     } finally {
       setDeleteLoading(false);
     }
   };
-
   const usernameFieldError = useMemo(() => {
     if (usernameEdit === null) return undefined;
     if (usernameEditTrimmed.length === 0) return undefined;
@@ -479,83 +403,90 @@ export default function SettingsAccountScreen() {
     return undefined;
   }, [usernameEdit, usernameEditTrimmed, usernameCheck, t]);
 
-  const inputUnderlineCls =
-    "border-b border-kyar-borderSubtle bg-transparent px-0 py-3 text-sm text-kyar-text dark:border-kyar-dark-borderSubtle dark:text-kyar-dark-text";
-
+  const avatarImage = profile?.image ?? sessionUser?.image;
+  const hasAvatar = !!(profile?.imageStorageId || avatarImage);
+  const initials = displayLabel
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
   return (
-    <>
+    <AccountFrame>
       <Stack.Screen options={{ title: t("settings.accountDetails"), headerLargeTitle: false }} />
-      <DataBoundary status={status} data={{ ready: true }}>
+      <DataBoundary
+        status={status}
+        data={{ ready: true }}
+        loading={<AccountLoading label={t("common.loading")} />}
+      >
         {() => (
-          <ScrollView
-            className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-            contentContainerClassName="px-5 pb-12 pt-4"
-          >
-            <Text className="text-[10px] uppercase tracking-meta text-kyar-meta opacity-80 dark:text-kyar-dark-meta">
-              {t("common.settings")}
-            </Text>
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-              className="mt-1 text-3xl italic text-kyar-text dark:text-kyar-dark-text"
-            >
-              {t("settings.accountDetails")}
-            </Text>
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("settings.accountSubtitle")}
-            </Text>
-
-            <View className="mt-6">
+          <AccountScroll>
+            <AccountHeading
+              title={t("settings.accountDetails")}
+              subtitle={t("settings.accountSubtitle")}
+            />
+            <GlassPanel blur={false} style={{ paddingHorizontal: 18 }}>
               <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionProfilePicture")}</SectionLabel>
-                <View className="mt-2 flex-row items-center gap-4">
+                <View style={styles.row}>
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("settings.accountPage.changePicture")}
+                    accessibilityState={{ disabled: updatingPhoto, busy: updatingPhoto }}
+                    disabled={updatingPhoto}
                     onPress={() => void handlePickProfileImage()}
-                    className="active:opacity-90"
+                    className="active:opacity-80"
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      overflow: "hidden",
+                      borderWidth: 1,
+                      borderStyle: hasAvatar ? "solid" : "dashed",
+                      borderColor: glass.border.strong,
+                      backgroundColor: glass.surface.field,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <ProfileAvatar
-                      imageStorageId={profile?.imageStorageId}
-                      imageUrl={profile?.image ?? sessionUser?.image}
-                      label={displayLabel}
-                    />
+                    {hasAvatar ? (
+                      <ConvexStorageImage
+                        storageId={profile?.imageStorageId}
+                        imageUrl={avatarImage}
+                        className="h-full w-full"
+                      />
+                    ) : (
+                      <AccountText style={{ color: glass.text.fg, fontSize: 22 }}>
+                        {initials || "?"}
+                      </AccountText>
+                    )}
                   </Pressable>
-                  <View className="min-w-0 flex-1">
-                    <LinkText
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <AccountAction
                       onPress={() => void handlePickProfileImage()}
                       disabled={updatingPhoto}
                     >
                       {updatingPhoto
                         ? t("settings.profileImageUploading")
                         : t("settings.accountPage.changePicture")}
-                    </LinkText>
-                    <Text className="mt-1 text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                      {t("settings.accountPage.imageFormats")}
-                    </Text>
+                    </AccountAction>
+                    <AccountText>{t("settings.accountPage.imageFormats")}</AccountText>
                   </View>
                 </View>
               </AccountSection>
-
               <AccountSection>
-                <View className="flex-row flex-wrap items-start justify-between gap-3">
-                  <View className="min-w-0 flex-1">
-                    <SectionLabel>{t("settings.accountPage.sectionEmail")}</SectionLabel>
-                    <Text
-                      className={`text-sm ${userEmail && !emailRevealed ? "text-kyar-textSecondary dark:text-kyar-dark-textSecondary" : "text-kyar-text dark:text-kyar-dark-text"}`}
-                      selectable={!!userEmail && emailRevealed}
-                    >
-                      {!userEmail
-                        ? t("settings.accountPage.dash")
-                        : emailRevealed
-                          ? userEmail
-                          : t("settings.accountPage.emailHidden")}
-                    </Text>
-                    {userEmail ? (
-                      <Text className="mt-1 text-[11px] leading-relaxed text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                        {t("settings.accountPage.emailHiddenHint")}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {userEmail ? (
-                    <Pressable
+                <SectionLabel>{t("settings.accountPage.sectionEmail")}</SectionLabel>
+                <AccountText selectable={!!userEmail && emailRevealed}>
+                  {!userEmail
+                    ? t("settings.accountPage.dash")
+                    : emailRevealed
+                      ? userEmail
+                      : t("settings.accountPage.emailHidden")}
+                </AccountText>
+                {userEmail ? (
+                  <>
+                    <AccountText>{t("settings.accountPage.emailHiddenHint")}</AccountText>
+                    <AccountAction
                       onPress={() => {
                         setEmailRevealed((prev) => {
                           const next = !prev;
@@ -566,115 +497,98 @@ export default function SettingsAccountScreen() {
                           return next;
                         });
                       }}
-                      className="shrink-0 justify-center pt-1 active:opacity-80"
                     >
-                      <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                        {emailRevealed
-                          ? t("settings.accountPage.hide")
-                          : t("settings.accountPage.show")}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
+                      {emailRevealed
+                        ? t("settings.accountPage.hide")
+                        : t("settings.accountPage.show")}
+                    </AccountAction>
+                  </>
+                ) : null}
               </AccountSection>
-
               <AccountSection>
                 <SectionLabel>{t("settings.displayName")}</SectionLabel>
                 {displayNameEdit === null ? (
-                  <View className="mt-1 flex-row flex-wrap items-center gap-2">
-                    <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                      {sessionUser?.name ?? t("settings.accountPage.dash")}
-                    </Text>
-                    <LinkText onPress={() => setDisplayNameEdit(sessionUser?.name ?? "")}>
+                  <>
+                    <AccountText>{sessionUser?.name ?? t("settings.accountPage.dash")}</AccountText>
+                    <AccountAction
+                      label={t("settings.accountGlass.editDisplayName", {
+                        defaultValue: "Edit display name",
+                      })}
+                      onPress={() => setDisplayNameEdit(sessionUser?.name ?? "")}
+                    >
                       {t("settings.accountPage.edit")}
-                    </LinkText>
-                  </View>
+                    </AccountAction>
+                  </>
                 ) : (
-                  <View className="mt-2 gap-2">
-                    <TextInput
+                  <>
+                    <GlassTextField
+                      accessibilityLabel={t("settings.displayName")}
                       value={displayNameEdit}
                       onChangeText={(v) => {
                         setDisplayNameEdit(v);
                         setDisplayNameError(null);
                       }}
                       placeholder={t("settings.accountPage.displayNamePlaceholder")}
-                      placeholderTextColor={colors.textTertiary}
-                      className={inputUnderlineCls}
                       editable={!displayNameLoading}
                       maxLength={500}
+                      error={displayNameError ?? undefined}
                     />
-                    {displayNameError ? (
-                      <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                        {displayNameError}
-                      </Text>
-                    ) : null}
-                    <View className="flex-row gap-4">
-                      <LinkText
+                    <View style={styles.row}>
+                      <AccountAction
                         onPress={() => void handleSaveDisplayName()}
                         disabled={displayNameLoading}
                       >
                         {displayNameLoading ? t("settings.savingAction") : t("common.save")}
-                      </LinkText>
-                      <Pressable
+                      </AccountAction>
+                      <AccountAction
                         onPress={() => {
                           setDisplayNameEdit(null);
                           setDisplayNameError(null);
                         }}
                         disabled={displayNameLoading}
-                        className="min-h-[44px] justify-center active:opacity-80"
                       >
-                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {t("common.cancel")}
-                        </Text>
-                      </Pressable>
+                        {t("common.cancel")}
+                      </AccountAction>
                     </View>
-                  </View>
+                  </>
                 )}
               </AccountSection>
-
               <AccountSection>
                 <SectionLabel>{t("settings.username")}</SectionLabel>
                 {usernameEdit === null ? (
-                  <View className="mt-1 flex-row flex-wrap items-center gap-2">
-                    <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+                  <>
+                    <AccountText>
                       {usernameForDisplay
                         ? `@${usernameForDisplay}`
                         : t("settings.accountPage.dash")}
-                    </Text>
-                    <LinkText onPress={() => setUsernameEdit(profile?.username ?? "")}>
+                    </AccountText>
+                    <AccountAction
+                      label={t("settings.accountGlass.editUsername", {
+                        defaultValue: "Edit username",
+                      })}
+                      onPress={() => setUsernameEdit(profile?.username ?? "")}
+                    >
                       {t("settings.accountPage.edit")}
-                    </LinkText>
-                  </View>
+                    </AccountAction>
+                  </>
                 ) : (
-                  <View className="mt-2 gap-2">
-                    <TextInput
+                  <>
+                    <GlassTextField
+                      accessibilityLabel={t("settings.username")}
                       value={usernameEdit}
                       onChangeText={(v) => {
                         setUsernameEdit(v.toLowerCase().replace(/[^a-z0-9_]/g, ""));
                         setUsernameError(null);
                       }}
                       placeholder={t("settings.accountPage.usernamePlaceholder")}
-                      placeholderTextColor={colors.textTertiary}
-                      className={inputUnderlineCls}
                       editable={!usernameLoading}
                       autoCapitalize="none"
                       maxLength={80}
+                      error={usernameError ?? usernameFieldError}
                     />
-                    <Text className="text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                      {t("settings.accountPage.usernameRules")}
-                    </Text>
-                    {usernameError ? (
-                      <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                        {usernameError}
-                      </Text>
-                    ) : null}
-                    {usernameFieldError ? (
-                      <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                        {usernameFieldError}
-                      </Text>
-                    ) : null}
-                    <View className="flex-row gap-4">
-                      <LinkText
+                    <AccountText>{t("settings.accountPage.usernameRules")}</AccountText>
+                    <View style={styles.row}>
+                      <AccountAction
                         onPress={() => void handleSaveUsername()}
                         disabled={
                           usernameLoading ||
@@ -683,255 +597,217 @@ export default function SettingsAccountScreen() {
                         }
                       >
                         {usernameLoading ? t("settings.savingAction") : t("common.save")}
-                      </LinkText>
-                      <Pressable
+                      </AccountAction>
+                      <AccountAction
                         onPress={() => {
                           setUsernameEdit(null);
                           setUsernameError(null);
                         }}
                         disabled={usernameLoading}
-                        className="min-h-[44px] justify-center active:opacity-80"
                       >
-                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {t("common.cancel")}
-                        </Text>
-                      </Pressable>
+                        {t("common.cancel")}
+                      </AccountAction>
                     </View>
-                  </View>
+                  </>
                 )}
               </AccountSection>
-
               <AccountSection>
                 <SectionLabel>{t("settings.accountPage.signInMethodsTitle")}</SectionLabel>
-                <Text className="mt-1 text-[11px] leading-relaxed text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                  {t("settings.accountPage.signInMethodsBody")}
-                </Text>
+                <AccountText>{t("settings.accountPage.signInMethodsBody")}</AccountText>
                 {accountsActionError ? (
-                  <Text className="mt-2 text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                    {accountsActionError}
-                  </Text>
+                  <AccountText danger>{accountsActionError}</AccountText>
                 ) : null}
                 {accountsLoading ? (
-                  <View className="mt-3 flex-row items-center gap-2">
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
-                    <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {t("settings.accountPage.signInMethodsLoading")}
-                    </Text>
+                  <View style={styles.row}>
+                    <ActivityIndicator color={glass.text.fg70} />
+                    <AccountText>{t("settings.accountPage.signInMethodsLoading")}</AccountText>
                   </View>
                 ) : (
-                  <View className="mt-3 gap-3">
+                  <>
                     {linkedAccounts.map((acc) => (
                       <View
                         key={acc.id}
-                        className="flex-row flex-wrap items-center justify-between gap-2 rounded-xl border border-kyar-borderSubtle px-4 py-3 dark:border-kyar-dark-borderSubtle"
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: glass.border.divider,
+                          paddingVertical: 12,
+                          gap: 4,
+                        }}
                       >
-                        <View className="min-w-0 flex-1">
-                          <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
-                            {labelForProvider(t, acc.providerId)}
-                          </Text>
-                          <Text
-                            className="mt-0.5 max-w-[240px] font-mono text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary"
-                            numberOfLines={1}
-                          >
-                            {acc.providerId === "credential"
-                              ? t("settings.accountPage.passwordOnFile")
-                              : t("settings.accountPage.connectedLine", { id: acc.accountId })}
-                          </Text>
-                        </View>
+                        <AccountText style={{ color: glass.text.fg }}>
+                          {labelForProvider(t, acc.providerId)}
+                        </AccountText>
+                        <AccountText numberOfLines={1}>
+                          {acc.providerId === "credential"
+                            ? t("settings.accountPage.passwordOnFile")
+                            : t("settings.accountPage.connectedLine", { id: acc.accountId })}
+                        </AccountText>
                         {acc.providerId !== "credential" ? (
-                          <Pressable
+                          <AccountAction
+                            label={t("settings.accountGlass.disconnectProvider", {
+                              defaultValue: "Disconnect {{provider}}",
+                              provider: labelForProvider(t, acc.providerId),
+                            })}
                             onPress={() => void handleUnlink(acc.providerId, acc.accountId, acc.id)}
                             disabled={!canUnlinkOAuth || unlinkBusy === acc.id}
-                            className="py-2 active:opacity-70"
                           >
-                            <Text
-                              className={`text-[11px] font-medium uppercase tracking-widest ${
-                                !canUnlinkOAuth || unlinkBusy === acc.id
-                                  ? "text-kyar-textTertiary dark:text-kyar-dark-textTertiary"
-                                  : "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                              }`}
-                            >
-                              {unlinkBusy === acc.id
-                                ? t("settings.accountPage.disconnecting")
-                                : t("settings.accountPage.disconnect")}
-                            </Text>
-                          </Pressable>
+                            {unlinkBusy === acc.id
+                              ? t("settings.accountPage.disconnecting")
+                              : t("settings.accountPage.disconnect")}
+                          </AccountAction>
                         ) : null}
                       </View>
                     ))}
-                    <View className="mt-2 gap-2">
-                      <Text className="text-[11px] uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("settings.accountPage.connectAnother")}
-                      </Text>
-                      <View className="flex-row flex-wrap gap-2">
-                        {LINKABLE_SOCIAL_PROVIDERS.map((p) => {
-                          const linked = linkedAccounts.some((a) => a.providerId === p.id);
-                          const busy = linkBusy === p.id;
-                          return (
-                            <Pressable
-                              key={p.id}
-                              onPress={() => void handleLinkSocial(p.id)}
-                              disabled={linked || !!linkBusy}
-                              className={`min-h-[40px] items-center justify-center rounded-full border border-kyar-borderSubtle px-4 py-2 dark:border-kyar-dark-borderSubtle ${
-                                linked || linkBusy ? "opacity-40" : "active:opacity-80"
-                              }`}
-                            >
-                              <Text className="text-[11px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                                {busy
-                                  ? t("settings.accountPage.redirectingLink")
-                                  : linked
-                                    ? p.id === "google"
-                                      ? t("settings.accountPage.linkedGoogle")
-                                      : t("settings.accountPage.linkedApple")
-                                    : p.id === "google"
-                                      ? t("settings.accountPage.linkGoogle")
-                                      : t("settings.accountPage.linkApple")}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
+                    <SectionLabel>{t("settings.accountPage.connectAnother")}</SectionLabel>
+                    <View style={styles.row}>
+                      {LINKABLE_SOCIAL_PROVIDERS.map((p) => {
+                        const linked = linkedAccounts.some((a) => a.providerId === p.id);
+                        const busy = linkBusy === p.id;
+                        return (
+                          <PhotoPill
+                            key={p.id}
+                            variant="outline"
+                            onPress={() => void handleLinkSocial(p.id)}
+                            disabled={linked || !!linkBusy}
+                            label={
+                              busy
+                                ? t("settings.accountPage.redirectingLink")
+                                : linked
+                                  ? p.id === "google"
+                                    ? t("settings.accountPage.linkedGoogle")
+                                    : t("settings.accountPage.linkedApple")
+                                  : p.id === "google"
+                                    ? t("settings.accountPage.linkGoogle")
+                                    : t("settings.accountPage.linkApple")
+                            }
+                          />
+                        );
+                      })}
                     </View>
                     {!hasCredentialAccount && oauthAccountRows.length > 0 ? (
-                      <Text className="mt-2 text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                        {t("settings.accountPage.oauthOnlyDisconnectHint")}
-                      </Text>
+                      <AccountText>{t("settings.accountPage.oauthOnlyDisconnectHint")}</AccountText>
                     ) : null}
-                  </View>
+                  </>
                 )}
               </AccountSection>
-
               <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionBio")}</SectionLabel>
                 {bioEdit === null ? (
-                  <View className="mt-1 flex-row items-start gap-2">
-                    <Text className="min-w-0 flex-1 whitespace-pre-wrap text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                  <>
+                    <AccountText>
                       {profile?.bio?.trim() ? profile.bio : t("settings.accountPage.dash")}
-                    </Text>
-                    <LinkText onPress={() => setBioEdit(profile?.bio ?? "")}>
+                    </AccountText>
+                    <AccountAction
+                      label={t("settings.accountGlass.editBio", { defaultValue: "Edit bio" })}
+                      onPress={() => setBioEdit(profile?.bio ?? "")}
+                    >
                       {t("settings.accountPage.edit")}
-                    </LinkText>
-                  </View>
+                    </AccountAction>
+                  </>
                 ) : (
-                  <View className="mt-2 gap-2">
-                    <TextInput
+                  <>
+                    <GlassTextField
+                      accessibilityLabel={t("settings.accountPage.sectionBio")}
                       value={bioEdit}
                       onChangeText={setBioEdit}
                       placeholder={t("settings.bioPlaceholder")}
-                      placeholderTextColor={colors.textTertiary}
-                      className={`${inputUnderlineCls} min-h-[88px]`}
                       multiline
                       textAlignVertical="top"
                       editable={!bioLoading}
                       maxLength={500}
                     />
-                    <View className="flex-row gap-4">
-                      <LinkText onPress={() => void handleSaveBio()} disabled={bioLoading}>
+                    <View style={styles.row}>
+                      <AccountAction onPress={() => void handleSaveBio()} disabled={bioLoading}>
                         {bioLoading ? t("settings.savingAction") : t("common.save")}
-                      </LinkText>
-                      <Pressable
-                        onPress={() => setBioEdit(null)}
-                        disabled={bioLoading}
-                        className="min-h-[44px] justify-center active:opacity-80"
-                      >
-                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {t("common.cancel")}
-                        </Text>
-                      </Pressable>
+                      </AccountAction>
+                      <AccountAction onPress={() => setBioEdit(null)} disabled={bioLoading}>
+                        {t("common.cancel")}
+                      </AccountAction>
                     </View>
-                  </View>
+                  </>
                 )}
               </AccountSection>
-
               <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionPublicProfile")}</SectionLabel>
                 {profileVisibilityEdit === null ? (
-                  <View className="mt-1 flex-row flex-wrap items-center gap-2">
-                    <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
+                  <>
+                    <AccountText>
                       {profile?.profileVisibility === "public"
                         ? t("settings.profilePublic")
                         : t("settings.profilePrivate")}
-                    </Text>
-                    <LinkText
+                    </AccountText>
+                    <AccountAction
                       onPress={() =>
                         setProfileVisibilityEdit(profile?.profileVisibility ?? "private")
                       }
                     >
                       {t("settings.accountPage.change")}
-                    </LinkText>
+                    </AccountAction>
                     {profile?.profileVisibility === "public" && profile?.username ? (
-                      <LinkText
+                      <AccountAction
                         onPress={() => {
                           const u = profile.username;
                           if (u) router.push(APP_HREF.profile(u));
                         }}
                       >
                         {t("settings.viewPublicProfile")}
-                      </LinkText>
+                      </AccountAction>
                     ) : null}
-                  </View>
+                  </>
                 ) : (
-                  <View className="mt-2 flex-row flex-wrap gap-2">
-                    <Pressable
-                      onPress={() => void handleSaveProfileVisibility("public")}
-                      className="rounded-full border border-kyar-borderSubtle px-5 py-2.5 dark:border-kyar-dark-borderSubtle active:opacity-80"
+                  <>
+                    <View
+                      accessibilityRole="radiogroup"
+                      accessibilityLabel={t("settings.accountPage.sectionPublicProfile")}
+                      style={styles.row}
                     >
-                      <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                        {t("settings.profilePublic")}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => void handleSaveProfileVisibility("private")}
-                      className="rounded-full border border-kyar-borderSubtle px-5 py-2.5 dark:border-kyar-dark-borderSubtle active:opacity-80"
-                    >
-                      <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
-                        {t("settings.profilePrivate")}
-                      </Text>
-                    </Pressable>
-                    <Pressable
+                      {(["public", "private"] as const).map((value) => (
+                        <PhotoPill
+                          key={value}
+                          label={
+                            value === "public"
+                              ? t("settings.profilePublic")
+                              : t("settings.profilePrivate")
+                          }
+                          variant={profileVisibilityEdit === value ? "solid" : "outline"}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: profileVisibilityEdit === value }}
+                          onPress={() => void handleSaveProfileVisibility(value)}
+                        />
+                      ))}
+                    </View>
+                    <AccountAction
                       onPress={() => {
                         setProfileVisibilityEdit(null);
                         setProfileVisibilityError(null);
                       }}
-                      className="min-h-[44px] justify-center px-2 active:opacity-80"
                     >
-                      <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("common.cancel")}
-                      </Text>
-                    </Pressable>
-                  </View>
+                      {t("common.cancel")}
+                    </AccountAction>
+                  </>
                 )}
                 {profileVisibilityError ? (
-                  <Text className="mt-2 text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                    {profileVisibilityError}
-                  </Text>
+                  <AccountText danger>{profileVisibilityError}</AccountText>
                 ) : null}
-                <Text className="mt-2 text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                  {t("settings.accountPage.visibilityExplainer")}
-                </Text>
+                <AccountText>{t("settings.accountPage.visibilityExplainer")}</AccountText>
               </AccountSection>
-
-              <View className="border-b border-kyar-borderSubtle py-4 dark:border-kyar-dark-borderSubtle">
+              <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionEmailPassword")}</SectionLabel>
                 {accountsLoading ? (
-                  <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                    {t("settings.accountPage.emailPasswordLoading")}
-                  </Text>
+                  <AccountText>{t("settings.accountPage.emailPasswordLoading")}</AccountText>
                 ) : hasCredentialAccount ? (
-                  <View className="mt-2">
-                    <LinkText onPress={() => router.push(APP_HREF.resetPassword)}>
+                  <>
+                    <AccountAction onPress={() => router.push(APP_HREF.resetPassword)}>
                       {t("settings.accountPage.changePassword")}
-                    </LinkText>
-                    <Text className="mt-1 text-[11px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {t("settings.accountPage.changePasswordHint")}
-                    </Text>
-                  </View>
+                    </AccountAction>
+                    <AccountText>{t("settings.accountPage.changePasswordHint")}</AccountText>
+                  </>
                 ) : (
-                  <View className="mt-2 gap-3">
-                    <Text className="text-[11px] leading-relaxed text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {t("settings.accountPage.oauthOnlyPasswordIntro")}
-                    </Text>
-                    <TextField
+                  <>
+                    <AccountText>{t("settings.accountPage.oauthOnlyPasswordIntro")}</AccountText>
+                    <GlassTextField
+                      label={t("settings.accountPage.newPasswordPlaceholder")}
+                      accessibilityLabel={t("settings.accountPage.newPasswordPlaceholder")}
                       secureTextEntry
                       value={newPassword}
                       onChangeText={(v) => {
@@ -941,7 +817,9 @@ export default function SettingsAccountScreen() {
                       placeholder={t("settings.accountPage.newPasswordPlaceholder")}
                       editable={!passwordSetupLoading}
                     />
-                    <TextField
+                    <GlassTextField
+                      label={t("settings.accountPage.confirmPasswordPlaceholder")}
+                      accessibilityLabel={t("settings.accountPage.confirmPasswordPlaceholder")}
                       secureTextEntry
                       value={confirmPassword}
                       onChangeText={(v) => {
@@ -950,156 +828,109 @@ export default function SettingsAccountScreen() {
                       }}
                       placeholder={t("settings.accountPage.confirmPasswordPlaceholder")}
                       editable={!passwordSetupLoading}
+                      error={passwordSetupError ?? undefined}
                     />
-                    {passwordSetupError ? (
-                      <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                        {passwordSetupError}
-                      </Text>
-                    ) : null}
-                    <LinkText
+                    <AccountAction
                       onPress={() => void handleCreatePassword()}
                       disabled={passwordSetupLoading}
                     >
                       {passwordSetupLoading
                         ? t("settings.savingAction")
                         : t("settings.accountPage.savePassword")}
-                    </LinkText>
-                    <View className="mt-1 flex-row flex-wrap items-center gap-x-1">
-                      <Text className="text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                        {t("settings.accountPage.forgotPasswordPart1")}
-                      </Text>
-                      <Pressable onPress={() => router.push(APP_HREF.resetPassword)}>
-                        <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                          {t("settings.accountPage.forgotPasswordLink")}
-                        </Text>
-                      </Pressable>
-                      <Text className="text-[11px] text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
-                        {t("settings.accountPage.forgotPasswordPart2", {
-                          email: userEmail ?? t("settings.accountPage.yourEmailFallback"),
-                        })}
-                      </Text>
-                    </View>
-                  </View>
+                    </AccountAction>
+                    <AccountText>{t("settings.accountPage.forgotPasswordPart1")}</AccountText>
+                    <AccountAction onPress={() => router.push(APP_HREF.resetPassword)}>
+                      {t("settings.accountPage.forgotPasswordLink")}
+                    </AccountAction>
+                    <AccountText>
+                      {t("settings.accountPage.forgotPasswordPart2", {
+                        email: userEmail ?? t("settings.accountPage.yourEmailFallback"),
+                      })}
+                    </AccountText>
+                  </>
                 )}
-              </View>
-
-              <View className="border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+              </AccountSection>
+              <AccountSection>
                 <SectionLabel>{t("settings.accountPage.sectionDataPrivacy")}</SectionLabel>
-                <Text className="mt-2 text-[11px] leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("settings.accountPage.dataPrivacyBody")}
-                </Text>
-                <View className="mt-3 flex-row flex-wrap gap-4">
-                  <Pressable
-                    onPress={() => void openWebAppPath("/terms", t)}
-                    className="active:opacity-80"
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.termsOfService")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => void openWebAppPath("/privacy", t)}
-                    className="active:opacity-80"
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.privacyPolicy")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() =>
-                      void Linking.openURL(
-                        "mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
-                      )
-                    }
-                    className="active:opacity-80"
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.securitySupport")}
-                    </Text>
-                  </Pressable>
-                </View>
-                <Text className="mt-3 text-[11px] leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("settings.accountPage.deleteExplainer")}
-                </Text>
+                <AccountText>{t("settings.accountPage.dataPrivacyBody")}</AccountText>
+                <AccountAction onPress={() => void openWebAppPath("/terms", t)}>
+                  {t("settings.accountPage.termsOfService")}
+                </AccountAction>
+                <AccountAction onPress={() => void openWebAppPath("/privacy", t)}>
+                  {t("settings.accountPage.privacyPolicy")}
+                </AccountAction>
+                <AccountAction
+                  onPress={() =>
+                    void Linking.openURL(
+                      "mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
+                    )
+                  }
+                >
+                  {t("settings.accountPage.securitySupport")}
+                </AccountAction>
+                <AccountText>{t("settings.accountPage.deleteExplainer")}</AccountText>
                 {!showDeleteConfirm ? (
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => {
                       setShowDeleteConfirm(true);
                       setDeleteError(null);
                     }}
-                    className="mt-4 self-start rounded-full border border-kyar-danger/25 px-5 py-2.5 active:opacity-90 dark:border-kyar-dark-danger/40"
+                    className="active:opacity-80"
+                    style={{ minHeight: 44, justifyContent: "center" }}
                   >
-                    <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-danger dark:text-kyar-dark-danger">
-                      {t("settings.accountPage.deleteAction")}
-                    </Text>
+                    <AccountText danger>{t("settings.accountPage.deleteAction")}</AccountText>
                   </Pressable>
-                ) : (
-                  <View className="mt-5 overflow-hidden rounded-2xl border border-kyar-danger/20 bg-kyar-surface dark:border-kyar-dark-danger/30 dark:bg-kyar-dark-surface">
-                    <View className="border-b border-kyar-danger/15 bg-kyar-danger/6 px-4 py-3 dark:border-kyar-dark-danger/20 dark:bg-kyar-dark-danger/10">
-                      <Text className="text-[11px] uppercase tracking-[0.2em] text-kyar-danger/80 dark:text-kyar-dark-danger">
-                        {t("settings.accountPage.deletePermanentLabel")}
-                      </Text>
-                      <Text
-                        style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-                        className="mt-1 text-2xl italic text-kyar-text dark:text-kyar-dark-text"
-                      >
-                        {t("settings.accountPage.deleteConfirmTitle")}
-                      </Text>
-                    </View>
-                    <View className="gap-4 px-4 py-4">
-                      <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("settings.accountPage.deleteConfirmBody")}
-                      </Text>
-                      <Text className="text-[11px] uppercase tracking-widest text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("settings.accountPage.typeDeleteLabel")}
-                      </Text>
-                      <TextInput
-                        value={deleteConfirmation}
-                        onChangeText={(v) => {
-                          setDeleteConfirmation(v);
-                          setDeleteError(null);
-                        }}
-                        placeholder={t("settings.accountPage.typeDeletePlaceholder")}
-                        placeholderTextColor={colors.textTertiary}
-                        className="rounded-xl border border-kyar-danger/20 bg-kyar-bg px-4 py-3 text-sm text-kyar-text dark:border-kyar-dark-danger/30 dark:bg-kyar-dark-bg dark:text-kyar-dark-text"
-                        editable={!deleteLoading}
-                        autoCapitalize="characters"
-                      />
-                      {deleteError ? (
-                        <Text className="text-xs text-kyar-danger dark:text-kyar-dark-danger">
-                          {deleteError}
-                        </Text>
-                      ) : null}
-                      <View className="flex-row flex-wrap gap-3">
-                        <Button
-                          title={
-                            deleteLoading
-                              ? t("settings.accountDeleting")
-                              : t("settings.accountPage.confirmDelete")
-                          }
-                          onPress={() => void handleDeleteAccount()}
-                          loading={deleteLoading}
-                          disabled={deleteLoading}
-                        />
-                        <Button
-                          title={t("common.cancel")}
-                          variant="secondary"
-                          onPress={() => {
-                            setShowDeleteConfirm(false);
-                            setDeleteConfirmation("");
-                            setDeleteError(null);
-                          }}
-                          disabled={deleteLoading}
-                        />
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </View>
-          </ScrollView>
+                ) : null}
+              </AccountSection>
+            </GlassPanel>
+            {showDeleteConfirm ? (
+              <GlassOverlay blur={false} surfaceStyle={{ padding: 18, gap: 14 }}>
+                <AccountText danger>{t("settings.accountPage.deletePermanentLabel")}</AccountText>
+                <AccountHeading
+                  title={t("settings.accountPage.deleteConfirmTitle")}
+                  subtitle={t("settings.accountPage.deleteConfirmBody")}
+                />
+                <GlassTextField
+                  label={t("settings.accountPage.typeDeleteLabel")}
+                  accessibilityLabel={t("settings.accountPage.typeDeleteLabel")}
+                  value={deleteConfirmation}
+                  onChangeText={(v) => {
+                    setDeleteConfirmation(v);
+                    setDeleteError(null);
+                  }}
+                  placeholder={t("settings.accountPage.typeDeletePlaceholder")}
+                  editable={!deleteLoading}
+                  autoCapitalize="characters"
+                  error={deleteError ?? undefined}
+                />
+                <View style={styles.stack}>
+                  <PhotoPill
+                    label={
+                      deleteLoading
+                        ? t("settings.accountDeleting")
+                        : t("settings.accountPage.confirmDelete")
+                    }
+                    onPress={() => void handleDeleteAccount()}
+                    disabled={deleteLoading}
+                    accessibilityState={{ busy: deleteLoading, disabled: deleteLoading }}
+                  />
+                  <PhotoPill
+                    label={t("common.cancel")}
+                    variant="outline"
+                    onPress={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmation("");
+                      setDeleteError(null);
+                    }}
+                    disabled={deleteLoading}
+                  />
+                </View>
+              </GlassOverlay>
+            ) : null}
+          </AccountScroll>
         )}
       </DataBoundary>
-    </>
+    </AccountFrame>
   );
 }
