@@ -4,6 +4,7 @@ import { makeFunctionReference } from "convex/server";
 import { releaseDeletedStorage, releaseUserStorage } from "./storageOwnership";
 
 export const DELETION_BATCH_SIZE = 5;
+const QUARANTINE_PHASE = -1;
 
 /** A one-way suppression key prevents still-valid JWTs from recreating a deleted mirror. */
 export async function deletionSubjectHash(subject: string): Promise<string> {
@@ -20,6 +21,15 @@ export async function deletionJob(ctx: QueryCtx, externalId: string) {
     .query("accountDeletionJobs")
     .withIndex("by_subjectHash", (q) => q.eq("subjectHash", hash))
     .unique();
+}
+
+/** Shared guard for references to an account whose deletion has begun or completed. */
+export async function assertActiveAccountTargets(
+  ctx: QueryCtx,
+  ...targets: Array<string | null | undefined>
+) {
+  for (const target of new Set(targets))
+    if (target && (await deletionJob(ctx, target))) throw new Error("Account unavailable");
 }
 
 const runCleanup = makeFunctionReference<
@@ -44,11 +54,14 @@ export async function scheduleDeletion(
 async function queueAssets(
   ctx: MutationCtx,
   jobId: Id<"accountDeletionJobs">,
-  row: Record<string, unknown>
+  row: Record<string, unknown>,
+  offset = 0,
+  limit = 100
 ) {
   const ids = new Set<Id<"_storage">>();
-  if (row.imageStorageId) ids.add(row.imageStorageId as Id<"_storage">);
-  for (const ref of (row.imageRefs ?? []) as Array<{ kind: string; storageId?: Id<"_storage"> }>)
+  if (offset === 0 && row.imageStorageId) ids.add(row.imageStorageId as Id<"_storage">);
+  const refs = (row.imageRefs ?? []) as Array<{ kind: string; storageId?: Id<"_storage"> }>;
+  for (const ref of refs.slice(offset, offset + limit))
     if (ref.kind === "cloud" && ref.storageId) ids.add(ref.storageId);
   for (const storageId of ids) await ctx.db.insert("accountDeletionAssets", { jobId, storageId });
 }
@@ -66,7 +79,7 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
     externalId,
     userId: user?._id,
     status: "pending",
-    phase: 0,
+    phase: QUARANTINE_PHASE,
     processed: 0,
     attempts: 0,
     revision: 0,
@@ -150,6 +163,48 @@ async function shouldRemove(
   const actor = job.externalId!;
   if (table === "userPushPreferences") return row.userId === job.userId;
   if (table === "broadcasts") return row.createdBy === job.userId;
+  if (table === "idempotencyLedger") {
+    const retainsIdentity = async (value: unknown, field?: string): Promise<boolean> => {
+      if (value === actor || (job.userId && value === job.userId)) return true;
+      if (
+        typeof value === "string" &&
+        field &&
+        [
+          "_id",
+          "buildId",
+          "groupId",
+          "conventionId",
+          "cosplayNodeId",
+          "workflowItemId",
+          "templateId",
+          "parentId",
+          "ancestorIds",
+          "entityId",
+          "buildContextId",
+        ].includes(field)
+      ) {
+        for (const ownerTable of [
+          "builds",
+          "groups",
+          "conventions",
+          "cosplayNodes",
+          "workflowItems",
+          "workflowTemplates",
+        ] as const) {
+          const id = ctx.db.normalizeId(ownerTable, value);
+          if (id && (await ownedParent(ctx, id, actor))) return true;
+        }
+      }
+      if (Array.isArray(value)) {
+        for (const entry of value) if (await retainsIdentity(entry, field)) return true;
+      } else if (value && typeof value === "object") {
+        for (const [key, entry] of Object.entries(value))
+          if (key === actor || (await retainsIdentity(entry, key))) return true;
+      }
+      return false;
+    };
+    if (await retainsIdentity(row.result)) return true;
+  }
   if (row.userId === actor || row.createdBy === actor) return true;
   if (table === "follows") return row.followerId === actor || row.followingId === actor;
   // A foreign build shared into a deleted group survives; only the association is removed.
@@ -177,6 +232,10 @@ async function shouldRemove(
         typeof row[field] === "string" ? ctx.db.normalizeId("closetItems", row[field]) : null;
       if (id && (await ownedParent(ctx, id, actor))) return true;
     } else if (await ownedParent(ctx, row[field], actor)) return true;
+    else if (field === "progressUpdateId" && typeof row[field] === "string") {
+      const progress = await ctx.db.get(row[field] as Id<"buildProgressUpdates">);
+      if (progress && (await ownedParent(ctx, progress.buildId, actor))) return true;
+    }
   }
   if (table === "workflowAttachments" && typeof row.entityId === "string") {
     for (const parentTable of ["builds", "cosplayNodes", "conventions"] as const) {
@@ -246,6 +305,43 @@ export async function stepDeletion(
     return;
   // Duplicate deliveries and operator resumes cannot fork the scheduled cleanup chain.
   await ctx.db.patch(jobId, { revision: job.revision + 1 });
+  if (job.assetRowId) {
+    const row = await ctx.db.get(job.assetRowId as Id<TableNames>);
+    const offset = job.assetOffset ?? 0;
+    if (row) await queueAssets(ctx, jobId, row, offset);
+    const length = row && "imageRefs" in row ? row.imageRefs.length : 0;
+    if (offset + 100 >= length) {
+      if (row) await ctx.db.delete(row._id);
+      await ctx.db.patch(jobId, {
+        assetRowId: undefined,
+        assetOffset: undefined,
+        processed: job.processed + 1,
+      });
+    } else await ctx.db.patch(jobId, { assetOffset: offset + 100 });
+    await scheduleDeletion(ctx, jobId);
+    return;
+  }
+  if (job.phase === QUARANTINE_PHASE) {
+    // Legacy social writers check visibility directly instead of the shared access predicates.
+    // Quarantine every parent before sweeping children; no public owner-scoped write can then
+    // repopulate a completed child phase. Editor mutations are blocked by the owner guard.
+    const page = await ctx.db
+      .query("builds")
+      .withIndex("by_userId", (q) => q.eq("userId", job.externalId!))
+      .paginate({ cursor: job.cursor ?? null, numItems: DELETION_BATCH_SIZE });
+    for (const build of page.page)
+      await ctx.db.patch(build._id, {
+        visibility: "private",
+        shareToken: undefined,
+      });
+    await ctx.db.patch(jobId, {
+      phase: page.isDone ? 0 : QUARANTINE_PHASE,
+      cursor: page.isDone ? undefined : page.continueCursor,
+      processed: job.processed + page.page.length,
+    });
+    await scheduleDeletion(ctx, jobId);
+    return;
+  }
   const table = DELETION_TABLES[job.phase];
   if (table) {
     const page = await ctx.db.query(table).paginate({
@@ -258,6 +354,13 @@ export async function stepDeletion(
     for (const doc of page.page) {
       const row = doc as Row;
       if (!detachPass && (await shouldRemove(ctx, table, row, job))) {
+        if (Array.isArray(row.imageRefs) && row.imageRefs.length > 100) {
+          // Keep the document until its nested worklist is durably enumerated in small chunks.
+          // Retain the preceding table cursor so unprocessed neighbors are visited on retry.
+          await ctx.db.patch(jobId, { assetRowId: row._id, assetOffset: 0 });
+          await scheduleDeletion(ctx, jobId);
+          return;
+        }
         await queueAssets(ctx, jobId, row);
         await ctx.db.delete(row._id);
       } else if (row.userId !== job.externalId) {
@@ -296,6 +399,8 @@ export async function stepDeletion(
     externalId: undefined,
     userId: undefined,
     cursor: undefined,
+    assetRowId: undefined,
+    assetOffset: undefined,
     scheduledId: undefined,
     completedAt: Date.now(),
     updatedAt: Date.now(),

@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { checkLimitAndAddUsage, getStorageSizeMb, subtractUsageForStorageId } from "./storageUsage";
+import { touchStorageReferences } from "./lib/storageOwnership";
+import { assertActiveAccountTargets } from "./lib/accountDeletion";
 import { canUserEditBuild, isBuildGroupMember, isGroupMember } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData, resolvedPublicViewerSettings } from "./lib/buildPublicViewer";
@@ -882,6 +884,12 @@ export const update = mutation({
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, id, actorId);
     if (!canEdit) throw new Error("Not authorized to update this build");
+    const referencedGroupId = fields.groupId !== undefined ? fields.groupId : build.groupId;
+    if (referencedGroupId) {
+      const group = await ctx.db.get(referencedGroupId);
+      if (!group && fields.groupId) throw new Error("Group not found");
+      if (group) await assertActiveAccountTargets(ctx, group.createdBy);
+    }
     // REQ-017/REQ-021: gate transitions to public/unlisted against the build's *effective* group
     // link (an explicit groupId in this update wins, otherwise the build's current groupId).
     if (isPublicVisibility(fields.visibility)) {
@@ -1464,6 +1472,7 @@ export const duplicate = mutation({
     }
 
     const dupName = sanitizeAndLimit(`${source.name} (copy)`, MAX_LENGTH.name, "Name");
+    if (source.imageStorageId) await touchStorageReferences(ctx, source.imageStorageId);
 
     const newBuildId = await ctx.db.insert(
       "builds",
@@ -1494,6 +1503,7 @@ export const duplicate = mutation({
       .collect();
     const nodeIdMap = new Map<string, Id<"cosplayNodes">>();
     for (const n of sourceNodes) {
+      if (n.imageStorageId) await touchStorageReferences(ctx, n.imageStorageId);
       const newId = await ctx.db.insert(
         "cosplayNodes",
         withCreateMeta({
@@ -1538,6 +1548,7 @@ export const duplicate = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
       .collect();
     for (const r of [...refImgs].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      if (r.imageStorageId) await touchStorageReferences(ctx, r.imageStorageId);
       await ctx.db.insert(
         "buildReferenceImages",
         withCreateMeta({
@@ -1555,6 +1566,7 @@ export const duplicate = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.sourceBuildId))
       .collect();
     for (const p of [...proc].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      if (p.imageStorageId) await touchStorageReferences(ctx, p.imageStorageId);
       await ctx.db.insert(
         "buildProcessPictures",
         withCreateMeta({

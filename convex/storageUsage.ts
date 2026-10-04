@@ -7,7 +7,11 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { effectiveStorageLimitMb } from "@kyarafit/design-system/domain/accessPolicy";
 import { internal } from "./_generated/api";
-import { assertCanAttachStorage, storageClaim } from "./lib/storageOwnership";
+import {
+  assertCanAttachStorage,
+  storageClaim,
+  touchStorageReferences,
+} from "./lib/storageOwnership";
 import {
   storageReferences,
   hasOwnLiveReference,
@@ -88,6 +92,7 @@ export async function subtractUsageForStorageId(
   storageId: Id<"_storage"> | undefined
 ): Promise<void> {
   if (!storageId) return;
+  await touchStorageReferences(ctx, storageId);
   // This runs before the row is patched/deleted. Reconcile after commit so removing one of
   // several references cannot undercount usage or delete a still-shared blob.
   if (await storageClaim(ctx, storageId)) {

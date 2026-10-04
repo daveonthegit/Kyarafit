@@ -6,6 +6,7 @@ import { requireFeature } from "./lib/entitlements";
 import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
+import { assertActiveAccountTargets } from "./lib/accountDeletion";
 
 const VALID_VISIBILITIES = ["private", "public"] as const;
 const VALID_ROLES = ["admin", "member"] as const;
@@ -237,6 +238,7 @@ export const addMember = mutation({
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can add members");
     }
+    await assertActiveAccountTargets(ctx, args.newUserId);
     const existing = await getGroupMembership(ctx, args.groupId, args.newUserId);
     if (existing) throw new Error("User is already a member");
     const role: "admin" | "member" = VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])
@@ -296,6 +298,7 @@ export const setMemberRole = mutation({
     if (!VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])) {
       throw new Error("Invalid role");
     }
+    await assertActiveAccountTargets(ctx, args.targetUserId);
     const target = await getGroupMembership(ctx, args.groupId, args.targetUserId);
     if (!target) throw new Error("Member not found");
     await ctx.db.patch(target._id, { role: args.role });

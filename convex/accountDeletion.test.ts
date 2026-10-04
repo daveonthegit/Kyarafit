@@ -55,6 +55,14 @@ async function finish(t: Harness) {
 async function rows(t: Harness, table: TableNames) {
   return t.run((ctx) => ctx.db.query(table).collect());
 }
+async function advanceTo(t: Harness, jobId: Id<"accountDeletionJobs">, phase: number) {
+  for (let i = 0; i < 2000; i++) {
+    const job = (await t.run((ctx) => ctx.db.get(jobId)))!;
+    if (job.phase === phase) return;
+    await t.mutation(step, { jobId, revision: job.revision });
+  }
+  throw new Error("Fixture did not reach its checkpoint");
+}
 
 async function populate(t: Harness) {
   const alice = await user(t);
@@ -257,6 +265,25 @@ async function populate(t: Harness) {
       createdAt: 1,
       result: { note: "Private result" },
     });
+    await ctx.db.insert("idempotencyLedger", {
+      userId: "bob",
+      key: "assigned-task",
+      operation: "workflow.create",
+      createdAt: 1,
+      result: { userId: "bob", assigneeUserId: "alice" },
+    });
+    const foreignProgress = await ctx.db.insert("buildProgressUpdates", {
+      userId: "bob",
+      buildId: build,
+      createdAt: 1,
+      publishedToFeed: false,
+      mediaIndexed: true,
+      imageRefs: [{ kind: "cloud", storageId: blob, imageKey: "foreign" }],
+    });
+    await ctx.db.insert("progressMediaReferences", {
+      storageId: blob,
+      progressUpdateId: foreignProgress,
+    });
     await ctx.db.insert("userPushPreferences", {
       userId: alice,
       expoPushToken: "synthetic-device-token",
@@ -296,7 +323,7 @@ async function populate(t: Harness) {
       expiresAt: Date.now() + 10000,
       consumed: false,
     });
-    return { blob, otherBuild, otherTask, otherNode, builtIn, broadcast };
+    return { blob, group, otherBuild, otherTask, otherNode, builtIn, broadcast };
   });
   return { ...fixture, alice, bob };
 }
@@ -617,6 +644,256 @@ describe("complete, bounded account deletion", () => {
     expect(await t.run((ctx) => ctx.db.system.get("_storage", shared))).not.toBeNull();
     expect((await t.run((ctx) => ctx.db.get(bob)))?.currentUsageMb).toBe(6 / (1024 * 1024));
     expect(await rows(t, "storageClaims")).toMatchObject([{ userId: "bob", storageId: shared }]);
+  });
+
+  it("rejects late writes to deleting resources and account targets before and after completion", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: true });
+    await user(t);
+    await user(t, "bob");
+    const fixture = await t.run(async (ctx) => {
+      const deletingBuild = await ctx.db.insert("builds", {
+        userId: "alice",
+        name: "Public",
+        status: "idea",
+        visibility: "public",
+      });
+      const retainedBuild = await ctx.db.insert("builds", {
+        userId: "bob",
+        name: "Retained",
+        status: "idea",
+      });
+      const groupId = await ctx.db.insert("groups", {
+        createdBy: "bob",
+        name: "Retained",
+        visibility: "private",
+        createdAt: 1,
+      });
+      await ctx.db.insert("groupMembers", { groupId, userId: "bob", role: "admin" });
+      return { deletingBuild, retainedBuild, groupId };
+    });
+    const bob = t.withIdentity({ subject: "bob" });
+    const jobId = await t.mutation(begin, { externalId: "alice" });
+    await advanceTo(t, jobId, deletion.DELETION_TABLES.indexOf("buildComments") + 1);
+    await expect(
+      bob.mutation(api.buildComments.add, { buildId: fixture.deletingBuild, body: "Late comment" })
+    ).rejects.toThrow();
+    for (const complete of [false, true]) {
+      if (complete) await finish(t);
+      await expect(bob.mutation(api.follows.follow, { followingId: "alice" })).rejects.toThrow(
+        "Account unavailable"
+      );
+      await expect(
+        bob.mutation(api.groups.addMember, { groupId: fixture.groupId, newUserId: "alice" })
+      ).rejects.toThrow("Account unavailable");
+      await expect(
+        bob.mutation(api.buildCollaborators.set, {
+          buildId: fixture.retainedBuild,
+          userId: "alice",
+          role: "viewer",
+        })
+      ).rejects.toThrow("Account unavailable");
+      await expect(
+        bob.mutation(api.workflow.create, { title: "Assigned", assigneeUserId: "alice" })
+      ).rejects.toThrow("Account unavailable");
+    }
+    expect(await rows(t, "buildComments")).toHaveLength(0);
+    expect(await rows(t, "follows")).toHaveLength(0);
+    expect(await rows(t, "buildCollaborators")).toHaveLength(0);
+    expect(await rows(t, "workflowItems")).toHaveLength(0);
+  });
+
+  it("removes foreign ledger snapshots and blocks re-recording references until their cleanup phase", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: true });
+    const fixture = await populate(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("idempotencyLedger", {
+        userId: "bob",
+        key: "deleted-parent",
+        createdAt: 1,
+        result: { userId: "bob", groupId: fixture.group },
+      });
+      await ctx.db.insert("idempotencyLedger", {
+        userId: "bob",
+        key: "retained-result",
+        createdAt: 1,
+        result: { userId: "bob", buildId: fixture.otherBuild },
+      });
+    });
+    const jobId = await t.mutation(begin, { externalId: "alice" });
+    await advanceTo(t, jobId, deletion.DELETION_TABLES.indexOf("idempotencyLedger") + 1);
+    const bob = t.withIdentity({ subject: "bob" });
+    await expect(
+      bob.mutation(api.workflow.update, {
+        id: fixture.otherTask,
+        title: "Late update",
+        idempotencyKey: "new-snapshot",
+      })
+    ).rejects.toThrow("Account unavailable");
+    await expect(
+      bob.mutation(api.builds.update, {
+        id: fixture.otherBuild,
+        notes: "Late update",
+        idempotencyKey: "new-build-snapshot",
+      })
+    ).rejects.toThrow("Account unavailable");
+    await finish(t);
+    expect(await rows(t, "idempotencyLedger")).toHaveLength(1);
+    expect(await rows(t, "idempotencyLedger")).toMatchObject([{ key: "retained-result" }]);
+  });
+
+  it("invalidates a shared-media cursor when references move behind its scanned range", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: true });
+    const alice = await user(t);
+    const bobId = await user(t, "bob");
+    const fixture = await t.run(async (ctx) => {
+      const blob = await ctx.storage.store(new Blob(["shared"]));
+      await ctx.db.patch(alice, { imageStorageId: blob });
+      await ctx.db.insert("storageClaims", {
+        userId: "alice",
+        storageId: blob,
+        sizeBytes: 6,
+        attached: true,
+        expiresAt: Date.now(),
+      });
+      const earlierBuild = await ctx.db.insert("builds", {
+        userId: "bob",
+        name: "Earlier",
+        status: "idea",
+      });
+      for (let i = 0; i < 31; i++)
+        await ctx.db.insert("builds", {
+          userId: "bob",
+          name: "Tombstone",
+          status: "idea",
+          imageStorageId: blob,
+          deletedAt: 1,
+        });
+      const node = await ctx.db.insert("cosplayNodes", {
+        userId: "bob",
+        name: "Source",
+        nodeType: "item",
+        tags: [],
+        imageStorageId: blob,
+      });
+      return { blob, earlierBuild, node };
+    });
+    const jobId = await t.mutation(begin, { externalId: "alice" });
+    await advanceTo(t, jobId, deletion.DELETION_TABLES.length);
+    for (let i = 0; i < 2; i++) await t.run((ctx) => deletion.stepDeletion(ctx, jobId));
+    expect((await t.run((ctx) => ctx.db.get(jobId)))?.cursor).toBeTruthy();
+    const bob = t.withIdentity({ subject: "bob" });
+    await bob.mutation(api.builds.update, {
+      id: fixture.earlierBuild,
+      imageStorageId: fixture.blob,
+    });
+    await bob.mutation(api.cosplayNodes.remove, { id: fixture.node });
+    await finish(t);
+    expect((await t.query(status, { jobId }))?.status).toBe("complete");
+    expect(await t.run((ctx) => ctx.db.system.get("_storage", fixture.blob))).not.toBeNull();
+    expect((await t.run((ctx) => ctx.db.get(bobId)))?.currentUsageMb).toBe(6 / (1024 * 1024));
+  });
+
+  it("invalidates the legacy-progress scan when an update moves photos into its reverse index", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: true });
+    const alice = await user(t);
+    await user(t, "bob");
+    const fixture = await t.run(async (ctx) => {
+      const blob = await ctx.storage.store(new Blob(["shared"]));
+      await ctx.db.patch(alice, { imageStorageId: blob });
+      await ctx.db.insert("storageClaims", {
+        userId: "alice",
+        storageId: blob,
+        sizeBytes: 6,
+        attached: true,
+        expiresAt: Date.now(),
+      });
+      const buildId = await ctx.db.insert("builds", {
+        userId: "bob",
+        name: "Retained",
+        status: "idea",
+      });
+      const imageRefs = [{ kind: "cloud" as const, storageId: blob, imageKey: "shared" }];
+      const progress = await ctx.db.insert("buildProgressUpdates", {
+        userId: "bob",
+        buildId,
+        createdAt: 1,
+        publishedToFeed: false,
+        imageRefs,
+      });
+      for (let i = 0; i < 6; i++)
+        await ctx.db.insert("buildProgressUpdates", {
+          userId: "bob",
+          buildId,
+          createdAt: 1,
+          publishedToFeed: false,
+          imageRefs: [],
+        });
+      return { blob, progress, imageRefs };
+    });
+    const jobId = await t.mutation(begin, { externalId: "alice" });
+    await advanceTo(t, jobId, deletion.DELETION_TABLES.length);
+    await t.run((ctx) => deletion.stepDeletion(ctx, jobId));
+    expect(JSON.parse((await t.run((ctx) => ctx.db.get(jobId)))!.cursor!).table).toBe(9);
+    await t.withIdentity({ subject: "bob" }).mutation(api.buildProgressUpdates.update, {
+      id: fixture.progress,
+      imageRefs: fixture.imageRefs,
+    });
+    await finish(t);
+    expect((await t.query(status, { jobId }))?.status).toBe("complete");
+    expect(await t.run((ctx) => ctx.db.system.get("_storage", fixture.blob))).not.toBeNull();
+    expect(await rows(t, "storageClaims")).toMatchObject([
+      { userId: "bob", storageId: fixture.blob },
+    ]);
+  });
+
+  it("checkpoints oversized legacy photo arrays under a strict per-transaction write budget", async () => {
+    const t = convexTest({ schema, modules, transactionLimits: { documentsWritten: 200 } });
+    await user(t);
+    const storageIds: Id<"_storage">[] = [];
+    for (let start = 0; start < 257; start += 50) {
+      const ids = await t.run(async (ctx) => {
+        const batch = [];
+        for (let i = start; i < Math.min(257, start + 50); i++)
+          batch.push(await ctx.storage.store(new Blob([`photo-${i}`])));
+        return batch;
+      });
+      storageIds.push(...ids);
+    }
+    const progressIds = await t.run(async (ctx) => {
+      const buildId = await ctx.db.insert("builds", {
+        userId: "alice",
+        name: "Historical",
+        status: "idea",
+      });
+      const imageRefs = Array.from({ length: 8192 }, (_, i) => ({
+        kind: "cloud" as const,
+        storageId: storageIds[i % storageIds.length],
+        imageKey: `photo-${i}`,
+      }));
+      const ids = [];
+      for (let i = 0; i < 2; i++)
+        ids.push(
+          await ctx.db.insert("buildProgressUpdates", {
+            userId: "alice",
+            buildId,
+            createdAt: 1,
+            publishedToFeed: false,
+            imageRefs,
+          })
+        );
+      return ids;
+    });
+    const jobId = await t.mutation(begin, { externalId: "alice" });
+    await advanceTo(t, jobId, deletion.DELETION_TABLES.indexOf("buildProgressUpdates"));
+    await t.run((ctx) => deletion.stepDeletion(ctx, jobId));
+    expect((await t.run((ctx) => ctx.db.get(jobId)))?.assetOffset).toBe(0);
+    await t.run((ctx) => deletion.stepDeletion(ctx, jobId));
+    expect((await t.run((ctx) => ctx.db.get(jobId)))?.assetOffset).toBe(100);
+    expect(await rows(t, "accountDeletionAssets")).toHaveLength(100);
+    for (let i = 0; i < 82; i++) await t.run((ctx) => deletion.stepDeletion(ctx, jobId));
+    expect(await t.run((ctx) => ctx.db.get(progressIds[0]))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(progressIds[1]))).not.toBeNull();
+    expect((await t.run((ctx) => ctx.db.get(jobId)))?.assetOffset).toBe(0);
   });
 
   it("dispatches the auth deletion hook through an action-capable context without requiring db", async () => {

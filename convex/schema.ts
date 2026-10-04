@@ -28,6 +28,8 @@ export default defineSchema({
     status: v.union(v.literal("pending"), v.literal("failed"), v.literal("complete")),
     phase: v.number(),
     cursor: v.optional(v.string()),
+    assetRowId: v.optional(v.string()),
+    assetOffset: v.optional(v.number()),
     processed: v.number(),
     attempts: v.number(),
     revision: v.number(),
@@ -54,6 +56,12 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
+
+  /** Transactional reference generation prevents deletion scans from missing concurrent moves. */
+  storageReferenceEpochs: defineTable({
+    storageId: v.id("_storage"),
+    revision: v.string(),
+  }).index("by_storageId", ["storageId"]),
 
   /** Actual verified size; charged once at upload, not once per reference. */
   storageClaims: defineTable({

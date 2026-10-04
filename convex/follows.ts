@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { assertActiveAccountTargets } from "./lib/accountDeletion";
 
 /**
  * The follower is always the acting user; `followerId` is retained for deployed
@@ -10,6 +11,7 @@ export const follow = mutation({
   args: { followerId: v.optional(v.string()), followingId: v.string() },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    await assertActiveAccountTargets(ctx, args.followingId);
     if (actorId === args.followingId) {
       throw new Error("Cannot follow yourself");
     }
