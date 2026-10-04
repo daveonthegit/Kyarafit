@@ -1,6 +1,7 @@
 import { createClient } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
-import type { GenericCtx } from "@convex-dev/better-auth/utils";
+import { isMutationCtx, isRunMutationCtx, type GenericCtx } from "@convex-dev/better-auth/utils";
+import { makeFunctionReference } from "convex/server";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { username } from "better-auth/plugins";
@@ -158,7 +159,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       deleteUser: {
         enabled: true,
         beforeDelete: async (user) => {
-          await deleteUserOwnedData(ctx as never, user.id);
+          if (isMutationCtx(ctx)) {
+            await deleteUserOwnedData(ctx, user.id);
+          } else if (isRunMutationCtx(ctx)) {
+            await ctx.runMutation(
+              makeFunctionReference<"mutation", { externalId: string }>("accountDeletion:begin"),
+              { externalId: user.id }
+            );
+          } else {
+            throw new Error("Account deletion requires a mutation-capable context");
+          }
         },
       },
     },

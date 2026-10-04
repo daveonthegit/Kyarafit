@@ -20,6 +20,28 @@ const syncMetaFields = {
 };
 
 export default defineSchema({
+  /** Resumable privacy cleanup. Raw identity and cursors are cleared on completion. */
+  accountDeletionJobs: defineTable({
+    subjectHash: v.string(),
+    externalId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("failed"), v.literal("complete")),
+    phase: v.number(),
+    cursor: v.optional(v.string()),
+    processed: v.number(),
+    attempts: v.number(),
+    revision: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    scheduledId: v.optional(v.id("_scheduled_functions")),
+  }).index("by_subjectHash", ["subjectHash"]),
+
+  /** Durable media worklist, including unclaimed legacy blobs and nested progress photos. */
+  accountDeletionAssets: defineTable({
+    jobId: v.id("accountDeletionJobs"),
+    storageId: v.id("_storage"),
+  }).index("by_jobId", ["jobId"]),
+
   /** One-time upload capabilities reserve quota before accepting any bytes. */
   storageUploadReservations: defineTable({
     userId: v.string(),
