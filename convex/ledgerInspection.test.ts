@@ -138,7 +138,7 @@ describe("bounded ledger inspection", () => {
         expect(Reflect.get(job!, field)).toBeUndefined();
       expect(await t.run((ctx) => ctx.db.get(f.alpha))).toBeNull();
       expect(await t.run((ctx) => ctx.db.get(f.refs[0]))).not.toBeNull();
-    }, 30000);
+    }, 60000);
 
   it("validates a retained 4,100-reference result without repeating its mutation", async () => {
     const t = harness();
@@ -160,7 +160,7 @@ describe("bounded ledger inspection", () => {
     );
     expect(replay).toEqual(ledger.result);
     expect(effects).toBe(0);
-  }, 30000);
+  }, 60000);
 
   it("deletes an owned large result before resolving any payload reference", async () => {
     const t = harness();

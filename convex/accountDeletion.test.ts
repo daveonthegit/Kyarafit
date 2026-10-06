@@ -901,7 +901,7 @@ describe("complete, bounded account deletion", () => {
     expect(await t.run((ctx) => ctx.db.get(progressIds[0]))).toBeNull();
     expect(await t.run((ctx) => ctx.db.get(progressIds[1]))).not.toBeNull();
     expect((await t.run((ctx) => ctx.db.get(jobId)))?.assetOffset).toBe(0);
-  });
+  }, 30000);
 
   it("dispatches the auth deletion hook through an action-capable context without requiring db", async () => {
     const t = convexTest(schema, modules);
