@@ -1,36 +1,21 @@
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import { makeFunctionReference } from "convex/server";
 import { releaseDeletedStorage, releaseUserStorage } from "./storageOwnership";
+import {
+  deletionEpoch,
+  deletionJob,
+  deletionSubjectHash,
+  hasSyncMeta,
+  ownerReferences,
+  resourceReference,
+} from "./deletionReferences";
+import { withUpdateMeta } from "./syncMeta";
+import { guardFor, MutationGuard } from "./guardedMutation";
+import { initialLedgerCheckpoint, inspectLedgerChunk } from "./ledgerInspection";
+export { deletionJob, deletionSubjectHash } from "./deletionReferences";
 
 export const DELETION_BATCH_SIZE = 5;
-const QUARANTINE_PHASE = -1;
-
-/** A one-way suppression key prevents still-valid JWTs from recreating a deleted mirror. */
-export async function deletionSubjectHash(subject: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(`kyarafit-account-deletion:${subject}`)
-  );
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export async function deletionJob(ctx: QueryCtx, externalId: string) {
-  const hash = await deletionSubjectHash(externalId);
-  return ctx.db
-    .query("accountDeletionJobs")
-    .withIndex("by_subjectHash", (q) => q.eq("subjectHash", hash))
-    .unique();
-}
-
-/** Shared guard for references to an account whose deletion has begun or completed. */
-export async function assertActiveAccountTargets(
-  ctx: QueryCtx,
-  ...targets: Array<string | null | undefined>
-) {
-  for (const target of new Set(targets))
-    if (target && (await deletionJob(ctx, target))) throw new Error("Account unavailable");
-}
 
 const runCleanup = makeFunctionReference<
   "action",
@@ -68,8 +53,13 @@ async function queueAssets(
 
 /** Invoked through a real mutation from the Better Auth action hook, never a cast action ctx. */
 export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) {
+  const callerGuard = guardFor(ctx);
+  if (!callerGuard.cleanup) ctx = new MutationGuard(callerGuard.raw, true).context();
   const existing = await deletionJob(ctx, externalId);
   if (existing) return existing._id;
+  const state = await ctx.db.query("accountDeletionState").first();
+  if (state) await ctx.db.patch(state._id, { generation: state.generation + 1 });
+  else await ctx.db.insert("accountDeletionState", { generation: 1 });
   const user = await ctx.db
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
@@ -79,7 +69,7 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
     externalId,
     userId: user?._id,
     status: "pending",
-    phase: QUARANTINE_PHASE,
+    phase: 0,
     processed: 0,
     attempts: 0,
     revision: 0,
@@ -98,6 +88,7 @@ export async function deleteUserOwnedData(ctx: MutationCtx, externalId: string) 
     await ctx.db.delete(user._id);
   }
   await scheduleDeletion(ctx, jobId);
+  callerGuard.invalidate();
   return jobId;
 }
 
@@ -108,6 +99,7 @@ export const DELETION_TABLES = [
   "userPushPreferences",
   "idempotencyLedger",
   "broadcasts",
+  "users", // detach a surviving profile's focus before removing its referenced build
   "workflowTemplateItems",
   "workflowDependencies",
   "workflowAttachments",
@@ -143,15 +135,41 @@ export const DELETION_TABLES = [
 
 type Row = Record<string, unknown> & { _id: Id<TableNames> };
 
-async function ownedParent(ctx: MutationCtx, id: unknown, externalId: string) {
+async function ownedParent(
+  ctx: MutationCtx,
+  id: unknown,
+  externalId: string,
+  seen = new Set<string>()
+): Promise<boolean> {
   if (typeof id !== "string") return false;
-  const normalized = id as Id<TableNames>;
-  const parent = await ctx.db.get(normalized);
-  return (
-    parent != null &&
-    (("userId" in parent && parent.userId === externalId) ||
-      ("createdBy" in parent && parent.createdBy === externalId))
-  );
+  const ref = resourceReference(ctx, id);
+  if (!ref || ref.kind !== "resource") return false;
+  if (seen.has(id)) return true;
+  seen.add(id);
+  const parent = await ctx.db.get(id as Id<TableNames>);
+  if (!parent) return true; // A valid but missing resource cannot become live again; remove its dangling edge.
+  for (const owner of ownerReferences(ctx, ref.table, parent)) {
+    if (owner.kind === "subject" && owner.value === externalId) return true;
+    if (owner.kind === "resource" && (await ownedParent(ctx, owner.value, externalId, seen)))
+      return true;
+  }
+  return false;
+}
+async function ancestorsFingerprint(ids: unknown[]) {
+  return deletionSubjectHash(JSON.stringify(ids));
+}
+async function patchRetained(
+  ctx: MutationCtx,
+  table: TableNames,
+  row: Row,
+  patch: Record<string, unknown>
+) {
+  if (!Object.keys(patch).length) return;
+  const meta = {
+    version: typeof row.version === "number" ? row.version : undefined,
+    fieldUpdatedAt: row.fieldUpdatedAt as Record<string, number> | undefined,
+  };
+  await ctx.db.patch(row._id, hasSyncMeta(table) ? withUpdateMeta(meta, patch) : patch);
 }
 
 async function shouldRemove(
@@ -163,49 +181,17 @@ async function shouldRemove(
   const actor = job.externalId!;
   if (table === "userPushPreferences") return row.userId === job.userId;
   if (table === "broadcasts") return row.createdBy === job.userId;
-  if (table === "idempotencyLedger") {
-    const retainsIdentity = async (value: unknown, field?: string): Promise<boolean> => {
-      if (value === actor || (job.userId && value === job.userId)) return true;
-      if (
-        typeof value === "string" &&
-        field &&
-        [
-          "_id",
-          "buildId",
-          "groupId",
-          "conventionId",
-          "cosplayNodeId",
-          "workflowItemId",
-          "templateId",
-          "parentId",
-          "ancestorIds",
-          "entityId",
-          "buildContextId",
-        ].includes(field)
-      ) {
-        for (const ownerTable of [
-          "builds",
-          "groups",
-          "conventions",
-          "cosplayNodes",
-          "workflowItems",
-          "workflowTemplates",
-        ] as const) {
-          const id = ctx.db.normalizeId(ownerTable, value);
-          if (id && (await ownedParent(ctx, id, actor))) return true;
-        }
-      }
-      if (Array.isArray(value)) {
-        for (const entry of value) if (await retainsIdentity(entry, field)) return true;
-      } else if (value && typeof value === "object") {
-        for (const [key, entry] of Object.entries(value))
-          if (key === actor || (await retainsIdentity(entry, key))) return true;
-      }
-      return false;
-    };
-    if (await retainsIdentity(row.result)) return true;
-  }
-  if (row.userId === actor || row.createdBy === actor) return true;
+  if (table === "users") return false;
+  // Owned ledger rows short-circuit before any payload traversal; foreign rows have a separate
+  // durable, content-versioned inspection checkpoint in stepDeletion.
+  if (table === "idempotencyLedger") return row.userId === actor || row.userId === job.userId;
+  if (
+    row.userId === actor ||
+    row.createdBy === actor ||
+    (job.userId && (row.userId === job.userId || row.createdBy === job.userId))
+  )
+    return true;
+  if (table === "workflowItems" && (await ownedParent(ctx, row.scopeId, actor))) return true;
   if (table === "follows") return row.followerId === actor || row.followingId === actor;
   // A foreign build shared into a deleted group survives; only the association is removed.
   if (
@@ -225,6 +211,9 @@ async function shouldRemove(
     "conventionId",
     "groupId",
     "progressUpdateId",
+    "packingListItemId",
+    "buildContextId",
+    "scopeId",
   ]) {
     // Legacy opaque closetItemId strings are not necessarily valid Convex IDs.
     if (field === "closetItemId") {
@@ -251,9 +240,12 @@ async function detachRetainedRow(
   table: TableNames,
   row: Row,
   actor: string,
-  userId?: Id<"users">
+  userId?: Id<"users">,
+  ancestorsChecked = false
 ) {
   const patch: Record<string, unknown> = {};
+  if (table === "users" && (await ownedParent(ctx, row.focusedBuildId, actor)))
+    patch.focusedBuildId = undefined;
   if (table === "builds" && (await ownedParent(ctx, row.groupId, actor))) patch.groupId = undefined;
   if (table === "cosplayNodes") {
     for (const field of ["buildId", "parentNodeId"])
@@ -261,13 +253,16 @@ async function detachRetainedRow(
   }
   if (table === "workflowItems") {
     for (const field of ["creatorUserId", "ownerUserId", "assigneeUserId"])
-      if (row[field] === actor) patch[field] = undefined;
+      if (row[field] === actor || (userId && row[field] === userId)) patch[field] = undefined;
     if (await ownedParent(ctx, row.parentId, actor)) patch.parentId = undefined;
-    const ancestors = row.ancestorIds as Id<"workflowItems">[];
-    const retained = [];
-    for (const id of ancestors) if (!(await ownedParent(ctx, id, actor))) retained.push(id);
-    if (retained.length !== ancestors.length) patch.ancestorIds = retained;
+    if (!ancestorsChecked) {
+      const ancestors = row.ancestorIds as Id<"workflowItems">[];
+      const retained = [];
+      for (const id of ancestors) if (!(await ownedParent(ctx, id, actor))) retained.push(id);
+      if (retained.length !== ancestors.length) patch.ancestorIds = retained;
+    }
     if (await ownedParent(ctx, row.templateId, actor)) patch.templateId = undefined;
+    if (await ownedParent(ctx, row.legacyBuildTaskId, actor)) patch.legacyBuildTaskId = undefined;
   }
   // audienceArgs is intentionally untyped today. Remove identity occurrences recursively rather
   // than guessing a future campaign payload shape; the delivery stub sends nothing.
@@ -286,7 +281,7 @@ async function detachRetainedRow(
     };
     patch.audienceArgs = scrub(row.audienceArgs);
   }
-  if (Object.keys(patch).length) await ctx.db.patch(row._id, patch);
+  await patchRetained(ctx, table, row, patch);
 }
 
 /** One atomic checkpoint. A failed transaction leaves both data and cursor unchanged. */
@@ -295,6 +290,7 @@ export async function stepDeletion(
   jobId: Id<"accountDeletionJobs">,
   revision?: number
 ) {
+  if (!guardFor(ctx).cleanup) ctx = new MutationGuard(guardFor(ctx).raw, true).context();
   const job = await ctx.db.get(jobId);
   if (
     !job ||
@@ -321,23 +317,86 @@ export async function stepDeletion(
     await scheduleDeletion(ctx, jobId);
     return;
   }
-  if (job.phase === QUARANTINE_PHASE) {
-    // Legacy social writers check visibility directly instead of the shared access predicates.
-    // Quarantine every parent before sweeping children; no public owner-scoped write can then
-    // repopulate a completed child phase. Editor mutations are blocked by the owner guard.
-    const page = await ctx.db
-      .query("builds")
-      .withIndex("by_userId", (q) => q.eq("userId", job.externalId!))
-      .paginate({ cursor: job.cursor ?? null, numItems: DELETION_BATCH_SIZE });
-    for (const build of page.page)
-      await ctx.db.patch(build._id, {
-        visibility: "private",
-        shareToken: undefined,
+  if (job.ancestorRowId) {
+    const row = await ctx.db.get(job.ancestorRowId);
+    if (row) {
+      const fingerprint = await ancestorsFingerprint(row.ancestorIds);
+      const offset = fingerprint === job.ancestorFingerprint ? (job.ancestorOffset ?? 0) : 0;
+      const chunk = row.ancestorIds.slice(offset, offset + 4);
+      const retained = [];
+      for (const id of chunk) if (!(await ownedParent(ctx, id, job.externalId))) retained.push(id);
+      const next = [
+        ...row.ancestorIds.slice(0, offset),
+        ...retained,
+        ...row.ancestorIds.slice(offset + 4),
+      ];
+      if (retained.length !== chunk.length)
+        await patchRetained(ctx, "workflowItems", row, { ancestorIds: next });
+      const done = offset + 4 >= row.ancestorIds.length;
+      await ctx.db.patch(jobId, {
+        ancestorRowId: done ? undefined : row._id,
+        ancestorOffset: done ? undefined : offset + retained.length,
+        ancestorFingerprint: done ? undefined : await ancestorsFingerprint(next),
+        ancestorChecked: done ? await ancestorsFingerprint(next) : undefined,
       });
+    } else
+      await ctx.db.patch(jobId, {
+        ancestorRowId: undefined,
+        ancestorOffset: undefined,
+        ancestorFingerprint: undefined,
+      });
+    await scheduleDeletion(ctx, jobId);
+    return;
+  }
+  if (job.ledgerRowId) {
+    const row = await ctx.db.get(job.ledgerRowId);
+    const generation = await deletionEpoch(ctx);
+    if (row && !row.replayBlocked) {
+      const unchanged =
+        row.resultRevision === job.ledgerResultRevision && generation === job.ledgerGeneration;
+      const checkpoint =
+        unchanged && job.ledgerCursor
+          ? { walk: JSON.parse(job.ledgerCursor), subjects: job.ledgerSubjects ?? [] }
+          : initialLedgerCheckpoint();
+      const inspected = await inspectLedgerChunk(ctx, row.result, checkpoint);
+      if (!inspected.done) {
+        await ctx.db.patch(jobId, {
+          ledgerCursor: JSON.stringify(inspected.checkpoint.walk),
+          ledgerSubjects: inspected.checkpoint.subjects,
+          ledgerResultRevision: row.resultRevision,
+          ledgerGeneration: generation,
+        });
+        await scheduleDeletion(ctx, jobId);
+        return;
+      }
+      await ctx.db.patch(
+        row._id,
+        inspected.blocked
+          ? {
+              result: undefined,
+              replayBlocked: true,
+              subjectHashes: undefined,
+              validatedEpoch: generation,
+              resultRevision: crypto.randomUUID(),
+            }
+          : {
+              subjectHashes: inspected.checkpoint.subjects,
+              validatedEpoch: generation,
+              resultRevision: row.resultRevision ?? crypto.randomUUID(),
+            }
+      );
+    }
     await ctx.db.patch(jobId, {
-      phase: page.isDone ? 0 : QUARANTINE_PHASE,
-      cursor: page.isDone ? undefined : page.continueCursor,
-      processed: job.processed + page.page.length,
+      phase: job.ledgerPageDone ? job.phase + 1 : job.phase,
+      cursor: job.ledgerNextCursor,
+      ledgerRowId: undefined,
+      ledgerCursor: undefined,
+      ledgerSubjects: undefined,
+      ledgerResultRevision: undefined,
+      ledgerGeneration: undefined,
+      ledgerNextCursor: undefined,
+      ledgerPageDone: undefined,
+      processed: job.processed + 1,
     });
     await scheduleDeletion(ctx, jobId);
     return;
@@ -346,13 +405,32 @@ export async function stepDeletion(
   if (table) {
     const page = await ctx.db.query(table).paginate({
       cursor: job.cursor ?? null,
-      numItems: DELETION_BATCH_SIZE,
+      numItems:
+        table === "idempotencyLedger" || table === "workflowItems" ? 1 : DELETION_BATCH_SIZE,
     });
     const detachPass =
       (table === "workflowItems" || table === "cosplayNodes" || table === "builds") &&
       job.phase === DELETION_TABLES.indexOf(table);
     for (const doc of page.page) {
       const row = doc as Row;
+      if (
+        table === "idempotencyLedger" &&
+        row.userId !== job.externalId &&
+        row.userId !== job.userId &&
+        !row.replayBlocked
+      ) {
+        await ctx.db.patch(jobId, {
+          ledgerRowId: row._id as Id<"idempotencyLedger">,
+          ledgerCursor: JSON.stringify(initialLedgerCheckpoint().walk),
+          ledgerSubjects: [],
+          ledgerResultRevision: row.resultRevision as string | undefined,
+          ledgerGeneration: await deletionEpoch(ctx),
+          ledgerNextCursor: page.isDone ? undefined : page.continueCursor,
+          ledgerPageDone: page.isDone,
+        });
+        await scheduleDeletion(ctx, jobId);
+        return;
+      }
       if (!detachPass && (await shouldRemove(ctx, table, row, job))) {
         if (Array.isArray(row.imageRefs) && row.imageRefs.length > 100) {
           // Keep the document until its nested worklist is durably enumerated in small chunks.
@@ -364,13 +442,27 @@ export async function stepDeletion(
         await queueAssets(ctx, jobId, row);
         await ctx.db.delete(row._id);
       } else if (row.userId !== job.externalId) {
-        await detachRetainedRow(ctx, table, row, job.externalId, job.userId);
+        const ancestors =
+          table === "workflowItems" && Array.isArray(row.ancestorIds) ? row.ancestorIds : [];
+        const checked =
+          ancestors.length > 4 && job.ancestorChecked === (await ancestorsFingerprint(ancestors));
+        if (ancestors.length > 4 && !checked) {
+          await ctx.db.patch(jobId, {
+            ancestorRowId: row._id as Id<"workflowItems">,
+            ancestorOffset: 0,
+            ancestorFingerprint: await ancestorsFingerprint(ancestors),
+          });
+          await scheduleDeletion(ctx, jobId);
+          return;
+        }
+        await detachRetainedRow(ctx, table, row, job.externalId, job.userId, checked);
       }
     }
     await ctx.db.patch(jobId, {
       phase: page.isDone ? job.phase + 1 : job.phase,
       cursor: page.isDone ? undefined : page.continueCursor,
       processed: job.processed + page.page.length,
+      ancestorChecked: undefined,
     });
     await scheduleDeletion(ctx, jobId);
     return;
@@ -401,6 +493,17 @@ export async function stepDeletion(
     cursor: undefined,
     assetRowId: undefined,
     assetOffset: undefined,
+    ledgerRowId: undefined,
+    ledgerCursor: undefined,
+    ledgerResultRevision: undefined,
+    ledgerSubjects: undefined,
+    ledgerGeneration: undefined,
+    ledgerNextCursor: undefined,
+    ledgerPageDone: undefined,
+    ancestorRowId: undefined,
+    ancestorOffset: undefined,
+    ancestorFingerprint: undefined,
+    ancestorChecked: undefined,
     scheduledId: undefined,
     completedAt: Date.now(),
     updatedAt: Date.now(),

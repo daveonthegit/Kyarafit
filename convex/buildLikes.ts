@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 

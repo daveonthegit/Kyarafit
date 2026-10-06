@@ -11,7 +11,19 @@
  * target, a member being promoted) are not actor arguments and stay required.
  */
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { deletionJob } from "./accountDeletion";
+import { deletionJob } from "./deletionReferences";
+import { existingGuard } from "./guardedMutation";
+
+async function accountIsActive(ctx: QueryCtx | MutationCtx, subject: string) {
+  const guard = existingGuard(ctx);
+  if (!guard) return !(await deletionJob(ctx, subject));
+  try {
+    await guard.subject(subject);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The acting user's `externalId`, taken from the verified session.
@@ -19,7 +31,7 @@ import { deletionJob } from "./accountDeletion";
  */
 export async function requireIdentity(ctx: QueryCtx | MutationCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity?.subject || (await deletionJob(ctx, identity.subject))) {
+  if (!identity?.subject || !(await accountIsActive(ctx, identity.subject))) {
     throw new Error("Unauthorized");
   }
   return identity.subject;
@@ -32,6 +44,6 @@ export async function requireIdentity(ctx: QueryCtx | MutationCtx): Promise<stri
  */
 export async function optionalIdentity(ctx: QueryCtx | MutationCtx): Promise<string | null> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity?.subject || (await deletionJob(ctx, identity.subject))) return null;
+  if (!identity?.subject || !(await accountIsActive(ctx, identity.subject))) return null;
   return identity.subject;
 }

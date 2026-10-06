@@ -2,7 +2,6 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { effectiveStorageLimitMb } from "@kyarafit/design-system/domain/accessPolicy";
-import { assertActiveAccountTargets } from "./accountDeletion";
 import {
   storageReferences,
   hasLiveReferences,
@@ -44,17 +43,6 @@ export async function storageUser(ctx: QueryCtx, userId: string) {
   return user;
 }
 
-/** Every live-reference move/add/remove changes this token in the same transaction. */
-export async function touchStorageReferences(ctx: MutationCtx, storageId: Id<"_storage">) {
-  const epoch = await ctx.db
-    .query("storageReferenceEpochs")
-    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-    .unique();
-  const revision = crypto.randomUUID();
-  if (epoch) await ctx.db.patch(epoch._id, { revision });
-  else await ctx.db.insert("storageReferenceEpochs", { storageId, revision });
-}
-
 export async function assertCanAttachStorage(
   ctx: MutationCtx,
   userId: string,
@@ -63,7 +51,6 @@ export async function assertCanAttachStorage(
   await storageUser(ctx, userId);
   const metadata = await ctx.db.system.get("_storage", storageId);
   if (!metadata || metadata.size <= 0) throw new Error("Storage object not found");
-  await touchStorageReferences(ctx, storageId);
   const claim = await storageClaim(ctx, storageId);
   if (claim?.userId === userId && !claim.attached) {
     if (claim.expiresAt <= Date.now()) throw new Error("Upload claim expired");
@@ -314,25 +301,16 @@ export async function indexProgressMedia(
   progressUpdateId: Id<"buildProgressUpdates">
 ) {
   const row = await ctx.db.get(progressUpdateId);
-  if (row) {
-    const build = await ctx.db.get(row.buildId);
-    await assertActiveAccountTargets(ctx, row.userId, build?.userId);
-  }
   const old = await ctx.db
     .query("progressMediaReferences")
     .withIndex("by_progressUpdateId", (q) => q.eq("progressUpdateId", progressUpdateId))
     .collect();
-  for (const ref of old) {
-    await touchStorageReferences(ctx, ref.storageId);
-    await ctx.db.delete(ref._id);
-  }
+  for (const ref of old) await ctx.db.delete(ref._id);
   if (!row) return;
   const ids = new Set(
     row.imageRefs.filter((ref) => ref.kind === "cloud").map((ref) => ref.storageId)
   );
-  for (const storageId of ids) {
-    await touchStorageReferences(ctx, storageId);
+  for (const storageId of ids)
     await ctx.db.insert("progressMediaReferences", { storageId, progressUpdateId });
-  }
   await ctx.db.patch(progressUpdateId, { mediaIndexed: true });
 }

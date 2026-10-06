@@ -1,3 +1,4 @@
+import { recordTestBlobType } from "./mediaTestHelpers.fixture";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
@@ -6,7 +7,6 @@ import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import * as deletion from "./lib/accountDeletion";
 import { createAuthOptions } from "./betterAuth/auth";
-import { recordTestBlobType } from "./mediaTestHelpers.fixture";
 import { UPLOAD_RECOVERY_TTL_MS, uploadContentType } from "./lib/storageOwnership";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -50,7 +50,8 @@ async function user(t: Harness, externalId = "alice") {
   );
 }
 async function finish(t: Harness) {
-  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  // convex-test's runtime accepts maxIterations, but its published declaration omits it.
+  await Reflect.apply(t.finishAllScheduledFunctions, t, [vi.runAllTimers, 20000]);
 }
 async function rows(t: Harness, table: TableNames) {
   return t.run((ctx) => ctx.db.query(table).collect());
@@ -339,6 +340,8 @@ describe("complete, bounded account deletion", () => {
     expect((await t.query(status, { jobId }))?.status).toBe("complete");
     const retainedTables: Partial<Record<TableNames, number>> = {
       broadcasts: 1,
+      users: 1,
+      idempotencyLedger: 1,
       builds: 1,
       cosplayNodes: 1,
       workflowItems: 1,
@@ -398,7 +401,7 @@ describe("complete, bounded account deletion", () => {
       ).rejects.toThrow("Unauthorized");
       await expect(
         alice.mutation(api.push.registerToken, { token: "synthetic-token" })
-      ).rejects.toThrow("User not found");
+      ).rejects.toThrow("Unauthorized");
       expect(await alice.query(api.users.getByExternalId, {})).toBeNull();
       expect(await t.mutation(begin, { externalId: "alice" })).toBe(jobId);
     }
@@ -737,8 +740,12 @@ describe("complete, bounded account deletion", () => {
       })
     ).rejects.toThrow("Account unavailable");
     await finish(t);
-    expect(await rows(t, "idempotencyLedger")).toHaveLength(1);
-    expect(await rows(t, "idempotencyLedger")).toMatchObject([{ key: "retained-result" }]);
+    const ledger = await rows(t, "idempotencyLedger");
+    expect(ledger).toHaveLength(3);
+    expect(ledger.filter((row) => !row.replayBlocked)).toMatchObject([{ key: "retained-result" }]);
+    expect(ledger.filter((row) => row.replayBlocked).every((row) => row.result === undefined)).toBe(
+      true
+    );
   });
 
   it("invalidates a shared-media cursor when references move behind its scanned range", async () => {

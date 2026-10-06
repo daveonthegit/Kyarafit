@@ -11,6 +11,15 @@ import authConfig from "../auth.config";
 import schema from "./schema";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../emailHelpers";
 import { deleteUserOwnedData } from "../lib/accountDeletion";
+import { deletionJob } from "../lib/deletionReferences";
+const accountAvailable = makeFunctionReference<"query", { externalId: string }, boolean>(
+  "emailRecipients:accountAvailable"
+);
+async function recipientAvailable(ctx: GenericCtx<DataModel>, externalId: string) {
+  return "db" in ctx
+    ? !(await deletionJob(ctx, externalId))
+    : ctx.runQuery(accountAvailable, { externalId });
+}
 
 export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
   local: { schema },
@@ -112,16 +121,28 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: true,
       revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-        await sendPasswordResetEmail(user.email, url);
+      sendResetPassword: async ({
+        user,
+        url,
+      }: {
+        user: { id: string; email: string };
+        url: string;
+      }) => {
+        if (await recipientAvailable(ctx, user.id)) await sendPasswordResetEmail(user.email, url);
       },
     },
 
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-        await sendVerificationEmail(user.email, url);
+      sendVerificationEmail: async ({
+        user,
+        url,
+      }: {
+        user: { id: string; email: string };
+        url: string;
+      }) => {
+        if (await recipientAvailable(ctx, user.id)) await sendVerificationEmail(user.email, url);
       },
     },
 

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import type { Doc } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";

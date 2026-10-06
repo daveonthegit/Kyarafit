@@ -1,12 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  mutation,
-  query,
-  internalMutation,
-  httpAction,
-  type MutationCtx,
-} from "./_generated/server";
+import { query, httpAction, type MutationCtx } from "./_generated/server";
+import { mutation, internalMutation, cleanupMutation } from "./lib/guardedMutation";
 import { internal } from "./_generated/api";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadStorageId } from "./lib/mediaAccess";
@@ -63,7 +58,7 @@ export const consumeReservation = internalMutation({
   },
 });
 
-export const expireReservation = internalMutation({
+export const expireReservation = cleanupMutation({
   args: { id: v.id("storageUploadReservations"), releaseConsumed: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.id);
@@ -74,7 +69,7 @@ export const expireReservation = internalMutation({
 });
 
 /** Recover interrupted ingress without an unbounded transaction or deleting shared bytes. */
-export const reconcileReservation = internalMutation({
+export const reconcileReservation = cleanupMutation({
   args: { id: v.id("storageUploadReservations"), cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args): Promise<void> => {
     const row = await ctx.db.get(args.id);
@@ -162,7 +157,7 @@ export const indexLegacyProgress = internalMutation({
   },
 });
 
-export const cleanupClaim = internalMutation({
+export const cleanupClaim = cleanupMutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
     await cleanupStorageClaim(ctx, args.storageId);

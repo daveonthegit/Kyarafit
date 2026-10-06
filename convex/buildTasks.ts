@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { canUserEditBuild } from "./lib/buildAccess";
 import {
   entityKey,

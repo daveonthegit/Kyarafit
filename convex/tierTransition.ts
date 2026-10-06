@@ -1,11 +1,6 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  mutation,
-  query,
-  type MutationCtx,
-  type QueryCtx,
-} from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation, cleanupMutation } from "./lib/guardedMutation";
 import { withCreateMeta } from "./lib/syncMeta";
 import {
   prepareBackfillRow,
@@ -252,7 +247,7 @@ async function purgeUserCloudMirror(ctx: MutationCtx, userId: string): Promise<n
  * Guards: bounded by `limit` per run; `dryRun` reports candidates + would-be deletions without
  * mutating anything; `now` is injectable for deterministic tests (the cron passes none → Date.now()).
  */
-export const purgeDowngradedCloudData = internalMutation({
+export const purgeDowngradedCloudData = cleanupMutation({
   args: {
     now: v.optional(v.number()),
     limit: v.optional(v.number()),

@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
-import { assertActiveAccountTargets } from "./lib/accountDeletion";
 
 const VALID_ROLES = ["viewer", "editor"] as const;
 
@@ -65,7 +65,6 @@ export const set = mutation({
     if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await assertActiveAccountTargets(ctx, args.userId);
     if (args.userId === actorId) throw new Error("Cannot add owner as collaborator");
     if (!VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])) {
       throw new Error("Role must be viewer or editor");
@@ -113,7 +112,6 @@ export const addByEmail = mutation({
       .unique();
     if (!user) throw new Error("No user found with that email");
     const targetUserId = user.externalId;
-    await assertActiveAccountTargets(ctx, targetUserId);
     if (targetUserId === actorId) throw new Error("Cannot add owner as collaborator");
     const role = VALID_ROLES.includes(args.role as (typeof VALID_ROLES)[number])
       ? (args.role as "viewer" | "editor")

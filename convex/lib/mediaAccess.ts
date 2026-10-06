@@ -9,6 +9,7 @@ import {
 } from "./buildAccess";
 import { storageReferences } from "./storageReferences";
 import { storageClaim } from "./storageOwnership";
+import { deletionJob } from "./deletionReferences";
 
 /**
  * Authorization applies to discovery, not capability-byte serving. Any live reference can grant
@@ -29,9 +30,19 @@ export async function canReadStorageId(
       .unique();
     if (!user) viewerId = null;
   }
+  const accounts = new Map<string, Promise<boolean>>();
+  const active = (subject: string) => {
+    let checked = accounts.get(subject);
+    if (!checked) {
+      checked = deletionJob(ctx, subject).then((job) => !job);
+      accounts.set(subject, checked);
+    }
+    return checked;
+  };
   const refs = await storageReferences(ctx, storageId);
   const claim = await storageClaim(ctx, storageId);
   for (const build of refs.builds) {
+    if (!(await active(build.userId))) continue;
     if (
       build.deletedAt == null &&
       (isBuildPublic(build) || (await hasBuildRelationship(ctx, build, viewerId)))
@@ -39,18 +50,19 @@ export async function canReadStorageId(
       return true;
   }
   for (const row of [...refs.references, ...refs.pictures]) {
-    if (row.deletedAt != null) continue;
+    if (row.deletedAt != null || !(await active(row.userId))) continue;
     if (viewerId && row.userId === viewerId) return true;
     const build = await ctx.db.get(row.buildId);
     if (
       build &&
       build.deletedAt == null &&
+      (await active(build.userId)) &&
       (isBuildPublic(build) || (await hasBuildRelationship(ctx, build, viewerId)))
     )
       return true;
   }
   for (const node of refs.nodes) {
-    if (node.deletedAt != null) continue;
+    if (node.deletedAt != null || !(await active(node.userId))) continue;
     if (viewerId && node.userId === viewerId) return true;
     if (
       await someAncestorBuild(
@@ -58,6 +70,7 @@ export async function canReadStorageId(
         node._id,
         async (build) =>
           build.deletedAt == null &&
+          (await active(build.userId)) &&
           (isBuildPublic(build) || (await hasBuildRelationship(ctx, build, viewerId)))
       )
     )
@@ -71,6 +84,7 @@ export async function canReadStorageId(
   )
     return true;
   for (const user of refs.users) {
+    if (!(await active(user.externalId))) continue;
     if (user.profileVisibility === "public") return true;
     if (
       viewerId &&
@@ -79,6 +93,7 @@ export async function canReadStorageId(
       return true;
   }
   for (const group of refs.groups) {
+    if (!(await active(group.createdBy))) continue;
     if (
       group.visibility === "public" ||
       (viewerId && (await isGroupMember(ctx, group._id, viewerId)))
@@ -86,7 +101,7 @@ export async function canReadStorageId(
       return true;
   }
   for (const row of refs.progress) {
-    if (row.deletedAt != null) continue;
+    if (row.deletedAt != null || !(await active(row.userId))) continue;
     if (row.publishedToFeed || (viewerId && row.userId === viewerId)) return true;
     const build = await ctx.db.get(row.buildId);
     if (

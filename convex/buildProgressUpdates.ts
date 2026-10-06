@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { idempotentReplay, idempotentRecord } from "./lib/idempotency";
 import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";

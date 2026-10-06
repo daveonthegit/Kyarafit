@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalQuery } from "./_generated/server";
+import { cleanupMutation as internalMutation } from "./lib/guardedMutation";
 import type { Id } from "./_generated/dataModel";
 import { deleteUserOwnedData, scheduleDeletion, stepDeletion } from "./lib/accountDeletion";
 

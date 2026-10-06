@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
-import { assertActiveAccountTargets } from "./lib/accountDeletion";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
@@ -412,19 +412,6 @@ async function replaceAttachments(
   for (const row of existing) await ctx.db.delete(row._id);
   for (const attachment of attachments) {
     const normalized = validateAttachment(attachment);
-    for (const table of ["builds", "cosplayNodes", "conventions"] as const) {
-      const id = ctx.db.normalizeId(table, normalized.entityId);
-      if (id) {
-        const resource = await ctx.db.get(id);
-        if (!resource) throw new Error("Attachment resource unavailable");
-        await assertActiveAccountTargets(ctx, resource.userId);
-      }
-    }
-    if (normalized.buildContextId) {
-      const build = await ctx.db.get(normalized.buildContextId);
-      if (!build) throw new Error("Attachment build unavailable");
-      await assertActiveAccountTargets(ctx, build.userId);
-    }
     await ctx.db.insert(
       "workflowAttachments",
       withCreateMeta({
@@ -473,18 +460,6 @@ async function assertWorkflowEditable(
   item: Doc<"workflowItems">,
   userId: string
 ) {
-  await assertActiveAccountTargets(
-    ctx,
-    item.userId,
-    item.creatorUserId,
-    item.ownerUserId,
-    item.assigneeUserId
-  );
-  for (const id of [item.parentId, item.templateId, ...item.ancestorIds]) {
-    if (!id) continue;
-    const resource = await ctx.db.get(id);
-    if (resource && "userId" in resource) await assertActiveAccountTargets(ctx, resource.userId);
-  }
   if (item.userId === userId) return;
   const attachments = await ctx.db
     .query("workflowAttachments")
@@ -1267,16 +1242,9 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    await assertActiveAccountTargets(ctx, args.ownerUserId, args.assigneeUserId);
     return runIdempotent(ctx, args.idempotencyKey, actorId, "workflow.create", async () => {
       const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
-      if (args.parentId && (!parent || parent.userId !== actorId))
-        throw new Error("Parent not found");
-      if (args.templateId) {
-        const template = await ctx.db.get(args.templateId);
-        if (!template) throw new Error("Template not found");
-        await assertActiveAccountTargets(ctx, template.userId);
-      }
+      if (parent && parent.userId !== actorId) throw new Error("Parent not found");
       if (args.attachments) {
         for (const attachment of args.attachments) {
           if (attachment.entityType === "build") {
@@ -1365,7 +1333,6 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    await assertActiveAccountTargets(ctx, args.ownerUserId, args.assigneeUserId);
     const replay = await idempotentReplay(ctx, args.idempotencyKey, "workflow.update");
     if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.id);
