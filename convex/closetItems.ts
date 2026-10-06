@@ -10,6 +10,7 @@ import {
   sanitizeOptionalUrl,
   sanitizeString,
 } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 const CLOSET_ITEM_STATUSES = ["planned", "in_progress", "complete"] as const;
 
@@ -174,13 +175,15 @@ async function unlinkAndDeleteNode(ctx: MutationCtx, userId: string, node: Cospl
 
 export const list = query({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     category: v.optional(v.string()),
     search: v.optional(v.string()),
     sortBy: sortByValidator,
     order: orderValidator,
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
     const order = args.order ?? "asc";
     const sortBy = args.sortBy ?? "name";
     const categoryFilter = args.category?.trim().length ? args.category.trim() : undefined;
@@ -188,13 +191,13 @@ export const list = query({
 
     let nodes = await ctx.db
       .query("cosplayNodes")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
 
     if (nodes.length === 0) {
       let legacyItems = await ctx.db
         .query("closetItems")
-        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .withIndex("by_userId", (q) => q.eq("userId", actorId))
         .collect();
       if (categoryFilter) {
         legacyItems = legacyItems.filter((item) => item.category === categoryFilter);
@@ -268,20 +271,27 @@ export const list = query({
   },
 });
 
+/**
+ * One closet item. Takes no actor argument, so the owner check is written out; it
+ * previously returned any closet item to anyone. Legacy closet items have no public
+ * surface, so the rule is owner-only.
+ */
 export const get = query({
   args: { id: legacyIdValidator },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const node = await resolveNode(ctx, args.id);
-    if (node) return await mapNodeToLegacy(ctx, node);
+    if (node) return node.userId === actorId ? await mapNodeToLegacy(ctx, node) : null;
     const legacy = await resolveLegacyClosetItem(ctx, args.id as Id<"closetItems">);
-    if (!legacy) return null;
+    if (!legacy || legacy.userId !== actorId) return null;
     return legacy;
   },
 });
 
 export const create = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.string(),
     category: v.string(),
     tags: v.array(v.string()),
@@ -294,8 +304,9 @@ export const create = mutation({
     completionTaskId: v.optional(v.id("buildTasks")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
     }
 
     const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
@@ -309,7 +320,7 @@ export const create = mutation({
     const statusPatch = legacyStatusPatch(args.status, nodeType);
 
     const id = await ctx.db.insert("cosplayNodes", {
-      userId: args.userId,
+      userId: actorId,
       nodeType,
       name,
       category,
@@ -332,7 +343,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: legacyIdValidator,
-    userId: v.string(),
+    userId: v.optional(v.string()),
     name: v.optional(v.string()),
     category: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
@@ -345,19 +356,20 @@ export const update = mutation({
     completionTaskId: v.optional(v.union(v.id("buildTasks"), v.null())),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
+    const actorId = await requireIdentity(ctx);
+    const { id, userId: _userId, ...fields } = args;
     const node = await resolveNode(ctx, id);
-    if (!node || node.userId !== userId) {
+    if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
 
     const newStorageId = fields.imageStorageId;
     const oldStorageId = node.imageStorageId;
     if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
-      await subtractUsageForStorageId(ctx, userId, oldStorageId);
+      await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
-      await checkLimitAndAddUsage(ctx, userId, newStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, newStorageId);
     }
 
     const patch: Record<string, unknown> = {};
@@ -412,26 +424,28 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: legacyIdValidator, userId: v.string() },
+  args: { id: legacyIdValidator, userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const node = await resolveNode(ctx, args.id);
-    if (!node || node.userId !== args.userId) {
+    if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await unlinkAndDeleteNode(ctx, args.userId, node);
+    await unlinkAndDeleteNode(ctx, actorId, node);
   },
 });
 
 export const removeMany = mutation({
   args: {
     ids: v.array(legacyIdValidator),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     for (const id of args.ids) {
       const node = await resolveNode(ctx, id);
-      if (!node || node.userId !== args.userId) continue;
-      await unlinkAndDeleteNode(ctx, args.userId, node);
+      if (!node || node.userId !== actorId) continue;
+      await unlinkAndDeleteNode(ctx, actorId, node);
     }
   },
 });

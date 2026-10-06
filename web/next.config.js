@@ -4,6 +4,15 @@ if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
   process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = "1";
 }
 const nextConfig = {
+  // convex deploy (the Vercel build command) runs from the repo root and supplies
+  // CONVEX_URL / CONVEX_SITE_URL for the selected deployment, not the public aliases.
+  // Expose those URLs to server and browser code; public-only builds still work.
+  // https://docs.convex.dev/production/hosting/vercel
+  env: {
+    NEXT_PUBLIC_CONVEX_URL: process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_CONVEX_SITE_URL:
+      process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+  },
   output: "standalone", // Enable standalone output for optimized Docker builds
   typescript: {
     ignoreBuildErrors: false,

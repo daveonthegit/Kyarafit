@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { MAX_LENGTH, sanitizeAndLimit } from "./lib/validation";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { requireIdentity } from "./lib/authz";
 
 /** List comments for a build (newest last or first by preference). Viewer must be able to see the build. */
 export const listByBuild = query({
@@ -46,25 +47,29 @@ export const listByBuild = query({
   },
 });
 
-/** Add a comment. User must be able to see the build. */
+/**
+ * Add a comment as the acting user, who must be able to see the build. Authorship
+ * comes from the session — the comment renders under the author's display name, so
+ * a caller-supplied id let anyone post as anyone. `userId` is retained for deployed
+ * clients but ignored.
+ */
 export const add = mutation({
   args: {
-    userId: v.string(),
+    userId: v.optional(v.string()),
     buildId: v.id("builds"),
     body: v.string(),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canSee =
-      build.visibility === "public" ||
-      build.visibility === "unlisted" ||
-      build.userId === args.userId;
+      build.visibility === "public" || build.visibility === "unlisted" || build.userId === actorId;
     if (!canSee) throw new Error("Cannot comment on this build");
     const sanitized = sanitizeAndLimit(args.body, MAX_LENGTH.notes, "Comment");
     if (!sanitized.trim()) throw new Error("Comment cannot be empty");
     return await ctx.db.insert("buildComments", {
-      userId: args.userId,
+      userId: actorId,
       buildId: args.buildId,
       body: sanitized.trim(),
       createdAt: Date.now(),

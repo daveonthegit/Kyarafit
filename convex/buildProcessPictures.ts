@@ -3,14 +3,14 @@ import { mutation, query } from "./_generated/server";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 export const listByBuild = query({
   args: { buildId: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return [];
-    const identity = await ctx.auth.getUserIdentity();
-    const viewerUserId = identity?.subject ?? undefined;
+    const viewerUserId = await optionalIdentity(ctx);
     const allowed = await canReadBuildWorkflowData(ctx, build, {
       viewerUserId,
       shareToken: args.shareToken ?? null,
@@ -27,20 +27,22 @@ export const listByBuild = query({
 export const add = mutation({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
     if (!args.imageStorageId && !args.imageUrl) {
       throw new Error("Either imageStorageId or imageUrl is required");
     }
+    // Charge the uploader's quota, not an id they chose.
     if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, args.userId, args.imageStorageId);
+      await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
     }
     const existing = await ctx.db
       .query("buildProcessPictures")
@@ -48,7 +50,7 @@ export const add = mutation({
       .collect();
     const maxOrder = existing.length ? Math.max(...existing.map((r) => r.sortOrder), -1) : -1;
     const id = await ctx.db.insert("buildProcessPictures", {
-      userId: args.userId,
+      userId: actorId,
       buildId: args.buildId,
       imageStorageId: args.imageStorageId,
       imageUrl: args.imageUrl,
@@ -61,13 +63,14 @@ export const add = mutation({
 export const remove = mutation({
   args: {
     id: v.id("buildProcessPictures"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Not found");
     const build = doc.buildId ? await ctx.db.get(doc.buildId) : null;
-    const canEdit = build && (await canUserEditBuild(ctx, doc.buildId, args.userId));
+    const canEdit = build && (await canUserEditBuild(ctx, doc.buildId, actorId));
     if (!canEdit) throw new Error("Not authorized");
     await subtractUsageForStorageId(ctx, doc.userId, doc.imageStorageId);
     await ctx.db.delete(args.id);
@@ -77,13 +80,14 @@ export const remove = mutation({
 export const reorder = mutation({
   args: {
     buildId: v.id("builds"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     orderedIds: v.array(v.id("buildProcessPictures")),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
-    const canEdit = await canUserEditBuild(ctx, args.buildId, args.userId);
+    const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
     if (!canEdit) throw new Error("Not authorized");
     const existing = await ctx.db
       .query("buildProcessPictures")

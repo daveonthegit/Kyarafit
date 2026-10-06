@@ -58,7 +58,7 @@ Component setup:
 
 - [convex.config.ts](C:\Users\darkf\Documents\Kyarafit\convex\convex.config.ts) registers `@convex-dev/migrations`
 - [migrations.ts](C:\Users\darkf\Documents\Kyarafit\convex\migrations.ts) defines the serial migration chain
-- [cosplayMigration.ts](C:\Users\darkf\Documents\Kyarafit\convex\cosplayMigration.ts) exposes an authenticated app-side trigger/status wrapper
+- [cosplayMigration.ts](C:\Users\darkf\Documents\Kyarafit\convex\cosplayMigration.ts) exposes an **admin-only** app-side trigger/status wrapper (the backfill spans every user's rows and accepts `reset`)
 
 The migration sequence is:
 

@@ -1,14 +1,21 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { validateDateString } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 
-/** List selected convention days for a group (optionally for one convention). */
+/**
+ * Selected convention days for a group. Takes no actor argument, so the membership
+ * check is written out; it previously exposed any group's schedule to anyone.
+ */
 export const listForGroup = query({
   args: {
     groupId: v.id("groups"),
     conventionId: v.optional(v.id("conventions")),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId || !(await isGroupMember(ctx, args.groupId, actorId))) return [];
     const all = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
@@ -20,24 +27,45 @@ export const listForGroup = query({
   },
 });
 
-/** List groups that have selected days for this convention (for convention page "groups at this con"). */
+/**
+ * Groups with selected days at this convention, for the convention page's "groups at
+ * this con". Takes no actor argument, so the rule is written out: the caller must own
+ * the convention, and private groups they are not a member of are not disclosed.
+ */
 export const listGroupsForConvention = query({
   args: { conventionId: v.id("conventions") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const convention = await ctx.db.get(args.conventionId);
+    if (!convention || convention.userId !== actorId) return [];
     const days = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     const groupIds = Array.from(new Set(days.map((d) => d.groupId)));
     const groups = await Promise.all(groupIds.map((id) => ctx.db.get(id)));
-    return groups.filter((g): g is NonNullable<typeof g> => g != null);
+    const visible = [];
+    for (const group of groups) {
+      if (!group) continue;
+      if (group.visibility === "public" || (await isGroupMember(ctx, group._id, actorId))) {
+        visible.push(group);
+      }
+    }
+    return visible;
   },
 });
 
-/** List selected days grouped by convention (for group page). Returns convention name and dates. */
+/**
+ * Selected days grouped by convention, for the group page. Takes no actor argument,
+ * so the membership check is written out; it previously read private convention names
+ * and dates through the group side door.
+ */
 export const listForGroupWithConventions = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId || !(await isGroupMember(ctx, args.groupId, actorId))) return [];
     const days = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
@@ -78,16 +106,12 @@ export const setDays = mutation({
   args: {
     groupId: v.id("groups"),
     conventionId: v.id("conventions"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     dates: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
-      .unique();
+    const actorId = await requireIdentity(ctx);
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can set convention days");
     }
@@ -129,16 +153,12 @@ export const addDay = mutation({
   args: {
     groupId: v.id("groups"),
     conventionId: v.id("conventions"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     date: v.string(),
   },
   handler: async (ctx, args) => {
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
-      .unique();
+    const actorId = await requireIdentity(ctx);
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can add convention days");
     }
@@ -170,16 +190,12 @@ export const removeDay = mutation({
   args: {
     groupId: v.id("groups"),
     conventionId: v.id("conventions"),
-    userId: v.string(),
+    userId: v.optional(v.string()),
     date: v.string(),
   },
   handler: async (ctx, args) => {
-    const membership = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_groupId_userId", (q) =>
-        q.eq("groupId", args.groupId).eq("userId", args.userId)
-      )
-      .unique();
+    const actorId = await requireIdentity(ctx);
+    const membership = await getGroupMembership(ctx, args.groupId, actorId);
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can remove convention days");
     }

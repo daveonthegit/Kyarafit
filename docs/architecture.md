@@ -28,7 +28,12 @@ Convex database (closetItems, builds, buildTasks, conventions, …)
 
 1. Client calls `api.files.generateUploadUrl` (Convex mutation).
 2. Client uploads the file to the returned URL (Convex file storage).
-3. Client calls `api.files.getUrl` with the returned `storageId` to get a public URL.
+3. Client calls `api.files.getUrl` with the returned `storageId` to get a URL. `getUrl` is
+   itself access-controlled: it resolves the storage id back to the rows referencing it and
+   returns `null` when the caller may not see any of them (see
+   [backend-authorization.md](backend-authorization.md)). A freshly uploaded blob that no row
+   references yet is readable by any signed-in caller, which is what makes this
+   upload-then-preview order work.
 4. Client updates the entity (closet item, build, convention) with that URL via the relevant Convex mutation.
 
 Optional: an external **image service** (Python + rembg) can be used for background removal; the app can call it before or after upload and then store the processed image URL in Convex.

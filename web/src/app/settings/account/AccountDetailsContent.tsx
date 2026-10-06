@@ -450,9 +450,7 @@ export function AccountDetailsContent({ user, onUpdateDisplayName, onDeleteAccou
             <p
               className={`text-sm break-all ${user.email && !emailRevealed ? "select-none text-kyar-textSecondary" : ""}`}
               data-testid="account-email"
-              aria-label={
-                user.email && !emailRevealed ? "Email address hidden." : undefined
-              }
+              aria-label={user.email && !emailRevealed ? "Email address hidden." : undefined}
             >
               {!user.email ? "—" : emailRevealed ? user.email : EMAIL_HIDDEN_PLACEHOLDER}
             </p>

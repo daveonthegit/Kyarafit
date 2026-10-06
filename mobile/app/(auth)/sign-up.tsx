@@ -206,9 +206,7 @@ export default function SignUpScreen() {
         <Pressable className="mt-6">
           <Text className="text-center text-xs text-kyar-textTertiary">
             {t("auth.haveAccount")}{" "}
-            <Text className="text-xs text-kyar-textTertiary underline">
-              {t("common.signIn")}
-            </Text>
+            <Text className="text-xs text-kyar-textTertiary underline">{t("common.signIn")}</Text>
           </Text>
         </Pressable>
       </Link>

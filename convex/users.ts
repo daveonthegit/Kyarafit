@@ -3,11 +3,13 @@ import { makeFunctionReference } from "convex/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getStorageSizeMb } from "./storageUsage";
+import { assertCanAttachStorageId } from "./lib/mediaAccess";
 import {
   convexTierStorageLimitMb,
   normalizeConvexTier,
 } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
@@ -17,12 +19,18 @@ const sendWelcomeAction = makeFunctionReference<
   { to: string; name?: string | undefined }
 >("email:sendWelcome");
 
+/**
+ * The caller's own user document. `externalId` is retained for deployed clients
+ * but ignored — the row is looked up from the session.
+ */
 export const getByExternalId = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     return await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
   },
 });
@@ -49,12 +57,25 @@ export const getByUsername = query({
   },
 });
 
+/**
+ * A session is required to learn whether a username is taken: an anonymous caller
+ * could otherwise enumerate which usernames exist, including those of private
+ * profiles. Like every other query it answers rather than throwing — a signed-out
+ * caller, or one inside the window before the Convex token has propagated, gets the
+ * same neutral answer without the name being looked up at all, so nothing is
+ * disclosed and the settings screen shows a state instead of a render error or a
+ * spurious "taken" message. Uniqueness is enforced authoritatively by
+ * `updateProfile`, which throws on a name that is really taken.
+ * `currentExternalId` is retained for deployed clients but ignored — the actor comes
+ * from the session.
+ */
 export const checkUsernameAvailability = query({
   args: {
     username: v.string(),
     currentExternalId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
     const raw = args.username.trim();
     if (!raw) {
       return {
@@ -77,6 +98,15 @@ export const checkUsernameAvailability = query({
       };
     }
 
+    if (!actorId) {
+      return {
+        normalized,
+        valid: true,
+        available: true,
+        reason: "unauthenticated",
+      };
+    }
+
     const existing = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", normalized))
@@ -91,7 +121,7 @@ export const checkUsernameAvailability = query({
       };
     }
 
-    if (args.currentExternalId && existing.externalId === args.currentExternalId) {
+    if (existing.externalId === actorId) {
       return {
         normalized,
         valid: true,
@@ -109,9 +139,16 @@ export const checkUsernameAvailability = query({
   },
 });
 
+/**
+ * Mirror the Better Auth session user into the app `users` table. Called by the
+ * client right after sign-in. `externalId` is retained for deployed clients but
+ * ignored: it is derived from the session, which is what stops an anonymous
+ * caller from overwriting another user's email/name, squatting a username, or
+ * triggering a welcome email to an arbitrary address.
+ */
 export const upsert = mutation({
   args: {
-    externalId: v.string(),
+    externalId: v.optional(v.string()),
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
@@ -119,6 +156,7 @@ export const upsert = mutation({
     username: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const email =
       args.email.length <= MAX_LENGTH.email
         ? args.email.trim()
@@ -137,7 +175,7 @@ export const upsert = mutation({
 
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
 
     if (existing) {
@@ -168,7 +206,7 @@ export const upsert = mutation({
       if (!taken) usernameToInsert = username;
     }
     const id = await ctx.db.insert("users", {
-      externalId: args.externalId,
+      externalId: actorId,
       email,
       name,
       image,
@@ -179,8 +217,8 @@ export const upsert = mutation({
 
     // Send welcome email on first sign-up (non-blocking)
     await ctx.scheduler.runAfter(0, sendWelcomeAction, {
-      to: args.email,
-      name: args.name,
+      to: email,
+      name,
     });
 
     return id;
@@ -189,22 +227,26 @@ export const upsert = mutation({
 
 /** Returns the current user's focused build id (for home hero), or null. */
 export const getFocusedBuildId = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
     return user?.focusedBuildId ?? null;
   },
 });
 
 export const getMe = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
     if (!user) return null;
 
@@ -291,6 +333,9 @@ export const updateProfileImage = mutation({
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
       .unique();
     if (!user) return null;
+    if (user.imageStorageId !== args.storageId) {
+      await assertCanAttachStorageId(ctx, args.storageId, externalId);
+    }
     await ctx.db.patch(user._id, {
       imageStorageId: args.storageId,
       // Keep image for OAuth fallback; storage takes precedence when present

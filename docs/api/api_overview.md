@@ -19,7 +19,11 @@ The app uses **Convex** as the backend. There is no REST API; data is accessed v
 | `users`       | User profile                | `getMe`, `upsert`                                                                                                                                     |
 | `files`       | File storage                | `generateUploadUrl`, `getUrl`                                                                                                                         |
 
-All mutations and queries that touch user data require an authenticated user and enforce ownership via `userId`.
+Functions that touch user data derive the acting user from the Convex session, never from an
+argument; the `userId` / `ownerId` / `externalId` arguments some of them still accept are
+optional and ignored. A handful of endpoints (the public feed, public profiles, share links,
+`files.getUrl`) serve signed-out visitors by design. See
+[backend-authorization.md](../backend-authorization.md) for the full contract.
 
 ## Legacy REST API
 

@@ -6,6 +6,7 @@
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { convexTierStorageLimitMb } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+import { assertCanAttachStorageId } from "./lib/mediaAccess";
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -37,13 +38,16 @@ export async function addUsageDelta(
 
 /**
  * If storageId is set, get its size in MB, check user is under limit, add to usage.
- * Throws if over limit. Call when attaching a new file to an entity.
+ * Throws if over limit, or if `actorId` (defaults to the billed user) may not attach
+ * the blob. Call when attaching a new file to an entity.
  */
 export async function checkLimitAndAddUsage(
   ctx: MutationCtx,
   externalId: string,
-  storageId: Id<"_storage">
+  storageId: Id<"_storage">,
+  actorId: string = externalId
 ): Promise<void> {
+  await assertCanAttachStorageId(ctx, storageId, actorId);
   const sizeMb = await getStorageSizeMb(ctx, storageId);
   if (sizeMb <= 0) return;
 

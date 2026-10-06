@@ -131,8 +131,8 @@ cd web && npm test
 # Mobile app
 cd mobile && npm test
 
-# Convex (if applicable)
-npx convex test
+# Convex backend authorization tests
+npm run test:convex
 
 # Image service (optional)
 cd image-service && python -m pytest

@@ -72,7 +72,11 @@ kyarafit/
 
 ## Data Model (Convex)
 
-All documents include `userId: string` for authorization. Every query/mutation checks ownership.
+Owned documents carry `userId: string`, which is compared against the acting user derived
+from the Convex session — never against an argument. See
+[backend-authorization.md](backend-authorization.md) for that contract.
+`convex/schema.ts` is the authoritative table and index list; the tables below are a
+partial summary.
 
 ### closetItems
 
@@ -183,6 +187,9 @@ See `docs/auth.md` for detailed flow, environment variables, and setup instructi
 ---
 
 ## Convex Functions Reference
+
+The `userId` argument shown below is legacy: it is optional and ignored, kept only so
+already-deployed clients keep working, and new call sites should omit it.
 
 ### closetItems
 
