@@ -67,14 +67,31 @@ contract.
   inserting new rows, never on a client-ID replay. Invoke `indexProgressMedia` after inserting
   a progress row. This replaces the existing fail-closed media-backfill seam; the row validator
   remains authoritative for shape/relationships.
-- **Account deletion:** S5 must remove owned references (including progress refs/index rows), avoid
-  direct deletion of potentially shared blobs, then invoke `releaseUserStorage(ctx, userId)` before
-  deleting the user. It cancels unused reservations, schedules bounded recovery for consumed
-  reservations, removes unreferenced claims/bytes, and transfers a
-  shared claim's attribution to a remaining reference owner without deleting existing shared bytes
-  if that owner is over cap. Deletion completion must include any scheduled ingress-recovery jobs.
-  Repeat cleanup is harmless. This helper is a contract for the deletion
-  package, not a claim that its existing cascade has already been integrated.
+- **Account deletion:** `accountDeletion:begin` immediately removes the app profile and normal
+  consent row, blocks the deleted actor and account targets, and schedules checkpointed cleanup.
+  Handwritten public/internal mutation registrations use `lib/guardedMutation.ts` to check actors,
+  resulting documents, and declared direct/inherited references in the write transaction. Only
+  explicit internal cleanup registrations can remove data without active-target checks; they cannot
+  add application data. Public build/media discovery suppresses deleting owners without a separate
+  quarantine pass. Owned references (including legacy tables and progress reverse indexes) are
+  removed before media release. Nested historical photo arrays are enumerated separately in batches of 100. Each
+  `releaseUserStorage(ctx, userId, cursor)` invocation returns a continuation/completion signal;
+  callers repeat it rather than assuming one invocation drains an account. The app user may already
+  be absent: refunds are conditional, and shared claim attribution transfers to a remaining owner
+  even above cap. Concurrent reference changes invalidate media scan cursors transactionally through
+  `storageReferenceEpochs`; the guarded database centralizes invalidation for new references,
+  resurrection and reverse-index movement. Pure removals do not hide new references behind a cursor. Completion includes consumed-upload recovery beyond the action
+  runtime ceiling. Completed jobs clear raw identity, media worklists and cursors, retaining an
+  opaque session-suppression hash plus status counters. No error payloads are logged or persisted.
+  `accountDeletion:status` exposes internal, non-personal completion/failure information by opaque
+  job ID; `accountDeletion:resume` retries a failed checkpoint without replaying committed chunks.
+  These functions are internal operator interfaces, not permission to run cleanup or deploy on
+  production. Foreign ledger results are inspected with content/generation-aware checkpoints,
+  at most 128 traversal steps and four resource reads per chunk, including inherited owners.
+  Unavailable results lose their payload but retain a dedupe rejection marker; pending validation
+  is never a cache miss. Completed jobs clear these checkpoints. Ordinary writes fail closed if
+  they exceed the mutation reference budget; clients must split oversized writes. Regression
+  coverage lives in `convex/{accountDeletion,guardedMutation,mutationGuardAdapter,ledgerInspection}.test.ts`.
 - **R2:** P2 should consume verified uploader/size/unique-byte accounting and pending-claim semantics;
   it remains the sole final hosted-media architecture. Storage migration, deployment, and live data
   operations are separate operator gates.

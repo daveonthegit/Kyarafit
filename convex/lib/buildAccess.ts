@@ -8,6 +8,7 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { deletionJob } from "./accountDeletion";
 
 /** Guard against a pathological element graph; real trees are a handful of levels deep. */
 const MAX_GRAPH_NODES = 200;
@@ -19,7 +20,7 @@ export async function canUserEditBuild(
   userId: string
 ): Promise<boolean> {
   const build = await ctx.db.get(buildId);
-  if (!build) return false;
+  if (!build || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === userId) return true;
   const rows = await ctx.db
     .query("buildCollaborators")
@@ -36,7 +37,7 @@ export async function canUserViewBuild(
   userId: string
 ): Promise<boolean> {
   const build = await ctx.db.get(buildId);
-  if (!build) return false;
+  if (!build || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === userId) return true;
   const rows = await ctx.db
     .query("buildCollaborators")
@@ -84,6 +85,8 @@ export async function getGroupMembership(
   groupId: Id<"groups">,
   userId: string
 ): Promise<Doc<"groupMembers"> | null> {
+  const group = await ctx.db.get(groupId);
+  if (group && (await deletionJob(ctx, group.createdBy))) return null;
   return await ctx.db
     .query("groupMembers")
     .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", userId))
@@ -137,7 +140,7 @@ export async function hasBuildRelationship(
   build: Doc<"builds">,
   viewerId: string | null
 ): Promise<boolean> {
-  if (!viewerId) return false;
+  if (!viewerId || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === viewerId) return true;
   if (await isBuildCollaborator(ctx, build._id, viewerId)) return true;
   return await isBuildGroupMember(ctx, build, viewerId);
@@ -165,7 +168,7 @@ export async function someAncestorBuild(
   while (current !== undefined && !seen.has(current) && seen.size <= MAX_GRAPH_NODES) {
     seen.add(current);
     const node: Doc<"cosplayNodes"> | null = await ctx.db.get(current);
-    if (!node) return false;
+    if (!node || (await deletionJob(ctx, node.userId))) return false;
     if (node.buildId) {
       const build = await ctx.db.get(node.buildId);
       if (build && (await predicate(build))) return true;
@@ -191,7 +194,7 @@ export async function canReadElementData(
   node: Doc<"cosplayNodes">,
   viewerId: string | null
 ): Promise<boolean> {
-  if (!viewerId) return false;
+  if (!viewerId || (await deletionJob(ctx, node.userId))) return false;
   if (node.userId === viewerId) return true;
   return await someAncestorBuild(
     ctx,

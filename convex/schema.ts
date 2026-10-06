@@ -20,6 +20,53 @@ const syncMetaFields = {
 };
 
 export default defineSchema({
+  /** Changed atomically when deletion starts; legacy replay proofs expire together. */
+  accountDeletionState: defineTable({ generation: v.number() }),
+  ledgerValidationState: defineTable({
+    cursor: v.optional(v.string()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerResultRevision: v.optional(v.string()),
+    nextCursor: v.optional(v.string()),
+    pageDone: v.optional(v.boolean()),
+  }),
+
+  /** Resumable privacy cleanup. Raw identity and cursors are cleared on completion. */
+  accountDeletionJobs: defineTable({
+    subjectHash: v.string(),
+    externalId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("failed"), v.literal("complete")),
+    phase: v.number(),
+    cursor: v.optional(v.string()),
+    assetRowId: v.optional(v.string()),
+    assetOffset: v.optional(v.number()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerResultRevision: v.optional(v.string()),
+    ledgerSubjects: v.optional(v.array(v.string())),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerNextCursor: v.optional(v.string()),
+    ledgerPageDone: v.optional(v.boolean()),
+    ancestorRowId: v.optional(v.id("workflowItems")),
+    ancestorOffset: v.optional(v.number()),
+    ancestorFingerprint: v.optional(v.string()),
+    ancestorChecked: v.optional(v.string()),
+    processed: v.number(),
+    attempts: v.number(),
+    revision: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    scheduledId: v.optional(v.id("_scheduled_functions")),
+  }).index("by_subjectHash", ["subjectHash"]),
+
+  /** Durable media worklist, including unclaimed legacy blobs and nested progress photos. */
+  accountDeletionAssets: defineTable({
+    jobId: v.id("accountDeletionJobs"),
+    storageId: v.id("_storage"),
+  }).index("by_jobId", ["jobId"]),
+
   /** One-time upload capabilities reserve quota before accepting any bytes. */
   storageUploadReservations: defineTable({
     userId: v.string(),
@@ -32,6 +79,12 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
+
+  /** Transactional reference generation prevents deletion scans from missing concurrent moves. */
+  storageReferenceEpochs: defineTable({
+    storageId: v.id("_storage"),
+    revision: v.string(),
+  }).index("by_storageId", ["storageId"]),
 
   /** Actual verified size; charged once at upload, not once per reference. */
   storageClaims: defineTable({
@@ -567,9 +620,14 @@ export default defineSchema({
     operation: v.optional(v.string()),
     createdAt: v.number(),
     result: v.optional(v.any()),
+    resultRevision: v.optional(v.string()),
+    validatedEpoch: v.optional(v.number()),
+    subjectHashes: v.optional(v.array(v.string())),
+    replayBlocked: v.optional(v.boolean()),
   })
     .index("by_userId_operation_key", ["userId", "operation", "key"])
     .index("by_userId", ["userId"])
+    .index("by_validatedEpoch", ["validatedEpoch"])
     .index("by_createdAt", ["createdAt"]),
 
   broadcasts: defineTable({

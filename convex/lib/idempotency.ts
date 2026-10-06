@@ -1,5 +1,7 @@
 import type { MutationCtx } from "../_generated/server";
 import { requireIdentity } from "./authz";
+import { guardFor } from "./guardedMutation";
+import { initialLedgerCheckpoint, inspectLedgerChunk } from "./ledgerInspection";
 
 /**
  * Dedupe at-least-once offline writes by (session actor, server-selected operation, key).
@@ -43,7 +45,25 @@ export async function idempotentReplay(
       q.eq("userId", actorId).eq("operation", operation).eq("key", key)
     )
     .unique();
-  return existing ? { hit: true, result: existing.result } : { hit: false };
+  if (!existing) return { hit: false };
+  if (existing.replayBlocked) throw new Error("Replay unavailable");
+  const guard = guardFor(ctx);
+  const epoch = await guard.currentEpoch();
+  if (existing.validatedEpoch !== epoch) {
+    if (existing.validatedEpoch !== undefined || epoch !== 0)
+      throw new Error("Replay validation pending");
+    // Small, pre-guard rows may be validated inline. Larger legacy snapshots are inspected by
+    // bounded maintenance/deletion checkpoints, never treated as misses that repeat side effects.
+    const inspected = await inspectLedgerChunk(ctx, existing.result, initialLedgerCheckpoint());
+    if (inspected.blocked) throw new Error("Replay unavailable");
+    if (!inspected.done) throw new Error("Replay validation pending");
+    await guard.raw.db.patch(existing._id, {
+      validatedEpoch: epoch,
+      subjectHashes: inspected.checkpoint.subjects,
+      resultRevision: existing.resultRevision ?? crypto.randomUUID(),
+    });
+  }
+  return { hit: true, result: existing.result };
 }
 
 /** Verify the session actor and record only operation-scoped results. */
@@ -64,6 +84,8 @@ export async function idempotentRecord<T>(
       operation,
       createdAt: Date.now(),
       result: result as unknown,
+      ...(await guardFor(ctx).resultProof(result)),
+      resultRevision: crypto.randomUUID(),
     });
   }
   return result;

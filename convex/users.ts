@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/guardedMutation";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getStorageSizeMb, checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { storageClaim } from "./lib/storageOwnership";
@@ -20,10 +21,9 @@ const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
 // when the generated types haven't been refreshed yet after adding email.ts.
-const sendWelcomeAction = makeFunctionReference<
-  "action",
-  { to: string; name?: string | undefined }
->("email:sendWelcome");
+const sendWelcomeAction = makeFunctionReference<"action", { externalId: string }>(
+  "email:sendWelcome"
+);
 
 /**
  * The caller's own user document. `externalId` is retained for deployed clients
@@ -222,10 +222,7 @@ export const upsert = mutation({
     });
 
     // Send welcome email on first sign-up (non-blocking)
-    await ctx.scheduler.runAfter(0, sendWelcomeAction, {
-      to: email,
-      name,
-    });
+    await ctx.scheduler.runAfter(0, sendWelcomeAction, { externalId: actorId });
 
     return id;
   },

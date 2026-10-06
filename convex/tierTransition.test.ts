@@ -117,7 +117,7 @@ describe("upgrade backfill (REQ-D95)", () => {
         table: "builds",
         rows: [build("a", "Aerith")],
       })
-    ).rejects.toThrow(/signed in/i);
+    ).rejects.toThrow("Unauthorized");
   });
 
   it("should_reject_an_unknown_table", async () => {

@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 
 /**
  * Dev-only: creates starter seed data (one build, one convention, one cosplay

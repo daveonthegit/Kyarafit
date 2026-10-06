@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
+import { deletionJob } from "./lib/deletionReferences";
 import { checkLimitAndAddUsage, getStorageSizeMb, subtractUsageForStorageId } from "./storageUsage";
 import { canUserEditBuild, isBuildGroupMember, isGroupMember } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
@@ -496,7 +498,7 @@ export const getByShareToken = query({
       .query("builds")
       .withIndex("by_shareToken", (q) => q.eq("shareToken", args.shareToken))
       .unique();
-    if (!build) return null;
+    if (!build || (await deletionJob(ctx, build.userId))) return null;
     const { tasksTotal, tasksChecked, progress, workflowProgressPercent } =
       await getBuildWorkflowMetrics(ctx, build);
     return {
@@ -645,6 +647,7 @@ export const getPublicViewerBundle = query({
 export const listPublicByUser = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
+    if (await deletionJob(ctx, args.userId)) return [];
     const builds = await ctx.db
       .query("builds")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -696,7 +699,12 @@ export const listDiscover = query({
       .query("builds")
       .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
       .collect();
-    const sorted = [...builds].sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
+    const live = (
+      await Promise.all(
+        builds.map(async (build) => ((await deletionJob(ctx, build.userId)) ? null : build))
+      )
+    ).filter((build): build is Doc<"builds"> => build !== null);
+    const sorted = live.sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
     const limited = args.limit ? sorted.slice(0, args.limit) : sorted;
     const withDetails = await Promise.all(
       limited.map(async (b) => {

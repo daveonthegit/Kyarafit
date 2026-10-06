@@ -1,0 +1,49 @@
+name: Integration CI
+
+on:
+  pull_request:
+    branches: [fix/glass-security-merge]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend types and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p convex/tsconfig.json --noEmit
+      - run: npm run test:convex
+  web:
+    name: Web
+    uses: ./.github/workflows/web.yml
+  mobile:
+    name: Mobile lint, types, i18n and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run i18n:check
+      - run: npm run lint -w mobile
+      - run: npm run typecheck -w mobile
+      - run: npm run check:env -w mobile
+      - run: npm run test -w mobile
+      # Integration has existing global formatting debt; check only this PR's changed files.
+      - name: Changed-file formatting
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch origin "$BASE_SHA" --depth=1
+          git diff --name-only --diff-filter=ACMRT "$BASE_SHA" HEAD -z -- '*.js' '*.ts' '*.tsx' '*.json' '*.md' '*.yml' | xargs -0 -r npx prettier --check

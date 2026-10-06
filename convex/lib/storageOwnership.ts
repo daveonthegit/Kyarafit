@@ -111,6 +111,11 @@ export async function cleanupStorageClaim(ctx: MutationCtx, storageId: Id<"_stor
   }
   if (!claim.attached && claim.expiresAt > Date.now()) return;
   await ctx.storage.delete(storageId);
+  const epoch = await ctx.db
+    .query("storageReferenceEpochs")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .unique();
+  if (epoch) await ctx.db.delete(epoch._id);
   const user = await ctx.db
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", claim.userId))
@@ -122,65 +127,173 @@ export async function cleanupStorageClaim(ctx: MutationCtx, storageId: Id<"_stor
   await ctx.db.delete(claim._id);
 }
 
-/** S5 contract: call AFTER deleting owned references, instead of deleting their blobs directly. */
-export async function releaseUserStorage(ctx: MutationCtx, userId: string) {
-  const reservations = await ctx.db
-    .query("storageUploadReservations")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
-  for (const reservation of reservations) {
-    if (reservation.consumed) {
-      await ctx.scheduler.runAfter(0, internal.files.reconcileReservation, {
-        id: reservation._id,
-        cursor: null,
-      });
+/** Deletion-only bounded reference walk; unrelated upload/attachment behavior is unchanged. */
+const deletionReferenceTables = [
+  "builds",
+  "cosplayNodes",
+  "buildReferenceImages",
+  "buildProcessPictures",
+  "conventions",
+  "closetItems",
+  "users",
+  "groups",
+  "progressMediaReferences",
+  "buildProgressUpdates",
+] as const;
+type DeletionStorageCursor = {
+  storageId: Id<"_storage">;
+  table: number;
+  page: string | null;
+  live: boolean;
+  revision?: string;
+};
+
+export async function releaseDeletedStorage(
+  ctx: MutationCtx,
+  userId: string,
+  storageId: Id<"_storage">,
+  cursor?: string
+): Promise<{ done: boolean; cursor?: string }> {
+  const parsed: DeletionStorageCursor | undefined = cursor ? JSON.parse(cursor) : undefined;
+  const epoch = await ctx.db
+    .query("storageReferenceEpochs")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .unique();
+  const matches = parsed?.storageId === storageId && parsed.revision === epoch?.revision;
+  const resumeTable = matches ? parsed.table : undefined;
+  const state: DeletionStorageCursor = matches
+    ? parsed
+    : { storageId, table: 0, page: null, live: false, revision: epoch?.revision };
+  const claim = await storageClaim(ctx, storageId);
+  // At most one small page per reference table. A heavily-shared blob continues next transaction.
+  for (; state.table < deletionReferenceTables.length; state.table++) {
+    const table = deletionReferenceTables[state.table];
+    const query =
+      table === "buildProgressUpdates"
+        ? ctx.db.query(table).withIndex("by_mediaIndexed", (q) => q.eq("mediaIndexed", undefined))
+        : table === "progressMediaReferences"
+          ? ctx.db.query(table).withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+          : ctx.db
+              .query(table)
+              .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId));
+    // Convex permits only one pagination query per function. Small indexed reads use take;
+    // a larger reference set is checkpointed and paginated alone on the following invocation.
+    let page;
+    if (state.table === resumeTable) {
+      page = await query.paginate({ cursor: state.page, numItems: 5 });
     } else {
-      await ctx.db.delete(reservation._id);
+      const small = await query.take(6);
+      if (small.length === 6) return { done: false, cursor: JSON.stringify(state) };
+      page = { page: small, isDone: true, continueCursor: "" };
     }
-  }
-  const claims = await ctx.db
-    .query("storageClaims")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
-  for (const claim of claims) {
-    const refs = await storageReferences(ctx, claim.storageId);
-    if (hasLiveReferences(refs)) {
-      // Existing shared bytes survive account deletion. Transfer their attribution to a remaining
-      // reference owner (even if that leaves them over cap), never retain the deleted identity.
-      const owners = new Set<string>();
-      for (const rows of Object.values(refs))
-        for (const row of rows) {
-          if ("deletedAt" in row && row.deletedAt != null) continue;
-          const owner =
-            "userId" in row
-              ? row.userId
-              : "externalId" in row
-                ? row.externalId
-                : "createdBy" in row
-                  ? row.createdBy
-                  : undefined;
-          if (owner && owner !== userId) owners.add(owner);
-        }
-      let transferred = false;
-      for (const owner of [...owners].sort()) {
+    for (const entry of page.page) {
+      const row = "progressUpdateId" in entry ? await ctx.db.get(entry.progressUpdateId) : entry;
+      if (!row || ("deletedAt" in row && row.deletedAt != null)) continue;
+      if (
+        table === "buildProgressUpdates" &&
+        "imageRefs" in row &&
+        !row.imageRefs.some((ref) => ref.kind === "cloud" && ref.storageId === storageId)
+      )
+        continue;
+      state.live = true;
+      const owner =
+        "userId" in row
+          ? row.userId
+          : "externalId" in row
+            ? row.externalId
+            : "createdBy" in row
+              ? row.createdBy
+              : undefined;
+      if (owner && owner !== userId) {
         const user = await ctx.db
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", owner))
           .unique();
-        if (!user) continue;
-        await ctx.db.patch(user._id, {
-          currentUsageMb: user.currentUsageMb + claim.sizeBytes / MB,
-        });
-        await ctx.db.patch(claim._id, { userId: owner, attached: true });
-        transferred = true;
-        break;
+        if (user) {
+          // Transfer once, even above cap: deletion must not destroy legitimate shared bytes.
+          if (claim?.userId === userId) {
+            await ctx.db.patch(user._id, {
+              currentUsageMb: user.currentUsageMb + claim.sizeBytes / MB,
+            });
+            await ctx.db.patch(claim._id, { userId: owner, attached: true });
+          }
+          return { done: true };
+        }
       }
-      if (!transferred) await ctx.db.delete(claim._id);
-    } else {
-      await ctx.db.patch(claim._id, { attached: true });
-      await cleanupStorageClaim(ctx, claim.storageId);
     }
+    if (!page.isDone) {
+      state.page = page.continueCursor;
+      return { done: false, cursor: JSON.stringify(state) };
+    }
+    state.page = null;
   }
+  if (!state.live) {
+    // Duplicate references may enqueue the same blob; already-removed bytes are a successful retry.
+    if (await ctx.db.system.get("_storage", storageId)) await ctx.storage.delete(storageId);
+    if (epoch) await ctx.db.delete(epoch._id);
+    if (claim) {
+      const owner = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", claim.userId))
+        .unique();
+      if (owner)
+        await ctx.db.patch(owner._id, {
+          currentUsageMb: Math.max(0, owner.currentUsageMb - claim.sizeBytes / MB),
+        });
+      await ctx.db.delete(claim._id);
+    }
+  } else if (claim?.userId === userId) {
+    // A surviving historical reference without an app user still protects bytes, not an identity.
+    await ctx.db.delete(claim._id);
+  }
+  return { done: true };
+}
+
+/** Call AFTER deleting owned references. Repeat with the returned cursor until done. */
+export async function releaseUserStorage(
+  ctx: MutationCtx,
+  userId: string,
+  cursor?: string
+): Promise<{ done: boolean; cursor?: string; retryAfterMs: number }> {
+  const reservations = await ctx.db
+    .query("storageUploadReservations")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .take(5);
+  for (const reservation of reservations) {
+    if (reservation.consumed) {
+      // In-flight actions must finish (or pass their runtime ceiling) before tagged orphan recovery.
+      const delay = Math.max(
+        0,
+        (reservation.consumedAt ?? reservation.expiresAt) + UPLOAD_RECOVERY_TTL_MS - Date.now()
+      );
+      await ctx.scheduler.runAfter(delay, internal.files.reconcileReservation, {
+        id: reservation._id,
+        cursor: null,
+      });
+      return { done: false, cursor, retryAfterMs: Math.max(delay, 60_000) };
+    }
+    await ctx.db.delete(reservation._id);
+  }
+  const claims = await ctx.db
+    .query("storageClaims")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .take(2);
+  for (const claim of claims) {
+    const result = await releaseDeletedStorage(ctx, userId, claim.storageId, cursor);
+    if (!result.done) return { ...result, retryAfterMs: 0 };
+    // A resumed walk may have paginated: handle the next claim in a fresh transaction.
+    if (cursor) return { done: false, retryAfterMs: 0 };
+    cursor = undefined;
+  }
+  const remainingReservation = await ctx.db
+    .query("storageUploadReservations")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  const remainingClaim = await ctx.db
+    .query("storageClaims")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  return { done: !remainingReservation && !remainingClaim, retryAfterMs: 0 };
 }
 
 export async function indexProgressMedia(

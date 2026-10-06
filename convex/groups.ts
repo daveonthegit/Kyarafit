@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { requireFeature } from "./lib/entitlements";
 import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation";
