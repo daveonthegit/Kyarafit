@@ -207,7 +207,9 @@ describe("Glass account actions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: en.common.save }));
     await waitFor(() => expect(h.updateProfile).toHaveBeenCalledWith({ bio: "New bio" }));
-    expect(screen.queryByLabelText(en.settings.accountPage.sectionBio)).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByLabelText(en.settings.accountPage.sectionBio)).toBeNull()
+    );
   });
 
   it("does not upload when photo permission is denied or picking is cancelled", async () => {
