@@ -1,73 +1,91 @@
 import type { MutationCtx } from "../_generated/server";
+import { requireIdentity } from "./authz";
+import { guardFor } from "./guardedMutation";
+import { initialLedgerCheckpoint, inspectLedgerChunk } from "./ledgerInspection";
 
 /**
- * Run a mutation body at most once per idempotency `key` (blueprint §3.13.5).
+ * Dedupe at-least-once offline writes by (session actor, server-selected operation, key).
+ * Callers use a stable module.function operation literal, never a client argument.
+ * The mutation body and ledger insert commit atomically; Convex retries index conflicts.
+ * Empty keys run normally. Retention is bounded by the ledger prune job.
  *
- * The offline sync worker replays queued mutations at-least-once (a lost response can trigger a
- * retry of an already-committed write). Offline-capable mutations pass the queued `idempotencyKey`;
- * this helper records the key + result in the `idempotencyLedger` on first execution and, on any
- * replay with the same key, returns the stored result without re-running the body — so a replayed
- * create can never insert a duplicate row.
- *
- * When `key` is undefined/empty (e.g. an online call that never went through the queue), the body
- * runs normally with no ledger interaction.
+ * Legacy rows have no operation and are deliberately never replayed or promoted: their
+ * operation cannot be recovered safely. They expire through the existing age-based prune.
  */
 export async function runIdempotent<T>(
   ctx: MutationCtx,
   key: string | undefined,
   userId: string,
+  operation: string,
   run: () => Promise<T>
 ): Promise<T> {
-  if (!key) return run();
-
-  const existing = await ctx.db
-    .query("idempotencyLedger")
-    .withIndex("by_key", (q) => q.eq("key", key))
-    .unique();
-  if (existing) {
-    return existing.result as T;
-  }
-
-  const result = await run();
-  await ctx.db.insert("idempotencyLedger", {
-    key,
-    userId,
-    createdAt: Date.now(),
-    result: result as unknown,
-  });
-  return result;
+  const actorId = await requireIdentity(ctx);
+  if (actorId !== userId) throw new Error("Unauthorized");
+  if (!operation) throw new Error("Missing idempotency operation");
+  const replay = await idempotentReplay(ctx, key, operation);
+  if (replay.hit) return replay.result as T;
+  return idempotentRecord(ctx, key, actorId, await run(), operation);
 }
 
 /**
- * Two-part variant of {@link runIdempotent} for handlers whose body is awkward to wrap in a closure
- * (e.g. those that destructure `...fields` or are large). Call {@link idempotentReplay} at the top
- * and return its stored result on a hit; call {@link idempotentRecord} exactly once at the single
- * trailing return. Record must run at most once per execution (one ledger row per key).
+ * Two-part variant: authenticate before calling; return on a hit and record once at the end.
+ * Every caller must supply a nonempty server-selected operation, even for unkeyed writes.
  */
 export async function idempotentReplay(
   ctx: MutationCtx,
-  key: string | undefined
+  key: string | undefined,
+  operation: string
 ): Promise<{ hit: true; result: unknown } | { hit: false }> {
+  const actorId = await requireIdentity(ctx);
+  if (!operation) throw new Error("Missing idempotency operation");
   if (!key) return { hit: false };
   const existing = await ctx.db
     .query("idempotencyLedger")
-    .withIndex("by_key", (q) => q.eq("key", key))
+    .withIndex("by_userId_operation_key", (q) =>
+      q.eq("userId", actorId).eq("operation", operation).eq("key", key)
+    )
     .unique();
-  return existing ? { hit: true, result: existing.result } : { hit: false };
+  if (!existing) return { hit: false };
+  if (existing.replayBlocked) throw new Error("Replay unavailable");
+  const guard = guardFor(ctx);
+  const epoch = await guard.currentEpoch();
+  if (existing.validatedEpoch !== epoch) {
+    if (existing.validatedEpoch !== undefined || epoch !== 0)
+      throw new Error("Replay validation pending");
+    // Small, pre-guard rows may be validated inline. Larger legacy snapshots are inspected by
+    // bounded maintenance/deletion checkpoints, never treated as misses that repeat side effects.
+    const inspected = await inspectLedgerChunk(ctx, existing.result, initialLedgerCheckpoint());
+    if (inspected.blocked) throw new Error("Replay unavailable");
+    if (!inspected.done) throw new Error("Replay validation pending");
+    await guard.raw.db.patch(existing._id, {
+      validatedEpoch: epoch,
+      subjectHashes: inspected.checkpoint.subjects,
+      resultRevision: existing.resultRevision ?? crypto.randomUUID(),
+    });
+  }
+  return { hit: true, result: existing.result };
 }
 
+/** Verify the session actor and record only operation-scoped results. */
 export async function idempotentRecord<T>(
   ctx: MutationCtx,
   key: string | undefined,
   userId: string,
-  result: T
+  result: T,
+  operation: string
 ): Promise<T> {
+  const actorId = await requireIdentity(ctx);
+  if (actorId !== userId) throw new Error("Unauthorized");
+  if (!operation) throw new Error("Missing idempotency operation");
   if (key) {
     await ctx.db.insert("idempotencyLedger", {
       key,
-      userId,
+      userId: actorId,
+      operation,
       createdAt: Date.now(),
       result: result as unknown,
+      ...(await guardFor(ctx).resultProof(result)),
+      resultRevision: crypto.randomUUID(),
     });
   }
   return result;

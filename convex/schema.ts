@@ -20,6 +20,89 @@ const syncMetaFields = {
 };
 
 export default defineSchema({
+  /** Changed atomically when deletion starts; legacy replay proofs expire together. */
+  accountDeletionState: defineTable({ generation: v.number() }),
+  ledgerValidationState: defineTable({
+    cursor: v.optional(v.string()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerResultRevision: v.optional(v.string()),
+    nextCursor: v.optional(v.string()),
+    pageDone: v.optional(v.boolean()),
+  }),
+
+  /** Resumable privacy cleanup. Raw identity and cursors are cleared on completion. */
+  accountDeletionJobs: defineTable({
+    subjectHash: v.string(),
+    externalId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("failed"), v.literal("complete")),
+    phase: v.number(),
+    cursor: v.optional(v.string()),
+    assetRowId: v.optional(v.string()),
+    assetOffset: v.optional(v.number()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerResultRevision: v.optional(v.string()),
+    ledgerSubjects: v.optional(v.array(v.string())),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerNextCursor: v.optional(v.string()),
+    ledgerPageDone: v.optional(v.boolean()),
+    ancestorRowId: v.optional(v.id("workflowItems")),
+    ancestorOffset: v.optional(v.number()),
+    ancestorFingerprint: v.optional(v.string()),
+    ancestorChecked: v.optional(v.string()),
+    processed: v.number(),
+    attempts: v.number(),
+    revision: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    scheduledId: v.optional(v.id("_scheduled_functions")),
+  }).index("by_subjectHash", ["subjectHash"]),
+
+  /** Durable media worklist, including unclaimed legacy blobs and nested progress photos. */
+  accountDeletionAssets: defineTable({
+    jobId: v.id("accountDeletionJobs"),
+    storageId: v.id("_storage"),
+  }).index("by_jobId", ["jobId"]),
+
+  /** One-time upload capabilities reserve quota before accepting any bytes. */
+  storageUploadReservations: defineTable({
+    userId: v.string(),
+    token: v.string(),
+    uploadTag: v.string(),
+    reservedBytes: v.number(),
+    expiresAt: v.number(),
+    consumed: v.boolean(),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"]),
+
+  /** Transactional reference generation prevents deletion scans from missing concurrent moves. */
+  storageReferenceEpochs: defineTable({
+    storageId: v.id("_storage"),
+    revision: v.string(),
+  }).index("by_storageId", ["storageId"]),
+
+  /** Actual verified size; charged once at upload, not once per reference. */
+  storageClaims: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.string(),
+    sizeBytes: v.number(),
+    expiresAt: v.number(),
+    attached: v.boolean(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_userId", ["userId"]),
+
+  progressMediaReferences: defineTable({
+    storageId: v.id("_storage"),
+    progressUpdateId: v.id("buildProgressUpdates"),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_progressUpdateId", ["progressUpdateId"]),
   users: defineTable({
     externalId: v.string(),
     email: v.string(),
@@ -61,7 +144,8 @@ export default defineSchema({
     .index("by_username", ["username"])
     .index("by_role", ["role"])
     // Retention cron scans downgraded users by their downgrade timestamp (REQ-D96/D97).
-    .index("by_downgradedAt", ["downgradedAt"]),
+    .index("by_downgradedAt", ["downgradedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodes: defineTable({
     userId: v.string(),
@@ -102,7 +186,8 @@ export default defineSchema({
     .index("by_userId_clientId", ["userId", "clientId"])
     .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_buildId", ["buildId"])
-    .index("by_parentNodeId", ["parentNodeId"]),
+    .index("by_parentNodeId", ["parentNodeId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   // DEPRECATED tables — superseded by build-scoped cosplayNodes (Step 2c). No live code reads them;
   // their data is redundant with cosplayNodes.buildId/parentNodeId/node-fields. Kept in the schema
@@ -128,7 +213,8 @@ export default defineSchema({
     .index("by_userId_category", ["userId", "category"])
     .index("by_completionTaskId", ["completionTaskId"])
     .index("by_parentItemId", ["parentItemId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodeLinks: defineTable({
     userId: v.string(),
@@ -217,7 +303,8 @@ export default defineSchema({
     .index("by_groupId", ["groupId"])
     .index("by_visibility", ["visibility"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildTasks: defineTable({
     userId: v.string(),
@@ -361,7 +448,8 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   conventionDayPlans: defineTable({
     userId: v.string(),
@@ -412,7 +500,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   buildProcessPictures: defineTable({
     userId: v.string(),
@@ -425,7 +514,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   /**
    * Dated build progress-update timeline (DATA_AND_SYNC.md §3.3, REQ-049). `publishedToFeed` is the
@@ -437,6 +527,7 @@ export default defineSchema({
     createdAt: v.number(),
     note: v.optional(v.string()),
     imageRefs: v.array(imageRefValidator),
+    mediaIndexed: v.optional(v.boolean()),
     progressPercent: v.optional(v.number()),
     publishedToFeed: v.boolean(),
     ...syncMetaFields,
@@ -444,7 +535,8 @@ export default defineSchema({
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
-    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_mediaIndexed", ["mediaIndexed"]),
 
   groups: defineTable({
     name: v.string(),
@@ -456,7 +548,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_createdBy", ["createdBy"])
-    .index("by_visibility", ["visibility"]),
+    .index("by_visibility", ["visibility"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 
   groupMembers: defineTable({
     groupId: v.id("groups"),
@@ -523,10 +616,18 @@ export default defineSchema({
   idempotencyLedger: defineTable({
     key: v.string(),
     userId: v.string(),
+    // Optional only for deployment compatibility; unscoped legacy rows are never replayed.
+    operation: v.optional(v.string()),
     createdAt: v.number(),
     result: v.optional(v.any()),
+    resultRevision: v.optional(v.string()),
+    validatedEpoch: v.optional(v.number()),
+    subjectHashes: v.optional(v.array(v.string())),
+    replayBlocked: v.optional(v.boolean()),
   })
-    .index("by_key", ["key"])
+    .index("by_userId_operation_key", ["userId", "operation", "key"])
+    .index("by_userId", ["userId"])
+    .index("by_validatedEpoch", ["validatedEpoch"])
     .index("by_createdAt", ["createdAt"]),
 
   broadcasts: defineTable({

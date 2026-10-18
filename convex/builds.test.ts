@@ -12,8 +12,9 @@ describe("idempotency ledger (REQ-D62)", () => {
     const t = convexTest(schema, modules);
     const args = { userId: "u1", name: "Aerith", status: "idea", idempotencyKey: "key-123" };
 
-    const first = await t.mutation(api.builds.create, args);
-    const second = await t.mutation(api.builds.create, args);
+    const asU1 = t.withIdentity({ subject: "u1" });
+    const first = await asU1.mutation(api.builds.create, args);
+    const second = await asU1.mutation(api.builds.create, args);
 
     // Replay returns the same stored result, not a new row.
     expect(second?._id).toBe(first?._id);
@@ -23,13 +24,13 @@ describe("idempotency ledger (REQ-D62)", () => {
 
   it("should_insert_separately_for_distinct_idempotency_keys", async () => {
     const t = convexTest(schema, modules);
-    await t.mutation(api.builds.create, {
+    await t.withIdentity({ subject: "u1" }).mutation(api.builds.create, {
       userId: "u1",
       name: "A",
       status: "idea",
       idempotencyKey: "k1",
     });
-    await t.mutation(api.builds.create, {
+    await t.withIdentity({ subject: "u1" }).mutation(api.builds.create, {
       userId: "u1",
       name: "B",
       status: "idea",
@@ -43,24 +44,30 @@ describe("idempotency ledger (REQ-D62)", () => {
 describe("ownership & scoping (REQ-001)", () => {
   it("should_scope_list_to_the_requested_user", async () => {
     const t = convexTest(schema, modules);
-    await t.mutation(api.builds.create, { userId: "u1", name: "Mine", status: "idea" });
-    await t.mutation(api.builds.create, { userId: "u2", name: "Theirs", status: "idea" });
+    await t
+      .withIdentity({ subject: "u1" })
+      .mutation(api.builds.create, { userId: "u1", name: "Mine", status: "idea" });
+    await t
+      .withIdentity({ subject: "u2" })
+      .mutation(api.builds.create, { userId: "u2", name: "Theirs", status: "idea" });
 
-    const mine = await t.query(api.builds.list, { userId: "u1" });
+    const mine = await t.withIdentity({ subject: "u1" }).query(api.builds.list, { userId: "u1" });
     expect(mine).toHaveLength(1);
     expect(mine[0].name).toBe("Mine");
   });
 
   it("should_prevent_a_non_owner_from_updating_a_build", async () => {
     const t = convexTest(schema, modules);
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "u1" }).mutation(api.builds.create, {
       userId: "u1",
       name: "Mine",
       status: "idea",
     });
 
     await expect(
-      t.mutation(api.builds.update, { id: build!._id, userId: "u2", name: "Hijacked" })
+      t
+        .withIdentity({ subject: "u2" })
+        .mutation(api.builds.update, { id: build!._id, userId: "u2", name: "Hijacked" })
     ).rejects.toThrow(/not authorized/i);
   });
 });
@@ -68,7 +75,7 @@ describe("ownership & scoping (REQ-001)", () => {
 describe("build visibility default (REQ-050)", () => {
   it("should_default_build_visibility_to_private", async () => {
     const t = convexTest(schema, modules);
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "u1" }).mutation(api.builds.create, {
       userId: "u1",
       name: "Private by default",
       status: "idea",
@@ -102,7 +109,7 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
 
     // Blocked at create time.
     await expect(
-      t.mutation(api.builds.create, {
+      t.withIdentity({ subject: "free-user" }).mutation(api.builds.create, {
         userId: "free-user",
         name: "Wannabe public",
         status: "idea",
@@ -111,20 +118,20 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     ).rejects.toThrow(/upgrade/i);
 
     // And blocked when transitioning an existing private build to public/unlisted.
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "free-user" }).mutation(api.builds.create, {
       userId: "free-user",
       name: "Stays private",
       status: "idea",
     });
     await expect(
-      t.mutation(api.builds.update, {
+      t.withIdentity({ subject: "free-user" }).mutation(api.builds.update, {
         id: build!._id,
         userId: "free-user",
         visibility: "public",
       })
     ).rejects.toThrow(/upgrade/i);
     await expect(
-      t.mutation(api.builds.update, {
+      t.withIdentity({ subject: "free-user" }).mutation(api.builds.update, {
         id: build!._id,
         userId: "free-user",
         visibility: "unlisted",
@@ -139,7 +146,7 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     const t = convexTest(schema, modules);
     await setTier(t, "paid-user", "PRO");
 
-    const created = await t.mutation(api.builds.create, {
+    const created = await t.withIdentity({ subject: "paid-user" }).mutation(api.builds.create, {
       userId: "paid-user",
       name: "Public on create",
       status: "idea",
@@ -147,12 +154,12 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     });
     expect(created?.visibility).toBe("public");
 
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "paid-user" }).mutation(api.builds.create, {
       userId: "paid-user",
       name: "Goes unlisted",
       status: "idea",
     });
-    const updated = await t.mutation(api.builds.update, {
+    const updated = await t.withIdentity({ subject: "paid-user" }).mutation(api.builds.update, {
       id: build!._id,
       userId: "paid-user",
       visibility: "unlisted",
@@ -167,28 +174,28 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     await setTier(t, "free-member", "FREE");
 
     // Paid owner creates a group, then adds the free user (joining is free).
-    const group = await t.mutation(api.groups.create, {
+    const group = await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.create, {
       userId: "group-owner",
       name: "Squad",
     });
-    await t.mutation(api.groups.addMember, {
+    await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "group-owner",
       newUserId: "free-member",
     });
 
     // Free member's build linked to that group may be published (REQ-021 exception).
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
       userId: "free-member",
       name: "Group cosplay",
       status: "idea",
     });
-    await t.mutation(api.builds.setGroupId, {
+    await t.withIdentity({ subject: "free-member" }).mutation(api.builds.setGroupId, {
       buildId: build!._id,
       userId: "free-member",
       groupId: group!._id,
     });
-    const published = await t.mutation(api.builds.update, {
+    const published = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.update, {
       id: build!._id,
       userId: "free-member",
       visibility: "public",
@@ -201,24 +208,24 @@ describe("public publish entitlement (REQ-017, server-side enforcement)", () => 
     await setTier(t, "group-owner", "PRO");
     await setTier(t, "free-member", "FREE");
 
-    const group = await t.mutation(api.groups.create, {
+    const group = await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.create, {
       userId: "group-owner",
       name: "Squad",
     });
-    await t.mutation(api.groups.addMember, {
+    await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "group-owner",
       newUserId: "free-member",
     });
 
     // Member of a group, but THIS build isn't linked to it → no exception, must upgrade.
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
       userId: "free-member",
       name: "Unlinked",
       status: "idea",
     });
     await expect(
-      t.mutation(api.builds.update, {
+      t.withIdentity({ subject: "free-member" }).mutation(api.builds.update, {
         id: build!._id,
         userId: "free-member",
         visibility: "public",
@@ -233,24 +240,26 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
     await setTier(t, "group-owner", "PRO");
     await setTier(t, "free-member", "FREE");
 
-    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
-    await t.mutation(api.groups.addMember, {
+    const group = await t
+      .withIdentity({ subject: "group-owner" })
+      .mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "group-owner",
       newUserId: "free-member",
     });
 
-    const build = await t.mutation(api.builds.create, {
+    const build = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
       userId: "free-member",
       name: "Within caps",
       status: "idea",
     });
-    await t.mutation(api.builds.setGroupId, {
+    await t.withIdentity({ subject: "free-member" }).mutation(api.builds.setGroupId, {
       buildId: build!._id,
       userId: "free-member",
       groupId: group!._id,
     });
-    const published = await t.mutation(api.builds.update, {
+    const published = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.update, {
       id: build!._id,
       userId: "free-member",
       visibility: "public",
@@ -264,8 +273,10 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
     await setTier(t, "group-owner", "PRO");
     await setTier(t, "free-member", "FREE");
 
-    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
-    await t.mutation(api.groups.addMember, {
+    const group = await t
+      .withIdentity({ subject: "group-owner" })
+      .mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "group-owner",
       newUserId: "free-member",
@@ -273,37 +284,39 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
 
     // First five publishes succeed.
     for (let i = 0; i < 5; i += 1) {
-      const build = await t.mutation(api.builds.create, {
+      const build = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
         userId: "free-member",
         name: `Group build ${i}`,
         status: "idea",
       });
-      await t.mutation(api.builds.setGroupId, {
+      await t.withIdentity({ subject: "free-member" }).mutation(api.builds.setGroupId, {
         buildId: build!._id,
         userId: "free-member",
         groupId: group!._id,
       });
-      const published = await t.mutation(api.builds.update, {
-        id: build!._id,
-        userId: "free-member",
-        visibility: "public",
-      });
+      const published = await t
+        .withIdentity({ subject: "free-member" })
+        .mutation(api.builds.update, {
+          id: build!._id,
+          userId: "free-member",
+          visibility: "public",
+        });
       expect(published?.visibility).toBe("public");
     }
 
     // The sixth exceeds the count cap and is blocked (and stays private).
-    const sixth = await t.mutation(api.builds.create, {
+    const sixth = await t.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
       userId: "free-member",
       name: "Group build 6 (over count)",
       status: "idea",
     });
-    await t.mutation(api.builds.setGroupId, {
+    await t.withIdentity({ subject: "free-member" }).mutation(api.builds.setGroupId, {
       buildId: sixth!._id,
       userId: "free-member",
       groupId: group!._id,
     });
     await expect(
-      t.mutation(api.builds.update, {
+      t.withIdentity({ subject: "free-member" }).mutation(api.builds.update, {
         id: sixth!._id,
         userId: "free-member",
         visibility: "public",
@@ -317,19 +330,21 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
     await setTier(t2, "group-owner", "PRO");
     await setTier(t2, "free-member", "FREE");
 
-    const group2 = await t2.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
-    await t2.mutation(api.groups.addMember, {
+    const group2 = await t2
+      .withIdentity({ subject: "group-owner" })
+      .mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t2.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group2!._id,
       userId: "group-owner",
       newUserId: "free-member",
     });
 
-    const bigBuild = await t2.mutation(api.builds.create, {
+    const bigBuild = await t2.withIdentity({ subject: "free-member" }).mutation(api.builds.create, {
       userId: "free-member",
       name: "Oversized group build",
       status: "idea",
     });
-    await t2.mutation(api.builds.setGroupId, {
+    await t2.withIdentity({ subject: "free-member" }).mutation(api.builds.setGroupId, {
       buildId: bigBuild!._id,
       userId: "free-member",
       groupId: group2!._id,
@@ -345,7 +360,7 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
       });
     });
     await expect(
-      t2.mutation(api.builds.update, {
+      t2.withIdentity({ subject: "free-member" }).mutation(api.builds.update, {
         id: bigBuild!._id,
         userId: "free-member",
         visibility: "public",
@@ -360,8 +375,10 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
     await setTier(t, "group-owner", "PRO");
     await setTier(t, "paid-member", "PRO");
 
-    const group = await t.mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
-    await t.mutation(api.groups.addMember, {
+    const group = await t
+      .withIdentity({ subject: "group-owner" })
+      .mutation(api.groups.create, { userId: "group-owner", name: "Squad" });
+    await t.withIdentity({ subject: "group-owner" }).mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "group-owner",
       newUserId: "paid-member",
@@ -369,21 +386,23 @@ describe("group-cosplay cloud caps (REQ-021, server-side enforcement)", () => {
 
     // A paid member can publish well beyond the free build-count cap.
     for (let i = 0; i < 6; i += 1) {
-      const build = await t.mutation(api.builds.create, {
+      const build = await t.withIdentity({ subject: "paid-member" }).mutation(api.builds.create, {
         userId: "paid-member",
         name: `Paid group build ${i}`,
         status: "idea",
       });
-      await t.mutation(api.builds.setGroupId, {
+      await t.withIdentity({ subject: "paid-member" }).mutation(api.builds.setGroupId, {
         buildId: build!._id,
         userId: "paid-member",
         groupId: group!._id,
       });
-      const published = await t.mutation(api.builds.update, {
-        id: build!._id,
-        userId: "paid-member",
-        visibility: "public",
-      });
+      const published = await t
+        .withIdentity({ subject: "paid-member" })
+        .mutation(api.builds.update, {
+          id: build!._id,
+          userId: "paid-member",
+          visibility: "public",
+        });
       expect(published?.visibility).toBe("public");
     }
   });

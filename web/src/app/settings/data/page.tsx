@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "re
 import { useTranslations } from "next-intl";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import type { ExportableRow } from "@kyarafit/design-system/domain/importExport";
+import { importKey } from "@/lib/importKey";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
@@ -32,11 +32,6 @@ function readString(value: unknown): string | undefined {
 
 function readNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-/** Stable key so the backend create mutations dedupe a re-import server-side too (REQ-D62). */
-function importKey(collection: string, row: ExportableRow): string {
-  return `import:${collection}:${row.id}`;
 }
 
 /** Trigger a browser download of `contents` as `filename`. No-op safe outside a DOM. */
@@ -87,7 +82,7 @@ export default function SettingsDataPage() {
   const createRow = useCallback<CreateRowFn>(
     async (collection, row) => {
       if (!userId) return;
-      const idempotencyKey = importKey(collection, row);
+      const idempotencyKey = importKey(userId, collection, row);
       switch (collection) {
         case "builds":
           await createBuild({

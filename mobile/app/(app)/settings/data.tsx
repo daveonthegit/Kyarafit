@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, Share, Text, View } from "react-native";
-import { Stack } from "expo-router";
+import { ActivityIndicator, Alert, Share, Text } from "react-native";
+import { glass } from "@kyarafit/design-system/rn";
 import * as FileSystem from "expo-file-system/legacy";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,13 @@ import {
   type PortableCollections,
   type PortableTable,
 } from "@/lib/dataPortability";
-import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import { PhotoPill } from "@/ui/glass";
+import {
+  SettingsGlassFrame,
+  SettingsGlassSection,
+  settingsGlassStyles as styles,
+} from "@/screens/settings/glassSettings";
 
 /**
  * Settings → Data export / import (Wave 7, REQ-012 / REQ-D101 / REQ-D102). FREE for everyone:
@@ -216,62 +222,48 @@ export default function SettingsDataScreen() {
   const status = identity === undefined ? "loading" : "ready";
 
   return (
-    <>
-      <Stack.Screen options={{ title: t("settings.dataPortability"), headerLargeTitle: false }} />
+    <SettingsGlassFrame
+      eyebrow={t("settings.dataPortabilityEyebrow")}
+      title={t("settings.dataPortability")}
+      description={t("settings.dataPortabilityIntro")}
+    >
       <DataBoundary status={status} data={{ ready: true as const }}>
         {() => (
-          <ScrollView
-            className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-            contentContainerClassName="px-5 pb-12 pt-4"
-          >
-            <SectionHeading
-              eyebrow={t("settings.dataPortabilityEyebrow")}
-              title={t("settings.dataPortability")}
-            />
-            <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("settings.dataPortabilityIntro")}
-            </Text>
-
-            <SurfaceCard className="mt-5 px-4 py-4">
-              <MetaLabel>{t("settings.dataExportTitle")}</MetaLabel>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("settings.dataExportDescription")}
-              </Text>
-              <Text className="mt-3 font-serif text-3xl italic text-kyar-text dark:text-kyar-dark-text">
-                {itemCount}
-              </Text>
-              <Button
-                className="mt-4"
-                title={t("settings.dataExportButton")}
-                loading={exporting}
-                accessibilityLabel={t("settings.dataExportButton")}
+          <>
+            <SettingsGlassSection label={t("settings.dataExportTitle")}>
+              <Text style={styles.body}>{t("settings.dataExportDescription")}</Text>
+              <Text style={styles.count}>{itemCount}</Text>
+              <PhotoPill
+                style={styles.action}
+                label={t("settings.dataExportButton")}
+                disabled={exporting}
+                accessibilityState={{ busy: exporting }}
                 onPress={() => void handleExport()}
               />
-            </SurfaceCard>
-
-            <SurfaceCard className="mt-4 px-4 py-4">
-              <MetaLabel>{t("settings.dataImportTitle")}</MetaLabel>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("settings.dataImportDescription")}
-              </Text>
-              <Button
-                className="mt-4"
-                variant="secondary"
-                title={t("settings.dataImportButton")}
-                loading={importing}
-                accessibilityLabel={t("settings.dataImportButton")}
+              {exporting ? (
+                <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
+              ) : null}
+            </SettingsGlassSection>
+            <SettingsGlassSection label={t("settings.dataImportTitle")}>
+              <Text style={styles.body}>{t("settings.dataImportDescription")}</Text>
+              <PhotoPill
+                style={styles.action}
+                variant="outline"
+                label={t("settings.dataImportButton")}
+                disabled={importing}
+                accessibilityState={{ busy: importing }}
                 onPress={() => void handleImport()}
               />
-            </SurfaceCard>
-
-            <View className="mt-5 rounded-2xl bg-kyar-panel px-4 py-4 dark:bg-kyar-dark-panel">
-              <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("settings.dataPortabilityFootnote")}
-              </Text>
-            </View>
-          </ScrollView>
+              {importing ? (
+                <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
+              ) : null}
+            </SettingsGlassSection>
+            <SettingsGlassSection>
+              <Text style={styles.body}>{t("settings.dataPortabilityFootnote")}</Text>
+            </SettingsGlassSection>
+          </>
         )}
       </DataBoundary>
-    </>
+    </SettingsGlassFrame>
   );
 }

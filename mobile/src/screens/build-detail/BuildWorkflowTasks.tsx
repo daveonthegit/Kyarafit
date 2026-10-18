@@ -4,7 +4,13 @@ import type { TFunction } from "i18next";
 import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { GlassTextField } from "@/ui/glass";
-import { GlassBody, GlassHairlineProgress, GlassMeta, GlassOutlineButton, GlassSolidButton } from "./glassAtoms";
+import {
+  GlassBody,
+  GlassHairlineProgress,
+  GlassMeta,
+  GlassOutlineButton,
+  GlassSolidButton,
+} from "./glassAtoms";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { WORKFLOW_STATUSES } from "@kyarafit/design-system/domain";
@@ -515,8 +521,7 @@ export function BuildWorkflowTasks({ buildId, userId, t }: Props) {
                     borderBottomColor: glass.border.divider,
                     borderRadius: statusPickCurrent === st ? 10 : 0,
                     paddingHorizontal: 10,
-                    backgroundColor:
-                      statusPickCurrent === st ? glass.surface.field : "transparent",
+                    backgroundColor: statusPickCurrent === st ? glass.surface.field : "transparent",
                   }}
                 >
                   <GlassBody size={14} tone={statusPickCurrent === st ? "fg" : "fg70"}>
@@ -610,9 +615,7 @@ function BuildWorkflowTaskRow({
           >
             <Text
               className={`text-[11px] ${
-                node.status === "done"
-                  ? "text-kyar-bg dark:text-kyar-dark-bg"
-                  : "text-transparent"
+                node.status === "done" ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-transparent"
               }`}
             >
               {node.status === "done" ? "✓" : ""}

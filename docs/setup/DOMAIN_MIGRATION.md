@@ -15,9 +15,7 @@ siblings; `web/src/middleware.ts` does host-based routing so one deployment serv
 
 ## What is already done in-repo (committed on `refactor/deepen-domain-modules`)
 
-- `convex/http.ts` — `https://app.kyarafit.com` added to CORS `allowedOrigins`.
-- `convex/betterAuth/auth.ts` — `https://app.kyarafit.com` added to Better Auth `trustedOrigins` (kept in
-  sync with the CORS list; **both must always list the same origins** or auth returns 403).
+- Auth origins use the shared runtime policy described in [Authentication](../auth.md#origin-configuration--critical), not separately maintained CORS/CSRF lists.
 - `web/src/middleware.ts` — host routing: on `www`/apex, app routes 308-redirect to `app.kyarafit.com`,
   landing/legal/share paths stay; on `app`, `/` 308-redirects to `/home`. **Inert on any other host**
   (localhost, previews, LAN IPs) so dev is unaffected. It takes effect only once DNS points these
@@ -48,7 +46,9 @@ siblings; `web/src/middleware.ts` does host-based routing so one deployment serv
 - `SITE_URL = https://app.kyarafit.com`
 - `APP_URL = https://app.kyarafit.com` (welcome-email "Get Started" button)
 - **Leave `CONVEX_SITE_URL` as the `*.convex.site` value** (auto-managed). Do NOT point it at kyarafit.com.
-- `ADDITIONAL_CORS_ORIGINS` — only for LAN/dev origins (e.g. Expo Go device IPs).
+- Configure `AUTH_ENVIRONMENT` and any `ADDITIONAL_CORS_ORIGINS` according to the
+  [auth origin policy](../auth.md#origin-configuration--critical); never put LAN/Expo origins
+  on the production deployment.
 
 ### 4. OAuth provider dashboards — **do NOT change these**
 
@@ -69,7 +69,7 @@ you change the Convex deployment or set up a Convex custom domain.
 Auth cookies live on `*.convex.site` (`sameSite: none; secure`, no cookie `domain` set) and the session
 rides the Better Auth crossDomain/bearer mechanism, not a `.kyarafit.com` cookie. Moving the web app to
 `app.kyarafit.com` does **not** log users out — provided `https://app.kyarafit.com` is in the CORS +
-trustedOrigins lists (it is) before you cut over.
+shared origin policy before you cut over (see [Authentication](../auth.md#origin-configuration--critical)).
 
 ## Subdomains deliberately NOT set up (no backing code)
 

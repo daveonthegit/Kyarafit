@@ -14,9 +14,9 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
-### Work tracking (Agentflow)
+### Work tracking
 
-Open work lives on the Work Graph — consult the generated `WORK.md` board before starting, carry a
-`Work-Item: <id>` trailer in commits, and drop JSON proposals into `.agentflow/proposals/` for
-uncovered work. Conventions + gates: `AGENTS.md` (Agentflow section) and the project-local
-`agentflow` skill. Never edit `.agentflow/work/` directly.
+Agentflow is deprecated. Follow the current assigned brief and its ownership boundaries;
+`WORK.md` is a historical generated board, not execution authority. Do not invoke Agentflow
+or edit `.agentflow/` / `WORK.md`. Preserve any Work-Item id supplied for already-approved work.
+The managed Agentflow block in `AGENTS.md` is retained as historical machine-managed content.

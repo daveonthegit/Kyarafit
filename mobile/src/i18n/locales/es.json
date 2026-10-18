@@ -675,7 +675,102 @@
     "devGallerySubtitle": "Vista previa del sistema de diseño (en construcción)",
     "pendingMutations": "Cambios pendientes",
     "homeLink": "Volver al inicio",
-    "cloudSync": "Sincronización en la nube"
+    "cloudSync": "Sincronización en la nube",
+    "cloudBackupUpgrade": "Mejora tu plan para sincronizar y hacer copias de seguridad automáticas en la nube.",
+    "signOutError": "No se pudo cerrar sesión. Inténtalo de nuevo.",
+    "signOutConfirmTitle": "¿Cerrar sesión en Kyarafit?",
+    "signOutExportWarning": "Tus datos se quedan en este dispositivo. Expórtalos antes de cerrar sesión: si otra cuenta inicia sesión en este dispositivo, podría reemplazarlos.",
+    "signOutConfirmBody": "Tus datos locales se quedan en este dispositivo. ¿Seguro que quieres cerrar sesión?",
+    "accountGlass": {
+      "editDisplayName": "Editar nombre visible",
+      "editUsername": "Editar usuario",
+      "editBio": "Editar biografía",
+      "disconnectProvider": "Desconectar {{provider}}"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "Tu suscripción ya está activa.",
+      "paywallUnlocked": "La pantalla de compra de RevenueCat ha finalizado. Tu acceso Pro está activo o ya desbloqueado.",
+      "paywallClosed": "La pantalla de compra de RevenueCat se cerró sin realizar una compra.",
+      "perYear": "{{price}} / año",
+      "perMonth": "{{price}} / mes",
+      "opening": "Abriendo…",
+      "notConfigured": "Sin configurar",
+      "fromMonthly": "Desde {{price}} / mes",
+      "monthly": "{{price}} / mes",
+      "payWhatYouWant": "Paga lo que quieras, con facturación mensual",
+      "annual": "{{price}} / año{{savings}}",
+      "annualSavings": "Ahorra 2 meses",
+      "noPayment": "No requiere pago",
+      "storage": "Almacenamiento",
+      "unlimited": "Ilimitado",
+      "sync": "Sincronización",
+      "localOnly": "Solo local",
+      "allDevices": "Todos los dispositivos",
+      "included": "Incluido",
+      "upgradeUnlocks": "Al mejorar tu plan obtienes",
+      "active": "Suscripción: activa",
+      "inactive": "Suscripción: inactiva",
+      "openPaywall": "Abrir pantalla de compra",
+      "customerCenter": "Centro de atención al cliente",
+      "plans": {
+        "free": {
+          "name": "Gratis",
+          "tagline": "Todo lo que necesitas para planificar proyectos, en tu dispositivo.",
+          "audience": "Ideal para organizar proyectos de cosplay, convenciones y equipaje.",
+          "highlights": {
+            "0": "Proyectos ilimitados",
+            "1": "Funciona sin conexión en tu dispositivo",
+            "2": "Exporta cuando quieras (CSV, JSON, PDF)"
+          },
+          "features": {
+            "0": "Armario digital y seguimiento ilimitado de proyectos",
+            "1": "Convenciones, planes por día y listas de equipaje",
+            "2": "Compartir proyectos públicamente",
+            "3": "Primero en local: tus datos se guardan en este dispositivo",
+            "4": "Exportación e importación completas (CSV, copia JSON con imágenes, PDF)"
+          },
+          "notIncluded": {
+            "0": "Sincronización automática en la nube",
+            "1": "Acceso desde varios dispositivos",
+            "2": "Invitaciones para colaborar"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "Olvídate de las copias de seguridad. Trabaja desde cualquier dispositivo.",
+          "audience": "Ideal para creadores que quieren sus proyectos sincronizados, respaldados y siempre disponibles.",
+          "highlights": {
+            "0": "Sincronización automática en la nube",
+            "1": "Trabaja desde cualquier dispositivo",
+            "2": "2 GB de almacenamiento de imágenes"
+          },
+          "features": {
+            "0": "Todo lo del plan Gratis",
+            "1": "Copia de seguridad y sincronización automáticas en la nube, sin exportaciones manuales",
+            "2": "Acceso fluido desde todos tus dispositivos",
+            "3": "Invitaciones para colaborar",
+            "4": "Planificador avanzado para plazos y tareas anidadas de proyectos",
+            "5": "Soporte prioritario"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "¿Te encanta Kyarafit? Aporta un poco más: las mismas funciones Pro y un agradecimiento extra.",
+          "audience": "Ideal para quienes quieren apoyar el desarrollo de Kyarafit más allá del precio de Pro.",
+          "highlights": {
+            "0": "Todo lo de Pro",
+            "1": "Elige tu aportación",
+            "2": "Apoya el desarrollo continuo"
+          },
+          "features": {
+            "0": "Todo lo de Pro, con las mismas funciones",
+            "1": "Elige la cantidad que prefieras (mín. $5 / mes)",
+            "2": "Financia directamente el desarrollo de Kyarafit",
+            "3": "Nuestro más sincero agradecimiento"
+          }
+        }
+      }
+    }
   },
   "groups": {
     "title": "Grupos",

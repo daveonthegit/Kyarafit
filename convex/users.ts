@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/guardedMutation";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getStorageSizeMb } from "./storageUsage";
+import { getStorageSizeMb, checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { storageClaim } from "./lib/storageOwnership";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
   effectiveConvexTier,
@@ -11,6 +13,7 @@ import {
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
 import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
 import { requireOwner } from "./admin";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 /** Server-validated app-role values. The DB row (never client input) is the source of truth. */
 const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("owner"));
@@ -18,17 +21,22 @@ const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
 // when the generated types haven't been refreshed yet after adding email.ts.
-const sendWelcomeAction = makeFunctionReference<
-  "action",
-  { to: string; name?: string | undefined }
->("email:sendWelcome");
+const sendWelcomeAction = makeFunctionReference<"action", { externalId: string }>(
+  "email:sendWelcome"
+);
 
+/**
+ * The caller's own user document. `externalId` is retained for deployed clients
+ * but ignored — the row is looked up from the session.
+ */
 export const getByExternalId = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     return await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
   },
 });
@@ -55,12 +63,25 @@ export const getByUsername = query({
   },
 });
 
+/**
+ * A session is required to learn whether a username is taken: an anonymous caller
+ * could otherwise enumerate which usernames exist, including those of private
+ * profiles. Like every other query it answers rather than throwing — a signed-out
+ * caller, or one inside the window before the Convex token has propagated, gets the
+ * same neutral answer without the name being looked up at all, so nothing is
+ * disclosed and the settings screen shows a state instead of a render error or a
+ * spurious "taken" message. Uniqueness is enforced authoritatively by
+ * `updateProfile`, which throws on a name that is really taken.
+ * `currentExternalId` is retained for deployed clients but ignored — the actor comes
+ * from the session.
+ */
 export const checkUsernameAvailability = query({
   args: {
     username: v.string(),
     currentExternalId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await optionalIdentity(ctx);
     const raw = args.username.trim();
     if (!raw) {
       return {
@@ -83,6 +104,15 @@ export const checkUsernameAvailability = query({
       };
     }
 
+    if (!actorId) {
+      return {
+        normalized,
+        valid: true,
+        available: true,
+        reason: "unauthenticated",
+      };
+    }
+
     const existing = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", normalized))
@@ -97,7 +127,7 @@ export const checkUsernameAvailability = query({
       };
     }
 
-    if (args.currentExternalId && existing.externalId === args.currentExternalId) {
+    if (existing.externalId === actorId) {
       return {
         normalized,
         valid: true,
@@ -115,9 +145,16 @@ export const checkUsernameAvailability = query({
   },
 });
 
+/**
+ * Mirror the Better Auth session user into the app `users` table. Called by the
+ * client right after sign-in. `externalId` is retained for deployed clients but
+ * ignored: it is derived from the session, which is what stops an anonymous
+ * caller from overwriting another user's email/name, squatting a username, or
+ * triggering a welcome email to an arbitrary address.
+ */
 export const upsert = mutation({
   args: {
-    externalId: v.string(),
+    externalId: v.optional(v.string()),
     email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
@@ -125,6 +162,7 @@ export const upsert = mutation({
     username: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const actorId = await requireIdentity(ctx);
     const email =
       args.email.length <= MAX_LENGTH.email
         ? args.email.trim()
@@ -143,7 +181,7 @@ export const upsert = mutation({
 
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
 
     if (existing) {
@@ -174,7 +212,7 @@ export const upsert = mutation({
       if (!taken) usernameToInsert = username;
     }
     const id = await ctx.db.insert("users", {
-      externalId: args.externalId,
+      externalId: actorId,
       email,
       name,
       image,
@@ -184,10 +222,7 @@ export const upsert = mutation({
     });
 
     // Send welcome email on first sign-up (non-blocking)
-    await ctx.scheduler.runAfter(0, sendWelcomeAction, {
-      to: args.email,
-      name: args.name,
-    });
+    await ctx.scheduler.runAfter(0, sendWelcomeAction, { externalId: actorId });
 
     return id;
   },
@@ -195,22 +230,26 @@ export const upsert = mutation({
 
 /** Returns the current user's focused build id (for home hero), or null. */
 export const getFocusedBuildId = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
     return user?.focusedBuildId ?? null;
   },
 });
 
 export const getMe = query({
-  args: { externalId: v.string() },
-  handler: async (ctx, args) => {
+  args: { externalId: v.optional(v.string()) },
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return null;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", actorId))
       .unique();
     if (!user) return null;
 
@@ -246,8 +285,15 @@ export const recalculateUsage = mutation({
     if (!user) return null;
 
     let totalMb = 0;
-    const addSize = async (doc: { imageStorageId?: Id<"_storage"> } | undefined) => {
-      if (!doc?.imageStorageId) return;
+    const seen = new Set<string>();
+    const addSize = async (
+      doc: { imageStorageId?: Id<"_storage">; deletedAt?: number } | undefined
+    ) => {
+      if (!doc?.imageStorageId || doc.deletedAt != null || seen.has(doc.imageStorageId)) return;
+      seen.add(doc.imageStorageId);
+      const claim = await storageClaim(ctx, doc.imageStorageId);
+      // Claimed bytes are attributed to their uploader, not every shared reference owner.
+      if (claim && claim.userId !== externalId) return;
       totalMb += await getStorageSizeMb(ctx, doc.imageStorageId);
     };
 
@@ -282,6 +328,26 @@ export const recalculateUsage = mutation({
     for (const p of processPics) await addSize(p);
 
     await addSize(user);
+    const groups = await ctx.db
+      .query("groups")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", externalId))
+      .collect();
+    for (const group of groups) await addSize(group);
+    const progress = await ctx.db
+      .query("buildProgressUpdates")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const row of progress) {
+      if (row.deletedAt != null) continue;
+      for (const ref of row.imageRefs)
+        if (ref.kind === "cloud") await addSize({ imageStorageId: ref.storageId });
+    }
+    // Pending uploads are already hosted bytes. Recalculation must not erase their charge.
+    const claims = await ctx.db
+      .query("storageClaims")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const claim of claims) await addSize({ imageStorageId: claim.storageId });
 
     await ctx.db.patch(user._id, { currentUsageMb: totalMb });
     return totalMb;
@@ -295,14 +361,16 @@ export const recalculateUsage = mutation({
 export const updateProfileImage = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
+    const externalId = await requireIdentity(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
       .unique();
-    if (!user) return null;
+    if (!user) throw new Error("Upload account not found");
+    if (user.imageStorageId !== args.storageId) {
+      await checkLimitAndAddUsage(ctx, externalId, args.storageId);
+      await subtractUsageForStorageId(ctx, externalId, user.imageStorageId);
+    }
     await ctx.db.patch(user._id, {
       imageStorageId: args.storageId,
       // Keep image for OAuth fallback; storage takes precedence when present
@@ -319,10 +387,8 @@ export const updateProfileImage = mutation({
 export const setFocusedBuild = mutation({
   args: { buildId: v.optional(v.id("builds")), idempotencyKey: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
-    const replay = await idempotentReplay(ctx, args.idempotencyKey);
+    const externalId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "users.setFocusedBuild");
     if (replay.hit) return replay.result as Id<"users"> | null;
     const user = await ctx.db
       .query("users")
@@ -336,7 +402,13 @@ export const setFocusedBuild = mutation({
     }
 
     await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
-    return idempotentRecord(ctx, args.idempotencyKey, externalId, user._id);
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      externalId,
+      user._id,
+      "users.setFocusedBuild"
+    );
   },
 });
 

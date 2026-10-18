@@ -10,13 +10,16 @@ import { api } from "./_generated/api";
 const modules = import.meta.glob(["./**/*.*s", "!./betterAuth/**"]);
 
 async function createBuild(t: ReturnType<typeof convexTest>, userId: string) {
-  const build = await t.mutation(api.builds.create, { userId, name: "Aerith", status: "idea" });
+  const build = await t
+    .withIdentity({ subject: userId })
+    .mutation(api.builds.create, { userId, name: "Aerith", status: "idea" });
   return build!._id;
 }
 
 describe("buildReferenceImages idempotency (REQ-D62)", () => {
   it("should_record_and_replay_an_idempotent_create_exactly_once", async () => {
     const t = convexTest(schema, modules);
+    const asU1 = t.withIdentity({ subject: "u1" });
     const buildId = await createBuild(t, "u1");
     const args = {
       buildId,
@@ -25,8 +28,8 @@ describe("buildReferenceImages idempotency (REQ-D62)", () => {
       idempotencyKey: "ref-key-1",
     };
 
-    const first = await t.mutation(api.buildReferenceImages.add, args);
-    const second = await t.mutation(api.buildReferenceImages.add, args);
+    const first = await asU1.mutation(api.buildReferenceImages.add, args);
+    const second = await asU1.mutation(api.buildReferenceImages.add, args);
 
     expect(second?._id).toBe(first?._id);
     const all = await t.run(async (ctx) => ctx.db.query("buildReferenceImages").collect());
@@ -35,14 +38,15 @@ describe("buildReferenceImages idempotency (REQ-D62)", () => {
 
   it("should_insert_separately_for_distinct_idempotency_keys", async () => {
     const t = convexTest(schema, modules);
+    const asU1 = t.withIdentity({ subject: "u1" });
     const buildId = await createBuild(t, "u1");
-    await t.mutation(api.buildReferenceImages.add, {
+    await asU1.mutation(api.buildReferenceImages.add, {
       buildId,
       userId: "u1",
       imageUrl: "https://example.com/a.png",
       idempotencyKey: "ref-a",
     });
-    await t.mutation(api.buildReferenceImages.add, {
+    await asU1.mutation(api.buildReferenceImages.add, {
       buildId,
       userId: "u1",
       imageUrl: "https://example.com/b.png",
@@ -56,6 +60,7 @@ describe("buildReferenceImages idempotency (REQ-D62)", () => {
 describe("buildProcessPictures idempotency (REQ-D62)", () => {
   it("should_record_and_replay_an_idempotent_create_exactly_once", async () => {
     const t = convexTest(schema, modules);
+    const asU1 = t.withIdentity({ subject: "u1" });
     const buildId = await createBuild(t, "u1");
     const args = {
       buildId,
@@ -64,8 +69,8 @@ describe("buildProcessPictures idempotency (REQ-D62)", () => {
       idempotencyKey: "proc-key-1",
     };
 
-    const first = await t.mutation(api.buildProcessPictures.add, args);
-    const second = await t.mutation(api.buildProcessPictures.add, args);
+    const first = await asU1.mutation(api.buildProcessPictures.add, args);
+    const second = await asU1.mutation(api.buildProcessPictures.add, args);
 
     expect(second?._id).toBe(first?._id);
     const all = await t.run(async (ctx) => ctx.db.query("buildProcessPictures").collect());
@@ -74,14 +79,15 @@ describe("buildProcessPictures idempotency (REQ-D62)", () => {
 
   it("should_insert_separately_for_distinct_idempotency_keys", async () => {
     const t = convexTest(schema, modules);
+    const asU1 = t.withIdentity({ subject: "u1" });
     const buildId = await createBuild(t, "u1");
-    await t.mutation(api.buildProcessPictures.add, {
+    await asU1.mutation(api.buildProcessPictures.add, {
       buildId,
       userId: "u1",
       imageUrl: "https://example.com/a.png",
       idempotencyKey: "proc-a",
     });
-    await t.mutation(api.buildProcessPictures.add, {
+    await asU1.mutation(api.buildProcessPictures.add, {
       buildId,
       userId: "u1",
       imageUrl: "https://example.com/b.png",

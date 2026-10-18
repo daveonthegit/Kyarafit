@@ -1,7 +1,12 @@
 import { Migrations } from "@convex-dev/migrations";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  cleanupMutation,
+  guardRegisteredInternalMutation,
+} from "./lib/guardedMutation";
 
 export const WORKFLOW_MIGRATION_SEQUENCE = ["backfillWorkflowItemsFromBuildTasks"] as const;
 
@@ -12,11 +17,12 @@ const migrations = new Migrations<DataModel>(components.migrations, {
 
 export { migrations };
 
-export const run = migrations.runner();
+export const run = guardRegisteredInternalMutation(migrations.runner());
 
-export const runWorkflowMigration = migrations.runner([
-  internal.migrations.backfillWorkflowItemsFromBuildTasks,
-]);
+export const runWorkflowMigration: ReturnType<typeof migrations.runner> =
+  guardRegisteredInternalMutation(
+    migrations.runner([internal.migrations.backfillWorkflowItemsFromBuildTasks])
+  );
 
 export const backfillWorkflowItemsFromBuildTasks = migrations.define({
   table: "buildTasks",
@@ -118,7 +124,7 @@ export const reportCosplayNodeScoping = internalQuery({
  * Idempotent and re-runnable (a second run reports all-zero). Deletes only redundant data already
  * migrated onto cosplayNodes.buildId/parentNodeId/node-fields; touches no on-device data.
  */
-export const purgeLegacyBuildScopingData = internalMutation({
+export const purgeLegacyBuildScopingData = cleanupMutation({
   args: {},
   handler: async (ctx) => {
     const closetItems = await ctx.db.query("closetItems").collect();

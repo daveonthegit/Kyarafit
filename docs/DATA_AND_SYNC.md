@@ -36,8 +36,10 @@ Product rules live in [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); code structure in
 
 ## 3. Canonical entities
 
-Flat, relational, `userId`-scoped. Every local-first user-owned table carries **sync metadata**
-(§4). Legacy tables `closetItems` and `buildTasks` are **removed** (greenfield migration §8).
+Target model: flat, relational, `userId`-scoped, with **sync metadata** (§4) on every
+local-first user-owned table. The current persistence names and compatibility tables are
+listed in [Architecture](ARCHITECTURE.md#implementation-scope); §8 describes the migration
+requirement, not evidence that those legacy definitions have been removed.
 
 ### 3.1 Element (replaces `closetItems` + `cosplayNodes`)
 
@@ -91,18 +93,18 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 | `fieldUpdatedAt` (record<string, number>)? | **per-field** timestamps for field-level LWW (REQ-D40)                          |
 | `deletedAt` (number)?                      | soft-delete tombstone                                                           |
 
-- **REQ-D40** Writes set `updatedAt` and the touched fields' `fieldUpdatedAt`. (Current code does **not** maintain these — implement.)
+- **REQ-D40** Writes set `updatedAt` and the touched fields' `fieldUpdatedAt`; backend create/update helpers live in `convex/lib/syncMeta.ts`.
 - **REQ-D41** Local id ↔ server id mapping is recorded on first successful create replay; later queued ops referencing the local id are rewritten before send.
 
 ---
 
 ## 5. Local store (per platform)
 
-| Concern   | Mobile                                                               | Web                                                    |
-| --------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
-| Engine    | SQLite (`expo-sqlite`)                                               | OPFS + wa-sqlite (Dexie fallback behind the interface) |
-| Tables    | `entity_rows`, `mutation_queue`, `id_map`, `query_cache`, tombstones | same schema                                            |
-| Interface | one shared `LocalStore` contract (§ARCHITECTURE)                     | same                                                   |
+| Concern   | Mobile                                                               | Web                                                                                                       |
+| --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Engine    | SQLite (`expo-sqlite`)                                               | See the current [platform adapters](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue). |
+| Tables    | `entity_rows`, `mutation_queue`, `id_map`, `query_cache`, tombstones | same schema                                                                                               |
+| Interface | one shared `LocalStore` contract (§ARCHITECTURE)                     | same                                                                                                      |
 
 - **REQ-D50** Both platforms implement the same `LocalStore` interface so sync logic is platform-agnostic and shared.
 - **REQ-D51** Reads are stale-while-revalidate: serve last local snapshot immediately; revalidate from cloud only when paid + online.
@@ -112,7 +114,7 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 ## 6. Sync worker behavior (paid + online only)
 
-- **REQ-D60** Gate: the worker (queue drain **and** warm-up pull) starts only when `canUseCloudSync && signedIn`. A pure `shouldRunSyncWorker(tier, signedIn)` predicate is the single decision point, unit-tested. _(Today `SyncWorkerProvider` runs unconditionally — fix.)_
+- **REQ-D60** Gate: the worker (queue drain **and** warm-up pull) starts only when `canUseCloudSync && signedIn`. A pure `shouldRunSyncWorker(tier, signedIn)` predicate is the single decision point, unit-tested.
 - **REQ-D61** Drain is FIFO, single-flight, connectivity-guarded; stops on first transient failure (preserves order); retries with capped backoff; rows past the retry ceiling are marked failed and surfaced (REQ-D64), not silently dropped.
 - **REQ-D62** Replay is **idempotent**: every offline-enqueued mutation carries an idempotency key deduped by the server `idempotencyLedger`. No mutation may be enqueued offline unless it is idempotent.
 - **REQ-D63** Warm-up pull (`sync.listChangedSince`) seeds/updates local rows for **all** local-first entity types (not just builds/conventions — extend), using `updatedAt`/`version` deltas (not only `_creationTime` creates).

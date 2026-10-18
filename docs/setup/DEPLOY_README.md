@@ -1,204 +1,36 @@
-# Deployment Guide
+# Deployment preflight — operator runbook
 
-This guide covers deploying Kyarafit to various platforms.
+The current application is Next.js + Expo + Convex/Better Auth. The Go backend, Python
+image service, Supabase/Prisma setup, and multi-service Docker deployment described in older
+guides are retired from this code line. Their documentation survives in Git history, not as
+an executable deployment recipe. Do not run legacy `setup-gcp`, `deploy-all`, Supabase migration,
+or domain-setup scripts based on their filenames alone.
 
-## Prerequisites
+## Before any rollout
 
-- Docker and Docker Compose installed
-- Git repository with all code
-- Environment variables configured
-- Database migrations ready
+An authorized operator must record, without secrets or user data:
 
-## Local Development
+- The actual web/mobile/backend targets and the exact deployed backend revision/lineage.
+  `web/fly.toml` and historical hosting docs do not prove which host is live.
+- Whether the candidate preserves the live schema and populated legacy table definitions.
+  Never deploy an older main schema over a live feature-line deployment.
+- Required provider configuration, credential custody, rollback revision, and backup/migration
+  approval when a release changes persistent data. Repository deletion is not infrastructure retirement.
+- The candidate's completed CI and authorized dev-environment checks. A pushed branch or PR
+  alone is not evidence of a backend deployment or completed remediation.
 
-### Quick Start
+## Development verification
 
-```bash
-# Run the setup script
-./setup.sh
+Follow the [root README](../../README.md) for local setup, [CI_LOCAL.md](../../CI_LOCAL.md) for
+validation commands, and [testing strategy](../TESTING.md) for live E2E requirements. Use only
+an explicitly authorized development deployment and synthetic accounts; never production as a test target.
 
-# Start all services
-docker-compose up
-```
+Transactional mail uses [Resend's API](../integrations/RESEND_SETUP.md), not SMTP. Existing auth
+configuration is described in [auth.md](../auth.md); future auth changes must update it after
+integration, not pre-announce a transport that is not yet implemented.
 
-### Manual Setup
+## Separate operator decisions
 
-```bash
-# 1. Install dependencies
-cd web && npm install
-cd ../mobile && npm install
-cd ../backend && go mod tidy
-cd ../image-service && pip install -r requirements.txt
-
-# 2. Setup environment files
-cp web/env.example web/.env
-cp mobile/env.example mobile/.env
-cp backend/env.example backend/.env
-cp image-service/env.example image-service/.env
-
-# 3. Start database
-docker-compose up -d postgres
-
-# 4. Setup database schema
-cd web && npx prisma db push
-
-# 5. Start services
-docker-compose up
-```
-
-## Fly.io Deployment
-
-### Setup
-
-1. Install Fly CLI: `curl -L https://fly.io/install.sh | sh`
-2. Login: `flyctl auth login`
-3. Create apps: `flyctl apps create kyarafit-backend kyarafit-web kyarafit-image-service`
-
-### Deploy
-
-```bash
-# Deploy backend
-cd backend && flyctl deploy
-
-# Deploy web
-cd ../web && flyctl deploy
-
-# Deploy image service
-cd ../image-service && flyctl deploy
-```
-
-### Environment Variables
-
-Set these in Fly.io dashboard or via CLI:
-
-```bash
-flyctl secrets set DATABASE_URL="postgresql://..." -a kyarafit-backend
-flyctl secrets set JWT_SECRET="your-secret" -a kyarafit-backend
-flyctl secrets set BETTER_AUTH_SECRET="your-secret" -a kyarafit-web
-```
-
-## Render Deployment
-
-### Setup
-
-1. Connect your GitHub repository to Render
-2. Create a new Web Service
-3. Use the `render.yaml` configuration file
-
-### Services
-
-- **Database**: PostgreSQL (managed)
-- **Backend**: Docker service
-- **Web**: Docker service
-- **Image Service**: Docker service
-
-### Environment Variables
-
-Set these in Render dashboard:
-
-- `DATABASE_URL` (auto-generated from database)
-- `JWT_SECRET` (generate secure random string)
-- `BETTER_AUTH_SECRET` (generate secure random string)
-- `BETTER_AUTH_URL` (your web app URL)
-
-## Environment Variables
-
-### Required for All Services
-
-- `DATABASE_URL`: PostgreSQL connection string
-- `JWT_SECRET`: Secret for JWT token signing
-- `BETTER_AUTH_SECRET`: Secret for BetterAuth
-
-### Backend Specific
-
-- `PORT`: Server port (default: 8080)
-- `HOST`: Server host (default: 0.0.0.0)
-- `IMAGE_SERVICE_URL`: URL to image processing service
-
-### Web Specific
-
-- `NEXT_PUBLIC_API_URL`: Backend API URL
-- `NEXT_PUBLIC_IMAGE_SERVICE_URL`: Image service URL
-- `NEXT_PUBLIC_APP_URL`: Web app URL
-
-### Image Service Specific
-
-- `HOST`: Server host (default: 0.0.0.0)
-- `PORT`: Server port (default: 8001)
-- `UPLOAD_DIR`: Directory for uploads
-- `PROCESSED_DIR`: Directory for processed images
-
-## Database Setup
-
-### Local Development
-
-```bash
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Run migrations
-cd web && npx prisma db push
-```
-
-### Production
-
-1. Create managed PostgreSQL database
-2. Set `DATABASE_URL` environment variable
-3. Run migrations on first deploy
-
-## Monitoring
-
-### Health Checks
-
-- Backend: `GET /health`
-- Image Service: `GET /health`
-- Web: `GET /`
-
-### Logs
-
-- Fly.io: `flyctl logs -a <app-name>`
-- Render: Available in dashboard
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection**: Check `DATABASE_URL` format
-2. **JWT Errors**: Verify `JWT_SECRET` matches across services
-3. **CORS Issues**: Check allowed origins in backend
-4. **Build Failures**: Ensure all dependencies are installed
-
-### Debug Commands
-
-```bash
-# Check service status
-docker-compose ps
-
-# View logs
-docker-compose logs <service-name>
-
-# Test database connection
-docker-compose exec postgres psql -U kyarafit -d kyarafit -c "SELECT 1;"
-```
-
-## Security Considerations
-
-1. **Environment Variables**: Never commit `.env` files
-2. **JWT Secrets**: Use strong, unique secrets
-3. **Database**: Use connection pooling in production
-4. **HTTPS**: Always use HTTPS in production
-5. **CORS**: Configure allowed origins properly
-
-## Scaling
-
-### Horizontal Scaling
-
-- Use load balancers for multiple instances
-- Implement database connection pooling
-- Use Redis for session storage
-
-### Vertical Scaling
-
-- Increase memory/CPU for services
-- Optimize database queries
-- Use CDN for static assets
+Deployment, DNS/provider changes, signing-key provisioning, credential rotation, infrastructure
+retirement, destructive migration, and app-store publication require their own owner approval.
+No command in a documentation cleanup or validation run grants that approval.

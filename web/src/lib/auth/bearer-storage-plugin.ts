@@ -48,26 +48,27 @@ function toHeaders(input: unknown): Headers {
   return headers;
 }
 
-export const bearerStoragePlugin = (): BetterAuthClientPlugin => ({
-  id: "bearer-storage",
-  fetchPlugins: [
-    {
-      id: "bearer-storage-fetch",
-      name: "BearerStorage",
-      async init(url, options) {
-        if (url.includes("/sign-out")) {
-          setStoredBearerToken(null);
-        }
-        const token = getStoredBearerToken();
-        const headers = toHeaders(options?.headers);
-        if (token) {
-          headers.set("Authorization", `Bearer ${token}`);
-        }
-        return {
-          url,
-          options: { ...options, headers },
-        };
+export const bearerStoragePlugin = () =>
+  ({
+    id: "bearer-storage",
+    fetchPlugins: [
+      {
+        id: "bearer-storage-fetch",
+        name: "BearerStorage",
+        async init(url, options) {
+          if (url.includes("/sign-out")) {
+            setStoredBearerToken(null);
+          }
+          const token = getStoredBearerToken();
+          const headers = toHeaders(options?.headers);
+          if (token) {
+            headers.set("Authorization", `Bearer ${token}`);
+          }
+          return {
+            url,
+            options: { ...options, headers },
+          };
+        },
       },
-    },
-  ],
-});
+    ],
+  }) satisfies BetterAuthClientPlugin;

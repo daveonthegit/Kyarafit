@@ -10,7 +10,7 @@ Kyarafit uses **RevenueCat** for mobile in-app purchases. Convex stores the cano
 | `PRO`               | `pro`                                   | `premium_basic`                 |
 | `STUDIO`            | `studio`                                | `premium_pro`                   |
 
-Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single source for Convex, web, and mobile). Commercial plan packaging, prices, product IDs, and customer-facing copy are defined in `design-system/domain/subscriptionPlans.ts` and summarized in [SUBSCRIPTION_PLANS.md](./SUBSCRIPTION_PLANS.md).
+Policy is defined in `design-system/domain/subscriptionTierPolicy.ts` (single source for Convex, web, and mobile). Commercial plan packaging, prices, product IDs, and customer-facing copy are defined in `design-system/domain/subscriptionPlans.ts` and summarized in [SUBSCRIPTION_PLANS.md](../PRODUCT_SPEC.md).
 
 **Storage enforcement (MB):** Free 50, Pro 500, Studio unlimited (`-1` in API responses). Build limits are Free 25, Pro 200, Studio unlimited.
 
@@ -33,10 +33,10 @@ The mobile app should call `Purchases.logIn(appUserId)` with the same id Convex 
 
 ### Convex environment variables
 
-| Variable                           | Purpose                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------ |
-| `REVENUECAT_SECRET_API_KEY`        | Secret API key; used to call `GET /v1/subscribers/{app_user_id}` after each webhook. |
-| `REVENUECAT_WEBHOOK_AUTHORIZATION` | Optional. If set, `Authorization` must be `Bearer <value>` or exactly `<value>`.     |
+| Variable                           | Purpose                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REVENUECAT_SECRET_API_KEY`        | Secret API key; used to call `GET /v1/subscribers/{app_user_id}` after each webhook.                                                        |
+| `REVENUECAT_WEBHOOK_AUTHORIZATION` | **Required.** `Authorization` must be `Bearer <value>` or exactly `<value>`; the webhook fails closed with 401 when this variable is unset. |
 
 If `REVENUECAT_SECRET_API_KEY` is missing, the handler returns 200 and skips tier sync (logged).
 

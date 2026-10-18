@@ -4,14 +4,7 @@ import { plannerTaskScopeKey } from "@kyarafit/design-system/domain";
 import { usePlannerTaskMove, type PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
 import { promoteWorkflowTaskToRoot, type WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  type GestureResponderEvent,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -315,7 +308,10 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
     const dated = candidates.filter((task) => task.dueDate).sort(byDue);
     return dated[0]?.buildId ?? null;
   }, [loaded.tasks]);
-  const urgentBuild = useOfflineQuery(api.builds.get, urgentBuildId ? { id: urgentBuildId } : "skip");
+  const urgentBuild = useOfflineQuery(
+    api.builds.get,
+    urgentBuildId ? { id: urgentBuildId } : "skip"
+  );
 
   const filteredTasks = useMemo(
     () => filterByTimeframe(loaded.tasks, timeframe),
@@ -1492,7 +1488,11 @@ function PlannerTaskExplorerRow({
     >
       {contextMeta ?? null}
       {dueMeta ? (
-        <Text style={{ color: (overdueShown || dueToday) && !done ? glass.text.danger : glass.text.fg55 }}>
+        <Text
+          style={{
+            color: (overdueShown || dueToday) && !done ? glass.text.danger : glass.text.fg55,
+          }}
+        >
           {contextMeta ? " · " : ""}
           {dueMeta}
         </Text>
@@ -1586,9 +1586,7 @@ function PlannerTaskExplorerRow({
         >
           {task.title}
         </Text>
-        <View
-          style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
           {metaText}
           {task.blockedByCount ? (
             <GlassStatusChip

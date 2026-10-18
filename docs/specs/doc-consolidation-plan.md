@@ -1,8 +1,12 @@
 # Documentation Consolidation Plan
 
-_Created for the app refactor (spec-driven restart). This plan governs the move from ~90 scattered
-docs to a small, AI-friendly source-of-truth set. **Decision: delete superseded docs** (greenfield
-project, git history preserves them) and replace with the consolidated set below._
+_Historical consolidation plan, retained for provenance. The canonical set below exists;
+this is not current authority for a greenfield restart or blanket deletions. Superseded operational
+paths now point to deployment preflight/Resend guides, and the duplicate root redesign package
+points to `docs/redesign/`. Original content remains in Git history. Legal policies, ADR decisions,
+and machine-managed instruction blocks are preserved. See [current status](../ROADMAP.md).
+The contradictions listed below record the old spec decision, not current implementation or
+later accepted entitlement/storage changes._
 
 ## 1. Target structure (source of truth)
 

@@ -55,7 +55,6 @@ export function BuildNodeManagerSection({
   const {
     selected,
     selectedPath,
-    setSelectedPath,
     selectedDetail,
     persistStatus,
     inspectorForm,

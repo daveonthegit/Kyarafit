@@ -100,10 +100,7 @@ function ItineraryBody({ conventions, builds }: Ready) {
       {/* No photo — falls back to the studio wall. */}
       <PhotoBackdrop scrim="off" kenBurns={false} />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}
-      >
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}>
         <View style={{ paddingHorizontal: 22 }}>
           <Text style={metaTextStyle(9, 0.26, glass.text.fg70)}>{t("nav.events")}</Text>
           <Text

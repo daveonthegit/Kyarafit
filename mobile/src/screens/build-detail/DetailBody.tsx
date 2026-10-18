@@ -748,7 +748,12 @@ export function BuildDetailBody(props: Props) {
     </View>
   );
 
-  const menuItemStyle = { minHeight: 44, justifyContent: "center" as const, borderRadius: 10, paddingHorizontal: 14 };
+  const menuItemStyle = {
+    minHeight: 44,
+    justifyContent: "center" as const,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+  };
 
   const imageRail = (
     title: string,
@@ -1070,11 +1075,7 @@ export function BuildDetailBody(props: Props) {
 
   return (
     <View ref={rootViewRef} onLayout={updateRootFrame} style={{ flex: 1 }}>
-      <PhotoBackdrop
-        imageUrl={heroUri}
-        focalX={build.imageFocalX}
-        focalY={build.imageFocalY}
-      />
+      <PhotoBackdrop imageUrl={heroUri} focalX={build.imageFocalX} focalY={build.imageFocalY} />
 
       {headlineBlock}
 
@@ -1219,7 +1220,9 @@ export function BuildDetailBody(props: Props) {
         <GlassPanel style={{ flex: 1 }}>
           {tab === "summary" ? (
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 18, padding: 14 }}>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <View
+                style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}
+              >
                 <GlassStatusChip tone={buildStatusTone(build.status)} label={build.status} />
                 {summary ? (
                   <GlassStatusChip
@@ -1261,10 +1264,7 @@ export function BuildDetailBody(props: Props) {
                 </View>
               ) : null}
 
-              <GlassSolidButton
-                label={t("buildDetail.linkElements")}
-                onPress={openLinkElements}
-              />
+              <GlassSolidButton label={t("buildDetail.linkElements")} onPress={openLinkElements} />
 
               {imageRail(
                 t("buildDetail.referenceImages"),
@@ -1799,7 +1799,14 @@ export function BuildDetailBody(props: Props) {
       <Pressable
         style={
           quickCreateOpen
-            ? { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: glass.scrimDim }
+            ? {
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                backgroundColor: glass.scrimDim,
+              }
             : { display: "none" }
         }
         onPress={() => {

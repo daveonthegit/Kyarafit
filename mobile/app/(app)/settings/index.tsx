@@ -1,49 +1,79 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import * as Linking from "expo-linking";
-import { Link, Stack, type Href } from "expo-router";
+import { Link, useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
+import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
+import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
+import { isPaidTier, normalizeTier } from "@kyarafit/design-system/domain/entitlements";
 import { setAppLocale, SUPPORTED_LOCALES, type AppLocale } from "@/i18n";
 import { APP_HREF } from "@/lib/appRoutes";
 import { openWebAppPath } from "@/lib/openWebAppPath";
-import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { signOut } from "@/lib/auth/client";
 import { useTier } from "@/lib/useTier";
-import { useTheme, type ThemePreference } from "@/theme/ThemeProvider";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { useTheme } from "@/theme/ThemeProvider";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { DataBoundary } from "@/ui";
+import { GlassSheet, PhotoPill } from "@/ui/glass";
+import {
+  SettingsGlassFrame,
+  SettingsGlassLabel,
+  SettingsGlassSection,
+  settingsGlassStyles as styles,
+} from "@/screens/settings/glassSettings";
 
 const SETTINGS_LINKS = [
   { key: "accountDetails", href: APP_HREF.settingsAccount, icon: "person-circle-outline" },
   { key: "subscriptionPlan", href: APP_HREF.settingsSubscription, icon: "card-outline" },
   { key: "notificationStyle", href: APP_HREF.settingsNotifications, icon: "notifications-outline" },
-] as const;
-
-const DEV_LINKS = [
-  { key: "devGallery", href: APP_HREF.settingsDevGallery, icon: "color-wand-outline" },
+  { key: "dataPortability", href: APP_HREF.settingsData, icon: "download-outline" },
+  { key: "offlineCapability", href: APP_HREF.settingsOffline, icon: "cloud-offline-outline" },
 ] as const;
 
 export default function SettingsIndexScreen() {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tier, isLoading: tierLoading } = useTier(userId);
   const { preference, setPreference } = useTheme();
-  const { colors, spacing } = useDesignTheme();
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const signOutInFlight = useRef(false);
   const [languageBusy, setLanguageBusy] = useState<string | null>(null);
+  const canUseCloudSync = shouldRunSyncWorker(tier?.tier ?? null, Boolean(userId));
+  // Unknown/free tiers receive the conservative export warning, never an assurance of cloud backup.
+  const warnBeforeSignOut = !isPaidTier(normalizeTier(tier?.tier));
 
   const handleSignOut = useCallback(async () => {
+    if (signOutInFlight.current) return;
+    signOutInFlight.current = true;
     setSigningOut(true);
     try {
       await signOut();
+      setSignOutOpen(false);
+    } catch {
+      Alert.alert(
+        t("common.errorTitle"),
+        t("settings.signOutError", { defaultValue: "Could not sign out. Please try again." })
+      );
     } finally {
+      signOutInFlight.current = false;
       setSigningOut(false);
     }
-  }, []);
+  }, [t]);
 
   const handleSetLanguage = useCallback(async (next: AppLocale) => {
     setLanguageBusy(next);
@@ -54,243 +84,272 @@ export default function SettingsIndexScreen() {
     }
   }, []);
 
-  const status = identity === undefined ? "loading" : "ready";
-  const data = { ready: true as const };
-
   return (
-    <>
-      <Stack.Screen options={{ title: t("settings.title"), headerLargeTitle: false }} />
-      <DataBoundary status={status} data={data}>
+    <SettingsGlassFrame eyebrow={t("settings.systemPreferences")} title={t("settings.title")}>
+      <DataBoundary
+        status={identity === undefined ? "loading" : "ready"}
+        data={{ ready: true as const }}
+      >
         {() => (
-          <ScrollView
-            className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-            contentContainerStyle={{ paddingBottom: spacing[10] }}
-          >
-            <View className="px-5 pb-2 pt-4">
-              <SectionHeading
-                eyebrow={t("settings.systemPreferences")}
-                title={t("settings.title")}
-              />
-              <Text className="mt-3 max-w-[320px] text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("settings.subtitle")}
+          <>
+            <SettingsGlassSection label={t("settings.backupStorage")}>
+              <Text style={styles.value}>
+                {t(`settings.tierName.${normalizeTier(tier?.tier).toUpperCase()}`)}
               </Text>
-            </View>
-
-            <View className="mt-4 gap-4 px-5">
-              <SurfaceCard className="px-4 py-4">
-                <MetaLabel>{t("settings.backupStorage")}</MetaLabel>
-                <Text className="mt-2 font-serif text-2xl italic text-kyar-text dark:text-kyar-dark-text">
-                  {tier?.tier ?? "FREE"}
-                </Text>
-                {tierLoading ? (
-                  <View className="mt-4 flex-row items-center gap-3">
-                    <ActivityIndicator color={colors.text} />
-                    <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {t("common.loading")}
-                    </Text>
-                  </View>
-                ) : tier ? (
-                  <View className="mt-4">
-                    <Text className="text-sm text-kyar-text dark:text-kyar-dark-text">
-                      {tier.storageLimitMb >= 0
-                        ? t("settings.storageOf", {
-                            used: formatStorageMb(tier.currentUsageMb),
-                            limit: formatStorageMb(tier.storageLimitMb),
-                          })
-                        : t("settings.storageUsedUnlimited", {
-                            used: formatStorageMb(tier.currentUsageMb),
-                          })}
-                    </Text>
-                    {tier.storageLimitMb > 0 ? (
-                      <View className="mt-3 h-2 overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
-                        <View
-                          className="h-full rounded-full bg-kyar-text dark:bg-kyar-dark-text"
-                          style={{
-                            width: `${Math.min(100, Math.max(6, (tier.currentUsageMb / tier.storageLimitMb) * 100))}%`,
-                          }}
-                        />
-                      </View>
-                    ) : null}
-                  </View>
-                ) : (
-                  <Text className="mt-3 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                    {t("settings.signInStorageHint")}
+              {tierLoading ? (
+                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                  <ActivityIndicator color={glass.text.fg} />
+                  <Text style={styles.body}>{t("common.loading")}</Text>
+                </View>
+              ) : tier ? (
+                <>
+                  <Text style={styles.body}>
+                    {tier.storageLimitMb >= 0
+                      ? t("settings.storageOf", {
+                          used: formatStorageMb(tier.currentUsageMb),
+                          limit: formatStorageMb(tier.storageLimitMb),
+                        })
+                      : t("settings.storageUsedUnlimited", {
+                          used: formatStorageMb(tier.currentUsageMb),
+                        })}
                   </Text>
-                )}
-              </SurfaceCard>
-
-              <SurfaceCard className="px-4 py-4">
-                <MetaLabel>{t("settings.profileIdentity")}</MetaLabel>
-
-                <View className="mt-4 border-b border-kyar-borderSubtle pb-5 dark:border-kyar-dark-borderSubtle">
-                  <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
-                    {t("settings.theme")}
-                  </Text>
-                  <View className="mt-3 flex-row flex-wrap gap-2">
-                    {(
-                      [
-                        ["system", t("settings.themeSystem")],
-                        ["light", t("settings.themeLight")],
-                        ["dark", t("settings.themeDark")],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <ChipButton
-                        key={value}
-                        label={label}
-                        active={preference === value}
-                        busyColor={colors.bg}
-                        onPress={() => void setPreference(value as ThemePreference)}
+                  {tier.storageLimitMb > 0 ? (
+                    <View style={{ height: 3, backgroundColor: glass.border.divider }}>
+                      <View
+                        style={{
+                          height: 3,
+                          backgroundColor: glass.text.fg70,
+                          width: `${Math.min(100, Math.max(6, (tier.currentUsageMb / tier.storageLimitMb) * 100))}%`,
+                        }}
                       />
-                    ))}
-                  </View>
-                </View>
+                    </View>
+                  ) : null}
+                  {!canUseCloudSync ? (
+                    <View
+                      style={{
+                        borderTopWidth: borderWidth.hairline,
+                        borderTopColor: glass.border.divider,
+                        paddingTop: 16,
+                        gap: 8,
+                      }}
+                    >
+                      <Text style={styles.body}>
+                        {t("settings.cloudBackupUpgrade", {
+                          defaultValue: "Upgrade for automatic cloud sync and backup.",
+                        })}
+                      </Text>
+                      <Link href={APP_HREF.settingsSubscription} asChild>
+                        <PhotoPill variant="text" label={t("settings.subscriptionPlan")} />
+                      </Link>
+                    </View>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.body}>{t("settings.signInStorageHint")}</Text>
+              )}
+            </SettingsGlassSection>
 
-                <View className="pt-5">
-                  <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
-                    {t("settings.language")}
-                  </Text>
-                  <View className="mt-3 flex-row flex-wrap gap-2">
-                    {SUPPORTED_LOCALES.map((locale) => (
-                      <ChipButton
-                        key={locale}
-                        label={locale.toUpperCase()}
-                        active={i18n.language === locale}
-                        loading={languageBusy === locale}
-                        busyColor={colors.bg}
-                        onPress={() => void handleSetLanguage(locale)}
-                      />
-                    ))}
-                  </View>
-                </View>
-              </SurfaceCard>
-
-              <SurfaceCard className="overflow-hidden">
-                <View className="px-4 pb-2 pt-4">
-                  <MetaLabel>{t("settings.quickLinks")}</MetaLabel>
-                </View>
-                {SETTINGS_LINKS.map((item, index) => (
+            <SettingsGlassSection label={t("settings.profileIdentity")}>
+              <SettingsGlassLabel>{t("settings.appearance")}</SettingsGlassLabel>
+              <ScrollView
+                horizontal
+                accessibilityRole="radiogroup"
+                accessibilityLabel={t("settings.appearance")}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {(
+                  [
+                    ["system", t("settings.themeSystem")],
+                    ["light", t("settings.themeLight")],
+                    ["dark", t("settings.themeDark")],
+                  ] as const
+                ).map(([value, label]) => (
+                  <ChipButton
+                    key={value}
+                    label={label}
+                    active={preference === value}
+                    onPress={() => void setPreference(value)}
+                  />
+                ))}
+              </ScrollView>
+              <View style={{ marginTop: 8, gap: 12 }}>
+                <SettingsGlassLabel>{t("settings.language")}</SettingsGlassLabel>
+                <ScrollView
+                  horizontal
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel={t("settings.language")}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8 }}
+                >
+                  {SUPPORTED_LOCALES.map((locale) => (
+                    <ChipButton
+                      key={locale}
+                      label={locale.toUpperCase()}
+                      active={i18n.language.split("-")[0] === locale}
+                      loading={languageBusy === locale}
+                      disabled={languageBusy !== null}
+                      onPress={() => void handleSetLanguage(locale)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={{ marginTop: 8 }}>
+                {SETTINGS_LINKS.map((item) => (
                   <SettingsRow
                     key={item.key}
                     icon={item.icon}
                     title={t(`settings.${item.key}`)}
-                    subtitle={t("settings.opensInApp")}
-                    onPress={() => undefined}
                     href={item.href}
-                    iconColor={colors.text}
-                    metaColor={colors.meta}
-                    showBorder={index < SETTINGS_LINKS.length - 1}
                   />
                 ))}
-              </SurfaceCard>
+              </View>
+            </SettingsGlassSection>
 
-              <SurfaceCard className="px-4 py-4">
-                <MetaLabel>{t("settings.legalAndPolicies")}</MetaLabel>
-                <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {t("settings.legalAndPoliciesSubtitle")}
-                </Text>
-                <View className="mt-4 gap-3">
-                  <Pressable
-                    onPress={() => void openWebAppPath("/terms", t)}
-                    className="min-h-[44px] justify-center active:opacity-80"
-                    accessibilityRole="link"
-                    accessibilityLabel={t("settings.accountPage.termsOfService")}
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.termsOfService")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => void openWebAppPath("/privacy", t)}
-                    className="min-h-[44px] justify-center active:opacity-80"
-                    accessibilityRole="link"
-                    accessibilityLabel={t("settings.accountPage.privacyPolicy")}
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.privacyPolicy")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() =>
-                      void Linking.openURL(
-                        "mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
-                      )
-                    }
-                    className="min-h-[44px] justify-center active:opacity-80"
-                    accessibilityRole="link"
-                    accessibilityLabel={t("settings.accountPage.securitySupport")}
-                  >
-                    <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                      {t("settings.accountPage.securitySupport")}
-                    </Text>
-                  </Pressable>
-                </View>
-              </SurfaceCard>
+            <SettingsGlassSection label={t("settings.legalAndPolicies")}>
+              <Text style={styles.body}>{t("settings.legalAndPoliciesSubtitle")}</Text>
+              <PhotoPill
+                variant="text"
+                accessibilityRole="link"
+                label={t("settings.accountPage.termsOfService")}
+                onPress={() => void openWebAppPath("/terms", t)}
+              />
+              <PhotoPill
+                variant="text"
+                accessibilityRole="link"
+                label={t("settings.accountPage.privacyPolicy")}
+                onPress={() => void openWebAppPath("/privacy", t)}
+              />
+              <PhotoPill
+                variant="text"
+                accessibilityRole="link"
+                label={t("settings.accountPage.securitySupport")}
+                onPress={() =>
+                  void Linking.openURL(
+                    "mailto:kyarafit@kyarafit.com?subject=Kyarafit%20privacy%20request"
+                  )
+                }
+              />
+            </SettingsGlassSection>
 
-              <SurfaceCard className="overflow-hidden">
-                <View className="px-4 pb-2 pt-4">
-                  <MetaLabel>{t("settings.offlineSectionEyebrow")}</MetaLabel>
-                </View>
+            {__DEV__ ? (
+              <SettingsGlassSection label={t("settings.devLabs")}>
                 <SettingsRow
-                  icon="cloud-offline-outline"
-                  title={t("settings.offlineCapability")}
-                  subtitle={t("settings.offlineCapabilitySubtitle")}
-                  onPress={() => undefined}
-                  href={APP_HREF.settingsOffline}
-                  iconColor={colors.text}
-                  metaColor={colors.meta}
-                  showBorder
+                  icon="color-wand-outline"
+                  title={t("settings.devGallery")}
+                  href={APP_HREF.settingsDevGallery}
                 />
-                <SettingsRow
-                  icon="download-outline"
-                  title={t("settings.dataPortability")}
-                  subtitle={t("settings.dataPortabilitySubtitle")}
-                  onPress={() => undefined}
-                  href={APP_HREF.settingsData}
-                  iconColor={colors.text}
-                  metaColor={colors.meta}
-                  showBorder={false}
-                />
-              </SurfaceCard>
+              </SettingsGlassSection>
+            ) : null}
 
-              {__DEV__ && (
-                <SurfaceCard className="overflow-hidden">
-                  <View className="px-4 pb-2 pt-4">
-                    <MetaLabel>{t("settings.devLabs")}</MetaLabel>
-                  </View>
-                  {DEV_LINKS.map((item, index) => (
-                    <SettingsRow
-                      key={item.key}
-                      icon={item.icon}
-                      title={t(`settings.${item.key}`)}
-                      subtitle={t(`settings.${item.key}Subtitle`)}
-                      onPress={() => undefined}
-                      href={item.href}
-                      iconColor={colors.text}
-                      metaColor={colors.meta}
-                      showBorder={index < DEV_LINKS.length - 1}
-                    />
-                  ))}
-                </SurfaceCard>
-              )}
-
-              <Pressable
-                className="min-h-[52px] items-center justify-center rounded-full border border-kyar-danger/30 bg-kyar-surface px-5 active:opacity-90 dark:bg-kyar-dark-surface"
-                onPress={() => void handleSignOut()}
-                disabled={signingOut}
-              >
-                {signingOut ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <Text className="text-sm font-semibold text-kyar-danger dark:text-kyar-dark-danger">
-                    {t("common.signOut")}
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </ScrollView>
+            <SettingsGlassSection>
+              <SignOutAction
+                label={t("common.signOut")}
+                disabled={signingOut || tierLoading}
+                onPress={() => setSignOutOpen(true)}
+              />
+            </SettingsGlassSection>
+          </>
         )}
       </DataBoundary>
-    </>
+      <GlassSheet
+        open={signOutOpen}
+        closeLabel={t("common.cancel")}
+        onClose={() => {
+          if (!signingOut) setSignOutOpen(false);
+        }}
+      >
+        <View accessibilityViewIsModal style={{ padding: 22, gap: 18 }}>
+          <Text accessibilityRole="header" style={styles.value}>
+            {t("settings.signOutConfirmTitle", { defaultValue: "Sign out of Kyarafit?" })}
+          </Text>
+          <Text style={styles.body}>
+            {warnBeforeSignOut
+              ? t("settings.signOutExportWarning", {
+                  defaultValue:
+                    "Your data stays on this device. Export it before signing out: another account signing in on this device may replace it.",
+                })
+              : t("settings.signOutConfirmBody", {
+                  defaultValue:
+                    "Your local data stays on this device. Are you sure you want to sign out?",
+                })}
+          </Text>
+          {warnBeforeSignOut ? (
+            <PhotoPill
+              label={t("settings.dataExportButton")}
+              disabled={signingOut}
+              onPress={() => {
+                setSignOutOpen(false);
+                router.push(APP_HREF.settingsData);
+              }}
+            />
+          ) : null}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            <PhotoPill
+              variant="outline"
+              label={t("common.cancel")}
+              disabled={signingOut}
+              onPress={() => setSignOutOpen(false)}
+            />
+            <SignOutAction
+              label={t("common.signOut")}
+              disabled={signingOut}
+              onPress={() => void handleSignOut()}
+            />
+            {signingOut ? (
+              <ActivityIndicator accessibilityLabel={t("common.loading")} color={glass.text.fg} />
+            ) : null}
+          </View>
+        </View>
+      </GlassSheet>
+    </SettingsGlassFrame>
+  );
+}
+
+function SignOutAction({
+  label,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      className="active:opacity-80"
+      style={{
+        minHeight: 44,
+        alignSelf: "flex-start",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 22,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: glass.text.danger,
+        backgroundColor: glass.surface.bar,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <Ionicons name="log-out-outline" size={15} color={glass.text.danger} />
+      <Text
+        style={{
+          color: glass.text.danger,
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 10,
+          letterSpacing: ls(0.16, 10),
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -299,32 +358,45 @@ function ChipButton({
   active,
   onPress,
   loading,
-  busyColor,
+  disabled,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   loading?: boolean;
-  busyColor: string;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
-      className={`min-h-[44px] min-w-[76px] items-center justify-center rounded-full border px-4 ${
-        active
-          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: active, disabled: Boolean(disabled), busy: Boolean(loading) }}
+      className="active:opacity-80"
+      disabled={disabled}
       onPress={onPress}
+      style={{
+        minHeight: 44,
+        minWidth: 76,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: active ? glass.surface.solid : glass.border.strong,
+        backgroundColor: active ? glass.surface.solid : glass.surface.bar,
+        paddingHorizontal: 16,
+      }}
     >
       {loading ? (
-        <ActivityIndicator color={active ? busyColor : undefined} />
+        <ActivityIndicator color={active ? glass.text.ink : glass.text.fg} />
       ) : (
         <Text
-          className={`text-xs font-semibold uppercase tracking-wide ${
-            active
-              ? "text-kyar-bg dark:text-kyar-dark-bg"
-              : "text-kyar-text dark:text-kyar-dark-text"
-          }`}
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 10,
+            letterSpacing: ls(0.16, 10),
+            textTransform: "uppercase",
+            color: active ? glass.text.ink : glass.text.fg70,
+          }}
         >
           {label}
         </Text>
@@ -336,61 +408,32 @@ function ChipButton({
 function SettingsRow({
   icon,
   title,
-  subtitle,
-  onPress,
-  loading,
-  showBorder,
   href,
-  iconColor,
-  metaColor,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  subtitle: string;
-  onPress: () => void;
-  loading?: boolean;
-  showBorder?: boolean;
-  href?: Href;
-  iconColor: string;
-  metaColor: string;
+  href: Href;
 }) {
-  const content = (
-    <>
-      <View className="h-11 w-11 items-center justify-center rounded-full bg-kyar-muted dark:bg-kyar-dark-muted">
-        <Ionicons name={icon} size={20} color={iconColor} />
-      </View>
-      <View className="min-w-0 flex-1">
-        <Text className="text-sm font-medium text-kyar-text dark:text-kyar-dark-text">{title}</Text>
-        <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {subtitle}
-        </Text>
-      </View>
-      {loading ? (
-        <ActivityIndicator color={iconColor} />
-      ) : (
-        <Ionicons name="chevron-forward" size={18} color={metaColor} />
-      )}
-    </>
+  return (
+    <Link href={href} asChild>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={title}
+        className="active:opacity-80"
+        style={StyleSheet.flatten({
+          minHeight: 52,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          paddingVertical: 12,
+          borderBottomWidth: borderWidth.hairline,
+          borderBottomColor: glass.border.divider,
+        })}
+      >
+        <Ionicons name={icon} size={18} color={glass.text.fg70} />
+        <Text style={[styles.body, { flex: 1, color: glass.text.fg }]}>{title}</Text>
+        <Ionicons name="chevron-forward" size={16} color={glass.text.fg70} />
+      </Pressable>
+    </Link>
   );
-
-  const row = (
-    <Pressable
-      className={`flex-row items-center gap-3 px-4 py-3 active:bg-kyar-muted/60 dark:active:bg-kyar-dark-muted/60 ${
-        showBorder ? "border-b border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle" : ""
-      }`}
-      onPress={onPress}
-    >
-      {content}
-    </Pressable>
-  );
-
-  if (href) {
-    return (
-      <Link href={href as never} asChild>
-        {row}
-      </Link>
-    );
-  }
-
-  return row;
 }

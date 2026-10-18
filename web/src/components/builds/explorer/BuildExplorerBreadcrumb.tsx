@@ -1,6 +1,6 @@
 "use client";
 
-import type { NodeSelectionMeta, PathSegment } from "./types";
+import type { PathSegment } from "./types";
 
 type BuildExplorerBreadcrumbProps = {
   buildName: string;

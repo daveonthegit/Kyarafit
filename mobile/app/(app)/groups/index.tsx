@@ -107,10 +107,7 @@ export default function GroupsIndexScreen() {
                     {featuredMembers.length > 0 ? (
                       <View style={{ flexDirection: "row" }}>
                         {featuredMembers.slice(0, 5).map((member, index) => (
-                          <View
-                            key={member.userId}
-                            style={{ marginLeft: index === 0 ? 0 : -8 }}
-                          >
+                          <View key={member.userId} style={{ marginLeft: index === 0 ? 0 : -8 }}>
                             <ProfileAvatar
                               imageStorageId={member.imageStorageId}
                               imageUrl={member.image}
@@ -234,9 +231,7 @@ export default function GroupsIndexScreen() {
                             borderRadius: 10,
                             overflow: "hidden",
                             borderWidth: isFeatured ? 1.5 : borderWidth.hairline,
-                            borderColor: isFeatured
-                              ? glass.border.strong
-                              : glass.border.divider,
+                            borderColor: isFeatured ? glass.border.strong : glass.border.divider,
                             backgroundColor: glass.surface.active,
                           }}
                         >

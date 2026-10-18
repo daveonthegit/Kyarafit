@@ -35,6 +35,13 @@
       "expo-router",
       "expo-apple-authentication",
       [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": false
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "ios": {
@@ -54,6 +61,7 @@
       "policy": "appVersion"
     },
     "updates": {
+      "enabled": false,
       "url": "https://u.expo.dev/ee198618-96ee-4330-9c3d-cefd43f6b68a",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,

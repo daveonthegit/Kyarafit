@@ -33,7 +33,7 @@ Backend is **Convex** only. Go code in `backend-archived/` is not used. Follow t
 ## Data access
 
 - All data access via `ctx.db` (get, query, insert, patch, delete). Use indexes from schema (e.g. `by_userId`, `by_buildId`).
-- **Ownership:** Every table has `userId`; in every handler that writes or reads user-scoped data, resolve identity and enforce: `const identity = await ctx.auth.getUserIdentity(); if (!identity) throw new Error("Unauthorized");` then pass `identity.subject` (or equivalent) as `userId` and filter by it.
+- **Ownership:** Every owned table has `userId`; derive it from the session (`requireIdentity` / `optionalIdentity` in `convex/lib/authz.ts`) and filter by that value — never from an argument. See [docs/backend-authorization.md](../docs/backend-authorization.md).
 
 ## Schema and validation
 
@@ -48,12 +48,12 @@ Backend is **Convex** only. Go code in `backend-archived/` is not used. Follow t
 
 ## Authentication and authorization
 
-- **Identity:** `const identity = await ctx.auth.getUserIdentity();` in mutations/queries that require auth. Use `identity.subject` as the canonical userId (string) for Convex tables.
+- **Identity:** the acting user is always derived from the session, never from an argument: `await requireIdentity(ctx)` in mutations (throws "Unauthorized"), `await optionalIdentity(ctx)` in queries (returns `null`, so return the natural empty value). Both live in `convex/lib/authz.ts` and yield `identity.subject`, the canonical `userId` / `ownerId` / `externalId` string. [docs/backend-authorization.md](../docs/backend-authorization.md) owns this contract — which arguments are _not_ actor arguments, which endpoints are public by design, and the media rule — read it before adding or changing a public function.
 - **Auth config:** JWT from Better Auth in `convex/auth.config.ts`; HTTP routes in `convex/http.ts` with CORS and trusted origins (see security-patterns and docs/auth.md).
 
 ## Pagination / filtering
 
-- Use index filters: `.withIndex("by_userId", q => q.eq("userId", args.userId))`. For cursor pagination, use Convex pagination helpers if needed (e.g. `paginationOptsValidator` from convex/server).
+- Use index filters: `.withIndex("by_userId", q => q.eq("userId", actorId))`, where `actorId` came from the session. For cursor pagination, use Convex pagination helpers if needed (e.g. `paginationOptsValidator` from convex/server).
 - Current pattern: `.collect()` for small lists; add pagination when lists grow large.
 
 ## Logging and config
@@ -64,10 +64,11 @@ Backend is **Convex** only. Go code in `backend-archived/` is not used. Follow t
 ## Example: new resource end-to-end
 
 1. **Schema** — In `convex/schema.ts`, add table with userId and indexes.
-2. **Query** — e.g. `convex/myResource.ts`: `export const list = query({ args: { userId: v.string() }, handler: async (ctx, args) => { ... } });`
-3. **Mutation** — `export const create = mutation({ args: { userId: v.string(), name: v.string(), ... }, handler: async (ctx, args) => { const id = await ctx.db.insert("myResource", args); return await ctx.db.get(id); } });`
-4. **Auth** — In handler, optionally verify identity and that args.userId matches identity.subject for user-scoped resources.
-5. **Frontend** — Use `useQuery(api.myResource.list, { userId })` and `useMutation(api.myResource.create)` from web/mobile.
+2. **Query** — e.g. `convex/myResource.ts`: `export const list = query({ args: {}, handler: async (ctx) => { const userId = await optionalIdentity(ctx); if (!userId) return []; ... } });`
+3. **Mutation** — `export const create = mutation({ args: { name: v.string(), ... }, handler: async (ctx, args) => { const userId = await requireIdentity(ctx); const id = await ctx.db.insert("myResource", { ...args, userId }); return await ctx.db.get(id); } });`
+4. **Auth** — Never accept the acting user's id as an argument; only ids naming a _different_ user (a grantee, a follow target) are real input.
+5. **Frontend** — Use `useQuery(api.myResource.list, {})` and `useMutation(api.myResource.create)` from web/mobile.
+6. **Test** — Add the cross-tenant and unauthenticated cases to `convex/authz.test.ts` (`npm run test:convex`).
 
 ## Current reality vs recommended
 

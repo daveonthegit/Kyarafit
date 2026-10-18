@@ -3,7 +3,8 @@
 _Source of truth for **how we test**. The detailed requirement→test mapping is in
 [`specs/refactor-test-plan.md`](specs/refactor-test-plan.md). Tests verify the **spec**
 ([`PRODUCT_SPEC.md`](PRODUCT_SPEC.md) / [`DATA_AND_SYNC.md`](DATA_AND_SYNC.md)), not the current
-implementation._
+implementation. Historical requirement mappings can lag accepted entitlement/sync changes;
+coordinate their amendments with the owning implementation package._
 
 ---
 
@@ -19,16 +20,16 @@ implementation._
 
 ## 2. Test pyramid
 
-| Layer                 | Where                                                                | Runner                   | Covers                                                                                        |
-| --------------------- | -------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
-| Unit (pure domain)    | `design-system/domain` tested from `web/src/lib/**/*.test.ts`        | vitest                   | entitlements, sync gating, conflict merge, queue/backoff, overlays, validators, progress math |
-| Component             | `web/src/**/*.test.tsx`                                              | vitest + Testing Library | screens/components: states (empty/loading/error/offline), gating UI                           |
-| API / backend         | `convex/**` (convex-test or harness)                                 | vitest                   | auth scoping, idempotency, `listChangedSince`, ownership/authorization                        |
-| Integration (offline) | mobile harness (jest-expo) **or** pure simulation of the queue/store | jest/vitest              | offline create→drain→idempotent replay, id remap                                              |
-| A11y (web)            | `web/src/test/a11y.test.tsx`                                         | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
-| E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                                     | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
-| E2E (mobile, later)   | mobile (Detox / Maestro)                                             | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §11               |
-| Parity                | shared-logic assertions + mirrored component tests                   | vitest                   | web and mobile consume the same shared logic                                                  |
+| Layer                 | Where                                                         | Runner                   | Covers                                                                                        |
+| --------------------- | ------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Unit (pure domain)    | `design-system/domain` tested from `web/src/lib/**/*.test.ts` | vitest                   | entitlements, sync gating, conflict merge, queue/backoff, overlays, validators, progress math |
+| Component             | `web/src/**/*.test.tsx`                                       | vitest + Testing Library | screens/components: states (empty/loading/error/offline), gating UI                           |
+| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, `listChangedSince`, ownership/authorization                        |
+| Integration (offline) | mobile Vitest harness + pure queue/store simulations          | vitest                   | offline create→drain→idempotent replay, id remap                                              |
+| A11y (web)            | `web/src/test/a11y.test.tsx`                                  | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
+| E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                              | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
+| E2E (mobile, later)   | mobile (Detox / Maestro)                                      | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §11               |
+| Parity                | shared-logic assertions + mirrored component tests            | vitest                   | web and mobile consume the same shared logic                                                  |
 
 > **Decision (test home):** prioritize pure-domain vitest now (no new tooling); add a mobile
 > integration harness when runtime behavior (real SQLite, connectivity) must be exercised.
@@ -83,8 +84,11 @@ Avoid names describing implementation (`should_call_setServerId`).
 
 ## 7. CI gate
 
-`make validate` (format + i18n + lint + typecheck + build + tests) must pass. New behavior tests are
-part of the gate. See [repo `CI_LOCAL.md`].
+Run `npm run validate` plus explicit web/mobile tests and the standalone Convex typecheck.
+The npm gate runs format, i18n, all workspace lint, web/mobile types, backend tests, and web build;
+it does not include web/mobile unit tests. `make validate` includes all test suites but omits
+i18n and design-system lint. See [CI_LOCAL.md](../CI_LOCAL.md) for exact commands and handling
+pre-existing failures without blanket formatting churn.
 
 The web unit gate (`npm run test -w web`) includes the **accessibility tests** (§8) — they run in the
 normal vitest/jsdom suite, no extra step. The **Playwright E2E suite** (§9) is a separate, live-env
@@ -114,7 +118,8 @@ Notes:
 ## 9. E2E (web, Playwright)
 
 Harness lives in `web/`: `playwright.config.ts` + `web/e2e/*.spec.ts`. Playwright drives a **real
-running app** — it does not stub Convex or better-auth — so it needs a live target.
+running app** — it does not stub Convex or Better Auth — so use only an explicitly authorized
+**development** target and synthetic accounts, never production or real user data.
 
 ### Specs
 
@@ -149,7 +154,8 @@ E2E_WEBSERVER=1 npm run test:e2e -w web
 
 Env vars:
 
-- `E2E_BASE_URL` — target app URL (default `http://localhost:3000`; set to a preview URL to test deploys).
+- `E2E_BASE_URL` — authorized development app URL (default `http://localhost:3000`; a preview
+  must also point at an authorized development backend).
 - `E2E_WEBSERVER=1` — auto-start `next dev` (opt-in; needs `NEXT_PUBLIC_CONVEX_URL`).
 - `E2E_USER_EMAIL` + `E2E_USER_PASSWORD` — a seeded, email-verified account for authed specs.
 - `E2E_STORAGE_STATE` — alternatively, a pre-authenticated Playwright storage-state file.
@@ -160,10 +166,17 @@ and config load.
 
 ### CI
 
-E2E is intentionally **not** wired into the default `web.yml` gate (no secrets / live Convex there).
-Add a manual/gated job (`workflow_dispatch`, or `if:` a secret is present) that provisions a Convex
-dev deployment + a seeded account, runs `npx playwright install --with-deps chromium`, then
-`npm run test:e2e -w web`. Keep it separate so it never blocks the unit gate.
+The manual workflow already exists: [web-e2e.yml](../.github/workflows/web-e2e.yml)
+(`workflow_dispatch`). It runs only when repository variable `E2E_ENABLED` is `true`; the job
+uses `E2E_CONVEX_URL`, `E2E_USER_EMAIL`, and `E2E_USER_PASSWORD` secrets. It installs browsers and
+starts the web dev server; it does **not** provision a Convex deployment or create fixture users.
+Prepare an authorized dev deployment and email-verified synthetic account before dispatch, with
+matching auth-site configuration. Missing auth/state gates still skip individual specs; a skipped
+paid/backfill or downgrade test is not a verified flow. The default web push/PR gate stays separate.
+
+Sample-data seeding is [development-only and opt-in](runbooks/development-seed.md). Its basic
+sample is not a paid/backfill/downgrade fixture; prepare those states explicitly in the authorized
+dev environment rather than claiming `/dev/seed` establishes them.
 
 ## 10. Performance budgets (plan)
 
@@ -223,5 +236,5 @@ downgraded user (`downgradedAt` set). Reuse the same seeding approach documented
 ## 12. Follow-ups
 
 - **`@axe-core/playwright`**: real-browser a11y scans (incl. color-contrast) layered onto the E2E specs.
-- Wire the perf budgets in §10 into CI once the live E2E environment exists.
+- Wire the perf budgets in §10 once an authorized dev E2E environment and stable measurements exist.
 - Build the mobile E2E harness per §11 on a simulator-capable runner.

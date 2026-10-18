@@ -111,7 +111,10 @@ export function PhotoBackdrop({
       accessibilityElementsHidden={!accessibilityLabel}
       importantForAccessibility={accessibilityLabel ? "auto" : "no-hide-descendants"}
     >
-      <LinearGradient {...scrimGradientProps(glass.scrim.studioWall)} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        {...scrimGradientProps(glass.scrim.studioWall)}
+        style={StyleSheet.absoluteFill}
+      />
       {uri ? (
         <KenBurnsImage
           uri={uri}

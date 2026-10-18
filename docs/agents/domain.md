@@ -18,8 +18,9 @@ This repo is **single-context**: one `CONTEXT.md` + `docs/adr/` at the repo root
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
+│   ├── 0001-public-capability-urls-for-hosted-media.md
+│   ├── 0002-status-surfaces-live-in-settings.md
+│   └── 0003-byo-sync-snapshot-lww.md
 └── src/
 ```
 

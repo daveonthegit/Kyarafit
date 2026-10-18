@@ -76,8 +76,7 @@ export class IndexedDbLocalStore implements LocalStore {
   async readQueryCache(key: string): Promise<StoredQueryCache | undefined> {
     const db = await this.db();
     const row = (await db.get(QUERY_CACHE, key)) as
-      | { key: string; payload_json: string; fetched_at: number }
-      | undefined;
+      { key: string; payload_json: string; fetched_at: number } | undefined;
     if (!row) return undefined;
     return { key: row.key, payloadJson: row.payload_json, fetchedAt: row.fetched_at };
   }

@@ -492,7 +492,9 @@ export default function ElementsPage() {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[9px] font-bold uppercase tracking-[0.16em] opacity-70">
-                              {(item.category?.trim() || formatNodeTypeLabel(item.nodeType)).toUpperCase()}
+                              {(
+                                item.category?.trim() || formatNodeTypeLabel(item.nodeType)
+                              ).toUpperCase()}
                             </span>
                             <span className="block truncate font-serif text-[17px] italic">
                               {item.name}

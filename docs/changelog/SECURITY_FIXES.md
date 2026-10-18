@@ -1,7 +1,9 @@
 # Security Fixes Tracking
 
 **Audit Date**: 2026-02-04  
-**Status**: Critical issues fixed, HIGH priority pending
+**Scope**: Historical audit of the retired Go/Supabase stack, not a current security status.
+Current contracts: [backend authorization](../backend-authorization.md),
+[storage](../storage-claims.md), and [authentication](../auth.md).
 
 ---
 
@@ -61,12 +63,9 @@ app.Use(limiter.New(limiter.Config{
 }))
 ```
 
-### ⏳ HIGH-2: Mobile Token Storage (AsyncStorage → SecureStore)
+### HIGH-2: Mobile Token Storage
 
-- **Files**: `mobile/src/lib/auth/client.ts`
-- **Action**: Use expo-secure-store instead of AsyncStorage
-- **Impact**: Prevents token theft on rooted devices
-- **Estimated Time**: 15 minutes
+Superseded by the current [authentication contract](../auth.md#cross-origin-session-persistence).
 
 ### ⏳ HIGH-3: File Upload Validation
 

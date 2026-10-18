@@ -1,6 +1,9 @@
 # ADR-0002 — Status surfaces live in Settings, not floating chrome
 
-Date: 2026-07-14 · Status: accepted
+Date: 2026-07-14 · Decision status: accepted · Implementation status: implemented
+
+Placement exists in web `settings/data/page.tsx` and mobile `settings/offline.tsx`.
+This status covers placement, not completion of the new Off/Drive/Cloud settings program.
 
 ## Context
 

@@ -3,6 +3,7 @@
  * Importable from both Convex actions ("use node") and Better Auth callbacks.
  * No Convex-specific imports — safe to call from any async context.
  */
+import { escapeHtml } from "./lib/validation";
 
 // Resend: use EMAIL_FROM in Convex env. For testing use "Kyarafit <onboarding@resend.dev>" (Resend allows this without domain verification).
 const FROM_ADDRESS = () => process.env.EMAIL_FROM ?? "Kyarafit <onboarding@resend.dev>";
@@ -38,13 +39,13 @@ async function sendViaResend(payload: {
     }),
   });
 
-  const text = await res.text();
+  await res.text();
   if (!res.ok) {
-    console.error("[email] Resend API error:", res.status, text);
-    throw new Error(`Failed to send email: ${res.status} ${text}`);
+    console.error("[email] Provider request failed:", res.status);
+    throw new Error(`Failed to send email: ${res.status}`);
   }
-  // Do not log recipient (PII); subject only for operational debugging
-  console.log("[email] Sent successfully, subject:", payload.subject);
+  // Neither recipient, provider response nor user-supplied notification content belongs in logs.
+  console.log("[email] Sent successfully");
 }
 
 function baseLayout(content: string): string {
@@ -79,7 +80,9 @@ function ctaButton(label: string, href: string, color = "#000"): string {
 }
 
 export async function sendWelcomeEmail(to: string, name?: string): Promise<void> {
-  const displayName = name ?? to.split("@")[0];
+  // `name` originates from user input; it must be escaped before it is interpolated
+  // into the HTML body, or the mail becomes an HTML-injection sink.
+  const displayName = escapeHtml(name ?? to.split("@")[0]);
   await sendViaResend({
     to,
     subject: "Welcome to Kyarafit! 🎭",
@@ -146,6 +149,6 @@ export async function sendNotificationEmail(
   await sendViaResend({
     to,
     subject,
-    html: baseLayout(`<p style="font-size: 15px; color: #444;">${message}</p>`),
+    html: baseLayout(`<p style="font-size: 15px; color: #444;">${escapeHtml(message)}</p>`),
   });
 }

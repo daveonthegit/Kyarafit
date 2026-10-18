@@ -1,5 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { deletionJob } from "./accountDeletion";
 
 /** Resolved toggles: missing keys default to true (show section). */
 export function resolvedPublicViewerSettings(build: Doc<"builds">) {
@@ -23,6 +24,7 @@ export async function canReadBuildWorkflowData(
   build: Doc<"builds">,
   opts: { viewerUserId?: string | null; shareToken?: string | null }
 ): Promise<boolean> {
+  if (await deletionJob(ctx, build.userId)) return false;
   if (opts.viewerUserId && build.userId === opts.viewerUserId) return true;
   if (opts.viewerUserId) {
     const rows = await ctx.db

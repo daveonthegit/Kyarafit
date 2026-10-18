@@ -406,7 +406,8 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
       if (item.overdue) return { text: t("home.overdue"), danger: true };
       if (!item.dueDate) return { text: t("home.noDueDate"), danger: false };
       const days = daysUntil(item.dueDate);
-      if (days <= 0) return { text: t("home.glassDueToday", { defaultValue: "Today" }), danger: true };
+      if (days <= 0)
+        return { text: t("home.glassDueToday", { defaultValue: "Today" }), danger: true };
       if (days === 1)
         return { text: t("home.glassDueTomorrow", { defaultValue: "Tomorrow" }), danger: false };
       const at = new Date(item.dueDate + "T12:00:00");

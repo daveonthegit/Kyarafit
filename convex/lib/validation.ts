@@ -13,6 +13,22 @@ export function sanitizeString(s: string): string {
     .trim();
 }
 
+/**
+ * Escape a string for interpolation into HTML. `sanitizeString` strips control
+ * characters but deliberately leaves markup alone, so any value that reaches an
+ * HTML template (e.g. the Resend email bodies in `emailHelpers.ts`) must be run
+ * through this as well.
+ */
+export function escapeHtml(s: string): string {
+  if (typeof s !== "string") return "";
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /** Enforce max length: sanitize then throw if still too long. */
 export function sanitizeAndLimit(
   value: string | undefined,

@@ -29,7 +29,9 @@ describe("group create entitlement (REQ-019, server-side enforcement)", () => {
     await setTier(t, "free-user", "FREE");
 
     await expect(
-      t.mutation(api.groups.create, { userId: "free-user", name: "No can do" })
+      t
+        .withIdentity({ subject: "free-user" })
+        .mutation(api.groups.create, { userId: "free-user", name: "No can do" })
     ).rejects.toThrow(/upgrade/i);
 
     const all = await t.run(async (ctx) => ctx.db.query("groups").collect());
@@ -40,7 +42,7 @@ describe("group create entitlement (REQ-019, server-side enforcement)", () => {
     const t = convexTest(schema, modules);
     await setTier(t, "paid-user", "PRO");
 
-    const group = await t.mutation(api.groups.create, {
+    const group = await t.withIdentity({ subject: "paid-user" }).mutation(api.groups.create, {
       userId: "paid-user",
       name: "Squad",
     });
@@ -62,7 +64,7 @@ describe("group create entitlement (REQ-019, server-side enforcement)", () => {
     const t = convexTest(schema, modules);
     await setTier(t, "supporter-user", "SUPPORTER");
 
-    const group = await t.mutation(api.groups.create, {
+    const group = await t.withIdentity({ subject: "supporter-user" }).mutation(api.groups.create, {
       userId: "supporter-user",
       name: "Supporters",
     });
@@ -77,17 +79,19 @@ describe("free interactions stay ungated (REQ-018)", () => {
     await setTier(t, "paid-owner", "PRO");
 
     // Free user can like + comment on a build they can see (their own).
-    const ownBuild = await t.mutation(api.builds.create, {
+    const asFree = t.withIdentity({ subject: "free-user" });
+    const asOwner = t.withIdentity({ subject: "paid-owner" });
+    const ownBuild = await asFree.mutation(api.builds.create, {
       userId: "free-user",
       name: "My build",
       status: "idea",
     });
-    const likeId = await t.mutation(api.buildLikes.like, {
+    const likeId = await asFree.mutation(api.buildLikes.like, {
       userId: "free-user",
       buildId: ownBuild!._id,
     });
     expect(likeId).toBeTruthy();
-    const commentId = await t.mutation(api.buildComments.add, {
+    const commentId = await asFree.mutation(api.buildComments.add, {
       userId: "free-user",
       buildId: ownBuild!._id,
       body: "Looking good!",
@@ -95,7 +99,7 @@ describe("free interactions stay ungated (REQ-018)", () => {
     expect(commentId).toBeTruthy();
 
     // Free user can follow another user.
-    await t.mutation(api.follows.follow, {
+    await asFree.mutation(api.follows.follow, {
       followerId: "free-user",
       followingId: "paid-owner",
     });
@@ -110,11 +114,11 @@ describe("free interactions stay ungated (REQ-018)", () => {
     expect(follow).not.toBeNull();
 
     // Free user can join a group (an admin adds them — joining is free).
-    const group = await t.mutation(api.groups.create, {
+    const group = await asOwner.mutation(api.groups.create, {
       userId: "paid-owner",
       name: "Open squad",
     });
-    await t.mutation(api.groups.addMember, {
+    await asOwner.mutation(api.groups.addMember, {
       groupId: group!._id,
       userId: "paid-owner",
       newUserId: "free-user",
@@ -128,7 +132,7 @@ describe("free interactions stay ungated (REQ-018)", () => {
         .unique()
     );
     expect(membership).not.toBeNull();
-    const myGroups = await t.query(api.groups.listForUser, { userId: "free-user" });
+    const myGroups = await asFree.query(api.groups.listForUser, { userId: "free-user" });
     expect(myGroups).toHaveLength(1);
   });
 });

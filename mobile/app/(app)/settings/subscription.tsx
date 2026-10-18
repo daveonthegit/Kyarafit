@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import Purchases, { type CustomerInfo, type PurchasesPackage } from "react-native-purchases";
 import { api } from "convex/_generated/api";
+import { glass, ls } from "@kyarafit/design-system/rn";
 import {
   SUBSCRIPTION_PLANS,
   formatPlanStorage,
@@ -30,8 +31,18 @@ import {
 } from "@/lib/revenuecat";
 import { openWebAppPath } from "@/lib/openWebAppPath";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard } from "@/ui";
+import { DataBoundary } from "@/ui";
+import { GlassPanel, PhotoPill } from "@/ui/glass";
+import {
+  AccountAction,
+  AccountFrame,
+  AccountHeading,
+  AccountLoading,
+  AccountScroll,
+  AccountText,
+  SectionLabel,
+  accountStyles as styles,
+} from "@/screens/settings/accountGlass";
 
 function packageForPlanInterval(
   packages: PurchasesPackage[],
@@ -43,70 +54,33 @@ function packageForPlanInterval(
   return packages.find((pkg) => pkg.product.identifier === productId) ?? null;
 }
 
-function checkoutLabel(
-  plan: SubscriptionPlan,
-  interval: SubscriptionBillingInterval,
-  pkg: PurchasesPackage | null
-): string {
-  const fallback =
-    interval === "annual"
-      ? formatUsdPrice(plan.annualPriceUsd)
-      : formatUsdPrice(plan.monthlyPriceUsd);
-  const price = pkg?.product.priceString || fallback;
-  return interval === "annual" ? `${price} / year` : `${price} / month`;
-}
-
 function PlanMetric({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-1">
-      <Text className="text-[10px] uppercase tracking-meta text-kyar-meta dark:text-kyar-dark-meta">
-        {label}
-      </Text>
-      <Text className="mt-2 text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
-        {value}
-      </Text>
+    <View style={{ flex: 1, gap: 8 }}>
+      <SectionLabel>{label}</SectionLabel>
+      <AccountText style={{ color: glass.text.fg }}>{value}</AccountText>
     </View>
   );
 }
-
-function PlanBullet({
-  children,
-  iconColor,
-  muted = false,
-}: {
-  children: string;
-  iconColor: string;
-  muted?: boolean;
-}) {
+function PlanBullet({ children, muted = false }: { children: string; muted?: boolean }) {
   return (
-    <View className="flex-row items-start gap-3">
-      <Text className="mt-0.5 w-5 text-base text-kyar-text dark:text-kyar-dark-text">
-        {muted ? "-" : "✓"}
-      </Text>
-      <Text
-        style={{ color: muted ? undefined : iconColor }}
-        className={`min-w-0 flex-1 text-sm leading-6 ${
-          muted
-            ? "text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-            : "text-kyar-text dark:text-kyar-dark-text"
-        }`}
-      >
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <AccountText style={{ width: 18 }}>{muted ? "-" : "✓"}</AccountText>
+      <AccountText style={{ flex: 1, color: muted ? glass.text.fg70 : glass.text.fg }}>
         {children}
-      </Text>
+      </AccountText>
     </View>
   );
 }
 
 export default function SettingsSubscriptionScreen() {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tier, isLoading } = useTier(userId);
   const status = identity === undefined ? "loading" : "ready";
 
   const nativeIap = isRevenueCatSupportedPlatform();
-
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(nativeIap);
@@ -201,7 +175,12 @@ export default function SettingsSubscriptionScreen() {
     setNotice(null);
     // Supporter and Pro are paid-equivalent; don't prompt an already-paid customer for Pro.
     if (hasPaidEntitlement) {
-      setNotice({ tone: "ok", text: "Your subscription is already active." });
+      setNotice({
+        tone: "ok",
+        text: t("settings.subscriptionGlass.alreadyActive", {
+          defaultValue: "Your subscription is already active.",
+        }),
+      });
       return;
     }
     setWorkingPackageId("paywall");
@@ -212,8 +191,13 @@ export default function SettingsSubscriptionScreen() {
       setNotice({
         tone: "ok",
         text: didRevenueCatPaywallUnlockEntitlement(result)
-          ? "RevenueCat paywall finished. Your Pro access is active or already unlocked."
-          : "RevenueCat paywall closed without a purchase.",
+          ? t("settings.subscriptionGlass.paywallUnlocked", {
+              defaultValue:
+                "RevenueCat paywall finished. Your Pro access is active or already unlocked.",
+            })
+          : t("settings.subscriptionGlass.paywallClosed", {
+              defaultValue: "RevenueCat paywall closed without a purchase.",
+            }),
       });
     } catch (e) {
       console.warn("[subscription] paywall", e);
@@ -244,35 +228,55 @@ export default function SettingsSubscriptionScreen() {
     }
   }, [t]);
 
+  const checkoutLabel = (
+    plan: SubscriptionPlan,
+    interval: SubscriptionBillingInterval,
+    pkg: PurchasesPackage | null
+  ) => {
+    const fallback =
+      interval === "annual"
+        ? formatUsdPrice(plan.annualPriceUsd)
+        : formatUsdPrice(plan.monthlyPriceUsd);
+    const price = pkg?.product.priceString || fallback;
+    return interval === "annual"
+      ? t("settings.subscriptionGlass.perYear", { defaultValue: "{{price}} / year", price })
+      : t("settings.subscriptionGlass.perMonth", { defaultValue: "{{price}} / month", price });
+  };
+  const openingLabel = t("settings.subscriptionGlass.opening", { defaultValue: "Opening..." });
+  const unavailableLabel = t("settings.subscriptionGlass.notConfigured", {
+    defaultValue: "Not configured",
+  });
+
   return (
-    <>
+    <AccountFrame>
       <Stack.Screen options={{ title: t("settings.subscriptionPlan"), headerLargeTitle: false }} />
-      <DataBoundary status={status} data={{ tier }}>
+      <DataBoundary
+        status={status}
+        data={{ tier }}
+        loading={<AccountLoading label={t("settings.subscriptionLoading")} />}
+      >
         {() => {
           const tierCode = normalizeConvexTier(tier?.tier ?? "FREE");
           const tierTitle = t(`settings.tierName.${tierCode}`);
           return (
-            <ScrollView
-              className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-              contentContainerClassName="px-5 pb-12 pt-4"
-            >
-              <SectionHeading
-                eyebrow={t("common.settings")}
+            <AccountScroll>
+              <AccountHeading
                 title={t("settings.subscriptionPlan")}
+                subtitle={t("settings.subscriptionSubtitle")}
               />
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("settings.subscriptionSubtitle")}
-              </Text>
-
-              <SurfaceCard className="mt-5 px-4 py-4">
-                <MetaLabel>{t("settings.backupStorage")}</MetaLabel>
+              <GlassPanel blur={false} style={{ padding: 18, gap: 12 }}>
+                <SectionLabel>{t("settings.backupStorage")}</SectionLabel>
                 <Text
-                  style={{ fontFamily: APP_FONT_FAMILIES.displayItalic }}
-                  className="mt-3 text-[34px] italic text-kyar-text dark:text-kyar-dark-text"
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.displayItalic,
+                    fontSize: 34,
+                    lineHeight: 40,
+                    color: glass.text.fg,
+                  }}
                 >
                   {tierTitle}
                 </Text>
-                <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+                <AccountText>
                   {isLoading
                     ? t("settings.subscriptionLoading")
                     : tier
@@ -285,292 +289,351 @@ export default function SettingsSubscriptionScreen() {
                             used: formatStorageMb(tier.currentUsageMb),
                           })
                       : t("settings.signInStorageHint")}
-                </Text>
-
+                </AccountText>
                 {tier?.storageLimitMb && tier.storageLimitMb > 0 ? (
-                  <View className="mt-4 h-2 overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
+                  <View
+                    accessibilityRole="progressbar"
+                    accessibilityLabel={t("settings.backupStorage")}
+                    accessibilityValue={{
+                      min: 0,
+                      max: tier.storageLimitMb,
+                      now: tier.currentUsageMb,
+                    }}
+                    style={{
+                      height: 8,
+                      borderRadius: 4,
+                      overflow: "hidden",
+                      backgroundColor: glass.surface.field,
+                    }}
+                  >
                     <View
-                      className="h-full rounded-full bg-kyar-text dark:bg-kyar-dark-text"
                       style={{
+                        height: "100%",
+                        borderRadius: 4,
+                        backgroundColor: glass.text.fg70,
                         width: `${Math.min(100, Math.max(6, (tier.currentUsageMb / tier.storageLimitMb) * 100))}%`,
                       }}
                     />
                   </View>
                 ) : null}
-              </SurfaceCard>
-
-              <View className="mt-5">
-                <MetaLabel>{t("settings.subscriptionPlansLabel")}</MetaLabel>
-                <View className="mt-3 gap-3">
-                  {SUBSCRIPTION_PLANS.map((plan) => {
-                    const active = plan.tier === tierCode;
-                    const isPaid = plan.id !== "free";
-                    const monthly = packageForPlanInterval(packages, plan, "monthly");
-                    const annual = packageForPlanInterval(packages, plan, "annual");
-                    return (
-                      <SurfaceCard
-                        key={plan.id}
-                        className={[
-                          "px-4 py-4",
-                          active ? "border-kyar-text dark:border-kyar-dark-text" : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        <View className="flex-row items-start justify-between gap-3">
-                          <View className="min-w-0 flex-1">
-                            <Text className="font-serif text-2xl text-kyar-text dark:text-kyar-dark-text">
-                              {plan.name}
-                            </Text>
-                            <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                              {plan.tagline}
-                            </Text>
-                          </View>
-                          {active ? (
-                            <Text
-                              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-                              className="text-[10px] uppercase tracking-meta text-kyar-text dark:text-kyar-dark-text"
-                            >
-                              {t("settings.subscriptionCurrent")}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text className="mt-4 text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
-                          {plan.payWhatYouWant
-                            ? `From ${formatUsdPrice(plan.monthlyPriceUsd)} / mo`
-                            : `${formatUsdPrice(plan.monthlyPriceUsd)} / mo`}
-                        </Text>
-                        <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {plan.payWhatYouWant
-                            ? "Pay what you want, billed monthly"
-                            : isPaid
-                              ? `${formatUsdPrice(plan.annualPriceUsd)} / year${
-                                  plan.annualSavingsLabel ? ` - ${plan.annualSavingsLabel}` : ""
-                                }`
-                              : "No payment required"}
-                        </Text>
-
-                        <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {plan.audience}
-                        </Text>
-
-                        <View className="mt-5 flex-row gap-4 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-                          <PlanMetric
-                            label="Storage"
-                            value={formatPlanStorage(plan.storageLimitMb)}
-                          />
-                          <PlanMetric
-                            label="Sync"
-                            value={plan.id === "free" ? "Local only" : "All devices"}
-                          />
-                        </View>
-
-                        <View className="mt-5 gap-3">
-                          {plan.highlights.map((highlight) => (
-                            <PlanBullet key={highlight} iconColor={colors.text}>
-                              {highlight}
-                            </PlanBullet>
-                          ))}
-                        </View>
-
-                        <View className="mt-5 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-                          <MetaLabel>Included</MetaLabel>
-                          <View className="mt-3 gap-2">
-                            {plan.features.map((feature) => (
-                              <PlanBullet key={feature} iconColor={colors.text}>
-                                {feature}
-                              </PlanBullet>
-                            ))}
-                          </View>
-                        </View>
-
-                        {plan.notIncluded?.length ? (
-                          <View className="mt-5 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
-                            <MetaLabel>Upgrade unlocks</MetaLabel>
-                            <View className="mt-3 gap-2">
-                              {plan.notIncluded.map((feature) => (
-                                <PlanBullet key={feature} iconColor={colors.text} muted>
-                                  {feature}
-                                </PlanBullet>
-                              ))}
-                            </View>
-                          </View>
-                        ) : null}
-
-                        {isPaid && nativeIap && offeringsLoading ? (
-                          <View className="mt-4 flex-row items-center gap-3">
-                            <ActivityIndicator />
-                            <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                              {t("settings.subscriptionOfferingsLoading")}
-                            </Text>
-                          </View>
-                        ) : null}
-                        {isPaid && nativeIap && !offeringsLoading && plan.payWhatYouWant ? (
-                          <View className="mt-4 flex-row flex-wrap gap-2">
-                            {(plan.presets ?? []).map((preset) => {
-                              const pkg =
-                                packages.find((p) => p.product.identifier === preset.productId) ??
-                                null;
-                              const disabled =
-                                active ||
-                                pkg == null ||
-                                workingPackageId != null ||
-                                !identity?.subject;
-                              return (
-                                <Button
-                                  key={preset.id}
-                                  title={
-                                    pkg == null
-                                      ? "Not configured"
-                                      : workingPackageId === pkg.identifier
-                                        ? "Opening..."
-                                        : pkg.product.priceString || preset.label
-                                  }
-                                  variant="secondary"
-                                  className="flex-1"
-                                  disabled={disabled}
-                                  onPress={() => {
-                                    if (pkg) void onPurchase(pkg);
-                                  }}
-                                />
-                              );
-                            })}
-                          </View>
-                        ) : isPaid && nativeIap && !offeringsLoading ? (
-                          <View className="mt-4 flex-row gap-2">
-                            {(["monthly", "annual"] as const).map((interval) => {
-                              const pkg = interval === "monthly" ? monthly : annual;
-                              const disabled =
-                                active ||
-                                pkg == null ||
-                                workingPackageId != null ||
-                                !identity?.subject;
-                              return (
-                                <Button
-                                  key={interval}
-                                  title={
-                                    pkg == null
-                                      ? "Not configured"
-                                      : workingPackageId === pkg.identifier
-                                        ? "Opening..."
-                                        : checkoutLabel(plan, interval, pkg)
-                                  }
-                                  variant={interval === "annual" ? "primary" : "secondary"}
-                                  className="flex-1"
-                                  disabled={disabled}
-                                  onPress={() => {
-                                    if (pkg) void onPurchase(pkg);
-                                  }}
-                                />
-                              );
-                            })}
-                          </View>
-                        ) : null}
-                      </SurfaceCard>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <SurfaceCard className="mt-4 px-4 py-4">
-                <MetaLabel>{t("settings.subscriptionStatus")}</MetaLabel>
-                <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  {subscriptionBody}
-                </Text>
-                <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                  Subscription: {hasPaidEntitlement ? "active" : "not active"}
-                </Text>
-                {notice ? (
-                  <Text
-                    className={`mt-3 text-sm leading-6 ${
-                      notice.tone === "ok"
-                        ? "text-kyar-text dark:text-kyar-dark-text"
-                        : "text-kyar-danger dark:text-kyar-dark-danger"
-                    }`}
+              </GlassPanel>
+              <SectionLabel>{t("settings.subscriptionPlansLabel")}</SectionLabel>
+              {SUBSCRIPTION_PLANS.map((plan) => {
+                const active = plan.tier === tierCode;
+                const isPaid = plan.id !== "free";
+                const monthly = packageForPlanInterval(packages, plan, "monthly");
+                const annual = packageForPlanInterval(packages, plan, "annual");
+                const planText = (field: "name" | "tagline" | "audience", fallback: string) =>
+                  t(`settings.subscriptionGlass.plans.${plan.id}.${field}`, {
+                    defaultValue: fallback,
+                  });
+                const bulletText = (
+                  field: "highlights" | "features" | "notIncluded",
+                  index: number,
+                  fallback: string
+                ) =>
+                  t(`settings.subscriptionGlass.plans.${plan.id}.${field}.${index}`, {
+                    defaultValue: fallback.replace(/\s*\u2728/g, ""),
+                  });
+                return (
+                  <GlassPanel
+                    key={plan.id}
+                    blur={false}
+                    style={{
+                      padding: 18,
+                      gap: 14,
+                      borderColor: active ? glass.border.strong : glass.border.default,
+                    }}
                   >
+                    <View style={styles.row}>
+                      <Text
+                        style={{
+                          flex: 1,
+                          fontFamily: APP_FONT_FAMILIES.displayItalic,
+                          fontSize: 28,
+                          lineHeight: 32,
+                          color: glass.text.fg,
+                        }}
+                      >
+                        {planText("name", plan.name)}
+                      </Text>
+                      {active ? (
+                        <Text
+                          style={{
+                            borderWidth: 1,
+                            borderColor: glass.border.strong,
+                            borderRadius: 999,
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            color: glass.text.fg,
+                            fontFamily: APP_FONT_FAMILIES.sansBold,
+                            fontSize: 10,
+                            letterSpacing: ls(0.16, 10),
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {t("settings.subscriptionCurrent")}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <AccountText>{planText("tagline", plan.tagline)}</AccountText>
+                    <AccountText style={{ color: glass.text.fg }}>
+                      {plan.payWhatYouWant
+                        ? t("settings.subscriptionGlass.fromMonthly", {
+                            defaultValue: "From {{price}} / mo",
+                            price: formatUsdPrice(plan.monthlyPriceUsd),
+                          })
+                        : t("settings.subscriptionGlass.monthly", {
+                            defaultValue: "{{price}} / mo",
+                            price: formatUsdPrice(plan.monthlyPriceUsd),
+                          })}
+                    </AccountText>
+                    <AccountText>
+                      {plan.payWhatYouWant
+                        ? t("settings.subscriptionGlass.payWhatYouWant", {
+                            defaultValue: "Pay what you want, billed monthly",
+                          })
+                        : isPaid
+                          ? t("settings.subscriptionGlass.annual", {
+                              defaultValue: "{{price}} / year{{savings}}",
+                              price: formatUsdPrice(plan.annualPriceUsd),
+                              savings: plan.annualSavingsLabel
+                                ? ` - ${t("settings.subscriptionGlass.annualSavings", { defaultValue: "Save 2 months" })}`
+                                : "",
+                            })
+                          : t("settings.subscriptionGlass.noPayment", {
+                              defaultValue: "No payment required",
+                            })}
+                    </AccountText>
+                    <AccountText>{planText("audience", plan.audience)}</AccountText>
+                    <View
+                      style={{
+                        ...styles.row,
+                        borderTopWidth: 1,
+                        borderTopColor: glass.border.divider,
+                        paddingTop: 14,
+                      }}
+                    >
+                      <PlanMetric
+                        label={t("settings.subscriptionGlass.storage", { defaultValue: "Storage" })}
+                        value={
+                          plan.storageLimitMb < 0
+                            ? t("settings.subscriptionGlass.unlimited", {
+                                defaultValue: "Unlimited",
+                              })
+                            : formatPlanStorage(plan.storageLimitMb)
+                        }
+                      />
+                      <PlanMetric
+                        label={t("settings.subscriptionGlass.sync", { defaultValue: "Sync" })}
+                        value={
+                          plan.id === "free"
+                            ? t("settings.subscriptionGlass.localOnly", {
+                                defaultValue: "Local only",
+                              })
+                            : t("settings.subscriptionGlass.allDevices", {
+                                defaultValue: "All devices",
+                              })
+                        }
+                      />
+                    </View>
+                    <View style={styles.stack}>
+                      {plan.highlights.map((highlight, i) => (
+                        <PlanBullet key={highlight}>
+                          {bulletText("highlights", i, highlight)}
+                        </PlanBullet>
+                      ))}
+                    </View>
+                    <View
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: glass.border.divider,
+                        paddingTop: 14,
+                        gap: 12,
+                      }}
+                    >
+                      <SectionLabel>
+                        {t("settings.subscriptionGlass.included", { defaultValue: "Included" })}
+                      </SectionLabel>
+                      {plan.features.map((feature, i) => (
+                        <PlanBullet key={feature}>{bulletText("features", i, feature)}</PlanBullet>
+                      ))}
+                    </View>
+                    {plan.notIncluded?.length ? (
+                      <View
+                        style={{
+                          borderTopWidth: 1,
+                          borderTopColor: glass.border.divider,
+                          paddingTop: 14,
+                          gap: 12,
+                        }}
+                      >
+                        <SectionLabel>
+                          {t("settings.subscriptionGlass.upgradeUnlocks", {
+                            defaultValue: "Upgrade unlocks",
+                          })}
+                        </SectionLabel>
+                        {plan.notIncluded.map((feature, i) => (
+                          <PlanBullet key={feature} muted>
+                            {bulletText("notIncluded", i, feature)}
+                          </PlanBullet>
+                        ))}
+                      </View>
+                    ) : null}
+                    {isPaid && nativeIap && offeringsLoading ? (
+                      <View style={styles.row}>
+                        <ActivityIndicator color={glass.text.fg} />
+                        <AccountText>{t("settings.subscriptionOfferingsLoading")}</AccountText>
+                      </View>
+                    ) : null}
+                    {isPaid && nativeIap && !offeringsLoading && plan.payWhatYouWant ? (
+                      <View style={styles.stack}>
+                        {(plan.presets ?? []).map((preset) => {
+                          const pkg =
+                            packages.find((p) => p.product.identifier === preset.productId) ?? null;
+                          const disabled =
+                            active || pkg == null || workingPackageId != null || !identity?.subject;
+                          return (
+                            <PhotoPill
+                              key={preset.id}
+                              label={
+                                pkg == null
+                                  ? unavailableLabel
+                                  : workingPackageId === pkg.identifier
+                                    ? openingLabel
+                                    : pkg.product.priceString ||
+                                      t("settings.subscriptionGlass.monthly", {
+                                        defaultValue: "{{price}} / mo",
+                                        price: formatUsdPrice(preset.monthlyPriceUsd),
+                                      })
+                              }
+                              variant="outline"
+                              disabled={disabled}
+                              onPress={() => {
+                                if (pkg) void onPurchase(pkg);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+                    ) : isPaid && nativeIap && !offeringsLoading ? (
+                      <View style={styles.stack}>
+                        {(["monthly", "annual"] as const).map((interval) => {
+                          const pkg = interval === "monthly" ? monthly : annual;
+                          const disabled =
+                            active || pkg == null || workingPackageId != null || !identity?.subject;
+                          return (
+                            <PhotoPill
+                              key={interval}
+                              label={
+                                pkg == null
+                                  ? unavailableLabel
+                                  : workingPackageId === pkg.identifier
+                                    ? openingLabel
+                                    : checkoutLabel(plan, interval, pkg)
+                              }
+                              variant="outline"
+                              disabled={disabled}
+                              onPress={() => {
+                                if (pkg) void onPurchase(pkg);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                  </GlassPanel>
+                );
+              })}
+              <GlassPanel blur={false} style={{ padding: 18, gap: 14 }}>
+                <SectionLabel>{t("settings.subscriptionStatus")}</SectionLabel>
+                <AccountText>{subscriptionBody}</AccountText>
+                <AccountText>
+                  {hasPaidEntitlement
+                    ? t("settings.subscriptionGlass.active", {
+                        defaultValue: "Subscription: active",
+                      })
+                    : t("settings.subscriptionGlass.inactive", {
+                        defaultValue: "Subscription: not active",
+                      })}
+                </AccountText>
+                {notice ? (
+                  <AccountText accessibilityLiveRegion="polite" danger={notice.tone === "err"}>
                     {notice.text}
-                  </Text>
+                  </AccountText>
                 ) : null}
-
                 {nativeIap ? (
                   <>
                     {offeringsLoading ? (
-                      <View className="mt-4 flex-row items-center gap-3">
-                        <ActivityIndicator />
-                        <Text className="text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                          {t("settings.subscriptionOfferingsLoading")}
-                        </Text>
+                      <View style={styles.row}>
+                        <ActivityIndicator color={glass.text.fg} />
+                        <AccountText>{t("settings.subscriptionOfferingsLoading")}</AccountText>
                       </View>
                     ) : nativeIap && packages.length === 0 ? (
-                      <Text className="mt-4 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("settings.subscriptionNoOfferings")}
-                      </Text>
+                      <AccountText>{t("settings.subscriptionNoOfferings")}</AccountText>
                     ) : null}
-                    <Button
-                      title="Open Paywall"
-                      variant="primary"
-                      className="mt-4"
-                      loading={workingPackageId === "paywall"}
+                    <PhotoPill
+                      label={
+                        workingPackageId === "paywall"
+                          ? openingLabel
+                          : t("settings.subscriptionGlass.openPaywall", {
+                              defaultValue: "Open Paywall",
+                            })
+                      }
                       disabled={workingPackageId != null || !identity?.subject}
+                      accessibilityState={{ busy: workingPackageId === "paywall" }}
                       onPress={() => void onPresentPaywall()}
                     />
-                    <Button
-                      title={t("settings.subscriptionRestore")}
-                      variant="secondary"
-                      className="mt-4"
+                    <PhotoPill
+                      label={t("settings.subscriptionRestore")}
+                      variant="outline"
                       disabled={workingPackageId != null || !identity?.subject}
+                      accessibilityState={{ busy: workingPackageId === "restore" }}
                       onPress={() => void onRestore()}
                     />
-                    <Button
-                      title="Customer Center"
-                      variant="secondary"
-                      className="mt-3"
-                      loading={workingPackageId === "customer-center"}
+                    <PhotoPill
+                      label={
+                        workingPackageId === "customer-center"
+                          ? openingLabel
+                          : t("settings.subscriptionGlass.customerCenter", {
+                              defaultValue: "Customer Center",
+                            })
+                      }
+                      variant="outline"
                       disabled={workingPackageId != null || !identity?.subject}
+                      accessibilityState={{ busy: workingPackageId === "customer-center" }}
                       onPress={() => void onPresentCustomerCenter()}
                     />
-                    <View className="mt-6 border-t border-kyar-borderSubtle pt-5 dark:border-kyar-dark-borderSubtle">
-                      <MetaLabel>{t("settings.subscriptionLegalSection")}</MetaLabel>
-                      <Text className="mt-2 text-xs leading-5 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                        {t("settings.subscriptionLegalNotice")}
-                      </Text>
-                      <View className="mt-4 flex-row flex-wrap gap-4">
-                        <Pressable
-                          onPress={() => void openWebAppPath("/terms", t)}
-                          className="active:opacity-80"
-                          accessibilityRole="link"
-                          accessibilityLabel={t("settings.accountPage.termsOfService")}
-                        >
-                          <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                            {t("settings.accountPage.termsOfService")}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => void openWebAppPath("/privacy", t)}
-                          className="active:opacity-80"
-                          accessibilityRole="link"
-                          accessibilityLabel={t("settings.accountPage.privacyPolicy")}
-                        >
-                          <Text className="text-[11px] font-medium uppercase tracking-widest text-kyar-accent">
-                            {t("settings.accountPage.privacyPolicy")}
-                          </Text>
-                        </Pressable>
-                      </View>
+                    <View
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: glass.border.divider,
+                        paddingTop: 14,
+                        gap: 12,
+                      }}
+                    >
+                      <SectionLabel>{t("settings.subscriptionLegalSection")}</SectionLabel>
+                      <AccountText>{t("settings.subscriptionLegalNotice")}</AccountText>
+                      <AccountAction onPress={() => void openWebAppPath("/terms", t)}>
+                        {t("settings.accountPage.termsOfService")}
+                      </AccountAction>
+                      <AccountAction onPress={() => void openWebAppPath("/privacy", t)}>
+                        {t("settings.accountPage.privacyPolicy")}
+                      </AccountAction>
                     </View>
                   </>
                 ) : (
-                  <Button
-                    title={t("settings.subscriptionUnavailable")}
-                    variant="secondary"
-                    className="mt-4"
+                  <PhotoPill
+                    label={t("settings.subscriptionUnavailable")}
+                    variant="outline"
                     disabled
                   />
                 )}
-              </SurfaceCard>
-            </ScrollView>
+              </GlassPanel>
+            </AccountScroll>
           );
         }}
       </DataBoundary>
-    </>
+    </AccountFrame>
   );
 }
