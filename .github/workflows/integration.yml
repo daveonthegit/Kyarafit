@@ -2,7 +2,7 @@ name: Integration CI
 
 on:
   pull_request:
-    branches: [fix/glass-security-merge]
+    branches: [fix/glass-security-merge, feat/glass-studio-phase-0]
   workflow_dispatch:
 
 permissions:
