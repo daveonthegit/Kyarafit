@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+// The BYO engine is switched off: it is not exported from `@kyarafit/design-system/domain`,
+// so the tests import its modules directly.
 import {
   BYO_PERSONAL_TABLES,
   BYO_TOMBSTONE_RETENTION_MS,
@@ -9,10 +11,12 @@ import {
   validateByoSnapshot,
   type ByoSnapshot,
   type ByoSnapshotRecord,
+} from "../../../design-system/domain/byoSnapshot";
+import {
   compactByoTombstones,
   mergeByoSnapshots,
-  mergeMediaManifests,
-} from "@kyarafit/design-system/domain";
+} from "../../../design-system/domain/byoSnapshotMerge";
+import { mergeMediaManifests } from "../../../design-system/domain/byoMediaManifest";
 import fixture from "./fixtures/byoSnapshot.v1.json";
 
 const hash = "a".repeat(64);

@@ -12,7 +12,3 @@ export * from "./accessPolicy";
 export * from "./subscriptionPlans";
 export * from "./imageRef";
 export * from "./imageUpload";
-export * from "./byoSnapshot";
-export * from "./byoSnapshotMerge";
-export * from "./byoMediaManifest";
-export * from "./byoSnapshotTransport";

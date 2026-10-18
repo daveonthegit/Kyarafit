@@ -1,8 +1,9 @@
 # BYO snapshot engine (v1)
 
-Pure record-level merge for ADR-0003, exported through `@kyarafit/design-system/domain`.
-This is **not wired into Settings, existing exports, managed sync, or Drive**. Managed sync's
-per-field `offlineConflict` contract is unchanged.
+Pure record-level merge for ADR-0003. It is **switched off**: not exported from
+`@kyarafit/design-system/domain` and not wired into Settings, existing exports, managed sync,
+or Drive, so no user can reach it. Only its tests (`web/src/lib/byoSnapshot.test.ts`) import
+it, directly by path. Managed sync's per-field `offlineConflict` contract is unchanged.
 
 ## File contract
 
