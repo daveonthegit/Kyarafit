@@ -42,7 +42,7 @@ Read [`docs/backend-authorization.md`](docs/backend-authorization.md) before tou
 anything in `convex/`. It covers which arguments are _not_ actor arguments, which endpoints
 are public by design and must not be locked down, the media rule in `lib/mediaAccess.ts`,
 the shared build-visibility predicate `canReadBuildWorkflowData`, and its **Known gaps**
-section — one module still authorizes on a client-supplied id.
+section.
 
 ## Documentation map
 

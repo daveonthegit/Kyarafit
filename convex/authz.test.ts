@@ -514,6 +514,60 @@ describe("a caller passing another user's id cannot act as them", () => {
     });
   });
 
+  test("a build cannot be moved into a group the caller is not a member of", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    const aliceBuild = await asAlice.mutation(api.builds.create, { name: "Alice", status: "wip" });
+
+    await expect(
+      asAlice.mutation(api.builds.update, { id: aliceBuild!._id, groupId: f.bobGroup })
+    ).rejects.toThrow(/member of the group/);
+    await expect(
+      asAlice.mutation(api.builds.setGroupId, { buildId: aliceBuild!._id, groupId: f.bobGroup })
+    ).rejects.toThrow(/member of the group/);
+    await t.run(async (ctx) => {
+      expect((await ctx.db.get(aliceBuild!._id))?.groupId).toBeUndefined();
+    });
+    expect(
+      await t.withIdentity({ subject: BOB }).query(api.builds.listByGroup, { groupId: f.bobGroup })
+    ).toEqual([]);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("groupMembers", { groupId: f.bobGroup, userId: ALICE, role: "member" });
+    });
+    const moved = await asAlice.mutation(api.builds.update, {
+      id: aliceBuild!._id,
+      groupId: f.bobGroup,
+    });
+    expect(moved?.groupId).toBe(f.bobGroup);
+    const cleared = await asAlice.mutation(api.builds.update, {
+      id: aliceBuild!._id,
+      groupId: null,
+    });
+    expect(cleared?.groupId).toBeUndefined();
+  });
+
+  test("an editor outside the build's group can still save it with its group unchanged", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(f.bobPrivateBuild, { groupId: f.bobGroup });
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobPrivateBuild,
+        userId: ALICE,
+        role: "editor",
+      });
+    });
+    const updated = await t.withIdentity({ subject: ALICE }).mutation(api.builds.update, {
+      id: f.bobPrivateBuild,
+      name: "Renamed",
+      groupId: f.bobGroup,
+    });
+    expect(updated?.name).toBe("Renamed");
+    expect(updated?.groupId).toBe(f.bobGroup);
+  });
+
   test("privilege escalation into a build or group is refused", async () => {
     const t = harness();
     const f = await seed(t);
@@ -747,6 +801,145 @@ describe("media access", () => {
     expect(
       await t.withIdentity({ subject: BOB }).query(api.files.getUrl, { storageId: unattached })
     ).toBeNull();
+  });
+});
+
+describe("attaching media requires owning or being related to it", () => {
+  // `checkLimitAndAddUsage` gates every attach path via `assertCanAttachStorage`
+  // (lib/storageOwnership.ts). It is stricter than reading: a blob that is merely
+  // *visible* (public build, public profile) or another user's pending upload cannot be
+  // attached, otherwise anyone could republish it on their own row and bill it to nobody.
+  test("blobs the caller neither uploaded nor is related to cannot be attached", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    await t.run(async (ctx) => {
+      const alice = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", ALICE))
+        .unique();
+      // Paid so the public-share and group-create gates do not mask the attach gate.
+      await ctx.db.patch(alice!._id, { profileVisibility: "public", tier: "SUPPORTER" });
+    });
+    const bobPendingUpload = await uploadTestBlob(t, BOB, new Blob(["bob-pending"]));
+    const aliceBuild = await asAlice.mutation(api.builds.create, { name: "Alice", status: "wip" });
+    const aliceNode = await asAlice.mutation(api.cosplayNodes.create, {
+      nodeType: "element",
+      name: "Alice's prop",
+      tags: [],
+    });
+    const aliceConvention = await asAlice.mutation(api.conventions.create, {
+      name: "Alice's con",
+      startDate: "2026-09-01",
+      endDate: "2026-09-02",
+    });
+    const aliceGroup = await asAlice.mutation(api.groups.create, {
+      name: "Alice's group",
+      visibility: "public",
+    });
+
+    for (const storageId of [
+      f.bobPrivateImage, // unreadable to Alice
+      f.bobPublicBuildImage, // readable (public build) but not Alice's
+      f.bobAvatar, // readable (public profile) but not Alice's
+      bobPendingUpload, // Bob's own unattached upload claim
+    ]) {
+      const attempts = [
+        () => asAlice.mutation(api.users.updateProfileImage, { storageId }),
+        () =>
+          asAlice.mutation(api.builds.create, {
+            name: "x",
+            status: "wip",
+            visibility: "public",
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.builds.update, { id: aliceBuild!._id, imageStorageId: storageId }),
+        () =>
+          asAlice.mutation(api.buildReferenceImages.add, {
+            buildId: aliceBuild!._id,
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.buildProcessPictures.add, {
+            buildId: aliceBuild!._id,
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.cosplayNodes.create, {
+            nodeType: "element",
+            name: "x",
+            tags: [],
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.cosplayNodes.update, {
+            id: aliceNode!._id,
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.conventions.create, {
+            name: "x",
+            startDate: "2026-09-01",
+            endDate: "2026-09-02",
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.conventions.update, {
+            id: aliceConvention!._id,
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.groups.create, {
+            name: "x",
+            visibility: "public",
+            imageStorageId: storageId,
+          }),
+        () =>
+          asAlice.mutation(api.groups.update, { id: aliceGroup!._id, imageStorageId: storageId }),
+      ];
+      for (const attempt of attempts) {
+        await expect(attempt()).rejects.toThrow(/Storage attachment not authorized/);
+      }
+    }
+
+    expect(await t.query(api.files.getUrl, { storageId: f.bobPrivateImage })).toBeNull();
+    expect(await asAlice.query(api.files.getUrl, { storageId: f.bobPrivateImage })).toBeNull();
+    expect(await asAlice.query(api.files.getUrl, { storageId: bobPendingUpload })).toBeNull();
+  });
+
+  test("own uploads, related blobs and collaborator edits can still be attached", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const asAlice = t.withIdentity({ subject: ALICE });
+    const fresh = await uploadTestBlob(t, ALICE, new Blob(["alice-upload"]));
+    const forBob = await uploadTestBlob(t, ALICE, new Blob(["alice-upload-for-bob"]));
+
+    await asAlice.mutation(api.users.updateProfileImage, { storageId: fresh });
+    // The owner can reuse a blob already on one of their own rows.
+    await t.withIdentity({ subject: BOB }).mutation(api.builds.create, {
+      name: "Bob copy",
+      status: "wip",
+      imageStorageId: f.bobPublicBuildImage,
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobPrivateBuild,
+        userId: ALICE,
+        role: "editor",
+      });
+    });
+    // A collaborator may attach a blob already on the build they are related to.
+    await asAlice.mutation(api.buildReferenceImages.add, {
+      buildId: f.bobPrivateBuild,
+      imageStorageId: f.bobPrivateImage,
+    });
+    const updated = await asAlice.mutation(api.builds.update, {
+      id: f.bobPrivateBuild,
+      imageStorageId: forBob,
+    });
+    expect(updated?.imageStorageId).toBe(forBob);
   });
 });
 

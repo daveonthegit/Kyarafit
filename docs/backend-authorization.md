@@ -81,7 +81,9 @@ Group membership is part of it because `builds.listByGroup` deliberately lists a
 builds — private ones included — to that group's members. The card, the thumbnail behind
 it and the `/build-detail/<id>` link it points at therefore all have to work for a
 co-member, so `builds.get` and `lib/mediaAccess.ts` both accept it. Do not narrow
-`listByGroup` to "fix" this asymmetry; extend the reader instead.
+`listByGroup` to "fix" this asymmetry; extend the reader instead. The flip side is that
+sharing a build into a group requires membership of that group, on every path that sets
+`groupId` (`builds.setGroupId` and `builds.update`).
 
 Element reads (`cosplayNodes.get`, `cosplayNodes.listChildren`) use
 `canReadElementData`: the owner, or anyone with a `hasBuildRelationship` to a build the
@@ -126,11 +128,21 @@ thumbnails resolve), and a profile picture is readable when the caller shares a 
 that user — the group roster renders every member's avatar and `profileVisibility` is
 unset by default.
 
+Because readability follows the referencing rows, attaching an id is gated too, and more
+tightly than reading: `checkLimitAndAddUsage` (every metered attach path, including
+`users.updateProfileImage`) calls `assertCanAttachStorage` in `lib/storageOwnership.ts`. A
+caller may attach a blob only when it is their own pending upload claim, or when it is
+already referenced by a row they own or have a relationship with (`hasBuildRelationship`,
+a shared group, group membership). Merely being able to _see_ a blob on a public build,
+profile or group does not let you attach it. New attach paths must go through
+`checkLimitAndAddUsage`.
+
 Two deliberate looseness points, both documented in that file:
 
-1. A blob that **no row references** is readable by any authenticated caller. The
-   create-with-image modals upload first and preview via `getUrl` before the owning row
-   exists, so a strict deny would break them.
+1. A blob that **no row references** is readable by its verified uploader while their
+   upload claim is pending (unattached and unexpired). The create-with-image modals upload
+   first and preview via `getUrl` before the owning row exists, so a strict deny would
+   break them.
 2. `unlisted` counts as public for media, because `getPublicViewerBundle` serves unlisted
    builds to anonymous share-link holders who then resolve each image through `getUrl`
    without a token.
@@ -151,15 +163,10 @@ than bare `t.mutation(...)`, or the handler rejects with `Unauthorized`.
 
 ## Known gaps
 
-The invariant at the top of this file holds for every public Convex function **except
-`convex/buildProgressUpdates.ts`**.
-
-Its `listByBuild`, `add`, `update` and `remove` take `userId: v.string()` and compare that
-argument against the row owner, so passing another user's id authorizes you as them — the
-same hole the rest of the backend closed. The module was added on the glass-studio line
-after the containment work was cut, so no merge conflict flagged it and nothing has fixed
-it. Tracked as a proposal in `.agentflow/proposals/`; see that file for the acceptance
-criteria. **Do not copy its argument shape into new modules.**
+The invariant at the top of this file holds for every public Convex function.
+`convex/buildProgressUpdates.ts`, the last module that authorized on a client-supplied
+`userId`, now derives the actor from the session like the rest. **Do not reintroduce that
+argument shape in new modules.**
 
 Two things are deliberately still open rather than broken:
 
