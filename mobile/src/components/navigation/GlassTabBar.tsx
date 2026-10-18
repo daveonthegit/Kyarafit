@@ -51,8 +51,7 @@ export function GlassTabBar({
           const isActive = !isMenu && state.index === index;
           const iconName = (NAV_SECTION_MATERIAL_ICON[sectionId] ??
             "circle") as keyof typeof MaterialIcons.glyphMap;
-          const label =
-            typeof options.title === "string" ? options.title : t(`nav.${sectionId}`);
+          const label = typeof options.title === "string" ? options.title : t(`nav.${sectionId}`);
 
           const onPress = () => {
             if (isMenu) {

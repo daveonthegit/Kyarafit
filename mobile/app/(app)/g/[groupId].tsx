@@ -71,8 +71,7 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const rawGroupId = useLocalSearchParams<{ groupId: string | string[] }>().groupId;
   const groupId = (Array.isArray(rawGroupId) ? rawGroupId[0] : rawGroupId) as
-    | Id<"groups">
-    | undefined;
+    Id<"groups"> | undefined;
   const identity = useQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
@@ -177,10 +176,7 @@ export default function GroupDetailScreen() {
       <DataBoundary status={status} data={{ ready: true }}>
         {() => (
           <View style={{ flex: 1 }}>
-            <PhotoBackdrop
-              imageStorageId={group?.imageStorageId}
-              imageUrl={group?.imageUrl}
-            />
+            <PhotoBackdrop imageStorageId={group?.imageStorageId} imageUrl={group?.imageUrl} />
 
             <ScrollView
               style={{ flex: 1 }}
@@ -435,9 +431,7 @@ export default function GroupDetailScreen() {
                           const ownerName = members.find(
                             (member) => member.userId === build.userId
                           )?.name;
-                          const eyebrow = [build.character, ownerName]
-                            .filter(Boolean)
-                            .join(" · ");
+                          const eyebrow = [build.character, ownerName].filter(Boolean).join(" · ");
                           return (
                             <View
                               key={build._id}
@@ -497,7 +491,12 @@ export default function GroupDetailScreen() {
                                 </View>
                                 <View style={{ minWidth: 0, flex: 1 }}>
                                   {eyebrow ? (
-                                    <Meta size={9} tracking={0.14} color={glass.text.fg55} numberOfLines={1}>
+                                    <Meta
+                                      size={9}
+                                      tracking={0.14}
+                                      color={glass.text.fg55}
+                                      numberOfLines={1}
+                                    >
                                       {eyebrow}
                                     </Meta>
                                   ) : null}
@@ -515,7 +514,11 @@ export default function GroupDetailScreen() {
                                     {build.name}
                                   </Text>
                                 </View>
-                                <Ionicons name="chevron-forward" size={16} color={glass.text.fg45} />
+                                <Ionicons
+                                  name="chevron-forward"
+                                  size={16}
+                                  color={glass.text.fg45}
+                                />
                               </Pressable>
                               {/* Own builds keep their remove affordance. */}
                               {userId === build.userId ? (
@@ -831,4 +834,3 @@ export default function GroupDetailScreen() {
     </>
   );
 }
-

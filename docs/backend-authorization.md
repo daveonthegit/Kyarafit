@@ -128,27 +128,14 @@ thumbnails resolve), and a profile picture is readable when the caller shares a 
 that user — the group roster renders every member's avatar and `profileVisibility` is
 unset by default.
 
-Because readability follows the referencing rows, attaching an id is gated too, and more
-tightly than reading: `checkLimitAndAddUsage` (every metered attach path, including
-`users.updateProfileImage`) calls `assertCanAttachStorage` in `lib/storageOwnership.ts`. A
-caller may attach a blob only when it is their own pending upload claim, or when it is
-already referenced by a row they own or have a relationship with (`hasBuildRelationship`,
-a shared group, group membership). Merely being able to _see_ a blob on a public build,
-profile or group does not let you attach it. New attach paths must go through
-`checkLimitAndAddUsage`.
+Attachment, upload claims, pending previews, unique-byte accounting, progress-photo privacy,
+and cleanup are owned by the [current storage contract](storage-claims.md). New attach paths
+must use that contract rather than treating public readability as attachment permission.
 
-Two deliberate looseness points, both documented in that file:
-
-1. A blob that **no row references** is readable by its verified uploader while their
-   upload claim is pending (unattached and unexpired). The create-with-image modals upload
-   first and preview via `getUrl` before the owning row exists, so a strict deny would
-   break them.
-2. `unlisted` counts as public for media, because `getPublicViewerBundle` serves unlisted
-   builds to anonymous share-link holders who then resolve each image through `getUrl`
-   without a token.
-
-Narrowing either needs an owner-indexed media table, which is part of an open decision
-about the media access model. Do not change the model here without that decision.
+`unlisted` counts as public for build media: share-link viewers resolve images through
+`getUrl` without a token. This does not make private progress photos public; their distinct
+discovery rule is specified in the storage contract. Discovery authorization does not revoke
+already-issued capability URLs (see [ADR-0001](adr/0001-public-capability-urls-for-hosted-media.md)).
 
 ## Tests
 
@@ -157,9 +144,11 @@ matter — a caller passing someone else's id cannot act as them, and an unauthe
 caller is rejected — for a representative function in every module, plus a group pinning
 down what must stay public. Add to it when you add a public function.
 
-The other `convex/*.test.ts` files exercise product behaviour, not authorization, but they
-all have to call through a session now: use `t.withIdentity({ subject: userId })` rather
-than bare `t.mutation(...)`, or the handler rejects with `Unauthorized`.
+Additional authorization regressions live in `convex/buildProgressUpdates.authz.test.ts`,
+`convex/mediaContainment.test.ts`, and the account-deletion/guard tests linked from the
+[storage contract](storage-claims.md). Tests invoking session-required mutations must use
+`t.withIdentity({ subject: userId })` rather than bare `t.mutation(...)`, or the handler
+rejects with `Unauthorized`.
 
 ## Known gaps
 
@@ -172,8 +161,8 @@ Two things are deliberately still open rather than broken:
 
 - **Phase B** — the inert actor arguments described above are still in the validators. Grep
   `retained for deployed clients but ignored` for the removal sites. Nothing depends on it.
-- **The media access model** — the two looseness points above stand until the
-  owner-indexed media table decision lands.
+- **The media access model** — unlisted build-media discovery and capability-URL serving
+  remain deliberate; see the Media section and the [storage contract](storage-claims.md).
 
 To re-check the invariant after a change, the cheap version is: every `export const` that
 is a `query`/`mutation`/`action` in `convex/*.ts` must reach a session guard

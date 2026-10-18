@@ -37,10 +37,7 @@ export default defineConfig({
         mobileRoot,
         "src/test-support/expoVectorIconsStub.tsx"
       ),
-      "@expo/vector-icons": path.resolve(
-        mobileRoot,
-        "src/test-support/expoVectorIconsStub.tsx"
-      ),
+      "@expo/vector-icons": path.resolve(mobileRoot, "src/test-support/expoVectorIconsStub.tsx"),
       // Imports real react-native (Flow syntax) outside the per-test vi.mock.
       "react-native-safe-area-context": path.resolve(
         mobileRoot,

@@ -6,11 +6,13 @@ TypeScript-only: a Next.js **web** app, an Expo **mobile** app, a shared
 
 ## ✅ Workflows
 
-| Workflow     | Status    | Purpose                                                               |
-| ------------ | --------- | --------------------------------------------------------------------- |
-| `ci.yml`     | ✅ Active | Main CI — orchestrates web + mobile CI, security scan, build summary  |
-| `web.yml`    | ✅ Active | Web frontend CI (ESLint, TypeScript check, tests). Reusable workflow. |
-| `mobile.yml` | ✅ Active | Mobile app CI (ESLint, TypeScript check, tests). Reusable workflow.   |
+| Workflow          | Status    | Purpose                                                                          |
+| ----------------- | --------- | -------------------------------------------------------------------------------- |
+| `ci.yml`          | ✅ Active | Main CI — orchestrates web + mobile CI, security scan, build summary             |
+| `web.yml`         | ✅ Active | Web frontend CI (ESLint, TypeScript check, tests). Reusable workflow.            |
+| `mobile.yml`      | ✅ Active | Mobile app CI (ESLint, TypeScript check, tests). Reusable workflow.              |
+| `integration.yml` | ✅ Active | Security/Glass integration PR checks; see below.                                 |
+| `web-e2e.yml`     | Manual    | Development-target Playwright checks; see [local validation](../../CI_LOCAL.md). |
 
 ### `ci.yml` — Main CI
 
@@ -31,6 +33,13 @@ TypeScript-only: a Next.js **web** app, an Expo **mobile** app, a shared
 - Triggers: changes to `mobile/`
 - Runs: ESLint, TypeScript check, tests
 - Validates the Expo build
+
+### `integration.yml` — Integration PR checks
+
+[`integration.yml`](integration.yml) owns the target-branch list, including
+`feat/glass-studio-phase-0`, and the exact checks: backend types/tests, reusable web CI,
+and mobile lint/types/i18n/environment/tests plus changed-file formatting. Unlike `ci.yml`,
+this workflow covers PRs into the Glass integration branch; it also supports manual dispatch.
 
 ## 🚀 Deployment
 

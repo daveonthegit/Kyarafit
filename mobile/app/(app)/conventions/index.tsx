@@ -277,22 +277,19 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
   const chromeTop = insets.top + 10;
   const headlineTop = insets.top + 58 + (searchOpen ? 68 : 0);
   const today = todayIso();
-  const seasonYear = nextEvent
-    ? nextEvent.startDate.slice(0, 4)
-    : String(new Date().getFullYear());
+  const seasonYear = nextEvent ? nextEvent.startDate.slice(0, 4) : String(new Date().getFullYear());
 
   const nextPlanned = nextEvent ? countPlannedBuilds(nextEvent.plans) : 0;
-  const nextPacking = nextEvent ? countPackingProgress(nextEvent.packing) : { checked: 0, total: 0 };
+  const nextPacking = nextEvent
+    ? countPackingProgress(nextEvent.packing)
+    : { checked: 0, total: 0 };
   const nextCountdown = nextEvent ? countdownLabel(nextEvent.startDate) : null;
   const packingPct =
     nextPacking.total > 0 ? Math.round((nextPacking.checked / nextPacking.total) * 100) : 0;
 
   return (
     <View style={{ flex: 1 }}>
-      <PhotoBackdrop
-        imageStorageId={nextEvent?.imageStorageId}
-        imageUrl={nextEvent?.imageUrl}
-      />
+      <PhotoBackdrop imageStorageId={nextEvent?.imageStorageId} imageUrl={nextEvent?.imageUrl} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -334,7 +331,9 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
               </Text>
 
               {/* Meta triplet: Countdown / Builds / Packing progress hairline. */}
-              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 22, marginTop: 16 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "flex-end", gap: 22, marginTop: 16 }}
+              >
                 {nextCountdown ? (
                   <HeadlineMetric
                     label={t("conventions.metricCountdown", { defaultValue: "Countdown" })}
@@ -686,7 +685,11 @@ function ConventionsBody({ userId, conventions }: ConventionsBodyProps) {
 
       <FloatingCreateMenu actions={createActions} />
 
-      <GlassSheet open={bulkOpen} onClose={() => setBulkOpen(false)} closeLabel={t("common.cancel")}>
+      <GlassSheet
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        closeLabel={t("common.cancel")}
+      >
         <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
           <Text
             style={{

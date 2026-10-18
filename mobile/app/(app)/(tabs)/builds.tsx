@@ -686,7 +686,12 @@ function BuildsListBody({
               }
               onPress={selectAllInModal}
             />
-            <PhotoPill variant="text" size="sm" label={t("builds.bulkClear")} onPress={clearSelection} />
+            <PhotoPill
+              variant="text"
+              size="sm"
+              label={t("builds.bulkClear")}
+              onPress={clearSelection}
+            />
           </View>
 
           <View
@@ -715,7 +720,8 @@ function BuildsListBody({
                       minHeight: 52,
                       paddingHorizontal: 12,
                       paddingVertical: 10,
-                      borderBottomWidth: rowIndex === visibleRows.length - 1 ? 0 : borderWidth.hairline,
+                      borderBottomWidth:
+                        rowIndex === visibleRows.length - 1 ? 0 : borderWidth.hairline,
                       borderBottomColor: glass.border.divider,
                     }}
                   >
@@ -822,7 +828,11 @@ function BuildsListBody({
           ) : null}
 
           <View style={{ marginTop: 18, alignItems: "center" }}>
-            <PhotoPill variant="solid" label={t("builds.bulkDone")} onPress={() => setBulkOpen(false)} />
+            <PhotoPill
+              variant="solid"
+              label={t("builds.bulkDone")}
+              onPress={() => setBulkOpen(false)}
+            />
           </View>
         </View>
       </GlassSheet>
@@ -1096,7 +1106,9 @@ function ArchiveHeader({
       <View style={{ flexDirection: "row", alignItems: "center", gap: 18, marginTop: 2 }}>
         <HeaderTextAction label={sortLabel} onPress={cycleSort} />
         <HeaderTextAction label={orderLabel} onPress={toggleOrder} />
-        {onSelect ? <HeaderTextAction label={t("builds.bulkSelectAction")} onPress={onSelect} /> : null}
+        {onSelect ? (
+          <HeaderTextAction label={t("builds.bulkSelectAction")} onPress={onSelect} />
+        ) : null}
       </View>
     </View>
   );
@@ -1210,10 +1222,7 @@ function ArchiveStrip({
   onOpen: (id: string) => void;
 }) {
   return (
-    <View
-      style={{ position: "absolute", left: 0, right: 0, bottom }}
-      pointerEvents="box-none"
-    >
+    <View style={{ position: "absolute", left: 0, right: 0, bottom }} pointerEvents="box-none">
       <Text
         style={{
           fontFamily: APP_FONT_FAMILIES.sansBold,

@@ -197,10 +197,7 @@ function ConventionPackingBody({
         kenBurns={false}
       />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}
-      >
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}>
         <View style={{ paddingHorizontal: 22 }}>
           <Text
             style={{
@@ -541,9 +538,7 @@ function PackingRow({
             backgroundColor: item.checked ? glass.surface.active : glass.surface.solid,
           }}
         >
-          <Text
-            style={metaTextStyle(9, 0.16, item.checked ? glass.text.fg : glass.text.ink)}
-          >
+          <Text style={metaTextStyle(9, 0.16, item.checked ? glass.text.fg : glass.text.ink)}>
             {item.checked
               ? t("conventions.packedUndoAction", { defaultValue: "Undo" })
               : t("conventions.packedDoneAction", { defaultValue: "Packed" })}

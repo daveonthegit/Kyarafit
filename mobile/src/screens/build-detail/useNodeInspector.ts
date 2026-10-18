@@ -43,14 +43,14 @@ export type DetailedNode = {
   purchaseStatus?: string | null;
   buildStatus?: string | null;
   materialStatus?: string | null;
-  children?: Array<{
+  children?: {
     _id: CosplayNodeId;
     name: string;
     nodeType: "element" | "material";
     linkId: Id<"cosplayNodes">;
     linkMode: "owned" | "reference";
     sortOrder: number;
-  }>;
+  }[];
 };
 
 type UseNodeInspectorOpts = {

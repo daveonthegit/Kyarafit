@@ -82,9 +82,7 @@ export function PhotoPill({
         style,
       ])}
     >
-      {icon ? (
-        <Ionicons name={icon} size={size === "sm" ? 14 : 15} color={foreground} />
-      ) : null}
+      {icon ? <Ionicons name={icon} size={size === "sm" ? 14 : 15} color={foreground} /> : null}
       <View
         style={
           variant === "text"

@@ -76,7 +76,10 @@ export async function createReactNativeMock() {
       return this;
     }
   }
-  const finished = { start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }), stop: () => {} };
+  const finished = {
+    start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }),
+    stop: () => {},
+  };
   const Animated = {
     Value: AnimatedValue,
     timing: () => finished,

@@ -209,7 +209,7 @@ export async function runUpgradeBackfill(deps: BackfillDeps): Promise<BackfillPr
     }
 
     report(true);
-    for (let i = 0; i < ordered.length; ) {
+    for (let i = 0; i < ordered.length;) {
       const table = ordered[i].table;
       const chunk: LocalRow[] = [];
       let bytes = 2; // array brackets

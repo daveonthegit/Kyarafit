@@ -328,9 +328,7 @@ export function PublicBuildDetailScreen({ buildId, shareToken }: Props) {
   const currentUserId = identity?.subject ?? null;
   const bundleArgs = buildId ? { buildId } : shareToken ? { shareToken } : "skip";
   const bundle = useQuery(api.builds.getPublicViewerBundle, bundleArgs) as
-    | PublicViewerBundle
-    | null
-    | undefined;
+    PublicViewerBundle | null | undefined;
   const buildIdForTree = bundle?.build._id;
   const shareTokenForQueries = shareToken?.trim() ? shareToken : undefined;
   const workflowTree = useQuery(
@@ -704,7 +702,12 @@ function PublicBuildDetailBody({
                           borderBottomColor: active ? glass.text.fg : "transparent",
                         }}
                       >
-                        <ViewerMeta size={10} tone={active ? "fg" : "fg55"} bold={active} tracking={0.18}>
+                        <ViewerMeta
+                          size={10}
+                          tone={active ? "fg" : "fg55"}
+                          bold={active}
+                          tracking={0.18}
+                        >
                           {value === "explorer"
                             ? t("buildDetail.tabExplorer")
                             : value === "tasks"
@@ -842,7 +845,11 @@ function PublicBuildDetailBody({
                                 ]}
                               >
                                 <View
-                                  style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "flex-start",
+                                    gap: 10,
+                                  }}
                                 >
                                   <View
                                     style={{
@@ -1096,9 +1103,7 @@ function PublicBuildDetailBody({
                             color: glass.text.fg70,
                           }}
                         >
-                          {(comment.authorUsername ?? comment.authorName)
-                            .charAt(0)
-                            .toUpperCase()}
+                          {(comment.authorUsername ?? comment.authorName).charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View style={{ minWidth: 0, flex: 1 }}>

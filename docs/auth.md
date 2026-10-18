@@ -30,11 +30,11 @@ The auth API lives on `*.convex.site` while the app lives on `localhost:3000`
 (web) or `localhost:8081` / `exp://` (mobile). Cookies are blocked cross-origin, so
 sessions are persisted via **Bearer tokens** instead:
 
-| Client      | Plugin                | Storage        | Header sent                         |
-| ----------- | --------------------- | -------------- | ----------------------------------- |
-| Web         | `bearerStoragePlugin` | `localStorage` | `Authorization: Bearer <token>`     |
-| Web (OAuth) | `crossDomainClient`   | `localStorage` | `Better-Auth-Cookie: <cookie-json>` |
-| Mobile      | `bearerStoragePlugin` | `AsyncStorage` | `Authorization: Bearer <token>`     |
+| Client      | Plugin                | Storage             | Header sent                         |
+| ----------- | --------------------- | ------------------- | ----------------------------------- |
+| Web         | `bearerStoragePlugin` | `localStorage`      | `Authorization: Bearer <token>`     |
+| Web (OAuth) | `crossDomainClient`   | `localStorage`      | `Better-Auth-Cookie: <cookie-json>` |
+| Mobile      | `bearerStoragePlugin` | `expo-secure-store` | `Authorization: Bearer <token>`     |
 
 The server's **`bearer`** plugin (bundled inside `@convex-dev/better-auth`'s `convex()` plugin)
 converts an `Authorization: Bearer <session-token>` header into a cookie so Better Auth can
@@ -49,41 +49,28 @@ token without relying on cookies.
 Better Auth has **two independent origin checks** that must both be satisfied. Getting only one
 right produces a 403:
 
-### 1. CORS — `convex/http.ts`
+### Shared CORS and trusted-origin policy
 
-Controls `Access-Control-Allow-Origin` headers (handles browser preflight). Add origins here
-so fetch requests aren't blocked before they reach the auth handler.
+`getAuthOrigins()` in `convex/betterAuth/auth.ts` is the single policy source. Both the
+HTTP route registration in `convex/http.ts` (browser CORS) and Better Auth's trusted-origin
+check (CSRF/callback validation) consume it at request time. Do not maintain separate lists.
 
-### 2. Trusted origins — `convex/betterAuth/auth.ts`
+Production is the default, independent of `NODE_ENV`. Configured `SITE_URL` and
+`ADDITIONAL_CORS_ORIGINS` values must be non-loopback HTTPS origins, without paths,
+credentials, query strings, or fragments. Invalid configuration fails closed.
 
-Better Auth's own CSRF protection. It reads the `Origin` header on **every** auth request and
-returns **403 Forbidden** if the origin is not in this list — even if CORS passed.
+Only an isolated development deployment may set `AUTH_ENVIRONMENT=development`; this
+permits HTTP/Expo origins and includes the built-in localhost origins. For physical-device
+testing, configure that deployment, not production:
 
-### Rule: keep the two lists in sync
-
-Every entry in `allowedOrigins` (`http.ts`) **must also** appear in `trustedOrigins` (`auth.ts`).
-
-```
-convex/http.ts                    convex/betterAuth/auth.ts
-──────────────────────────────    ────────────────────────────────────────
-allowedOrigins: [                 trustedOrigins: [
-  "http://localhost:3000",    ←→    "http://localhost:3000",
-  "http://127.0.0.1:3000",   ←→    "http://127.0.0.1:3000",
-  "http://localhost:8081",   ←→    "http://localhost:8081",   // Expo Web
-  "http://127.0.0.1:8081",   ←→    "http://127.0.0.1:8081",
-  "exp://localhost:8081",    ←→    "exp://localhost:8081",    // Expo Go
-  "exp://127.0.0.1:8081",    ←→    "exp://127.0.0.1:8081",
-]                                   ...(siteUrl ? [siteUrl] : []),  // prod
-                                    ...extraOrigins,  // ADDITIONAL_CORS_ORIGINS
-                                  ]
-```
-
-For device testing (Expo Go on a phone), add your LAN IP to both lists:
-
-```
-# Convex dashboard → Environment Variables
+```dotenv
+AUTH_ENVIRONMENT=development
 ADDITIONAL_CORS_ORIGINS=exp://192.168.1.42:8081,http://192.168.1.42:8081
 ```
+
+The installed `kyarafit://` callback and Apple callback origin remain trusted explicitly.
+The executable origin policy and regressions live in `convex/betterAuth/auth.ts` and
+`convex/authConfig.test.ts`.
 
 > **Symptom of missing trusted origin:** `POST /auth/sign-in/email` or `/auth/sign-up/email`
 > returns **403 Forbidden** even though the CORS preflight succeeds.
@@ -107,7 +94,7 @@ the link, sign-in returns an "email not verified" error and the UI shows a resen
 
 ### Email + password — mobile
 
-Identical to web, except `setStoredBearerToken` uses `AsyncStorage` (async) and the session
+Identical to web, except `setStoredBearerToken` uses `expo-secure-store` (async) and the session
 atom is refreshed via `await authClient.getSession()` before navigating.
 
 ### OAuth — web
@@ -158,17 +145,18 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Convex dashboard (Settings → Environment Variables)
 
-| Variable                  | Description                                                                              | Required   |
-| ------------------------- | ---------------------------------------------------------------------------------------- | ---------- |
-| `BETTER_AUTH_SECRET`      | Random secret for signing sessions (`openssl rand -base64 32`)                           | **Yes**    |
-| `GOOGLE_CLIENT_ID`        | Google OAuth client ID                                                                   | **Yes**    |
-| `GOOGLE_CLIENT_SECRET`    | Google OAuth client secret                                                               | **Yes**    |
-| `SITE_URL`                | Production web app origin (e.g. `https://kyarafit.app`) for CORS + email links           | Yes (prod) |
-| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins (e.g. device LAN IP for Expo Go)                           | No         |
-| `RESEND_API_KEY`          | Resend API key — required for verification + reset emails                                | No         |
-| `EMAIL_FROM`              | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend | No         |
-| `GITHUB_CLIENT_ID`        | GitHub OAuth client ID                                                                   | No         |
-| `GITHUB_CLIENT_SECRET`    | GitHub OAuth client secret                                                               | No         |
+| Variable                  | Description                                                                                                                                                                                   | Required   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `BETTER_AUTH_SECRET`      | Explicit signing secret, at least 32 characters; no fallback. Provision outside source control. Auth initialization fails closed when absent/short; schema analysis does not initialize auth. | **Yes**    |
+| `GOOGLE_CLIENT_ID`        | Google OAuth client ID                                                                                                                                                                        | **Yes**    |
+| `GOOGLE_CLIENT_SECRET`    | Google OAuth client secret                                                                                                                                                                    | **Yes**    |
+| `SITE_URL`                | Web app origin for callbacks and email links; must satisfy the [origin policy](#shared-cors-and-trusted-origin-policy)                                                                        | Yes (prod) |
+| `AUTH_ENVIRONMENT`        | `production` (default) or `development`; see the origin policy above                                                                                                                          | No         |
+| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins subject to the same policy                                                                                                                                      | No         |
+| `RESEND_API_KEY`          | Resend API key — required for verification + reset emails                                                                                                                                     | No         |
+| `EMAIL_FROM`              | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend                                                                                                      | No         |
+| `GITHUB_CLIENT_ID`        | GitHub OAuth client ID                                                                                                                                                                        | No         |
+| `GITHUB_CLIENT_SECRET`    | GitHub OAuth client secret                                                                                                                                                                    | No         |
 
 ### Web (`web/.env.local`)
 
@@ -194,7 +182,7 @@ user completes the reset in their browser. A native reset-password screen can be
 | ----------------------------- | ----------------------------------------------------------- |
 | `convex/betterAuth/auth.ts`   | Better Auth instance — providers, `trustedOrigins`, plugins |
 | `convex/betterAuth/schema.ts` | Auth DB tables (user, session, account, verification, jwks) |
-| `convex/http.ts`              | HTTP router, CORS `allowedOrigins`                          |
+| `convex/http.ts`              | HTTP router consuming the shared runtime origin policy      |
 | `convex/auth.config.ts`       | Convex JWT provider config                                  |
 | `convex/emailHelpers.ts`      | Email sending via Resend (verification + reset)             |
 
@@ -215,12 +203,12 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Mobile
 
-| File                                           | Purpose                                            |
-| ---------------------------------------------- | -------------------------------------------------- |
-| `mobile/src/lib/auth/client.ts`                | `authClient`, `useSession`, `setStoredBearerToken` |
-| `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores and sends Bearer token from `AsyncStorage`  |
-| `mobile/src/screens/AuthScreen.tsx`            | Auth screen (email + password + OAuth)             |
-| `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, deep-link OTT handler  |
+| File                                           | Purpose                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| `mobile/src/lib/auth/client.ts`                | `authClient`, `useSession`, `setStoredBearerToken`                        |
+| `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores Bearer token in `expo-secure-store`, hydrates memory, and sends it |
+| `mobile/src/screens/AuthScreen.tsx`            | Auth screen (email + password + OAuth)                                    |
+| `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, deep-link OTT handler                         |
 
 ---
 
@@ -270,8 +258,8 @@ The browser is sent to Google with `redirect_uri=https://<your-deployment>.conve
 Two possible causes — check both:
 
 **1. Request origin not trusted.** The `Origin` header of the request is not in `trustedOrigins`
-in `convex/betterAuth/auth.ts`. Add it alongside the matching entry in `allowedOrigins` in
-`convex/http.ts`. See the [Origin Configuration](#origin-configuration--critical) section above.
+returned by `getAuthOrigins()` in `convex/betterAuth/auth.ts`. Configure the deployment
+according to [Origin Configuration](#origin-configuration--critical); do not add a second list.
 
 **2. Invalid `callbackURL`.** Better Auth validates the `callbackURL` parameter against
 `trustedOrigins` and rejects invalid URLs with 403 before any other processing. Check the Convex
@@ -315,9 +303,5 @@ in `web/.env.local`. Copy the value to `EXPO_PUBLIC_CONVEX_SITE_URL` in `mobile/
 
 ### `ADDITIONAL_CORS_ORIGINS` for Expo Go on a physical device
 
-```
-ADDITIONAL_CORS_ORIGINS=exp://192.168.1.42:8081,http://192.168.1.42:8081
-```
-
-This must be added to **both** `ADDITIONAL_CORS_ORIGINS` (which feeds into `trustedOrigins`)
-**and** you must also add the same values to `allowedOrigins` in `convex/http.ts`.
+See the isolated-development example in [Origin Configuration](#origin-configuration--critical).
+Both checks consume the shared policy; production must not accept development origins.

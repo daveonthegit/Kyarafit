@@ -56,9 +56,7 @@ export function BuildSummarySection({ summary, formatCents }: BuildSummarySectio
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">
               Status
             </p>
-            <p className="mt-3 font-serif italic text-3xl">
-              {formatBuildStatus(summary.status)}
-            </p>
+            <p className="mt-3 font-serif italic text-3xl">{formatBuildStatus(summary.status)}</p>
           </div>
           <div className="rounded-[10px] border border-glass-border bg-glass-active px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-media-fg-55">

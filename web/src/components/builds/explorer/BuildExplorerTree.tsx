@@ -29,7 +29,7 @@ type BuildExplorerTreeProps = {
 
 export function BuildExplorerTree({
   buildId,
-  userId,
+  userId: _userId,
   roots,
   selectedNodeId,
   drag,
@@ -86,9 +86,7 @@ function TreeNode({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const detail = useOfflineQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
-    | DetailedLinkedNode
-    | null
-    | undefined;
+    DetailedLinkedNode | null | undefined;
 
   const children = detail?.children ?? [];
   const displayName = detail?.name ?? node.name;

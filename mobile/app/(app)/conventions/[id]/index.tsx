@@ -28,13 +28,7 @@ import {
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { DataBoundary } from "@/ui";
-import {
-  GlassPanel,
-  GlassStatusChip,
-  GlassTextField,
-  PhotoBackdrop,
-  PhotoPill,
-} from "@/ui/glass";
+import { GlassPanel, GlassStatusChip, GlassTextField, PhotoBackdrop, PhotoPill } from "@/ui/glass";
 
 type Ready = {
   userId: string;
@@ -284,15 +278,9 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
 
   return (
     <View style={{ flex: 1 }}>
-      <PhotoBackdrop
-        imageStorageId={convention.imageStorageId}
-        imageUrl={convention.imageUrl}
-      />
+      <PhotoBackdrop imageStorageId={convention.imageStorageId} imageUrl={convention.imageUrl} />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 18, paddingBottom: 48 }}
-      >
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 18, paddingBottom: 48 }}>
         {/* Headline block (ref 8a) */}
         <View style={{ paddingHorizontal: 22 }}>
           <Meta size={9} tracking={0.26}>
@@ -336,10 +324,7 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
               })}`}
             </Meta>
             {packingProgress.total === 0 ? (
-              <GlassStatusChip
-                tone="warning"
-                label={t("conventions.timelineStatusLogistics")}
-              />
+              <GlassStatusChip tone="warning" label={t("conventions.timelineStatusLogistics")} />
             ) : (
               <Meta
                 size={9}
@@ -359,9 +344,7 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
           </View>
 
           {/* Actions: exactly ONE solid + icon pill affordances */}
-          <View
-            style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}
-          >
+          <View style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10 }}>
             <PhotoPill
               variant="solid"
               label={t("conventions.planDayAction", { defaultValue: "Plan a day" })}
@@ -829,7 +812,10 @@ function ConventionDetailBody({ userId, convention, plans, builds, packing }: Re
               />
             </View>
 
-            <ScrollView style={{ marginTop: 14 }} contentContainerStyle={{ gap: 10, paddingBottom: 16 }}>
+            <ScrollView
+              style={{ marginTop: 14 }}
+              contentContainerStyle={{ gap: 10, paddingBottom: 16 }}
+            >
               <Pressable
                 onPress={() => void assignBuild(undefined)}
                 accessibilityRole="button"

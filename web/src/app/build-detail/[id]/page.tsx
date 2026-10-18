@@ -641,13 +641,12 @@ export default function BuildDetailPage() {
 
                   {summary && (
                     <div className="mt-7 flex items-center gap-4">
-                      <span
-                        className="relative h-px w-40 bg-kyar-media-fg/25 sm:w-52"
-                        aria-hidden
-                      >
+                      <span className="relative h-px w-40 bg-kyar-media-fg/25 sm:w-52" aria-hidden>
                         <span
                           className="absolute inset-y-0 left-0 bg-kyar-media-fg"
-                          style={{ width: `${Math.min(100, Math.max(0, summary.progressPercent))}%` }}
+                          style={{
+                            width: `${Math.min(100, Math.max(0, summary.progressPercent))}%`,
+                          }}
                         />
                       </span>
                       <span className="text-[11px] font-bold tabular-nums">
@@ -710,172 +709,172 @@ export default function BuildDetailPage() {
 
                 {/* Work panel with tabs, anchored right (6b) */}
                 <section className="flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
-                <nav className="flex shrink-0 flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong overflow-x-auto">
-                  {(
-                    [
-                      ["explorer", "Elements"],
-                      ["tasks", "Tasks"],
-                      ["progress", "Updates"],
-                      ["summary", "Summary"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setActiveTab(value)}
-                      aria-pressed={activeTab === value}
-                      className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                        activeTab === value
-                          ? "font-bold text-kyar-media-fg border-kyar-media-fg"
-                          : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </nav>
-                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
-                  {activeTab === "explorer" && (
-                    <div className={`${detailFrameClass} flex min-h-0 flex-1 flex-col gap-8`}>
-                      {build.notes && (
-                        <section className="shrink-0 border-l-2 border-glass-border-strong pl-5">
-                          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
-                            Notes
-                          </p>
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-media-fg-70">
-                            {build.notes}
-                          </p>
-                        </section>
-                      )}
-                      <section className="flex min-h-0 flex-1 flex-col border-t border-glass-divider pt-4">
-                        <BuildNodeManagerSection
-                          buildId={id}
-                          buildName={build.name}
-                          userId={userId}
-                          linkedNodes={linkedNodes}
-                          linkedNodeIds={linkedNodeIds}
-                          onOpenLinkNodes={() => setFabModal("linkNodes")}
-                          onCreateRoot={() =>
-                            openCreationModal("newCloset", {
-                              successRedirectTo: null,
-                              onCreated: async (node) => {
-                                if (!userId) return;
-                                await linkNodes({
-                                  userId,
-                                  buildId: id,
-                                  cosplayNodeIds: [...linkedNodeIds, node._id],
-                                });
-                              },
-                            })
-                          }
-                          onCreateChild={(parentId, initialNodeType) =>
-                            openCreationModal("newCloset", {
-                              initialNodeType,
-                              initialCategory:
-                                initialNodeType === "material" ? "material" : "other",
-                              successRedirectTo: null,
-                              onCreated: async (node) => {
-                                if (!userId) return;
-                                await addChildLink({
-                                  userId,
-                                  parentNodeId: parentId,
-                                  childNodeId: node._id,
-                                  linkMode: "owned",
-                                });
-                              },
-                            })
-                          }
-                        />
-                      </section>
-                    </div>
-                  )}
-
-                  {activeTab === "tasks" && (
-                    <section id="build-tasks" className={detailFrameClass}>
-                      <h2 className="mb-6 font-serif italic text-2xl">Tasks &amp; Timeline</h2>
-                      <WorkflowTree buildId={id} userId={userId} />
-                    </section>
-                  )}
-
-                  {activeTab === "progress" && (
-                    <section className={detailFrameClass}>
-                      <BuildProgressTimeline buildId={id} userId={userId} />
-                    </section>
-                  )}
-
-                  {activeTab === "summary" && (
-                    <section className={detailFrameClass}>
-                      <div className="grid gap-6">
-                        <div>
-                          <BuildSummarySection
-                            summary={summary ?? null}
-                            formatCents={formatCents}
+                  <nav className="flex shrink-0 flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong overflow-x-auto">
+                    {(
+                      [
+                        ["explorer", "Elements"],
+                        ["tasks", "Tasks"],
+                        ["progress", "Updates"],
+                        ["summary", "Summary"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setActiveTab(value)}
+                        aria-pressed={activeTab === value}
+                        className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                          activeTab === value
+                            ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                            : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </nav>
+                  <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
+                    {activeTab === "explorer" && (
+                      <div className={`${detailFrameClass} flex min-h-0 flex-1 flex-col gap-8`}>
+                        {build.notes && (
+                          <section className="shrink-0 border-l-2 border-glass-border-strong pl-5">
+                            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                              Notes
+                            </p>
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-media-fg-70">
+                              {build.notes}
+                            </p>
+                          </section>
+                        )}
+                        <section className="flex min-h-0 flex-1 flex-col border-t border-glass-divider pt-4">
+                          <BuildNodeManagerSection
+                            buildId={id}
+                            buildName={build.name}
+                            userId={userId}
+                            linkedNodes={linkedNodes}
+                            linkedNodeIds={linkedNodeIds}
+                            onOpenLinkNodes={() => setFabModal("linkNodes")}
+                            onCreateRoot={() =>
+                              openCreationModal("newCloset", {
+                                successRedirectTo: null,
+                                onCreated: async (node) => {
+                                  if (!userId) return;
+                                  await linkNodes({
+                                    userId,
+                                    buildId: id,
+                                    cosplayNodeIds: [...linkedNodeIds, node._id],
+                                  });
+                                },
+                              })
+                            }
+                            onCreateChild={(parentId, initialNodeType) =>
+                              openCreationModal("newCloset", {
+                                initialNodeType,
+                                initialCategory:
+                                  initialNodeType === "material" ? "material" : "other",
+                                successRedirectTo: null,
+                                onCreated: async (node) => {
+                                  if (!userId) return;
+                                  await addChildLink({
+                                    userId,
+                                    parentNodeId: parentId,
+                                    childNodeId: node._id,
+                                    linkMode: "owned",
+                                  });
+                                },
+                              })
+                            }
                           />
-                        </div>
-                        <div className="rounded-glass border border-glass-border bg-glass-active p-5">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
-                                Collaborators
-                              </p>
-                              <h2 className="mt-2 font-serif italic text-2xl">Team</h2>
-                            </div>
-                            {userId && build.userId === userId && (
-                              <button
-                                type="button"
-                                onClick={() => setFabModal("invite")}
-                                className="rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors"
-                              >
-                                Invite
-                              </button>
-                            )}
-                          </div>
-                          <div className="mt-5 space-y-3">
-                            {collaborators.length > 0 ? (
-                              collaborators.map((c) => (
-                                <div
-                                  key={c.userId}
-                                  className="flex items-center justify-between gap-3 rounded-[10px] border border-glass-border px-4 py-3"
-                                >
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-glass-border bg-glass text-xs font-serif">
-                                      {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="truncate text-sm">
-                                        {c.name ?? c.email ?? c.userId}
-                                      </p>
-                                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
-                                        {c.role}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  {userId && build.userId === userId && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        removeCollaborator({
-                                          buildId: id,
-                                          ownerId: userId,
-                                          userId: c.userId,
-                                        })
-                                      }
-                                      className="text-[10px] uppercase tracking-[0.16em] text-on-glass-danger/70 hover:text-on-glass-danger"
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-media-fg-55">No collaborators yet.</p>
-                            )}
-                          </div>
-                        </div>
+                        </section>
                       </div>
-                    </section>
-                  )}
-                </div>
+                    )}
+
+                    {activeTab === "tasks" && (
+                      <section id="build-tasks" className={detailFrameClass}>
+                        <h2 className="mb-6 font-serif italic text-2xl">Tasks &amp; Timeline</h2>
+                        <WorkflowTree buildId={id} userId={userId} />
+                      </section>
+                    )}
+
+                    {activeTab === "progress" && (
+                      <section className={detailFrameClass}>
+                        <BuildProgressTimeline buildId={id} userId={userId} />
+                      </section>
+                    )}
+
+                    {activeTab === "summary" && (
+                      <section className={detailFrameClass}>
+                        <div className="grid gap-6">
+                          <div>
+                            <BuildSummarySection
+                              summary={summary ?? null}
+                              formatCents={formatCents}
+                            />
+                          </div>
+                          <div className="rounded-glass border border-glass-border bg-glass-active p-5">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                                  Collaborators
+                                </p>
+                                <h2 className="mt-2 font-serif italic text-2xl">Team</h2>
+                              </div>
+                              {userId && build.userId === userId && (
+                                <button
+                                  type="button"
+                                  onClick={() => setFabModal("invite")}
+                                  className="rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors"
+                                >
+                                  Invite
+                                </button>
+                              )}
+                            </div>
+                            <div className="mt-5 space-y-3">
+                              {collaborators.length > 0 ? (
+                                collaborators.map((c) => (
+                                  <div
+                                    key={c.userId}
+                                    className="flex items-center justify-between gap-3 rounded-[10px] border border-glass-border px-4 py-3"
+                                  >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-glass-border bg-glass text-xs font-serif">
+                                        {(c.name ?? c.email ?? c.userId).charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm">
+                                          {c.name ?? c.email ?? c.userId}
+                                        </p>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-media-fg-55">
+                                          {c.role}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {userId && build.userId === userId && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeCollaborator({
+                                            buildId: id,
+                                            ownerId: userId,
+                                            userId: c.userId,
+                                          })
+                                        }
+                                        className="text-[10px] uppercase tracking-[0.16em] text-on-glass-danger/70 hover:text-on-glass-danger"
+                                      >
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-sm text-media-fg-55">No collaborators yet.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    )}
+                  </div>
                 </section>
               </div>
 

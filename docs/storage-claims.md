@@ -57,9 +57,7 @@ writes maintain `progressMediaReferences`; legacy nested refs use an indexed bri
 rows without `mediaIndexed`. Before high-volume rollout, the operator should invoke the internal
 `files.indexLegacyProgress` on an authorized development target and validate it, then approve its
 production run separately. It drains batches of 25 with resumable scheduling; queries stop reading
-legacy rows once it completes. Tombstones never become pending previews. Historical Media wording
-in `docs/backend-authorization.md` awaits its documentation-owner reconciliation to this approved
-contract.
+legacy rows once it completes. Tombstones never become pending previews.
 
 ## Follow-up integration seams
 

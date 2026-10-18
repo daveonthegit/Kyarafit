@@ -8,19 +8,19 @@ a blanket restart of the historical phase plan._
 
 Status is repository implementation, not deployment or owner acceptance.
 
-| Area                                            | State                                             | Evidence / next gate                                                                                |
-| ----------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Local-first foundations                         | Implemented                                       | `design-system/domain/{syncPolicy,offlineConflict,cloudStoragePolicy}.ts`; platform offline bridges |
-| Elements and progress                           | Implemented with legacy persistence names         | `cosplayNodes`, `buildProgressUpdates`, `workflowItems`; see [architecture](ARCHITECTURE.md)        |
-| Web local store                                 | Implemented                                       | OPFS + wa-sqlite with IndexedDB fallback in `web/src/lib/offline/engineSelection.ts`                |
-| Export/import and tier transitions              | Implemented; further validation/hardening remains | Platform data settings, `convex/tierTransition.ts`; live E2E is a separate dev gate                 |
-| Glass Studio web                                | Implemented                                       | [Redesign](redesign/README.md)                                                                      |
-| Mobile events/social (7.3/7.4)                  | Implemented; owner-device acceptance pending      | [Handoff](redesign/HANDOFF.md)                                                                      |
-| Mobile settings (7.5) and build-detail feedback | Outstanding                                       | Settings pass; owner walkthrough before feedback changes                                            |
-| Two-tier entitlements                           | Accepted, unbuilt                                 | GH #147; existing legacy policy is not the target policy                                            |
-| R2 media, migration, takedown                   | Accepted, unbuilt                                 | GH #148 and ADR-0001; current storage remains `_storage`                                            |
-| BYO merge engine, Drive, sync-method settings   | Accepted, unbuilt                                 | GH #149 and ADR-0003; existing field-LWW is managed-sync logic, not a BYO transport                 |
-| Security/remediation and release                | In progress / operator verification required      | [Authorization contract](backend-authorization.md); no release or clean-security guarantee          |
+| Area                                            | State                                                 | Evidence / next gate                                                                                                                |
+| ----------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Local-first foundations                         | Implemented                                           | `design-system/domain/{syncPolicy,offlineConflict,cloudStoragePolicy}.ts`; platform offline bridges                                 |
+| Elements and progress                           | Implemented with legacy persistence names             | `cosplayNodes`, `buildProgressUpdates`, `workflowItems`; see [architecture](ARCHITECTURE.md)                                        |
+| Web local store                                 | Implemented                                           | OPFS + wa-sqlite with IndexedDB fallback in `web/src/lib/offline/engineSelection.ts`                                                |
+| Export/import and tier transitions              | Implemented; further validation/hardening remains     | Platform data settings, `convex/tierTransition.ts`; live E2E is a separate dev gate                                                 |
+| Glass Studio web                                | Implemented                                           | [Redesign](redesign/README.md)                                                                                                      |
+| Mobile events/social (7.3/7.4)                  | Implemented; owner-device acceptance pending          | [Handoff](redesign/HANDOFF.md)                                                                                                      |
+| Mobile settings (7.5) and build-detail feedback | Outstanding                                           | Settings pass; owner walkthrough before feedback changes                                                                            |
+| Two-tier entitlements                           | Accepted, unbuilt                                     | GH #147; existing legacy policy is not the target policy                                                                            |
+| R2 media, migration, takedown                   | Accepted, unbuilt                                     | GH #148 and ADR-0001; current storage remains `_storage`                                                                            |
+| BYO merge engine, Drive, sync-method settings   | Engine present but disabled; user integration unbuilt | GH #149 and ADR-0003; [engine contract](../design-system/domain/byoSnapshot.md). No public export, user wiring, or Drive transport. |
+| Security/remediation and release                | In progress / operator verification required          | [Authorization contract](backend-authorization.md); no release or clean-security guarantee                                          |
 
 Product order: shared entitlement changes precede R2 clients/migration; BYO merge precedes Drive
 and sync-method settings; native/provider acceptance precedes release. Broader moderation remains

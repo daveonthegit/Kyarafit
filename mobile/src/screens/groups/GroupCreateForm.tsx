@@ -235,7 +235,9 @@ export function GroupCreateForm() {
                   }
                   disabled={canCreateGroup && !name.trim()}
                   onPress={() =>
-                    canCreateGroup ? void handleCreate() : router.push(APP_HREF.settingsSubscription)
+                    canCreateGroup
+                      ? void handleCreate()
+                      : router.push(APP_HREF.settingsSubscription)
                   }
                 />
               </View>

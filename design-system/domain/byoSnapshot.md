@@ -70,5 +70,5 @@ A strictly newer live write can deliberately restore an identity. Merge itself n
   No mapping to legacy `imageRefs`, `_storage`, or future R2 media keys is guessed in this package.
 - B3/B4 own export/import integration, local persistence, method switching and foreground triggers.
 
-Tests: `npm test -w web -- src/lib/byoSnapshot.test.ts` exercises the public package interface,
+Tests: `npm test -w web -- src/lib/byoSnapshot.test.ts` exercises the disabled engine directly,
 including the checked-in v1 round-trip fixture and reproducible convergence-property trials.

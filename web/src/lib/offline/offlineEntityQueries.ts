@@ -9,8 +9,7 @@
  * OFFLINE CORE: never imports `convex/react`.
  */
 export type EntityQueryOverlay =
-  | { table: string; kind: "list" }
-  | { table: string; kind: "doc"; idArg: string };
+  { table: string; kind: "list" } | { table: string; kind: "doc"; idArg: string };
 
 const QUERY_OVERLAYS: Record<string, EntityQueryOverlay> = {
   "builds:list": { table: "builds", kind: "list" },

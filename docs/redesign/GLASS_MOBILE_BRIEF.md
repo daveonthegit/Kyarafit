@@ -78,4 +78,4 @@ warnings in unrelated files are OK). Do NOT run npm install, git commit, or edit
 ## Final report format
 
 1. What changed (files). 2. New i18n keys (`ns.key` → English). 3. Flags (spec vs data-model
-conflicts, surfaces dropped to opaque fallback and why, anything left cream deliberately).
+   conflicts, surfaces dropped to opaque fallback and why, anything left cream deliberately).
