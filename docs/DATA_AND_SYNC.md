@@ -180,11 +180,13 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 ## 11. Export / import (free)
 
-**Current mobile limitation:** Settings → Data exports JSON for builds, elements, and conventions
-only; it does not include the complete vault graph or original photo files. Import reads that
-account's existing on-device export file, not an arbitrary backup from another device. The file
-is account-keyed (`vaultExportFilePath`) and is deleted with that account's device data. This is
-not a complete backup or fresh-vault restore; the requirements below remain follow-up work.
+**Current mobile behavior:** Settings → Backup & restore writes the whole unlocked vault to one
+`.kyarafit` file: every live row plus the original bytes of every referenced photo, including
+cloud-only originals downloaded when online (unavailable ones are listed as missing). Restore picks
+a file with the system file picker and merges it in one transaction: rows the vault lacks are
+added, newer copies replace older ones, records whose ids differ between devices are matched
+through `id_map`/`clientId` instead of duplicated, re-importing is a no-op, and missing photos are
+reported. Not yet implemented from the requirements below: CSV, JSON-ZIP and PDF formats.
 
 - **REQ-D100** CSV (one per entity), JSON-ZIP (`data.json` + `/images/<imageKey>.<ext>`, relative refs, via `fflate`), and PDF export are all free.
 - **REQ-D101** Import parses zip/json, rehydrates images into the local store, remaps ids via `id_map`, merges per-field LWW (REQ-D65), respects tombstones, and is **idempotent** on re-import (no duplicates).

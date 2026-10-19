@@ -79,14 +79,74 @@ export function toDeviceImageRefs<T>(value: T, imageDir: string): T {
   }) as T;
 }
 
-/** Every distinct vault image key referenced anywhere in `value` (export manifests). */
-export function collectVaultImageKeys(value: unknown, into = new Set<string>()): Set<string> {
-  mapStrings(value, (s) => {
-    const key = vaultImageKey(s);
-    if (key) into.add(key);
-    return s;
-  });
+export interface VaultPhotoReference {
+  key: string;
+  storageId?: string;
+}
+
+function recordPhoto(record: Record<string, unknown>): VaultPhotoReference | null {
+  if (record.kind === "local" || record.kind === "cloud") {
+    if (typeof record.imageKey !== "string" || !new RegExp(`^${IMAGE_KEY}$`).test(record.imageKey))
+      return null;
+    return {
+      key: record.imageKey,
+      ...(record.kind === "cloud" && typeof record.storageId === "string"
+        ? { storageId: record.storageId }
+        : {}),
+    };
+  }
+  if (typeof record.imageStorageId !== "string" || !record.imageStorageId) return null;
+  const localKey = typeof record.imageUrl === "string" ? vaultImageKey(record.imageUrl) : null;
+  const key =
+    localKey ??
+    `cloud_${Array.from(record.imageStorageId, (character) => character.codePointAt(0)!.toString(16).padStart(6, "0")).join("")}`;
+  return { key, storageId: record.imageStorageId };
+}
+
+export function collectVaultPhotos(
+  value: unknown,
+  into = new Map<string, VaultPhotoReference>()
+): Map<string, VaultPhotoReference> {
+  if (typeof value === "string") {
+    const key = vaultImageKey(value);
+    if (key && !into.has(key)) into.set(key, { key });
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectVaultPhotos(item, into);
+  } else if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const photo = recordPhoto(record);
+    if (photo) into.set(photo.key, { ...into.get(photo.key), ...photo });
+    for (const item of Object.values(record)) collectVaultPhotos(item, into);
+  }
   return into;
+}
+
+export function collectVaultImageKeys(value: unknown, into = new Set<string>()): Set<string> {
+  for (const key of collectVaultPhotos(value).keys()) into.add(key);
+  return into;
+}
+
+export function localizeVaultPhotos<T>(value: T, available: ReadonlySet<string>): T {
+  if (Array.isArray(value))
+    return value.map((item) => localizeVaultPhotos(item, available)) as unknown as T;
+  if (value === null || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const photo = recordPhoto(record);
+  if (photo?.storageId && available.has(photo.key) && record.kind === "cloud") {
+    return {
+      kind: "local",
+      imageKey: photo.key,
+      uri: `${VAULT_IMAGE_TOKEN}${photo.key}`,
+    } as unknown as T;
+  }
+  const result = Object.fromEntries(
+    Object.entries(record).map(([key, item]) => [key, localizeVaultPhotos(item, available)])
+  );
+  if (photo?.storageId && available.has(photo.key) && typeof record.imageStorageId === "string") {
+    delete result.imageStorageId;
+    result.imageUrl = `${VAULT_IMAGE_TOKEN}${photo.key}`;
+  }
+  return result as unknown as T;
 }
 
 export function vaultImageCodec(imageDir: string): VaultDocCodec {

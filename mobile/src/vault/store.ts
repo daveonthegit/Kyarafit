@@ -1,5 +1,23 @@
 import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
+import { localizeVaultPhotos } from "./images";
 import { VAULT_INDEX_FIELDS, VAULT_TABLES } from "./indexes";
+
+/** Owner-identity fields re-owned to the importing account. */
+const OWNER_FIELDS = ["userId", "creatorUserId", "ownerUserId", "assigneeUserId"] as const;
+
+export interface ImportedRow {
+  table: string;
+  id: string;
+  doc: Record<string, unknown>;
+}
+
+export interface ImportRowsResult {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  /** Rows for tables this app version does not know (left out, reported). */
+  unknown: number;
+}
 
 /**
  * The local vault store: the authoritative, in-process view of one account's personal data.
@@ -502,6 +520,188 @@ export class VaultStore {
       }
     }
     this.bump();
+    return result;
+  }
+
+  /** Every live row in stored (portable) form, ordered for stable exports. */
+  exportRows(): ImportedRow[] {
+    const rows = this.sql.getAllSync<{ table_name: string; id: string; json: string }>(
+      "SELECT table_name, id, json FROM entity_rows WHERE deleted = 0 ORDER BY table_name, id"
+    );
+    const out: ImportedRow[] = [];
+    for (const row of rows) {
+      try {
+        out.push({
+          table: row.table_name,
+          id: row.id,
+          doc: JSON.parse(row.json) as Record<string, unknown>,
+        });
+      } catch {
+        // Unreadable rows were already reported at load; they cannot be exported faithfully.
+      }
+    }
+    return out;
+  }
+
+  /**
+   * A record can carry different ids on different devices: the device that created it keeps its
+   * local id (`local:…`, mapped to the server id in `id_map`), while a device that pulled it from
+   * the cloud stores the server id (with the original local id as `clientId`). Before merging a
+   * backup, map every incoming id onto the row this vault already holds for the same record, and
+   * rewrite references to it, so a restore merges instead of duplicating records and relations.
+   */
+  private reconcileImportIds(rows: readonly ImportedRow[]): ImportedRow[] {
+    const localToServer = new Map<string, string>();
+    const serverToLocal = new Map<string, string>();
+    for (const { client_id, server_id } of this.sql.getAllSync<{
+      client_id: string;
+      server_id: string;
+    }>("SELECT client_id, server_id FROM id_map")) {
+      localToServer.set(client_id, server_id);
+      serverToLocal.set(server_id, client_id);
+    }
+    const exists = (table: string, id: string) =>
+      this.sql.getFirstSync<{ c: number }>(
+        "SELECT 1 AS c FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0",
+        [table, id]
+      ) !== null;
+    const byClientId = (table: string, clientId: string) =>
+      this.sql.getFirstSync<{ id: string }>(
+        `SELECT id FROM entity_rows
+         WHERE table_name = ? AND deleted = 0 AND json_extract(json, '$.clientId') = ?`,
+        [table, clientId]
+      )?.id ?? null;
+
+    const alias = new Map<string, string>();
+    for (const row of rows) {
+      if (exists(row.table, row.id)) continue;
+      const candidates = [
+        localToServer.get(row.id),
+        serverToLocal.get(row.id),
+        typeof row.doc.clientId === "string" ? row.doc.clientId : undefined,
+      ];
+      let target = candidates.find(
+        (candidate): candidate is string => !!candidate && exists(row.table, candidate)
+      );
+      target ??= byClientId(row.table, row.id) ?? undefined;
+      if (target && target !== row.id) alias.set(row.id, target);
+    }
+    if (alias.size === 0) return [...rows];
+
+    const rewrite = (value: unknown, key?: string): unknown => {
+      if (typeof value === "string") {
+        const direct = alias.get(value);
+        if (direct) return direct;
+        // Composite keys embed ids as `kind:id` segments (e.g. entityKey "cosplayNode:<id>").
+        if (key === "entityKey" || key === "dedupeKey") {
+          let out = value;
+          for (const [from, to] of alias) out = out.split(from).join(to);
+          return out;
+        }
+        return value;
+      }
+      if (Array.isArray(value)) return value.map((item) => rewrite(item));
+      if (value !== null && typeof value === "object") {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).map(([k, item]) => [k, rewrite(item, k)])
+        );
+      }
+      return value;
+    };
+    return rows.map((row) => ({
+      table: row.table,
+      id: alias.get(row.id) ?? row.id,
+      doc: rewrite(row.doc) as Record<string, unknown>,
+    }));
+  }
+
+  /**
+   * Merge rows from a backup into this vault in ONE SQLite transaction: rows this vault lacks are
+   * added, rows the backup holds a newer copy of (`updatedAt`) replace the local copy, everything
+   * else is kept. Re-importing the same backup is therefore a no-op. Rows written by `sourceSubject`
+   * are re-owned to this vault's account. Imported rows are local changes the cloud has not seen, so
+   * the one-time upgrade backfill is re-armed for paid sync.
+   */
+  importRows(
+    rows: readonly ImportedRow[],
+    sourceSubject: string,
+    availablePhotos: ReadonlySet<string> = new Set()
+  ): ImportRowsResult {
+    const result: ImportRowsResult = { inserted: 0, updated: 0, skipped: 0, unknown: 0 };
+    const now = this.now();
+    const known = new Set<string>(VAULT_TABLES);
+    const incoming = this.reconcileImportIds(rows);
+    try {
+      this.sql.withTransactionSync(() => {
+        for (const row of incoming) {
+          if (!known.has(row.table)) {
+            result.unknown += 1;
+            continue;
+          }
+          const doc: Record<string, unknown> = { ...row.doc, _id: row.id };
+          if (typeof doc._creationTime !== "number") doc._creationTime = now;
+          for (const field of OWNER_FIELDS) {
+            if (doc[field] === sourceSubject) doc[field] = this.subject;
+          }
+          const existing = this.sql.getFirstSync<{ json: string; deleted: number }>(
+            "SELECT json, deleted FROM entity_rows WHERE table_name = ? AND id = ?",
+            [row.table, row.id]
+          );
+          if (existing && !existing.deleted) {
+            let localUpdatedAt = 0;
+            try {
+              const parsed = JSON.parse(existing.json) as { updatedAt?: unknown };
+              localUpdatedAt = typeof parsed.updatedAt === "number" ? parsed.updatedAt : 0;
+            } catch {
+              localUpdatedAt = 0;
+            }
+            const incoming = typeof doc.updatedAt === "number" ? doc.updatedAt : 0;
+            if (row.table === "vaultSettings" || incoming <= localUpdatedAt) {
+              result.skipped += 1;
+              // The local copy wins, but a cloud-only photo it references may now have its original
+              // on this device (restored from this backup): point the row at the local file without
+              // touching its timestamp or sync state, so newer edits are never overwritten.
+              if (row.table !== "vaultSettings" && availablePhotos.size > 0) {
+                let parsed: Record<string, unknown> | null = null;
+                try {
+                  parsed = JSON.parse(existing.json) as Record<string, unknown>;
+                } catch {
+                  parsed = null;
+                }
+                if (parsed) {
+                  const localized = localizeVaultPhotos(parsed, availablePhotos);
+                  const json = JSON.stringify(localized);
+                  if (json !== existing.json) {
+                    this.sql.runSync(
+                      "UPDATE entity_rows SET json = ? WHERE table_name = ? AND id = ?",
+                      [json, row.table, row.id]
+                    );
+                  }
+                }
+              }
+              continue;
+            }
+            result.updated += 1;
+          } else {
+            result.inserted += 1;
+          }
+          this.sql.runSync(
+            `INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
+             VALUES (?, ?, ?, ?, ?, NULL, 0)
+             ON CONFLICT(table_name, id) DO UPDATE SET
+               json = excluded.json, user_id = excluded.user_id, updated_at = excluded.updated_at,
+               synced_at = NULL, deleted = 0`,
+            [row.table, row.id, this.subject, JSON.stringify(doc), now]
+          );
+        }
+        if (result.inserted + result.updated > 0) {
+          this.sql.runSync("DELETE FROM sync_meta WHERE key = 'backfill:complete'");
+        }
+      });
+    } catch (error) {
+      throw new VaultWriteError(error);
+    }
+    this.reloadFromDisk();
     return result;
   }
 }

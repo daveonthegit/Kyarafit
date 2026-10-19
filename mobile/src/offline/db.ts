@@ -312,6 +312,9 @@ export async function deleteVaultDatabase(subject: string): Promise<void> {
   }
   const exportPath = vaultExportFilePath(subject);
   if (exportPath) await FileSystem.deleteAsync(exportPath, { idempotent: true });
+  // Backup files written for this account but not yet cleaned up (see portabilityDevice).
+  const cache = FileSystem.cacheDirectory;
+  if (cache) await FileSystem.deleteAsync(`${cache}backups/${key}/`, { idempotent: true });
 }
 
 function queryCacheBytes(db: SQLiteDatabase): number {

@@ -9,18 +9,25 @@ session token was stored. The "previously signed in" state was seeded by writing
 account record (a fake subject, no credential) into the app's AsyncStorage. Photos are simulator
 sample images and a stock image from `web/public/images/mock`; no personal data appears.
 
-| Step                                                                                               | Result                                                      | Screenshot                          |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------- |
-| Cold launch, server unreachable, no token                                                          | Studio opens signed in (no sign-in redirect)                | `s1-offline-cold-launch.jpg`        |
-| Create a build with a cover photo                                                                  | Saved locally, hero photo rendered from the vault           | `s2-build-created-offline.jpg`      |
-| Add a reference photo                                                                              | Saved locally, shown in the gallery                         | `s3-reference-photo-offline.jpg`    |
-| Create an element and link it to the build                                                         | Element and its generated task created; build counts update | (accessibility tree)                |
-| Create a convention with a cover photo, assign the build to day 1, generate packing, check an item | All saved locally; packing derived from the build           | `s5-convention-created-offline.jpg` |
-| Force-quit Expo Go and relaunch, server still unreachable                                          | Home shows the build, the task and the convention countdown | `s7-relaunch-home.jpg`              |
-| Reopen the convention                                                                              | Day plan and the checked packing item persisted             | `s8-relaunch-convention.jpg`        |
-| Reopen the build                                                                                   | Photos and derived progress (1 / 2 tasks, 58%) persisted    | `s9-relaunch-build.jpg`             |
+| Step                                                                                               | Result                                                          | Screenshot                          |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- |
+| Cold launch, server unreachable, no token                                                          | Studio opens signed in (no sign-in redirect)                    | `s1-offline-cold-launch.jpg`        |
+| Create a build with a cover photo                                                                  | Saved locally, hero photo rendered from the vault               | `s2-build-created-offline.jpg`      |
+| Add a reference photo                                                                              | Saved locally, shown in the gallery                             | `s3-reference-photo-offline.jpg`    |
+| Create an element and link it to the build                                                         | Element and its generated task created; build counts update     | (accessibility tree)                |
+| Create a convention with a cover photo, assign the build to day 1, generate packing, check an item | All saved locally; packing derived from the build               | `s5-convention-created-offline.jpg` |
+| Force-quit Expo Go and relaunch, server still unreachable                                          | Home shows the build, the task and the convention countdown     | `s7-relaunch-home.jpg`              |
+| Reopen the convention                                                                              | Day plan and the checked packing item persisted                 | `s8-relaunch-convention.jpg`        |
+| Reopen the build                                                                                   | Photos and derived progress (1 / 2 tasks, 58%) persisted        | `s9-relaunch-build.jpg`             |
+| Settings → Backup & restore → Save backup                                                          | 9 MB `.kyarafit` file written and handed to the iOS share sheet | `s11-backup-share-sheet.jpg`        |
+
+The exported archive was checked outside the app: valid header and manifest, 20 rows across
+builds, elements, workflow items and attachments, conventions, day plans, packing and reference
+images, and 3 photos whose byte lengths matched the data section exactly; the build's photo was
+stored as a portable `kyarafit-image:` token.
 
 Not covered here: the OS-level offline strip (the simulator shares the host network, so NetInfo
 still reported reachable), the expired-session notice (the server was unreachable rather than
 rejecting a session; unit-tested in `mobile/src/lib/auth/appSession.test.ts`), sign-out on the
-simulator, and Android.
+simulator, restoring a backup on the simulator or a second device (covered by the round-trip unit
+tests), and Android.

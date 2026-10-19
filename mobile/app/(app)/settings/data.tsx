@@ -1,21 +1,26 @@
-import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Share, Text } from "react-native";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { ActivityIndicator, Alert, Text } from "react-native";
 import { glass } from "@kyarafit/design-system/rn";
-import * as FileSystem from "expo-file-system/legacy";
-import { useVaultState } from "@/vault/hooks";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
-import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { deleteVaultDatabase, vaultExportFilePath } from "@/offline/db";
+import { useConvex } from "convex/react";
+import type { Id } from "convex/_generated/dataModel";
+import { useActiveVault, useVaultState } from "@/vault/hooks";
+import { deleteVaultDatabase } from "@/offline/db";
 import { signOut } from "@/lib/auth/client";
 import {
-  buildExport,
-  buildPortableRows,
-  importData,
-  type EntityDoc,
-  type PortableCollections,
-  type PortableTable,
-} from "@/lib/dataPortability";
+  getActiveVault,
+  getVaultDataVersion,
+  requireActiveVault,
+  subscribeVault,
+} from "@/vault/activeVault";
+import { collectVaultImageKeys } from "@/vault/images";
+import {
+  deliverVaultBackup,
+  discardVaultBackup,
+  pickAndImportVaultBackup,
+  writeVaultBackup,
+} from "@/vault/portabilityDevice";
 import { DataBoundary } from "@/ui";
 import { PhotoPill } from "@/ui/glass";
 import {
@@ -25,214 +30,121 @@ import {
 } from "@/screens/settings/glassSettings";
 
 /**
- * Settings → Data export / import (Wave 7, REQ-012 / REQ-D101 / REQ-D102). FREE for everyone:
- * nothing on this screen gates on subscription tier.
+ * Settings → Backup & restore (REQ-012). FREE for everyone.
  *
- * Export gathers the user's local-first entities via the offline queries, serializes them with the
- * shared `buildExport` (→ `exportBundle`), writes a JSON bundle to the app document directory, and
- * offers the OS share sheet. Import reads that bundle back and recreates missing rows idempotently.
- *
- * File picking: no document picker is installed (and we must not add a native dependency), so import
- * reads the known export file written by Export on this device — enough for an on-device round-trip
- * and for the orchestration logic to be fully exercised. See `dataPortability.ts`.
+ * - **Back up** writes the whole unlocked vault — every planner row plus the original bytes of every
+ *   photo — to one `.kyarafit` file and hands it to the OS (share sheet / folder picker).
+ * - **Restore** merges a picked backup into this vault: missing items are added, newer copies win,
+ *   anything changed here since is kept. Photos that could not be restored are reported.
+ * - **Remove from this device** is the only destructive path: an explicit, confirmed delete of this
+ *   account's vault, followed by sign-out. Sign-out alone never deletes anything.
  */
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
+
+function useVaultCounts(): { items: number; photos: number } {
+  const version = useSyncExternalStore(subscribeVault, getVaultDataVersion, getVaultDataVersion);
+  return useMemo(() => {
+    void version;
+    const store = getActiveVault();
+    if (!store) return { items: 0, photos: 0 };
+    const rows = store.exportRows().filter((row) => row.table !== "vaultSettings");
+    return {
+      items: rows.length,
+      photos: collectVaultImageKeys(rows.map((row) => row.doc)).size,
+    };
+  }, [version]);
 }
 
-function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" ? value : undefined;
-}
-
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
-function asBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
-/** Adapt offline query results (Convex docs) to the table-agnostic `EntityDoc` shape. */
-function toDocs(rows: readonly { _id: string }[] | undefined): EntityDoc[] {
-  return (rows ?? []).map((row) => row as EntityDoc);
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export default function SettingsDataScreen() {
   const { t } = useTranslation();
-  const vault = useVaultState();
-  const userId = vault.status === "unlocked" ? vault.account.subject : undefined;
-
-  const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
-  const elements = useOfflineQuery(api.cosplayNodes.list, userId ? { userId } : "skip");
-  const conventions = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
-
-  const createBuild = useOfflineMutation(api.builds.create);
-  const createElement = useOfflineMutation(api.cosplayNodes.create);
-  const createConvention = useOfflineMutation(api.conventions.create);
-
-  const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
-
-  const collections = useMemo<PortableCollections>(
-    () => ({
-      builds: toDocs(builds),
-      elements: toDocs(elements),
-      conventions: toDocs(conventions),
-    }),
-    [builds, elements, conventions]
-  );
-
-  const itemCount = useMemo(() => buildPortableRows(collections).length, [collections]);
-
-  const createRow = useCallback(
-    async (table: PortableTable, doc: EntityDoc): Promise<void> => {
-      const owner = asString(doc.userId) ?? userId;
-      if (!owner) return;
-      if (table === "builds") {
-        await createBuild({
-          userId: owner,
-          name: asString(doc.name) ?? "Untitled",
-          status: asString(doc.status) ?? "idea",
-          character: asString(doc.character),
-          notes: asString(doc.notes),
-          imageUrl: asString(doc.imageUrl),
-          budgetCents: asNumber(doc.budgetCents),
-          targetDate: asString(doc.targetDate),
-          visibility: asString(doc.visibility),
-        });
-      } else if (table === "elements") {
-        await createElement({
-          userId: owner,
-          nodeType: asString(doc.nodeType) ?? "element",
-          name: asString(doc.name) ?? "Untitled",
-          category: asString(doc.category),
-          tags: asStringArray(doc.tags),
-          notes: asString(doc.notes),
-          imageUrl: asString(doc.imageUrl),
-          sourceUrl: asString(doc.sourceUrl),
-          pricingMode: asString(doc.pricingMode),
-          directCostCents: asNumber(doc.directCostCents),
-          unitCostCents: asNumber(doc.unitCostCents),
-          quantity: asNumber(doc.quantity),
-          unit: asString(doc.unit),
-          purchaseStatus: asString(doc.purchaseStatus),
-          buildStatus: asString(doc.buildStatus),
-          materialStatus: asString(doc.materialStatus),
-          manualOverallBucket: asString(doc.manualOverallBucket),
-          buildInstructions: asString(doc.buildInstructions),
-          finishedPhotoUrls: asStringArray(doc.finishedPhotoUrls),
-          consumable: asBoolean(doc.consumable),
-        });
-      } else {
-        await createConvention({
-          userId: owner,
-          name: asString(doc.name) ?? "Untitled",
-          location: asString(doc.location),
-          imageUrl: asString(doc.imageUrl),
-          startDate: asString(doc.startDate) ?? "",
-          endDate: asString(doc.endDate) ?? "",
-        });
-      }
-    },
-    [createBuild, createConvention, createElement, userId]
-  );
+  const convex = useConvex();
+  const vault = useActiveVault();
+  // The acting account is the unlocked vault's, so backup, restore and removal work offline and
+  // after the remote session has expired.
+  const vaultState = useVaultState();
+  const subject = vaultState.status === "unlocked" ? vaultState.account.subject : undefined;
+  const counts = useVaultCounts();
+  const [busy, setBusy] = useState<"export" | "import" | "remove" | null>(null);
 
   const handleExport = useCallback(async () => {
-    if (!userId) {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataSignInRequired"));
-      return;
-    }
-    if (itemCount === 0) {
+    if (counts.items === 0) {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
       return;
     }
-    const path = vaultExportFilePath(userId);
-    if (!path) {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
-      return;
-    }
-    setExporting(true);
+    setBusy("export");
     try {
-      const serialized = buildExport(collections);
-      await FileSystem.writeAsStringAsync(path, serialized);
-      try {
-        await Share.share({
-          url: path,
-          title: t("settings.dataExportTitle"),
-          message: t("settings.dataExportShareMessage", { path }),
-        });
-      } catch {
-        // User dismissed or the platform has no share sheet — the file is still saved.
-      }
-      Alert.alert(
-        t("settings.dataExportSuccessTitle"),
-        t("settings.dataExportSuccessBody", { count: itemCount })
+      requireActiveVault(vault);
+      const { uri, summary } = await writeVaultBackup((storageId) =>
+        convex.query(api.files.getUrl, { storageId: storageId as Id<"_storage"> })
       );
-    } catch {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
+      requireActiveVault(vault);
+      let delivered: boolean;
+      try {
+        delivered = await deliverVaultBackup(uri, t("settings.dataExportTitle"));
+      } finally {
+        discardVaultBackup(uri);
+      }
+      requireActiveVault(vault);
+      if (!delivered) return;
+      const lines = [
+        t("settings.dataExportSuccessBody", { items: summary.rows, photos: summary.images }),
+      ];
+      if (summary.missingImages.length > 0) {
+        lines.push(t("settings.dataExportMissingPhotos", { count: summary.missingImages.length }));
+      }
+      Alert.alert(t("settings.dataExportSuccessTitle"), lines.join("\n\n"));
+    } catch (error) {
+      Alert.alert(t("settings.dataErrorTitle"), errorMessage(error));
     } finally {
-      setExporting(false);
+      setBusy(null);
     }
-  }, [collections, itemCount, t, userId]);
+  }, [counts.items, t, convex, vault]);
 
   const handleImport = useCallback(async () => {
-    if (!userId) {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataSignInRequired"));
-      return;
-    }
-    const path = vaultExportFilePath(userId);
-    if (!path) {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportNoFile"));
-      return;
-    }
-    setImporting(true);
+    setBusy("import");
     try {
-      const info = await FileSystem.getInfoAsync(path);
-      if (!info.exists) {
-        Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportNoFile"));
-        return;
-      }
-      const serialized = await FileSystem.readAsStringAsync(path);
-      const summary = await importData({ serialized, existing: collections, create: createRow });
-      if (!summary.ok) {
-        Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportMalformed"));
-        return;
+      requireActiveVault(vault);
+      const summary = await pickAndImportVaultBackup();
+      requireActiveVault(vault);
+      if (!summary) return;
+      const lines = [
+        t("settings.dataImportSuccessBody", {
+          added: summary.rows.inserted,
+          updated: summary.rows.updated,
+          kept: summary.rows.skipped,
+        }),
+      ];
+      if (summary.photosMissing.length > 0) {
+        lines.push(t("settings.dataImportMissingPhotos", { count: summary.photosMissing.length }));
       }
       Alert.alert(
-        t("settings.dataImportSuccessTitle"),
-        t("settings.dataImportSuccessBody", {
-          created: summary.created,
-          skipped: summary.skipped,
-        })
+        summary.photosMissing.length > 0
+          ? t("settings.dataImportPartialTitle")
+          : t("settings.dataImportSuccessTitle"),
+        lines.join("\n\n")
       );
-    } catch {
-      Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportNoFile"));
+    } catch (error) {
+      Alert.alert(t("settings.dataErrorTitle"), errorMessage(error));
     } finally {
-      setImporting(false);
+      setBusy(null);
     }
-  }, [collections, createRow, t, userId]);
+  }, [t, vault]);
 
-  const [removing, setRemoving] = useState(false);
-
-  // The only destructive path for local data: an explicit, confirmed delete of this account's
-  // vault followed by sign-out. Signing out alone never deletes anything (it locks the vault).
   const removeDeviceData = useCallback(async () => {
-    if (!userId) return;
-    setRemoving(true);
+    if (!subject) return;
+    setBusy("remove");
     try {
       // Lock first (sign-out closes the vault), then delete the closed files.
       await signOut();
-      await deleteVaultDatabase(userId);
+      await deleteVaultDatabase(subject);
     } catch (error) {
-      Alert.alert(
-        t("settings.dataErrorTitle"),
-        error instanceof Error ? error.message : String(error)
-      );
-      setRemoving(false);
+      Alert.alert(t("settings.dataErrorTitle"), errorMessage(error));
+      setBusy(null);
     }
-  }, [t, userId]);
+  }, [subject, t]);
 
   const confirmRemove = useCallback(() => {
     Alert.alert(t("settings.dataRemoveConfirmTitle"), t("settings.dataRemoveConfirmBody"), [
@@ -245,7 +157,7 @@ export default function SettingsDataScreen() {
     ]);
   }, [removeDeviceData, t]);
 
-  const status = vault.status === "booting" ? "loading" : "ready";
+  const status = vaultState.status === "booting" ? "loading" : "ready";
 
   return (
     <SettingsGlassFrame
@@ -258,15 +170,17 @@ export default function SettingsDataScreen() {
           <>
             <SettingsGlassSection label={t("settings.dataExportTitle")}>
               <Text style={styles.body}>{t("settings.dataExportDescription")}</Text>
-              <Text style={styles.count}>{itemCount}</Text>
+              <Text style={styles.count}>
+                {t("settings.dataExportSummary", { items: counts.items, photos: counts.photos })}
+              </Text>
               <PhotoPill
                 style={styles.action}
                 label={t("settings.dataExportButton")}
-                disabled={exporting}
-                accessibilityState={{ busy: exporting }}
+                disabled={busy !== null}
+                accessibilityState={{ busy: busy === "export" }}
                 onPress={() => void handleExport()}
               />
-              {exporting ? (
+              {busy === "export" ? (
                 <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
               ) : null}
             </SettingsGlassSection>
@@ -276,11 +190,11 @@ export default function SettingsDataScreen() {
                 style={styles.action}
                 variant="outline"
                 label={t("settings.dataImportButton")}
-                disabled={importing}
-                accessibilityState={{ busy: importing }}
+                disabled={busy !== null}
+                accessibilityState={{ busy: busy === "import" }}
                 onPress={() => void handleImport()}
               />
-              {importing ? (
+              {busy === "import" ? (
                 <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
               ) : null}
             </SettingsGlassSection>
@@ -290,8 +204,8 @@ export default function SettingsDataScreen() {
                 style={styles.action}
                 variant="text"
                 label={t("settings.dataRemoveButton")}
-                disabled={removing || exporting || importing}
-                accessibilityState={{ busy: removing }}
+                disabled={busy !== null}
+                accessibilityState={{ busy: busy === "remove" }}
                 onPress={confirmRemove}
               />
             </SettingsGlassSection>

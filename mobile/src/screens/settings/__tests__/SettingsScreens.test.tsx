@@ -8,8 +8,6 @@ import Notifications from "../../../../app/(app)/settings/notifications";
 import Offline from "../../../../app/(app)/settings/offline";
 import Data from "../../../../app/(app)/settings/data";
 import { APP_HREF } from "@/lib/appRoutes";
-import { buildExport } from "@/lib/dataPortability";
-import { vaultExportFilePath } from "@/offline/db";
 
 const state = vi.hoisted(() => ({
   identity: { subject: "owner" } as { subject: string } | null | undefined,
@@ -36,6 +34,11 @@ const state = vi.hoisted(() => ({
   alert: vi.fn(),
   create: vi.fn(),
   deleteVault: vi.fn(),
+  writeBackup: vi.fn(),
+  deliverBackup: vi.fn(),
+  discardBackup: vi.fn(),
+  importBackup: vi.fn(),
+  vaultRows: [] as { table: string; id: string; doc: Record<string, unknown> }[],
 }));
 
 vi.mock("react-native", async () => ({
@@ -56,6 +59,7 @@ vi.mock("expo-router", () => ({
 }));
 vi.mock("expo-linking", () => ({ openURL: vi.fn() }));
 vi.mock("convex/react", () => ({
+  useConvex: () => ({ query: vi.fn(async () => null) }),
   useQuery: (_query: unknown, args: unknown) => (args === "skip" ? undefined : state.identity),
 }));
 vi.mock("@/lib/useTier", () => ({
@@ -66,6 +70,7 @@ vi.mock("@/lib/useTier", () => ({
 }));
 vi.mock("@/lib/auth/client", () => ({ signOut: state.signOut }));
 vi.mock("@/vault/hooks", () => ({
+  useActiveVault: () => ({ exportRows: () => state.vaultRows }),
   useVaultState: () =>
     state.vaultSubject
       ? { status: "unlocked", account: { subject: state.vaultSubject } }
@@ -116,6 +121,21 @@ vi.mock("@/offline/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/offline/db")>()),
   deleteVaultDatabase: state.deleteVault,
 }));
+vi.mock("@/vault/activeVault", () => {
+  const vault = { exportRows: () => state.vaultRows };
+  return {
+    subscribeVault: () => () => {},
+    getVaultDataVersion: () => 1,
+    getActiveVault: () => vault,
+    requireActiveVault: () => vault,
+  };
+});
+vi.mock("@/vault/portabilityDevice", () => ({
+  writeVaultBackup: state.writeBackup,
+  deliverVaultBackup: state.deliverBackup,
+  discardVaultBackup: state.discardBackup,
+  pickAndImportVaultBackup: state.importBackup,
+}));
 vi.mock("@/components/settings/SyncStatusSection", () => ({
   SyncStatusSection: ({ offline }: { offline: boolean }) => (
     <div data-testid="sync-section">Sync {offline ? "offline" : "online"}</div>
@@ -154,6 +174,21 @@ beforeEach(() => {
   state.fileInfo.mockResolvedValue({ exists: false });
   state.create.mockResolvedValue("new-id");
   state.deleteVault.mockResolvedValue(undefined);
+  state.vaultRows = [
+    {
+      table: "builds",
+      id: "build-1",
+      doc: { name: "Test build", imageUrl: "kyarafit-image:img_a" },
+    },
+    { table: "cosplayNodes", id: "node-1", doc: { name: "Wig" } },
+    { table: "vaultSettings", id: "s-1", doc: { key: "focusedBuildId", value: "build-1" } },
+  ];
+  state.writeBackup.mockResolvedValue({
+    uri: "file:///cache/backups/kyarafit-backup.kyarafit",
+    summary: { rows: 3, images: 1, missingImages: [], bytes: 100 },
+  });
+  state.deliverBackup.mockResolvedValue(true);
+  state.importBackup.mockResolvedValue(null);
 });
 afterEach(() => {
   cleanup();
@@ -187,7 +222,7 @@ describe("settings confirmation and controls", () => {
 
   it("routes Export data to data management without clearing the session", () => {
     render(<Settings />);
-    fireEvent.click(within(openSignOut()).getByRole("button", { name: "Export data" }));
+    fireEvent.click(within(openSignOut()).getByRole("button", { name: "Save backup" }));
     expect(state.push).toHaveBeenCalledWith(APP_HREF.settingsData);
     expect(state.signOut).not.toHaveBeenCalled();
   });
@@ -197,7 +232,7 @@ describe("settings confirmation and controls", () => {
     render(<Settings />);
     const dialog = openSignOut();
     expect(within(dialog).getByText(/Are you sure/)).toBeTruthy();
-    expect(within(dialog).queryByRole("button", { name: "Export data" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Save backup" })).toBeNull();
     expect(state.signOut).not.toHaveBeenCalled();
   });
 
@@ -221,7 +256,7 @@ describe("settings confirmation and controls", () => {
       expect(
         within(dialog).getByText(/locked until you sign in again with this account/)
       ).toBeTruthy();
-      expect(within(dialog).getByRole("button", { name: "Export data" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Save backup" })).toBeTruthy();
       expect(state.signOut).not.toHaveBeenCalled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
       await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
@@ -302,144 +337,108 @@ describe("small settings screens", () => {
     expect(state.unsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it("exports local rows to the known JSON file and OS share sheet", async () => {
+  it("shows what a backup will hold and saves it through the OS", async () => {
     render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    await waitFor(() => expect(state.share).toHaveBeenCalled());
-    expect(state.write).toHaveBeenCalledWith(vaultExportFilePath("owner"), expect.any(String));
-    expect(state.alert).toHaveBeenCalledWith("Export ready", expect.any(String));
-  });
-
-  it("imports the saved export without duplicating existing rows", async () => {
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    await waitFor(() => expect(state.write).toHaveBeenCalled());
-    state.fileInfo.mockResolvedValue({ exists: true });
-    state.read.mockResolvedValue(state.write.mock.calls[0][1]);
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
-    await waitFor(() =>
-      expect(state.alert).toHaveBeenCalledWith("Import complete", expect.any(String))
-    );
-    expect(state.create).not.toHaveBeenCalled();
-  });
-
-  it("imports new builds, elements, and conventions through the existing offline mutations", async () => {
-    state.fileInfo.mockResolvedValue({ exists: true });
-    state.read.mockResolvedValue(
-      buildExport({
-        builds: [{ _id: "new-build", userId: "owner", name: "Imported build", status: "planning" }],
-        elements: [
-          {
-            _id: "new-element",
-            userId: "owner",
-            name: "Imported element",
-            nodeType: "element",
-            tags: ["fabric"],
-          },
-        ],
-        conventions: [
-          {
-            _id: "new-convention",
-            userId: "owner",
-            name: "Imported convention",
-            startDate: "2026-11-01",
-            endDate: "2026-11-02",
-          },
-        ],
-      })
-    );
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
-    await waitFor(() => expect(state.create).toHaveBeenCalledTimes(3));
-    expect(state.create).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "owner", name: "Imported build", status: "planning" })
-    );
-    expect(state.create).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "owner", name: "Imported element", tags: ["fabric"] })
-    );
-    expect(state.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "owner",
-        name: "Imported convention",
-        startDate: "2026-11-01",
-        endDate: "2026-11-02",
-      })
-    );
+    expect(screen.getByText("2 items · 1 photos")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
     await waitFor(() =>
       expect(state.alert).toHaveBeenCalledWith(
-        "Import complete",
-        "Added 3 item(s); 0 already existed."
+        "Backup saved",
+        "3 items and 1 photos are in your backup."
+      )
+    );
+    expect(state.deliverBackup).toHaveBeenCalledWith(
+      "file:///cache/backups/kyarafit-backup.kyarafit",
+      "Back up"
+    );
+  });
+
+  it("counts cloud-only originals referenced by local records", () => {
+    state.vaultRows = [
+      "builds",
+      "cosplayNodes",
+      "conventions",
+      "buildReferenceImages",
+      "buildProcessPictures",
+    ].map((table, index) => ({
+      table,
+      id: `${index}`,
+      doc: { imageStorageId: `cloud-${index}` },
+    }));
+    render(<Data />);
+    expect(screen.getByText("5 items · 5 photos")).toBeTruthy();
+  });
+
+  it("reports photos that were missing at backup time", async () => {
+    state.writeBackup.mockResolvedValue({
+      uri: "file:///b.kyarafit",
+      summary: { rows: 3, images: 0, missingImages: ["img_a"], bytes: 10 },
+    });
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
+    await waitFor(() => expect(state.alert).toHaveBeenCalled());
+    expect(state.alert.mock.calls[0][1]).toContain("1 photo originals were unavailable");
+  });
+
+  it("stays quiet when the user cancels the share sheet", async () => {
+    state.deliverBackup.mockResolvedValue(false);
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
+    await waitFor(() => expect(state.deliverBackup).toHaveBeenCalled());
+    expect(state.alert).not.toHaveBeenCalled();
+  });
+
+  it("shows empty-backup feedback without writing a file", () => {
+    state.vaultRows = [];
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
+    expect(state.alert).toHaveBeenCalledWith("Something went wrong", en.settings.dataExportEmpty);
+    expect(state.writeBackup).not.toHaveBeenCalled();
+  });
+
+  it("restores a picked backup and summarizes what changed", async () => {
+    state.importBackup.mockResolvedValue({
+      rows: { inserted: 4, updated: 1, skipped: 2, unknown: 0 },
+      photosWritten: 2,
+      photosAlreadyPresent: 0,
+      photosMissing: [],
+    });
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
+    await waitFor(() =>
+      expect(state.alert).toHaveBeenCalledWith(
+        "Backup restored",
+        "4 added, 1 updated, 2 already up to date."
       )
     );
   });
 
-  it("never imports another account's generated export after switching accounts", async () => {
+  it("flags a partial restore when photos could not be restored", async () => {
+    state.importBackup.mockResolvedValue({
+      rows: { inserted: 1, updated: 0, skipped: 0, unknown: 0 },
+      photosWritten: 0,
+      photosAlreadyPresent: 0,
+      photosMissing: ["img_x", "img_y"],
+    });
     render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    await waitFor(() => expect(state.write).toHaveBeenCalledTimes(1));
-    const ownerPath = state.write.mock.calls[0][0];
-    cleanup();
-    state.vaultSubject = "other";
-    state.fileInfo.mockImplementation(async (path) => ({ exists: path === ownerPath }));
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
-    await waitFor(() => expect(state.fileInfo).toHaveBeenCalledWith(vaultExportFilePath("other")));
-    expect(vaultExportFilePath("other")).not.toBe(ownerPath);
-    expect(state.read).not.toHaveBeenCalled();
-    expect(state.create).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
+    await waitFor(() => expect(state.alert).toHaveBeenCalled());
+    expect(state.alert.mock.calls[0][0]).toBe("Backup restored with missing photos");
+    expect(state.alert.mock.calls[0][1]).toContain(
+      "2 photos from this backup couldn't be restored."
+    );
   });
 
-  it("rejects malformed imports without creating rows", async () => {
-    state.fileInfo.mockResolvedValue({ exists: true });
-    state.read.mockResolvedValue("not-json");
+  it("surfaces a damaged backup instead of claiming success", async () => {
+    state.importBackup.mockRejectedValue(new Error("This Kyarafit backup is damaged"));
     render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
     await waitFor(() =>
       expect(state.alert).toHaveBeenCalledWith(
         "Something went wrong",
-        en.settings.dataImportMalformed
+        "This Kyarafit backup is damaged"
       )
     );
-    expect(state.create).not.toHaveBeenCalled();
-  });
-
-  it("keeps export success when the user dismisses the share sheet", async () => {
-    state.share.mockRejectedValueOnce(new Error("dismissed"));
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    await waitFor(() =>
-      expect(state.alert).toHaveBeenCalledWith("Export ready", expect.any(String))
-    );
-    expect(state.write).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows empty-export feedback before opening the share sheet", () => {
-    state.rows = [];
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    expect(state.alert).toHaveBeenCalledWith("Something went wrong", en.settings.dataExportEmpty);
-    expect(state.write).not.toHaveBeenCalled();
-    expect(state.share).not.toHaveBeenCalled();
-  });
-
-  it("shows missing-file feedback without creating data", async () => {
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
-    await waitFor(() =>
-      expect(state.alert).toHaveBeenCalledWith("Something went wrong", en.settings.dataImportNoFile)
-    );
-    expect(state.create).not.toHaveBeenCalled();
-  });
-
-  it("keeps export and import free but requires a signed-in owner", () => {
-    state.identity = null;
-    state.vaultSubject = null;
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
-    expect(state.alert).toHaveBeenCalledTimes(2);
-    expect(state.write).not.toHaveBeenCalled();
-    expect(state.create).not.toHaveBeenCalled();
   });
 
   it.each([undefined, null])(
