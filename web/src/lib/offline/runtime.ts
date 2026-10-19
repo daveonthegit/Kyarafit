@@ -74,6 +74,16 @@ class OfflineRuntime {
     return this.store;
   }
 
+  async writeImportedEntityRow(row: StoredEntityRow): Promise<void> {
+    if (!this.subject || row.userId !== this.subject) throw new Error("Local account changed");
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    await this.persist(() => store.putEntityRow(row));
+    assertCurrent();
+    this.table(row.table).set(row.id, row);
+    this.bump();
+  }
+
   // --- reactivity (useSyncExternalStore) ---
 
   subscribe = (listener: () => void): (() => void) => {
@@ -215,6 +225,10 @@ class OfflineRuntime {
     });
     this.commands = result.catch(() => undefined);
     return result;
+  }
+
+  clearCreatedEntityOverlays(id: string): void {
+    for (const table of this.entityRows.keys()) this.clearEntityOverlay(table, id);
   }
 
   /** Clear a pending overlay once its write has synced (sync worker on drain success). */

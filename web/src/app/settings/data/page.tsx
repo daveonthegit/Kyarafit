@@ -6,7 +6,6 @@ import { useConvex } from "convex/react";
 import { createImportIdentityStore } from "@/lib/importIdentityStore";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { importKey } from "@/lib/importKey";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
@@ -17,6 +16,7 @@ import {
   buildDataBundle,
   countRows,
   MalformedBundleError,
+  NonEmptyVaultError,
   parseDataBundle,
   runImport,
   summarizeTotals,
@@ -104,7 +104,7 @@ export default function SettingsDataPage() {
   const createRow = useCallback(
     (identities: ImportIdentityStore): CreateRowFn => async (collection, row, existingId) => {
       if (!userId) throw new Error("Sign in to import data");
-      const idempotencyKey = importKey(userId, collection, row);
+      const idempotencyKey = identities.key(collection, row.id);
       switch (collection) {
         case "builds":
           return createBuild({
@@ -128,6 +128,12 @@ export default function SettingsDataPage() {
             idempotencyKey,
           });
         case "cosplayNodes": {
+          if (existingId) {
+            const destination = await convex.query(api.cosplayNodes.get, {
+              id: existingId as Id<"cosplayNodes">,
+            });
+            if (!destination) throw new MalformedBundleError("Previously restored element is missing.");
+          }
           const created = existingId ? { _id: existingId as Id<"cosplayNodes"> } : await createNode({
             userId,
             nodeType: readString(row.nodeType)!,
@@ -179,6 +185,8 @@ export default function SettingsDataPage() {
             kind: readString(row.kind),
             category: readString(row.category),
             status: readString(row.status),
+            scopeKind: readString(row.scopeKind),
+            sourceKind: readString(row.sourceKind),
             sortOrder: readNumber(row.sortOrder),
             priority: readNumber(row.priority),
             dueDate: readString(row.dueDate),
@@ -196,7 +204,7 @@ export default function SettingsDataPage() {
             });
             return existingId;
           }
-          return createWorkflowItem(fields);
+          return createWorkflowItem({ ...fields, dedupeKey: readString(row.dedupeKey) });
         }
         case "packingListItems": {
           const conventionId = readString(row.conventionId);
@@ -226,6 +234,7 @@ export default function SettingsDataPage() {
       updateWorkflowItem,
       moveWorkflowItem,
       createPackingItem,
+      convex,
     ]
   );
 
@@ -243,7 +252,7 @@ export default function SettingsDataPage() {
         const assertCurrent = offlineRuntime.sessionGuard();
         const summary = await runImport({
           imported,
-          existing: collections,
+          existing: readLocalCollections(userId),
           createRow: createRow(identities),
           identities,
           generatedWorkflow: async (nodeId, buildId) => {
@@ -260,12 +269,13 @@ export default function SettingsDataPage() {
         const { added, skipped } = summarizeTotals(summary);
         setImportStatus({ kind: "done", added, skipped });
       } catch (error) {
-        const reason =
-          error instanceof MalformedBundleError ? error.message : t("importErrorGeneric");
+        const reason = error instanceof NonEmptyVaultError
+          ? t("importRequiresEmptyVault")
+          : error instanceof MalformedBundleError ? error.message : t("importErrorGeneric");
         setImportStatus({ kind: "error", reason });
       }
     },
-    [collections, createRow, t, userId, convex]
+    [createRow, t, userId, convex]
   );
 
   const onFileChange = useCallback(

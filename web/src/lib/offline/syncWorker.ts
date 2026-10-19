@@ -99,7 +99,9 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
             await offlineRuntime.setServerId(`${row.client_id}:workflow`, workflowId);
             assertCurrent();
             idMap[`${row.client_id}:workflow`] = workflowId;
+            offlineRuntime.clearEntityOverlay("workflowItems", `${row.client_id}:workflow`);
           }
+          offlineRuntime.clearCreatedEntityOverlays(row.client_id);
         }
         for (const write of overlayWritesFor(row.fn, args, row.client_id ?? undefined)) {
           offlineRuntime.clearEntityOverlay(write.table, write.id);

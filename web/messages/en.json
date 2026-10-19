@@ -118,11 +118,12 @@
     "itemCount": "{count} item(s) ready to export",
     "loading": "Loading your data…",
     "importTitle": "Import a backup",
-    "importDescription": "Choose a previously exported JSON file. Re-importing the same file won't create duplicates.",
+    "importDescription": "Restore a previously exported JSON file into an empty vault. Interrupted restores can resume from the same backup.",
     "importButton": "Choose a backup file",
     "importing": "Importing…",
-    "importSummary": "Imported {added} new item(s); skipped {skipped} already present.",
+    "importSummary": "Restored {added} item(s); {skipped} already restored by this attempt.",
     "importErrorGeneric": "Something went wrong while importing that file.",
+    "importRequiresEmptyVault": "Restore requires an empty vault. Export your current data before removing it, or resume the same interrupted backup.",
     "backToSettings": "Back to settings"
   },
   "Theme": {

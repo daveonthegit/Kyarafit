@@ -6,14 +6,12 @@ import { offlineRuntime } from "@/lib/offline/runtime";
 import { InMemoryLocalStore } from "@/lib/offline/localStore";
 import { setOfflineConnectivity } from "@/lib/offline/connectivity";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
+import { readLocalCollections } from "@/lib/localFirstData";
 import {
   buildDataBundle,
   emptyCollections,
   parseDataBundle,
-  runImport,
-  summarizeTotals,
-  type CreateRowFn,
-  type PortableCollections,
+  PORTABLE_COLLECTIONS,
 } from "@/lib/dataPortability";
 
 // Spec: PRODUCT_SPEC.md §3/§4.9 — export/import are FREE (REQ-012). The page must offer export with no
@@ -57,6 +55,7 @@ vi.mock("next-intl", () => ({
       importing: "Importing…",
       importSummary: `Imported ${values?.added ?? 0} new item(s); skipped ${values?.skipped ?? 0} already present.`,
       importErrorGeneric: "Something went wrong while importing that file.",
+      importRequiresEmptyVault: "Restore requires an empty vault. Export your current data first.",
       backToSettings: "Back to settings",
     };
     return map[key] ?? key;
@@ -236,6 +235,8 @@ describe("Settings data export/import page", () => {
     expect(nodes).toEqual(["node-1"]);
     expect(linked).toEqual(new Set(["restored-build:node-1"]));
     expect(tasks).toHaveLength(2);
+    expect(readLocalCollections("user-free-1").workflowItems.find((row) => row.id === "generated-node-1"))
+      .toMatchObject({ parentId: "task-2", dedupeKey: `autogen:${operation}:shared:node-1`, attachments: [{ entityId: "node-1", buildContextId: "restored-build" }] });
     expect(tasks[0]).toMatchObject({ _id: "generated-node-1", status: "done", parentId: "task-2",
       attachments: [{ entityId: "node-1", buildContextId: "restored-build" }] });
     first.unmount();
@@ -244,7 +245,7 @@ describe("Settings data export/import page", () => {
     offlineRuntime.setStore(store, "user-free-1");
     render(<SettingsDataPage />);
     fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByTestId("import-summary")).toHaveTextContent("Imported 0"));
+    await waitFor(() => expect(screen.getByTestId("import-error")).toHaveTextContent("empty vault"));
     expect(nodes).toEqual(["node-1"]);
     expect(linked).toEqual(new Set(["restored-build:node-1"]));
     expect(tasks).toHaveLength(2);
@@ -272,6 +273,10 @@ describe("Settings data export/import page", () => {
       links.add(child
         ? `${args.parentNodeId}:${args.childNodeId}`
         : `${args.buildId}:${(args.cosplayNodeIds as string[])[0]}`);
+    });
+    client.query.mockImplementation(async (_fn, raw) => {
+      const { id } = raw as { id: string };
+      return nodes.includes(id) ? { _id: id } : null;
     });
     const bundle = buildDataBundle({
       ...emptyCollections(),
@@ -307,36 +312,19 @@ describe("Settings data export/import page", () => {
     expect(await offlineRuntime.listPendingMutations()).toEqual([]);
   });
 
-  it("should_not_duplicate_rows_on_reimport", async () => {
-    // Drive the import orchestration twice with the same bundle against an accumulating store.
-    const store: PortableCollections = {
-      ...emptyCollections(),
-      builds: [{ _id: "b1", id: "b1", name: "Aerith", status: "wip" }],
-    };
-    const created: string[] = [];
-    const createRow: CreateRowFn = (collection, row) => {
-      store[collection].push(row);
-      created.push(`${collection}:${row.id}`);
-      return row.id;
-    };
-
-    const bundle = buildDataBundle({
-      ...emptyCollections(),
-      builds: [
-        { id: "b1", name: "Aerith", status: "wip" },
-        { id: "b2", name: "Cloud", status: "idea" },
-      ],
-    });
-    const imported = parseDataBundle(bundle);
-
-    const first = await runImport({ imported, existing: store, createRow });
-    expect(summarizeTotals(first)).toEqual({ added: 1, skipped: 1 });
-    expect(created).toEqual(["builds:b2"]);
-
-    // Second import with the same bundle: the already-present id b2 is NOT created again.
-    const second = await runImport({ imported, existing: store, createRow });
-    expect(summarizeTotals(second)).toEqual({ added: 0, skipped: 2 });
-    expect(created).toEqual(["builds:b2"]);
+  it.each(PORTABLE_COLLECTIONS)("refuses a non-empty vault containing %s before writing", async (collection) => {
+    const store = offlineRuntime.getStore();
+    await store.putEntityRow({ table: collection, id: "existing", userId: "user-free-1",
+      json: JSON.stringify({ _id: "existing", userId: "user-free-1" }),
+      updatedAt: 1, deleted: false, synced: true });
+    const before = await store.listEntityRows();
+    render(<SettingsDataPage />);
+    const file = new File([buildDataBundle({ ...emptyCollections(), builds: [{ id: "incoming" }] })], "backup.json", { type: "application/json" });
+    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+    expect(await screen.findByTestId("import-error")).toHaveTextContent("empty vault");
+    expect(client.mutation).not.toHaveBeenCalled();
+    expect(await store.listEntityRows()).toEqual(before);
+    expect(await store.getMeta("restore:active:v1")).toBeNull();
   });
 
   it("should_show_an_error_for_a_malformed_import_file", async () => {

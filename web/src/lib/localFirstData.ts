@@ -34,7 +34,9 @@ export function readLocalCollections(
     .filter((row) => row.userId === subject);
   collections.workflowItems = collections.workflowItems.map((row) => ({
     ...row,
-    attachments: attachments.filter((attachment) => attachment.workflowItemId === row.id),
+    attachments: Array.isArray(row.attachments)
+      ? row.attachments
+      : attachments.filter((attachment) => attachment.workflowItemId === row.id),
   }));
   return collections;
 }

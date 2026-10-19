@@ -118,11 +118,12 @@
     "itemCount": "{count} elemento(s) listos para exportar",
     "loading": "Cargando tus datos…",
     "importTitle": "Importar una copia de seguridad",
-    "importDescription": "Elige un archivo JSON exportado anteriormente. Volver a importar el mismo archivo no creará duplicados.",
+    "importDescription": "Restaura un archivo JSON exportado en una bóveda vacía. Las restauraciones interrumpidas pueden reanudarse con la misma copia de seguridad.",
     "importButton": "Elegir un archivo de copia de seguridad",
     "importing": "Importando…",
-    "importSummary": "Se importaron {added} elemento(s) nuevo(s); se omitieron {skipped} ya presentes.",
+    "importSummary": "Se restauraron {added} elemento(s); este intento ya había restaurado {skipped}.",
     "importErrorGeneric": "Algo salió mal al importar ese archivo.",
+    "importRequiresEmptyVault": "La restauración requiere una bóveda vacía. Exporta tus datos actuales antes de eliminarlos, o reanuda la misma copia de seguridad interrumpida.",
     "backToSettings": "Volver a ajustes"
   },
   "Theme": {
