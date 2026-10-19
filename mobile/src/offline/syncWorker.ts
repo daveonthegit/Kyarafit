@@ -9,6 +9,7 @@ import {
   planCloudMirror,
 } from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
+import { getOfflineDb } from "./db";
 import { syncScope } from "./syncIdentity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
@@ -251,6 +252,19 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
       scope.assertCurrent();
       if (!res) break;
 
+      for (const table of WARMUP_TABLES) {
+        for (const doc of res[table] ?? []) {
+          if (typeof doc.clientId !== "string") continue;
+          const existing = getOfflineDb().getFirstSync<{ id: string }>(
+            "SELECT id FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0",
+            [table, doc.clientId]
+          );
+          if (existing) {
+            setServerId(existing.id, doc._id);
+            toLocal[doc._id] = existing.id;
+          }
+        }
+      }
       let maxPageLen = 0;
       for (const table of WARMUP_TABLES) {
         const docs = res[table] ?? [];

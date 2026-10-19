@@ -2,7 +2,8 @@ import {
   readVaultArchiveImages,
   readVaultArchiveManifest,
   writeVaultArchive,
-  type ByteReader,
+  VaultArchiveError,
+  type SizedByteReader,
   type ByteWriter,
   type ExportSummary,
 } from "./archive";
@@ -24,6 +25,7 @@ export interface VaultPhotoFiles {
 
 export interface VaultImportSummary {
   rows: ImportRowsResult;
+  rowsOmitted: number;
   photosWritten: number;
   photosAlreadyPresent: number;
   /** Photos the backup referenced but could not supply or that failed to save here. */
@@ -44,7 +46,10 @@ export async function exportVault(
   now = Date.now()
 ): Promise<ExportSummary> {
   cloud?.assertCurrent();
-  const rows = store.exportRows();
+  let rowsOmitted = 0;
+  const rows = store.exportRows(() => {
+    rowsOmitted += 1;
+  });
   const references = collectVaultPhotos(rows);
   for (const photo of references.values()) {
     cloud?.assertCurrent();
@@ -66,6 +71,7 @@ export async function exportVault(
       subject: store.subject,
       now,
       rows: localizeVaultPhotos(rows, available),
+      rowsOmitted,
       imageSize: (key) => photos.size(key),
       readImage: (key) => photos.read(key),
     },
@@ -81,9 +87,13 @@ export async function exportVault(
 export function importVault(
   store: VaultStore,
   photos: VaultPhotoFiles,
-  reader: ByteReader
+  reader: SizedByteReader
 ): VaultImportSummary {
   const manifest = readVaultArchiveManifest(reader);
+  const imageBytes = manifest.images.reduce((total, image) => total + image.size, 0);
+  if (!Number.isSafeInteger(imageBytes) || imageBytes !== reader.remainingBytes) {
+    throw new VaultArchiveError("This Kyarafit backup has damaged photo lengths");
+  }
   let photosWritten = 0;
   let photosAlreadyPresent = 0;
   const photosMissing = [...manifest.missingImages];
@@ -104,5 +114,11 @@ export function importVault(
     manifest.images.map((image) => image.key).filter((key) => photos.size(key) !== null)
   );
   const rows = store.importRows(manifest.rows, manifest.source.subject, available);
-  return { rows, photosWritten, photosAlreadyPresent, photosMissing };
+  return {
+    rows,
+    rowsOmitted: rows.unknown + manifest.rowsOmitted,
+    photosWritten,
+    photosAlreadyPresent,
+    photosMissing,
+  };
 }

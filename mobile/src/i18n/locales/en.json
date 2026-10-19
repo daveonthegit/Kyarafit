@@ -775,7 +775,11 @@
     "dataRemoveConfirmBody": "This can't be undone. Backups you saved are not affected.",
     "dataExportSummary": "{{items}} items · {{photos}} photos",
     "dataExportMissingPhotos": "{{count}} photo originals were unavailable and aren't included in this backup.",
-    "dataImportPartialTitle": "Backup restored with missing photos",
+    "dataExportPartialTitle": "Backup saved with omissions",
+    "dataExportOmittedRows": "{{count}} unreadable items couldn't be included in this backup.",
+    "dataImportPartialTitle": "Backup partially restored",
+    "dataImportOmittedRows": "{{count}} items were omitted from this restore or its source backup.",
+    "dataImportConflicts": "{{count}} conflicting parent changes were kept as they are on this device.",
     "dataImportMissingPhotos": "{{count}} photos from this backup couldn't be restored."
   },
   "groups": {

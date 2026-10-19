@@ -36,12 +36,25 @@ function vaultPhotoFiles(): VaultPhotoFiles {
       requireActiveVault(store);
       if (!imageDir.exists) imageDir.create({ intermediates: true, idempotent: true });
       const file = new File(imageDir, key);
-      if (file.exists) file.delete();
-      file.create();
+      const temporary = new File(imageDir, `${key}.restore`);
+      const previous = new File(imageDir, `${key}.previous`);
+      if (temporary.exists) temporary.delete();
+      temporary.create();
       try {
-        file.write(bytes);
+        temporary.write(bytes);
+        if (temporary.size !== bytes.length) throw new Error("Incomplete photo write");
+        if (file.exists) file.move(previous);
+        const destination = new File(imageDir, key);
+        try {
+          temporary.move(destination);
+        } catch (error) {
+          if (previous.exists) previous.move(destination);
+          throw error;
+        }
+        if (previous.exists) previous.delete();
       } catch (error) {
-        file.delete();
+        const unfinished = new File(imageDir, `${key}.restore`);
+        if (unfinished.exists) unfinished.delete();
         throw error;
       }
     },
@@ -158,7 +171,17 @@ export async function pickAndImportVaultBackup(): Promise<VaultImportSummary | n
   const photos = vaultPhotoFiles();
   const handle = file.open();
   try {
-    return importVault(store, photos, { read: (length) => handle.readBytes(length) });
+    let remainingBytes = file.size;
+    return importVault(store, photos, {
+      get remainingBytes() {
+        return remainingBytes;
+      },
+      read: (length) => {
+        const bytes = handle.readBytes(length);
+        remainingBytes -= bytes.length;
+        return bytes;
+      },
+    });
   } finally {
     handle.close();
   }

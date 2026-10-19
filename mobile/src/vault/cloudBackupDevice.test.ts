@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestVault } from "@/test-support/vaultHarness";
-import { __setActiveVaultForTests } from "./activeVault";
+import { __setActiveVaultForTests, activeVaultImageDir } from "./activeVault";
 import { setOfflineConnectivity } from "@/offline/connectivity";
-import { writeVaultBackup } from "./portabilityDevice";
-import { readVaultArchiveImages, readVaultArchiveManifest } from "./archive";
+import { writeVaultBackup, pickAndImportVaultBackup } from "./portabilityDevice";
+import { readVaultArchiveImages, readVaultArchiveManifest, writeVaultArchive } from "./archive";
 
 const fs = vi.hoisted(() => ({
   files: new Map<string, Uint8Array>(),
   directories: new Set<string>(),
+  failPhotoWrite: false,
+  failPhotoMove: false,
 }));
 vi.mock("react-native", () => ({ Platform: { OS: "ios" }, Share: {} }));
 vi.mock("expo-file-system", () => {
@@ -26,7 +28,8 @@ vi.mock("expo-file-system", () => {
     }
   }
   class File {
-    readonly uri: string;
+    uri: string;
+    static async pickFileAsync() { return new File("file:///picked"); }
     constructor(...parts: (string | { uri: string })[]) {
       this.uri = uri(parts);
     }
@@ -43,14 +46,31 @@ vi.mock("expo-file-system", () => {
       fs.files.delete(this.uri);
     }
     write(bytes: Uint8Array) {
+      if (fs.failPhotoWrite && this.uri.endsWith(".restore")) {
+        fs.files.set(this.uri, bytes.slice(0, 1));
+        throw new Error("Disk full");
+      }
       fs.files.set(this.uri, Uint8Array.from(bytes));
+    }
+    move(destination: File) {
+      if (fs.files.has(destination.uri)) throw new Error("Destination exists");
+      if (fs.failPhotoMove && this.uri.endsWith(".restore")) throw new Error("Move failed");
+      fs.files.set(destination.uri, fs.files.get(this.uri)!);
+      fs.files.delete(this.uri);
+      this.uri = destination.uri;
     }
     bytesSync() {
       return fs.files.get(this.uri)!;
     }
     open() {
+      let offset = 0;
       return {
         close: () => {},
+        readBytes: (length: number) => {
+          const bytes = fs.files.get(this.uri)!.subarray(offset, offset + length);
+          offset += bytes.length;
+          return bytes;
+        },
         writeBytes: (bytes: Uint8Array) => {
           const previous = fs.files.get(this.uri)!;
           const next = new Uint8Array(previous.length + bytes.length);
@@ -68,6 +88,8 @@ const PHOTO = Uint8Array.from([1, 2, 3, 4]);
 beforeEach(() => {
   fs.files.clear();
   fs.directories.clear();
+  fs.failPhotoWrite = false;
+  fs.failPhotoMove = false;
   setOfflineConnectivity(true);
   const vault = makeTestVault({ subject: "owner" });
   vault.store.commit((db) =>
@@ -110,6 +132,26 @@ describe("device cloud-original backup", () => {
     expect(originals).toEqual([PHOTO]);
     expect(manifest.rows[0].doc.imageStorageId).toBeUndefined();
     expect(manifest.rows[0].doc.imageUrl).toBe(`kyarafit-image:${manifest.images[0].key}`);
+  });
+
+  it.each(["success", "disk-full", "move-failed"])("preserves originals through staged photo writes (%s)", async (outcome) => {
+    const chunks: Uint8Array[] = [];
+    writeVaultArchive({ subject: "owner", now: 1,
+      rows: [{ table: "builds", id: "restored", doc: { imageUrl: "kyarafit-image:photo" } }],
+      imageSize: () => PHOTO.length, readImage: () => PHOTO,
+    }, { write: (bytes) => chunks.push(bytes) });
+    fs.files.set("file:///picked", Uint8Array.from(Buffer.concat(chunks)));
+    const originalUri = `${activeVaultImageDir()!.replace(/\/$/, "")}/photo`;
+    const original = Uint8Array.from([9]);
+    fs.files.set(originalUri, original);
+    fs.failPhotoWrite = outcome === "disk-full";
+    fs.failPhotoMove = outcome === "move-failed";
+    const result = await pickAndImportVaultBackup();
+    const succeeded = outcome === "success";
+    expect(fs.files.get(originalUri)).toEqual(succeeded ? PHOTO : original);
+    expect(result?.photosMissing).toEqual(succeeded ? [] : ["photo"]);
+    expect(result?.photosWritten).toBe(succeeded ? 1 : 0);
+    expect([...fs.files.keys()].some((key) => key.endsWith(".restore") || key.endsWith(".previous"))).toBe(false);
   });
 
   it("does not request cloud originals offline and records the omission", async () => {

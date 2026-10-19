@@ -95,7 +95,14 @@ export default function SettingsDataScreen() {
       if (summary.missingImages.length > 0) {
         lines.push(t("settings.dataExportMissingPhotos", { count: summary.missingImages.length }));
       }
-      Alert.alert(t("settings.dataExportSuccessTitle"), lines.join("\n\n"));
+      if (summary.rowsOmitted > 0) {
+        lines.push(t("settings.dataExportOmittedRows", { count: summary.rowsOmitted }));
+      }
+      Alert.alert(
+        t(summary.rowsOmitted > 0 || summary.missingImages.length > 0
+          ? "settings.dataExportPartialTitle" : "settings.dataExportSuccessTitle"),
+        lines.join("\n\n")
+      );
     } catch (error) {
       Alert.alert(t("settings.dataErrorTitle"), errorMessage(error));
     } finally {
@@ -120,8 +127,14 @@ export default function SettingsDataScreen() {
       if (summary.photosMissing.length > 0) {
         lines.push(t("settings.dataImportMissingPhotos", { count: summary.photosMissing.length }));
       }
+      if (summary.rowsOmitted > 0) {
+        lines.push(t("settings.dataImportOmittedRows", { count: summary.rowsOmitted }));
+      }
+      if (summary.rows.conflicts > 0) {
+        lines.push(t("settings.dataImportConflicts", { count: summary.rows.conflicts }));
+      }
       Alert.alert(
-        summary.photosMissing.length > 0
+        summary.photosMissing.length > 0 || summary.rowsOmitted > 0 || summary.rows.conflicts > 0
           ? t("settings.dataImportPartialTitle")
           : t("settings.dataImportSuccessTitle"),
         lines.join("\n\n")

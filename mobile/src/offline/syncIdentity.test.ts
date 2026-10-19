@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConvexReactClient } from "convex/react";
-import { unlockVault, lockVault } from "@/vault/activeVault";
+import { unlockVault, lockVault, requireActiveVault } from "@/vault/activeVault";
+import { getServerId } from "./idMap";
 import { deleteVaultDatabase, getOfflineDb } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
 import {
@@ -98,6 +99,34 @@ describe("sync credential ownership", () => {
     expect(
       getOfflineDb().getAllSync("SELECT * FROM mutation_queue WHERE status = 'pending'")
     ).toHaveLength(2);
+  });
+
+  it("reconciles restored client identities before rewriting pulled references", async () => {
+    const store = requireActiveVault();
+    store.importRows([
+      { table: "builds", id: "local:build", doc: { userId: "owner", name: "Restored", updatedAt: 1 } },
+      { table: "workflowItems", id: "local:task", doc: { userId: "owner", title: "Restored task", updatedAt: 1 } },
+    ], "owner");
+    const query = vi.fn().mockResolvedValue({ cursor: 10,
+      builds: [{ _id: "server-build", clientId: "local:build", userId: "owner" }],
+      workflowItems: [{ _id: "server-task", clientId: "local:task", userId: "owner" }],
+      workflowAttachments: [{ _id: "server-attachment", userId: "owner",
+        workflowItemId: "server-task", entityId: "server-build" }],
+      cosplayNodes: [{ _id: "server-element", userId: "owner", buildId: "server-build" }],
+    });
+    const client = { query } as unknown as ConvexReactClient;
+    await warmEntityRows(client);
+    await warmEntityRows(client);
+    expect(getServerId("local:build")).toBe("server-build");
+    expect(getServerId("local:task")).toBe("server-task");
+    expect(store.exportRows().filter((row) => row.table === "builds")).toHaveLength(1);
+    expect(store.exportRows().filter((row) => row.table === "workflowItems")).toHaveLength(1);
+    expect(store.reader().get("local:build")?.name).toBe("Restored");
+    expect(store.reader().get("server-attachment")).toMatchObject({
+      workflowItemId: "local:task", entityId: "local:build",
+    });
+    expect(store.reader().get("server-element")?.buildId).toBe("local:build");
+    expect(store.reader().get("server-build")).toBeNull();
   });
 
   it("drains normally with a confirmed matching account", async () => {

@@ -775,7 +775,11 @@
     "dataRemoveConfirmBody": "この操作は元に戻せません。保存済みのバックアップには影響しません。",
     "dataExportSummary": "{{items}} 件 · 写真 {{photos}} 枚",
     "dataExportMissingPhotos": "写真のオリジナル {{count}} 枚を取得できなかったため、このバックアップには含まれていません。",
-    "dataImportPartialTitle": "一部の写真を除いて復元しました",
+    "dataExportPartialTitle": "一部を除いてバックアップを保存しました",
+    "dataExportOmittedRows": "読み取れない {{count}} 件の項目をバックアップに含められませんでした。",
+    "dataImportPartialTitle": "バックアップを一部復元しました",
+    "dataImportOmittedRows": "復元または元のバックアップで {{count}} 件の項目が除外されました。",
+    "dataImportConflicts": "競合する {{count}} 件の親子関係は、このデバイスの状態を維持しました。",
     "dataImportMissingPhotos": "このバックアップの写真 {{count}} 枚を復元できませんでした。"
   },
   "groups": {

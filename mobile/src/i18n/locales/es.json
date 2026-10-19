@@ -775,7 +775,11 @@
     "dataRemoveConfirmBody": "No se puede deshacer. Las copias que hayas guardado no se ven afectadas.",
     "dataExportSummary": "{{items}} elementos · {{photos}} fotos",
     "dataExportMissingPhotos": "No se pudieron obtener {{count}} fotos originales y no están incluidas en esta copia.",
-    "dataImportPartialTitle": "Copia restaurada con fotos faltantes",
+    "dataExportPartialTitle": "Copia guardada con omisiones",
+    "dataExportOmittedRows": "No se pudieron incluir {{count}} elementos ilegibles en esta copia.",
+    "dataImportPartialTitle": "Copia restaurada parcialmente",
+    "dataImportOmittedRows": "Se omitieron {{count}} elementos en esta restauración o en la copia original.",
+    "dataImportConflicts": "Se conservaron en este dispositivo {{count}} relaciones de jerarquía en conflicto.",
     "dataImportMissingPhotos": "No se pudieron restaurar {{count}} fotos de esta copia."
   },
   "groups": {

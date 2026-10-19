@@ -36,6 +36,7 @@ export interface VaultArchiveManifest {
   images: { key: string; size: number }[];
   /** Photos referenced by rows but missing on the exporting device (reported, not fatal). */
   missingImages: string[];
+  rowsOmitted: number;
 }
 
 /** Sequential byte sink (a FileHandle on device, a Buffer list in tests). */
@@ -47,6 +48,10 @@ export interface ByteWriter {
 export interface ByteReader {
   /** Read exactly `length` bytes, or fewer at end of file. */
   read(length: number): Uint8Array;
+}
+
+export interface SizedByteReader extends ByteReader {
+  readonly remainingBytes: number;
 }
 
 export class VaultArchiveError extends Error {
@@ -93,6 +98,7 @@ export interface ExportSource {
   now: number;
   /** Live rows in stored (portable) form. */
   rows: VaultArchiveRow[];
+  rowsOmitted?: number;
   /** Size of a stored photo, or null when the file is missing. */
   imageSize(key: string): number | null;
   /** Bytes of a stored photo (only called for keys with a size). */
@@ -104,6 +110,7 @@ export interface ExportSummary {
   images: number;
   missingImages: string[];
   bytes: number;
+  rowsOmitted: number;
 }
 
 /** Write a complete archive for `source` to `writer`. */
@@ -124,6 +131,7 @@ export function writeVaultArchive(source: ExportSource, writer: ByteWriter): Exp
     rows: source.rows,
     images,
     missingImages,
+    rowsOmitted: source.rowsOmitted ?? 0,
   };
   const manifestBytes = asciiBytes(asciiJson(manifest));
   const header = asciiBytes(`${String(manifestBytes.length).padStart(HEADER_DIGITS, "0")}\n`);
@@ -139,7 +147,13 @@ export function writeVaultArchive(source: ExportSource, writer: ByteWriter): Exp
     writer.write(data);
     bytes += data.length;
   }
-  return { rows: source.rows.length, images: images.length, missingImages, bytes };
+  return {
+    rows: source.rows.length,
+    images: images.length,
+    missingImages,
+    bytes,
+    rowsOmitted: source.rowsOmitted ?? 0,
+  };
 }
 
 function isRow(value: unknown): value is VaultArchiveRow {
@@ -172,6 +186,9 @@ export function readVaultArchiveManifest(reader: ByteReader): VaultArchiveManife
     if (error instanceof VaultArchiveError) throw error;
     throw new VaultArchiveError("This Kyarafit backup is damaged");
   }
+  if (parsed === null || typeof parsed !== "object") {
+    throw new VaultArchiveError("This Kyarafit backup is damaged");
+  }
   const manifest = parsed as Partial<VaultArchiveManifest>;
   if (manifest.format !== VAULT_ARCHIVE_FORMAT || typeof manifest.version !== "number") {
     throw new VaultArchiveError("This file is not a Kyarafit backup");
@@ -182,6 +199,8 @@ export function readVaultArchiveManifest(reader: ByteReader): VaultArchiveManife
     );
   }
   if (
+    (manifest.rowsOmitted !== undefined &&
+      (!Number.isSafeInteger(manifest.rowsOmitted) || manifest.rowsOmitted < 0)) ||
     !Array.isArray(manifest.rows) ||
     !manifest.rows.every(isRow) ||
     !Array.isArray(manifest.images) ||
@@ -202,6 +221,7 @@ export function readVaultArchiveManifest(reader: ByteReader): VaultArchiveManife
     exportedAt: typeof manifest.exportedAt === "number" ? manifest.exportedAt : 0,
     source: { subject: String(manifest.source?.subject ?? "") },
     rows: manifest.rows,
+    rowsOmitted: manifest.rowsOmitted ?? 0,
     images: manifest.images,
     missingImages: Array.isArray(manifest.missingImages)
       ? manifest.missingImages.filter((key): key is string => typeof key === "string")

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { makeTestVault } from "@/test-support/vaultHarness";
-import { VaultArchiveError, VAULT_ARCHIVE_MAGIC } from "./archive";
+import { VaultArchiveError, VAULT_ARCHIVE_MAGIC, writeVaultArchive } from "./archive";
 import {
   collectVaultImageKeys,
   collectVaultPhotos,
@@ -49,6 +49,7 @@ function memoryArchive() {
 function readerFor(bytes: Uint8Array) {
   let offset = 0;
   return {
+    get remainingBytes() { return bytes.length - offset; },
     read(length: number): Uint8Array {
       const slice = bytes.subarray(offset, offset + length);
       offset += slice.length;
@@ -426,6 +427,7 @@ describe("vault export / import", () => {
       inserted: sourceRows.length,
       updated: 0,
       skipped: 0,
+      conflicts: 0,
       unknown: 0,
     });
     expect(summary.photosMissing).toEqual([]);
@@ -498,6 +500,75 @@ describe("vault export / import", () => {
     expect(() => importVault(target.store, memoryPhotos().photos, readerFor(truncated))).toThrow(
       VaultArchiveError
     );
+    expect(target.store.exportRows()).toEqual([]);
+  });
+
+  it.each(["cosplayNodes", "workflowItems"])("keeps local parents when merging %s would create a cycle", (table) => {
+    const target = makeTestVault();
+    const parent = table === "cosplayNodes" ? "parentNodeId" : "parentId";
+    target.store.importRows([
+      { table, id: "A", doc: { [parent]: "B", updatedAt: 10, ancestorIds: ["B"] } },
+      { table, id: "B", doc: { updatedAt: 1, ancestorIds: [] } },
+      { table, id: "C", doc: { [parent]: "B", updatedAt: 1, ancestorIds: ["B"] } },
+    ], target.subject);
+    const result = target.store.importRows([
+      { table, id: "A", doc: { updatedAt: 1, ancestorIds: [] } },
+      { table, id: "B", doc: { [parent]: "A", updatedAt: 20, ancestorIds: ["A"] } },
+    ], target.subject);
+    expect(result.conflicts).toBe(1);
+    expect(target.store.reader().get("A")?.[parent]).toBe("B");
+    expect(target.store.reader().get("B")?.[parent]).toBeUndefined();
+    if (table === "workflowItems") {
+      expect(target.store.reader().get("B")?.ancestorIds).toEqual([]);
+      expect(target.store.reader().get("C")?.ancestorIds).toEqual(["B"]);
+      const moved = target.store.importRows([
+        { table, id: "B", doc: { parentId: "D", updatedAt: 30 } },
+        { table, id: "D", doc: { updatedAt: 1 } },
+      ], target.subject);
+      expect(moved.conflicts).toBe(0);
+      expect(target.store.reader().get("A")?.ancestorIds).toEqual(["D", "B"]);
+      expect(target.store.reader().get("C")?.ancestorIds).toEqual(["D", "B"]);
+    }
+  });
+
+  it("reports unreadable exported rows and unsupported imported rows as omissions", async () => {
+    const source = makeTestVault();
+    source.sql.runSync(
+      "INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, deleted) VALUES (?, ?, ?, ?, ?, 0)",
+      ["builds", "bad", source.subject, "broken JSON", 1]
+    );
+    const archive = memoryArchive();
+    const exported = await exportVault(source.store, memoryPhotos().photos, archive.writer);
+    expect(exported.rowsOmitted).toBe(1);
+    const target = makeTestVault();
+    const restored = importVault(target.store, memoryPhotos().photos, readerFor(archive.bytes()));
+    expect(restored.rowsOmitted).toBe(1);
+    const unsupported = memoryArchive();
+    writeVaultArchive({ subject: source.subject, now: 1,
+      rows: [{ table: "unsupported", id: "x", doc: {} }],
+      imageSize: () => null, readImage: () => new Uint8Array(),
+    }, unsupported.writer);
+    const skipped = importVault(target.store, memoryPhotos().photos, readerFor(unsupported.bytes()));
+    expect(skipped.rowsOmitted).toBe(1);
+    expect(skipped.rows.unknown).toBe(1);
+    expect(target.store.exportRows()).toEqual([]);
+  });
+
+  it("validates every photo length before writing any replacement", () => {
+    const archive = memoryArchive();
+    writeVaultArchive({ subject: "owner", now: 1,
+      rows: [{ table: "builds", id: "one", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}one` } },
+        { table: "builds", id: "two", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}two` } }],
+      imageSize: () => PHOTO.length, readImage: () => PHOTO,
+    }, archive.writer);
+    const target = makeTestVault();
+    const original = Uint8Array.from([9]);
+    const directory = memoryPhotos({ one: original });
+    const write = vi.spyOn(directory.photos, "write");
+    const truncated = archive.bytes().slice(0, -1);
+    expect(() => importVault(target.store, directory.photos, readerFor(truncated))).toThrow(VaultArchiveError);
+    expect(write).not.toHaveBeenCalled();
+    expect(directory.files.get("one")).toEqual(original);
     expect(target.store.exportRows()).toEqual([]);
   });
 

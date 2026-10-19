@@ -15,6 +15,7 @@ export interface ImportRowsResult {
   inserted: number;
   updated: number;
   skipped: number;
+  conflicts: number;
   /** Rows for tables this app version does not know (left out, reported). */
   unknown: number;
 }
@@ -524,7 +525,7 @@ export class VaultStore {
   }
 
   /** Every live row in stored (portable) form, ordered for stable exports. */
-  exportRows(): ImportedRow[] {
+  exportRows(onUnreadable?: () => void): ImportedRow[] {
     const rows = this.sql.getAllSync<{ table_name: string; id: string; json: string }>(
       "SELECT table_name, id, json FROM entity_rows WHERE deleted = 0 ORDER BY table_name, id"
     );
@@ -537,7 +538,7 @@ export class VaultStore {
           doc: JSON.parse(row.json) as Record<string, unknown>,
         });
       } catch {
-        // Unreadable rows were already reported at load; they cannot be exported faithfully.
+        onUnreadable?.();
       }
     }
     return out;
@@ -615,6 +616,66 @@ export class VaultStore {
     }));
   }
 
+  private repairImportedHierarchies(changedParents: Map<string, Map<string, unknown>>): number {
+    let conflicts = 0;
+    for (const [table, previous] of changedParents) {
+      const parentField = table === "cosplayNodes" ? "parentNodeId" : "parentId";
+      const rows = this.sql.getAllSync<{ id: string; json: string }>(
+        "SELECT id, json FROM entity_rows WHERE table_name = ? AND deleted = 0",
+        [table]
+      );
+      const docs = new Map(
+        rows.map((row) => [row.id, JSON.parse(row.json) as Record<string, unknown>])
+      );
+      let repaired: boolean;
+      do {
+        repaired = false;
+        for (const id of docs.keys()) {
+          const path: string[] = [];
+          let current: unknown = id;
+          while (typeof current === "string" && docs.has(current)) {
+            const start = path.indexOf(current);
+            if (start !== -1) {
+              const cycle = path.slice(start);
+              const imported = cycle.filter((key) => previous.has(key));
+              if (imported.length === 0) throw new Error("Invalid vault hierarchy");
+              for (const key of imported) {
+                docs.get(key)![parentField] = previous.get(key);
+                previous.delete(key);
+                conflicts += 1;
+              }
+              repaired = true;
+              break;
+            }
+            path.push(current);
+            current = docs.get(current)![parentField];
+          }
+        }
+      } while (repaired);
+      if (table === "workflowItems") {
+        for (const doc of docs.values()) {
+          const ancestors: string[] = [];
+          let parent = doc.parentId;
+          while (typeof parent === "string" && docs.has(parent)) {
+            ancestors.unshift(parent);
+            parent = docs.get(parent)!.parentId;
+          }
+          doc.ancestorIds = ancestors;
+        }
+      }
+      for (const row of rows) {
+        const json = JSON.stringify(docs.get(row.id));
+        if (json !== row.json) {
+          this.sql.runSync(
+            "UPDATE entity_rows SET json = ?, synced_at = NULL WHERE table_name = ? AND id = ?",
+            [json, table, row.id]
+          );
+        }
+      }
+    }
+    return conflicts;
+  }
+
   /**
    * Merge rows from a backup into this vault in ONE SQLite transaction: rows this vault lacks are
    * added, rows the backup holds a newer copy of (`updatedAt`) replace the local copy, everything
@@ -627,7 +688,8 @@ export class VaultStore {
     sourceSubject: string,
     availablePhotos: ReadonlySet<string> = new Set()
   ): ImportRowsResult {
-    const result: ImportRowsResult = { inserted: 0, updated: 0, skipped: 0, unknown: 0 };
+    const result: ImportRowsResult = { inserted: 0, updated: 0, skipped: 0, conflicts: 0, unknown: 0 };
+    const changedParents = new Map<string, Map<string, unknown>>();
     const now = this.now();
     const known = new Set<string>(VAULT_TABLES);
     const incoming = this.reconcileImportIds(rows);
@@ -685,6 +747,19 @@ export class VaultStore {
           } else {
             result.inserted += 1;
           }
+          if (row.table === "cosplayNodes" || row.table === "workflowItems") {
+            const field = row.table === "cosplayNodes" ? "parentNodeId" : "parentId";
+            let changes = changedParents.get(row.table);
+            if (!changes) {
+              changes = new Map();
+              changedParents.set(row.table, changes);
+            }
+            const previous =
+              existing && !existing.deleted
+                ? (JSON.parse(existing.json) as Record<string, unknown>)[field]
+                : undefined;
+            if (previous !== doc[field] && !changes.has(row.id)) changes.set(row.id, previous);
+          }
           this.sql.runSync(
             `INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
              VALUES (?, ?, ?, ?, ?, NULL, 0)
@@ -694,6 +769,7 @@ export class VaultStore {
             [row.table, row.id, this.subject, JSON.stringify(doc), now]
           );
         }
+        result.conflicts = this.repairImportedHierarchies(changedParents);
         if (result.inserted + result.updated > 0) {
           this.sql.runSync("DELETE FROM sync_meta WHERE key = 'backfill:complete'");
         }

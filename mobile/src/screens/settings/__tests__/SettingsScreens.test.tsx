@@ -185,7 +185,7 @@ beforeEach(() => {
   ];
   state.writeBackup.mockResolvedValue({
     uri: "file:///cache/backups/kyarafit-backup.kyarafit",
-    summary: { rows: 3, images: 1, missingImages: [], bytes: 100 },
+    summary: { rows: 3, images: 1, missingImages: [], rowsOmitted: 0, bytes: 100 },
   });
   state.deliverBackup.mockResolvedValue(true);
   state.importBackup.mockResolvedValue(null);
@@ -372,7 +372,7 @@ describe("small settings screens", () => {
   it("reports photos that were missing at backup time", async () => {
     state.writeBackup.mockResolvedValue({
       uri: "file:///b.kyarafit",
-      summary: { rows: 3, images: 0, missingImages: ["img_a"], bytes: 10 },
+      summary: { rows: 3, images: 0, missingImages: ["img_a"], rowsOmitted: 0, bytes: 10 },
     });
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
@@ -398,7 +398,8 @@ describe("small settings screens", () => {
 
   it("restores a picked backup and summarizes what changed", async () => {
     state.importBackup.mockResolvedValue({
-      rows: { inserted: 4, updated: 1, skipped: 2, unknown: 0 },
+      rows: { inserted: 4, updated: 1, skipped: 2, unknown: 0, conflicts: 0 },
+      rowsOmitted: 0,
       photosWritten: 2,
       photosAlreadyPresent: 0,
       photosMissing: [],
@@ -415,7 +416,8 @@ describe("small settings screens", () => {
 
   it("flags a partial restore when photos could not be restored", async () => {
     state.importBackup.mockResolvedValue({
-      rows: { inserted: 1, updated: 0, skipped: 0, unknown: 0 },
+      rows: { inserted: 1, updated: 0, skipped: 0, unknown: 0, conflicts: 0 },
+      rowsOmitted: 0,
       photosWritten: 0,
       photosAlreadyPresent: 0,
       photosMissing: ["img_x", "img_y"],
@@ -423,10 +425,36 @@ describe("small settings screens", () => {
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
     await waitFor(() => expect(state.alert).toHaveBeenCalled());
-    expect(state.alert.mock.calls[0][0]).toBe("Backup restored with missing photos");
+    expect(state.alert.mock.calls[0][0]).toBe(en.settings.dataImportPartialTitle);
     expect(state.alert.mock.calls[0][1]).toContain(
       "2 photos from this backup couldn't be restored."
     );
+  });
+
+  it("reports unreadable backup rows with a partial title and omission count", async () => {
+    state.writeBackup.mockResolvedValue({ uri: "file:///b.kyarafit",
+      summary: { rows: 3, images: 0, missingImages: [], rowsOmitted: 2, bytes: 10 },
+    });
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Save backup" }));
+    await waitFor(() => expect(state.alert).toHaveBeenCalled());
+    expect(state.alert.mock.calls[0][0]).toBe(en.settings.dataExportPartialTitle);
+    expect(state.alert.mock.calls[0][1]).toContain("2 unreadable items");
+  });
+
+  it.each(["omissions", "conflicts"])("reports restore %s without claiming full success", async (kind) => {
+    state.importBackup.mockResolvedValue({
+      rows: { inserted: 0, updated: 0, skipped: 0, unknown: kind === "omissions" ? 2 : 0,
+        conflicts: kind === "conflicts" ? 2 : 0 },
+      rowsOmitted: kind === "omissions" ? 2 : 0,
+      photosWritten: 0, photosAlreadyPresent: 0, photosMissing: [],
+    });
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
+    await waitFor(() => expect(state.alert).toHaveBeenCalled());
+    expect(state.alert.mock.calls[0][0]).toBe(en.settings.dataImportPartialTitle);
+    expect(state.alert.mock.calls[0][1]).toContain(kind === "omissions"
+      ? "2 items were omitted" : "2 conflicting parent changes");
   });
 
   it("surfaces a damaged backup instead of claiming success", async () => {
