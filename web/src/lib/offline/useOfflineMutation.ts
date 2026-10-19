@@ -66,23 +66,15 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
       if (name != null) {
         const isCreate = isCreateMutation(name);
         const clientId = isCreate ? newClientId() : undefined;
-        await offlineRuntime.enqueueMutation(name, args[0], newIdempotencyKey(), clientId);
-
-        // Optimistic visibility: mirror the write into the overlay so registered list/detail
-        // queries reflect it immediately (cleared by the sync worker once it replays).
-        const writes = overlayWritesFor(name, args[0], clientId);
-        if (writes.length) {
-          const userId = String((args[0] as Record<string, unknown> | undefined)?.userId ?? "");
-          for (const write of writes) {
-            await offlineRuntime.writeEntityOverlay(
-              write.table,
-              write.id,
-              userId,
-              write.doc,
-              write.deleted
-            );
-          }
-        }
+        await offlineRuntime.commitCommand(
+          {
+            fn: name,
+            argsJson: JSON.stringify(args[0] ?? {}),
+            idempotencyKey: newIdempotencyKey(),
+            clientId: clientId ?? null,
+          },
+          overlayWritesFor(name, args[0], clientId)
+        );
 
         if (isCreate && clientId) {
           const input = (args[0] ?? {}) as Record<string, unknown>;

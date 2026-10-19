@@ -15,6 +15,22 @@
 import { IndexedDbLocalStore } from "./indexedDbStore";
 import { InMemoryLocalStore, type LocalStore } from "./localStore";
 import { WaSqliteLocalStore, isWaSqliteOpfsSupported } from "./waSqliteStore";
+import { adoptLegacyStore } from "./legacyRecovery";
+
+let legacyOpfs: Promise<LocalStore> | undefined;
+function openLegacyOpfs(): Promise<LocalStore> {
+  if (!legacyOpfs) {
+    legacyOpfs = (async () => {
+      const store = new WaSqliteLocalStore();
+      await store.init();
+      return store;
+    })();
+    legacyOpfs.catch(() => {
+      legacyOpfs = undefined;
+    });
+  }
+  return legacyOpfs;
+}
 
 /** Detected environment capabilities relevant to engine selection. */
 export interface EngineCapabilities {
@@ -58,11 +74,11 @@ function createFallbackStore(accountKey: string): LocalStore {
  * Production browser factory: wires real capability detection + engine constructors. Call once per
  * session (e.g. from `SyncWorkerProvider`) and hand the result to the offline runtime.
  */
-export function createBrowserLocalStore(subject: string): Promise<LocalStore> {
+export async function createBrowserLocalStore(subject: string): Promise<LocalStore> {
   const accountKey = Array.from(new TextEncoder().encode(subject), (byte) =>
     byte.toString(16).padStart(2, "0")
   ).join("");
-  return selectLocalStoreEngine({
+  const store = await selectLocalStoreEngine({
     detectCapabilities: () => ({ opfsAvailable: isWaSqliteOpfsSupported() }),
     createWaSqliteStore: async () => {
       const store = new WaSqliteLocalStore(accountKey);
@@ -71,4 +87,11 @@ export function createBrowserLocalStore(subject: string): Promise<LocalStore> {
     },
     createFallbackStore: () => createFallbackStore(accountKey),
   });
+  if (typeof indexedDB !== "undefined") {
+    await adoptLegacyStore(new IndexedDbLocalStore(), store, subject, "indexeddb");
+  }
+  if (isWaSqliteOpfsSupported() && !(await store.getMeta("legacy-adopted:opfs"))) {
+    await adoptLegacyStore(await openLegacyOpfs(), store, subject, "opfs");
+  }
+  return store;
 }

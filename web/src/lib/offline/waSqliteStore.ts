@@ -41,6 +41,13 @@ const TABLES = {
   syncMeta: "sync_meta",
 } as const;
 
+const UPSERT_ENTITY_ROW = `INSERT INTO ${TABLES.entityRows}
+  (table_name, id, user_id, json, updated_at, deleted, synced)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(table_name, id) DO UPDATE SET
+    user_id = excluded.user_id, json = excluded.json, updated_at = excluded.updated_at,
+    deleted = excluded.deleted, synced = excluded.synced`;
+
 /**
  * DDL for the logical store, mirroring the IndexedDB schema:
  *   - `entity_rows` keyed by (table_name, id) with a `synced` flag,
@@ -176,6 +183,13 @@ export class WaSqliteLocalStore implements LocalStore {
   private sqlite3: SqliteApi | null = null;
   private db = 0;
   private initPromise: Promise<void> | null = null;
+  private operations: Promise<unknown> = Promise.resolve();
+
+  private exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operations.then(operation);
+    this.operations = result.catch(() => undefined);
+    return result;
+  }
 
   /** Open the database (idempotent). Must succeed before any method is used; the factory awaits it. */
   init(): Promise<void> {
@@ -227,12 +241,14 @@ export class WaSqliteLocalStore implements LocalStore {
   }
 
   private async select(sql: string, params?: SqlValue[]): Promise<SqlValue[][]> {
-    const result = await this.api().execWithParams(this.db, sql, params ?? null);
-    return result.rows;
+    return this.exclusive(async () => {
+      const result = await this.api().execWithParams(this.db, sql, params ?? null);
+      return result.rows;
+    });
   }
 
   private async exec(sql: string, params?: SqlValue[]): Promise<void> {
-    await this.api().run(this.db, sql, params ?? null);
+    await this.exclusive(() => this.api().run(this.db, sql, params ?? null));
   }
 
   // --- query cache (SWR base) ---
@@ -258,18 +274,7 @@ export class WaSqliteLocalStore implements LocalStore {
   // --- entity rows (overlays + synced base) ---
 
   async putEntityRow(row: StoredEntityRow): Promise<void> {
-    await this.exec(
-      `INSERT INTO ${TABLES.entityRows}
-         (table_name, id, user_id, json, updated_at, deleted, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(table_name, id) DO UPDATE SET
-         user_id = excluded.user_id,
-         json = excluded.json,
-         updated_at = excluded.updated_at,
-         deleted = excluded.deleted,
-         synced = excluded.synced`,
-      entityRowToValues(row)
-    );
+    await this.exec(UPSERT_ENTITY_ROW, entityRowToValues(row));
   }
 
   async deleteEntityRow(table: string, id: string): Promise<void> {
@@ -289,13 +294,36 @@ export class WaSqliteLocalStore implements LocalStore {
   // --- mutation queue ---
 
   async enqueueMutation(input: EnqueueMutationInput): Promise<void> {
-    // UNIQUE idempotency_key + INSERT OR IGNORE => re-enqueues are dropped (mirrors the IDB engine).
-    await this.exec(
-      `INSERT OR IGNORE INTO ${TABLES.mutationQueue}
-         (idempotency_key, fn, args_json, retry_count, client_id, status, created_at)
-       VALUES (?, ?, ?, 0, ?, 'pending', ?)`,
-      [input.idempotencyKey, input.fn, input.argsJson, input.clientId, Date.now()]
-    );
+    await this.commitCommand(input, []);
+  }
+
+  async commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void> {
+    await this.exclusive(async () => {
+      const run = (sql: string, params?: SqlValue[]) => this.api().run(this.db, sql, params);
+      await run("BEGIN IMMEDIATE");
+      try {
+        const existing = await this.api().execWithParams(
+          this.db,
+          `SELECT id FROM ${TABLES.mutationQueue} WHERE idempotency_key = ?`,
+          [input.idempotencyKey]
+        );
+        if (!existing.rows.length) {
+          await run(
+            `INSERT INTO ${TABLES.mutationQueue}
+             (idempotency_key, fn, args_json, retry_count, client_id, status, created_at)
+             VALUES (?, ?, ?, 0, ?, 'pending', ?)`,
+            [input.idempotencyKey, input.fn, input.argsJson, input.clientId, Date.now()]
+          );
+          for (const row of rows) {
+            await run(UPSERT_ENTITY_ROW, entityRowToValues(row));
+          }
+        }
+        await run("COMMIT");
+      } catch (error) {
+        await run("ROLLBACK");
+        throw error;
+      }
+    });
   }
 
   async listPendingMutations(limit = 100): Promise<PendingMutation[]> {

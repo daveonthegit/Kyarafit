@@ -41,12 +41,15 @@ import { setOfflineConnectivity } from "./connectivity";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  offlineRuntime.setStore(new InMemoryLocalStore(), "test-user");
+  vi.spyOn(window, "alert").mockImplementation(() => undefined);
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  offlineRuntime.setStore(new InMemoryLocalStore(), "u1");
   state.builds = [];
 });
 
 afterEach(() => {
   setOfflineConnectivity(true);
+  vi.restoreAllMocks();
 });
 
 describe("offline bridge (REQ-D51 / REQ-D52)", () => {
@@ -135,7 +138,7 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
   );
   it("rejects an offline create when its enqueue cannot persist", async () => {
     const store = new InMemoryLocalStore();
-    vi.spyOn(store, "enqueueMutation").mockRejectedValue(new Error("disk full"));
+    vi.spyOn(store, "commitCommand").mockRejectedValueOnce(new Error("disk full"));
     offlineRuntime.setStore(store, "u1");
     setOfflineConnectivity(false);
     const { result } = renderHook(() => useOfflineMutation(api.builds.create));
@@ -143,8 +146,48 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
       "disk full"
     );
     expect(offlineRuntime.listLocalEntityRowsSync("builds")).toEqual([]);
+    expect(await store.listPendingMutations()).toEqual([]);
+    expect(window.alert).toHaveBeenCalledWith("Couldn't save on this device");
+    await act(async () => {
+      await result.current({ userId: "u1", name: "Retry", status: "idea" });
+    });
+    expect(await store.listPendingMutations()).toHaveLength(1);
+    expect(await store.listEntityRows()).toHaveLength(1);
     expect(client.mutation).not.toHaveBeenCalled();
   });
+  it.each(["status", "delete"])(
+    "reports a failed bulk %s command without changing rows",
+    async (action) => {
+      const store = new InMemoryLocalStore();
+      await store.putEntityRow({
+        table: "builds",
+        id: "b1",
+        userId: "u1",
+        json: JSON.stringify({ _id: "b1", userId: "u1", name: "Saved", status: "idea" }),
+        updatedAt: 1,
+        deleted: false,
+        synced: true,
+      });
+      offlineRuntime.setStore(store, "u1");
+      await offlineRuntime.hydrate();
+      vi.spyOn(store, "commitCommand").mockRejectedValue(new Error("disk full"));
+      setOfflineConnectivity(false);
+      const { result } = renderHook(() => ({
+        status: useOfflineMutation(api.builds.updateStatusMany),
+        delete: useOfflineMutation(api.builds.removeMany),
+      }));
+      const command =
+        action === "status"
+          ? result.current.status({ ids: ["b1" as never], userId: "u1", status: "wip" })
+          : result.current.delete({ ids: ["b1" as never], userId: "u1" });
+      await expect(command).rejects.toThrow("disk full");
+      expect(window.alert).toHaveBeenCalledOnce();
+      expect(await store.listPendingMutations()).toEqual([]);
+      expect(offlineRuntime.listLocalEntityRowsSync("builds")).toEqual([
+        { _id: "b1", userId: "u1", name: "Saved", status: "idea" },
+      ]);
+    }
+  );
   it("should_read_and_optimistically_write_builds_through_local_store", async () => {
     state.builds = [
       { _id: "b1", userId: "u1", name: "Zelda", status: "wip" },

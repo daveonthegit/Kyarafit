@@ -103,23 +103,37 @@ export class IndexedDbLocalStore implements LocalStore {
   }
 
   async enqueueMutation(input: EnqueueMutationInput): Promise<void> {
+    await this.commitCommand(input, []);
+  }
+
+  async commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void> {
     const db = await this.db();
-    const tx = db.transaction(MUTATION_QUEUE, "readwrite");
-    const index = tx.store.index("idempotency_key");
-    const existing = await index.getKey(input.idempotencyKey);
-    if (existing === undefined) {
-      const record: MutationQueueRecord = {
-        idempotency_key: input.idempotencyKey,
-        fn: input.fn,
-        args_json: input.argsJson,
-        retry_count: 0,
-        client_id: input.clientId,
-        status: "pending",
-        created_at: Date.now(),
-      };
-      await tx.store.add(record);
+    const tx = db.transaction([MUTATION_QUEUE, ENTITY_ROWS], "readwrite");
+    try {
+      const queue = tx.objectStore(MUTATION_QUEUE);
+      const existing = await queue.index("idempotency_key").getKey(input.idempotencyKey);
+      if (existing === undefined) {
+        await queue.add({
+          idempotency_key: input.idempotencyKey,
+          fn: input.fn,
+          args_json: input.argsJson,
+          retry_count: 0,
+          client_id: input.clientId,
+          status: "pending",
+          created_at: Date.now(),
+        });
+        for (const row of rows) await tx.objectStore(ENTITY_ROWS).put({ ...row });
+      }
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch (abortError) {
+        void abortError;
+      }
+      await tx.done.catch(() => undefined);
+      throw error;
     }
-    await tx.done;
   }
 
   async listPendingMutations(limit = 100): Promise<PendingMutation[]> {

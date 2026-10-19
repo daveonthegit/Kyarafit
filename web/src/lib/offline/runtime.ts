@@ -17,8 +17,10 @@ import {
   type LocalStore,
   type PendingMutation,
   type StoredEntityRow,
+  type EnqueueMutationInput,
 } from "./localStore";
 import { IDLE_BACKFILL, type BackfillProgress } from "./backfill";
+import type { EntityOverlayWrite } from "./offlineEntityWrites";
 
 function createDefaultStore(): LocalStore {
   // IndexedDB is browser-only; SSR / jsdom fall back to the in-memory engine. The browser store is
@@ -31,6 +33,7 @@ class OfflineRuntime {
   private version = 0;
   private generation = 0;
   private subject: string | null = null;
+  private commands: Promise<unknown> = Promise.resolve();
 
   getSubject(): string | null {
     return this.subject;
@@ -113,7 +116,7 @@ class OfflineRuntime {
     }
     if (json === undefined) return;
     this.queryCache.set(key, payload);
-    void this.persist(() => this.store.writeQueryCache(key, json)).catch(reportWriteError);
+    void this.persist(() => this.store.writeQueryCache(key, json)).catch(() => undefined);
   }
 
   // --- entity overlays + synced base ---
@@ -156,22 +159,7 @@ class OfflineRuntime {
     deleted: boolean
   ): Promise<void> {
     const map = this.table(table);
-    let merged: Record<string, unknown> = doc ?? {};
-    if (!deleted && doc) {
-      const existing = map.get(id);
-      if (existing && !existing.synced) {
-        merged = { ...(parseDoc(existing.json) ?? {}), ...doc };
-      }
-    }
-    const row: StoredEntityRow = {
-      table,
-      id,
-      userId,
-      json: JSON.stringify(merged) ?? "{}",
-      updatedAt: Date.now(),
-      deleted,
-      synced: false,
-    };
+    const row = this.overlayRow({ table, id, doc, deleted }, userId);
     const assertCurrent = this.sessionGuard();
     const previous = map.get(id);
     map.set(id, row);
@@ -191,6 +179,44 @@ class OfflineRuntime {
     );
   }
 
+  private overlayRow(write: EntityOverlayWrite, userId: string): StoredEntityRow {
+    const existing = this.table(write.table).get(write.id);
+    const owner = existing?.userId || userId;
+    const merged = write.deleted
+      ? {}
+      : {
+          ...(existing ? parseDoc(existing.json) : {}),
+          ...write.doc,
+          userId: owner,
+        };
+    return {
+      table: write.table,
+      id: write.id,
+      userId: owner,
+      json: JSON.stringify(merged),
+      updatedAt: Date.now(),
+      deleted: write.deleted,
+      synced: false,
+    };
+  }
+
+  commitCommand(input: EnqueueMutationInput, writes: EntityOverlayWrite[]): Promise<void> {
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    const subject = this.subject;
+    const result = this.commands.then(async () => {
+      assertCurrent();
+      if (!subject) throw new Error("Local vault is locked");
+      const rows = writes.map((write) => this.overlayRow(write, subject));
+      await this.persist(() => store.commitCommand(input, rows));
+      assertCurrent();
+      for (const row of rows) this.table(row.table).set(row.id, row);
+      this.bump();
+    });
+    this.commands = result.catch(() => undefined);
+    return result;
+  }
+
   /** Clear a pending overlay once its write has synced (sync worker on drain success). */
   clearEntityOverlay(table: string, id: string): void {
     const map = this.table(table);
@@ -198,7 +224,7 @@ class OfflineRuntime {
     if (existing && !existing.synced) {
       map.delete(id);
       this.bump();
-      void this.persist(() => this.store.deleteEntityRow(table, id)).catch(reportWriteError);
+      void this.persist(() => this.store.deleteEntityRow(table, id)).catch(() => undefined);
     }
   }
 
@@ -223,7 +249,7 @@ class OfflineRuntime {
     };
     map.set(id, row);
     this.bump();
-    void this.persist(() => this.store.putEntityRow(row)).catch(reportWriteError);
+    void this.persist(() => this.store.putEntityRow(row)).catch(() => undefined);
   }
 
   // --- mutation queue (consumed by the async sync worker) ---
@@ -345,7 +371,12 @@ class OfflineRuntime {
   }
 
   private async persist(op: () => Promise<void>): Promise<void> {
-    await op();
+    try {
+      await op();
+    } catch (error) {
+      reportWriteError(error);
+      throw error;
+    }
   }
 
   private async safe<T>(op: () => Promise<T>): Promise<T | undefined> {
