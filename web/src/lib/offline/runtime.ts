@@ -84,6 +84,17 @@ class OfflineRuntime {
     this.bump();
   }
 
+  /** Remove a row a restore wrote (undo of an incomplete restore), durably and from the mirror. */
+  async removeImportedEntityRow(table: string, id: string): Promise<void> {
+    if (!this.subject) throw new Error("Local vault is locked");
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    await this.persist(() => store.deleteEntityRow(table, id));
+    assertCurrent();
+    this.table(table).delete(id);
+    this.bump();
+  }
+
   // --- reactivity (useSyncExternalStore) ---
 
   subscribe = (listener: () => void): (() => void) => {
@@ -225,10 +236,6 @@ class OfflineRuntime {
     });
     this.commands = result.catch(() => undefined);
     return result;
-  }
-
-  clearCreatedEntityOverlays(id: string): void {
-    for (const table of this.entityRows.keys()) this.clearEntityOverlay(table, id);
   }
 
   /** Clear a pending overlay once its write has synced (sync worker on drain success). */

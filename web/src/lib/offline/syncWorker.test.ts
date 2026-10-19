@@ -3,7 +3,6 @@ import type { ConvexReactClient } from "convex/react";
 import { getFunctionName } from "convex/server";
 import {
   runBackfill,
-  drainMutationQueue,
   syncNow,
   uploadLocalImages,
   warmEntityRows,
@@ -48,28 +47,6 @@ function fakeClientReturningAllTables(): ConvexReactClient {
 beforeEach(() => {
   offlineRuntime.setStore(new InMemoryLocalStore(), "user_1");
   setOfflineConnectivity(true);
-});
-
-it.each([
-  ["conventions:create", "conventions"],
-  ["workflow:create", "workflowItems"],
-  ["conventions:addManualPackingItem", "packingListItems"],
-])("clears imported optimistic rows after replaying %s", async (fn, table) => {
-  const clientId = "local:restored";
-  await offlineRuntime.writeImportedEntityRow({ table, id: clientId, userId: "user_1",
-    json: JSON.stringify({ _id: clientId, userId: "user_1" }), updatedAt: 1, deleted: false, synced: false });
-  if (table === "packingListItems") {
-    await offlineRuntime.writeImportedEntityRow({ table: "workflowItems", id: `${clientId}:workflow`, userId: "user_1",
-      json: "{}", updatedAt: 1, deleted: false, synced: false });
-  }
-  await offlineRuntime.enqueueMutation(fn, {}, "restore", clientId);
-  const client = { mutation: vi.fn(async () => ({ _id: "server", workflowItemId: "server-task" })) } as unknown as ConvexReactClient;
-  expect(await drainMutationQueue(client)).toEqual({ processed: 1, failed: 0 });
-  expect(offlineRuntime.listLocalEntityRowsSync(table)).toEqual([]);
-  expect(await offlineRuntime.getStore().listEntityRows()).toEqual([]);
-  const ids = await offlineRuntime.loadIdMap();
-  expect(ids[clientId]).toBe("server");
-  if (table === "packingListItems") expect(ids[`${clientId}:workflow`]).toBe("server-task");
 });
 
 describe("warmEntityRows (REQ-D63)", () => {

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { importKey } from "./importKey";
-import { emptyCollections, runImport } from "./dataPortability";
+import { emptyCollections, NonEmptyVaultError, runImport } from "./dataPortability";
 
 describe("import retry keys", () => {
   it("is stable on re-import, but isolates accounts and collections", () => {
@@ -16,18 +16,12 @@ describe("import retry keys", () => {
     expect(importKey("a", "b:c", { id: "d" })).not.toBe(importKey("a", "b", { id: "c:d" }));
   });
 
-  it("re-imports with identical keys even after a lost response and missing local state", async () => {
+  it("refuses a restore into a non-empty vault before creating anything", async () => {
     const imported = { ...emptyCollections(), builds: [{ id: "source-row", name: "Build" }] };
-    const keys: string[] = [];
-    const createRow = async (collection: string, row: { id: string }) => {
-      keys.push(importKey("owner", collection, row));
-      return row.id;
-    };
-    await runImport({ imported, existing: emptyCollections(), createRow });
-    await runImport({ imported, existing: emptyCollections(), createRow });
-    expect(keys).toHaveLength(2);
-    expect(new Set(keys).size).toBe(1);
-    await runImport({ imported, existing: imported, createRow });
-    expect(keys).toHaveLength(2);
+    const createRow = vi.fn(async (_collection: string, row: { id: string }) => row.id);
+    await expect(runImport({ imported, existing: imported, createRow })).rejects.toBeInstanceOf(
+      NonEmptyVaultError
+    );
+    expect(createRow).not.toHaveBeenCalled();
   });
 });

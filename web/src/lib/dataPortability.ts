@@ -162,18 +162,16 @@ export interface ImportTotals {
   skipped: number;
 }
 
-/** Persist one new row for a collection (e.g. a Convex create mutation). Injected for testability. */
+/**
+ * Persist one restored row (e.g. a Convex create mutation). Injected for testability. `existingId` is
+ * set when the destination already generated this row (an element's or packing item's generated
+ * task), so the caller updates it instead of creating a duplicate.
+ */
 export type CreateRowFn = (
   collection: PortableCollectionKey,
   row: ExportableRow,
   existingId?: string
 ) => Promise<unknown> | unknown;
-
-export interface ImportIdentity {
-  id: string;
-  complete: boolean;
-  row: ExportableRow;
-}
 
 export class NonEmptyVaultError extends Error {
   constructor() {
@@ -182,20 +180,17 @@ export class NonEmptyVaultError extends Error {
   }
 }
 
-export interface ImportIdentityStore {
-  begin(imported: PortableCollections, existing: PortableCollections): Promise<void>;
-  finish(): Promise<void>;
-  key(collection: PortableCollectionKey, sourceId: string): string;
-  read(collection: PortableCollectionKey, sourceId: string): Promise<ImportIdentity | null>;
-  write(collection: PortableCollectionKey, sourceId: string, identity: ImportIdentity): Promise<void>;
-}
-
 export interface RunImportArgs {
   imported: PortableCollections;
   existing: PortableCollections;
   createRow: CreateRowFn;
-  identities?: ImportIdentityStore;
   generatedWorkflow?: (nodeId: string, buildId?: string) => Promise<ExportableRow[]>;
+  /** Called once per restored row with its destination id and restored fields. */
+  onRestored?: (
+    collection: PortableCollectionKey,
+    id: string,
+    row: ExportableRow
+  ) => Promise<void> | void;
 }
 
 const RELATION_FIELDS = {
@@ -225,7 +220,8 @@ function remapRow(
     if (row[field] != null) restored[field] = resolve(row[field], collection);
   }
   if (row.attachments !== undefined) {
-    if (!Array.isArray(row.attachments)) throw new MalformedBundleError("Invalid imported attachments");
+    if (!Array.isArray(row.attachments))
+      throw new MalformedBundleError("Invalid imported attachments");
     restored.attachments = row.attachments.map((value: unknown) => {
       if (
         !isRecord(value) ||
@@ -252,7 +248,8 @@ function remapRow(
       restored.dedupeKey = `packing:${resolve(key.slice("packing:".length), "packingListItems")}`;
     } else if (prefix) {
       const targets = nodes.filter((node) => key.endsWith(`:${node.id}`));
-      if (targets.length !== 1) throw new MalformedBundleError("Missing or ambiguous generated task element");
+      if (targets.length !== 1)
+        throw new MalformedBundleError("Missing or ambiguous generated task element");
       const node = targets[0];
       const scope = key.slice(prefix.length, -`:${node.id}`.length);
       const restoredScope = scope === "shared" ? scope : resolve(scope, "builds");
@@ -413,32 +410,24 @@ function prepareImport(imported: PortableCollections): PortableCollections {
   return plan;
 }
 
-// Merge-restore into a non-empty vault is a possible later feature.
+/** Validate a whole backup (identities, relationships, hierarchy) before anything is written. */
+export function validateImport(imported: PortableCollections): void {
+  prepareImport(imported);
+}
+
+// Restore only into an empty vault. Merge-restore and resuming an interrupted restore are possible
+// later features; an interrupted restore is undone and run again instead.
 export async function runImport({
   imported,
   existing,
   createRow,
-  identities,
   generatedWorkflow,
+  onRestored,
 }: RunImportArgs): Promise<ImportSummary> {
   const plan = prepareImport(imported);
-  if (identities) await identities.begin(imported, existing);
-  else if (countRows(existing) > 0) throw new NonEmptyVaultError();
+  if (countRows(existing) > 0) throw new NonEmptyVaultError();
   const summary = {} as ImportSummary;
   const ids = new Map<string, string>();
-  const completed = new Set<string>();
-  for (const key of PORTABLE_COLLECTIONS) {
-    for (const row of imported[key]) {
-      const identity = await identities?.read(key, row.id);
-      if (!identity) continue;
-      ids.set(row.id, identity.id);
-      if (identity.complete) completed.add(row.id);
-      if (key === "packingListItems" && typeof row.workflowItemId === "string" &&
-        typeof identity.row.workflowItemId === "string") {
-        ids.set(row.workflowItemId, identity.row.workflowItemId);
-      }
-    }
-  }
   const resolve = (id: unknown): string | undefined => {
     if (id === undefined || id === null) return undefined;
     if (typeof id !== "string" || !ids.has(id))
@@ -449,11 +438,12 @@ export async function runImport({
     if (key === "workflowItems" && generatedWorkflow) {
       for (const node of imported.cosplayNodes) {
         if (
-          !plan.workflowItems.some((row) =>
-            !ids.has(row.id) &&
-            typeof row.dedupeKey === "string" &&
-            /^autogen:(buy|wip):/.test(row.dedupeKey) &&
-            row.dedupeKey.endsWith(`:${node.id}`)
+          !plan.workflowItems.some(
+            (row) =>
+              !ids.has(row.id) &&
+              typeof row.dedupeKey === "string" &&
+              /^autogen:(buy|wip):/.test(row.dedupeKey) &&
+              row.dedupeKey.endsWith(`:${node.id}`)
           )
         ) {
           continue;
@@ -480,21 +470,12 @@ export async function runImport({
               );
               return task.dedupeKey === `autogen:${operation}:${ids.get(scope) ?? scope}:${nodeId}`;
             }) ?? (candidates.length === 1 ? candidates[0] : undefined);
-          if (source && !ids.has(source.id)) {
-            ids.set(source.id, task.id);
-            await identities?.write("workflowItems", source.id, {
-              id: task.id,
-              complete: false,
-              row: source,
-            });
-          }
+          if (source && !ids.has(source.id)) ids.set(source.id, task.id);
         }
       }
     }
-    const importedRows = imported[key];
     let added = 0;
     for (const row of plan[key]) {
-      if (completed.has(row.id)) continue;
       added += 1;
       const restored = remapRow(row, resolve, imported.cosplayNodes);
       const result = await createRow(key, restored, ids.get(row.id));
@@ -516,22 +497,11 @@ export async function runImport({
           throw new Error("Packing restore did not return its workflow identity");
         ids.set(row.workflowItemId, workflowId);
         storedRow = { ...restored, workflowItemId: workflowId };
-        await identities?.write("workflowItems", row.workflowItemId, {
-          id: workflowId,
-          complete: false,
-          row: imported.workflowItems.find((task) => task.id === row.workflowItemId) ?? {
-            id: row.workflowItemId,
-          },
-        });
       }
-      await identities?.write(key, row.id, { id, complete: true, row: storedRow });
+      await onRestored?.(key, id, storedRow);
     }
-    summary[key] = {
-      added,
-      skipped: importedRows.length - added,
-    };
+    summary[key] = { added, skipped: imported[key].length - added };
   }
-  await identities?.finish();
   return summary;
 }
 

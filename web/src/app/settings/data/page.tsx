@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { useConvex } from "convex/react";
-import { createImportIdentityStore } from "@/lib/importIdentityStore";
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
+import { offlineRuntime } from "@/lib/offline";
+import { readLocalAccount } from "@/lib/auth/localAccount";
+import { importKey } from "@/lib/importKey";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { SyncStatus } from "@/components/SyncStatus";
 import { readLocalCollections } from "@/lib/localFirstData";
@@ -18,17 +20,57 @@ import {
   MalformedBundleError,
   NonEmptyVaultError,
   parseDataBundle,
+  PORTABLE_COLLECTIONS,
   runImport,
   summarizeTotals,
+  validateImport,
   type CreateRowFn,
-  type ImportIdentityStore,
+  type PortableCollectionKey,
 } from "@/lib/dataPortability";
+import {
+  createRestoreSession,
+  IncompleteRestoreError,
+  readRestoreSession,
+  undoRestoreSession,
+  type RestoreSession,
+} from "@/lib/restoreSession";
 
 type ImportStatus =
   | { kind: "idle" }
   | { kind: "importing" }
+  | { kind: "undoing" }
   | { kind: "done"; added: number; skipped: number }
+  | { kind: "undone" }
   | { kind: "error"; reason: string };
+
+class RestoreOfflineError extends Error {
+  constructor() {
+    super("Restore needs an internet connection");
+    this.name = "RestoreOfflineError";
+  }
+}
+
+/** The destination id of a created document; a restore cannot continue without one. */
+function createdId<T extends { _id: string }>(created: T | null): T {
+  if (!created?._id) throw new Error("Restore did not return a created identity");
+  return created;
+}
+
+/** Rows in the account's durable store, including any the in-memory mirror has not loaded. */
+async function hasDurablePersonalRows(userId: string): Promise<boolean> {
+  const rows = await offlineRuntime.getStore().listEntityRows();
+  return rows.some(
+    (row) =>
+      row.userId === userId &&
+      !row.deleted &&
+      (PORTABLE_COLLECTIONS as readonly string[]).includes(row.table)
+  );
+}
+
+/** Convex reports a row that is already gone this way; undo treats it as deleted. */
+function isAlreadyDeleted(error: unknown): boolean {
+  return error instanceof Error && /not found/i.test(error.message);
+}
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -58,7 +100,9 @@ function flattenGeneratedTasks(rows: readonly unknown[]): { id: string; dedupeKe
     }
     return [
       { id: row._id, dedupeKey: "dedupeKey" in row ? row.dedupeKey : undefined },
-      ...("children" in row && Array.isArray(row.children) ? flattenGeneratedTasks(row.children) : []),
+      ...("children" in row && Array.isArray(row.children)
+        ? flattenGeneratedTasks(row.children)
+        : []),
     ];
   });
 }
@@ -80,15 +124,41 @@ export default function SettingsDataPage() {
     offlineRuntime.getVersion
   );
 
-  const createBuild = useOfflineMutation(api.builds.create);
-  const createConvention = useOfflineMutation(api.conventions.create);
-  const createNode = useOfflineMutation(api.cosplayNodes.create);
-  const addChildNode = useOfflineMutation(api.cosplayNodes.addChildLink);
-  const addBuildNodes = useOfflineMutation(api.builds.addNodesToBuild);
-  const createWorkflowItem = useOfflineMutation(api.workflow.create);
-  const updateWorkflowItem = useOfflineMutation(api.workflow.update);
-  const moveWorkflowItem = useOfflineMutation(api.workflow.move);
-  const createPackingItem = useOfflineMutation(api.conventions.addManualPackingItem);
+  const [incomplete, setIncomplete] = useState(false);
+
+  /**
+   * Restore talks to the server directly: it never queues offline writes, so a lost connection
+   * fails the restore (leaving an incomplete session to undo) instead of replaying it later.
+   */
+  const call = useCallback(
+    async <Mutation extends FunctionReference<"mutation">>(
+      mutation: Mutation,
+      args: FunctionArgs<Mutation>
+    ): Promise<FunctionReturnType<Mutation>> => {
+      if (!userId || offlineRuntime.getSubject() !== userId || readLocalAccount() !== userId) {
+        throw new Error("Local account changed");
+      }
+      if (!getIsOnline()) throw new RestoreOfflineError();
+      return convex.mutation(mutation, args);
+    },
+    [convex, userId]
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    readRestoreSession(userId).then(
+      (session) => {
+        if (active) setIncomplete(session !== null);
+      },
+      () => {
+        if (active) setIncomplete(true);
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const collections = useMemo(() => readLocalCollections(userId), [version, userId]);
 
@@ -102,181 +172,267 @@ export default function SettingsDataPage() {
   }, [collections]);
 
   const createRow = useCallback(
-    (identities: ImportIdentityStore): CreateRowFn => async (collection, row, existingId) => {
-      if (!userId) throw new Error("Sign in to import data");
-      const idempotencyKey = identities.key(collection, row.id);
-      switch (collection) {
-        case "builds":
-          return createBuild({
-            userId,
-            name: readString(row.name) ?? "Untitled build",
-            status: readString(row.status) ?? "idea",
-            character: readString(row.character),
-            notes: readString(row.notes),
-            budgetCents: readNumber(row.budgetCents),
-            targetDate: readString(row.targetDate),
-            visibility: readString(row.visibility),
-            idempotencyKey,
-          });
-        case "conventions":
-          return createConvention({
-            userId,
-            name: readString(row.name) ?? "Untitled event",
-            location: readString(row.location),
-            startDate: readString(row.startDate) ?? new Date().toISOString().slice(0, 10),
-            endDate: readString(row.endDate) ?? new Date().toISOString().slice(0, 10),
-            idempotencyKey,
-          });
-        case "cosplayNodes": {
-          if (existingId) {
-            const destination = await convex.query(api.cosplayNodes.get, {
-              id: existingId as Id<"cosplayNodes">,
-            });
-            if (!destination) throw new MalformedBundleError("Previously restored element is missing.");
+    (session: RestoreSession): CreateRowFn =>
+      async (collection, row, existingId) => {
+        if (!userId) throw new Error("Sign in to import data");
+        const idempotencyKey = `${importKey(userId, collection, row)}:${session.id}`;
+        switch (collection) {
+          case "builds": {
+            const created = createdId(
+              await call(api.builds.create, {
+                userId,
+                name: readString(row.name) ?? "Untitled build",
+                status: readString(row.status) ?? "idea",
+                character: readString(row.character),
+                notes: readString(row.notes),
+                budgetCents: readNumber(row.budgetCents),
+                targetDate: readString(row.targetDate),
+                visibility: readString(row.visibility),
+                idempotencyKey,
+              })
+            );
+            await session.record("builds", created._id);
+            return created;
           }
-          const created = existingId ? { _id: existingId as Id<"cosplayNodes"> } : await createNode({
-            userId,
-            nodeType: readString(row.nodeType)!,
-            name: readString(row.name) ?? "Untitled element",
-            tags: (row.tags ?? []) as string[],
-            category: readString(row.category),
-            notes: readString(row.notes),
-            sourceUrl: readString(row.sourceUrl),
-            pricingMode: readString(row.pricingMode),
-            directCostCents: readNumber(row.directCostCents),
-            unitCostCents: readNumber(row.unitCostCents),
-            quantity: readNumber(row.quantity),
-            unit: readString(row.unit),
-            purchaseStatus: readString(row.purchaseStatus),
-            buildStatus: readString(row.buildStatus),
-            materialStatus: readString(row.materialStatus),
-            manualOverallBucket: readString(row.manualOverallBucket),
-            buildInstructions: readString(row.buildInstructions),
-            consumable: typeof row.consumable === "boolean" ? row.consumable : undefined,
-          });
-          if (!created?._id) throw new Error("Element restore did not return an identity");
-          await identities.write("cosplayNodes", row.id, {
-            id: created._id, complete: false, row,
-          });
-          if (row.parentNodeId) {
-            await addChildNode({
+          case "conventions": {
+            const created = createdId(
+              await call(api.conventions.create, {
+                userId,
+                name: readString(row.name) ?? "Untitled event",
+                location: readString(row.location),
+                startDate: readString(row.startDate) ?? new Date().toISOString().slice(0, 10),
+                endDate: readString(row.endDate) ?? new Date().toISOString().slice(0, 10),
+                idempotencyKey,
+              })
+            );
+            await session.record("conventions", created._id);
+            return created;
+          }
+          case "cosplayNodes": {
+            const created = createdId(
+              await call(api.cosplayNodes.create, {
+                userId,
+                nodeType: readString(row.nodeType)!,
+                name: readString(row.name) ?? "Untitled element",
+                tags: (row.tags ?? []) as string[],
+                category: readString(row.category),
+                notes: readString(row.notes),
+                sourceUrl: readString(row.sourceUrl),
+                pricingMode: readString(row.pricingMode),
+                directCostCents: readNumber(row.directCostCents),
+                unitCostCents: readNumber(row.unitCostCents),
+                quantity: readNumber(row.quantity),
+                unit: readString(row.unit),
+                purchaseStatus: readString(row.purchaseStatus),
+                buildStatus: readString(row.buildStatus),
+                materialStatus: readString(row.materialStatus),
+                manualOverallBucket: readString(row.manualOverallBucket),
+                buildInstructions: readString(row.buildInstructions),
+                consumable: typeof row.consumable === "boolean" ? row.consumable : undefined,
+              })
+            );
+            await session.record("cosplayNodes", created._id);
+            if (row.parentNodeId) {
+              await call(api.cosplayNodes.addChildLink, {
+                userId,
+                parentNodeId: row.parentNodeId as Id<"cosplayNodes">,
+                childNodeId: created._id,
+                sortOrder: readNumber(row.sortOrder),
+              });
+            } else if (row.buildId) {
+              await call(api.builds.addNodesToBuild, {
+                userId,
+                buildId: row.buildId as Id<"builds">,
+                cosplayNodeIds: [created._id],
+                idempotencyKey,
+              });
+            }
+            return created;
+          }
+          case "workflowItems": {
+            const fields = {
               userId,
-              parentNodeId: row.parentNodeId as Id<"cosplayNodes">,
-              childNodeId: created._id,
+              title: readString(row.title) ?? "Untitled task",
+              parentId: readString(row.parentId) as Id<"workflowItems"> | undefined,
+              attachments: row.attachments as FunctionArgs<
+                typeof api.workflow.create
+              >["attachments"],
+              notes: readString(row.notes),
+              kind: readString(row.kind),
+              category: readString(row.category),
+              status: readString(row.status),
+              scopeKind: readString(row.scopeKind),
+              sourceKind: readString(row.sourceKind),
               sortOrder: readNumber(row.sortOrder),
-            });
-          } else if (row.buildId) {
-            await addBuildNodes({
-              userId,
-              buildId: row.buildId as Id<"builds">,
-              cosplayNodeIds: [created._id],
+              priority: readNumber(row.priority),
+              dueDate: readString(row.dueDate),
+              targetDate: readString(row.targetDate),
+              startDate: readString(row.startDate),
               idempotencyKey,
-            });
+            };
+            if (existingId) {
+              // A task the destination generated (element or packing): update it in place.
+              await session.record("workflowItems", existingId);
+              const { parentId, ...updateFields } = fields;
+              await call(api.workflow.update, {
+                ...updateFields,
+                id: existingId as Id<"workflowItems">,
+              });
+              await call(api.workflow.move, {
+                id: existingId as Id<"workflowItems">,
+                parentId: parentId ?? null,
+                idempotencyKey,
+              });
+              return existingId;
+            }
+            const created = createdId(
+              await call(api.workflow.create, { ...fields, dedupeKey: readString(row.dedupeKey) })
+            );
+            await session.record("workflowItems", created._id);
+            return created;
           }
-          return created;
-        }
-        case "workflowItems": {
-          const fields = {
-            userId,
-            title: readString(row.title) ?? "Untitled task",
-            parentId: readString(row.parentId) as Id<"workflowItems"> | undefined,
-            attachments: row.attachments as Parameters<typeof createWorkflowItem>[0]["attachments"],
-            notes: readString(row.notes),
-            kind: readString(row.kind),
-            category: readString(row.category),
-            status: readString(row.status),
-            scopeKind: readString(row.scopeKind),
-            sourceKind: readString(row.sourceKind),
-            sortOrder: readNumber(row.sortOrder),
-            priority: readNumber(row.priority),
-            dueDate: readString(row.dueDate),
-            targetDate: readString(row.targetDate),
-            startDate: readString(row.startDate),
-            idempotencyKey,
-          };
-          if (existingId) {
-            const { parentId, ...updateFields } = fields;
-            await updateWorkflowItem({ ...updateFields, id: existingId as Id<"workflowItems"> });
-            await moveWorkflowItem({
-              id: existingId as Id<"workflowItems">,
-              parentId: parentId ?? null,
-              idempotencyKey,
-            });
-            return existingId;
+          case "packingListItems": {
+            const conventionId = readString(row.conventionId);
+            if (!conventionId) throw new Error("Packing item has no restored convention");
+            const created = createdId(
+              await call(api.conventions.addManualPackingItem, {
+                userId,
+                conventionId: conventionId as Id<"conventions">,
+                label: readString(row.label) ?? "Item",
+                date: readString(row.date),
+                notes: readString(row.notes),
+                buildId: readString(row.buildId) as Id<"builds"> | undefined,
+                idempotencyKey,
+              })
+            );
+            await session.record("packingListItems", created._id);
+            if (created.workflowItemId) {
+              await session.record("workflowItems", created.workflowItemId);
+            }
+            return created;
           }
-          return createWorkflowItem({ ...fields, dedupeKey: readString(row.dedupeKey) });
+          default:
+            return;
         }
-        case "packingListItems": {
-          const conventionId = readString(row.conventionId);
-          if (!conventionId) throw new Error("Packing item has no restored convention");
-          return createPackingItem({
-            userId,
-            conventionId: conventionId as Id<"conventions">,
-            label: readString(row.label) ?? "Item",
-            date: readString(row.date),
-            notes: readString(row.notes),
-            buildId: readString(row.buildId) as Id<"builds"> | undefined,
-            idempotencyKey,
-          });
-        }
-        default:
-          return;
-      }
+      },
+    [userId, call]
+  );
+
+  const generatedTasks = useCallback(
+    async (nodeId: string, buildId?: string) => {
+      const result = await convex.query(api.workflow.listNodeWorkflow, {
+        cosplayNodeId: nodeId as Id<"cosplayNodes">,
+        buildId: buildId as Id<"builds"> | undefined,
+      });
+      if (!result) throw new Error("Generated element tasks could not be loaded");
+      return flattenGeneratedTasks([...result.shared, ...result.buildSpecific]);
     },
-    [
-      userId,
-      createBuild,
-      createConvention,
-      createNode,
-      addChildNode,
-      addBuildNodes,
-      createWorkflowItem,
-      updateWorkflowItem,
-      moveWorkflowItem,
-      createPackingItem,
-      convex,
-    ]
+    [convex]
+  );
+
+  const describeError = useCallback(
+    (error: unknown) =>
+      error instanceof NonEmptyVaultError
+        ? t("importRequiresEmptyVault")
+        : error instanceof IncompleteRestoreError
+          ? t("importIncomplete")
+          : error instanceof RestoreOfflineError
+            ? t("importRequiresOnline")
+            : error instanceof MalformedBundleError
+              ? error.message
+              : t("importErrorGeneric"),
+    [t]
   );
 
   const handleFile = useCallback(
     async (file: File) => {
       setImportStatus({ kind: "importing" });
       try {
-        const text = await file.text();
-        const imported = parseDataBundle(text);
-        if (imported.cosplayNodes.length && !getIsOnline()) {
-          throw new MalformedBundleError("Element backups must be restored while online.");
-        }
         if (!userId) throw new Error("Sign in to import data");
-        const identities = createImportIdentityStore(userId);
+        if (await readRestoreSession(userId)) throw new IncompleteRestoreError();
+        if (!getIsOnline()) throw new RestoreOfflineError();
+        const imported = parseDataBundle(await file.text());
+        validateImport(imported);
+        const existing = readLocalCollections(userId);
+        if (countRows(existing) > 0 || (await hasDurablePersonalRows(userId))) {
+          throw new NonEmptyVaultError();
+        }
+        const session = createRestoreSession(userId);
         const assertCurrent = offlineRuntime.sessionGuard();
         const summary = await runImport({
           imported,
-          existing: readLocalCollections(userId),
-          createRow: createRow(identities),
-          identities,
+          existing,
+          createRow: createRow(session),
           generatedWorkflow: async (nodeId, buildId) => {
             assertCurrent();
-            const result = await convex.query(api.workflow.listNodeWorkflow, {
-              cosplayNodeId: nodeId as Id<"cosplayNodes">,
-              buildId: buildId as Id<"builds"> | undefined,
-            });
+            const tasks = await generatedTasks(nodeId, buildId);
             assertCurrent();
-            if (!result) throw new Error("Generated element tasks could not be loaded");
-            return flattenGeneratedTasks([...result.shared, ...result.buildSpecific]);
+            for (const task of tasks) await session.record("workflowItems", task.id);
+            return tasks;
           },
+          onRestored: (collection, id, row) =>
+            offlineRuntime.writeImportedEntityRow({
+              table: collection,
+              id,
+              userId,
+              json: JSON.stringify({ ...row, id, _id: id, userId }),
+              updatedAt: Date.now(),
+              deleted: false,
+              synced: true,
+            }),
         });
+        await session.complete();
         const { added, skipped } = summarizeTotals(summary);
         setImportStatus({ kind: "done", added, skipped });
       } catch (error) {
-        const reason = error instanceof NonEmptyVaultError
-          ? t("importRequiresEmptyVault")
-          : error instanceof MalformedBundleError ? error.message : t("importErrorGeneric");
-        setImportStatus({ kind: "error", reason });
+        setImportStatus({ kind: "error", reason: describeError(error) });
+      } finally {
+        if (userId) setIncomplete((await readRestoreSession(userId).catch(() => null)) !== null);
       }
     },
-    [createRow, t, userId, convex]
+    [createRow, describeError, generatedTasks, userId]
   );
+
+  const handleUndo = useCallback(async () => {
+    if (!userId) return;
+    setImportStatus({ kind: "undoing" });
+    const remove: Record<PortableCollectionKey, (id: string) => Promise<unknown>> = {
+      builds: (id) => call(api.builds.remove, { id: id as Id<"builds"> }),
+      conventions: (id) => call(api.conventions.remove, { id: id as Id<"conventions"> }),
+      cosplayNodes: (id) => call(api.cosplayNodes.remove, { id: id as Id<"cosplayNodes"> }),
+      workflowItems: (id) => call(api.workflow.remove, { id: id as Id<"workflowItems"> }),
+      packingListItems: (id) =>
+        call(api.conventions.deletePackingItem, { id: id as Id<"packingListItems"> }),
+    };
+    try {
+      if (!getIsOnline()) throw new RestoreOfflineError();
+      await undoRestoreSession({
+        subject: userId,
+        deleteRow: async (collection, id) => {
+          try {
+            await remove[collection](id);
+          } catch (error) {
+            if (!isAlreadyDeleted(error)) throw error;
+          }
+        },
+        generatedTasks: async (nodeId) => {
+          const tasks = await convex.query(api.workflow.listNodeWorkflow, {
+            cosplayNodeId: nodeId as Id<"cosplayNodes">,
+          });
+          return tasks
+            ? flattenGeneratedTasks([...tasks.shared, ...tasks.buildSpecific]).map(
+                (task) => task.id
+              )
+            : [];
+        },
+      });
+      setImportStatus({ kind: "undone" });
+    } catch (error) {
+      setImportStatus({ kind: "error", reason: describeError(error) });
+    } finally {
+      setIncomplete((await readRestoreSession(userId).catch(() => null)) !== null);
+    }
+  }, [call, convex, describeError, userId]);
 
   const onFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,10 +480,27 @@ export default function SettingsDataPage() {
             aria-label={t("importButton")}
             data-testid="import-file-input"
           />
+          {incomplete && (
+            <div className="mt-4 space-y-3" data-testid="import-incomplete">
+              <p className="text-sm text-on-glass-danger" role="alert">
+                {t("importIncomplete")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleUndo()}
+                disabled={importStatus.kind === "importing" || importStatus.kind === "undoing"}
+                className="min-h-[44px] inline-flex items-center rounded-full bg-glass-solid px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {importStatus.kind === "undoing" ? t("undoingRestore") : t("undoRestoreButton")}
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={importStatus.kind === "importing"}
+            disabled={
+              incomplete || importStatus.kind === "importing" || importStatus.kind === "undoing"
+            }
             className="mt-4 min-h-[44px] inline-flex items-center rounded-full border border-glass-border-strong bg-glass-bar px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importStatus.kind === "importing" ? t("importing") : t("importButton")}
@@ -340,6 +513,11 @@ export default function SettingsDataPage() {
                   added: importStatus.added,
                   skipped: importStatus.skipped,
                 })}
+              </p>
+            )}
+            {importStatus.kind === "undone" && (
+              <p className="text-sm" data-testid="import-undone">
+                {t("restoreUndone")}
               </p>
             )}
             {importStatus.kind === "error" && (

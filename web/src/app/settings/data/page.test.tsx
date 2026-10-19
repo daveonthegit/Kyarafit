@@ -56,6 +56,11 @@ vi.mock("next-intl", () => ({
       importSummary: `Imported ${values?.added ?? 0} new item(s); skipped ${values?.skipped ?? 0} already present.`,
       importErrorGeneric: "Something went wrong while importing that file.",
       importRequiresEmptyVault: "Restore requires an empty vault. Export your current data first.",
+      importRequiresOnline: "Restore needs an internet connection.",
+      importIncomplete: "Restore incomplete - undo and try again.",
+      undoRestoreButton: "Undo restore",
+      undoingRestore: "Undoing…",
+      restoreUndone: "The incomplete restore was undone.",
       backToSettings: "Back to settings",
     };
     return map[key] ?? key;
@@ -158,23 +163,51 @@ describe("Settings data export/import page", () => {
         { id: "child", name: "Child", nodeType: "material", parentNodeId: "root" },
         { id: "root", name: "Root", nodeType: "element", buildId: "build" },
       ],
-      workflowItems: [{ id: "task", title: "Task", attachments: [
-        { entityType: "cosplayNode", entityId: "child", role: "primary", buildContextId: "build" },
-      ] }],
+      workflowItems: [
+        {
+          id: "task",
+          title: "Task",
+          attachments: [
+            {
+              entityType: "cosplayNode",
+              entityId: "child",
+              role: "primary",
+              buildContextId: "build",
+            },
+          ],
+        },
+      ],
     });
     fireEvent.change(screen.getByTestId("import-file-input"), {
       target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
     });
     expect(await screen.findByTestId("import-summary")).toHaveTextContent("Imported 4");
     expect(client.mutation.mock.calls.map(([fn]) => getFunctionName(fn as never))).toEqual([
-      "builds:create", "cosplayNodes:create", "builds:addNodesToBuild",
-      "cosplayNodes:create", "cosplayNodes:addChildLink", "workflow:create",
+      "builds:create",
+      "cosplayNodes:create",
+      "builds:addNodesToBuild",
+      "cosplayNodes:create",
+      "cosplayNodes:addChildLink",
+      "workflow:create",
     ]);
-    expect(client.mutation.mock.calls[2][1]).toMatchObject({ buildId: "restored:Build", cosplayNodeIds: ["restored:Root"] });
-    expect(client.mutation.mock.calls[4][1]).toMatchObject({ parentNodeId: "restored:Root", childNodeId: "restored:Child" });
-    expect(client.mutation.mock.calls[5][1]).toMatchObject({ attachments: [
-      { entityType: "cosplayNode", entityId: "restored:Child", role: "primary", buildContextId: "restored:Build" },
-    ] });
+    expect(client.mutation.mock.calls[2][1]).toMatchObject({
+      buildId: "restored:Build",
+      cosplayNodeIds: ["restored:Root"],
+    });
+    expect(client.mutation.mock.calls[4][1]).toMatchObject({
+      parentNodeId: "restored:Root",
+      childNodeId: "restored:Child",
+    });
+    expect(client.mutation.mock.calls[5][1]).toMatchObject({
+      attachments: [
+        {
+          entityType: "cosplayNode",
+          entityId: "restored:Child",
+          role: "primary",
+          buildContextId: "restored:Build",
+        },
+      ],
+    });
   });
 
   it.each([
@@ -182,150 +215,294 @@ describe("Settings data export/import page", () => {
     { nodeType: "element", buildStatus: "wip", operation: "wip" },
     { nodeType: "material", materialStatus: "to_buy", operation: "buy" },
     { nodeType: "material", materialStatus: "in_use", operation: "wip" },
-  ])("reuses generated tasks and durable import identities for $nodeType/$operation", async (state) => {
-    setOfflineConnectivity(true);
-    const nodes: string[] = [];
-    const linked = new Set<string>();
-    const tasks: { _id: string; dedupeKey?: string; status?: string; parentId?: string; attachments?: unknown }[] = [];
-    client.mutation.mockImplementation(async (fn, raw) => {
-      const name = getFunctionName(fn as never);
-      const args = raw as Record<string, unknown>;
-      if (name === "builds:create") return { _id: "restored-build" };
-      if (name === "cosplayNodes:create") {
-        expect(args).not.toHaveProperty("idempotencyKey");
-        const id = `node-${nodes.length + 1}`;
-        nodes.push(id);
-        tasks.push({ _id: `generated-${id}`, dedupeKey: `autogen:${state.operation}:shared:${id}` });
-        return { _id: id };
-      }
-      if (name === "builds:addNodesToBuild") {
-        for (const id of args.cosplayNodeIds as string[]) linked.add(`${args.buildId}:${id}`);
-        return;
-      }
-      if (name === "workflow:create") {
-        const task = { _id: `task-${tasks.length + 1}` };
-        tasks.push(task);
+  ])(
+    "reuses generated tasks for $nodeType/$operation and refuses a second restore",
+    async (state) => {
+      setOfflineConnectivity(true);
+      const nodes: string[] = [];
+      const linked = new Set<string>();
+      const tasks: {
+        _id: string;
+        dedupeKey?: string;
+        status?: string;
+        parentId?: string;
+        attachments?: unknown;
+      }[] = [];
+      client.mutation.mockImplementation(async (fn, raw) => {
+        const name = getFunctionName(fn as never);
+        const args = raw as Record<string, unknown>;
+        if (name === "builds:create") return { _id: "restored-build" };
+        if (name === "cosplayNodes:create") {
+          expect(args).not.toHaveProperty("idempotencyKey");
+          const id = `node-${nodes.length + 1}`;
+          nodes.push(id);
+          tasks.push({
+            _id: `generated-${id}`,
+            dedupeKey: `autogen:${state.operation}:shared:${id}`,
+          });
+          return { _id: id };
+        }
+        if (name === "builds:addNodesToBuild") {
+          for (const id of args.cosplayNodeIds as string[]) linked.add(`${args.buildId}:${id}`);
+          return;
+        }
+        if (name === "workflow:create") {
+          const task = { _id: `task-${tasks.length + 1}` };
+          tasks.push(task);
+          return task;
+        }
+        const task = tasks.find((task) => task._id === args.id);
+        if (!task) throw new Error("Task not found");
+        Object.assign(task, args);
         return task;
-      }
-      const task = tasks.find((task) => task._id === args.id);
-      if (!task) throw new Error("Task not found");
-      Object.assign(task, args);
-      return task;
-    });
-    client.query.mockImplementation(async (_fn, raw) => {
-      const { cosplayNodeId } = raw as { cosplayNodeId: string };
-      return { shared: tasks.filter((task) => task.dedupeKey?.endsWith(`:${cosplayNodeId}`)), buildSpecific: [] };
-    });
-    const { operation, ...fields } = state;
-    const bundle = buildDataBundle({
-      ...emptyCollections(),
-      builds: [{ id: "source-build", name: "Build" }],
-      cosplayNodes: [{ id: "source-node", name: "Wig", buildId: "source-build", ...fields }],
-      workflowItems: [
-        { id: "source-group", title: "Group", kind: "group" },
-        { id: "source-generated", title: "Restored task", parentId: "source-group", status: "done",
-          dedupeKey: `autogen:${operation}:shared:source-node`,
-          attachments: [{ entityType: "cosplayNode", entityId: "source-node", role: "progress_source", buildContextId: "source-build" }] },
-      ],
-    });
-    const file = new File([bundle], "generated.json", { type: "application/json" });
-    const first = render(<SettingsDataPage />);
-    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByTestId("import-summary")).toHaveTextContent("Imported 4"));
-    expect(nodes).toEqual(["node-1"]);
-    expect(linked).toEqual(new Set(["restored-build:node-1"]));
-    expect(tasks).toHaveLength(2);
-    expect(readLocalCollections("user-free-1").workflowItems.find((row) => row.id === "generated-node-1"))
-      .toMatchObject({ parentId: "task-2", dedupeKey: `autogen:${operation}:shared:node-1`, attachments: [{ entityId: "node-1", buildContextId: "restored-build" }] });
-    expect(tasks[0]).toMatchObject({ _id: "generated-node-1", status: "done", parentId: "task-2",
-      attachments: [{ entityId: "node-1", buildContextId: "restored-build" }] });
-    first.unmount();
-    const store = offlineRuntime.getStore();
-    offlineRuntime.lock();
-    offlineRuntime.setStore(store, "user-free-1");
-    render(<SettingsDataPage />);
-    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByTestId("import-error")).toHaveTextContent("empty vault"));
-    expect(nodes).toEqual(["node-1"]);
-    expect(linked).toEqual(new Set(["restored-build:node-1"]));
-    expect(tasks).toHaveLength(2);
-  });
+      });
+      client.query.mockImplementation(async (_fn, raw) => {
+        const { cosplayNodeId } = raw as { cosplayNodeId: string };
+        return {
+          shared: tasks.filter((task) => task.dedupeKey?.endsWith(`:${cosplayNodeId}`)),
+          buildSpecific: [],
+        };
+      });
+      const { operation, ...fields } = state;
+      const bundle = buildDataBundle({
+        ...emptyCollections(),
+        builds: [{ id: "source-build", name: "Build" }],
+        cosplayNodes: [{ id: "source-node", name: "Wig", buildId: "source-build", ...fields }],
+        workflowItems: [
+          { id: "source-group", title: "Group", kind: "group" },
+          {
+            id: "source-generated",
+            title: "Restored task",
+            parentId: "source-group",
+            status: "done",
+            dedupeKey: `autogen:${operation}:shared:source-node`,
+            attachments: [
+              {
+                entityType: "cosplayNode",
+                entityId: "source-node",
+                role: "progress_source",
+                buildContextId: "source-build",
+              },
+            ],
+          },
+        ],
+      });
+      const file = new File([bundle], "generated.json", { type: "application/json" });
+      const first = render(<SettingsDataPage />);
+      fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+      await waitFor(() =>
+        expect(screen.getByTestId("import-summary")).toHaveTextContent("Imported 4")
+      );
+      expect(nodes).toEqual(["node-1"]);
+      expect(linked).toEqual(new Set(["restored-build:node-1"]));
+      expect(tasks).toHaveLength(2);
+      expect(
+        readLocalCollections("user-free-1").workflowItems.find(
+          (row) => row.id === "generated-node-1"
+        )
+      ).toMatchObject({
+        parentId: "task-2",
+        dedupeKey: `autogen:${operation}:shared:node-1`,
+        attachments: [{ entityId: "node-1", buildContextId: "restored-build" }],
+      });
+      expect(tasks[0]).toMatchObject({
+        _id: "generated-node-1",
+        status: "done",
+        parentId: "task-2",
+        attachments: [{ entityId: "node-1", buildContextId: "restored-build" }],
+      });
+      first.unmount();
+      const store = offlineRuntime.getStore();
+      offlineRuntime.lock();
+      offlineRuntime.setStore(store, "user-free-1");
+      render(<SettingsDataPage />);
+      fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+      await waitFor(() =>
+        expect(screen.getByTestId("import-error")).toHaveTextContent("empty vault")
+      );
+      expect(nodes).toEqual(["node-1"]);
+      expect(linked).toEqual(new Set(["restored-build:node-1"]));
+      expect(tasks).toHaveLength(2);
+    }
+  );
 
-  it.each(["root", "child"])("reuses a created element after its %s attachment fails", async (failedLink) => {
+  it.each(["root", "child"])(
+    "undoes exactly the rows of a restore interrupted at its %s attachment, then restores again",
+    async (failedLink) => {
+      setOfflineConnectivity(true);
+      const created: string[] = [];
+      const removed: string[] = [];
+      let failed = false;
+      client.mutation.mockImplementation(async (fn, raw) => {
+        const name = getFunctionName(fn as never);
+        const args = raw as Record<string, unknown>;
+        if (name.endsWith(":remove") || name === "conventions:deletePackingItem") {
+          removed.push(`${name}:${String(args.id)}`);
+          return null;
+        }
+        if (name === "builds:create" || name === "cosplayNodes:create") {
+          const id = `${name}:${created.length + 1}`;
+          created.push(id);
+          return { _id: id };
+        }
+        const child = name === "cosplayNodes:addChildLink";
+        if (!failed && child === (failedLink === "child")) {
+          failed = true;
+          throw new Error("Attachment failed");
+        }
+        return null;
+      });
+      client.query.mockImplementation(async (_fn, raw) => {
+        const { cosplayNodeId } = raw as { cosplayNodeId: string };
+        return {
+          shared: [
+            { _id: `generated:${cosplayNodeId}`, dedupeKey: `autogen:buy:shared:${cosplayNodeId}` },
+          ],
+          buildSpecific: [],
+        };
+      });
+      const bundle = buildDataBundle({
+        ...emptyCollections(),
+        builds: [{ id: "build" }],
+        cosplayNodes: [
+          { id: "source-root", name: "Root", nodeType: "element", buildId: "build" },
+          ...(failedLink === "child"
+            ? [
+                {
+                  id: "source-child",
+                  name: "Child",
+                  nodeType: "element",
+                  parentNodeId: "source-root",
+                },
+              ]
+            : []),
+        ],
+      });
+      const file = new File([bundle], "backup.json", { type: "application/json" });
+      render(<SettingsDataPage />);
+      fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+      await screen.findByTestId("import-error");
+      expect(await screen.findByTestId("import-incomplete")).toHaveTextContent(
+        "Restore incomplete"
+      );
+      const interrupted = [...created];
+
+      // A second restore is refused while the interrupted one is pending; it is never resumed.
+      client.mutation.mockClear();
+      fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+      await waitFor(() =>
+        expect(screen.getByTestId("import-error")).toHaveTextContent("Restore incomplete")
+      );
+      expect(client.mutation).not.toHaveBeenCalled();
+
+      // An unrelated row that arrived meanwhile survives the undo.
+      offlineRuntime.upsertSyncedEntityRow("builds", "unrelated", "user-free-1", {
+        _id: "unrelated",
+        userId: "user-free-1",
+        name: "Other device",
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
+      expect(await screen.findByTestId("import-undone")).toBeInTheDocument();
+      const nodes = interrupted.filter((id) => id.startsWith("cosplayNodes"));
+      expect(removed).toEqual([
+        ...nodes.map((id) => `workflow:remove:generated:${id}`),
+        ...[...nodes].reverse().map((id) => `cosplayNodes:remove:${id}`),
+        "builds:remove:builds:create:1",
+      ]);
+      const local = readLocalCollections("user-free-1");
+      expect(local.builds.map((row) => row.id)).toEqual(["unrelated"]);
+      expect(local.cosplayNodes).toEqual([]);
+      expect(local.workflowItems).toEqual([]);
+      expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument();
+      expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+    }
+  );
+
+  it("treats a row already deleted on the server as undone", async () => {
     setOfflineConnectivity(true);
-    const nodes: string[] = [];
-    const links = new Set<string>();
-    let failed = false;
-    client.mutation.mockImplementation(async (fn, raw) => {
+    client.mutation.mockImplementation(async (fn) => {
       const name = getFunctionName(fn as never);
-      const args = raw as Record<string, unknown>;
-      if (name === "builds:create") return { _id: "destination-build" };
-      if (name === "cosplayNodes:create") {
-        const id = String(args.name);
-        nodes.push(id);
-        return { _id: id };
-      }
-      const child = name === "cosplayNodes:addChildLink";
-      if (!failed && child === (failedLink === "child")) {
-        failed = true;
-        throw new Error("Attachment failed");
-      }
-      links.add(child
-        ? `${args.parentNodeId}:${args.childNodeId}`
-        : `${args.buildId}:${(args.cosplayNodeIds as string[])[0]}`);
-    });
-    client.query.mockImplementation(async (_fn, raw) => {
-      const { id } = raw as { id: string };
-      return nodes.includes(id) ? { _id: id } : null;
+      if (name === "builds:create") return { _id: "restored-build" };
+      if (name === "builds:remove") throw new Error("Not found or not authorized");
+      throw new Error("Server unavailable");
     });
     const bundle = buildDataBundle({
       ...emptyCollections(),
-      builds: [{ id: "build" }],
-      cosplayNodes: [
-        { id: "source-root", name: "destination-root", nodeType: "element", buildId: "build" },
-        ...(failedLink === "child" ? [{ id: "source-child", name: "destination-child", nodeType: "element", parentNodeId: "source-root" }] : []),
-      ],
+      builds: [{ id: "build", name: "Build" }],
+      conventions: [{ id: "con", name: "Con" }],
     });
     render(<SettingsDataPage />);
-    const file = new File([bundle], "retry.json", { type: "application/json" });
-    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    await screen.findByTestId("import-error");
-    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    await screen.findByTestId("import-summary");
-    expect(nodes).toEqual(failedLink === "child" ? ["destination-root", "destination-child"] : ["destination-root"]);
-    expect(links.has("destination-build:destination-root")).toBe(true);
-    if (failedLink === "child") expect(links.has("destination-root:destination-child")).toBe(true);
-  });
-
-  it("reports an unsupported offline element restore before enqueuing anything", async () => {
-    setOfflineConnectivity(false);
-    render(<SettingsDataPage />);
-    const bundle = buildDataBundle({
-      ...emptyCollections(), builds: [{ id: "build" }],
-      cosplayNodes: [{ id: "node", nodeType: "element" }],
-    });
     fireEvent.change(screen.getByTestId("import-file-input"), {
       target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
     });
-    expect(await screen.findByTestId("import-error")).toHaveTextContent("while online");
+    await screen.findByTestId("import-incomplete");
+    fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
+    expect(await screen.findByTestId("import-undone")).toBeInTheDocument();
+    expect(readLocalCollections("user-free-1").builds).toEqual([]);
+  });
+
+  it("refuses an offline restore before writing or queueing anything", async () => {
+    setOfflineConnectivity(false);
+    render(<SettingsDataPage />);
+    const bundle = buildDataBundle({ ...emptyCollections(), builds: [{ id: "build" }] });
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByTestId("import-error")).toHaveTextContent("internet connection");
     expect(client.mutation).not.toHaveBeenCalled();
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+    expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument();
+  });
+
+  it("stops at a lost connection without queueing the rest of the restore", async () => {
+    setOfflineConnectivity(true);
+    client.mutation.mockImplementation(async (fn) => {
+      if (getFunctionName(fn as never) !== "builds:create") return null;
+      setOfflineConnectivity(false);
+      return { _id: "restored-build" };
+    });
+    const bundle = buildDataBundle({
+      ...emptyCollections(),
+      builds: [{ id: "build", name: "Build" }],
+      conventions: [{ id: "con", name: "Con" }],
+    });
+    render(<SettingsDataPage />);
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByTestId("import-error")).toHaveTextContent("internet connection");
+    expect(await screen.findByTestId("import-incomplete")).toBeInTheDocument();
+    expect(client.mutation).toHaveBeenCalledTimes(1);
     expect(await offlineRuntime.listPendingMutations()).toEqual([]);
   });
 
-  it.each(PORTABLE_COLLECTIONS)("refuses a non-empty vault containing %s before writing", async (collection) => {
-    const store = offlineRuntime.getStore();
-    await store.putEntityRow({ table: collection, id: "existing", userId: "user-free-1",
-      json: JSON.stringify({ _id: "existing", userId: "user-free-1" }),
-      updatedAt: 1, deleted: false, synced: true });
-    const before = await store.listEntityRows();
-    render(<SettingsDataPage />);
-    const file = new File([buildDataBundle({ ...emptyCollections(), builds: [{ id: "incoming" }] })], "backup.json", { type: "application/json" });
-    fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
-    expect(await screen.findByTestId("import-error")).toHaveTextContent("empty vault");
-    expect(client.mutation).not.toHaveBeenCalled();
-    expect(await store.listEntityRows()).toEqual(before);
-    expect(await store.getMeta("restore:active:v1")).toBeNull();
-  });
+  it.each(PORTABLE_COLLECTIONS)(
+    "refuses a non-empty vault containing %s before writing",
+    async (collection) => {
+      const store = offlineRuntime.getStore();
+      await store.putEntityRow({
+        table: collection,
+        id: "existing",
+        userId: "user-free-1",
+        json: JSON.stringify({ _id: "existing", userId: "user-free-1" }),
+        updatedAt: 1,
+        deleted: false,
+        synced: true,
+      });
+      const before = await store.listEntityRows();
+      render(<SettingsDataPage />);
+      const file = new File(
+        [buildDataBundle({ ...emptyCollections(), builds: [{ id: "incoming" }] })],
+        "backup.json",
+        { type: "application/json" }
+      );
+      fireEvent.change(screen.getByTestId("import-file-input"), { target: { files: [file] } });
+      expect(await screen.findByTestId("import-error")).toHaveTextContent("empty vault");
+      expect(client.mutation).not.toHaveBeenCalled();
+      expect(await store.listEntityRows()).toEqual(before);
+      expect(await store.getMeta("restore:session:v1")).toBeNull();
+    }
+  );
 
   it("should_show_an_error_for_a_malformed_import_file", async () => {
     render(<SettingsDataPage />);
