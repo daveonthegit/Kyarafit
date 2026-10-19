@@ -538,6 +538,9 @@ describe("Settings data export/import page", () => {
         userId: "user-free-1",
         name: "Other device",
       });
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Undo restore" })).toBeEnabled()
+      );
       fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
       expect(await screen.findByTestId("import-undone")).toBeInTheDocument();
       const nodes = interrupted.filter((id) => id.startsWith("cosplayNodes"));
@@ -617,6 +620,7 @@ describe("Settings data export/import page", () => {
     });
     await screen.findByTestId("import-incomplete");
     expect(offlineRuntime.getRestoreInProgress()).toBe(true);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Undo restore" })).toBeEnabled());
     client.mutation.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
     await screen.findByTestId("import-undone");
@@ -648,6 +652,7 @@ describe("Settings data export/import page", () => {
       target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
     });
     await screen.findByTestId("import-incomplete");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Undo restore" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
     expect(await screen.findByTestId("import-undone")).toBeInTheDocument();
     expect(readLocalCollections("user-free-1").builds).toEqual([]);
