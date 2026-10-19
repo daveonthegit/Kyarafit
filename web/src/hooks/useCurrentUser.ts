@@ -27,7 +27,7 @@ export function useCurrentUser() {
     if (subject) rememberLocalAccount(subject);
     else if (confirmedAbsent) rememberLocalAccount(null);
   }, [subject, confirmedAbsent]);
-  const userId = confirmedAbsent ? null : remembered ? subject ?? remembered : null;
+  const userId = confirmedAbsent ? null : remembered ? (subject ?? remembered) : null;
   return {
     identity,
     userId,

@@ -39,14 +39,14 @@ export async function adoptLegacyStore(
       Array.isArray(targets) &&
       targets.length > 0 &&
       targets.every(
-        (id) =>
-          typeof id === "string" && owners.get(id)?.size === 1 && owners.get(id)?.has(subject)
+        (id) => typeof id === "string" && owners.get(id)?.size === 1 && owners.get(id)?.has(subject)
       );
     let hasForeignReference = false;
     const visit = (value: unknown): void => {
       if (typeof value === "string") {
         const accounts = owners.get(value);
-        if (accounts && [...accounts].some((owner) => owner !== subject)) hasForeignReference = true;
+        if (accounts && [...accounts].some((owner) => owner !== subject))
+          hasForeignReference = true;
       } else if (Array.isArray(value)) value.forEach(visit);
       else if (value && typeof value === "object") Object.values(value).forEach(visit);
     };

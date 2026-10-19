@@ -92,6 +92,16 @@ Sign-up is similar but requires email verification (`requireEmailVerification: t
 After `signUp.email()` succeeds the user receives a verification email; until they click
 the link, sign-in returns an "email not verified" error and the UI shows a resend button.
 
+### Web local access
+
+`useCurrentUser` remembers the last confirmed account id in browser storage. On an offline cold
+launch or while remote auth is loading, that id can open the account's local store; it is not a
+credential and does not authorize server access. Explicit sign-out clears it; a confirmed absent
+session while online also clears it. The offline query bridge waits for Convex authentication
+before issuing live queries, while preserving cached reads during refresh. Store isolation and
+write guarantees are owned by [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees).
+Full web local-first operation remains deferred.
+
 ### Email + password — mobile
 
 The initial remote sign-in follows the web flow, except `setStoredBearerToken` uses

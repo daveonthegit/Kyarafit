@@ -5,8 +5,8 @@
  *
  * Export and import are FREE for everyone — there is intentionally no tier gate in this module.
  *
- * Round-trip fidelity (REQ-D102): each collection is serialized with the shared `exportBundle` and
- * read back with `importBundle`, so a bundle exported on one device reproduces faithfully on another.
+ * Collections use the shared `exportBundle` / `importBundle` encoding. The web restore supports
+ * only the fields accepted by its create adapter, not full-vault fidelity; see DATA_AND_SYNC.md §11.
  */
 import {
   MAX_LENGTH,

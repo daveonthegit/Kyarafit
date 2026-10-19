@@ -35,10 +35,7 @@ const FREE_DEFAULT: MeResponse = {
  */
 export function useTier(): { data: MeResponse | null; isLoading: boolean } {
   const { userId, isAuthenticated, isLoading: identityLoading } = useCurrentUser();
-  const me = useQuery(
-    api.users.getMe,
-    userId && isAuthenticated ? { externalId: userId } : "skip"
-  );
+  const me = useQuery(api.users.getMe, userId && isAuthenticated ? { externalId: userId } : "skip");
 
   if (identityLoading) return { data: null, isLoading: true };
   if (!userId) return { data: null, isLoading: false };

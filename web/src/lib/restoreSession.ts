@@ -5,7 +5,8 @@ import { RESTORE_SESSION_KEY } from "./offline/restoreState";
 
 /**
  * One restore attempt. Every row the attempt creates is recorded here (in the signed-in account's
- * local store) as soon as its create returns, so an interrupted restore can be undone exactly.
+ * local store) as soon as its create returns. A crash between server commit and recording can
+ * leave an unrecorded row; see DATA_AND_SYNC.md §11 for Undo's limitations.
  * Interrupted restores are never resumed: the user undoes the session and restores again.
  */
 export interface RestoreSessionRecord {
@@ -142,14 +143,11 @@ export interface UndoRestoreArgs {
 }
 
 /**
- * Undo the account's unfinished restore: delete exactly the rows that session recorded (on the
- * server and in the local store) and clear it, returning the vault to the empty state the restore
- * started from. Progress is saved after each deletion, so a failed undo can be retried.
+ * Undo the account's unfinished restore by deleting recorded rows (server and local) and clearing
+ * the session. Existing server deletes can cascade; see DATA_AND_SYNC.md §11 for isolation limits.
+ * Progress is saved after each deletion, so a failed undo can be retried.
  */
-export async function undoRestoreSession({
-  subject,
-  deleteRow,
-}: UndoRestoreArgs): Promise<void> {
+export async function undoRestoreSession({ subject, deleteRow }: UndoRestoreArgs): Promise<void> {
   await withRestoreLock(subject, async () => {
     const session = await readRestoreSession(subject);
     if (!session) return;

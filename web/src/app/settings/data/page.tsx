@@ -272,7 +272,8 @@ export default function SettingsDataPage() {
                 typeof task.dedupeKey !== "string" ||
                 !/^autogen:(buy|wip):/.test(task.dedupeKey) ||
                 !task.dedupeKey.endsWith(`:${created._id}`)
-              ) continue;
+              )
+                continue;
               await session.record("workflowItems", task.id);
             }
             if (row.parentNodeId) {
@@ -475,7 +476,7 @@ export default function SettingsDataPage() {
   const onFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      // Reset so selecting the same file again re-triggers change (re-import is idempotent anyway).
+      // Reset so selecting the same file after Undo re-triggers change.
       event.target.value = "";
       if (file) void handleFile(file);
     },
@@ -536,7 +537,9 @@ export default function SettingsDataPage() {
                 type="button"
                 onClick={() => void handleUndo()}
                 disabled={
-                  lockedElsewhere || importStatus.kind === "importing" || importStatus.kind === "undoing"
+                  lockedElsewhere ||
+                  importStatus.kind === "importing" ||
+                  importStatus.kind === "undoing"
                 }
                 className="min-h-[44px] inline-flex items-center rounded-full bg-glass-solid px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
