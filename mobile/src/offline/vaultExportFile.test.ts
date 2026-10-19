@@ -6,9 +6,13 @@ import { lockVault } from "@/vault/activeVault";
 const files = new Map<string, string>();
 vi.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file:///documents/",
-  writeAsStringAsync: async (path: string, value: string) => { files.set(path, value); },
+  writeAsStringAsync: async (path: string, value: string) => {
+    files.set(path, value);
+  },
   readAsStringAsync: async (path: string) => files.get(path),
-  deleteAsync: async (path: string) => { files.delete(path); },
+  deleteAsync: async (path: string) => {
+    files.delete(path);
+  },
 }));
 
 afterEach(async () => {

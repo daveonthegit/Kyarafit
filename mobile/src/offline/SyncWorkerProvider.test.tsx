@@ -39,14 +39,27 @@ vi.mock("@react-native-community/netinfo", () => ({
 }));
 
 vi.mock("@/lib/auth/client", () => ({
-  useSession: () => ({ isPending: false, data: { user: { id: h.state.remoteSubject === undefined ? h.state.identity?.subject : h.state.remoteSubject } } }),
+  useSession: () => ({
+    isPending: false,
+    data: {
+      user: {
+        id: h.state.remoteSubject === undefined ? h.state.identity?.subject : h.state.remoteSubject,
+      },
+    },
+  }),
 }));
 vi.mock("@/lib/auth/bearer-storage-plugin", () => ({
   getBearerToken: () => "test-session",
   subscribeBearerToken: () => () => {},
 }));
 vi.mock("./syncIdentity", () => ({
-  syncScope: async () => ({ current: () => Boolean(h.state.identity && (h.state.remoteSubject === undefined || h.state.remoteSubject === h.state.identity.subject)) }),
+  syncScope: async () => ({
+    current: () =>
+      Boolean(
+        h.state.identity &&
+        (h.state.remoteSubject === undefined || h.state.remoteSubject === h.state.identity.subject)
+      ),
+  }),
 }));
 
 vi.mock("convex/react", () => ({

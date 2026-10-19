@@ -32,10 +32,12 @@ vi.mock("@/lib/auth/bearer-storage-plugin", () => ({
   subscribeBearerToken: () => () => {},
 }));
 vi.mock("@/lib/auth/client", () => ({
-  authClient: { getSession: async () => {
-    const { getActiveVault } = await import("@/vault/activeVault");
-    return { data: { user: { id: getActiveVault()?.subject } }, error: null };
-  } },
+  authClient: {
+    getSession: async () => {
+      const { getActiveVault } = await import("@/vault/activeVault");
+      return { data: { user: { id: getActiveVault()?.subject } }, error: null };
+    },
+  },
 }));
 
 vi.mock("convex/react", () => ({
@@ -281,20 +283,48 @@ describe("paid vault: replication intent is durable and atomic", () => {
 
 describe("compound explorer commands", () => {
   it.each([false, true])("rolls back a rejected attach after detaching (child=%s)", (child) => {
-    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as { _id: string };
-    const parent = runLocalMutation("cosplayNodes:create", { name: "Parent", nodeType: "element", buildId: build._id }) as { _id: string };
-    const moving = runLocalMutation("cosplayNodes:create", { name: "Moving", nodeType: "element", buildId: build._id }) as { _id: string };
-    const target = runLocalMutation("cosplayNodes:create", { name: "Target", nodeType: "element" }) as { _id: string };
-    if (child) runLocalMutation("cosplayNodes:addChildLink", { parentNodeId: parent._id, childNodeId: moving._id });
-    runLocalMutation("cosplayNodes:addChildLink", { parentNodeId: moving._id, childNodeId: target._id });
+    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as {
+      _id: string;
+    };
+    const parent = runLocalMutation("cosplayNodes:create", {
+      name: "Parent",
+      nodeType: "element",
+      buildId: build._id,
+    }) as { _id: string };
+    const moving = runLocalMutation("cosplayNodes:create", {
+      name: "Moving",
+      nodeType: "element",
+      buildId: build._id,
+    }) as { _id: string };
+    const target = runLocalMutation("cosplayNodes:create", {
+      name: "Target",
+      nodeType: "element",
+    }) as { _id: string };
+    if (child)
+      runLocalMutation("cosplayNodes:addChildLink", {
+        parentNodeId: parent._id,
+        childNodeId: moving._id,
+      });
+    runLocalMutation("cosplayNodes:addChildLink", {
+      parentNodeId: moving._id,
+      childNodeId: target._id,
+    });
     const before = vaultRows();
     const queue = getOfflineDb().getAllSync("SELECT * FROM mutation_queue");
-    expect(() => runLocalMutations([
-      child
-        ? { fn: "cosplayNodes:removeChildLink", args: { id: moving._id } }
-        : { fn: "builds:removeNodeFromBuild", args: { buildId: build._id, cosplayNodeId: moving._id } },
-      { fn: "cosplayNodes:addChildLink", args: { parentNodeId: target._id, childNodeId: moving._id } },
-    ])).toThrow("cycle");
+    expect(() =>
+      runLocalMutations([
+        child
+          ? { fn: "cosplayNodes:removeChildLink", args: { id: moving._id } }
+          : {
+              fn: "builds:removeNodeFromBuild",
+              args: { buildId: build._id, cosplayNodeId: moving._id },
+            },
+        {
+          fn: "cosplayNodes:addChildLink",
+          args: { parentNodeId: target._id, childNodeId: moving._id },
+        },
+      ])
+    ).toThrow("cycle");
     getActiveVault()!.reloadFromDisk();
     expect(vaultRows()).toEqual(before);
     expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue")).toEqual(queue);
@@ -302,11 +332,22 @@ describe("compound explorer commands", () => {
 
   it("commits create/link and promotion with one intent per step", () => {
     setReplicationEnabled(true);
-    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as { _id: string };
-    const parent = runLocalMutation("cosplayNodes:create", { name: "Parent", nodeType: "element" }) as { _id: string };
+    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as {
+      _id: string;
+    };
+    const parent = runLocalMutation("cosplayNodes:create", {
+      name: "Parent",
+      nodeType: "element",
+    }) as { _id: string };
     const [node] = runLocalMutations([
       { fn: "cosplayNodes:create", args: { name: "Child", nodeType: "element" } },
-      { fn: "cosplayNodes:addChildLink", args: (results) => ({ parentNodeId: parent._id, childNodeId: (results[0] as { _id: string })._id }) },
+      {
+        fn: "cosplayNodes:addChildLink",
+        args: (results) => ({
+          parentNodeId: parent._id,
+          childNodeId: (results[0] as { _id: string })._id,
+        }),
+      },
     ]) as [{ _id: string }];
     expect(getActiveVault()!.reader().get(node._id)?.parentNodeId).toBe(parent._id);
     runLocalMutations([

@@ -22,10 +22,23 @@ vi.mock("@/offline", async () => ({
   ...(await import("@/offline/useOfflineMutation")),
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("@/theme/useDesignTheme", () => ({ useDesignTheme: () => ({ colors: { textTertiary: "gray" } }) }));
+vi.mock("@/theme/useDesignTheme", () => ({
+  useDesignTheme: () => ({ colors: { textTertiary: "gray" } }),
+}));
 vi.mock("@/ui", () => ({
-  Button: ({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) =>
-    <button disabled={disabled} onClick={onPress}>{title}</button>,
+  Button: ({
+    title,
+    onPress,
+    disabled,
+  }: {
+    title: string;
+    onPress: () => void;
+    disabled?: boolean;
+  }) => (
+    <button disabled={disabled} onClick={onPress}>
+      {title}
+    </button>
+  ),
 }));
 
 type Task = { _id: Id<"workflowItems">; title: string };
@@ -41,18 +54,40 @@ afterEach(async () => {
 });
 
 it("rolls back fields, dependencies and intents when the second write fails, then saves atomically on retry", async () => {
-  const task = runLocalMutation("workflow:create", { title: "Original", status: "not_started", dueDate: "2026-11-01", notes: "Original notes" }) as Task;
+  const task = runLocalMutation("workflow:create", {
+    title: "Original",
+    status: "not_started",
+    dueDate: "2026-11-01",
+    notes: "Original notes",
+  }) as Task;
   const oldDependency = runLocalMutation("workflow:create", { title: "Old dependency" }) as Task;
   const newDependency = runLocalMutation("workflow:create", { title: "New dependency" }) as Task;
-  runLocalMutation("workflow:setDependencies", { workflowItemId: task._id, dependencies: [{ predecessorWorkflowItemId: oldDependency._id, relationKind: "blocks" }] });
+  runLocalMutation("workflow:setDependencies", {
+    workflowItemId: task._id,
+    dependencies: [{ predecessorWorkflowItemId: oldDependency._id, relationKind: "blocks" }],
+  });
   const sql = getOfflineDb() as unknown as NodeSqliteDatabase;
   const before = sql.getAllSync("SELECT * FROM entity_rows ORDER BY table_name, id");
   const queuedBefore = sql.getAllSync("SELECT * FROM mutation_queue ORDER BY id");
   const editorBefore = runLocalQuery("workflow:getItemEditorState", { id: task._id });
-  render(<WorkflowTaskEditorModal visible workflowItemId={task._id} userId="task-editor-owner" candidateTasks={[oldDependency, newDependency]} onClose={h.close} />);
-  fireEvent.change(screen.getByPlaceholderText("planner.addTaskPlaceholder"), { target: { value: "Changed" } });
-  fireEvent.change(screen.getByPlaceholderText("workflowEditor.dueDatePlaceholder"), { target: { value: "2026-12-02" } });
-  fireEvent.change(screen.getByPlaceholderText("elements.notesPlaceholder"), { target: { value: "Changed notes" } });
+  render(
+    <WorkflowTaskEditorModal
+      visible
+      workflowItemId={task._id}
+      userId="task-editor-owner"
+      candidateTasks={[oldDependency, newDependency]}
+      onClose={h.close}
+    />
+  );
+  fireEvent.change(screen.getByPlaceholderText("planner.addTaskPlaceholder"), {
+    target: { value: "Changed" },
+  });
+  fireEvent.change(screen.getByPlaceholderText("workflowEditor.dueDatePlaceholder"), {
+    target: { value: "2026-12-02" },
+  });
+  fireEvent.change(screen.getByPlaceholderText("elements.notesPlaceholder"), {
+    target: { value: "Changed notes" },
+  });
   fireEvent.click(screen.getByText("in progress"));
   fireEvent.click(screen.getByText("Old dependency"));
   fireEvent.click(screen.getByText("New dependency"));
@@ -66,11 +101,17 @@ it("rolls back fields, dependencies and intents when the second write fails, the
   expect(sql.getAllSync("SELECT * FROM mutation_queue ORDER BY id")).toEqual(queuedBefore);
   act(() => getActiveVault()!.reloadFromDisk());
   expect(runLocalQuery("workflow:getItemEditorState", { id: task._id })).toEqual(editorBefore);
-  expect((screen.getByPlaceholderText("planner.addTaskPlaceholder") as HTMLInputElement).value).toBe("Changed");
+  expect(
+    (screen.getByPlaceholderText("planner.addTaskPlaceholder") as HTMLInputElement).value
+  ).toBe("Changed");
   fireEvent.click(screen.getByRole("button", { name: "common.save" }));
   await waitFor(() => expect(h.close).toHaveBeenCalledTimes(1));
   expect(runLocalQuery("workflow:getItemEditorState", { id: task._id })).toMatchObject({
-    title: "Changed", status: "in_progress", notes: "Changed notes", dueDate: "2026-12-02", predecessorIds: [newDependency._id],
+    title: "Changed",
+    status: "in_progress",
+    notes: "Changed notes",
+    dueDate: "2026-12-02",
+    predecessorIds: [newDependency._id],
   });
   expect(sql.getAllSync("SELECT * FROM mutation_queue")).toHaveLength(queuedBefore.length + 2);
 });

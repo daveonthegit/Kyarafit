@@ -66,7 +66,10 @@ vi.mock("@/lib/useTier", () => ({
 }));
 vi.mock("@/lib/auth/client", () => ({ signOut: state.signOut }));
 vi.mock("@/vault/hooks", () => ({
-  useVaultState: () => state.vaultSubject ? { status: "unlocked", account: { subject: state.vaultSubject } } : { status: "locked" },
+  useVaultState: () =>
+    state.vaultSubject
+      ? { status: "unlocked", account: { subject: state.vaultSubject } }
+      : { status: "locked" },
 }));
 vi.mock("@/lib/openWebAppPath", () => ({ openWebAppPath: state.openWeb }));
 vi.mock("@/i18n", () => ({ SUPPORTED_LOCALES: ["en", "ja", "es"], setAppLocale: state.setLocale }));
@@ -207,21 +210,24 @@ describe("settings confirmation and controls", () => {
     ).toBeTruthy();
   });
 
-  it.each(["FREE", "PRO"])("allows sign-out while offline plan information is unavailable (%s)", async (tier) => {
-    state.tier = tier;
-    state.tierLoading = true;
-    state.connected = false;
-    render(<Settings />);
-    const dialog = openSignOut();
-    expect(
-      within(dialog).getByText(/locked until you sign in again with this account/)
-    ).toBeTruthy();
-    expect(within(dialog).getByRole("button", { name: "Export data" })).toBeTruthy();
-    expect(state.signOut).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
-    await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
-  });
+  it.each(["FREE", "PRO"])(
+    "allows sign-out while offline plan information is unavailable (%s)",
+    async (tier) => {
+      state.tier = tier;
+      state.tierLoading = true;
+      state.connected = false;
+      render(<Settings />);
+      const dialog = openSignOut();
+      expect(
+        within(dialog).getByText(/locked until you sign in again with this account/)
+      ).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Export data" })).toBeTruthy();
+      expect(state.signOut).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
+      await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
+    }
+  );
 
   it("retains confirmation after sign-out fails and allows retry", async () => {
     state.signOut.mockRejectedValueOnce(new Error("failure"));
@@ -436,24 +442,27 @@ describe("small settings screens", () => {
     expect(state.create).not.toHaveBeenCalled();
   });
 
-  it.each([undefined, null])("removes device data without remote identity (%s) after confirmation", async (identity) => {
-    state.identity = identity;
-    render(<Data />);
-    expect(screen.queryByText("Loading data")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Remove device data" }));
-    expect(state.deleteVault).not.toHaveBeenCalled();
-    const [title, , buttons] = state.alert.mock.calls[0] as [
-      string,
-      string,
-      { text: string; style?: string; onPress?: () => void }[],
-    ];
-    expect(title).toBe(en.settings.dataRemoveConfirmTitle);
-    expect(buttons.find((b) => b.style === "cancel")).toBeTruthy();
-    buttons.find((b) => b.style === "destructive")?.onPress?.();
-    await waitFor(() => expect(state.deleteVault).toHaveBeenCalledWith("owner"));
-    // Locks (signs out) before deleting the closed vault files.
-    expect(state.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      state.deleteVault.mock.invocationCallOrder[0]
-    );
-  });
+  it.each([undefined, null])(
+    "removes device data without remote identity (%s) after confirmation",
+    async (identity) => {
+      state.identity = identity;
+      render(<Data />);
+      expect(screen.queryByText("Loading data")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Remove device data" }));
+      expect(state.deleteVault).not.toHaveBeenCalled();
+      const [title, , buttons] = state.alert.mock.calls[0] as [
+        string,
+        string,
+        { text: string; style?: string; onPress?: () => void }[],
+      ];
+      expect(title).toBe(en.settings.dataRemoveConfirmTitle);
+      expect(buttons.find((b) => b.style === "cancel")).toBeTruthy();
+      buttons.find((b) => b.style === "destructive")?.onPress?.();
+      await waitFor(() => expect(state.deleteVault).toHaveBeenCalledWith("owner"));
+      // Locks (signs out) before deleting the closed vault files.
+      expect(state.signOut.mock.invocationCallOrder[0]).toBeLessThan(
+        state.deleteVault.mock.invocationCallOrder[0]
+      );
+    }
+  );
 });

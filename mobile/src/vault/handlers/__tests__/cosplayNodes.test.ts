@@ -26,24 +26,40 @@ describe("local cosplayNodes handlers", () => {
     expect(v.query<Doc>("cosplayNodes:get", { id: node._id }).progressPercent).toBe(100);
   });
 
-  it.each(["cosplayNodes:remove", "cosplayNodes:removeMany"])("removes generated work for deleted descendants through %s", (command) => {
-    const v = seed();
-    const parent = v.createNode({ name: "Parent", purchaseStatus: "to_buy" });
-    const child = v.createNode({ name: "Child", buildStatus: "wip" });
-    v.mutate("cosplayNodes:addChildLink", { parentNodeId: parent._id, childNodeId: child._id });
-    const manual = v.mutate<Doc>("workflow:create", { title: "Manual" });
-    v.mutate(command, { id: parent._id, ids: [parent._id], cascade: true });
-    v.store.reloadFromDisk();
-    expect(v.store.reader().get(child._id)).toBeNull();
-    expect(v.store.reader().query("workflowItems").collect().map((item) => item._id)).toEqual([manual._id]);
-    expect(v.store.reader().query("workflowAttachments").collect()).toEqual([]);
-  });
+  it.each(["cosplayNodes:remove", "cosplayNodes:removeMany"])(
+    "removes generated work for deleted descendants through %s",
+    (command) => {
+      const v = seed();
+      const parent = v.createNode({ name: "Parent", purchaseStatus: "to_buy" });
+      const child = v.createNode({ name: "Child", buildStatus: "wip" });
+      v.mutate("cosplayNodes:addChildLink", { parentNodeId: parent._id, childNodeId: child._id });
+      const manual = v.mutate<Doc>("workflow:create", { title: "Manual" });
+      v.mutate(command, { id: parent._id, ids: [parent._id], cascade: true });
+      v.store.reloadFromDisk();
+      expect(v.store.reader().get(child._id)).toBeNull();
+      expect(
+        v.store
+          .reader()
+          .query("workflowItems")
+          .collect()
+          .map((item) => item._id)
+      ).toEqual([manual._id]);
+      expect(v.store.reader().query("workflowAttachments").collect()).toEqual([]);
+    }
+  );
 
   it.each(["element", "material"])("reconciles generated work when converting %s", (nodeType) => {
     const v = seed();
-    const node = v.createNode({ name: "Wig", nodeType, ...(nodeType === "element" ? { buildStatus: "wip" } : { materialStatus: "in_use" }) });
+    const node = v.createNode({
+      name: "Wig",
+      nodeType,
+      ...(nodeType === "element" ? { buildStatus: "wip" } : { materialStatus: "in_use" }),
+    });
     expect(v.store.reader().query("workflowItems").collect()).toHaveLength(1);
-    v.mutate("cosplayNodes:convertType", { id: node._id, nodeType: nodeType === "element" ? "material" : "element" });
+    v.mutate("cosplayNodes:convertType", {
+      id: node._id,
+      nodeType: nodeType === "element" ? "material" : "element",
+    });
     v.store.reloadFromDisk();
     expect(v.store.reader().query("workflowItems").collect()).toEqual([]);
     expect(v.store.reader().query("workflowAttachments").collect()).toEqual([]);

@@ -3,7 +3,13 @@ import type { ConvexReactClient } from "convex/react";
 import { unlockVault, lockVault } from "@/vault/activeVault";
 import { deleteVaultDatabase, getOfflineDb } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, warmEntityRows, uploadLocalImages, runBackfill, syncNow } from "./syncWorker";
+import {
+  drainMutationQueue,
+  warmEntityRows,
+  uploadLocalImages,
+  runBackfill,
+  syncNow,
+} from "./syncWorker";
 
 const h = vi.hoisted(() => ({
   token: "credential-a" as string | null,
@@ -12,7 +18,10 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth/bearer-storage-plugin", () => ({
   getBearerToken: () => h.token,
-  subscribeBearerToken: (listener: () => void) => { h.listeners.add(listener); return () => h.listeners.delete(listener); },
+  subscribeBearerToken: (listener: () => void) => {
+    h.listeners.add(listener);
+    return () => h.listeners.delete(listener);
+  },
 }));
 vi.mock("@/lib/auth/client", () => ({
   authClient: { getSession: async () => ({ data: { user: { id: h.subject } }, error: null }) },
@@ -23,8 +32,11 @@ function changeCredential(token: string) {
   for (const listener of h.listeners) listener();
 }
 function enqueue(key: string) {
-  getOfflineDb().runSync(`INSERT INTO mutation_queue (idempotency_key, op, fn, args_json, created_at, status)
-    VALUES (?, 'mutation', 'builds:update', '{}', 1, 'pending')`, [key]);
+  getOfflineDb().runSync(
+    `INSERT INTO mutation_queue (idempotency_key, op, fn, args_json, created_at, status)
+    VALUES (?, 'mutation', 'builds:update', '{}', 1, 'pending')`,
+    [key]
+  );
 }
 
 beforeEach(async () => {
@@ -51,15 +63,27 @@ describe("sync credential ownership", () => {
     const listSyncedRows = vi.fn();
     await drainMutationQueue(client);
     await warmEntityRows(client);
-    await uploadLocalImages(client, "PRO", { listSyncedRows, writeSyncedRow: vi.fn(), readImageBytes: vi.fn(), uploadBytes: vi.fn() });
-    await runBackfill(client, "PRO", { listLocalRows, pushChunk, isComplete: () => false, markComplete: vi.fn() });
+    await uploadLocalImages(client, "PRO", {
+      listSyncedRows,
+      writeSyncedRow: vi.fn(),
+      readImageBytes: vi.fn(),
+      uploadBytes: vi.fn(),
+    });
+    await runBackfill(client, "PRO", {
+      listLocalRows,
+      pushChunk,
+      isComplete: () => false,
+      markComplete: vi.fn(),
+    });
     await syncNow(client, { tier: "PRO" });
     expect(mutation).not.toHaveBeenCalled();
     expect(query).not.toHaveBeenCalled();
     expect(pushChunk).not.toHaveBeenCalled();
     expect(listLocalRows).not.toHaveBeenCalled();
     expect(listSyncedRows).not.toHaveBeenCalled();
-    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue WHERE status = 'pending'")).toHaveLength(2);
+    expect(
+      getOfflineDb().getAllSync("SELECT * FROM mutation_queue WHERE status = 'pending'")
+    ).toHaveLength(2);
   });
 
   it("aborts a pass on credential replacement, even if the same token returns", async () => {
@@ -71,7 +95,9 @@ describe("sync credential ownership", () => {
     const result = await drainMutationQueue({ mutation } as unknown as ConvexReactClient);
     expect(mutation).toHaveBeenCalledTimes(1);
     expect(result.processed).toBe(0);
-    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue WHERE status = 'pending'")).toHaveLength(2);
+    expect(
+      getOfflineDb().getAllSync("SELECT * FROM mutation_queue WHERE status = 'pending'")
+    ).toHaveLength(2);
   });
 
   it("drains normally with a confirmed matching account", async () => {

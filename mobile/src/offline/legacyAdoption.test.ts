@@ -86,7 +86,12 @@ describe("legacy photo adoption", () => {
       });
     const store = createStore();
     expect(store.reader().get("local:legacy")?.imageUrl).toBe(`${imageDir}img_original`);
-    expect(JSON.parse(openVaultDatabase("owner").getFirstSync<{ json: string }>("SELECT json FROM entity_rows")!.json).imageUrl).toBe("kyarafit-image:img_original");
+    expect(
+      JSON.parse(
+        openVaultDatabase("owner").getFirstSync<{ json: string }>("SELECT json FROM entity_rows")!
+          .json
+      ).imageUrl
+    ).toBe("kyarafit-image:img_original");
     store.commit((db) => db.patch("local:legacy", { name: "Edited" }));
     closeVaultDatabase();
     const reopened = createStore();
@@ -97,34 +102,67 @@ describe("legacy photo adoption", () => {
 
   it("merges pending overlays onto synced records of the same table and id", () => {
     const legacy = new NodeSqliteDatabase(`${fixture.directory}/SQLite/kyarafit.db`);
-    legacy.execSync("ALTER TABLE entity_rows RENAME TO original_rows; CREATE TABLE entity_rows AS SELECT * FROM original_rows; UPDATE entity_rows SET synced_at = 1;");
-    legacy.runSync("INSERT INTO entity_rows VALUES (?, ?, ?, ?, ?, NULL, 0)", ["builds", "local:legacy", "owner", JSON.stringify({ userId: "owner", budgetCents: 400 }), 2]);
+    legacy.execSync(
+      "ALTER TABLE entity_rows RENAME TO original_rows; CREATE TABLE entity_rows AS SELECT * FROM original_rows; UPDATE entity_rows SET synced_at = 1;"
+    );
+    legacy.runSync("INSERT INTO entity_rows VALUES (?, ?, ?, ?, ?, NULL, 0)", [
+      "builds",
+      "local:legacy",
+      "owner",
+      JSON.stringify({ userId: "owner", budgetCents: 400 }),
+      2,
+    ]);
     legacy.closeSync();
-    const store = new VaultStore({ subject: "owner", sql: openVaultDatabase("owner"), newId: () => "unused" });
-    expect(store.reader().get("local:legacy")).toMatchObject({ name: "Legacy", status: "idea", budgetCents: 400 });
+    const store = new VaultStore({
+      subject: "owner",
+      sql: openVaultDatabase("owner"),
+      newId: () => "unused",
+    });
+    expect(store.reader().get("local:legacy")).toMatchObject({
+      name: "Legacy",
+      status: "idea",
+      budgetCents: 400,
+    });
     expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(false);
   });
 
-  it.each(["incomplete", "malformed"])("publishes a retryable vault error for %s legacy records", async (kind) => {
-    const legacyPath = `${fixture.directory}/SQLite/kyarafit.db`;
-    const legacy = new NodeSqliteDatabase(legacyPath);
-    const json = kind === "malformed" ? "{invalid" : JSON.stringify({ _id: "local:legacy", userId: "owner", budgetCents: 400 });
-    legacy.runSync("UPDATE entity_rows SET json = ?", [json]);
-    legacy.closeSync();
-    const account = { subject: "owner", lastVerifiedAt: 1 };
-    await unlockVault(account);
-    expect(getVaultState()).toMatchObject({ status: "error", account, message: expect.stringContaining("Incomplete legacy recovery") });
-    expect(getActiveVault()).toBeNull();
-    expect(() => getOfflineDb()).toThrow();
-    expect(existsSync(legacyPath)).toBe(true);
-    const retained = new NodeSqliteDatabase(legacyPath);
-    expect(retained.getFirstSync<{ json: string }>("SELECT json FROM entity_rows")?.json).toBe(json);
-    retained.runSync("UPDATE entity_rows SET json = ?", [JSON.stringify({ userId: "owner", name: "Recovered", status: "idea", budgetCents: 400 })]);
-    retained.closeSync();
-    await unlockVault(account);
-    expect(getVaultState().status).toBe("unlocked");
-    expect(getActiveVault()?.reader().get("local:legacy")).toMatchObject({ name: "Recovered", budgetCents: 400 });
-  });
+  it.each(["incomplete", "malformed"])(
+    "publishes a retryable vault error for %s legacy records",
+    async (kind) => {
+      const legacyPath = `${fixture.directory}/SQLite/kyarafit.db`;
+      const legacy = new NodeSqliteDatabase(legacyPath);
+      const json =
+        kind === "malformed"
+          ? "{invalid"
+          : JSON.stringify({ _id: "local:legacy", userId: "owner", budgetCents: 400 });
+      legacy.runSync("UPDATE entity_rows SET json = ?", [json]);
+      legacy.closeSync();
+      const account = { subject: "owner", lastVerifiedAt: 1 };
+      await unlockVault(account);
+      expect(getVaultState()).toMatchObject({
+        status: "error",
+        account,
+        message: expect.stringContaining("Incomplete legacy recovery"),
+      });
+      expect(getActiveVault()).toBeNull();
+      expect(() => getOfflineDb()).toThrow();
+      expect(existsSync(legacyPath)).toBe(true);
+      const retained = new NodeSqliteDatabase(legacyPath);
+      expect(retained.getFirstSync<{ json: string }>("SELECT json FROM entity_rows")?.json).toBe(
+        json
+      );
+      retained.runSync("UPDATE entity_rows SET json = ?", [
+        JSON.stringify({ userId: "owner", name: "Recovered", status: "idea", budgetCents: 400 }),
+      ]);
+      retained.closeSync();
+      await unlockVault(account);
+      expect(getVaultState().status).toBe("unlocked");
+      expect(getActiveVault()?.reader().get("local:legacy")).toMatchObject({
+        name: "Recovered",
+        budgetCents: 400,
+      });
+    }
+  );
 
   it("publishes a retryable vault error when copying an original fails", async () => {
     fixture.failCopy = true;

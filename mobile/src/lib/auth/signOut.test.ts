@@ -66,8 +66,12 @@ describe("signOut", () => {
     await signOut();
     expect(h.lockVault).toHaveBeenCalledTimes(1);
     expect(h.setStoredBearerToken).toHaveBeenCalledWith(null);
-    expect(h.serverSignOut).toHaveBeenCalledWith({ fetchOptions: { headers: { Authorization: "Bearer old-session" } } });
-    expect(h.lockVault.mock.invocationCallOrder[0]).toBeLessThan(h.serverSignOut.mock.invocationCallOrder[0]);
+    expect(h.serverSignOut).toHaveBeenCalledWith({
+      fetchOptions: { headers: { Authorization: "Bearer old-session" } },
+    });
+    expect(h.lockVault.mock.invocationCallOrder[0]).toBeLessThan(
+      h.serverSignOut.mock.invocationCallOrder[0]
+    );
   });
 
   it("still signs out locally when the server is unreachable (offline)", async () => {
