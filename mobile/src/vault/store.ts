@@ -724,7 +724,9 @@ export class VaultStore {
     const known = new Set<string>(VAULT_TABLES);
     try {
       this.sql.withTransactionSync(() => {
-        const incoming = this.reconcileImportIds(rows);
+        const incoming = this.reconcileImportIds(
+          rows.filter((row) => row.table !== "vaultSettings")
+        );
         for (const row of incoming) {
           if (!known.has(row.table)) {
             result.unknown += 1;
@@ -744,12 +746,12 @@ export class VaultStore {
           if (existing && !existing.deleted) {
             const localUpdatedAt = typeof local?.updatedAt === "number" ? local.updatedAt : 0;
             const incoming = typeof doc.updatedAt === "number" ? doc.updatedAt : 0;
-            if (local && (row.table === "vaultSettings" || incoming <= localUpdatedAt)) {
+            if (local && incoming <= localUpdatedAt) {
               result.skipped += 1;
               // The local copy wins, but a cloud-only photo it references may now have its original
               // on this device (restored from this backup): point the row at the local file without
               // touching its timestamp or sync state, so newer edits are never overwritten.
-              if (row.table !== "vaultSettings" && availablePhotos.size > 0) {
+              if (availablePhotos.size > 0) {
                 const localized = localizeVaultPhotos(local, availablePhotos);
                 const json = JSON.stringify(localized);
                 if (json !== existing.json) {

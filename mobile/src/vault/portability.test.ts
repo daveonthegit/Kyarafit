@@ -133,6 +133,45 @@ function cloudOnlyVault() {
 }
 
 describe("vault export / import", () => {
+  it("ignores backed-up device preferences without reporting omissions", async () => {
+    const source = makeTestVault();
+    const sourceBuild = source.mutate<{ _id: string }>("builds:create", {
+      name: "Source build",
+      status: "idea",
+    });
+    source.mutate("users:setFocusedBuild", { buildId: sourceBuild._id });
+    const archive = memoryArchive();
+    await exportVault(source.store, memoryPhotos().photos, archive.writer);
+    expect(source.store.reader().query("vaultSettings").collect()).toHaveLength(1);
+
+    const target = makeTestVault();
+    target.mutate("builds:create", { name: "First build", status: "idea" });
+    const targetBuild = target.mutate<{ _id: string }>("builds:create", {
+      name: "Destination focus",
+      status: "idea",
+    });
+    target.mutate("users:setFocusedBuild", { buildId: targetBuild._id });
+    const settings = target.store.reader().query("vaultSettings").collect();
+    expect(settings[0]._id).not.toBe(source.store.reader().query("vaultSettings").first()?._id);
+    const result = importVault(target.store, memoryPhotos().photos, readerFor(archive.bytes()));
+    expect(result.rows).toMatchObject({ inserted: 0, updated: 0, unknown: 0 });
+    expect(result.rowsOmitted).toBe(0);
+    expect(target.store.reader().query("vaultSettings").collect()).toEqual(settings);
+    expect(target.query("users:getFocusedBuildId")).toBe(targetBuild._id);
+    target.mutate("users:setFocusedBuild", {});
+    expect(target.query("users:getFocusedBuildId")).toBeNull();
+    importVault(target.store, memoryPhotos().photos, readerFor(archive.bytes()));
+    expect(target.store.reader().query("vaultSettings").collect()).toEqual([]);
+    expect(target.query("users:getFocusedBuildId")).toBeNull();
+
+    const fresh = makeTestVault();
+    const freshResult = importVault(fresh.store, memoryPhotos().photos, readerFor(archive.bytes()));
+    expect(freshResult.rows).toMatchObject({ inserted: 1, skipped: 0, unknown: 0 });
+    expect(freshResult.rowsOmitted).toBe(0);
+    expect(fresh.store.reader().query("vaultSettings").collect()).toEqual([]);
+    expect(fresh.query("users:getFocusedBuildId")).toBeNull();
+  });
+
   it("merges a record that has a local id in the backup and a cloud id on this device", async () => {
     // Device A created the build offline (local id) and later synced it; its backup keeps local ids.
     const source = makeTestVault({ subject: "owner" });

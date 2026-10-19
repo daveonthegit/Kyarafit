@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
 import { makeTestVault } from "@/test-support/vaultHarness";
 import { VaultStore, VaultWriteError } from "./store";
-import { VAULT_TABLES } from "./indexes";
+import { REPLICATED_VAULT_TABLES } from "./indexes";
 
 describe("VaultStore", () => {
   it("commits inserts durably and serves them through Convex-shaped queries", () => {
@@ -145,7 +145,7 @@ describe("VaultStore", () => {
     ).toEqual(["Expo"]);
   });
 
-  it.each(VAULT_TABLES)(
+  it.each(REPLICATED_VAULT_TABLES)(
     "retains %s client identity across repeated newer local-id restores",
     (table) => {
       const { store, sql, subject } = makeTestVault();
@@ -166,7 +166,7 @@ describe("VaultStore", () => {
       const backup = [{ table, id: "local:A", doc: { updatedAt: 2, name: "Restored" } }];
       expect(store.importRows(backup, subject)).toMatchObject({
         inserted: 0,
-        updated: table === "vaultSettings" ? 0 : 1,
+        updated: 1,
       });
       expect(store.importRows(backup, subject)).toMatchObject({
         inserted: 0,
@@ -177,7 +177,7 @@ describe("VaultStore", () => {
         {
           _id: "server-A",
           clientId: "local:A",
-          name: table === "vaultSettings" ? "Original" : "Restored",
+          name: "Restored",
         },
       ]);
       expect(sql.getAllSync("SELECT client_id, server_id FROM id_map")).toEqual([
