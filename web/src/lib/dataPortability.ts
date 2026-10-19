@@ -22,8 +22,8 @@ import {
 export const PORTABLE_COLLECTIONS = [
   "builds",
   "conventions",
-  "workflowItems",
   "packingListItems",
+  "workflowItems",
 ] as const;
 
 export type PortableCollectionKey = (typeof PORTABLE_COLLECTIONS)[number];
@@ -157,7 +157,8 @@ export interface ImportTotals {
 /** Persist one new row for a collection (e.g. a Convex create mutation). Injected for testability. */
 export type CreateRowFn = (
   collection: PortableCollectionKey,
-  row: ExportableRow
+  row: ExportableRow,
+  existingId?: string
 ) => Promise<unknown> | unknown;
 
 export interface RunImportArgs {
@@ -177,6 +178,16 @@ export async function runImport({
   createRow,
 }: RunImportArgs): Promise<ImportSummary> {
   const summary = {} as ImportSummary;
+  const ids = new Map<string, string>();
+  for (const key of PORTABLE_COLLECTIONS) {
+    for (const row of existing[key] ?? []) ids.set(row.id, row.id);
+  }
+  const resolve = (id: unknown): string | undefined => {
+    if (id === undefined || id === null) return undefined;
+    if (typeof id !== "string" || !ids.has(id))
+      throw new Error(`Missing imported relationship: ${String(id)}`);
+    return ids.get(id);
+  };
   for (const key of PORTABLE_COLLECTIONS) {
     const existingRows = existing[key] ?? [];
     const importedRows = imported[key] ?? [];
@@ -185,8 +196,45 @@ export async function runImport({
     // exactly the merged ids that were not already present.
     const merged = mergeImported(existingRows, importedRows);
     const toCreate = merged.filter((row) => !existingIds.has(row.id));
-    for (const row of toCreate) {
-      await createRow(key, row);
+    const pending = [...toCreate];
+    while (pending.length) {
+      const index = pending.findIndex((row) => !row.parentId || ids.has(String(row.parentId)));
+      if (index < 0) throw new Error("Missing or cyclic imported workflow parent");
+      const [row] = pending.splice(index, 1);
+      const restored = { ...row };
+      for (const field of ["conventionId", "buildId", "parentId"] as const) {
+        if (row[field] != null) restored[field] = resolve(row[field]);
+      }
+      if (Array.isArray(row.attachments)) {
+        restored.attachments = row.attachments.map((value: unknown) => {
+          if (!value || typeof value !== "object") throw new Error("Invalid imported attachment");
+          const attachment = value as Record<string, unknown>;
+          return {
+            entityType: attachment.entityType,
+            entityId: resolve(attachment.entityId),
+            role: attachment.role,
+            buildContextId: resolve(attachment.buildContextId),
+          };
+        });
+      }
+      const result = await createRow(key, restored, ids.get(row.id));
+      const id =
+        typeof result === "string"
+          ? result
+          : result && typeof result === "object" && "_id" in result
+            ? result._id
+            : undefined;
+      if (typeof id !== "string") throw new Error("Import did not return a restored id");
+      ids.set(row.id, id);
+      if (key === "packingListItems" && typeof row.workflowItemId === "string") {
+        const workflowId =
+          result && typeof result === "object" && "workflowItemId" in result
+            ? result.workflowItemId
+            : undefined;
+        if (typeof workflowId !== "string")
+          throw new Error("Packing restore did not return its workflow identity");
+        ids.set(row.workflowItemId, workflowId);
+      }
     }
     summary[key] = {
       added: toCreate.length,

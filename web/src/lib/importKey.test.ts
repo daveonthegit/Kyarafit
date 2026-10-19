@@ -21,6 +21,7 @@ describe("import retry keys", () => {
     const keys: string[] = [];
     const createRow = async (collection: string, row: { id: string }) => {
       keys.push(importKey("owner", collection, row));
+      return row.id;
     };
     await runImport({ imported, existing: emptyCollections(), createRow });
     await runImport({ imported, existing: emptyCollections(), createRow });

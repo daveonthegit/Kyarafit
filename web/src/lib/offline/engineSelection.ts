@@ -47,9 +47,9 @@ export async function selectLocalStoreEngine(deps: EngineSelectionDeps): Promise
 }
 
 /** Fallback engine: durable IndexedDB in the browser, in-memory during SSR / tests. */
-function createFallbackStore(): LocalStore {
+function createFallbackStore(accountKey: string): LocalStore {
   if (typeof indexedDB !== "undefined") {
-    return new IndexedDbLocalStore();
+    return new IndexedDbLocalStore(`kyarafit-offline-${accountKey}`);
   }
   return new InMemoryLocalStore();
 }
@@ -58,14 +58,17 @@ function createFallbackStore(): LocalStore {
  * Production browser factory: wires real capability detection + engine constructors. Call once per
  * session (e.g. from `SyncWorkerProvider`) and hand the result to the offline runtime.
  */
-export function createBrowserLocalStore(): Promise<LocalStore> {
+export function createBrowserLocalStore(subject: string): Promise<LocalStore> {
+  const accountKey = Array.from(new TextEncoder().encode(subject), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
   return selectLocalStoreEngine({
     detectCapabilities: () => ({ opfsAvailable: isWaSqliteOpfsSupported() }),
     createWaSqliteStore: async () => {
-      const store = new WaSqliteLocalStore();
+      const store = new WaSqliteLocalStore(accountKey);
       await store.init();
       return store;
     },
-    createFallbackStore,
+    createFallbackStore: () => createFallbackStore(accountKey),
   });
 }

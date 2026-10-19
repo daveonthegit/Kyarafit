@@ -83,7 +83,7 @@ vi.mock("@/components/layout/PageHeader", () => ({
 describe("Settings data export/import page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    offlineRuntime.setStore(new InMemoryLocalStore());
+    offlineRuntime.setStore(new InMemoryLocalStore(), "user-free-1");
   });
 
   afterEach(() => {
@@ -106,6 +106,7 @@ describe("Settings data export/import page", () => {
     // A free user's build lives only in the local store (never synced to Convex).
     offlineRuntime.upsertSyncedEntityRow("builds", "b1", "user-free-1", {
       _id: "b1",
+      userId: "user-free-1",
       name: "Aerith",
       status: "wip",
     });
@@ -146,6 +147,7 @@ describe("Settings data export/import page", () => {
     const createRow: CreateRowFn = (collection, row) => {
       store[collection].push(row);
       created.push(`${collection}:${row.id}`);
+      return row.id;
     };
 
     const bundle = buildDataBundle({

@@ -39,7 +39,7 @@ import { setOfflineConnectivity } from "./connectivity";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  offlineRuntime.setStore(new InMemoryLocalStore());
+  offlineRuntime.setStore(new InMemoryLocalStore(), "test-user");
   setOfflineConnectivity(true);
   authState.signedIn = true;
   tierState.tier = "FREE";

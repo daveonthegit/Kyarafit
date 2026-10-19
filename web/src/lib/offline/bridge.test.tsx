@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { getFunctionName } from "convex/server";
+import { emptyCollections, runImport } from "../dataPortability";
+import { drainMutationQueue } from "./syncWorker";
 
 // Spec: DATA_AND_SYNC.md §5 (REQ-D51/D52). The offline bridge serves the last local snapshot
 // immediately and applies offline writes optimistically: a create appends to the mutation queue and
@@ -20,7 +23,7 @@ interface TestBuild {
 }
 
 const { client, state } = vi.hoisted(() => ({
-  client: { mutation: vi.fn(() => Promise.resolve(null)) },
+  client: { mutation: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null) },
   state: { builds: [] as TestBuild[] },
 }));
 
@@ -38,7 +41,7 @@ import { setOfflineConnectivity } from "./connectivity";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  offlineRuntime.setStore(new InMemoryLocalStore());
+  offlineRuntime.setStore(new InMemoryLocalStore(), "test-user");
   state.builds = [];
 });
 
@@ -47,6 +50,101 @@ afterEach(() => {
 });
 
 describe("offline bridge (REQ-D51 / REQ-D52)", () => {
+  it("queues a packing restore and updates its generated task using reconciled ids", async () => {
+    setOfflineConnectivity(false);
+    const { result } = renderHook(() => ({
+      convention: useOfflineMutation(api.conventions.create),
+      packing: useOfflineMutation(api.conventions.addManualPackingItem),
+      updateTask: useOfflineMutation(api.workflow.update),
+    }));
+    await act(async () => {
+      await runImport({
+        imported: {
+          ...emptyCollections(),
+          conventions: [{ id: "con" }],
+          packingListItems: [{ id: "pack", conventionId: "con", workflowItemId: "task" }],
+          workflowItems: [
+            {
+              id: "task",
+              attachments: [{ entityType: "packingItem", entityId: "pack", role: "primary" }],
+            },
+          ],
+        },
+        existing: emptyCollections(),
+        createRow: async (collection, row, existingId) => {
+          if (collection === "conventions")
+            return result.current.convention({
+              userId: "u1",
+              name: "Con",
+              startDate: "2027-01-01",
+              endDate: "2027-01-02",
+            });
+          if (collection === "packingListItems")
+            return result.current.packing({
+              userId: "u1",
+              conventionId: row.conventionId as never,
+              label: "Tape",
+            });
+          await result.current.updateTask({
+            id: existingId as never,
+            title: "Pack Tape",
+            attachments: row.attachments as never,
+          });
+          return existingId;
+        },
+      });
+    });
+    expect(client.mutation).not.toHaveBeenCalled();
+    client.mutation
+      .mockResolvedValueOnce({ _id: "server-con" })
+      .mockResolvedValueOnce({ _id: "server-pack", workflowItemId: "server-task" })
+      .mockResolvedValueOnce({ _id: "server-task" });
+    setOfflineConnectivity(true);
+    expect(await drainMutationQueue(client as never)).toEqual({ processed: 3, failed: 0 });
+    expect(client.mutation.mock.calls.map((call) => getFunctionName(call[0] as never))).toEqual([
+      "conventions:create",
+      "conventions:addManualPackingItem",
+      "workflow:update",
+    ]);
+    expect(client.mutation.mock.calls[2][1]).toMatchObject({
+      id: "server-task",
+      attachments: [{ entityId: "server-pack" }],
+    });
+  });
+  it.each([true, false])(
+    "rejects a retained callback after another account signs in (online=%s)",
+    async (online) => {
+      const storeA = new InMemoryLocalStore();
+      offlineRuntime.setStore(storeA, "account-a");
+      setOfflineConnectivity(online);
+      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+      const retained = result.current;
+
+      // B signs in while A's import still holds the callback.
+      const storeB = new InMemoryLocalStore();
+      const enqueueB = vi.spyOn(storeB, "enqueueMutation");
+      act(() => offlineRuntime.setStore(storeB, "account-b"));
+
+      await expect(
+        retained({ userId: "account-a", name: "A's private build", status: "idea" })
+      ).rejects.toThrow("active account changed");
+      expect(client.mutation).not.toHaveBeenCalled();
+      expect(enqueueB).not.toHaveBeenCalled();
+      expect(offlineRuntime.listLocalEntityRowsSync("builds")).toEqual([]);
+    }
+  );
+  it("rejects an offline create when its enqueue cannot persist", async () => {
+    const store = new InMemoryLocalStore();
+    vi.spyOn(store, "enqueueMutation").mockRejectedValue(new Error("disk full"));
+    offlineRuntime.setStore(store, "u1");
+    setOfflineConnectivity(false);
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    await expect(result.current({ userId: "u1", name: "Unsaved", status: "idea" })).rejects.toThrow(
+      "disk full"
+    );
+    expect(offlineRuntime.listLocalEntityRowsSync("builds")).toEqual([]);
+    expect(client.mutation).not.toHaveBeenCalled();
+  });
   it("should_read_and_optimistically_write_builds_through_local_store", async () => {
     state.builds = [
       { _id: "b1", userId: "u1", name: "Zelda", status: "wip" },

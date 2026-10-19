@@ -34,15 +34,24 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const store = await createBrowserLocalStore();
+      offlineRuntime.lock();
+      if (!userId) return;
+      const store = await createBrowserLocalStore(userId);
       if (cancelled) return;
-      offlineRuntime.setStore(store);
+      offlineRuntime.setStore(store, userId);
       await offlineRuntime.hydrate();
-    })();
+      if (!cancelled && syncEnabled && navigator.onLine !== false) {
+        await drainMutationQueue(convex);
+        if (!cancelled) await warmEntityRows(convex);
+        if (!cancelled) await uploadLocalImages(convex, tier);
+        if (!cancelled) await runBackfill(convex, tier);
+      }
+    })().catch((error: unknown) => console.error("Local vault could not open", error));
     return () => {
       cancelled = true;
+      offlineRuntime.lock();
     };
-  }, []);
+  }, [userId, convex, syncEnabled, tier]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,12 +61,19 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       setOfflineConnectivity(isOnline);
       // REQ-D60 gate: only a paid, signed-in user drains the queue or pulls from Convex. Free /
       // signed-out users still track connectivity, but the worker never touches Convex (REQ-D10).
-      if (syncEnabled && isOnline) {
+      if (syncEnabled && isOnline && userId && offlineRuntime.getSubject() === userId) {
         void drainMutationQueue(convex)
-          .then(() => warmEntityRows(convex))
-          .then(() => uploadLocalImages(convex, tier))
+          .then(() => {
+            if (!cancelled) return warmEntityRows(convex);
+          })
+          .then(() => {
+            if (!cancelled) return uploadLocalImages(convex, tier);
+          })
           // REQ-D95: one-time upgrade backfill of rows created while FREE (idempotent; marked done).
-          .then(() => runBackfill(convex, tier));
+          .then(() => {
+            if (!cancelled) return runBackfill(convex, tier);
+          })
+          .catch((error: unknown) => console.error("Sync stopped", error));
       }
     };
 
@@ -76,7 +92,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
         window.removeEventListener("offline", handleOffline);
       }
     };
-  }, [convex, syncEnabled, tier]);
+  }, [convex, syncEnabled, tier, userId]);
 
   return <>{children}</>;
 }

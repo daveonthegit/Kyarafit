@@ -29,6 +29,21 @@ function createDefaultStore(): LocalStore {
 class OfflineRuntime {
   private store: LocalStore = createDefaultStore();
   private version = 0;
+  private generation = 0;
+  private subject: string | null = null;
+
+  getSubject(): string | null {
+    return this.subject;
+  }
+  sessionGuard(): () => void {
+    const generation = this.generation;
+    return () => {
+      if (generation !== this.generation) throw new Error("Local account changed");
+    };
+  }
+  lock(): void {
+    this.setStore(createDefaultStore());
+  }
   private readonly listeners = new Set<() => void>();
 
   /** Parsed query payloads, keyed by `offlineQueryKey`. */
@@ -42,7 +57,9 @@ class OfflineRuntime {
   // --- store wiring ---
 
   /** Swap the durable engine (browser wires IndexedDB; tests inject an in-memory store). Resets mirror. */
-  setStore(store: LocalStore): void {
+  setStore(store: LocalStore, subject: string | null = null): void {
+    this.generation += 1;
+    this.subject = subject;
     this.store = store;
     this.queryCache.clear();
     this.entityRows.clear();
@@ -96,7 +113,7 @@ class OfflineRuntime {
     }
     if (json === undefined) return;
     this.queryCache.set(key, payload);
-    void this.persist(() => this.store.writeQueryCache(key, json));
+    void this.persist(() => this.store.writeQueryCache(key, json)).catch(reportWriteError);
   }
 
   // --- entity overlays + synced base ---
@@ -137,7 +154,7 @@ class OfflineRuntime {
     userId: string,
     doc: Record<string, unknown> | null,
     deleted: boolean
-  ): void {
+  ): Promise<void> {
     const map = this.table(table);
     let merged: Record<string, unknown> = doc ?? {};
     if (!deleted && doc) {
@@ -155,9 +172,23 @@ class OfflineRuntime {
       deleted,
       synced: false,
     };
+    const assertCurrent = this.sessionGuard();
+    const previous = map.get(id);
     map.set(id, row);
     this.bump();
-    void this.persist(() => this.store.putEntityRow(row));
+    return this.persist(() => this.store.putEntityRow(row)).then(
+      () => {
+        assertCurrent();
+      },
+      (error: unknown) => {
+        if (map.get(id) === row) {
+          if (previous) map.set(id, previous);
+          else map.delete(id);
+          this.bump();
+        }
+        throw error;
+      }
+    );
   }
 
   /** Clear a pending overlay once its write has synced (sync worker on drain success). */
@@ -167,7 +198,7 @@ class OfflineRuntime {
     if (existing && !existing.synced) {
       map.delete(id);
       this.bump();
-      void this.persist(() => this.store.deleteEntityRow(table, id));
+      void this.persist(() => this.store.deleteEntityRow(table, id)).catch(reportWriteError);
     }
   }
 
@@ -192,7 +223,7 @@ class OfflineRuntime {
     };
     map.set(id, row);
     this.bump();
-    void this.persist(() => this.store.putEntityRow(row));
+    void this.persist(() => this.store.putEntityRow(row)).catch(reportWriteError);
   }
 
   // --- mutation queue (consumed by the async sync worker) ---
@@ -203,16 +234,13 @@ class OfflineRuntime {
     idempotencyKey: string,
     clientId?: string
   ): Promise<void> {
-    const argsJson = (() => {
-      try {
-        return JSON.stringify(args ?? {}) ?? "{}";
-      } catch {
-        return "{}";
-      }
-    })();
+    if (!this.subject) throw new Error("Local vault is locked");
+    const assertCurrent = this.sessionGuard();
+    const argsJson = JSON.stringify(args ?? {}) ?? "{}";
     await this.persist(() =>
       this.store.enqueueMutation({ fn, argsJson, idempotencyKey, clientId: clientId ?? null })
     );
+    assertCurrent();
   }
 
   async listPendingMutations(limit?: number): Promise<PendingMutation[]> {
@@ -246,8 +274,10 @@ class OfflineRuntime {
   // --- id map ---
 
   async setServerId(clientId: string, serverId: string): Promise<void> {
-    this.idMap.set(clientId, serverId);
+    const assertCurrent = this.sessionGuard();
     await this.persist(() => this.store.setServerId(clientId, serverId));
+    assertCurrent();
+    this.idMap.set(clientId, serverId);
   }
 
   async loadIdMap(): Promise<Record<string, string>> {
@@ -302,30 +332,20 @@ class OfflineRuntime {
 
   /** Hydrate the in-memory mirror from the durable store (cold start). Best-effort. */
   async hydrate(): Promise<void> {
+    const assertCurrent = this.sessionGuard();
     const rows = await this.safe(() => this.store.listEntityRows());
+    assertCurrent();
     if (rows) {
       for (const row of rows) this.table(row.table).set(row.id, row);
     }
     const idMap = await this.safe(() => this.store.loadIdMap());
+    assertCurrent();
     if (idMap) this.idMap = new Map(Object.entries(idMap));
     this.bump();
   }
 
-  /** Wipe local state (sign-out / account switch). Local data is never auto-deleted otherwise. */
-  async reset(): Promise<void> {
-    this.queryCache.clear();
-    this.entityRows.clear();
-    this.idMap.clear();
-    this.bump();
-    await this.persist(() => this.store.clearAll());
-  }
-
   private async persist(op: () => Promise<void>): Promise<void> {
-    try {
-      await op();
-    } catch {
-      // Best-effort durability; the in-memory mirror remains authoritative for this session.
-    }
+    await op();
   }
 
   private async safe<T>(op: () => Promise<T>): Promise<T | undefined> {
@@ -335,6 +355,11 @@ class OfflineRuntime {
       return undefined;
     }
   }
+}
+
+function reportWriteError(error: unknown): void {
+  console.error("Couldn't save on this device", error);
+  if (typeof window !== "undefined") window.alert("Couldn't save on this device");
 }
 
 function parseDoc(json: string): Record<string, unknown> | null {

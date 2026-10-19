@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { offlineRuntime } from "@/lib/offline/runtime";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -61,6 +62,7 @@ export default function Settings() {
 
   const performSignOut = async () => {
     setShowSignOutWarning(false);
+    offlineRuntime.lock();
     await authClient.signOut();
     router.push("/home");
   };

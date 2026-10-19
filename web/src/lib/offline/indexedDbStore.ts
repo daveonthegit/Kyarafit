@@ -40,11 +40,12 @@ interface MutationQueueRecord {
 }
 
 export class IndexedDbLocalStore implements LocalStore {
+  constructor(private readonly name = DB_NAME) {}
   private dbPromise: Promise<IDBPDatabase> | null = null;
 
   private db(): Promise<IDBPDatabase> {
     if (!this.dbPromise) {
-      this.dbPromise = openDB(DB_NAME, DB_VERSION, {
+      this.dbPromise = openDB(this.name, DB_VERSION, {
         upgrade(database) {
           if (!database.objectStoreNames.contains(QUERY_CACHE)) {
             database.createObjectStore(QUERY_CACHE, { keyPath: "key" });

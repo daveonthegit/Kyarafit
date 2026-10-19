@@ -66,9 +66,11 @@ export default function SettingsDataPage() {
   const createBuild = useOfflineMutation(api.builds.create);
   const createConvention = useOfflineMutation(api.conventions.create);
   const createWorkflowItem = useOfflineMutation(api.workflow.create);
+  const updateWorkflowItem = useOfflineMutation(api.workflow.update);
+  const moveWorkflowItem = useOfflineMutation(api.workflow.move);
   const createPackingItem = useOfflineMutation(api.conventions.addManualPackingItem);
 
-  const collections = useMemo(() => readLocalCollections(), [version]);
+  const collections = useMemo(() => readLocalCollections(userId), [version, userId]);
 
   const totalRows = countRows(collections);
   const isLoading = authLoading;
@@ -80,12 +82,12 @@ export default function SettingsDataPage() {
   }, [collections]);
 
   const createRow = useCallback<CreateRowFn>(
-    async (collection, row) => {
-      if (!userId) return;
+    async (collection, row, existingId) => {
+      if (!userId) throw new Error("Sign in to import data");
       const idempotencyKey = importKey(userId, collection, row);
       switch (collection) {
         case "builds":
-          await createBuild({
+          return createBuild({
             userId,
             name: readString(row.name) ?? "Untitled build",
             status: readString(row.status) ?? "idea",
@@ -96,9 +98,8 @@ export default function SettingsDataPage() {
             visibility: readString(row.visibility),
             idempotencyKey,
           });
-          return;
         case "conventions":
-          await createConvention({
+          return createConvention({
             userId,
             name: readString(row.name) ?? "Untitled event",
             location: readString(row.location),
@@ -106,11 +107,12 @@ export default function SettingsDataPage() {
             endDate: readString(row.endDate) ?? new Date().toISOString().slice(0, 10),
             idempotencyKey,
           });
-          return;
-        case "workflowItems":
-          await createWorkflowItem({
+        case "workflowItems": {
+          const fields = {
             userId,
             title: readString(row.title) ?? "Untitled task",
+            parentId: readString(row.parentId) as Id<"workflowItems"> | undefined,
+            attachments: row.attachments as Parameters<typeof createWorkflowItem>[0]["attachments"],
             notes: readString(row.notes),
             kind: readString(row.kind),
             category: readString(row.category),
@@ -121,12 +123,24 @@ export default function SettingsDataPage() {
             targetDate: readString(row.targetDate),
             startDate: readString(row.startDate),
             idempotencyKey,
-          });
-          return;
+          };
+          if (existingId) {
+            const { parentId, ...updateFields } = fields;
+            await updateWorkflowItem({ ...updateFields, id: existingId as Id<"workflowItems"> });
+            if (parentId)
+              await moveWorkflowItem({
+                id: existingId as Id<"workflowItems">,
+                parentId,
+                idempotencyKey,
+              });
+            return existingId;
+          }
+          return createWorkflowItem(fields);
+        }
         case "packingListItems": {
           const conventionId = readString(row.conventionId);
-          if (!conventionId) return;
-          await createPackingItem({
+          if (!conventionId) throw new Error("Packing item has no restored convention");
+          return createPackingItem({
             userId,
             conventionId: conventionId as Id<"conventions">,
             label: readString(row.label) ?? "Item",
@@ -135,13 +149,20 @@ export default function SettingsDataPage() {
             buildId: readString(row.buildId) as Id<"builds"> | undefined,
             idempotencyKey,
           });
-          return;
         }
         default:
           return;
       }
     },
-    [userId, createBuild, createConvention, createWorkflowItem, createPackingItem]
+    [
+      userId,
+      createBuild,
+      createConvention,
+      createWorkflowItem,
+      updateWorkflowItem,
+      moveWorkflowItem,
+      createPackingItem,
+    ]
   );
 
   const handleFile = useCallback(

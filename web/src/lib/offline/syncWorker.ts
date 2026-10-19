@@ -59,12 +59,16 @@ export type DrainResult = { processed: number; failed: number };
 export async function drainMutationQueue(client: ConvexReactClient): Promise<DrainResult> {
   if (draining || !getIsOnline()) return { processed: 0, failed: 0 };
   draining = true;
+  const assertCurrent = offlineRuntime.sessionGuard();
   let processed = 0;
   let failed = 0;
   try {
     const pending = await offlineRuntime.listPendingMutations();
+    assertCurrent();
     const idMap = await offlineRuntime.loadIdMap();
+    assertCurrent();
     for (const row of pending) {
+      assertCurrent();
       let args: unknown;
       try {
         args = JSON.parse(row.args_json);
@@ -80,11 +84,21 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
           makeFunctionReference<"mutation">(row.fn),
           callArgs as never
         );
+        assertCurrent();
         if (row.client_id) {
           const serverId = serverIdFromResult(result);
           if (serverId) {
             await offlineRuntime.setServerId(row.client_id, serverId);
+            assertCurrent();
             idMap[row.client_id] = serverId;
+          }
+          if (row.fn === "conventions:addManualPackingItem") {
+            const workflowId = (result as { workflowItemId?: unknown } | null)?.workflowItemId;
+            if (typeof workflowId !== "string")
+              throw new Error("Packing replay has no workflow identity");
+            await offlineRuntime.setServerId(`${row.client_id}:workflow`, workflowId);
+            assertCurrent();
+            idMap[`${row.client_id}:workflow`] = workflowId;
           }
         }
         for (const write of overlayWritesFor(row.fn, args, row.client_id ?? undefined)) {
@@ -93,6 +107,7 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
         await offlineRuntime.deleteMutation(row.id);
         processed += 1;
       } catch {
+        assertCurrent();
         if (!getIsOnline()) break;
         if (shouldRetryMutation(row.retry_count + 1)) {
           await offlineRuntime.bumpMutationRetry(row.id);
@@ -147,14 +162,17 @@ let warming = false;
 export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
   if (warming || !getIsOnline()) return;
   warming = true;
+  const assertCurrent = offlineRuntime.sessionGuard();
   try {
     let cursor = await offlineRuntime.getSyncCursor();
     for (let page = 0; page < WARMUP_MAX_PAGES; page += 1) {
+      assertCurrent();
       if (!getIsOnline()) break;
       const res = (await client.query(makeFunctionReference<"query">("sync:listChangedSince"), {
         since: cursor,
         limit: WARMUP_PAGE_LIMIT,
       } as never)) as ChangedSince | null;
+      assertCurrent();
       if (!res) break;
 
       let maxPageLen = 0;
@@ -174,6 +192,7 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
       // A short page across every table means we've caught up.
       if (maxPageLen < WARMUP_PAGE_LIMIT) break;
     }
+    assertCurrent();
     await offlineRuntime.setLastSyncedAt(Date.now());
   } catch {
     // Best-effort; leave the cursor for the next trigger.
@@ -243,6 +262,7 @@ export async function uploadLocalImages(
   if (!isPaidConvexTier(tier)) return { uploaded: 0, failed: 0 };
   if (uploadingImages || !getIsOnline()) return { uploaded: 0, failed: 0 };
   uploadingImages = true;
+  const assertCurrent = offlineRuntime.sessionGuard();
   let uploaded = 0;
   let failed = 0;
   try {
@@ -255,22 +275,27 @@ export async function uploadLocalImages(
         let working = original;
         let changed = false;
         for (const site of sites) {
+          assertCurrent();
           if (!getIsOnline()) break;
           try {
             const bytes = await deps.readImageBytes(site.imageKey);
+            assertCurrent();
             // No local binary to upload (e.g. evicted/missing): leave the ref for a later sync.
             if (!bytes) continue;
             const uploadUrl = (await client.mutation(
               makeFunctionReference<"mutation">("files:generateUploadUrl"),
               {} as never
             )) as string;
+            assertCurrent();
             const storageId = await deps.uploadBytes(uploadUrl, bytes.body, bytes.contentType);
+            assertCurrent();
             if (!storageId) {
               failed += 1;
               continue;
             }
             const plan = planCloudMirror(site, working, storageId);
             await client.mutation(makeFunctionReference<"mutation">(plan.fn), plan.args as never);
+            assertCurrent();
             working = plan.nextDoc;
             changed = true;
             uploaded += 1;
@@ -280,6 +305,7 @@ export async function uploadLocalImages(
           }
         }
         // Persist the flipped refs locally so the next pass sees `cloud`, not `local` (no re-upload).
+        assertCurrent();
         if (changed) deps.writeSyncedRow(table, entityId, userId, working);
       }
     }
@@ -299,14 +325,18 @@ const BACKFILL_COMPLETE_KEY = "backfill:complete";
  * pushed to the cloud; nothing local is ever mutated or deleted (the REQ-D95 invariant).
  */
 function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
+  const assertCurrent = offlineRuntime.sessionGuard();
   return {
-    listLocalRows: (table) =>
-      offlineRuntime
+    listLocalRows: (table) => {
+      assertCurrent();
+      return offlineRuntime
         .listPendingEntityRowsSync(table)
         .filter((row) => !row.deleted && row.doc)
-        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id })),
-    pushChunk: (table, rows) =>
-      client.mutation(makeFunctionReference<"mutation">("tierTransition:backfillRows"), {
+        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id }));
+    },
+    pushChunk: (table, rows) => {
+      assertCurrent();
+      return client.mutation(makeFunctionReference<"mutation">("tierTransition:backfillRows"), {
         table,
         rows,
       } as never) as Promise<{
@@ -315,10 +345,22 @@ function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
         inserted: number;
         skipped: number;
         cloudCount: number;
-      }>,
-    isComplete: async () => (await offlineRuntime.getMeta(BACKFILL_COMPLETE_KEY)) === "1",
-    markComplete: () => offlineRuntime.setMeta(BACKFILL_COMPLETE_KEY, "1"),
-    onProgress: (progress) => offlineRuntime.setBackfillProgress(progress),
+      }>;
+    },
+    isComplete: async () => {
+      assertCurrent();
+      const value = await offlineRuntime.getMeta(BACKFILL_COMPLETE_KEY);
+      assertCurrent();
+      return value === "1";
+    },
+    markComplete: () => {
+      assertCurrent();
+      return offlineRuntime.setMeta(BACKFILL_COMPLETE_KEY, "1");
+    },
+    onProgress: (progress) => {
+      assertCurrent();
+      offlineRuntime.setBackfillProgress(progress);
+    },
   };
 }
 
@@ -351,9 +393,13 @@ export async function syncNow(
   client: ConvexReactClient,
   opts: { tier?: string | null } = {}
 ): Promise<DrainResult> {
+  const assertCurrent = offlineRuntime.sessionGuard();
   if (getIsOnline()) await offlineRuntime.requeueFailedMutations();
+  assertCurrent();
   const result = await drainMutationQueue(client);
+  assertCurrent();
   await warmEntityRows(client);
+  assertCurrent();
   await uploadLocalImages(client, opts.tier ?? null);
   return result;
 }

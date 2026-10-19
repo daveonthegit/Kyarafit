@@ -19,10 +19,22 @@ import {
 } from "./dataPortability";
 
 /** Snapshot all portable collections from the local store (synced base + pending overlays). */
-export function readLocalCollections(): PortableCollections {
+export function readLocalCollections(
+  subject: string | null = offlineRuntime.getSubject()
+): PortableCollections {
   const collections = emptyCollections();
+  if (!subject || offlineRuntime.getSubject() !== subject) return collections;
   for (const key of PORTABLE_COLLECTIONS) {
-    collections[key] = toExportableRows(offlineRuntime.listLocalEntityRowsSync(key));
+    collections[key] = toExportableRows(
+      offlineRuntime.listLocalEntityRowsSync(key).filter((row) => row.userId === subject)
+    );
   }
+  const attachments = offlineRuntime
+    .listLocalEntityRowsSync("workflowAttachments")
+    .filter((row) => row.userId === subject);
+  collections.workflowItems = collections.workflowItems.map((row) => ({
+    ...row,
+    attachments: attachments.filter((attachment) => attachment.workflowItemId === row.id),
+  }));
   return collections;
 }

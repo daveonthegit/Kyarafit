@@ -172,6 +172,7 @@ interface SqliteApi {
  * OPFS) happens lazily inside `init()` so importing this module is SSR/test safe.
  */
 export class WaSqliteLocalStore implements LocalStore {
+  constructor(private readonly accountKey?: string) {}
   private sqlite3: SqliteApi | null = null;
   private db = 0;
   private initPromise: Promise<void> | null = null;
@@ -200,7 +201,9 @@ export class WaSqliteLocalStore implements LocalStore {
     const emscriptenModule = await createModule();
     const sqlite3 = sqliteModule.Factory(emscriptenModule) as unknown as SqliteApi;
 
-    const vfs = new vfsModule.AccessHandlePoolVFS(OPFS_DIRECTORY);
+    const vfs = new vfsModule.AccessHandlePoolVFS(
+      this.accountKey ? `${OPFS_DIRECTORY}-${this.accountKey}` : OPFS_DIRECTORY
+    );
     await vfs.isReady;
     sqlite3.vfs_register(vfs, true);
 

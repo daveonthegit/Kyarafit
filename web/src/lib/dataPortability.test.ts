@@ -96,11 +96,80 @@ describe("parseDataBundle error handling (REQ-D101, graceful failure)", () => {
 });
 
 describe("runImport idempotency (REQ-D101)", () => {
+  it("restores packing before updating its automatically created workflow task", async () => {
+    const imported = {
+      ...emptyCollections(),
+      conventions: [{ id: "con" }],
+      packingListItems: [
+        { id: "pack", conventionId: "con", workflowItemId: "task", label: "Tape" },
+      ],
+      workflowItems: [
+        {
+          id: "task",
+          title: "Pack Tape",
+          attachments: [{ entityType: "packingItem", entityId: "pack", role: "primary" }],
+        },
+      ],
+    };
+    const calls: { collection: string; row: ExportableRow; existingId?: string }[] = [];
+    await runImport({
+      imported,
+      existing: emptyCollections(),
+      createRow: (collection, row, existingId) => {
+        calls.push({ collection, row, existingId });
+        if (collection === "packingListItems")
+          return { _id: "new-pack", workflowItemId: "new-task" };
+        return existingId ?? `new-${row.id}`;
+      },
+    });
+    expect(calls.map((call) => call.collection)).toEqual([
+      "conventions",
+      "packingListItems",
+      "workflowItems",
+    ]);
+    expect(calls[2]).toMatchObject({
+      existingId: "new-task",
+      row: { attachments: [{ entityId: "new-pack" }] },
+    });
+  });
+  it("remaps convention, build, workflow parent and attachment relationships", async () => {
+    const imported = {
+      ...emptyCollections(),
+      builds: [{ id: "b" }],
+      conventions: [{ id: "c" }],
+      workflowItems: [
+        {
+          id: "child",
+          parentId: "parent",
+          attachments: [
+            { entityType: "build", entityId: "b", role: "primary", buildContextId: "b" },
+          ],
+        },
+        { id: "parent" },
+      ],
+      packingListItems: [{ id: "p", conventionId: "c", buildId: "b" }],
+    };
+    const created: Record<string, ExportableRow> = {};
+    await runImport({
+      imported,
+      existing: emptyCollections(),
+      createRow: (_collection, row) => {
+        created[row.id] = row;
+        return { _id: `restored:${row.id}` };
+      },
+    });
+    expect(created.p).toMatchObject({ conventionId: "restored:c", buildId: "restored:b" });
+    expect(created.child).toMatchObject({
+      parentId: "restored:parent",
+      attachments: [{ entityId: "restored:b", buildContextId: "restored:b" }],
+    });
+  });
   it("creates missing rows once and never duplicates on re-import", async () => {
     const store: PortableCollections = emptyCollections();
     const createRow: CreateRowFn = vi.fn(
       (collection: keyof PortableCollections, row: ExportableRow) => {
         store[collection].push(row);
+        return row.id;
       }
     );
 
@@ -133,6 +202,7 @@ describe("runImport idempotency (REQ-D101)", () => {
     const created: string[] = [];
     const createRow: CreateRowFn = (_collection, row) => {
       created.push(row.id);
+      return row.id;
     };
     const summary = await runImport({ imported, existing, createRow });
     expect(created).toEqual(["b3"]);
