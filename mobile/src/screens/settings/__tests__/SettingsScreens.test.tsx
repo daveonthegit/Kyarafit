@@ -432,7 +432,8 @@ describe("small settings screens", () => {
   });
 
   it("reports unreadable backup rows with a partial title and omission count", async () => {
-    state.writeBackup.mockResolvedValue({ uri: "file:///b.kyarafit",
+    state.writeBackup.mockResolvedValue({
+      uri: "file:///b.kyarafit",
       summary: { rows: 3, images: 0, missingImages: [], rowsOmitted: 2, bytes: 10 },
     });
     render(<Data />);
@@ -442,20 +443,31 @@ describe("small settings screens", () => {
     expect(state.alert.mock.calls[0][1]).toContain("2 unreadable items");
   });
 
-  it.each(["omissions", "conflicts"])("reports restore %s without claiming full success", async (kind) => {
-    state.importBackup.mockResolvedValue({
-      rows: { inserted: 0, updated: 0, skipped: 0, unknown: kind === "omissions" ? 2 : 0,
-        conflicts: kind === "conflicts" ? 2 : 0 },
-      rowsOmitted: kind === "omissions" ? 2 : 0,
-      photosWritten: 0, photosAlreadyPresent: 0, photosMissing: [],
-    });
-    render(<Data />);
-    fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
-    await waitFor(() => expect(state.alert).toHaveBeenCalled());
-    expect(state.alert.mock.calls[0][0]).toBe(en.settings.dataImportPartialTitle);
-    expect(state.alert.mock.calls[0][1]).toContain(kind === "omissions"
-      ? "2 items were omitted" : "2 conflicting parent changes");
-  });
+  it.each(["omissions", "conflicts"])(
+    "reports restore %s without claiming full success",
+    async (kind) => {
+      state.importBackup.mockResolvedValue({
+        rows: {
+          inserted: 0,
+          updated: 0,
+          skipped: 0,
+          unknown: kind === "omissions" ? 2 : 0,
+          conflicts: kind === "conflicts" ? 2 : 0,
+        },
+        rowsOmitted: kind === "omissions" ? 2 : 0,
+        photosWritten: 0,
+        photosAlreadyPresent: 0,
+        photosMissing: [],
+      });
+      render(<Data />);
+      fireEvent.click(screen.getByRole("button", { name: "Choose backup" }));
+      await waitFor(() => expect(state.alert).toHaveBeenCalled());
+      expect(state.alert.mock.calls[0][0]).toBe(en.settings.dataImportPartialTitle);
+      expect(state.alert.mock.calls[0][1]).toContain(
+        kind === "omissions" ? "2 items were omitted" : "2 conflicting parent changes"
+      );
+    }
+  );
 
   it("surfaces a damaged backup instead of claiming success", async () => {
     state.importBackup.mockRejectedValue(new Error("This Kyarafit backup is damaged"));

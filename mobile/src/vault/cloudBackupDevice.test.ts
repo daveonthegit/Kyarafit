@@ -29,7 +29,9 @@ vi.mock("expo-file-system", () => {
   }
   class File {
     uri: string;
-    static async pickFileAsync() { return new File("file:///picked"); }
+    static async pickFileAsync() {
+      return new File("file:///picked");
+    }
     constructor(...parts: (string | { uri: string })[]) {
       this.uri = uri(parts);
     }
@@ -134,25 +136,36 @@ describe("device cloud-original backup", () => {
     expect(manifest.rows[0].doc.imageUrl).toBe(`kyarafit-image:${manifest.images[0].key}`);
   });
 
-  it.each(["success", "disk-full", "move-failed"])("preserves originals through staged photo writes (%s)", async (outcome) => {
-    const chunks: Uint8Array[] = [];
-    writeVaultArchive({ subject: "owner", now: 1,
-      rows: [{ table: "builds", id: "restored", doc: { imageUrl: "kyarafit-image:photo" } }],
-      imageSize: () => PHOTO.length, readImage: () => PHOTO,
-    }, { write: (bytes) => chunks.push(bytes) });
-    fs.files.set("file:///picked", Uint8Array.from(Buffer.concat(chunks)));
-    const originalUri = `${activeVaultImageDir()!.replace(/\/$/, "")}/photo`;
-    const original = Uint8Array.from([9]);
-    fs.files.set(originalUri, original);
-    fs.failPhotoWrite = outcome === "disk-full";
-    fs.failPhotoMove = outcome === "move-failed";
-    const result = await pickAndImportVaultBackup();
-    const succeeded = outcome === "success";
-    expect(fs.files.get(originalUri)).toEqual(succeeded ? PHOTO : original);
-    expect(result?.photosMissing).toEqual(succeeded ? [] : ["photo"]);
-    expect(result?.photosWritten).toBe(succeeded ? 1 : 0);
-    expect([...fs.files.keys()].some((key) => key.endsWith(".restore") || key.endsWith(".previous"))).toBe(false);
-  });
+  it.each(["success", "disk-full", "move-failed"])(
+    "preserves originals through staged photo writes (%s)",
+    async (outcome) => {
+      const chunks: Uint8Array[] = [];
+      writeVaultArchive(
+        {
+          subject: "owner",
+          now: 1,
+          rows: [{ table: "builds", id: "restored", doc: { imageUrl: "kyarafit-image:photo" } }],
+          imageSize: () => PHOTO.length,
+          readImage: () => PHOTO,
+        },
+        { write: (bytes) => chunks.push(bytes) }
+      );
+      fs.files.set("file:///picked", Uint8Array.from(Buffer.concat(chunks)));
+      const originalUri = `${activeVaultImageDir()!.replace(/\/$/, "")}/photo`;
+      const original = Uint8Array.from([9]);
+      fs.files.set(originalUri, original);
+      fs.failPhotoWrite = outcome === "disk-full";
+      fs.failPhotoMove = outcome === "move-failed";
+      const result = await pickAndImportVaultBackup();
+      const succeeded = outcome === "success";
+      expect(fs.files.get(originalUri)).toEqual(succeeded ? PHOTO : original);
+      expect(result?.photosMissing).toEqual(succeeded ? [] : ["photo"]);
+      expect(result?.photosWritten).toBe(succeeded ? 1 : 0);
+      expect(
+        [...fs.files.keys()].some((key) => key.endsWith(".restore") || key.endsWith(".previous"))
+      ).toBe(false);
+    }
+  );
 
   it("does not request cloud originals offline and records the omission", async () => {
     setOfflineConnectivity(false);
