@@ -92,14 +92,6 @@ export async function drainMutationQueue(client: ConvexReactClient): Promise<Dra
             assertCurrent();
             idMap[row.client_id] = serverId;
           }
-          if (row.fn === "conventions:addManualPackingItem") {
-            const workflowId = (result as { workflowItemId?: unknown } | null)?.workflowItemId;
-            if (typeof workflowId !== "string")
-              throw new Error("Packing replay has no workflow identity");
-            await offlineRuntime.setServerId(`${row.client_id}:workflow`, workflowId);
-            assertCurrent();
-            idMap[`${row.client_id}:workflow`] = workflowId;
-          }
         }
         for (const write of overlayWritesFor(row.fn, args, row.client_id ?? undefined)) {
           offlineRuntime.clearEntityOverlay(write.table, write.id);

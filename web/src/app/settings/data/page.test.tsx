@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import SettingsDataPage from "./page";
 import { offlineRuntime } from "@/lib/offline/runtime";
@@ -7,6 +7,7 @@ import { InMemoryLocalStore } from "@/lib/offline/localStore";
 import { setOfflineConnectivity } from "@/lib/offline/connectivity";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import { readLocalCollections } from "@/lib/localFirstData";
+import { readRestoreSession } from "@/lib/restoreSession";
 import {
   buildDataBundle,
   emptyCollections,
@@ -93,13 +94,26 @@ describe("Settings data export/import page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client.mutation.mockReset().mockResolvedValue(null);
-    client.query.mockReset().mockResolvedValue(null);
+    client.query.mockReset().mockResolvedValue({ shared: [], buildSpecific: [] });
     rememberLocalAccount("user-free-1");
     offlineRuntime.setStore(new InMemoryLocalStore(), "user-free-1");
   });
 
   afterEach(() => {
     setOfflineConnectivity(true);
+  });
+
+  it("waits for the account vault to open before reading its restore session", async () => {
+    offlineRuntime.lock();
+    render(<SettingsDataPage />);
+    await act(async () => {});
+    expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument();
+    const store = new InMemoryLocalStore();
+    const read = vi.spyOn(store, "getMeta");
+    await act(async () => offlineRuntime.setStore(store, "user-free-1"));
+    await waitFor(() => expect(read).toHaveBeenCalledWith("restore:session:v1"));
+    expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose a backup file" })).toBeEnabled();
   });
 
   it("should_export_a_downloadable_bundle_for_free_user", async () => {
@@ -386,6 +400,25 @@ describe("Settings data export/import page", () => {
         "Restore incomplete"
       );
       const interrupted = [...created];
+      const queriesBeforeUndo = client.query.mock.calls.length;
+      await offlineRuntime.writeImportedEntityRow({
+        table: "workflowItems",
+        id: "manual-after-restore",
+        userId: "user-free-1",
+        json: JSON.stringify({
+          _id: "manual-after-restore",
+          userId: "user-free-1",
+          title: "Manual task",
+          attachments: [{ entityType: "cosplayNode", entityId: interrupted[1] }],
+        }),
+        updatedAt: Date.now(),
+        deleted: false,
+        synced: true,
+      });
+      client.query.mockResolvedValue({
+        shared: [{ _id: "manual-after-restore" }],
+        buildSpecific: [],
+      });
 
       // A second restore is refused while the interrupted one is pending; it is never resumed.
       client.mutation.mockClear();
@@ -405,18 +438,54 @@ describe("Settings data export/import page", () => {
       expect(await screen.findByTestId("import-undone")).toBeInTheDocument();
       const nodes = interrupted.filter((id) => id.startsWith("cosplayNodes"));
       expect(removed).toEqual([
-        ...nodes.map((id) => `workflow:remove:generated:${id}`),
+        ...[...nodes].reverse().map((id) => `workflow:remove:generated:${id}`),
         ...[...nodes].reverse().map((id) => `cosplayNodes:remove:${id}`),
         "builds:remove:builds:create:1",
       ]);
       const local = readLocalCollections("user-free-1");
       expect(local.builds.map((row) => row.id)).toEqual(["unrelated"]);
       expect(local.cosplayNodes).toEqual([]);
-      expect(local.workflowItems).toEqual([]);
+      expect(local.workflowItems.map((row) => row.id)).toEqual(["manual-after-restore"]);
+      expect(client.query).toHaveBeenCalledTimes(queriesBeforeUndo);
       expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument();
       expect(await offlineRuntime.listPendingMutations()).toEqual([]);
     }
   );
+
+  it("records only proven element-generated tasks, including when workflow reuse is queried", async () => {
+    setOfflineConnectivity(true);
+    client.mutation.mockImplementation(async (fn) => {
+      if (getFunctionName(fn as never) === "cosplayNodes:create") return { _id: "new-node" };
+      throw new Error("Interrupted workflow restore");
+    });
+    client.query.mockResolvedValue({
+      shared: [
+        { _id: "generated", dedupeKey: "autogen:buy:shared:new-node" },
+        { _id: "manual" },
+        { _id: "other-node", dedupeKey: "autogen:buy:shared:other-node" },
+        { _id: "other-operation", dedupeKey: "autogen:manual:shared:new-node" },
+      ],
+      buildSpecific: [],
+    });
+    render(<SettingsDataPage />);
+    const bundle = buildDataBundle({
+      ...emptyCollections(),
+      cosplayNodes: [{ id: "node", nodeType: "element", purchaseStatus: "to_buy" }],
+      workflowItems: [
+        { id: "group", title: "Group", kind: "group" },
+        { id: "task", parentId: "group", dedupeKey: "autogen:buy:shared:node" },
+      ],
+    });
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    await screen.findByTestId("import-incomplete");
+    expect(client.query).toHaveBeenCalledTimes(2);
+    expect((await readRestoreSession("user-free-1"))?.created).toEqual([
+      { collection: "cosplayNodes", id: "new-node" },
+      { collection: "workflowItems", id: "generated" },
+    ]);
+  });
 
   it("treats a row already deleted on the server as undone", async () => {
     setOfflineConnectivity(true);

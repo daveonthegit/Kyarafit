@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
-import { emptyCollections, runImport } from "../dataPortability";
 import { drainMutationQueue } from "./syncWorker";
 
 // Spec: DATA_AND_SYNC.md §5 (REQ-D51/D52). The offline bridge serves the last local snapshot
@@ -78,66 +77,34 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
     expect(result.current.builds).toEqual([]);
     expect(cache).not.toHaveBeenCalled();
   });
-  it("queues a packing restore and updates its generated task using reconciled ids", async () => {
+  it("queues and replays an ordinary packing create with its row identity", async () => {
     setOfflineConnectivity(false);
-    const { result } = renderHook(() => ({
-      convention: useOfflineMutation(api.conventions.create),
-      packing: useOfflineMutation(api.conventions.addManualPackingItem),
-      updateTask: useOfflineMutation(api.workflow.update),
-    }));
+    const { result } = renderHook(() => useOfflineMutation(api.conventions.addManualPackingItem));
+    let clientId = "";
     await act(async () => {
-      await runImport({
-        imported: {
-          ...emptyCollections(),
-          conventions: [{ id: "con" }],
-          packingListItems: [{ id: "pack", conventionId: "con", workflowItemId: "task" }],
-          workflowItems: [
-            {
-              id: "task",
-              attachments: [{ entityType: "packingItem", entityId: "pack", role: "primary" }],
-            },
-          ],
-        },
-        existing: emptyCollections(),
-        createRow: async (collection, row, existingId) => {
-          if (collection === "conventions")
-            return result.current.convention({
-              userId: "u1",
-              name: "Con",
-              startDate: "2027-01-01",
-              endDate: "2027-01-02",
-            });
-          if (collection === "packingListItems")
-            return result.current.packing({
-              userId: "u1",
-              conventionId: row.conventionId as never,
-              label: "Tape",
-            });
-          await result.current.updateTask({
-            id: existingId as never,
-            title: "Pack Tape",
-            attachments: row.attachments as never,
-          });
-          return existingId;
-        },
+      const created = await result.current({
+        userId: "u1",
+        conventionId: "server-con" as never,
+        label: "Tape",
       });
+      expect(created).toMatchObject({ label: "Tape" });
+      expect(created).not.toHaveProperty("workflowItemId");
+      clientId = created!._id;
     });
     expect(client.mutation).not.toHaveBeenCalled();
-    client.mutation
-      .mockResolvedValueOnce({ _id: "server-con" })
-      .mockResolvedValueOnce({ _id: "server-pack", workflowItemId: "server-task" })
-      .mockResolvedValueOnce({ _id: "server-task" });
+    expect(await offlineRuntime.listPendingMutations()).toHaveLength(1);
+    client.mutation.mockResolvedValueOnce({ _id: "server-pack" });
     setOfflineConnectivity(true);
-    expect(await drainMutationQueue(client as never)).toEqual({ processed: 3, failed: 0 });
-    expect(client.mutation.mock.calls.map((call) => getFunctionName(call[0] as never))).toEqual([
-      "conventions:create",
-      "conventions:addManualPackingItem",
-      "workflow:update",
-    ]);
-    expect(client.mutation.mock.calls[2][1]).toMatchObject({
-      id: "server-task",
-      attachments: [{ entityId: "server-pack" }],
+    expect(await drainMutationQueue(client as never)).toEqual({ processed: 1, failed: 0 });
+    expect(getFunctionName(client.mutation.mock.calls[0][0] as never)).toBe(
+      "conventions:addManualPackingItem"
+    );
+    expect(client.mutation.mock.calls[0][1]).toMatchObject({
+      conventionId: "server-con",
+      label: "Tape",
     });
+    expect(await offlineRuntime.loadIdMap()).toEqual({ [clientId]: "server-pack" });
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
   });
   it.each([true, false])(
     "rejects a retained callback after another account signs in (online=%s)",

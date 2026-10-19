@@ -100,8 +100,6 @@ export interface UndoRestoreArgs {
   subject: string;
   /** Delete one server row; resolve when it is gone (already-deleted rows must resolve too). */
   deleteRow(collection: PortableCollectionKey, id: string): Promise<void>;
-  /** Server-generated tasks of a restored element, deleted before the element itself. */
-  generatedTasks(cosplayNodeId: string): Promise<string[]>;
 }
 
 /**
@@ -112,28 +110,57 @@ export interface UndoRestoreArgs {
 export async function undoRestoreSession({
   subject,
   deleteRow,
-  generatedTasks,
 }: UndoRestoreArgs): Promise<void> {
   const session = await readRestoreSession(subject);
   if (!session) return;
   const check = guard(subject);
   const remaining = [...session.created];
+  const rows = await offlineRuntime.getStore().listEntityRows();
+  check();
+  const tasks = new Map<string, string | null>();
+  for (const row of rows) {
+    if (row.table !== "workflowItems" || row.userId !== subject || row.deleted) continue;
+    const doc = JSON.parse(row.json) as { parentId?: unknown };
+    if (doc.parentId != null && typeof doc.parentId !== "string") {
+      throw new IncompleteRestoreError();
+    }
+    tasks.set(row.id, doc.parentId ?? null);
+  }
+  const recordedTasks = new Set(
+    remaining.filter((entry) => entry.collection === "workflowItems").map((entry) => entry.id)
+  );
+  const subtrees = new Map<string, Set<string>>();
+  const blocked = new Set<string>();
+  for (const id of recordedTasks) {
+    const subtree = new Set([id]);
+    for (const parent of subtree) {
+      for (const [child, parentId] of tasks) {
+        if (parentId === parent) subtree.add(child);
+      }
+    }
+    subtrees.set(id, subtree);
+    if ([...subtree].some((child) => !recordedTasks.has(child) || !tasks.has(child))) {
+      for (const child of subtree) blocked.add(child);
+    }
+  }
   const remove = async (collection: PortableCollectionKey, id: string) => {
     check();
     await deleteRow(collection, id);
     check();
     await offlineRuntime.removeImportedEntityRow(collection, id);
   };
-  for (const node of remaining.filter((entry) => entry.collection === "cosplayNodes")) {
-    for (const taskId of await generatedTasks(node.id)) await remove("workflowItems", taskId);
-  }
   for (const collection of UNDO_ORDER) {
-    for (const entry of [...remaining].reverse()) {
-      if (entry.collection !== collection) continue;
+    const entries = [...remaining].reverse().filter((entry) => entry.collection === collection);
+    if (collection === "workflowItems") {
+      entries.sort((a, b) => subtrees.get(a.id)!.size - subtrees.get(b.id)!.size);
+    }
+    for (const entry of entries) {
+      if (collection === "workflowItems" && blocked.has(entry.id)) continue;
       await remove(collection, entry.id);
       remaining.splice(remaining.indexOf(entry), 1);
       await save(subject, { ...session, created: remaining });
     }
   }
+  if (remaining.length > 0) throw new IncompleteRestoreError();
   await save(subject, null);
 }

@@ -93,13 +93,19 @@ function downloadFile(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-function flattenGeneratedTasks(rows: readonly unknown[]): { id: string; dedupeKey: unknown }[] {
+function flattenGeneratedTasks(
+  rows: readonly unknown[]
+): { id: string; dedupeKey: unknown; parentId: unknown }[] {
   return rows.flatMap((row) => {
     if (!row || typeof row !== "object" || !("_id" in row) || typeof row._id !== "string") {
       throw new Error("Invalid generated workflow item");
     }
     return [
-      { id: row._id, dedupeKey: "dedupeKey" in row ? row.dedupeKey : undefined },
+      {
+        id: row._id,
+        dedupeKey: "dedupeKey" in row ? row.dedupeKey : undefined,
+        parentId: "parentId" in row ? row.parentId : undefined,
+      },
       ...("children" in row && Array.isArray(row.children)
         ? flattenGeneratedTasks(row.children)
         : []),
@@ -124,6 +130,11 @@ export default function SettingsDataPage() {
     offlineRuntime.getVersion
   );
 
+  const vaultSubject = useSyncExternalStore(
+    offlineRuntime.subscribe,
+    () => offlineRuntime.getSubject(),
+    () => null
+  );
   const [incomplete, setIncomplete] = useState(false);
 
   /**
@@ -145,20 +156,21 @@ export default function SettingsDataPage() {
   );
 
   useEffect(() => {
-    if (!userId) return;
+    setIncomplete(false);
+    if (!userId || vaultSubject !== userId) return;
     let active = true;
     readRestoreSession(userId).then(
       (session) => {
         if (active) setIncomplete(session !== null);
       },
       () => {
-        if (active) setIncomplete(true);
+        if (active && offlineRuntime.getSubject() === userId) setIncomplete(true);
       }
     );
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, vaultSubject]);
 
   const collections = useMemo(() => readLocalCollections(userId), [version, userId]);
 
@@ -232,6 +244,30 @@ export default function SettingsDataPage() {
               })
             );
             await session.record("cosplayNodes", created._id);
+            const workflow = await convex.query(api.workflow.listNodeWorkflow, {
+              cosplayNodeId: created._id,
+            });
+            if (!workflow) throw new Error("Generated element tasks could not be loaded");
+            for (const task of flattenGeneratedTasks([
+              ...workflow.shared,
+              ...workflow.buildSpecific,
+            ])) {
+              if (
+                typeof task.dedupeKey !== "string" ||
+                !/^autogen:(buy|wip):/.test(task.dedupeKey) ||
+                !task.dedupeKey.endsWith(`:${created._id}`)
+              ) continue;
+              await session.record("workflowItems", task.id);
+              await offlineRuntime.writeImportedEntityRow({
+                table: "workflowItems",
+                id: task.id,
+                userId,
+                json: JSON.stringify({ ...task, _id: task.id, userId }),
+                updatedAt: Date.now(),
+                deleted: false,
+                synced: true,
+              });
+            }
             if (row.parentNodeId) {
               await call(api.cosplayNodes.addChildLink, {
                 userId,
@@ -315,7 +351,7 @@ export default function SettingsDataPage() {
             return;
         }
       },
-    [userId, call]
+    [userId, call, convex]
   );
 
   const generatedTasks = useCallback(
@@ -367,7 +403,6 @@ export default function SettingsDataPage() {
             assertCurrent();
             const tasks = await generatedTasks(nodeId, buildId);
             assertCurrent();
-            for (const task of tasks) await session.record("workflowItems", task.id);
             return tasks;
           },
           onRestored: (collection, id, row) =>
@@ -415,16 +450,6 @@ export default function SettingsDataPage() {
             if (!isAlreadyDeleted(error)) throw error;
           }
         },
-        generatedTasks: async (nodeId) => {
-          const tasks = await convex.query(api.workflow.listNodeWorkflow, {
-            cosplayNodeId: nodeId as Id<"cosplayNodes">,
-          });
-          return tasks
-            ? flattenGeneratedTasks([...tasks.shared, ...tasks.buildSpecific]).map(
-                (task) => task.id
-              )
-            : [];
-        },
       });
       setImportStatus({ kind: "undone" });
     } catch (error) {
@@ -432,7 +457,7 @@ export default function SettingsDataPage() {
     } finally {
       setIncomplete((await readRestoreSession(userId).catch(() => null)) !== null);
     }
-  }, [call, convex, describeError, userId]);
+  }, [call, describeError, userId]);
 
   const onFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {

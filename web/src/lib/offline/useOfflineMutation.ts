@@ -84,9 +84,6 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
           return {
             ...input,
             _id: clientId,
-            ...(name === "conventions:addManualPackingItem"
-              ? { workflowItemId: `${clientId}:workflow` }
-              : {}),
           } as FunctionReturnType<Mutation>;
         }
       }
