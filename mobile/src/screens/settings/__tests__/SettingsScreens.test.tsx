@@ -12,6 +12,7 @@ import { buildExport } from "@/lib/dataPortability";
 
 const state = vi.hoisted(() => ({
   identity: { subject: "owner" } as { subject: string } | null | undefined,
+  vaultSubject: "owner" as string | null,
   tier: "FREE",
   tierLoading: false,
   connected: true,
@@ -63,6 +64,9 @@ vi.mock("@/lib/useTier", () => ({
   }),
 }));
 vi.mock("@/lib/auth/client", () => ({ signOut: state.signOut }));
+vi.mock("@/vault/hooks", () => ({
+  useVaultState: () => state.vaultSubject ? { status: "unlocked", account: { subject: state.vaultSubject } } : { status: "locked" },
+}));
 vi.mock("@/lib/openWebAppPath", () => ({ openWebAppPath: state.openWeb }));
 vi.mock("@/i18n", () => ({ SUPPORTED_LOCALES: ["en", "ja", "es"], setAppLocale: state.setLocale }));
 vi.mock("@/theme/ThemeProvider", () => ({
@@ -130,6 +134,7 @@ beforeEach(() => {
   vi.stubGlobal("__DEV__", false);
   vi.clearAllMocks();
   state.identity = { subject: "owner" };
+  state.vaultSubject = "owner";
   state.tier = "FREE";
   state.tierLoading = false;
   state.connected = true;
@@ -394,6 +399,7 @@ describe("small settings screens", () => {
 
   it("keeps export and import free but requires a signed-in owner", () => {
     state.identity = null;
+    state.vaultSubject = null;
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Export data" }));
     fireEvent.click(screen.getByRole("button", { name: "Import data" }));
@@ -402,8 +408,10 @@ describe("small settings screens", () => {
     expect(state.create).not.toHaveBeenCalled();
   });
 
-  it("only removes device data after an explicit destructive confirmation", async () => {
+  it.each([undefined, null])("removes device data without remote identity (%s) after confirmation", async (identity) => {
+    state.identity = identity;
     render(<Data />);
+    expect(screen.queryByText("Loading data")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Remove device data" }));
     expect(state.deleteVault).not.toHaveBeenCalled();
     const [title, , buttons] = state.alert.mock.calls[0] as [

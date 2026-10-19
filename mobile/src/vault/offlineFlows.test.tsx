@@ -27,6 +27,17 @@ const convex = vi.hoisted(() => ({
   mutation: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/bearer-storage-plugin", () => ({
+  getBearerToken: () => "test-session",
+  subscribeBearerToken: () => () => {},
+}));
+vi.mock("@/lib/auth/client", () => ({
+  authClient: { getSession: async () => {
+    const { getActiveVault } = await import("@/vault/activeVault");
+    return { data: { user: { id: getActiveVault()?.subject } }, error: null };
+  } },
+}));
+
 vi.mock("convex/react", () => ({
   useQuery: (...args: unknown[]) => {
     convex.useQueryArgs.push(args);

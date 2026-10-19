@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Share, Text } from "react-native";
 import { glass } from "@kyarafit/design-system/rn";
 import * as FileSystem from "expo-file-system/legacy";
-import { useQuery } from "convex/react";
+import { useVaultState } from "@/vault/hooks";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
@@ -68,8 +68,8 @@ function toDocs(rows: readonly { _id: string }[] | undefined): EntityDoc[] {
 
 export default function SettingsDataScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
-  const userId = identity?.subject;
+  const vault = useVaultState();
+  const userId = vault.status === "unlocked" ? vault.account.subject : undefined;
 
   const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
   const elements = useOfflineQuery(api.cosplayNodes.list, userId ? { userId } : "skip");
@@ -252,7 +252,7 @@ export default function SettingsDataScreen() {
     ]);
   }, [removeDeviceData, t]);
 
-  const status = identity === undefined ? "loading" : "ready";
+  const status = vault.status === "booting" ? "loading" : "ready";
 
   return (
     <SettingsGlassFrame

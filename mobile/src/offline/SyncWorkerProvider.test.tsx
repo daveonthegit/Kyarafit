@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   state: {
     identity: null as { subject: string } | null | undefined,
     tier: null as string | null,
+    remoteSubject: undefined as string | null | undefined,
   },
   convexClient: {
     query: vi.fn(),
@@ -35,6 +36,17 @@ vi.mock("@react-native-community/netinfo", () => ({
     fetch: h.netInfoFetch,
     addEventListener: h.netInfoAddEventListener,
   },
+}));
+
+vi.mock("@/lib/auth/client", () => ({
+  useSession: () => ({ isPending: false, data: { user: { id: h.state.remoteSubject === undefined ? h.state.identity?.subject : h.state.remoteSubject } } }),
+}));
+vi.mock("@/lib/auth/bearer-storage-plugin", () => ({
+  getBearerToken: () => "test-session",
+  subscribeBearerToken: () => () => {},
+}));
+vi.mock("./syncIdentity", () => ({
+  syncScope: async () => ({ current: () => Boolean(h.state.identity && (h.state.remoteSubject === undefined || h.state.remoteSubject === h.state.identity.subject)) }),
 }));
 
 vi.mock("convex/react", () => ({
@@ -99,6 +111,7 @@ describe("SyncWorkerProvider gating (REQ-D60, REQ-D10)", () => {
     vi.clearAllMocks();
     h.state.identity = null;
     h.state.tier = null;
+    h.state.remoteSubject = undefined;
     h.drainMutationQueue.mockResolvedValue({ processed: 0, failed: 0 });
     h.warmEntityRows.mockResolvedValue(undefined);
     h.uploadLocalImages.mockResolvedValue({ uploaded: 0, failed: 0 });
@@ -139,6 +152,16 @@ describe("SyncWorkerProvider gating (REQ-D60, REQ-D10)", () => {
     await flushAsync();
 
     expectZeroConvexCalls();
+  });
+
+  it("does not sync or persist another account's tier during a switch", async () => {
+    h.state.identity = { subject: "owner" };
+    h.state.remoteSubject = "other";
+    h.state.tier = "PRO";
+    renderProvider();
+    await flushAsync();
+    expectZeroConvexCalls();
+    expect(h.setReplicationEnabled).not.toHaveBeenCalled();
   });
 
   it("persists the server-confirmed paid state so offline launches keep queueing", async () => {

@@ -17,6 +17,11 @@ import { drainMutationQueue } from "./syncWorker";
  * never evict them, and the drain must never drop a row it could not deliver.
  */
 
+vi.mock("./syncIdentity", () => ({
+  syncScope: async () => ({ current: () => true, assertCurrent: () => {} }),
+  invalidateSyncSession: vi.fn(),
+}));
+
 const SUBJECT = "user_queue";
 
 function enqueue(n: number, status: "pending" | "failed" = "pending", args = "{}") {

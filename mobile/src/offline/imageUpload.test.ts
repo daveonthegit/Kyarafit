@@ -14,6 +14,11 @@ import { setOfflineConnectivity } from "./connectivity";
  * (`expo-file-system/legacy`); both are mocked here since the orchestration takes injected deps.
  */
 
+vi.mock("./syncIdentity", () => ({
+  syncScope: async () => ({ current: () => true, assertCurrent: () => {} }),
+  invalidateSyncSession: vi.fn(),
+}));
+
 const imageIds = vi.hoisted(() => ({}) as Record<string, string>);
 vi.mock("./idMap", () => ({ loadIdMap: () => imageIds, setServerId: vi.fn() }));
 

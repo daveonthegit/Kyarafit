@@ -1,4 +1,7 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
+import { useSession } from "@/lib/auth/client";
+import { getBearerToken, subscribeBearerToken } from "@/lib/auth/bearer-storage-plugin";
+import { syncScope } from "./syncIdentity";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useConvex } from "convex/react";
 import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
@@ -40,19 +43,21 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const convex = useConvex();
   const vault = useVaultState();
   const userId = vault.status === "unlocked" ? vault.account.subject : null;
-  const signedIn = userId !== null;
-  const { data: tierInfo } = useTier(userId);
+  const remote = useSession();
+  const credential = useSyncExternalStore(subscribeBearerToken, getBearerToken, getBearerToken);
+  const signedIn = Boolean(credential && userId && !remote.isPending && remote.data?.user?.id === userId);
+  const { data: tierInfo } = useTier(signedIn ? userId : null);
   const liveTier = tierInfo?.tier ?? null;
 
   // Persist the server-confirmed tier so offline launches know whether to queue for sync.
   useEffect(() => {
     if (!signedIn || liveTier == null) return;
-    try {
-      setReplicationEnabled(isPaidConvexTier(liveTier));
-    } catch (error) {
-      console.warn("[sync] could not persist sync state", error);
-    }
-  }, [signedIn, liveTier, userId]);
+    let cancelled = false;
+    void syncScope().then((scope) => {
+      if (!cancelled && scope.current()) setReplicationEnabled(isPaidConvexTier(liveTier));
+    }).catch((error: unknown) => console.warn("[sync] could not persist sync state", error));
+    return () => { cancelled = true; };
+  }, [signedIn, liveTier, userId, credential]);
 
   const syncEnabled = shouldRunSyncWorker(liveTier, signedIn);
   const syncRef = useRef<() => void>(() => {});
@@ -100,7 +105,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       unsubNet();
       unsubRequests();
     };
-  }, [convex, syncEnabled, liveTier, userId]);
+  }, [convex, syncEnabled, liveTier, userId, credential]);
 
   return <>{children}</>;
 }

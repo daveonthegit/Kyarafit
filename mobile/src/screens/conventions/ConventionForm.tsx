@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { parseIsoDateOnly } from "@/screens/conventions/utils";
 import { GlassDateField } from "@/screens/conventions/GlassDateField";
@@ -105,6 +106,8 @@ export function ConventionForm({
         imageStorageId: uploadedStorageId,
         imageUrl: uploadedImageUrl,
       });
+    } catch (error) {
+      alertUnlessReported(t("common.errorTitle"), error);
     } finally {
       setBusy(false);
     }
@@ -119,6 +122,7 @@ export function ConventionForm({
     pickedUri,
     startDate,
     saveLocalImage,
+    t,
   ]);
 
   return (

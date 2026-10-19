@@ -86,19 +86,6 @@ export function useSaveLocalImage() {
   );
 }
 
-/** Write base64 bytes (vault import) to `imageKey` in the unlocked vault; returns the file URI. */
-export async function writeLocalImageBase64(imageKey: string, base64: string): Promise<string> {
-  const vault = requireActiveVault();
-  const dir = await ensureImageDir(vault);
-  requireActiveVault(vault);
-  const target = `${dir}${imageKey}`;
-  await FileSystem.writeAsStringAsync(target, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  requireActiveVault(vault);
-  return target;
-}
-
 /** Resolve a stored image's `file://` uri, or null when the key is unknown / missing on disk. */
 export async function getLocalImageUri(imageKey: string): Promise<string | null> {
   const vault = getActiveVault();

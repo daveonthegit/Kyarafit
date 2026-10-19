@@ -9,6 +9,8 @@ import {
   planCloudMirror,
 } from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
+import { syncScope } from "./syncIdentity";
+export { invalidateSyncSession } from "./syncIdentity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
 import {
@@ -95,21 +97,6 @@ function reverseIdMap(): Record<string, string> {
   return reverse;
 }
 
-let sessionGeneration = 0;
-export function invalidateSyncSession(): void {
-  sessionGeneration += 1;
-}
-
-function syncScope() {
-  const vault = getActiveVault();
-  const generation = sessionGeneration;
-  const current = () => getActiveVault() === vault && generation === sessionGeneration;
-  const assertCurrent = () => {
-    if (!current()) throw new Error("Sync vault changed");
-  };
-  return { current, assertCurrent };
-}
-
 const DRAIN_BATCH = 100;
 let draining = false;
 
@@ -133,8 +120,9 @@ export type DrainResult = { processed: number; failed: number };
  */
 export async function drainMutationQueue(client: ConvexReactClient): Promise<DrainResult> {
   if (draining || !getIsOnline()) return { processed: 0, failed: 0 };
+  const scope = await syncScope();
+  if (draining || !scope.current()) return { processed: 0, failed: 0 };
   draining = true;
-  const scope = syncScope();
   let processed = 0;
   let failed = 0;
   try {
@@ -248,8 +236,9 @@ let warming = false;
  */
 export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
   if (warming || !getIsOnline()) return;
+  const scope = await syncScope();
+  if (warming || !scope.current()) return;
   warming = true;
-  const scope = syncScope();
   try {
     let cursor = getSyncCursor();
     const toLocal = reverseIdMap();
@@ -349,8 +338,9 @@ export async function uploadLocalImages(
   // REQ-D71/D10: free users never upload — no Convex calls whatsoever.
   if (!isPaidConvexTier(tier)) return { uploaded: 0, failed: 0 };
   if (uploadingImages || !getIsOnline()) return { uploaded: 0, failed: 0 };
+  const scope = await syncScope();
+  if (uploadingImages || !scope.current()) return { uploaded: 0, failed: 0 };
   uploadingImages = true;
-  const scope = syncScope();
   let uploaded = 0;
   let failed = 0;
   try {
@@ -421,8 +411,10 @@ export async function syncNow(
   client: ConvexReactClient,
   opts: { tier?: string | null } = {}
 ): Promise<DrainResult> {
-  const scope = syncScope();
-  if (getIsOnline()) requeueFailedMutations();
+  if (!getIsOnline()) return { processed: 0, failed: 0 };
+  const scope = await syncScope();
+  if (!scope.current()) return { processed: 0, failed: 0 };
+  requeueFailedMutations();
   const result = await drainMutationQueue(client);
   if (scope.current()) await warmEntityRows(client);
   if (scope.current()) await uploadLocalImages(client, opts.tier ?? null);
@@ -435,8 +427,7 @@ export async function syncNow(
  * each with its client-minted id as the dedupe `clientId`. It only READS local data — copies are
  * pushed to the cloud; nothing local is ever mutated or deleted (the REQ-D95 invariant).
  */
-function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
-  const scope = syncScope();
+function defaultBackfillDeps(client: ConvexReactClient, scope: Awaited<ReturnType<typeof syncScope>>): BackfillDeps {
   return {
     listLocalRows: (table) => {
       scope.assertCurrent();
@@ -486,9 +477,22 @@ function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
 export async function runBackfill(
   client: ConvexReactClient,
   tier: string | null | undefined,
-  deps: BackfillDeps = defaultBackfillDeps(client)
+  deps?: BackfillDeps
 ): Promise<BackfillProgress> {
-  // REQ-D95/D10: free users never back up — no Convex calls whatsoever.
-  if (!isPaidConvexTier(tier)) return IDLE_BACKFILL;
-  return runUpgradeBackfill(deps);
+  if (!isPaidConvexTier(tier) || !getIsOnline()) return IDLE_BACKFILL;
+  const scope = await syncScope();
+  if (!scope.current()) return IDLE_BACKFILL;
+  const source = deps ?? defaultBackfillDeps(client, scope);
+  return runUpgradeBackfill({
+    listLocalRows: (table) => { scope.assertCurrent(); return source.listLocalRows(table); },
+    pushChunk: async (table, rows) => {
+      scope.assertCurrent();
+      const result = await source.pushChunk(table, rows);
+      scope.assertCurrent();
+      return result;
+    },
+    isComplete: () => { scope.assertCurrent(); return source.isComplete(); },
+    markComplete: async () => { scope.assertCurrent(); await source.markComplete(); scope.assertCurrent(); },
+    onProgress: (progress) => { scope.assertCurrent(); source.onProgress?.(progress); },
+  });
 }
