@@ -73,13 +73,16 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
       edit: useOfflineMutation(api.builds.update),
     }));
     setOfflineConnectivity(true);
-    await expect(result.current.create({ userId: "u1", name: "Online", status: "idea" }))
-      .rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(
+      result.current.create({ userId: "u1", name: "Online", status: "idea" })
+    ).rejects.toBeInstanceOf(RestoreInProgressError);
     setOfflineConnectivity(false);
-    await expect(result.current.create({ userId: "u1", name: "Offline", status: "idea" }))
-      .rejects.toBeInstanceOf(RestoreInProgressError);
-    await expect(result.current.edit({ id: "restored-task" as never, name: "Edit" }))
-      .rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(
+      result.current.create({ userId: "u1", name: "Offline", status: "idea" })
+    ).rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(
+      result.current.edit({ id: "restored-task" as never, name: "Edit" })
+    ).rejects.toBeInstanceOf(RestoreInProgressError);
     expect(client.mutation).not.toHaveBeenCalled();
     expect(await shared.listPendingMutations()).toEqual([]);
     await undoRestoreSession({ subject: "u1", deleteRow: async () => {} });
@@ -108,12 +111,15 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
         edit: useOfflineMutation(api.builds.update),
         remove: useOfflineMutation(api.builds.remove),
       }));
-      await expect(result.current.create({ userId: "u1", name: "New", status: "idea" }))
-        .rejects.toBeInstanceOf(RestoreInProgressError);
-      await expect(result.current.edit({ id: "restored-build" as never, name: "Changed" }))
-        .rejects.toBeInstanceOf(RestoreInProgressError);
-      await expect(result.current.remove({ id: "restored-build" as never }))
-        .rejects.toBeInstanceOf(RestoreInProgressError);
+      await expect(
+        result.current.create({ userId: "u1", name: "New", status: "idea" })
+      ).rejects.toBeInstanceOf(RestoreInProgressError);
+      await expect(
+        result.current.edit({ id: "restored-build" as never, name: "Changed" })
+      ).rejects.toBeInstanceOf(RestoreInProgressError);
+      await expect(result.current.remove({ id: "restored-build" as never })).rejects.toBeInstanceOf(
+        RestoreInProgressError
+      );
       expect(client.mutation).not.toHaveBeenCalled();
       expect(await offlineRuntime.listPendingMutations()).toEqual([]);
       expect(window.alert).toHaveBeenCalledTimes(3);
@@ -136,8 +142,9 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
     setStoredLocale("es");
     const { result } = renderHook(() => useOfflineMutation(api.builds.create));
     try {
-      await expect(result.current({ userId: "u1", name: "New", status: "idea" }))
-        .rejects.toThrow("Termina o deshaz la restauración primero.");
+      await expect(result.current({ userId: "u1", name: "New", status: "idea" })).rejects.toThrow(
+        "Termina o deshaz la restauración primero."
+      );
       expect(window.alert).toHaveBeenCalledWith("Termina o deshaz la restauración primero.");
     } finally {
       setStoredLocale("en");
@@ -153,21 +160,29 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
     expect(client.mutation).toHaveBeenCalledTimes(1);
   });
 
-  it.each([true, false])("rejects writes during a local account switch before the next vault opens (online=%s)", async (online) => {
-    setOfflineConnectivity(online);
-    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
-    const retained = result.current;
-    rememberLocalAccount("other-account");
-    await expect(retained({ userId: "u1", name: "Wrong vault", status: "idea" })).rejects.toThrow("active account changed");
-    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
-    expect(client.mutation).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    "rejects writes during a local account switch before the next vault opens (online=%s)",
+    async (online) => {
+      setOfflineConnectivity(online);
+      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+      const retained = result.current;
+      rememberLocalAccount("other-account");
+      await expect(retained({ userId: "u1", name: "Wrong vault", status: "idea" })).rejects.toThrow(
+        "active account changed"
+      );
+      expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+      expect(client.mutation).not.toHaveBeenCalled();
+    }
+  );
 
   it("does not read or cache another account's data while switching vaults", () => {
     state.builds = [{ _id: "a", userId: "u1", name: "A", status: "idea" }];
-    const { result, rerender } = renderHook(() => useBuildsList({
-      userId: "u1", view: { tab: "all", search: "", sortBy: "name", order: "asc" },
-    }));
+    const { result, rerender } = renderHook(() =>
+      useBuildsList({
+        userId: "u1",
+        view: { tab: "all", search: "", sortBy: "name", order: "asc" },
+      })
+    );
     expect(result.current.builds).toHaveLength(1);
     const cache = vi.spyOn(offlineRuntime, "writeQueryCache");
     rememberLocalAccount("other-account");

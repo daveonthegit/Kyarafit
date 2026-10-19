@@ -47,7 +47,9 @@ describe("restore read-only notice across tabs", () => {
     await act(async () => {
       await tabA.setMeta(RESTORE_SESSION_KEY, JSON.stringify({ id: "restore", created: [] }));
     });
-    expect(await screen.findByRole("status")).toHaveTextContent("Finish or undo your restore first.");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Finish or undo your restore first."
+    );
     await act(async () => tabA.setMeta(RESTORE_SESSION_KEY, ""));
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
     tabA.lock();

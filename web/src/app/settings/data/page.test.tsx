@@ -113,27 +113,31 @@ describe("Settings data export/import page", () => {
   it("serializes two pages' restore and Undo and refreshes both pages after release", async () => {
     const held = new Map<string, Lock>();
     const locks = {
-      request: vi.fn(async (
-        name: string,
-        options: LockOptions,
-        callback: (lock: Lock | null) => Promise<unknown>
-      ) => {
-        expect(options).toMatchObject({ mode: "exclusive", ifAvailable: true });
-        if (held.has(name)) return callback(null);
-        const lock: Lock = { name, mode: "exclusive" };
-        held.set(name, lock);
-        try {
-          return await callback(lock);
-        } finally {
-          held.delete(name);
+      request: vi.fn(
+        async (
+          name: string,
+          options: LockOptions,
+          callback: (lock: Lock | null) => Promise<unknown>
+        ) => {
+          expect(options).toMatchObject({ mode: "exclusive", ifAvailable: true });
+          if (held.has(name)) return callback(null);
+          const lock: Lock = { name, mode: "exclusive" };
+          held.set(name, lock);
+          try {
+            return await callback(lock);
+          } finally {
+            held.delete(name);
+          }
         }
-      }),
+      ),
       query: async () => ({ held: [...held.values()], pending: [] }),
     };
     vi.stubGlobal("navigator", { locks, onLine: true });
     setOfflineConnectivity(true);
     let finishCreate!: (value: { _id: string }) => void;
-    const pendingCreate = new Promise<{ _id: string }>((resolve) => { finishCreate = resolve; });
+    const pendingCreate = new Promise<{ _id: string }>((resolve) => {
+      finishCreate = resolve;
+    });
     const serverRows = new Set<string>();
     client.mutation.mockImplementation(async (fn, raw) => {
       const name = getFunctionName(fn as never);
@@ -163,8 +167,9 @@ describe("Settings data export/import page", () => {
     await waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(1));
 
     const deleteRow = vi.fn(async () => {});
-    await expect(undoRestoreSession({ subject: "user-free-1", deleteRow }))
-      .rejects.toBeInstanceOf(RestoreBusyError);
+    await expect(undoRestoreSession({ subject: "user-free-1", deleteRow })).rejects.toBeInstanceOf(
+      RestoreBusyError
+    );
     expect(deleteRow).not.toHaveBeenCalled();
     fireEvent.change(b.getByTestId("import-file-input"), { target: { files: [file] } });
     expect(await b.findByTestId("import-error")).toHaveTextContent("another tab");

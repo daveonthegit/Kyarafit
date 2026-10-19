@@ -65,7 +65,10 @@ describe("OPFS command transaction protocol", () => {
     await expect(store.enqueueMutation(input)).rejects.toBeInstanceOf(RestoreInProgressError);
     await expect(store.putEntityRow(row)).rejects.toBeInstanceOf(RestoreInProgressError);
     expect(run.mock.calls.map((call) => call[1])).toEqual([
-      "BEGIN IMMEDIATE", "ROLLBACK", "BEGIN IMMEDIATE", "ROLLBACK",
+      "BEGIN IMMEDIATE",
+      "ROLLBACK",
+      "BEGIN IMMEDIATE",
+      "ROLLBACK",
     ]);
     run.mockClear();
     await store.putEntityRow(row, { restore: true });

@@ -44,7 +44,7 @@ function AccountView() {
   const create = useOfflineMutation(api.builds.create);
   return (
     <>
-      <span>{isLoading ? "loading" : userId ?? "locked"}</span>
+      <span>{isLoading ? "loading" : (userId ?? "locked")}</span>
       <button
         onClick={async () => {
           if (userId) await create({ userId, name: "Offline edit", status: "idea" });

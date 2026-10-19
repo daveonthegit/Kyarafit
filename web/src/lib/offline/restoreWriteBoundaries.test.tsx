@@ -47,7 +47,9 @@ describe("direct personal-data write boundaries", () => {
   it("refuses starter seed creation while a restore is incomplete", async () => {
     render(<SeedClient />);
     fireEvent.click(screen.getByRole("button", { name: "Load sample data" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Finish or undo your restore first.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Finish or undo your restore first."
+    );
     expect(mutate).not.toHaveBeenCalled();
     expect(window.alert).toHaveBeenCalledWith("Finish or undo your restore first.");
   });

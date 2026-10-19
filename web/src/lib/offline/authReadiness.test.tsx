@@ -39,7 +39,9 @@ it("keeps remembered-account cache available without starting an unauthenticated
   offlineRuntime.setStore(new InMemoryLocalStore(), "owner");
   const args = { userId: "owner" };
   const cached = [{ _id: "task", title: "Saved task" }];
-  await act(async () => offlineRuntime.writeQueryCache(offlineQueryKey("workflow:listPlanner", args)!, cached));
+  await act(async () =>
+    offlineRuntime.writeQueryCache(offlineQueryKey("workflow:listPlanner", args)!, cached)
+  );
   const view = renderHook(() => {
     const account = useCurrentUser();
     const tasks = useOfflineQuery(api.workflow.listPlanner, { userId: account.userId! });

@@ -45,14 +45,24 @@ afterEach(() => {
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
   it("exports elements alongside the task attachments that reference them", () => {
     offlineRuntime.upsertSyncedEntityRow("cosplayNodes", "node", "u1", {
-      _id: "node", userId: "u1", nodeType: "element", name: "Wig", tags: [],
+      _id: "node",
+      userId: "u1",
+      nodeType: "element",
+      name: "Wig",
+      tags: [],
     });
     offlineRuntime.upsertSyncedEntityRow("workflowItems", "task", "u1", {
-      _id: "task", userId: "u1", title: "Style wig",
+      _id: "task",
+      userId: "u1",
+      title: "Style wig",
     });
     offlineRuntime.upsertSyncedEntityRow("workflowAttachments", "attachment", "u1", {
-      _id: "attachment", userId: "u1", workflowItemId: "task",
-      entityType: "cosplayNode", entityId: "node", role: "primary",
+      _id: "attachment",
+      userId: "u1",
+      workflowItemId: "task",
+      entityType: "cosplayNode",
+      entityId: "node",
+      role: "primary",
     });
     const restored = parseDataBundle(buildDataBundle(readLocalCollections()));
     expect(restored.cosplayNodes).toEqual([expect.objectContaining({ id: "node", name: "Wig" })]);
