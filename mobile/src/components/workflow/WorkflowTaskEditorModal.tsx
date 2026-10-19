@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
+import { runLocalMutations } from "@/vault/functions";
+import { useActiveVault } from "@/vault/hooks";
 import { WORKFLOW_STATUSES } from "@kyarafit/design-system/domain";
 import { Button } from "@/ui";
 import { useDesignTheme } from "@/theme/useDesignTheme";
@@ -41,9 +43,8 @@ export function WorkflowTaskEditorModal({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useDesignTheme();
-  const updateWorkflow = useOfflineMutation(api.workflow.update);
+  const vault = useActiveVault();
   const removeWorkflow = useOfflineMutation(api.workflow.remove);
-  const setDependencies = useOfflineMutation(api.workflow.setDependencies);
 
   const data = useOfflineQuery(
     api.workflow.getItemEditorState,
@@ -87,26 +88,37 @@ export function WorkflowTaskEditorModal({
     );
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!workflowItemId || !title.trim() || saving) return;
     setSaving(true);
     try {
-      await updateWorkflow({
-        id: workflowItemId,
-        userId,
-        title: title.trim(),
-        notes: notes.trim() || null,
-        dueDate: dueDate.trim() || null,
-        status,
-      });
-      await setDependencies({
-        userId,
-        workflowItemId,
-        dependencies: predecessorIds.map((id) => ({
-          predecessorWorkflowItemId: id,
-          relationKind: "blocks",
-        })),
-      });
+      runLocalMutations(
+        [
+          {
+            fn: "workflow:update",
+            args: {
+              id: workflowItemId,
+              userId,
+              title: title.trim(),
+              notes: notes.trim() || null,
+              dueDate: dueDate.trim() || null,
+              status,
+            },
+          },
+          {
+            fn: "workflow:setDependencies",
+            args: {
+              userId,
+              workflowItemId,
+              dependencies: predecessorIds.map((id) => ({
+                predecessorWorkflowItemId: id,
+                relationKind: "blocks",
+              })),
+            },
+          },
+        ],
+        vault
+      );
       onClose();
     } catch (error) {
       Alert.alert(t("common.errorTitle"), String(error instanceof Error ? error.message : error));

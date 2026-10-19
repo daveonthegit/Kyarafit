@@ -249,20 +249,21 @@ export function BuildDetailBody(props: Props) {
   const inspector = useNodeInspector({ buildId, userId });
 
   const openNodeSheet = useCallback(
-    (meta: NodeSelectionMeta, path: ExplorerPathSegment[]) => {
+    async (meta: NodeSelectionMeta, path: ExplorerPathSegment[]) => {
+      if (!(await inspector.commitSelection(meta))) return;
       setSelectedPath(path);
-      void inspector.commitSelection(meta);
       detailSheetRef.current?.present();
     },
     [inspector]
   );
 
-  const handleSheetDismiss = useCallback(() => {
-    void inspector.commitSelection(null);
+  const handleSheetDismiss = useCallback(async () => {
+    if (await inspector.commitSelection(null)) setSelectedPath([]);
+    else detailSheetRef.current?.present();
   }, [inspector]);
 
   const handleSheetUnlink = useCallback(async () => {
-    await inspector.unlinkSelected();
+    if (!(await inspector.unlinkSelected())) return;
     detailSheetRef.current?.dismiss();
   }, [inspector]);
 
@@ -553,11 +554,11 @@ export function BuildDetailBody(props: Props) {
     setFocalOpen(true);
   }, []);
 
-  const openSelectedElement = useCallback(() => {
-    if (!inspector.selected?.nodeId) return;
+  const openSelectedElement = useCallback(async () => {
+    if (!inspector.selected?.nodeId || !(await inspector.flushSave())) return;
     detailSheetRef.current?.dismiss();
     router.push(APP_HREF.element(inspector.selected.nodeId as string));
-  }, [inspector.selected?.nodeId, router]);
+  }, [inspector, router]);
 
   const openQuickCreate = useCallback(
     (type: "element" | "material", parentId?: Id<"cosplayNodes"> | null) => {
@@ -570,12 +571,12 @@ export function BuildDetailBody(props: Props) {
   );
 
   const openQuickCreateFromSheet = useCallback(
-    (type: "element" | "material") => {
-      if (!inspector.selected?.nodeId) return;
+    async (type: "element" | "material") => {
+      if (!inspector.selected?.nodeId || !(await inspector.flushSave())) return;
       detailSheetRef.current?.dismiss();
       openQuickCreate(type, inspector.selected.nodeId);
     },
-    [inspector.selected?.nodeId, openQuickCreate]
+    [inspector, openQuickCreate]
   );
 
   const openChildFromSheet = useCallback(
@@ -1412,9 +1413,8 @@ export function BuildDetailBody(props: Props) {
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Pressable
-                    onPress={() => {
-                      setSelectedPath([]);
-                      void inspector.commitSelection(null);
+                    onPress={async () => {
+                      if (await inspector.commitSelection(null)) setSelectedPath([]);
                     }}
                     style={{ minHeight: 28, justifyContent: "center" }}
                   >
@@ -1772,7 +1772,7 @@ export function BuildDetailBody(props: Props) {
         inspectorForm={inspector.inspectorForm}
         persistStatus={inspector.persistStatus}
         onFormChange={inspector.setInspectorForm}
-        onFlushSave={() => void inspector.flushSave()}
+        onFlushSave={inspector.flushSave}
         onCreateChild={openQuickCreateFromSheet}
         onOpenDetail={openSelectedElement}
         onSelectChild={openChildFromSheet}

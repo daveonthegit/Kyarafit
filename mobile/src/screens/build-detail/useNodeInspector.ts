@@ -116,11 +116,11 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
       ? Math.round(Number(form.directCostDollars) * 100)
       : null;
     const directOk = form.directCostDollars.trim() === "" || !Number.isNaN(directParsed as number);
-    const directCents = directOk ? directParsed : detail.directCostCents;
     return (
+      directOk &&
       form.name.trim() === detail.name &&
       (form.notes.trim() || null) === (detail.notes ?? null) &&
-      directCents === (detail.directCostCents ?? null) &&
+      directParsed === (detail.directCostCents ?? null) &&
       (detail.nodeType === "element"
         ? form.elementCombinedStatus ===
           elementCombinedFromDb(detail.purchaseStatus, detail.buildStatus)
@@ -128,20 +128,21 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
     );
   }, []);
 
-  const flushSave = useCallback(async (): Promise<void> => {
+  const flushSave = useCallback(async (): Promise<boolean> => {
+    if (!selected) return true;
     const detail = selectedDetailRef.current;
-    if (!userId || !detail) return;
+    if (!userId || !detail || detail._id !== selected.nodeId) return false;
     const form = inspectorFormRef.current;
     const name = form.name.trim();
-    if (!name) return;
+    if (!name) return false;
     if (formMatchesDetail(form, detail)) {
       setPersistStatus("saved");
-      return;
+      return true;
     }
     const directParsed = form.directCostDollars.trim()
       ? Math.round(Number(form.directCostDollars) * 100)
       : null;
-    if (form.directCostDollars.trim() !== "" && Number.isNaN(directParsed as number)) return;
+    if (form.directCostDollars.trim() !== "" && Number.isNaN(directParsed as number)) return false;
 
     setPersistStatus("saving");
     try {
@@ -158,10 +159,12 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
         materialStatus: detail.nodeType === "material" ? form.materialStatus : null,
       });
       setPersistStatus("saved");
+      return true;
     } catch {
       setPersistStatus("error");
+      return false;
     }
-  }, [userId, updateNode, formMatchesDetail]);
+  }, [selected, userId, updateNode, formMatchesDetail]);
 
   const flushSaveRef = useRef(flushSave);
   flushSaveRef.current = flushSave;
@@ -171,8 +174,9 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
       clearTimeout(persistDebounceRef.current);
       persistDebounceRef.current = null;
     }
-    await flushSaveRef.current();
+    if (!(await flushSaveRef.current())) return false;
     setSelected(meta);
+    return true;
   }, []);
 
   useEffect(() => {
@@ -210,16 +214,22 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
       clearTimeout(persistDebounceRef.current);
       persistDebounceRef.current = null;
     }
-    await flushSaveRef.current();
-    if (!userId || !selected) return;
-    if (selected.isRoot) {
-      await removeNodeFromBuild({ userId, buildId, cosplayNodeId: selected.nodeId });
-    } else {
-      const linkId = selected.siblingLinkIds?.[selected.siblingIndex ?? -1];
-      if (!linkId) return;
-      await removeChildLink({ userId, id: linkId });
+    if (!(await flushSaveRef.current())) return false;
+    if (!userId || !selected) return false;
+    try {
+      if (selected.isRoot) {
+        await removeNodeFromBuild({ userId, buildId, cosplayNodeId: selected.nodeId });
+      } else {
+        const linkId = selected.siblingLinkIds?.[selected.siblingIndex ?? -1];
+        if (!linkId) return false;
+        await removeChildLink({ userId, id: linkId });
+      }
+      setSelected(null);
+      return true;
+    } catch {
+      setPersistStatus("error");
+      return false;
     }
-    setSelected(null);
   }, [userId, selected, buildId, removeNodeFromBuild, removeChildLink]);
 
   return {
