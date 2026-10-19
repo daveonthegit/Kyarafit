@@ -592,12 +592,25 @@ export class VaultStore {
         (candidate): candidate is string => !!candidate && exists(row.table, candidate)
       );
       target ??= byClientId(row.table, row.id) ?? undefined;
-      if (target && target !== row.id) alias.set(row.id, target);
+      if (target && target !== row.id) {
+        alias.set(row.id, target);
+        if (row.id.startsWith(LOCAL_ID_PREFIX) !== target.startsWith(LOCAL_ID_PREFIX)) {
+          const clientId = row.id.startsWith(LOCAL_ID_PREFIX) ? row.id : target;
+          const serverId = row.id.startsWith(LOCAL_ID_PREFIX) ? target : row.id;
+          this.sql.runSync(
+            `INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, ?)
+             ON CONFLICT(client_id) DO UPDATE SET
+               server_id = excluded.server_id, synced_at = excluded.synced_at`,
+            [clientId, serverId, this.now()]
+          );
+        }
+      }
     }
     if (alias.size === 0) return [...rows];
 
     const rewrite = (value: unknown, key?: string): unknown => {
       if (typeof value === "string") {
+        if (key === "clientId") return value;
         const direct = alias.get(value);
         if (direct) return direct;
         // Composite keys embed ids as `kind:id` segments (e.g. entityKey "cosplayNode:<id>").
@@ -709,9 +722,9 @@ export class VaultStore {
     const changedParents = new Map<string, Map<string, unknown>>();
     const now = this.now();
     const known = new Set<string>(VAULT_TABLES);
-    const incoming = this.reconcileImportIds(rows);
     try {
       this.sql.withTransactionSync(() => {
+        const incoming = this.reconcileImportIds(rows);
         for (const row of incoming) {
           if (!known.has(row.table)) {
             result.unknown += 1;
@@ -727,6 +740,7 @@ export class VaultStore {
             [row.table, row.id]
           );
           const local = existing && !existing.deleted ? parseStoredDoc(existing.json) : null;
+          if (typeof local?.clientId === "string") doc.clientId = local.clientId;
           if (existing && !existing.deleted) {
             const localUpdatedAt = typeof local?.updatedAt === "number" ? local.updatedAt : 0;
             const incoming = typeof doc.updatedAt === "number" ? doc.updatedAt : 0;

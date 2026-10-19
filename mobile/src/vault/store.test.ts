@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
 import { makeTestVault } from "@/test-support/vaultHarness";
 import { VaultStore, VaultWriteError } from "./store";
+import { VAULT_TABLES } from "./indexes";
 
 describe("VaultStore", () => {
   it("commits inserts durably and serves them through Convex-shaped queries", () => {
@@ -142,6 +143,129 @@ describe("VaultStore", () => {
         .collect()
         .map((c) => c.name)
     ).toEqual(["Expo"]);
+  });
+
+  it.each(VAULT_TABLES)(
+    "retains %s client identity across repeated newer local-id restores",
+    (table) => {
+      const { store, sql, subject } = makeTestVault();
+      store.importRows(
+        [
+          {
+            table,
+            id: "server-A",
+            doc: {
+              clientId: "local:A",
+              updatedAt: 1,
+              name: "Original",
+            },
+          },
+        ],
+        subject
+      );
+      const backup = [{ table, id: "local:A", doc: { updatedAt: 2, name: "Restored" } }];
+      expect(store.importRows(backup, subject)).toMatchObject({
+        inserted: 0,
+        updated: table === "vaultSettings" ? 0 : 1,
+      });
+      expect(store.importRows(backup, subject)).toMatchObject({
+        inserted: 0,
+        updated: 0,
+        skipped: 1,
+      });
+      expect(store.reader().query(table).collect()).toMatchObject([
+        {
+          _id: "server-A",
+          clientId: "local:A",
+          name: table === "vaultSettings" ? "Original" : "Restored",
+        },
+      ]);
+      expect(sql.getAllSync("SELECT client_id, server_id FROM id_map")).toEqual([
+        { client_id: "local:A", server_id: "server-A" },
+      ]);
+      store.importRows(
+        [{ table, id: "server-A", doc: { updatedAt: 3, name: "Same-id update" } }],
+        subject
+      );
+      expect(store.reader().get("server-A")?.clientId).toBe("local:A");
+    }
+  );
+
+  it.each(["local-to-server", "server-to-local"])(
+    "preserves incoming client identity and records %s aliases even when local data wins",
+    (direction) => {
+      const { store, sql, subject } = makeTestVault();
+      const destination = direction === "local-to-server" ? "server-A" : "local:A";
+      const incoming = direction === "local-to-server" ? "local:A" : "server-A";
+      store.importRows([{ table: "builds", id: destination, doc: { updatedAt: 1 } }], subject);
+      if (direction === "local-to-server") {
+        sql.runSync("INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, 1)", [
+          "local:A",
+          "server-A",
+        ]);
+      }
+      const backup = [
+        { table: "builds", id: incoming, doc: { clientId: "local:A", updatedAt: 2 } },
+      ];
+      store.importRows(backup, subject);
+      expect(store.reader().get(destination)?.clientId).toBe("local:A");
+      expect(store.importRows(backup, subject)).toMatchObject({ inserted: 0, skipped: 1 });
+      sql.runSync("DELETE FROM id_map");
+      expect(
+        store.importRows(
+          [
+            {
+              table: "builds",
+              id: incoming,
+              doc: {
+                clientId: "local:A",
+                updatedAt: 1,
+              },
+            },
+          ],
+          subject
+        )
+      ).toMatchObject({ inserted: 0, skipped: 1 });
+      expect(store.reader().query("builds").collect()).toHaveLength(1);
+      expect(sql.getAllSync("SELECT client_id, server_id FROM id_map")).toEqual([
+        { client_id: "local:A", server_id: "server-A" },
+      ]);
+      expect(store.reader().get(destination)?.updatedAt).toBe(2);
+    }
+  );
+
+  it("rolls back discovered identity mappings when importing their rows fails", () => {
+    const { store, sql, subject } = makeTestVault();
+    store.importRows(
+      [
+        {
+          table: "builds",
+          id: "server-A",
+          doc: {
+            clientId: "local:A",
+            updatedAt: 1,
+          },
+        },
+      ],
+      subject
+    );
+    sql.failNextWrite = (source) => source.includes("INSERT INTO entity_rows");
+    expect(() =>
+      store.importRows(
+        [
+          {
+            table: "builds",
+            id: "local:A",
+            doc: {
+              updatedAt: 2,
+            },
+          },
+        ],
+        subject
+      )
+    ).toThrow(VaultWriteError);
+    expect(sql.getAllSync("SELECT * FROM id_map")).toEqual([]);
+    expect(store.reader().get("server-A")).toMatchObject({ clientId: "local:A", updatedAt: 1 });
   });
 
   it("validation errors from the task propagate unchanged and write nothing", () => {
