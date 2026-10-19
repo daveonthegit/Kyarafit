@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useConvex } from "convex/react";
 import {
   getFunctionName,
@@ -15,6 +15,7 @@ import { newClientId } from "./clientId";
 import { isCreateMutation } from "./offlineCreateMutations";
 import { overlayWritesFor } from "./offlineEntityWrites";
 import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
+import { readLocalAccount } from "@/lib/auth/localAccount";
 
 /**
  * Offline-aware drop-in for Convex `useMutation`. The web mirror of mobile's `useOfflineMutation`.
@@ -30,57 +31,75 @@ import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
  * - **Online-only mutations** (e.g. `files:generateUploadUrl`) are never queued: they always call
  *   Convex directly, so offline they fail exactly like a plain Convex call.
  *
+ * Every returned callback is bound to the local account that was active when it was created: a
+ * retained callback (a pending import, a slow create) invoked after a different account signed in
+ * rejects instead of writing the first account's data under the second account's session or store.
+ *
  * This is the BRIDGE — the designated online path that is allowed to import `convex/react`.
  */
+export class AccountChangedError extends Error {
+  constructor() {
+    super("The active account changed. Reopen this screen and try again.");
+    this.name = "AccountChangedError";
+  }
+}
+
+const getSubjectSnapshot = () => offlineRuntime.getSubject();
 export function useOfflineMutation<Mutation extends FunctionReference<"mutation">>(
   mutation: Mutation
 ): (...args: OptionalRestArgs<Mutation>) => Promise<FunctionReturnType<Mutation>> {
   const convex = useConvex();
+  const subject = useSyncExternalStore(offlineRuntime.subscribe, getSubjectSnapshot, () => null);
   return useCallback(
-    async (...args: OptionalRestArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
-      let name: string | null = null;
-      try {
-        name = getFunctionName(mutation);
-      } catch {
-        name = null;
-      }
-
-      if (getIsOnline() || (name != null && isOnlineOnlyMutation(name))) {
-        return convex.mutation(mutation, ...args);
-      }
-
-      if (name != null) {
+    (...args: OptionalRestArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
+      const command = (async (): Promise<FunctionReturnType<Mutation>> => {
+        if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
+          throw new AccountChangedError();
+        }
+        let name: string | null = null;
         try {
+          name = getFunctionName(mutation);
+        } catch {
+          name = null;
+        }
+
+        if (name !== "files:generateUploadUrl") {
+          await offlineRuntime.assertPersonalWritesAllowed();
+          if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
+            throw new AccountChangedError();
+          }
+        }
+
+        if (getIsOnline() || (name != null && isOnlineOnlyMutation(name))) {
+          return convex.mutation(mutation, ...args);
+        }
+
+        if (name != null) {
           const isCreate = isCreateMutation(name);
           const clientId = isCreate ? newClientId() : undefined;
-          await offlineRuntime.enqueueMutation(name, args[0], newIdempotencyKey(), clientId);
-
-          // Optimistic visibility: mirror the write into the overlay so registered list/detail
-          // queries reflect it immediately (cleared by the sync worker once it replays).
-          const writes = overlayWritesFor(name, args[0], clientId);
-          if (writes.length) {
-            const userId = String((args[0] as Record<string, unknown> | undefined)?.userId ?? "");
-            for (const write of writes) {
-              offlineRuntime.writeEntityOverlay(
-                write.table,
-                write.id,
-                userId,
-                write.doc,
-                write.deleted
-              );
-            }
-          }
+          await offlineRuntime.commitCommand(
+            {
+              fn: name,
+              argsJson: JSON.stringify(args[0] ?? {}),
+              idempotencyKey: newIdempotencyKey(),
+              clientId: clientId ?? null,
+            },
+            overlayWritesFor(name, args[0], clientId)
+          );
 
           if (isCreate && clientId) {
             const input = (args[0] ?? {}) as Record<string, unknown>;
-            return { ...input, _id: clientId } as FunctionReturnType<Mutation>;
+            return {
+              ...input,
+              _id: clientId,
+            } as FunctionReturnType<Mutation>;
           }
-        } catch {
-          // Best-effort enqueue; ignore.
         }
-      }
-      return undefined as FunctionReturnType<Mutation>;
+        return undefined as FunctionReturnType<Mutation>;
+      })();
+      void command.catch(() => undefined);
+      return command;
     },
-    [convex, mutation]
+    [convex, mutation, subject]
   );
 }

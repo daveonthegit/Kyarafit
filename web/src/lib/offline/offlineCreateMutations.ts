@@ -19,6 +19,7 @@
 const CREATE_MUTATIONS = new Set<string>([
   "builds:create",
   "conventions:create",
+  "conventions:addManualPackingItem",
   "workflow:create",
   "buildProgressUpdates:add",
   "buildReferenceImages:add",

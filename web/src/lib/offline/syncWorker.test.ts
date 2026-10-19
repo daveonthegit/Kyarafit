@@ -45,7 +45,7 @@ function fakeClientReturningAllTables(): ConvexReactClient {
 }
 
 beforeEach(() => {
-  offlineRuntime.setStore(new InMemoryLocalStore());
+  offlineRuntime.setStore(new InMemoryLocalStore(), "user_1");
   setOfflineConnectivity(true);
 });
 
@@ -267,7 +267,7 @@ describe("uploadLocalImages (REQ-D71)", () => {
 
 describe("runBackfill (REQ-D95 upgrade backfill trigger)", () => {
   function seedPendingBuilds(): void {
-    offlineRuntime.setStore(new InMemoryLocalStore());
+    offlineRuntime.setStore(new InMemoryLocalStore(), "user_1");
     offlineRuntime.writeEntityOverlay(
       "builds",
       "local:b1",

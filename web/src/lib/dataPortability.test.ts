@@ -1,141 +1,259 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { importBundle, type ExportableRow } from "@kyarafit/design-system/domain/importExport";
 import {
   buildDataBundle,
   countRows,
   emptyCollections,
   MalformedBundleError,
+  NonEmptyVaultError,
   parseDataBundle,
   PORTABLE_COLLECTIONS,
   runImport,
   summarizeTotals,
   toExportableRows,
-  type CreateRowFn,
   type PortableCollections,
 } from "./dataPortability";
 
-// Spec: PRODUCT_SPEC.md §4.9 (REQ-012/095/096) + DATA_AND_SYNC.md §11 (REQ-D100/101/102). Export and
-// import are FREE; bundles round-trip faithfully and re-importing is idempotent.
-
-function sampleCollections(): PortableCollections {
+function backup(): PortableCollections {
   return {
     ...emptyCollections(),
-    builds: [
-      { id: "b1", name: "Aerith", status: "wip" },
-      { id: "b2", name: "Cloud", status: "idea" },
+    builds: [{ id: "b", name: "Build" }],
+    conventions: [{ id: "c", name: "Convention" }],
+    cosplayNodes: [
+      { id: "m", name: "Material", nodeType: "material", parentNodeId: "n" },
+      { id: "n", name: "Element", nodeType: "element", buildId: "b", purchaseStatus: "to_buy" },
     ],
-    conventions: [{ id: "c1", name: "AnimeExpo", startDate: "2026-07-01", endDate: "2026-07-04" }],
+    packingListItems: [{ id: "p", conventionId: "c", buildId: "b", workflowItemId: "pack-task" }],
+    workflowItems: [
+      { id: "group", title: "Group", kind: "group" },
+      {
+        id: "buy",
+        title: "Buy element",
+        parentId: "group",
+        status: "done",
+        dedupeKey: "autogen:buy:shared:n",
+        attachments: [
+          {
+            entityType: "cosplayNode",
+            entityId: "n",
+            role: "progress_source",
+            buildContextId: "b",
+          },
+        ],
+      },
+      {
+        id: "pack-task",
+        title: "Pack",
+        parentId: "buy",
+        dedupeKey: "packing:p",
+        attachments: [
+          { entityType: "packingItem", entityId: "p", role: "primary" },
+          { entityType: "convention", entityId: "c", role: "context" },
+          { entityType: "build", entityId: "b", role: "context" },
+        ],
+      },
+    ],
   };
 }
 
-describe("toExportableRows", () => {
-  it("maps Convex _id to a portable id while preserving other fields", () => {
-    const rows = toExportableRows([{ _id: "x1", name: "Tifa", budgetCents: 5000 }]);
-    expect(rows).toEqual([{ _id: "x1", id: "x1", name: "Tifa", budgetCents: 5000 }]);
+describe("portable archive", () => {
+  it("exports all collections and preserves element-generated task relationships", () => {
+    const input = backup();
+    const serialized = buildDataBundle(input, 0);
+    expect(parseDataBundle(serialized)).toEqual(input);
+    const wrapper = JSON.parse(serialized) as { collections: Record<string, string> };
+    for (const key of PORTABLE_COLLECTIONS)
+      expect(importBundle(wrapper.collections[key])).toEqual(input[key]);
+    expect(countRows(input)).toBe(8);
+    expect(countRows(emptyCollections())).toBe(0);
   });
 
-  it("passes through rows that already carry a string id", () => {
-    const rows = toExportableRows([{ id: "k1", name: "Yuffie" }]);
-    expect(rows[0].id).toBe("k1");
-  });
-});
-
-describe("buildDataBundle / parseDataBundle round-trip (REQ-D102)", () => {
-  it("reproduces every collection without loss", () => {
-    const collections = sampleCollections();
-    const serialized = buildDataBundle(collections, Date.parse("2026-06-17T00:00:00.000Z"));
-    const parsed = parseDataBundle(serialized);
-    expect(parsed).toEqual(collections);
-  });
-
-  it("records a wrapper version, bundle version, and ISO export timestamp", () => {
-    const serialized = buildDataBundle(emptyCollections(), Date.parse("2026-06-17T12:00:00.000Z"));
-    const wrapper = JSON.parse(serialized) as {
+  it("records the wrapper version, bundle version, and export timestamp", () => {
+    const wrapper = JSON.parse(buildDataBundle(emptyCollections(), 0)) as {
       version: number;
       bundleVersion: number;
       exportedAt: string;
-      collections: Record<string, string>;
     };
     expect(wrapper.version).toBe(1);
     expect(wrapper.bundleVersion).toBe(1);
-    expect(wrapper.exportedAt).toBe("2026-06-17T12:00:00.000Z");
-    // Each collection is itself a serialized exportBundle string.
-    for (const key of PORTABLE_COLLECTIONS) {
-      expect(importBundle(wrapper.collections[key])).toEqual([]);
+    expect(wrapper.exportedAt).toBe("1970-01-01T00:00:00.000Z");
+  });
+
+  it("converts document identities without dropping fields", () => {
+    expect(toExportableRows([{ _id: "node", name: "Wig" }])).toEqual([
+      { _id: "node", id: "node", name: "Wig" },
+    ]);
+  });
+
+  it("preserves rows that already use portable IDs", () => {
+    expect(toExportableRows([{ id: "portable", name: "Wig" }])).toEqual([
+      { id: "portable", name: "Wig" },
+    ]);
+  });
+
+  it.each([
+    "not json",
+    "{}",
+    JSON.stringify({ version: 1, bundleVersion: 1, collections: { builds: "broken" } }),
+    JSON.stringify({
+      version: 1,
+      bundleVersion: 1,
+      collections: {
+        builds: JSON.stringify({ version: 1, rows: [{ name: "missing ID" }] }),
+      },
+    }),
+  ])("rejects malformed archives", (input) =>
+    expect(() => parseDataBundle(input)).toThrow(MalformedBundleError)
+  );
+});
+
+describe("empty-vault restore", () => {
+  it.each(PORTABLE_COLLECTIONS)(
+    "refuses existing %s rows without writing anything",
+    async (key) => {
+      const existing = emptyCollections();
+      existing[key] = [{ id: "existing" }];
+      const createRow = vi.fn();
+      await expect(runImport({ imported: backup(), existing, createRow })).rejects.toThrow(
+        NonEmptyVaultError
+      );
+      expect(createRow).not.toHaveBeenCalled();
     }
-  });
-});
+  );
 
-describe("countRows", () => {
-  it("sums rows across all collections", () => {
-    expect(countRows(sampleCollections())).toBe(3);
-    expect(countRows(emptyCollections())).toBe(0);
-  });
-});
-
-describe("parseDataBundle error handling (REQ-D101, graceful failure)", () => {
-  it("throws a MalformedBundleError for non-JSON input", () => {
-    expect(() => parseDataBundle("not json {")).toThrow(MalformedBundleError);
-  });
-
-  it("throws a MalformedBundleError when the bundle shape is wrong", () => {
-    expect(() => parseDataBundle(JSON.stringify({ nope: true }))).toThrow(MalformedBundleError);
-  });
-
-  it("throws a MalformedBundleError when a collection section is malformed", () => {
-    const bad = JSON.stringify({ collections: { builds: "{not a bundle" } });
-    expect(() => parseDataBundle(bad)).toThrow(MalformedBundleError);
-  });
-
-  it("throws a MalformedBundleError when a row is missing a string id", () => {
-    const bad = JSON.stringify({
-      collections: { builds: JSON.stringify({ version: 1, rows: [{ name: "no id" }] }) },
-    });
-    expect(() => parseDataBundle(bad)).toThrow(MalformedBundleError);
-  });
-});
-
-describe("runImport idempotency (REQ-D101)", () => {
-  it("creates missing rows once and never duplicates on re-import", async () => {
-    const store: PortableCollections = emptyCollections();
-    const createRow: CreateRowFn = vi.fn(
-      (collection: keyof PortableCollections, row: ExportableRow) => {
-        store[collection].push(row);
-      }
-    );
-
-    const bundle = buildDataBundle(sampleCollections());
-    const imported = parseDataBundle(bundle);
-
-    const first = await runImport({ imported, existing: store, createRow });
-    expect(summarizeTotals(first)).toEqual({ added: 3, skipped: 0 });
-    expect(createRow).toHaveBeenCalledTimes(3);
-
-    // Re-import the identical bundle against the now-populated store: nothing is created.
-    const callsAfterFirst = (createRow as ReturnType<typeof vi.fn>).mock.calls.length;
-    const second = await runImport({ imported, existing: store, createRow });
-    expect(summarizeTotals(second)).toEqual({ added: 0, skipped: 3 });
-    expect(createRow).toHaveBeenCalledTimes(callsAfterFirst);
-  });
-
-  it("only creates rows whose ids are not already present", async () => {
-    const existing: PortableCollections = {
-      ...emptyCollections(),
-      builds: [{ id: "b1", name: "Aerith" }],
-    };
-    const imported: PortableCollections = {
-      ...emptyCollections(),
-      builds: [
-        { id: "b1", name: "Aerith" },
-        { id: "b3", name: "Tifa" },
+  it("restores the complete archive and updates generated tasks rather than duplicating them", async () => {
+    const calls: { collection: string; row: ExportableRow; existingId?: string }[] = [];
+    const summary = await runImport({
+      imported: parseDataBundle(buildDataBundle(backup())),
+      existing: emptyCollections(),
+      generatedWorkflow: async () => [
+        { id: "generated-buy", dedupeKey: "autogen:buy:shared:new:n" },
       ],
-    };
-    const created: string[] = [];
-    const createRow: CreateRowFn = (_collection, row) => {
-      created.push(row.id);
-    };
-    const summary = await runImport({ imported, existing, createRow });
-    expect(created).toEqual(["b3"]);
-    expect(summary.builds).toEqual({ added: 1, skipped: 1 });
+      createRow: (collection, row, existingId) => {
+        calls.push({ collection, row, existingId });
+        if (collection === "packingListItems")
+          return { _id: "new:p", workflowItemId: "generated-pack" };
+        return existingId ?? `new:${row.id}`;
+      },
+    });
+    expect(summarizeTotals(summary)).toEqual({ added: 8, skipped: 0 });
+    expect(calls.map(({ row }) => row.id)).toEqual([
+      "b",
+      "c",
+      "n",
+      "m",
+      "p",
+      "group",
+      "buy",
+      "pack-task",
+    ]);
+    expect(calls.find(({ row }) => row.id === "m")?.row.parentNodeId).toBe("new:n");
+    expect(calls.find(({ row }) => row.id === "n")?.row.buildId).toBe("new:b");
+    expect(calls.find(({ row }) => row.id === "buy")).toMatchObject({
+      existingId: "generated-buy",
+      row: {
+        parentId: "new:group",
+        status: "done",
+        dedupeKey: "autogen:buy:shared:new:n",
+        attachments: [
+          {
+            entityType: "cosplayNode",
+            entityId: "new:n",
+            role: "progress_source",
+            buildContextId: "new:b",
+          },
+        ],
+      },
+    });
+    expect(calls.find(({ row }) => row.id === "pack-task")).toMatchObject({
+      existingId: "generated-pack",
+      row: {
+        parentId: "generated-buy",
+        dedupeKey: "packing:new:p",
+        attachments: [
+          { entityType: "packingItem", entityId: "new:p" },
+          { entityType: "convention", entityId: "new:c" },
+          { entityType: "build", entityId: "new:b" },
+        ],
+      },
+    });
+  });
+
+  it("matches shared and build-scoped generated buy/work identities independently", async () => {
+    const matched: (string | undefined)[] = [];
+    await runImport({
+      imported: {
+        ...emptyCollections(),
+        builds: [{ id: "b" }],
+        cosplayNodes: [{ id: "n", nodeType: "element", buildId: "b" }],
+        workflowItems: [
+          { id: "shared-buy", dedupeKey: "autogen:buy:shared:n" },
+          { id: "build-buy", dedupeKey: "autogen:buy:b:n" },
+          { id: "work", dedupeKey: "autogen:wip:b:n", parentId: "shared-buy" },
+        ],
+      },
+      existing: emptyCollections(),
+      generatedWorkflow: async () => [
+        { id: "generated-shared-buy", dedupeKey: "autogen:buy:shared:new:n" },
+        { id: "generated-build-buy", dedupeKey: "autogen:buy:new:b:new:n" },
+        { id: "generated-work", dedupeKey: "autogen:wip:shared:new:n" },
+      ],
+      createRow: (key, row, id) => {
+        if (key !== "workflowItems") return `new:${row.id}`;
+        matched.push(id);
+        if (row.id === "work") expect(row.parentId).toBe("generated-shared-buy");
+        return id;
+      },
+    });
+    expect(matched).toEqual(["generated-shared-buy", "generated-build-buy", "generated-work"]);
+  });
+
+  it.each([
+    { attachments: [{ entityType: "cosplayNode", entityId: "missing" }] },
+    { attachments: [{ entityType: "cosplayNode", entityId: "b" }] },
+    { attachments: [{ entityType: "unsupported", entityId: "b" }] },
+    { attachments: [{ entityType: "build" }] },
+    { attachments: "invalid" },
+    { dueDate: "not-a-date" },
+    { parentId: "task" },
+    { parentId: "missing" },
+    { notes: "x".repeat(10_001) },
+  ])("validates the whole archive before any create", async (fields) => {
+    const createRow = vi.fn();
+    await expect(
+      runImport({
+        imported: {
+          ...emptyCollections(),
+          builds: [{ id: "b" }],
+          workflowItems: [{ id: "task", ...fields }],
+        },
+        existing: emptyCollections(),
+        createRow,
+      })
+    ).rejects.toThrow(MalformedBundleError);
+    expect(createRow).not.toHaveBeenCalled();
+  });
+
+  it.each(["cycle", "type"])("rejects invalid element parents: %s", async (kind) => {
+    const createRow = vi.fn();
+    await expect(
+      runImport({
+        imported: {
+          ...emptyCollections(),
+          builds: [{ id: "b" }],
+          cosplayNodes: [
+            {
+              id: "parent",
+              nodeType: kind === "type" ? "material" : "element",
+              parentNodeId: kind === "cycle" ? "child" : undefined,
+            },
+            { id: "child", nodeType: "element", parentNodeId: "parent" },
+          ],
+        },
+        existing: emptyCollections(),
+        createRow,
+      })
+    ).rejects.toThrow(MalformedBundleError);
+    expect(createRow).not.toHaveBeenCalled();
   });
 });

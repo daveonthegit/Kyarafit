@@ -17,6 +17,13 @@ import type {
   StoredQueryCache,
 } from "./localStore";
 
+import {
+  RESTORE_SESSION_KEY,
+  RestoreInProgressError,
+  isPersonalTable,
+  type EntityWriteOptions,
+} from "./restoreState";
+
 const DB_NAME = "kyarafit-offline";
 const DB_VERSION = 1;
 
@@ -40,11 +47,12 @@ interface MutationQueueRecord {
 }
 
 export class IndexedDbLocalStore implements LocalStore {
+  constructor(private readonly name = DB_NAME) {}
   private dbPromise: Promise<IDBPDatabase> | null = null;
 
   private db(): Promise<IDBPDatabase> {
     if (!this.dbPromise) {
-      this.dbPromise = openDB(DB_NAME, DB_VERSION, {
+      this.dbPromise = openDB(this.name, DB_VERSION, {
         upgrade(database) {
           if (!database.objectStoreNames.contains(QUERY_CACHE)) {
             database.createObjectStore(QUERY_CACHE, { keyPath: "key" });
@@ -86,9 +94,25 @@ export class IndexedDbLocalStore implements LocalStore {
     await db.put(QUERY_CACHE, { key, payload_json: payloadJson, fetched_at: Date.now() });
   }
 
-  async putEntityRow(row: StoredEntityRow): Promise<void> {
+  async putEntityRow(row: StoredEntityRow, options?: EntityWriteOptions): Promise<void> {
     const db = await this.db();
-    await db.put(ENTITY_ROWS, { ...row });
+    const tx = db.transaction([ENTITY_ROWS, SYNC_META], "readwrite");
+    try {
+      if (!options?.restore && isPersonalTable(row.table)) {
+        const session = await tx.objectStore(SYNC_META).get(RESTORE_SESSION_KEY);
+        if (session?.value) throw new RestoreInProgressError();
+      }
+      await tx.objectStore(ENTITY_ROWS).put({ ...row });
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch (abortError) {
+        void abortError;
+      }
+      await tx.done.catch(() => undefined);
+      throw error;
+    }
   }
 
   async deleteEntityRow(table: string, id: string): Promise<void> {
@@ -102,23 +126,39 @@ export class IndexedDbLocalStore implements LocalStore {
   }
 
   async enqueueMutation(input: EnqueueMutationInput): Promise<void> {
+    await this.commitCommand(input, []);
+  }
+
+  async commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void> {
     const db = await this.db();
-    const tx = db.transaction(MUTATION_QUEUE, "readwrite");
-    const index = tx.store.index("idempotency_key");
-    const existing = await index.getKey(input.idempotencyKey);
-    if (existing === undefined) {
-      const record: MutationQueueRecord = {
-        idempotency_key: input.idempotencyKey,
-        fn: input.fn,
-        args_json: input.argsJson,
-        retry_count: 0,
-        client_id: input.clientId,
-        status: "pending",
-        created_at: Date.now(),
-      };
-      await tx.store.add(record);
+    const tx = db.transaction([MUTATION_QUEUE, ENTITY_ROWS, SYNC_META], "readwrite");
+    try {
+      const session = await tx.objectStore(SYNC_META).get(RESTORE_SESSION_KEY);
+      if (session?.value) throw new RestoreInProgressError();
+      const queue = tx.objectStore(MUTATION_QUEUE);
+      const existing = await queue.index("idempotency_key").getKey(input.idempotencyKey);
+      if (existing === undefined) {
+        await queue.add({
+          idempotency_key: input.idempotencyKey,
+          fn: input.fn,
+          args_json: input.argsJson,
+          retry_count: 0,
+          client_id: input.clientId,
+          status: "pending",
+          created_at: Date.now(),
+        });
+        for (const row of rows) await tx.objectStore(ENTITY_ROWS).put({ ...row });
+      }
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch (abortError) {
+        void abortError;
+      }
+      await tx.done.catch(() => undefined);
+      throw error;
     }
-    await tx.done;
   }
 
   async listPendingMutations(limit = 100): Promise<PendingMutation[]> {

@@ -166,6 +166,8 @@ export default function BuildsPage() {
         status,
       });
       clearSelection();
+    } catch (error) {
+      console.error("Build status change failed", error);
     } finally {
       setActionPending(false);
     }
@@ -196,6 +198,8 @@ export default function BuildsPage() {
         setDeletedForUndo(null);
         undoTimeoutRef.current = null;
       }, UNDO_WINDOW_MS);
+    } catch (error) {
+      console.error("Build deletion failed", error);
     } finally {
       setActionPending(false);
     }
@@ -223,6 +227,8 @@ export default function BuildsPage() {
         });
       }
       setDeletedForUndo(null);
+    } catch (error) {
+      console.error("Build restoration failed", error);
     } finally {
       setActionPending(false);
     }

@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import { authClient } from "@/lib/auth/auth-client";
 import { api } from "convex/_generated/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { readLocalAccount } from "@/lib/auth/localAccount";
 
 const PUBLIC_PATHS = [
   "/",
@@ -35,6 +37,7 @@ const MIRROR_RETRY_DELAYS_MS = [250, 750, 2000, 5000];
 
 function ProtectedAuthGate({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
+  const { userId: localAccountId } = useCurrentUser();
   const pathname = usePathname();
   const router = useRouter();
   const upsertUser = useMutation(api.users.upsert);
@@ -100,10 +103,10 @@ function ProtectedAuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isPending) return;
-    if (!session) {
+    if (!session && !localAccountId && !readLocalAccount()) {
       router.replace("/auth/signin");
     }
-  }, [session, isPending, pathname, router]);
+  }, [session, isPending, pathname, router, localAccountId]);
 
   return <>{children}</>;
 }

@@ -123,13 +123,13 @@ running app** — it does not stub Convex or Better Auth — so use only an expl
 
 ### Specs
 
-| Spec                                 | Flow                                                      | Runs without auth?                              |
-| ------------------------------------ | --------------------------------------------------------- | ----------------------------------------------- |
-| `smoke.spec.ts`                      | landing loads, sign-in form, protected-route redirect     | **Yes** (only needs the app running)            |
-| `offline-crud.spec.ts`               | create a build offline → persists across reload           | No — skips without auth env                     |
-| `export-import.spec.ts`              | export bundle → re-import idempotently (`/settings/data`) | No — skips without auth env                     |
-| `upgrade-backfill.spec.ts`           | "Backing up your library… N/M" indicator (paid)           | No — skips without auth + `E2E_PAID_BACKFILL`   |
-| `downgrade-retention-banner.spec.ts` | cloud-retention banner for a downgraded user              | No — skips without auth + `E2E_DOWNGRADED_USER` |
+| Spec                                 | Flow                                                                                                        | Runs without auth?                              |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `smoke.spec.ts`                      | landing loads, sign-in form, protected-route redirect                                                       | **Yes** (only needs the app running)            |
+| `offline-crud.spec.ts`               | create a build offline → persists across reload                                                             | No — skips without auth env                     |
+| `export-import.spec.ts`              | Legacy same-vault re-import scenario; see [current restore contract](DATA_AND_SYNC.md#current-web-behavior) | No — skips without auth env                     |
+| `upgrade-backfill.spec.ts`           | "Backing up your library… N/M" indicator (paid)                                                             | No — skips without auth + `E2E_PAID_BACKFILL`   |
+| `downgrade-retention-banner.spec.ts` | cloud-retention banner for a downgraded user                                                                | No — skips without auth + `E2E_DOWNGRADED_USER` |
 
 Auth-gated specs `test.skip(...)` with a clear reason when their env is absent — a skipped run
 explains what it needs (they are **not** fake passes). Gating logic is in `web/e2e/fixtures.ts`.

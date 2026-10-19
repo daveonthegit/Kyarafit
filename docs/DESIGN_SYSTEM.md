@@ -128,19 +128,19 @@ Acceptable platform differences: navigation chrome, gestures vs hover/right-clic
 picker, responsive layout density, a few platform-only utility screens (e.g. dev tools). Everything
 else must match.
 
-| Feature                                    | Web      | Mobile   | Shared logic                                                                                   | Notes                                     |
-| ------------------------------------------ | -------- | -------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Elements (per-build)                       | ✅       | ✅       | `design-system/domain`                                                                         | full parity                               |
-| Builds + detail                            | ✅       | ✅       | shared                                                                                         | full parity                               |
-| Reference / process / progress media       | ✅       | ✅       | shared                                                                                         | capture differs (camera/file)             |
-| Conventions + day plans + packing          | ✅       | ✅       | shared                                                                                         | full parity                               |
-| Planner / tasks                            | ✅       | ✅       | `workflowDomain`, overlays                                                                     | full parity                               |
-| Social (feed/follow/like/comment/profiles) | ✅       | ✅       | shared                                                                                         | online-only both                          |
-| Groups / collaboration                     | ✅       | ✅       | shared                                                                                         | online-only both                          |
-| Settings + subscription                    | ✅       | ✅       | entitlements                                                                                   | billing online-only                       |
-| Export / import                            | ✅       | ✅       | shared (`fflate`)                                                                              | full parity                               |
-| Offline bridge + sync UI                   | ✅       | ✅       | See [platform boundaries](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue) | Platform-specific persistence and workers |
-| Dev tools                                  | dev-only | dev-only | —                                                                                              | platform-only allowed                     |
+| Feature                                    | Web      | Mobile   | Shared logic                                                                                   | Notes                                         |
+| ------------------------------------------ | -------- | -------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Elements (per-build)                       | ✅       | ✅       | `design-system/domain`                                                                         | full parity                                   |
+| Builds + detail                            | ✅       | ✅       | shared                                                                                         | full parity                                   |
+| Reference / process / progress media       | ✅       | ✅       | shared                                                                                         | capture differs (camera/file)                 |
+| Conventions + day plans + packing          | ✅       | ✅       | shared                                                                                         | full parity                                   |
+| Planner / tasks                            | ✅       | ✅       | `workflowDomain`, overlays                                                                     | full parity                                   |
+| Social (feed/follow/like/comment/profiles) | ✅       | ✅       | shared                                                                                         | online-only both                              |
+| Groups / collaboration                     | ✅       | ✅       | shared                                                                                         | online-only both                              |
+| Settings + subscription                    | ✅       | ✅       | entitlements                                                                                   | billing online-only                           |
+| Export / import                            | Partial  | ✅       | See [current backup contracts](DATA_AND_SYNC.md#11-export--import-free)                        | Platform formats and restore semantics differ |
+| Offline bridge + sync UI                   | ✅       | ✅       | See [platform boundaries](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue) | Platform-specific persistence and workers     |
+| Dev tools                                  | dev-only | dev-only | —                                                                                              | platform-only allowed                         |
 
 - **PAR-1** A feature shipped on one platform must ship on the other before release (no drift).
 - **PAR-2** Shared logic divergence is a bug; differences must be UI-only and justified by §8 allowances.

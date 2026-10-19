@@ -17,8 +17,11 @@ import {
   type LocalStore,
   type PendingMutation,
   type StoredEntityRow,
+  type EnqueueMutationInput,
 } from "./localStore";
 import { IDLE_BACKFILL, type BackfillProgress } from "./backfill";
+import type { EntityOverlayWrite } from "./offlineEntityWrites";
+import { RESTORE_SESSION_KEY, RestoreInProgressError } from "./restoreState";
 
 function createDefaultStore(): LocalStore {
   // IndexedDB is browser-only; SSR / jsdom fall back to the in-memory engine. The browser store is
@@ -26,9 +29,67 @@ function createDefaultStore(): LocalStore {
   return new InMemoryLocalStore();
 }
 
-class OfflineRuntime {
+export class OfflineRuntime {
   private store: LocalStore = createDefaultStore();
   private version = 0;
+  private generation = 0;
+  private subject: string | null = null;
+  private commands: Promise<unknown> = Promise.resolve();
+  private restoreInProgress = false;
+  private restoreReady: Promise<void> = Promise.resolve();
+  private restoreChannel: BroadcastChannel | null = null;
+
+  getRestoreInProgress(): boolean {
+    return this.restoreInProgress;
+  }
+
+  notifyRestoreChange(): void {
+    try {
+      this.restoreChannel?.postMessage(this.restoreInProgress);
+    } catch {
+      this.restoreChannel = null;
+    }
+    this.bump();
+  }
+
+  async assertPersonalWritesAllowed(): Promise<void> {
+    const check = this.sessionGuard();
+    await this.restoreReady;
+    check();
+    try {
+      await this.loadRestoreState();
+    } catch (error) {
+      reportWriteError(error);
+      throw error;
+    }
+    check();
+    if (!this.subject || this.restoreInProgress) {
+      const error = new RestoreInProgressError();
+      reportWriteError(error);
+      throw error;
+    }
+  }
+
+  private async loadRestoreState(): Promise<void> {
+    const check = this.sessionGuard();
+    const raw = await this.store.getMeta(RESTORE_SESSION_KEY);
+    check();
+    this.restoreInProgress = Boolean(raw);
+    this.bump();
+  }
+
+  getSubject(): string | null {
+    return this.subject;
+  }
+  sessionGuard(): () => void {
+    const generation = this.generation;
+    return () => {
+      if (generation !== this.generation) throw new Error("Local account changed");
+    };
+  }
+  lock(): void {
+    this.setStore(createDefaultStore());
+  }
   private readonly listeners = new Set<() => void>();
 
   /** Parsed query payloads, keyed by `offlineQueryKey`. */
@@ -42,16 +103,54 @@ class OfflineRuntime {
   // --- store wiring ---
 
   /** Swap the durable engine (browser wires IndexedDB; tests inject an in-memory store). Resets mirror. */
-  setStore(store: LocalStore): void {
+  setStore(store: LocalStore, subject: string | null = null): void {
+    this.restoreChannel?.close();
+    this.restoreChannel = null;
+    this.generation += 1;
+    this.subject = subject;
     this.store = store;
     this.queryCache.clear();
     this.entityRows.clear();
     this.idMap.clear();
+    this.restoreInProgress = subject !== null;
+    this.restoreReady = subject ? this.loadRestoreState() : Promise.resolve();
+    void this.restoreReady.catch(() => undefined);
+    if (subject && typeof window !== "undefined" && window.BroadcastChannel) {
+      try {
+        this.restoreChannel = new window.BroadcastChannel(`kyarafit-restore:${subject}`);
+        this.restoreChannel.onmessage = () => {
+          void this.loadRestoreState().catch(() => undefined);
+        };
+      } catch {
+        this.restoreChannel = null;
+      }
+    }
     this.bump();
   }
 
   getStore(): LocalStore {
     return this.store;
+  }
+
+  async writeImportedEntityRow(row: StoredEntityRow): Promise<void> {
+    if (!this.subject || row.userId !== this.subject) throw new Error("Local account changed");
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    await this.persist(() => store.putEntityRow(row, { restore: true }));
+    assertCurrent();
+    this.table(row.table).set(row.id, row);
+    this.bump();
+  }
+
+  /** Remove a row a restore wrote (undo of an incomplete restore), durably and from the mirror. */
+  async removeImportedEntityRow(table: string, id: string): Promise<void> {
+    if (!this.subject) throw new Error("Local vault is locked");
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    await this.persist(() => store.deleteEntityRow(table, id));
+    assertCurrent();
+    this.table(table).delete(id);
+    this.bump();
   }
 
   // --- reactivity (useSyncExternalStore) ---
@@ -96,7 +195,7 @@ class OfflineRuntime {
     }
     if (json === undefined) return;
     this.queryCache.set(key, payload);
-    void this.persist(() => this.store.writeQueryCache(key, json));
+    void this.persist(() => this.store.writeQueryCache(key, json)).catch(() => undefined);
   }
 
   // --- entity overlays + synced base ---
@@ -137,27 +236,66 @@ class OfflineRuntime {
     userId: string,
     doc: Record<string, unknown> | null,
     deleted: boolean
-  ): void {
+  ): Promise<void> {
     const map = this.table(table);
-    let merged: Record<string, unknown> = doc ?? {};
-    if (!deleted && doc) {
-      const existing = map.get(id);
-      if (existing && !existing.synced) {
-        merged = { ...(parseDoc(existing.json) ?? {}), ...doc };
-      }
-    }
-    const row: StoredEntityRow = {
-      table,
-      id,
-      userId,
-      json: JSON.stringify(merged) ?? "{}",
-      updatedAt: Date.now(),
-      deleted,
-      synced: false,
-    };
+    const row = this.overlayRow({ table, id, doc, deleted }, userId);
+    const assertCurrent = this.sessionGuard();
+    const previous = map.get(id);
     map.set(id, row);
     this.bump();
-    void this.persist(() => this.store.putEntityRow(row));
+    return this.persist(() => this.store.putEntityRow(row)).then(
+      () => {
+        assertCurrent();
+      },
+      (error: unknown) => {
+        if (map.get(id) === row) {
+          if (previous) map.set(id, previous);
+          else map.delete(id);
+          this.bump();
+        }
+        throw error;
+      }
+    );
+  }
+
+  private overlayRow(write: EntityOverlayWrite, userId: string): StoredEntityRow {
+    const existing = this.table(write.table).get(write.id);
+    const owner = existing?.userId || userId;
+    const merged = write.deleted
+      ? {}
+      : {
+          ...(existing ? parseDoc(existing.json) : {}),
+          ...write.doc,
+          userId: owner,
+        };
+    return {
+      table: write.table,
+      id: write.id,
+      userId: owner,
+      json: JSON.stringify(merged),
+      updatedAt: Date.now(),
+      deleted: write.deleted,
+      synced: false,
+    };
+  }
+
+  commitCommand(input: EnqueueMutationInput, writes: EntityOverlayWrite[]): Promise<void> {
+    const assertCurrent = this.sessionGuard();
+    const store = this.store;
+    const subject = this.subject;
+    const result = this.commands.then(async () => {
+      assertCurrent();
+      if (!subject) throw new Error("Local vault is locked");
+      await this.assertPersonalWritesAllowed();
+      assertCurrent();
+      const rows = writes.map((write) => this.overlayRow(write, subject));
+      await this.persist(() => store.commitCommand(input, rows));
+      assertCurrent();
+      for (const row of rows) this.table(row.table).set(row.id, row);
+      this.bump();
+    });
+    this.commands = result.catch(() => undefined);
+    return result;
   }
 
   /** Clear a pending overlay once its write has synced (sync worker on drain success). */
@@ -167,7 +305,7 @@ class OfflineRuntime {
     if (existing && !existing.synced) {
       map.delete(id);
       this.bump();
-      void this.persist(() => this.store.deleteEntityRow(table, id));
+      void this.persist(() => this.store.deleteEntityRow(table, id)).catch(() => undefined);
     }
   }
 
@@ -192,7 +330,7 @@ class OfflineRuntime {
     };
     map.set(id, row);
     this.bump();
-    void this.persist(() => this.store.putEntityRow(row));
+    void this.persist(() => this.store.putEntityRow(row)).catch(() => undefined);
   }
 
   // --- mutation queue (consumed by the async sync worker) ---
@@ -203,16 +341,13 @@ class OfflineRuntime {
     idempotencyKey: string,
     clientId?: string
   ): Promise<void> {
-    const argsJson = (() => {
-      try {
-        return JSON.stringify(args ?? {}) ?? "{}";
-      } catch {
-        return "{}";
-      }
-    })();
+    if (!this.subject) throw new Error("Local vault is locked");
+    const assertCurrent = this.sessionGuard();
+    const argsJson = JSON.stringify(args ?? {}) ?? "{}";
     await this.persist(() =>
       this.store.enqueueMutation({ fn, argsJson, idempotencyKey, clientId: clientId ?? null })
     );
+    assertCurrent();
   }
 
   async listPendingMutations(limit?: number): Promise<PendingMutation[]> {
@@ -246,8 +381,10 @@ class OfflineRuntime {
   // --- id map ---
 
   async setServerId(clientId: string, serverId: string): Promise<void> {
-    this.idMap.set(clientId, serverId);
+    const assertCurrent = this.sessionGuard();
     await this.persist(() => this.store.setServerId(clientId, serverId));
+    assertCurrent();
+    this.idMap.set(clientId, serverId);
   }
 
   async loadIdMap(): Promise<Record<string, string>> {
@@ -282,7 +419,21 @@ class OfflineRuntime {
   }
 
   async setMeta(key: string, value: string): Promise<void> {
+    const check = this.sessionGuard();
+    if (key === RESTORE_SESSION_KEY) {
+      await this.restoreReady;
+      check();
+      if (value) {
+        this.restoreInProgress = true;
+        this.bump();
+      }
+    }
     await this.persist(() => this.store.setMeta(key, value));
+    check();
+    if (key === RESTORE_SESSION_KEY) {
+      this.restoreInProgress = Boolean(value);
+      this.notifyRestoreChange();
+    }
   }
 
   // --- upgrade-backfill progress (sync-status, REQ-D95) ---
@@ -302,29 +453,29 @@ class OfflineRuntime {
 
   /** Hydrate the in-memory mirror from the durable store (cold start). Best-effort. */
   async hydrate(): Promise<void> {
+    const assertCurrent = this.sessionGuard();
+    await this.restoreReady;
+    assertCurrent();
+    this.restoreReady = this.loadRestoreState();
+    await this.restoreReady;
+    assertCurrent();
     const rows = await this.safe(() => this.store.listEntityRows());
+    assertCurrent();
     if (rows) {
       for (const row of rows) this.table(row.table).set(row.id, row);
     }
     const idMap = await this.safe(() => this.store.loadIdMap());
+    assertCurrent();
     if (idMap) this.idMap = new Map(Object.entries(idMap));
     this.bump();
-  }
-
-  /** Wipe local state (sign-out / account switch). Local data is never auto-deleted otherwise. */
-  async reset(): Promise<void> {
-    this.queryCache.clear();
-    this.entityRows.clear();
-    this.idMap.clear();
-    this.bump();
-    await this.persist(() => this.store.clearAll());
   }
 
   private async persist(op: () => Promise<void>): Promise<void> {
     try {
       await op();
-    } catch {
-      // Best-effort durability; the in-memory mirror remains authoritative for this session.
+    } catch (error) {
+      reportWriteError(error);
+      throw error;
     }
   }
 
@@ -335,6 +486,13 @@ class OfflineRuntime {
       return undefined;
     }
   }
+}
+
+function reportWriteError(error: unknown): void {
+  const message =
+    error instanceof RestoreInProgressError ? error.message : "Couldn't save on this device";
+  console.error(message, error);
+  if (typeof window !== "undefined") window.alert(message);
 }
 
 function parseDoc(json: string): Record<string, unknown> | null {

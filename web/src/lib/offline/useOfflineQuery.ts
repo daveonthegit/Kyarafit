@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { useQuery, type OptionalRestArgsOrSkip } from "convex/react";
+import { useConvexAuth, useQuery, type OptionalRestArgsOrSkip } from "convex/react";
 import { getFunctionName, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { offlineQueryKey } from "@kyarafit/design-system/domain/offlineQueryCache";
 import {
@@ -11,6 +11,7 @@ import {
 import { offlineRuntime } from "./runtime";
 import { offlineEntityQuery } from "./offlineEntityQueries";
 import { getIsOnline } from "./connectivity";
+import { readLocalAccount } from "@/lib/auth/localAccount";
 
 /**
  * Offline-aware drop-in for Convex `useQuery` (stale-while-revalidate + optimistic overlay). The web
@@ -31,7 +32,13 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
 ): FunctionReturnType<Query> | undefined {
-  const live = useQuery(query, ...args);
+  const { isAuthenticated } = useConvexAuth();
+  // A remembered account unlocks local data, not server access during token refresh.
+  // Keep the original args below so cached results remain available while auth loads.
+  const live = useQuery(
+    query,
+    ...((isAuthenticated ? args : ["skip"]) as OptionalRestArgsOrSkip<Query>)
+  );
 
   const fnName = useMemo(() => {
     try {
@@ -48,12 +55,23 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     return offlineQueryKey(fnName, args[0]);
   }, [fnName, args[0]]);
 
+  const vaultSubject = useSyncExternalStore(
+    offlineRuntime.subscribe,
+    () => offlineRuntime.getSubject(),
+    () => null
+  );
+
   // Persist each live result so the same query+args can paint offline next time.
   useEffect(() => {
-    if (key != null && live !== undefined) {
+    if (
+      key != null &&
+      live !== undefined &&
+      vaultSubject !== null &&
+      vaultSubject === readLocalAccount()
+    ) {
       offlineRuntime.writeQueryCache(key, live);
     }
-  }, [key, live]);
+  }, [key, live, vaultSubject]);
 
   // Re-read pending overlays whenever an offline write (or a drain that clears one) bumps the runtime.
   const version = useSyncExternalStore(
@@ -62,7 +80,9 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     offlineRuntime.getVersion
   );
 
+  const accountMatches = offlineRuntime.getSubject() === readLocalAccount();
   return useMemo(() => {
+    if (!accountMatches) return undefined;
     const cached =
       key != null && live === undefined
         ? (offlineRuntime.readQueryCacheSync(key) as FunctionReturnType<Query> | undefined)
@@ -104,5 +124,5 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
       pending,
       typeof viewedId === "string" ? viewedId : undefined
     ) as FunctionReturnType<Query>;
-  }, [key, live, fnName, version, args[0]]);
+  }, [key, live, fnName, version, args[0], accountMatches]);
 }

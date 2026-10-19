@@ -11,6 +11,8 @@ import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { OnlineOnlyBanner } from "@/components/OnlineOnlyBanner";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { offlineRuntime } from "@/lib/offline/runtime";
+import { RestoreInProgressError } from "@/lib/offline/restoreState";
 
 function getDatesInRange(start: string, end: string): string[] {
   const out: string[] = [];
@@ -106,13 +108,23 @@ export default function GroupDetailPage() {
 
   const handleAddBuildToGroup = async (buildId: Id<"builds">) => {
     if (!groupId || !userId) return;
-    await setBuildGroup({ buildId, userId, groupId });
-    setBuildPickerOpen(false);
+    try {
+      await offlineRuntime.assertPersonalWritesAllowed();
+      await setBuildGroup({ buildId, userId, groupId });
+      setBuildPickerOpen(false);
+    } catch (error) {
+      if (!(error instanceof RestoreInProgressError)) throw error;
+    }
   };
 
   const handleRemoveBuildFromGroup = async (buildId: Id<"builds">) => {
     if (!groupId || !userId) return;
-    await setBuildGroup({ buildId, userId, groupId: null });
+    try {
+      await offlineRuntime.assertPersonalWritesAllowed();
+      await setBuildGroup({ buildId, userId, groupId: null });
+    } catch (error) {
+      if (!(error instanceof RestoreInProgressError)) throw error;
+    }
   };
 
   if (!groupId) {

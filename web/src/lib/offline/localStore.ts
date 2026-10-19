@@ -11,6 +11,13 @@
  * This file is OFFLINE CORE: it must never import `convex/react` (the bridge owns the online path).
  */
 
+import {
+  RESTORE_SESSION_KEY,
+  RestoreInProgressError,
+  isPersonalTable,
+  type EntityWriteOptions,
+} from "./restoreState";
+
 /** A cached Convex query payload (stale-while-revalidate base). */
 export interface StoredQueryCache {
   key: string;
@@ -63,12 +70,13 @@ export interface LocalStore {
   writeQueryCache(key: string, payloadJson: string): Promise<void>;
 
   // --- entity rows (overlays + synced base) ---
-  putEntityRow(row: StoredEntityRow): Promise<void>;
+  putEntityRow(row: StoredEntityRow, options?: EntityWriteOptions): Promise<void>;
   deleteEntityRow(table: string, id: string): Promise<void>;
   listEntityRows(): Promise<StoredEntityRow[]>;
 
   // --- mutation queue ---
   enqueueMutation(input: EnqueueMutationInput): Promise<void>;
+  commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void>;
   listPendingMutations(limit?: number): Promise<PendingMutation[]>;
   deleteMutation(id: number): Promise<void>;
   bumpMutationRetry(id: number): Promise<void>;
@@ -135,7 +143,10 @@ export class InMemoryLocalStore implements LocalStore {
     this.queryCache.set(key, { key, payloadJson, fetchedAt: Date.now() });
   }
 
-  async putEntityRow(row: StoredEntityRow): Promise<void> {
+  async putEntityRow(row: StoredEntityRow, options?: EntityWriteOptions): Promise<void> {
+    if (!options?.restore && isPersonalTable(row.table) && this.meta.get(RESTORE_SESSION_KEY)) {
+      throw new RestoreInProgressError();
+    }
     this.entityRows.set(this.rowKey(row.table, row.id), { ...row });
   }
 
@@ -148,21 +159,28 @@ export class InMemoryLocalStore implements LocalStore {
   }
 
   async enqueueMutation(input: EnqueueMutationInput): Promise<void> {
-    // Idempotency key is unique: re-enqueues are ignored (mirrors `INSERT OR IGNORE`).
+    await this.commitCommand(input, []);
+  }
+
+  async commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void> {
+    if (this.meta.get(RESTORE_SESSION_KEY)) throw new RestoreInProgressError();
+    const copies = structuredClone(rows);
+    const mutation = structuredClone(input);
     for (const row of this.mutations.values()) {
-      if (row.idempotency_key === input.idempotencyKey) return;
+      if (row.idempotency_key === mutation.idempotencyKey) return;
     }
     const id = this.nextMutationId++;
     this.mutations.set(id, {
       id,
-      idempotency_key: input.idempotencyKey,
-      fn: input.fn,
-      args_json: input.argsJson,
+      idempotency_key: mutation.idempotencyKey,
+      fn: mutation.fn,
+      args_json: mutation.argsJson,
       retry_count: 0,
-      client_id: input.clientId,
+      client_id: mutation.clientId,
       status: "pending",
       createdAt: Date.now(),
     });
+    for (const row of copies) this.entityRows.set(this.rowKey(row.table, row.id), row);
   }
 
   async listPendingMutations(limit = 100): Promise<PendingMutation[]> {

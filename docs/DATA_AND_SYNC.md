@@ -9,8 +9,9 @@ Product rules live in [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); code structure in
 The `REQ-D*` rules below describe the target contract, not completed rollout. Mobile personal
 reads and commands now use the per-account vault; its lifecycle and isolation decision is
 [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Web still uses cloud-first
-wrappers. Mobile whole-vault backup/restore is implemented (§11); web isolation/write-failure
-hardening and paid-sync correctness remain separate follow-ups tracked in the
+wrappers, now with account isolation and visible persistence failures (§5.1). Mobile whole-vault
+backup/restore and web's narrower online restore are implemented (§11); full web local-first
+conversion and paid-sync correctness remain follow-ups tracked in the
 [roadmap](ROADMAP.md#current-status).
 
 ---
@@ -121,6 +122,28 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 ---
 
+### 5.1 Current web isolation and write guarantees
+
+The browser opens a separate `LocalStore` for each signed-in account (account-keyed OPFS database
+or IndexedDB). Sign-out locks the runtime and clears its in-memory mirrors without deleting the
+account's durable store. Account changes invalidate retained command callbacks and worker passes;
+the paid worker waits for the matching account's vault and remote identity. Local identity versus
+remote authentication is described in [Authentication](auth.md#web-local-access).
+
+On upgrade, `legacyRecovery.ts` adopts only ownership-verifiable rows, pending operations and
+associated id mappings from the old shared IndexedDB/OPFS stores. Other accounts' data remains
+untouched; the legacy stores are never automatically deleted. Failed recovery is surfaced and
+can be retried on a later vault open.
+
+Offline commands commit the queue entry and entity overlays in one store transaction before
+publishing success or returning a local id. Persistence failures reject and surface through
+`reportWriteError`; they are not acknowledged as saved. This does **not** convert online web
+CRUD to local-first: online mutations still call Convex, and free users can still make personal-data
+cloud calls. The write boundary and rollback tests are in `web/src/lib/offline/commandPersistence.test.ts`
+and `indexedDbCommand.test.ts`.
+
+---
+
 ## 6. Sync worker behavior (paid + online only)
 
 - **REQ-D60** Gate: the worker (queue drain **and** warm-up pull) starts only when `canUseCloudSync && signedIn`. A pure `shouldRunSyncWorker(tier, signedIn)` predicate is the single decision point, unit-tested.
@@ -203,6 +226,42 @@ headers, newer archive versions, or damaged photo lengths reject the import befo
 row-commit failures surface as errors. The versioned archive layout is defined in
 [`archive.ts`](../mobile/src/vault/archive.ts). Not yet implemented from the requirements below:
 CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware import.
+
+### Current web behavior
+
+Settings → Data exports a free JSON bundle from the signed-in account's local rows, not a fresh
+cloud pull. The supported collections and versioned format are defined by
+[`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is not the mobile `.kyarafit` archive:
+photo binaries, build media collections and convention day plans are not included, and it is not
+a complete vault backup. Exported fields are not all accepted by the restore create mutations.
+
+Restore requires an internet connection and an empty account vault: any existing build, element,
+convention, task or packing row refuses the import before writes. The whole bundle and its
+relationships are validated before the first create. Restore remaps build/element/convention ids,
+workflow parents, generated tasks and attachments to their newly created destinations; it does not
+merge with existing work. Merge-restore and resumable restore are deferred.
+
+Before the first server write, an account-local restore session is persisted. Created destination
+ids are recorded as calls return. Until completion or Undo, personal planner writes in this
+browser's account vault are refused using persisted session state, including from other tabs;
+broadcasts update the read-only notice. Completion clears the record. On interruption, Settings
+shows **“Restore incomplete - undo and try again”**. Connect and choose **Undo** to delete the
+recorded server and local rows, children first, then restore again. Failed Undo retains its
+remaining recorded rows so Undo can be retried.
+
+Restore and Undo take one exclusive per-account Web Lock with `ifAvailable`; another tab holding
+it disables both actions and shows **“Restore in progress in another tab”**. Closing or crashing
+the holding tab releases the lock so an interrupted session can be undone elsewhere. Browsers
+without Web Locks retain single-tab behavior and cannot serialize concurrent restore/Undo.
+
+Known limits: an ordinary write already in flight in another tab when restore starts is not
+covered. Other devices are not locked, and Undo's server-side cascades can remove their edits.
+A server create that commits just before the browser closes, before its id is recorded, is not
+visible to Undo; that row leaves the vault non-empty and must be removed through normal UI.
+Closing this recording window needs backend work outside the web slice. Lifecycle and cross-tab
+coverage live in `web/src/lib/restoreSession.test.ts` and `web/src/app/settings/data/page.test.tsx`.
+
+The requirements below remain the target across platforms, not claims of current web fidelity.
 
 - **REQ-D100** CSV (one per entity), JSON-ZIP (`data.json` + `/images/<imageKey>.<ext>`, relative refs, via `fflate`), and PDF export are all free.
 - **REQ-D101** Import parses zip/json, rehydrates images into the local store, remaps ids via `id_map`, merges per-field LWW (REQ-D65), respects tombstones, and is **idempotent** on re-import (no duplicates).

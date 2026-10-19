@@ -33,6 +33,9 @@ reopen it. Use **Settings → Backup & restore** to save or restore a free backu
 Before removing data, save the backup outside the app and check for partial-backup warnings;
 see the [backup contract and limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
 
+For web, use **Settings → Data**; its export and restore differ from mobile backups.
+See the [web restore requirements and limitations](docs/DATA_AND_SYNC.md#current-web-behavior).
+
 ## Stack and layout
 
 | Path             | Responsibility                                                               |

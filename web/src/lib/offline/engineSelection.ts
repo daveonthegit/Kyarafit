@@ -15,6 +15,22 @@
 import { IndexedDbLocalStore } from "./indexedDbStore";
 import { InMemoryLocalStore, type LocalStore } from "./localStore";
 import { WaSqliteLocalStore, isWaSqliteOpfsSupported } from "./waSqliteStore";
+import { adoptLegacyStore } from "./legacyRecovery";
+
+let legacyOpfs: Promise<LocalStore> | undefined;
+function openLegacyOpfs(): Promise<LocalStore> {
+  if (!legacyOpfs) {
+    legacyOpfs = (async () => {
+      const store = new WaSqliteLocalStore();
+      await store.init();
+      return store;
+    })();
+    legacyOpfs.catch(() => {
+      legacyOpfs = undefined;
+    });
+  }
+  return legacyOpfs;
+}
 
 /** Detected environment capabilities relevant to engine selection. */
 export interface EngineCapabilities {
@@ -47,9 +63,9 @@ export async function selectLocalStoreEngine(deps: EngineSelectionDeps): Promise
 }
 
 /** Fallback engine: durable IndexedDB in the browser, in-memory during SSR / tests. */
-function createFallbackStore(): LocalStore {
+function createFallbackStore(accountKey: string): LocalStore {
   if (typeof indexedDB !== "undefined") {
-    return new IndexedDbLocalStore();
+    return new IndexedDbLocalStore(`kyarafit-offline-${accountKey}`);
   }
   return new InMemoryLocalStore();
 }
@@ -58,14 +74,43 @@ function createFallbackStore(): LocalStore {
  * Production browser factory: wires real capability detection + engine constructors. Call once per
  * session (e.g. from `SyncWorkerProvider`) and hand the result to the offline runtime.
  */
-export function createBrowserLocalStore(): Promise<LocalStore> {
-  return selectLocalStoreEngine({
+export async function createBrowserLocalStore(subject: string): Promise<LocalStore> {
+  const accountKey = Array.from(new TextEncoder().encode(subject), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+  const store = await selectLocalStoreEngine({
     detectCapabilities: () => ({ opfsAvailable: isWaSqliteOpfsSupported() }),
     createWaSqliteStore: async () => {
-      const store = new WaSqliteLocalStore();
+      const store = new WaSqliteLocalStore(accountKey);
       await store.init();
       return store;
     },
-    createFallbackStore,
+    createFallbackStore: () => createFallbackStore(accountKey),
   });
+  if (typeof indexedDB !== "undefined") {
+    try {
+      await adoptLegacyStore(new IndexedDbLocalStore(), store, subject, "indexeddb");
+    } catch (error) {
+      reportIncompleteRecovery(error);
+    }
+  }
+  if (isWaSqliteOpfsSupported()) {
+    try {
+      if (!(await store.getMeta("legacy-adopted:opfs"))) {
+        await adoptLegacyStore(await openLegacyOpfs(), store, subject, "opfs");
+      }
+    } catch (error) {
+      reportIncompleteRecovery(error);
+    }
+  }
+  return store;
+}
+
+function reportIncompleteRecovery(error: unknown): void {
+  console.error("Legacy data recovery is incomplete", error);
+  if (typeof window !== "undefined") {
+    window.alert(
+      "Your account data is available, but older device data could not be recovered. Try again when online."
+    );
+  }
 }

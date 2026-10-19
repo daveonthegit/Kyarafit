@@ -21,6 +21,7 @@ import { InMemoryLocalStore } from "./offline/localStore";
 import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
+import { rememberLocalAccount } from "./auth/localAccount";
 import {
   buildDataBundle,
   countRows,
@@ -33,7 +34,8 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  offlineRuntime.setStore(new InMemoryLocalStore());
+  rememberLocalAccount("u1");
+  offlineRuntime.setStore(new InMemoryLocalStore(), "u1");
 });
 
 afterEach(() => {
@@ -41,7 +43,34 @@ afterEach(() => {
 });
 
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
-  it("returns a FREE user's locally-created rows so their export is not empty", () => {
+  it("exports elements alongside the task attachments that reference them", () => {
+    offlineRuntime.upsertSyncedEntityRow("cosplayNodes", "node", "u1", {
+      _id: "node",
+      userId: "u1",
+      nodeType: "element",
+      name: "Wig",
+      tags: [],
+    });
+    offlineRuntime.upsertSyncedEntityRow("workflowItems", "task", "u1", {
+      _id: "task",
+      userId: "u1",
+      title: "Style wig",
+    });
+    offlineRuntime.upsertSyncedEntityRow("workflowAttachments", "attachment", "u1", {
+      _id: "attachment",
+      userId: "u1",
+      workflowItemId: "task",
+      entityType: "cosplayNode",
+      entityId: "node",
+      role: "primary",
+    });
+    const restored = parseDataBundle(buildDataBundle(readLocalCollections()));
+    expect(restored.cosplayNodes).toEqual([expect.objectContaining({ id: "node", name: "Wig" })]);
+    expect(restored.workflowItems[0].attachments).toEqual([
+      expect.objectContaining({ entityType: "cosplayNode", entityId: "node" }),
+    ]);
+  });
+  it("returns a FREE user's locally-created rows so their export is not empty", async () => {
     // A free user's data lives only in the local store (never synced to Convex). Seed a synced base
     // row and an unsynced optimistic overlay across two collections.
     offlineRuntime.upsertSyncedEntityRow("builds", "b1", "u1", {
@@ -50,7 +79,7 @@ describe("readLocalCollections (REQ-D100 — export is free)", () => {
       name: "Aerith",
       status: "wip",
     });
-    offlineRuntime.writeEntityOverlay(
+    await offlineRuntime.writeEntityOverlay(
       "conventions",
       "local:c1",
       "u1",
@@ -69,10 +98,18 @@ describe("readLocalCollections (REQ-D100 — export is free)", () => {
     expect(countRows(parseDataBundle(bundle))).toBe(2);
   });
 
-  it("omits locally-deleted (tombstoned) rows from the export", () => {
-    offlineRuntime.upsertSyncedEntityRow("builds", "b1", "u1", { _id: "b1", name: "Keep" });
-    offlineRuntime.upsertSyncedEntityRow("builds", "b2", "u1", { _id: "b2", name: "Gone" });
-    offlineRuntime.writeEntityOverlay("builds", "b2", "u1", null, true);
+  it("omits locally-deleted (tombstoned) rows from the export", async () => {
+    offlineRuntime.upsertSyncedEntityRow("builds", "b1", "u1", {
+      _id: "b1",
+      userId: "u1",
+      name: "Keep",
+    });
+    offlineRuntime.upsertSyncedEntityRow("builds", "b2", "u1", {
+      _id: "b2",
+      userId: "u1",
+      name: "Gone",
+    });
+    await offlineRuntime.writeEntityOverlay("builds", "b2", "u1", null, true);
 
     const collections = readLocalCollections();
     expect(collections.builds.map((r) => r.id)).toEqual(["b1"]);
@@ -87,7 +124,7 @@ describe("import writes land in the local store (invariant #2)", () => {
     const { result } = renderHook(() => useOfflineMutation(api.builds.create));
 
     const createRow: CreateRowFn = async (_collection, row) => {
-      await result.current({
+      return result.current({
         userId: "u1",
         name: String(row.name ?? "Untitled build"),
         status: String(row.status ?? "idea"),

@@ -47,6 +47,8 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
         onSuccessComplete();
         router.push(`/build-detail/${build._id}`);
       }
+    } catch {
+      // The write layer reports persistence failures; keep the form open for retry.
     } finally {
       setIsPending(false);
     }

@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import Link from "next/link";
 import { api } from "convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { offlineRuntime } from "@/lib/offline/runtime";
 
 export default function SeedClient() {
   const { userId } = useCurrentUser();
@@ -20,6 +21,7 @@ export default function SeedClient() {
     setMessage(null);
     setPending(true);
     try {
+      await offlineRuntime.assertPersonalWritesAllowed();
       const result = await createStarterSeed({});
       if (result.skipped) {
         setMessage({ type: "ok", text: "Skipped — you already have data." });
