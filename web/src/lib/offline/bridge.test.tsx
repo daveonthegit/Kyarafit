@@ -38,6 +38,9 @@ import { offlineRuntime } from "./runtime";
 import { InMemoryLocalStore } from "./localStore";
 import { setOfflineConnectivity } from "./connectivity";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
+import { createRestoreSession, undoRestoreSession } from "../restoreSession";
+import { RestoreInProgressError } from "./restoreState";
+import { setStoredLocale } from "../i18n/locale";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,6 +57,63 @@ afterEach(() => {
 });
 
 describe("offline bridge (REQ-D51 / REQ-D52)", () => {
+  it.each([true, false])(
+    "refuses create, edit, and delete during an incomplete restore, including after reopen (online=%s)",
+    async (online) => {
+      setOfflineConnectivity(online);
+      const session = createRestoreSession("u1");
+      await session.record("builds", "restored-build");
+      const store = offlineRuntime.getStore();
+      offlineRuntime.lock();
+      offlineRuntime.setStore(store, "u1");
+      const { result } = renderHook(() => ({
+        create: useOfflineMutation(api.builds.create),
+        edit: useOfflineMutation(api.builds.update),
+        remove: useOfflineMutation(api.builds.remove),
+      }));
+      await expect(result.current.create({ userId: "u1", name: "New", status: "idea" }))
+        .rejects.toBeInstanceOf(RestoreInProgressError);
+      await expect(result.current.edit({ id: "restored-build" as never, name: "Changed" }))
+        .rejects.toBeInstanceOf(RestoreInProgressError);
+      await expect(result.current.remove({ id: "restored-build" as never }))
+        .rejects.toBeInstanceOf(RestoreInProgressError);
+      expect(client.mutation).not.toHaveBeenCalled();
+      expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+      expect(window.alert).toHaveBeenCalledTimes(3);
+      expect(window.alert).toHaveBeenCalledWith("Finish or undo your restore first.");
+
+      await act(async () => undoRestoreSession({ subject: "u1", deleteRow: async () => {} }));
+      await act(async () => {
+        await result.current.create({ userId: "u1", name: "Allowed", status: "idea" });
+      });
+      expect(offlineRuntime.getRestoreInProgress()).toBe(false);
+      expect(client.mutation).toHaveBeenCalledTimes(online ? 1 : 0);
+      expect(await offlineRuntime.listPendingMutations()).toHaveLength(online ? 0 : 1);
+    }
+  );
+
+  it("reports the restore write refusal in the selected locale", async () => {
+    const session = createRestoreSession("u1");
+    await session.record("builds", "restored-build");
+    setStoredLocale("es");
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    try {
+      await expect(result.current({ userId: "u1", name: "New", status: "idea" }))
+        .rejects.toThrow("Termina o deshaz la restauración primero.");
+      expect(window.alert).toHaveBeenCalledWith("Termina o deshaz la restauración primero.");
+    } finally {
+      setStoredLocale("en");
+    }
+  });
+
+  it("allows a non-planner upload URL request while restore is incomplete", async () => {
+    const session = createRestoreSession("u1");
+    await session.record("builds", "restored-build");
+    const { result } = renderHook(() => useOfflineMutation(api.files.generateUploadUrl));
+    await result.current({});
+    expect(client.mutation).toHaveBeenCalledTimes(1);
+  });
+
   it.each([true, false])("rejects writes during a local account switch before the next vault opens (online=%s)", async (online) => {
     setOfflineConnectivity(online);
     const { result } = renderHook(() => useOfflineMutation(api.builds.create));

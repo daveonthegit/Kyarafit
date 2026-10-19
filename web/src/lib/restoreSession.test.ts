@@ -1,12 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryLocalStore } from "./offline/localStore";
 import { offlineRuntime } from "./offline/runtime";
-import {
-  createRestoreSession,
-  IncompleteRestoreError,
-  readRestoreSession,
-  undoRestoreSession,
-} from "./restoreSession";
+import { RestoreInProgressError } from "./offline/restoreState";
+import { createRestoreSession, readRestoreSession, undoRestoreSession } from "./restoreSession";
 
 const subject = "restore-owner";
 
@@ -23,69 +19,68 @@ async function writeTask(id: string, parentId?: string) {
 }
 
 beforeEach(() => {
+  vi.spyOn(window, "alert").mockImplementation(() => undefined);
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
   offlineRuntime.setStore(new InMemoryLocalStore(), subject);
 });
 
-describe("restore undo ownership", () => {
-  it.each(["child", "grandchild"])(
-    "preserves a recorded subtree containing an unrecorded %s and reports partial undo",
-    async (unrecorded) => {
-      const session = createRestoreSession(subject);
-      await writeTask("parent");
-      await writeTask("child", "parent");
-      await session.record("workflowItems", "parent");
-      if (unrecorded === "grandchild") {
-        await session.record("workflowItems", "child");
-        await writeTask("grandchild", "child");
-      }
-      await writeTask("safe");
-      await session.record("workflowItems", "safe");
-      const deleteRow = vi.fn(async () => {});
+afterEach(() => vi.restoreAllMocks());
 
-      await expect(undoRestoreSession({ subject, deleteRow })).rejects.toBeInstanceOf(
-        IncompleteRestoreError
-      );
-
-      expect(deleteRow.mock.calls).toEqual([["workflowItems", "safe"]]);
-      expect(offlineRuntime.listLocalEntityRowsSync("workflowItems").map((row) => row._id))
-        .toEqual(expect.arrayContaining(["parent", "child"]));
-      expect((await readRestoreSession(subject))?.created).toEqual([
-        { collection: "workflowItems", id: "parent" },
-        ...(unrecorded === "grandchild" ? [{ collection: "workflowItems", id: "child" }] : []),
-      ]);
-    }
-  );
-
-  it("deletes recorded children before parents regardless of recording order", async () => {
+describe("restore session write lock", () => {
+  it("deletes every recorded row, including cascaded tasks and tasks absent locally", async () => {
     const session = createRestoreSession(subject);
-    await writeTask("child", "parent");
+    await session.record("conventions", "convention");
+    await session.record("packingListItems", "packing");
+    await session.record("workflowItems", "packing-task");
     await writeTask("parent");
-    await writeTask("unrelated");
-    await session.record("workflowItems", "child");
+    await writeTask("child", "parent");
     await session.record("workflowItems", "parent");
-    const deleteRow = vi.fn(async () => {});
+    await session.record("workflowItems", "child");
+    const server = new Set(["convention", "packing", "packing-task", "parent", "child"]);
+    const deleteRow = vi.fn(async (_collection: string, id: string) => {
+      server.delete(id);
+      if (id === "parent") server.delete("child");
+    });
 
+    expect(offlineRuntime.getRestoreInProgress()).toBe(true);
     await undoRestoreSession({ subject, deleteRow });
 
     expect(deleteRow.mock.calls).toEqual([
       ["workflowItems", "child"],
       ["workflowItems", "parent"],
+      ["workflowItems", "packing-task"],
+      ["packingListItems", "packing"],
+      ["conventions", "convention"],
     ]);
-    expect(offlineRuntime.listLocalEntityRowsSync("workflowItems").map((row) => row._id))
-      .toEqual(["unrelated"]);
+    expect(server.size).toBe(0);
+    expect(await offlineRuntime.getStore().listEntityRows()).toEqual([]);
     expect(await readRestoreSession(subject)).toBeNull();
+    expect(offlineRuntime.getRestoreInProgress()).toBe(false);
+    await expect(offlineRuntime.assertPersonalWritesAllowed()).resolves.toBeUndefined();
   });
 
-  it("does not delete a recorded task whose local subtree is unknown", async () => {
+  it("restores the lock on vault reopen and hydration and clears it on completion", async () => {
     const session = createRestoreSession(subject);
-    await session.record("workflowItems", "unknown");
-    const deleteRow = vi.fn(async () => {});
+    await session.record("builds", "build");
+    const store = offlineRuntime.getStore();
+    offlineRuntime.lock();
+    offlineRuntime.setStore(store, subject);
 
-    await expect(undoRestoreSession({ subject, deleteRow })).rejects.toBeInstanceOf(
-      IncompleteRestoreError
+    await expect(offlineRuntime.assertPersonalWritesAllowed()).rejects.toBeInstanceOf(
+      RestoreInProgressError
     );
+    await offlineRuntime.hydrate();
+    expect(offlineRuntime.getRestoreInProgress()).toBe(true);
+    await session.complete();
+    expect(offlineRuntime.getRestoreInProgress()).toBe(false);
+    await expect(offlineRuntime.assertPersonalWritesAllowed()).resolves.toBeUndefined();
+  });
 
-    expect(deleteRow).not.toHaveBeenCalled();
-    expect(await readRestoreSession(subject)).not.toBeNull();
+  it("does not carry one account's restore lock into another account", async () => {
+    const session = createRestoreSession(subject);
+    await session.record("builds", "build");
+    offlineRuntime.setStore(new InMemoryLocalStore(), "other-owner");
+    await expect(offlineRuntime.assertPersonalWritesAllowed()).resolves.toBeUndefined();
+    expect(offlineRuntime.getRestoreInProgress()).toBe(false);
   });
 });

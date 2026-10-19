@@ -21,6 +21,7 @@ import {
 } from "./localStore";
 import { IDLE_BACKFILL, type BackfillProgress } from "./backfill";
 import type { EntityOverlayWrite } from "./offlineEntityWrites";
+import { RESTORE_SESSION_KEY, RestoreInProgressError } from "./restoreState";
 
 function createDefaultStore(): LocalStore {
   // IndexedDB is browser-only; SSR / jsdom fall back to the in-memory engine. The browser store is
@@ -34,6 +35,31 @@ class OfflineRuntime {
   private generation = 0;
   private subject: string | null = null;
   private commands: Promise<unknown> = Promise.resolve();
+  private restoreInProgress = false;
+  private restoreReady: Promise<void> = Promise.resolve();
+
+  getRestoreInProgress(): boolean {
+    return this.restoreInProgress;
+  }
+
+  async assertPersonalWritesAllowed(): Promise<void> {
+    const check = this.sessionGuard();
+    await this.restoreReady;
+    check();
+    if (!this.subject || this.restoreInProgress) {
+      const error = new RestoreInProgressError();
+      reportWriteError(error);
+      throw error;
+    }
+  }
+
+  private async loadRestoreState(): Promise<void> {
+    const check = this.sessionGuard();
+    const raw = await this.store.getMeta(RESTORE_SESSION_KEY);
+    check();
+    this.restoreInProgress = Boolean(raw);
+    this.bump();
+  }
 
   getSubject(): string | null {
     return this.subject;
@@ -67,6 +93,9 @@ class OfflineRuntime {
     this.queryCache.clear();
     this.entityRows.clear();
     this.idMap.clear();
+    this.restoreInProgress = subject !== null;
+    this.restoreReady = subject ? this.loadRestoreState() : Promise.resolve();
+    void this.restoreReady.catch(() => undefined);
     this.bump();
   }
 
@@ -228,6 +257,8 @@ class OfflineRuntime {
     const result = this.commands.then(async () => {
       assertCurrent();
       if (!subject) throw new Error("Local vault is locked");
+      await this.assertPersonalWritesAllowed();
+      assertCurrent();
       const rows = writes.map((write) => this.overlayRow(write, subject));
       await this.persist(() => store.commitCommand(input, rows));
       assertCurrent();
@@ -359,7 +390,21 @@ class OfflineRuntime {
   }
 
   async setMeta(key: string, value: string): Promise<void> {
+    const check = this.sessionGuard();
+    if (key === RESTORE_SESSION_KEY) {
+      await this.restoreReady;
+      check();
+      if (value) {
+        this.restoreInProgress = true;
+        this.bump();
+      }
+    }
     await this.persist(() => this.store.setMeta(key, value));
+    check();
+    if (key === RESTORE_SESSION_KEY) {
+      this.restoreInProgress = Boolean(value);
+      this.bump();
+    }
   }
 
   // --- upgrade-backfill progress (sync-status, REQ-D95) ---
@@ -380,6 +425,11 @@ class OfflineRuntime {
   /** Hydrate the in-memory mirror from the durable store (cold start). Best-effort. */
   async hydrate(): Promise<void> {
     const assertCurrent = this.sessionGuard();
+    await this.restoreReady;
+    assertCurrent();
+    this.restoreReady = this.loadRestoreState();
+    await this.restoreReady;
+    assertCurrent();
     const rows = await this.safe(() => this.store.listEntityRows());
     assertCurrent();
     if (rows) {
@@ -410,8 +460,10 @@ class OfflineRuntime {
 }
 
 function reportWriteError(error: unknown): void {
-  console.error("Couldn't save on this device", error);
-  if (typeof window !== "undefined") window.alert("Couldn't save on this device");
+  const message =
+    error instanceof RestoreInProgressError ? error.message : "Couldn't save on this device";
+  console.error(message, error);
+  if (typeof window !== "undefined") window.alert(message);
 }
 
 function parseDoc(json: string): Record<string, unknown> | null {

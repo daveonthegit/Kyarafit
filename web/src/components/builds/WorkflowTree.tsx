@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { RestoreInProgressError } from "@/lib/offline/restoreState";
 import {
   WORKFLOW_STATUS_OPTIONS,
   formatPlannerWorkflowDueDate,
@@ -239,29 +240,37 @@ export function WorkflowTree({
 
   const handleCreateRoot = async () => {
     if (!userId || !newRootTitle.trim()) return;
-    await createWorkflow({
-      userId,
-      title: newRootTitle.trim(),
-      kind: "task",
-      category: "craft",
-      scopeKind: "build_specific",
-      attachments: [{ entityType: "build", entityId: buildId, role: "primary" }],
-    });
-    setNewRootTitle("");
+    try {
+      await createWorkflow({
+        userId,
+        title: newRootTitle.trim(),
+        kind: "task",
+        category: "craft",
+        scopeKind: "build_specific",
+        attachments: [{ entityType: "build", entityId: buildId, role: "primary" }],
+      });
+      setNewRootTitle("");
+    } catch (error) {
+      if (!(error instanceof RestoreInProgressError)) throw error;
+    }
   };
 
   const handleCreateChild = async () => {
     if (!userId || !newChildParentId || !newChildTitle.trim()) return;
-    await createWorkflow({
-      userId,
-      title: newChildTitle.trim(),
-      kind: "task",
-      category: "craft",
-      scopeKind: "build_specific",
-      parentId: newChildParentId,
-    });
-    setNewChildTitle("");
-    setNewChildParentId(null);
+    try {
+      await createWorkflow({
+        userId,
+        title: newChildTitle.trim(),
+        kind: "task",
+        category: "craft",
+        scopeKind: "build_specific",
+        parentId: newChildParentId,
+      });
+      setNewChildTitle("");
+      setNewChildParentId(null);
+    } catch (error) {
+      if (!(error instanceof RestoreInProgressError)) throw error;
+    }
   };
 
   const stats = tree?.stats;

@@ -487,6 +487,45 @@ describe("Settings data export/import page", () => {
     ]);
   });
 
+  it("undoes an interrupted packing restore even when its generated task is absent locally", async () => {
+    setOfflineConnectivity(true);
+    let packingCreates = 0;
+    client.mutation.mockImplementation(async (fn) => {
+      const name = getFunctionName(fn as never);
+      if (name === "conventions:create") return { _id: "restored-convention" };
+      if (name === "conventions:addManualPackingItem") {
+        if (++packingCreates === 2) throw new Error("Interrupted packing restore");
+        return { _id: "restored-packing", workflowItemId: "generated-packing-task" };
+      }
+      return null;
+    });
+    render(<SettingsDataPage />);
+    const bundle = buildDataBundle({
+      ...emptyCollections(),
+      conventions: [{ id: "convention", name: "Con" }],
+      packingListItems: [
+        { id: "packing-1", conventionId: "convention", label: "Tape" },
+        { id: "packing-2", conventionId: "convention", label: "Glue" },
+      ],
+    });
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    await screen.findByTestId("import-incomplete");
+    expect(offlineRuntime.getRestoreInProgress()).toBe(true);
+    client.mutation.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Undo restore" }));
+    await screen.findByTestId("import-undone");
+    expect(client.mutation.mock.calls.map(([fn]) => getFunctionName(fn as never))).toEqual([
+      "workflow:remove",
+      "conventions:deletePackingItem",
+      "conventions:remove",
+    ]);
+    expect(await offlineRuntime.getStore().listEntityRows()).toEqual([]);
+    expect(await readRestoreSession("user-free-1")).toBeNull();
+    expect(offlineRuntime.getRestoreInProgress()).toBe(false);
+  });
+
   it("treats a row already deleted on the server as undone", async () => {
     setOfflineConnectivity(true);
     client.mutation.mockImplementation(async (fn) => {

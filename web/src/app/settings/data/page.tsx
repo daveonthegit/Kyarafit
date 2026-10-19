@@ -93,9 +93,7 @@ function downloadFile(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-function flattenGeneratedTasks(
-  rows: readonly unknown[]
-): { id: string; dedupeKey: unknown; parentId: unknown }[] {
+function flattenGeneratedTasks(rows: readonly unknown[]): { id: string; dedupeKey: unknown }[] {
   return rows.flatMap((row) => {
     if (!row || typeof row !== "object" || !("_id" in row) || typeof row._id !== "string") {
       throw new Error("Invalid generated workflow item");
@@ -104,7 +102,6 @@ function flattenGeneratedTasks(
       {
         id: row._id,
         dedupeKey: "dedupeKey" in row ? row.dedupeKey : undefined,
-        parentId: "parentId" in row ? row.parentId : undefined,
       },
       ...("children" in row && Array.isArray(row.children)
         ? flattenGeneratedTasks(row.children)
@@ -258,15 +255,6 @@ export default function SettingsDataPage() {
                 !task.dedupeKey.endsWith(`:${created._id}`)
               ) continue;
               await session.record("workflowItems", task.id);
-              await offlineRuntime.writeImportedEntityRow({
-                table: "workflowItems",
-                id: task.id,
-                userId,
-                json: JSON.stringify({ ...task, _id: task.id, userId }),
-                updatedAt: Date.now(),
-                deleted: false,
-                synced: true,
-              });
             }
             if (row.parentNodeId) {
               await call(api.cosplayNodes.addChildLink, {

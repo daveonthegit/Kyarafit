@@ -1,6 +1,7 @@
 import { PORTABLE_COLLECTIONS, type PortableCollectionKey } from "./dataPortability";
 import { newIdempotencyKey } from "./offline/idempotencyKey";
 import { offlineRuntime } from "./offline/runtime";
+import { RESTORE_SESSION_KEY } from "./offline/restoreState";
 
 /**
  * One restore attempt. Every row the attempt creates is recorded here (in the signed-in account's
@@ -11,8 +12,6 @@ export interface RestoreSessionRecord {
   id: string;
   created: { collection: PortableCollectionKey; id: string }[];
 }
-
-const SESSION_KEY = "restore:session:v1";
 
 export class IncompleteRestoreError extends Error {
   constructor() {
@@ -51,7 +50,7 @@ function parseRecord(raw: string | null): RestoreSessionRecord | null {
 export async function readRestoreSession(subject: string): Promise<RestoreSessionRecord | null> {
   const check = guard(subject);
   check();
-  const raw = await offlineRuntime.getStore().getMeta(SESSION_KEY);
+  const raw = await offlineRuntime.getStore().getMeta(RESTORE_SESSION_KEY);
   check();
   return parseRecord(raw);
 }
@@ -59,7 +58,7 @@ export async function readRestoreSession(subject: string): Promise<RestoreSessio
 async function save(subject: string, record: RestoreSessionRecord | null): Promise<void> {
   const check = guard(subject);
   check();
-  await offlineRuntime.setMeta(SESSION_KEY, record ? JSON.stringify(record) : "");
+  await offlineRuntime.setMeta(RESTORE_SESSION_KEY, record ? JSON.stringify(record) : "");
   check();
 }
 
@@ -115,34 +114,6 @@ export async function undoRestoreSession({
   if (!session) return;
   const check = guard(subject);
   const remaining = [...session.created];
-  const rows = await offlineRuntime.getStore().listEntityRows();
-  check();
-  const tasks = new Map<string, string | null>();
-  for (const row of rows) {
-    if (row.table !== "workflowItems" || row.userId !== subject || row.deleted) continue;
-    const doc = JSON.parse(row.json) as { parentId?: unknown };
-    if (doc.parentId != null && typeof doc.parentId !== "string") {
-      throw new IncompleteRestoreError();
-    }
-    tasks.set(row.id, doc.parentId ?? null);
-  }
-  const recordedTasks = new Set(
-    remaining.filter((entry) => entry.collection === "workflowItems").map((entry) => entry.id)
-  );
-  const subtrees = new Map<string, Set<string>>();
-  const blocked = new Set<string>();
-  for (const id of recordedTasks) {
-    const subtree = new Set([id]);
-    for (const parent of subtree) {
-      for (const [child, parentId] of tasks) {
-        if (parentId === parent) subtree.add(child);
-      }
-    }
-    subtrees.set(id, subtree);
-    if ([...subtree].some((child) => !recordedTasks.has(child) || !tasks.has(child))) {
-      for (const child of subtree) blocked.add(child);
-    }
-  }
   const remove = async (collection: PortableCollectionKey, id: string) => {
     check();
     await deleteRow(collection, id);
@@ -151,16 +122,11 @@ export async function undoRestoreSession({
   };
   for (const collection of UNDO_ORDER) {
     const entries = [...remaining].reverse().filter((entry) => entry.collection === collection);
-    if (collection === "workflowItems") {
-      entries.sort((a, b) => subtrees.get(a.id)!.size - subtrees.get(b.id)!.size);
-    }
     for (const entry of entries) {
-      if (collection === "workflowItems" && blocked.has(entry.id)) continue;
       await remove(collection, entry.id);
       remaining.splice(remaining.indexOf(entry), 1);
       await save(subject, { ...session, created: remaining });
     }
   }
-  if (remaining.length > 0) throw new IncompleteRestoreError();
   await save(subject, null);
 }

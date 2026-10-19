@@ -51,43 +51,54 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
   const convex = useConvex();
   const subject = useSyncExternalStore(offlineRuntime.subscribe, getSubjectSnapshot, () => null);
   return useCallback(
-    async (...args: OptionalRestArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
-      if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
-        throw new AccountChangedError();
-      }
-      let name: string | null = null;
-      try {
-        name = getFunctionName(mutation);
-      } catch {
-        name = null;
-      }
-
-      if (getIsOnline() || (name != null && isOnlineOnlyMutation(name))) {
-        return convex.mutation(mutation, ...args);
-      }
-
-      if (name != null) {
-        const isCreate = isCreateMutation(name);
-        const clientId = isCreate ? newClientId() : undefined;
-        await offlineRuntime.commitCommand(
-          {
-            fn: name,
-            argsJson: JSON.stringify(args[0] ?? {}),
-            idempotencyKey: newIdempotencyKey(),
-            clientId: clientId ?? null,
-          },
-          overlayWritesFor(name, args[0], clientId)
-        );
-
-        if (isCreate && clientId) {
-          const input = (args[0] ?? {}) as Record<string, unknown>;
-          return {
-            ...input,
-            _id: clientId,
-          } as FunctionReturnType<Mutation>;
+    (...args: OptionalRestArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
+      const command = (async (): Promise<FunctionReturnType<Mutation>> => {
+        if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
+          throw new AccountChangedError();
         }
-      }
-      return undefined as FunctionReturnType<Mutation>;
+        let name: string | null = null;
+        try {
+          name = getFunctionName(mutation);
+        } catch {
+          name = null;
+        }
+
+        if (name !== "files:generateUploadUrl") {
+          await offlineRuntime.assertPersonalWritesAllowed();
+          if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
+            throw new AccountChangedError();
+          }
+        }
+
+        if (getIsOnline() || (name != null && isOnlineOnlyMutation(name))) {
+          return convex.mutation(mutation, ...args);
+        }
+
+        if (name != null) {
+          const isCreate = isCreateMutation(name);
+          const clientId = isCreate ? newClientId() : undefined;
+          await offlineRuntime.commitCommand(
+            {
+              fn: name,
+              argsJson: JSON.stringify(args[0] ?? {}),
+              idempotencyKey: newIdempotencyKey(),
+              clientId: clientId ?? null,
+            },
+            overlayWritesFor(name, args[0], clientId)
+          );
+
+          if (isCreate && clientId) {
+            const input = (args[0] ?? {}) as Record<string, unknown>;
+            return {
+              ...input,
+              _id: clientId,
+            } as FunctionReturnType<Mutation>;
+          }
+        }
+        return undefined as FunctionReturnType<Mutation>;
+      })();
+      void command.catch(() => undefined);
+      return command;
     },
     [convex, mutation, subject]
   );
