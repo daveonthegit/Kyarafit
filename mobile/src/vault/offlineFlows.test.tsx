@@ -6,7 +6,7 @@ import { setOfflineConnectivity } from "@/offline/connectivity";
 import { NeedsConnectionError, useOfflineMutation } from "@/offline/useOfflineMutation";
 import { useOfflineQuery } from "@/offline/useOfflineQuery";
 import { bootVault, getActiveVault, getVaultState, lockVault, unlockVault } from "./activeVault";
-import { onVaultWriteError, runLocalMutation } from "./functions";
+import { onVaultWriteError, runLocalMutation, runLocalMutations } from "./functions";
 import { VAULT_IMAGE_TOKEN } from "./images";
 import { VaultWriteError } from "./store";
 import { setReplicationEnabled } from "./replication";
@@ -263,6 +263,47 @@ describe("paid vault: replication intent is durable and atomic", () => {
     );
     expect(queued).toEqual([{ fn: "builds:create", client_id: doc._id }]);
     expect(convex.mutation).not.toHaveBeenCalled();
+  });
+});
+
+describe("compound explorer commands", () => {
+  it.each([false, true])("rolls back a rejected attach after detaching (child=%s)", (child) => {
+    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as { _id: string };
+    const parent = runLocalMutation("cosplayNodes:create", { name: "Parent", nodeType: "element", buildId: build._id }) as { _id: string };
+    const moving = runLocalMutation("cosplayNodes:create", { name: "Moving", nodeType: "element", buildId: build._id }) as { _id: string };
+    const target = runLocalMutation("cosplayNodes:create", { name: "Target", nodeType: "element" }) as { _id: string };
+    if (child) runLocalMutation("cosplayNodes:addChildLink", { parentNodeId: parent._id, childNodeId: moving._id });
+    runLocalMutation("cosplayNodes:addChildLink", { parentNodeId: moving._id, childNodeId: target._id });
+    const before = vaultRows();
+    const queue = getOfflineDb().getAllSync("SELECT * FROM mutation_queue");
+    expect(() => runLocalMutations([
+      child
+        ? { fn: "cosplayNodes:removeChildLink", args: { id: moving._id } }
+        : { fn: "builds:removeNodeFromBuild", args: { buildId: build._id, cosplayNodeId: moving._id } },
+      { fn: "cosplayNodes:addChildLink", args: { parentNodeId: target._id, childNodeId: moving._id } },
+    ])).toThrow("cycle");
+    getActiveVault()!.reloadFromDisk();
+    expect(vaultRows()).toEqual(before);
+    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue")).toEqual(queue);
+  });
+
+  it("commits create/link and promotion with one intent per step", () => {
+    setReplicationEnabled(true);
+    const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as { _id: string };
+    const parent = runLocalMutation("cosplayNodes:create", { name: "Parent", nodeType: "element" }) as { _id: string };
+    const [node] = runLocalMutations([
+      { fn: "cosplayNodes:create", args: { name: "Child", nodeType: "element" } },
+      { fn: "cosplayNodes:addChildLink", args: (results) => ({ parentNodeId: parent._id, childNodeId: (results[0] as { _id: string })._id }) },
+    ]) as [{ _id: string }];
+    expect(getActiveVault()!.reader().get(node._id)?.parentNodeId).toBe(parent._id);
+    runLocalMutations([
+      { fn: "cosplayNodes:removeChildLink", args: { id: node._id } },
+      { fn: "builds:linkNodes", args: { buildId: build._id, cosplayNodeIds: [node._id] } },
+    ]);
+    getActiveVault()!.reloadFromDisk();
+    expect(getActiveVault()!.reader().get(node._id)).toMatchObject({ buildId: build._id });
+    expect(getActiveVault()!.reader().get(node._id)?.parentNodeId).toBeUndefined();
+    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue")).toHaveLength(6);
   });
 });
 

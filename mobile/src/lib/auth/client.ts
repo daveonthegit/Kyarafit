@@ -3,6 +3,7 @@ import { createAuthClient } from "better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
 import {
   bearerStoragePlugin,
+  getBearerToken,
   hydrateBearerFromSecureStore,
   setStoredBearerToken,
 } from "./bearer-storage-plugin";
@@ -79,15 +80,15 @@ export async function setCredentialPassword(args: SetPasswordArgs) {
  * server never keeps a user signed in on this device.
  */
 export async function signOut() {
-  let revokeError: unknown = null;
-  try {
-    await authClient.signOut();
-  } catch (error) {
-    revokeError = error;
-  }
+  const token = getBearerToken();
   const results = await Promise.allSettled([setStoredBearerToken(null), lockVault()]);
-  if (revokeError)
-    console.warn("[auth] server sign-out failed; local sign-out attempted", revokeError);
+  if (token) {
+    void authClient.signOut({
+      fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
+    }).catch((error: unknown) => {
+      console.warn("[auth] server sign-out failed; signed out locally", error);
+    });
+  }
   const errors = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1)

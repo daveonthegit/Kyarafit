@@ -3,7 +3,7 @@ import { isCreateMutation } from "@/offline/offlineCreateMutations";
 import { getActiveVault, requireActiveVault } from "./activeVault";
 import { toPortableImageRefs } from "./images";
 import { isReplicationEnabled, requestReplication } from "./replication";
-import { VaultWriteError, type VaultStore } from "./store";
+import { VaultWriteError, type VaultStore, type ReplicationIntent } from "./store";
 import { LOCAL_MUTATIONS, LOCAL_QUERIES, DEVICE_LOCAL_MUTATIONS } from "./handlers";
 
 /**
@@ -65,25 +65,43 @@ export function runLocalMutation(
   rawArgs: unknown,
   expectedVault: VaultStore | null = getActiveVault()
 ): unknown {
+  return runLocalMutations([{ fn, args: asArgs(rawArgs) }], expectedVault)[0];
+}
+
+export type LocalMutationStep = {
+  fn: string;
+  args: Record<string, unknown> | ((results: readonly unknown[]) => Record<string, unknown>);
+};
+
+export function runLocalMutations(
+  steps: readonly LocalMutationStep[],
+  expectedVault: VaultStore | null = getActiveVault()
+): unknown[] {
   const vault = requireActiveVault(expectedVault);
-  const handler = LOCAL_MUTATIONS[fn];
-  if (!handler) throw new Error(`No local mutation registered for ${fn}`);
-  const args = asArgs(rawArgs);
-  const replicate = isReplicationEnabled() && !DEVICE_LOCAL_MUTATIONS.has(fn);
+  const intents: ReplicationIntent[] = [];
+  const replicate = isReplicationEnabled();
   try {
-    const result = vault.commit(
-      (db) => handler({ db, userId: vault.subject, now: Date.now() }, args),
-      replicate
-        ? (res) => ({
-            fn,
+    const results = vault.commit((db) => {
+      const results: unknown[] = [];
+      for (const step of steps) {
+        const handler = LOCAL_MUTATIONS[step.fn];
+        if (!handler) throw new Error(`No local mutation registered for ${step.fn}`);
+        const args = asArgs(typeof step.args === "function" ? step.args(results) : step.args);
+        const result = handler({ db, userId: vault.subject, now: Date.now() }, args);
+        results.push(result);
+        if (replicate && !DEVICE_LOCAL_MUTATIONS.has(step.fn)) {
+          intents.push({
+            fn: step.fn,
             args: toPortableImageRefs(args),
             idempotencyKey: newIdempotencyKey(),
-            clientId: isCreateMutation(fn) ? createdId(res) : undefined,
-          })
-        : undefined
-    );
-    if (replicate) requestReplication();
-    return result;
+            clientId: isCreateMutation(step.fn) ? createdId(result) : undefined,
+          });
+        }
+      }
+      return results;
+    }, () => intents);
+    if (intents.length > 0) requestReplication();
+    return results;
   } catch (error) {
     if (error instanceof VaultWriteError) {
       for (const listener of writeErrorListeners) listener(error);

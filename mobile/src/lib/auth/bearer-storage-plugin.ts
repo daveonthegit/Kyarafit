@@ -29,6 +29,10 @@ export function hasBearerToken(): boolean {
   return memoryToken !== null;
 }
 
+export function getBearerToken(): string | null {
+  return memoryToken;
+}
+
 export function subscribeBearerToken(listener: () => void): () => void {
   tokenListeners.add(listener);
   return () => {
@@ -137,8 +141,12 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
         name: "BearerStorage",
         hooks: {
           async onRequest(context) {
-            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
             const headers = toHeaders(context.headers);
+            if (isAuthEndpoint(context.url.toString(), "sign-out") && headers.has("Authorization")) {
+              context.headers = headers;
+              return context;
+            }
+            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
             if (token) {
               headers.set("Authorization", `Bearer ${token}`);
             }

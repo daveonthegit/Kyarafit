@@ -137,7 +137,17 @@ function openAndPublish(account: VaultAccount): void {
  */
 export function unlockVault(account: VaultAccount): Promise<void> {
   return runLifecycle(async (isCurrent) => {
-    await saveActiveAccount(account);
+    try {
+      await saveActiveAccount(account);
+    } catch (error) {
+      if (!isCurrent()) return;
+      attach(null);
+      closeVaultDatabase();
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[vault] could not persist the active account", error);
+      setState({ status: "error", account, message });
+      return;
+    }
     if (!isCurrent()) return;
     if (store && store.subject === account.subject) {
       setState({ status: "unlocked", account });

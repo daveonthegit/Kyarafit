@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOnlineId } from "@/vault/hooks";
+import { runLocalMutations } from "@/vault/functions";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -272,9 +273,7 @@ export function BuildDetailBody(props: Props) {
   const removeRef = useOfflineMutation(api.buildReferenceImages.remove);
   const addProcess = useOfflineMutation(api.buildProcessPictures.add);
   const removeProcess = useOfflineMutation(api.buildProcessPictures.remove);
-  const createNode = useOfflineMutation(api.cosplayNodes.create);
-  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
-  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+
   const addCollaboratorByEmail = useOfflineMutation(api.buildCollaborators.addByEmail);
   const removeCollaborator = useOfflineMutation(api.buildCollaborators.remove);
 
@@ -607,28 +606,18 @@ export function BuildDetailBody(props: Props) {
     if (!name || quickCreateBusy) return;
     setQuickCreateBusy(true);
     try {
-      const node = await createNode({
-        userId,
-        nodeType: quickCreateType,
-        name,
-        tags: [],
-      });
-      if (!node?._id) throw new Error("Could not create node");
-
-      if (quickCreateParentId) {
-        await addChildLink({
-          userId,
-          parentNodeId: quickCreateParentId,
-          childNodeId: node._id,
-          linkMode: "owned",
-        });
-      } else {
-        await addNodesToBuild({
-          userId,
-          buildId,
-          cosplayNodeIds: [node._id],
-        });
-      }
+      runLocalMutations([
+        { fn: "cosplayNodes:create", args: { userId, nodeType: quickCreateType, name, tags: [] } },
+        {
+          fn: quickCreateParentId ? "cosplayNodes:addChildLink" : "builds:addNodesToBuild",
+          args: (results) => {
+            const node = results[0] as { _id: string };
+            return quickCreateParentId
+              ? { userId, parentNodeId: quickCreateParentId, childNodeId: node._id, linkMode: "owned" }
+              : { userId, buildId, cosplayNodeIds: [node._id] };
+          },
+        },
+      ]);
 
       setQuickCreateOpen(false);
       setQuickCreateName("");
@@ -638,10 +627,7 @@ export function BuildDetailBody(props: Props) {
       setQuickCreateBusy(false);
     }
   }, [
-    addChildLink,
-    addNodesToBuild,
     buildId,
-    createNode,
     quickCreateBusy,
     quickCreateName,
     quickCreateParentId,

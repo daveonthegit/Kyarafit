@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation } from "@/offline";
+import { runLocalMutations, type LocalMutationStep } from "@/vault/functions";
 import type { Id } from "convex/_generated/dataModel";
 import {
   canReorderAsSiblings,
@@ -84,10 +85,6 @@ export function useExplorerMove({
   onError,
 }: UseExplorerMoveOpts) {
   const reorderRoots = useOfflineMutation(api.builds.reorderRootLinks);
-  const linkNodes = useOfflineMutation(api.builds.linkNodes);
-  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
-  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
-  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
   const reorderChildren = useOfflineMutation(api.cosplayNodes.reorderChildren);
 
   const rowRegistryRef = useRef(new Map<string, RegisteredRow>());
@@ -204,27 +201,25 @@ export function useExplorerMove({
       if (!userId || dragMeta.nodeId === targetMeta.nodeId) return;
       if (!isAllowedChildLink(targetMeta.nodeType, dragMeta.nodeType)) return;
 
+      const steps: LocalMutationStep[] = [];
       if (dragMeta.isRoot) {
-        await removeNodeFromBuild({ userId, buildId, cosplayNodeId: dragMeta.nodeId });
-        setRootOrderIds(rootOrderIds.filter((id) => id !== dragMeta.nodeId));
+        steps.push({ fn: "builds:removeNodeFromBuild", args: { userId, buildId, cosplayNodeId: dragMeta.nodeId } });
       } else {
         const linkId = dragMeta.siblingLinkIds?.[dragMeta.siblingIndex ?? -1];
         if (!linkId) return;
-        await removeChildLink({ userId, id: linkId });
+        steps.push({ fn: "cosplayNodes:removeChildLink", args: { userId, id: linkId } });
       }
-
-      await addChildLink({
+      steps.push({ fn: "cosplayNodes:addChildLink", args: {
         userId,
         parentNodeId: targetMeta.nodeId,
         childNodeId: dragMeta.nodeId,
         linkMode: "owned",
-      });
+      } });
+      runLocalMutations(steps);
+      if (dragMeta.isRoot) setRootOrderIds(rootOrderIds.filter((id) => id !== dragMeta.nodeId));
     },
     [
-      addChildLink,
       buildId,
-      removeChildLink,
-      removeNodeFromBuild,
       rootOrderIds,
       setRootOrderIds,
       userId,
@@ -239,14 +234,12 @@ export function useExplorerMove({
         if (dragMeta.isRoot) return;
         const linkId = dragMeta.siblingLinkIds?.[dragMeta.siblingIndex ?? -1];
         if (!linkId) return;
-        await removeChildLink({ userId, id: linkId });
         const nextRootIds = [...rootOrderIds, dragMeta.nodeId];
+        runLocalMutations([
+          { fn: "cosplayNodes:removeChildLink", args: { userId, id: linkId } },
+          { fn: "builds:linkNodes", args: { userId, buildId, cosplayNodeIds: nextRootIds } },
+        ]);
         setRootOrderIds(nextRootIds);
-        await linkNodes({
-          userId,
-          buildId,
-          cosplayNodeIds: nextRootIds,
-        });
         return;
       }
 
@@ -268,8 +261,8 @@ export function useExplorerMove({
           target.zone === "before"
             ? moveBefore(rootOrderIds, from, to)
             : moveAfter(rootOrderIds, from, to);
-        setRootOrderIds(nextRootIds);
         await reorderRoots({ userId, buildId, orderedCosplayNodeIds: nextRootIds });
+        setRootOrderIds(nextRootIds);
         return;
       }
 
@@ -292,9 +285,7 @@ export function useExplorerMove({
     },
     [
       buildId,
-      linkNodes,
       moveNodeIntoTarget,
-      removeChildLink,
       reorderChildren,
       reorderRoots,
       rootOrderIds,

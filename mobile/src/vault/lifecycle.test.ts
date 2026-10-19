@@ -33,6 +33,15 @@ afterEach(async () => {
 });
 
 describe("vault lifecycle", () => {
+  it("publishes a retryable storage error if the account record cannot be saved", async () => {
+    vi.spyOn(AsyncStorage, "setItem").mockRejectedValueOnce(new Error("disk full"));
+    await unlockVault(ACCOUNT_A);
+    expect(getVaultState()).toMatchObject({ status: "error", account: ACCOUNT_A, message: "disk full" });
+    expect(getActiveVault()).toBeNull();
+    await unlockVault(ACCOUNT_A);
+    expect(getVaultState()).toMatchObject({ status: "unlocked", account: ACCOUNT_A });
+  });
+
   it("a pending unlock cannot re-open the vault after sign-out locks it", async () => {
     const { release } = deferSetItem();
     const unlocking = unlockVault(ACCOUNT_A);

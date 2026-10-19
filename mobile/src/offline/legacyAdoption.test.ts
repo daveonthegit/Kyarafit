@@ -83,12 +83,40 @@ describe("legacy photo adoption", () => {
         codec: vaultImageCodec(imageDir),
       });
     const store = createStore();
+    expect(store.reader().get("local:legacy")?.imageUrl).toBe(`${imageDir}img_original`);
+    expect(JSON.parse(openVaultDatabase("owner").getFirstSync<{ json: string }>("SELECT json FROM entity_rows")!.json).imageUrl).toBe("kyarafit-image:img_original");
     store.commit((db) => db.patch("local:legacy", { name: "Edited" }));
     closeVaultDatabase();
     const reopened = createStore();
     expect(reopened.reader().get("local:legacy")?.imageUrl).toBe(`${imageDir}img_original`);
     const original = readFileSync(`${imageDir}img_original`.replace(/^file:\/\//, ""));
     expect([...original]).toEqual([1, 2, 3]);
+  });
+
+  it("merges pending overlays onto synced records of the same table and id", () => {
+    const legacy = new NodeSqliteDatabase(`${fixture.directory}/SQLite/kyarafit.db`);
+    legacy.execSync("ALTER TABLE entity_rows RENAME TO original_rows; CREATE TABLE entity_rows AS SELECT * FROM original_rows; UPDATE entity_rows SET synced_at = 1;");
+    legacy.runSync("INSERT INTO entity_rows VALUES (?, ?, ?, ?, ?, NULL, 0)", ["builds", "local:legacy", "owner", JSON.stringify({ userId: "owner", budgetCents: 400 }), 2]);
+    legacy.closeSync();
+    const store = new VaultStore({ subject: "owner", sql: openVaultDatabase("owner"), newId: () => "unused" });
+    expect(store.reader().get("local:legacy")).toMatchObject({ name: "Legacy", status: "idea", budgetCents: 400 });
+    expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(false);
+  });
+
+  it("skips incomplete overlays and visibly preserves the legacy database", () => {
+    const legacy = new NodeSqliteDatabase(`${fixture.directory}/SQLite/kyarafit.db`);
+    legacy.runSync("UPDATE entity_rows SET json = ?", [JSON.stringify({ _id: "local:legacy", userId: "owner", budgetCents: 400 })]);
+    legacy.closeSync();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const db = openVaultDatabase("owner");
+      expect(db.getAllSync("SELECT * FROM entity_rows")).toEqual([]);
+      expect(db.getFirstSync("SELECT * FROM sync_meta WHERE key = 'vault:legacyAdopted'")).toBeNull();
+      expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(true);
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("incomplete legacy recovery"));
+    } finally {
+      warning.mockRestore();
+    }
   });
 
   it("leaves adoption uncommitted when copying an existing original fails", () => {

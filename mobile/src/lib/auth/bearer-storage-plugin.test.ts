@@ -70,6 +70,15 @@ describe.each([false, true])("device-only bearer storage (composed=%s)", (compos
   beforeEach(() => {
     client = createTestClient(composed);
   });
+  it("revokes a captured credential without clearing a newer sign-in", async () => {
+    await storage.setStoredBearerToken("new-session");
+    await client.signOut({ fetchOptions: { headers: { Authorization: "Bearer old-session" } } });
+    expect(requests[0].get("Authorization")).toBe("Bearer old-session");
+    expect(storage.hasBearerToken()).toBe(true);
+    await client.getSession();
+    expect(requests[1].get("Authorization")).toBe("Bearer new-session");
+  });
+
   it("hydrates and upgrades existing persistence, then caches for subsequent requests", async () => {
     store.getItemAsync.mockResolvedValue("existing-session");
     await storage.hydrateBearerFromSecureStore();

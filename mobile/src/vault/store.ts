@@ -341,7 +341,7 @@ export class VaultStore {
    */
   commit<T>(
     task: (db: VaultWriter) => T,
-    intent?: (result: T, touched: string[][]) => ReplicationIntent | null
+    intent?: (result: T, touched: string[][]) => ReplicationIntent | ReplicationIntent[] | null
   ): T {
     const staged = new Map<string, Staged>();
     const now = this.now();
@@ -463,16 +463,16 @@ export class VaultStore {
             }
           }
         }
-        if (replication) {
+        for (const entry of replication ? (Array.isArray(replication) ? replication : [replication]) : []) {
           this.sql.runSync(
             `INSERT INTO mutation_queue
                (idempotency_key, op, fn, args_json, client_id, created_at, status, touched_json)
              VALUES (?, 'mutation', ?, ?, ?, ?, 'pending', ?)`,
             [
-              replication.idempotencyKey,
-              replication.fn,
-              JSON.stringify(replication.args ?? {}),
-              replication.clientId ?? null,
+              entry.idempotencyKey,
+              entry.fn,
+              JSON.stringify(entry.args ?? {}),
+              entry.clientId ?? null,
               now,
               JSON.stringify(touched),
             ]

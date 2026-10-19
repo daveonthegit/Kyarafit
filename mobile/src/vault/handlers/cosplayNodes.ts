@@ -22,7 +22,7 @@ import {
   sanitizeOptionalUrl,
 } from "./lib/validation";
 import { getWorkflowItemsByAttachmentKey } from "./lib/workflowDomain";
-import { syncGeneratedWorkflowForNode } from "./workflow";
+import { removeGeneratedWorkflowForNode, syncGeneratedWorkflowForNode } from "./workflow";
 
 /**
  * Local port of the personal-data parts of `convex/cosplayNodes.ts` (elements and materials).
@@ -403,6 +403,7 @@ export function computeBuildVisualNodesList(ctx: ReadCtx, buildId: string) {
  * (deleted with it), so this only clears foreign references from buildTasks / packingListItems.
  */
 function removeRootLinkReferences(ctx: LocalMutationCtx, cosplayNodeId: string) {
+  removeGeneratedWorkflowForNode(ctx, cosplayNodeId);
   const tasks = ctx.db
     .query("buildTasks")
     .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", cosplayNodeId))
@@ -723,7 +724,9 @@ export const mutations: Record<string, LocalMutationHandler> = {
         ctx.now
       )
     );
-    return getNode(ctx, node._id);
+    const updated = getNode(ctx, node._id);
+    if (updated) syncGeneratedWorkflow(ctx, updated);
+    return updated;
   },
 
   "cosplayNodes:addChildLink": (ctx, args) => {

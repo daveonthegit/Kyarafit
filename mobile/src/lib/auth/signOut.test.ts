@@ -19,6 +19,7 @@ vi.mock("better-auth/client/plugins", () => ({ usernameClient: () => ({}) }));
 vi.mock("./bearer-storage-plugin", () => ({
   bearerStoragePlugin: () => ({}),
   hydrateBearerFromSecureStore: vi.fn(),
+  getBearerToken: () => "old-session",
   setStoredBearerToken: h.setStoredBearerToken,
 }));
 vi.mock("@/config/env", () => ({ EXPO_PUBLIC_CONVEX_SITE_URL: "https://example.convex.site" }));
@@ -58,6 +59,15 @@ describe("signOut", () => {
     h.lockVault.mockRejectedValueOnce(lockFailure);
     await expect(signOut()).rejects.toMatchObject({ errors: [credentialFailure, lockFailure] });
     expect(h.lockVault).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes local sign-out without waiting for remote revocation", async () => {
+    h.serverSignOut.mockReturnValue(new Promise(() => {}));
+    await signOut();
+    expect(h.lockVault).toHaveBeenCalledTimes(1);
+    expect(h.setStoredBearerToken).toHaveBeenCalledWith(null);
+    expect(h.serverSignOut).toHaveBeenCalledWith({ fetchOptions: { headers: { Authorization: "Bearer old-session" } } });
+    expect(h.lockVault.mock.invocationCallOrder[0]).toBeLessThan(h.serverSignOut.mock.invocationCallOrder[0]);
   });
 
   it("still signs out locally when the server is unreachable (offline)", async () => {

@@ -1,6 +1,6 @@
 import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from "expo-sqlite";
 import { Directory, File } from "expo-file-system";
-import { collectVaultImageKeys, vaultImageDir } from "@/vault/images";
+import { collectVaultImageKeys, toPortableImageRefs, vaultImageDir } from "@/vault/images";
 import * as FileSystem from "expo-file-system/legacy";
 import { migrateVaultSchema } from "./vaultSchema";
 
@@ -87,10 +87,54 @@ function adoptLegacyDatabase(db: SQLiteDatabase, subject: string): void {
         [subject]
       );
       if ((foreign?.c ?? 0) > 0) return;
-      const legacyRows = db.getAllSync<{ json: string }>(
-        "SELECT json FROM legacy.entity_rows WHERE deleted = 0"
-      );
-      const keys = collectVaultImageKeys(legacyRows.map((row) => JSON.parse(row.json)));
+      const legacyRows = db.getAllSync<{
+        table_name: string; id: string; user_id: string; json: string;
+        updated_at: number; synced_at: number | null; deleted: number;
+      }>("SELECT * FROM legacy.entity_rows ORDER BY synced_at IS NULL, updated_at");
+      const required: Record<string, Record<string, string>> = {
+        builds: { name: "string", status: "string" },
+        cosplayNodes: { name: "string", nodeType: "string" },
+        conventions: { name: "string", startDate: "string", endDate: "string" },
+        workflowItems: { title: "string", kind: "string", status: "string", category: "string", ancestorIds: "array", sortOrder: "number", scopeKind: "string", sourceKind: "string" },
+        workflowAttachments: { workflowItemId: "string", entityType: "string", entityId: "string", entityKey: "string", role: "string" },
+        workflowDependencies: { predecessorWorkflowItemId: "string", successorWorkflowItemId: "string", relationKind: "string" },
+        buildTasks: { label: "string", sortOrder: "number", checked: "boolean" },
+        conventionDayPlans: { conventionId: "string", date: "string" },
+        packingListItems: { conventionId: "string", label: "string", checked: "boolean" },
+        buildReferenceImages: { buildId: "string", sortOrder: "number" },
+        buildProcessPictures: { buildId: "string", sortOrder: "number" },
+        buildProgressUpdates: { buildId: "string", createdAt: "number", imageRefs: "array", publishedToFeed: "boolean" },
+      };
+      const recovered = new Map<string, (typeof legacyRows)[number]>();
+      let incomplete = false;
+      for (const row of legacyRows) {
+        const key = JSON.stringify([row.table_name, row.id]);
+        try {
+          const overlay = JSON.parse(row.json);
+          if (!overlay || typeof overlay !== "object" || Array.isArray(overlay)) throw new Error("Invalid document");
+          const prior = recovered.get(key);
+          const doc = row.synced_at === null && prior
+            ? { ...JSON.parse(prior.json), ...overlay }
+            : overlay;
+          recovered.set(key, { ...row, json: JSON.stringify(toPortableImageRefs(doc)) });
+        } catch {
+          incomplete = true;
+          console.warn(`[vault] incomplete legacy recovery: ${row.table_name}/${row.id}; legacy database retained`);
+        }
+      }
+      for (const [key, row] of recovered) {
+        if (row.deleted) continue;
+        const doc = JSON.parse(row.json);
+        const fields = required[row.table_name];
+        if (!fields || Object.entries({ userId: "string", ...fields }).some(([field, type]) =>
+          type === "array" ? !Array.isArray(doc[field]) : typeof doc[field] !== type
+        )) {
+          recovered.delete(key);
+          incomplete = true;
+          console.warn(`[vault] incomplete legacy recovery: ${row.table_name}/${row.id}; legacy database retained`);
+        }
+      }
+      const keys = collectVaultImageKeys([...recovered.values()].filter((row) => !row.deleted).map((row) => JSON.parse(row.json)));
       const imageDir = new Directory(vaultImageDir(docs, vaultKeyForSubject(subject)));
       if (keys.size > 0 && !imageDir.exists)
         imageDir.create({ intermediates: true, idempotent: true });
@@ -100,25 +144,36 @@ function adoptLegacyDatabase(db: SQLiteDatabase, subject: string): void {
         if (original.exists && !target.exists) original.copy(target);
       }
       db.withTransactionSync(() => {
+        for (const row of recovered.values()) {
+          db.runSync(
+            `INSERT OR IGNORE INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [row.table_name, row.id, row.user_id, row.json, row.updated_at, row.synced_at, row.deleted]
+          );
+        }
         db.execSync(`
-          INSERT OR IGNORE INTO entity_rows SELECT * FROM legacy.entity_rows;
           INSERT OR IGNORE INTO id_map SELECT * FROM legacy.id_map;
           INSERT OR IGNORE INTO mutation_queue
             (idempotency_key, op, fn, args_json, base_version, client_id, retry_count, created_at, status)
             SELECT idempotency_key, op, fn, args_json, base_version, client_id, retry_count, created_at, status
             FROM legacy.mutation_queue;
         `);
-        db.runSync(
+        const queued = db.getAllSync<{ id: number; args_json: string }>("SELECT id, args_json FROM mutation_queue");
+        for (const row of queued) {
+          db.runSync("UPDATE mutation_queue SET args_json = ? WHERE id = ?", [JSON.stringify(toPortableImageRefs(JSON.parse(row.args_json))), row.id]);
+        }
+        if (!incomplete) db.runSync(
           "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('vault:legacyAdopted', ?)",
           [String(Date.now())]
         );
       });
+      if (incomplete) return;
     }
     db.execSync("DETACH DATABASE legacy");
     attached = false;
     deleteDatabaseSync(LEGACY_DB_NAME);
-  } catch {
-    // No legacy file (the common case) or an unreadable one: leave it alone.
+  } catch (error) {
+    console.warn("[vault] legacy recovery failed; legacy database retained", error);
   } finally {
     if (attached) {
       try {

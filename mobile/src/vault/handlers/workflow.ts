@@ -400,34 +400,53 @@ export function syncGeneratedWorkflowForNode(
       : []),
   ];
 
-  if (input.purchaseStatus === "to_buy" || input.materialStatus === "to_buy") {
-    ensureWorkflowItem(ctx, {
-      userId: input.userId,
-      dedupeKey: `autogen:buy:${input.buildId ?? "shared"}:${input.cosplayNodeId}`,
+  const wig = input.category?.toLowerCase().includes("wig");
+  const specs = [
+    {
+      key: "buy",
+      active: input.purchaseStatus === "to_buy" || input.materialStatus === "to_buy",
+      done: input.purchaseStatus === "bought" || ["bought", "in_use", "complete"].includes(input.materialStatus ?? ""),
       title: `Buy ${input.nodeName}`,
       category: "buy",
       status: "not_started",
-      scopeKind: input.buildId ? "build_specific" : "shared",
-      sourceKind: "automation",
-      attachments,
-    });
-  }
-
-  if (input.buildStatus === "wip" || input.materialStatus === "in_use") {
-    const title = input.category?.toLowerCase().includes("wig")
-      ? `Style ${input.nodeName}`
-      : `Work on ${input.nodeName}`;
-    const category = input.category?.toLowerCase().includes("wig") ? "style" : "craft";
-    ensureWorkflowItem(ctx, {
-      userId: input.userId,
-      dedupeKey: `autogen:wip:${input.buildId ?? "shared"}:${input.cosplayNodeId}`,
-      title,
-      category,
+    },
+    {
+      key: "wip",
+      active: input.buildStatus === "wip" || input.materialStatus === "in_use",
+      done: input.buildStatus === "built" || input.materialStatus === "complete",
+      title: `${wig ? "Style" : "Work on"} ${input.nodeName}`,
+      category: wig ? "style" : "craft",
       status: "in_progress",
-      scopeKind: input.buildId ? "build_specific" : "shared",
-      sourceKind: "automation",
-      attachments,
-    });
+    },
+  ];
+  for (const spec of specs) {
+    const dedupeKey = `autogen:${spec.key}:${input.buildId ?? "shared"}:${input.cosplayNodeId}`;
+    const existing = ctx.db.query("workflowItems").withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey)).unique();
+    if (spec.active || (spec.done && existing)) {
+      ensureWorkflowItem(ctx, {
+        userId: input.userId,
+        dedupeKey,
+        title: spec.title,
+        category: spec.category,
+        status: spec.active ? spec.status : "done",
+        scopeKind: input.buildId ? "build_specific" : "shared",
+        sourceKind: "automation",
+        attachments,
+      });
+    } else if (existing) {
+      removeWorkflowItemCascade(ctx, existing._id);
+    }
+  }
+}
+
+export function removeGeneratedWorkflowForNode(ctx: LocalMutationCtx, cosplayNodeId: string): void {
+  const items = ctx.db.query("workflowItems").withIndex("by_userId", (q) => q.eq("userId", ctx.userId)).collect();
+  for (const item of items) {
+    if (item.sourceKind === "automation" && typeof item.dedupeKey === "string" &&
+      (item.dedupeKey.startsWith("autogen:buy:") || item.dedupeKey.startsWith("autogen:wip:")) &&
+      item.dedupeKey.endsWith(`:${cosplayNodeId}`)) {
+      removeWorkflowItemCascade(ctx, item._id);
+    }
   }
 }
 
