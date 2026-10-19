@@ -34,6 +34,12 @@ vi.mock("expo-router", () => ({
   useRouter: () => ({ push: h.push, replace: h.replace }),
 }));
 
+// Identity / personal-data reads go through the vault hooks; route them to the same stubs.
+vi.mock("@/offline", async () => {
+  const convex = (await import("convex/react")) as Record<string, unknown>;
+  return { useOfflineQuery: convex.useQuery, useOfflineMutation: convex.useMutation };
+});
+
 vi.mock("convex/react", () => ({
   useQuery: () => h.state.identity,
   useMutation: () => h.createGroup,

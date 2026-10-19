@@ -12,6 +12,34 @@ let hydrated = false;
 let revision = 0;
 let storageQueue: Promise<void> = Promise.resolve();
 
+const tokenListeners = new Set<() => void>();
+
+function setMemoryToken(token: string | null): void {
+  if (memoryToken === token) return;
+  memoryToken = token;
+  for (const listener of tokenListeners) listener();
+}
+
+/**
+ * Whether a remote credential is currently held. Sign-out clears it immediately, so a session user
+ * still cached by the auth client after an offline sign-out can never re-open a locked vault; a new
+ * sign-in stores a fresh token and notifies subscribers.
+ */
+export function hasBearerToken(): boolean {
+  return memoryToken !== null;
+}
+
+export function getBearerToken(): string | null {
+  return memoryToken;
+}
+
+export function subscribeBearerToken(listener: () => void): () => void {
+  tokenListeners.add(listener);
+  return () => {
+    tokenListeners.delete(listener);
+  };
+}
+
 function serializeStorage(operation: () => Promise<void>): Promise<void> {
   const pending = storageQueue.then(operation);
   storageQueue = pending.catch(() => {});
@@ -33,13 +61,13 @@ export async function hydrateBearerFromSecureStore(): Promise<void> {
         await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token, STORE_OPTIONS);
       }
       if (hydrationRevision === revision) {
-        memoryToken = token;
+        setMemoryToken(token);
         hydrated = true;
       }
     } catch {
       // A locked device or transient rewrite failure may recover on a later request.
       // Explicit logout/account-switch nulls remain authoritative via the revision guard.
-      if (hydrationRevision === revision) memoryToken = null;
+      if (hydrationRevision === revision) setMemoryToken(null);
     }
   });
 }
@@ -48,7 +76,7 @@ export async function hydrateBearerFromSecureStore(): Promise<void> {
 export async function setStoredBearerToken(token: string | null): Promise<void> {
   const writeRevision = ++revision;
   hydrated = true;
-  memoryToken = null;
+  setMemoryToken(null);
   await serializeStorage(async () => {
     if (token) {
       try {
@@ -63,7 +91,7 @@ export async function setStoredBearerToken(token: string | null): Promise<void> 
     } else {
       await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY, STORE_OPTIONS);
     }
-    if (writeRevision === revision) memoryToken = token;
+    if (writeRevision === revision) setMemoryToken(token);
   });
 }
 
@@ -113,8 +141,15 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
         name: "BearerStorage",
         hooks: {
           async onRequest(context) {
-            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
             const headers = toHeaders(context.headers);
+            if (
+              isAuthEndpoint(context.url.toString(), "sign-out") &&
+              headers.has("Authorization")
+            ) {
+              context.headers = headers;
+              return context;
+            }
+            const { token, revision: requestRevision } = await getStoredBearerSnapshot();
             if (token) {
               headers.set("Authorization", `Bearer ${token}`);
             }

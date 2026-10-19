@@ -4,13 +4,12 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Id } from "convex/_generated/dataModel";
-import { api } from "convex/_generated/api";
 import { useTranslation } from "react-i18next";
 import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { useOfflineMutation } from "@/offline";
 import { parseIsoDateOnly } from "@/screens/conventions/utils";
 import { GlassDateField } from "@/screens/conventions/GlassDateField";
 import { GlassPanel, GlassTextField, PhotoBackdrop, PhotoPill } from "@/ui/glass";
@@ -46,8 +45,8 @@ export function ConventionForm({
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
+  const saveLocalImage = useSaveLocalImage();
   const insets = useSafeAreaInsets();
-  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
   const [name, setName] = useState(initialValues?.name ?? "");
   const [location, setLocation] = useState(initialValues?.location ?? "");
   const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
@@ -94,9 +93,9 @@ export function ConventionForm({
       let uploadedStorageId = imageStorageId;
       let uploadedImageUrl = imageUrl;
       if (pickedUri) {
-        const uploadUrl = await generateUploadUrl();
-        uploadedStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
-        uploadedImageUrl = undefined;
+        // Copy the picked photo into this device's vault first — works offline, no upload.
+        uploadedImageUrl = (await saveLocalImage(pickedUri)).uri;
+        uploadedStorageId = undefined;
       }
 
       await onSubmit({
@@ -107,13 +106,14 @@ export function ConventionForm({
         imageStorageId: uploadedStorageId,
         imageUrl: uploadedImageUrl,
       });
+    } catch (error) {
+      alertUnlessReported(t("common.errorTitle"), error);
     } finally {
       setBusy(false);
     }
   }, [
     disabled,
     endDate,
-    generateUploadUrl,
     imageStorageId,
     imageUrl,
     location,
@@ -121,6 +121,8 @@ export function ConventionForm({
     onSubmit,
     pickedUri,
     startDate,
+    saveLocalImage,
+    t,
   ]);
 
   return (

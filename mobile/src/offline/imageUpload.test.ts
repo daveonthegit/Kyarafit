@@ -14,6 +14,14 @@ import { setOfflineConnectivity } from "./connectivity";
  * (`expo-file-system/legacy`); both are mocked here since the orchestration takes injected deps.
  */
 
+vi.mock("./syncIdentity", () => ({
+  syncScope: async () => ({ current: () => true, assertCurrent: () => {} }),
+  invalidateSyncSession: vi.fn(),
+}));
+
+const imageIds = vi.hoisted(() => ({}) as Record<string, string>);
+vi.mock("./idMap", () => ({ loadIdMap: () => imageIds, setServerId: vi.fn() }));
+
 vi.mock("./db", () => ({
   getOfflineDb: () => {
     throw new Error("db unavailable in unit test");
@@ -30,6 +38,7 @@ vi.mock("expo-file-system/legacy", () => ({
 }));
 
 beforeEach(() => {
+  for (const key of Object.keys(imageIds)) delete imageIds[key];
   setOfflineConnectivity(true);
 });
 
@@ -71,6 +80,40 @@ const progressUpdateRow = {
 };
 
 describe("uploadLocalImages (mobile, REQ-D71)", () => {
+  it("uses the mapped owner id remotely while preserving the local document id", async () => {
+    imageIds["local:progress"] = "server-progress";
+    const { client, calls } = fakeUploadClient();
+    const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];
+    const rows = {
+      buildProgressUpdates: [
+        { ...progressUpdateRow.buildProgressUpdates[0], _id: "local:progress" },
+      ],
+    };
+    const result = await uploadLocalImages(
+      client,
+      "PRO",
+      depsWith(rows, async () => "storage", written)
+    );
+    expect(result).toEqual({ uploaded: 1, failed: 0 });
+    expect(calls[1].args).toMatchObject({ id: "server-progress" });
+    expect(written[0]).toMatchObject({ id: "local:progress", doc: { _id: "local:progress" } });
+  });
+
+  it("does not upload originals before their entity has a server identity", async () => {
+    const { client } = fakeUploadClient();
+    const rows = {
+      buildProgressUpdates: [
+        { ...progressUpdateRow.buildProgressUpdates[0], _id: "local:unmapped" },
+      ],
+    };
+    const upload = vi.fn(async () => "storage");
+    expect(await uploadLocalImages(client, "PRO", depsWith(rows, upload, []))).toEqual({
+      uploaded: 0,
+      failed: 0,
+    });
+    expect(client.mutation).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
   it("should_upload_local_image_and_convert_to_cloud_on_sync_for_paid", async () => {
     const { client, calls } = fakeUploadClient();
     const written: { table: string; id: string; doc: Record<string, unknown> }[] = [];

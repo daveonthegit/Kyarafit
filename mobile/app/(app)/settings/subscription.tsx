@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { Stack } from "expo-router";
-import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import Purchases, { type CustomerInfo, type PurchasesPackage } from "react-native-purchases";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { glass, ls } from "@kyarafit/design-system/rn";
 import {
   SUBSCRIPTION_PLANS,
@@ -75,7 +75,7 @@ function PlanBullet({ children, muted = false }: { children: string; muted?: boo
 
 export default function SettingsSubscriptionScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tier, isLoading } = useTier(userId);
   const status = identity === undefined ? "loading" : "ready";

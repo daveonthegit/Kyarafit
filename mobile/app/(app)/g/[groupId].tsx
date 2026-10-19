@@ -7,6 +7,9 @@ import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
+import { getServerId } from "@/offline/idMap";
+import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { MobileBackButton } from "@/components/navigation/MobileBackButton";
@@ -72,7 +75,7 @@ export default function GroupDetailScreen() {
   const rawGroupId = useLocalSearchParams<{ groupId: string | string[] }>().groupId;
   const groupId = (Array.isArray(rawGroupId) ? rawGroupId[0] : rawGroupId) as
     Id<"groups"> | undefined;
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   const data = useQuery(
@@ -83,10 +86,26 @@ export default function GroupDetailScreen() {
   const conventionDays =
     useQuery(api.groupConventionDays.listForGroupWithConventions, groupId ? { groupId } : "skip") ??
     [];
-  const myConventionsQuery = useQuery(api.conventions.list, userId ? { userId } : "skip");
-  const myBuildsQuery = useQuery(api.builds.list, userId ? { userId } : "skip");
-  const myConventions = useMemo(() => myConventionsQuery ?? [], [myConventionsQuery]);
-  const myBuilds = useMemo(() => myBuildsQuery ?? [], [myBuildsQuery]);
+  const myConventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
+  const myBuildsQuery = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
+  const myConventions = useMemo(
+    () =>
+      (myConventionsQuery ?? []).flatMap((convention) => {
+        const id = convention._id.startsWith(LOCAL_ID_PREFIX)
+          ? getServerId(convention._id)
+          : convention._id;
+        return id ? [{ ...convention, _id: id as Id<"conventions"> }] : [];
+      }),
+    [myConventionsQuery]
+  );
+  const myBuilds = useMemo(
+    () =>
+      (myBuildsQuery ?? []).flatMap((build) => {
+        const id = build._id.startsWith(LOCAL_ID_PREFIX) ? getServerId(build._id) : build._id;
+        return id ? [{ ...build, _id: id as Id<"builds"> }] : [];
+      }),
+    [myBuildsQuery]
+  );
 
   const setDays = useMutation(api.groupConventionDays.setDays);
   const setBuildGroup = useMutation(api.builds.setGroupId);

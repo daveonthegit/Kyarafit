@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { glass, ls } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -17,7 +18,7 @@ export default function DiscoverScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const currentUserId = identity?.subject;
   const builds = useQuery(api.builds.listDiscover, { limit: 50 }) ?? [];
   const status = builds ? "ready" : "loading";

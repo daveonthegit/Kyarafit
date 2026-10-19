@@ -8,14 +8,17 @@ import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { glass } from "@kyarafit/design-system/rn";
 import {
   authClient,
   deleteAccount,
   getSession,
   setCredentialPassword,
+  signOut,
   useSession,
 } from "@/lib/auth/client";
+import { deleteVaultDatabase } from "@/offline/db";
 import { startSocialLink } from "@/lib/auth/startSocialSignIn";
 import { APP_HREF } from "@/lib/appRoutes";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
@@ -85,7 +88,7 @@ export default function SettingsAccountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ error?: string; error_description?: string }>();
   const { session } = useSession();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const profile = useQuery(api.users.getByExternalId, userId ? { externalId: userId } : "skip");
   const updateProfile = useMutation(api.users.updateProfile);
@@ -385,8 +388,16 @@ export default function SettingsAccountScreen() {
     setDeleteError(null);
     try {
       const { error } = await deleteAccount();
-      if (error) setDeleteError(error.message ?? t("settings.accountDeleteError"));
-      else router.replace(APP_HREF.signIn);
+      if (error) {
+        setDeleteError(error.message ?? t("settings.accountDeleteError"));
+      } else {
+        // The account is gone, so its vault could never be unlocked again: sign out (lock), then
+        // remove this account's planner and photos from the device as the confirmation said.
+        const subject = identity?.subject;
+        await signOut();
+        if (subject) await deleteVaultDatabase(subject);
+        router.replace(APP_HREF.signIn);
+      }
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : t("settings.accountDeleteError"));
     } finally {

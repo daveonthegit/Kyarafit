@@ -3,10 +3,10 @@ import { FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-na
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import type { TFunction } from "i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import {
   formatNodeStatus,
   formatNodeTypeLabel,
@@ -50,11 +50,11 @@ export default function LinkElementsScreen() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [bucketFilter, setBucketFilter] = useState<BucketFilter>("all");
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
-  const build = useQuery(api.builds.get, buildId ? { id: buildId } : "skip");
-  const linkedIds = useQuery(api.builds.getNodes, buildId ? { buildId } : "skip");
+  const build = useOfflineQuery(api.builds.get, buildId ? { id: buildId } : "skip");
+  const linkedIds = useOfflineQuery(api.builds.getNodes, buildId ? { buildId } : "skip");
 
   const listArgs = useMemo(() => {
     if (!userId || !buildId) return "skip" as const;
@@ -70,8 +70,8 @@ export default function LinkElementsScreen() {
     };
   }, [bucketFilter, buildId, order, search, sortBy, typeFilter, userId]);
 
-  const catalog = useQuery(api.cosplayNodes.list, listArgs);
-  const linkNodes = useMutation(api.builds.linkNodes);
+  const catalog = useOfflineQuery(api.cosplayNodes.list, listArgs);
+  const linkNodes = useOfflineMutation(api.builds.linkNodes);
 
   useLayoutEffect(() => {
     navigation.setOptions({

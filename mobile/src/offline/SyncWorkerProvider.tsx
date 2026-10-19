@@ -1,74 +1,99 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
+import { useSession } from "@/lib/auth/client";
+import { getBearerToken, subscribeBearerToken } from "@/lib/auth/bearer-storage-plugin";
+import { syncScope } from "./syncIdentity";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { useConvex, useQuery } from "convex/react";
-import { api } from "convex/_generated/api";
+import { useConvex } from "convex/react";
 import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
+import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { useTier } from "@/lib/useTier";
-import { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
-import { setOfflineConnectivity } from "./connectivity";
-import { drainMutationQueue, runBackfill, uploadLocalImages, warmEntityRows } from "./syncWorker";
+import { useVaultState } from "@/vault/hooks";
+import { onReplicationRequested, setReplicationEnabled } from "@/vault/replication";
+import { enforceOfflineStorageCaps, pruneOfflineTombstones } from "./db";
+import { getIsOnline, setOfflineConnectivity } from "./connectivity";
+import {
+  drainMutationQueue,
+  invalidateSyncSession,
+  runBackfill,
+  uploadLocalImages,
+  warmEntityRows,
+} from "./syncWorker";
 
 function isOnlineFromState(state: NetInfoState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
 }
 
 function runMaintenance(): void {
-  try {
-    enforceOfflineStorageCaps();
-    pruneOfflineTombstones();
-  } catch (e) {
-    console.warn("[offline] maintenance failed", e);
-  }
+  enforceOfflineStorageCaps();
+  pruneOfflineTombstones();
 }
 
 /**
- * Initializes SQLite, tracks connectivity, and drains the offline mutation queue on reconnect.
- * Full SQLite SWR + per-entity reconciliation continues to land incrementally (§3.13).
+ * Tracks connectivity, runs vault maintenance, and drives PAID cloud sync.
  *
- * The Convex-facing sync worker (queue drain **and** warm-up pull) is a paid, cloud feature: it
- * runs only when the user is signed in **and** on a paid tier (DATA_AND_SYNC.md §6, REQ-D60). The
- * single decision point is the pure `shouldRunSyncWorker(tier, signedIn)` predicate shared with
- * web. A free, signed-in (or signed-out) user therefore makes ZERO Convex personal-data calls —
- * the worker never drains the queue and never performs the warm-up pull (REQ-D10). Local SQLite
- * init, connectivity tracking, and maintenance are device-only and keep running for everyone.
+ * The local vault (opened at launch by the root layout) is the source of truth for everyone; this
+ * provider never gates reading or writing it. The Convex-facing worker — queue drain, warm-up pull,
+ * image mirroring, upgrade backfill — runs only for a signed-in account on a paid tier
+ * (`shouldRunSyncWorker`, shared with web), so a free account makes ZERO Convex personal-data calls.
+ *
+ * The last known paid state is persisted in the vault (`setReplicationEnabled`) so a paid user who
+ * launches offline keeps queueing edits for sync before the server re-confirms their tier.
  */
 export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const convex = useConvex();
-  const identity = useQuery(api.auth.getCurrentUser);
-  const userId = identity?.subject ?? null;
-  const signedIn = userId !== null;
-  const { data: tierInfo } = useTier(userId);
-  const tier = tierInfo?.tier ?? null;
-  const syncEnabled = shouldRunSyncWorker(tier, signedIn);
+  const vault = useVaultState();
+  const userId = vault.status === "unlocked" ? vault.account.subject : null;
+  const remote = useSession();
+  const credential = useSyncExternalStore(subscribeBearerToken, getBearerToken, getBearerToken);
+  const signedIn = Boolean(
+    credential && userId && !remote.isPending && remote.data?.user?.id === userId
+  );
+  const { data: tierInfo } = useTier(signedIn ? userId : null);
+  const liveTier = tierInfo?.tier ?? null;
 
+  // Persist the server-confirmed tier so offline launches know whether to queue for sync.
   useEffect(() => {
-    try {
-      getOfflineDb();
-    } catch (e) {
-      console.warn("[offline] db init failed", e);
-    }
-    runMaintenance();
-  }, []);
+    if (!signedIn || liveTier == null) return;
+    let cancelled = false;
+    void syncScope()
+      .then((scope) => {
+        if (!cancelled && scope.current()) setReplicationEnabled(isPaidConvexTier(liveTier));
+      })
+      .catch((error: unknown) => console.warn("[sync] could not persist sync state", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn, liveTier, userId, credential]);
+
+  const syncEnabled = shouldRunSyncWorker(liveTier, signedIn);
+  const syncRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let cancelled = false;
 
-    // Apply the latest connectivity, run bounded maintenance, and drain only when confirmed online.
+    const sync = () => {
+      if (cancelled || !syncEnabled || !getIsOnline()) return;
+      // Drain queued local writes, top up the vault, mirror local images, then (once) backfill
+      // everything created while free.
+      void drainMutationQueue(convex)
+        .then(() => {
+          if (!cancelled) return warmEntityRows(convex);
+        })
+        .then(() => {
+          if (!cancelled) return uploadLocalImages(convex, liveTier);
+        })
+        .then(() => {
+          if (!cancelled) return runBackfill(convex, liveTier);
+        })
+        .catch((error: unknown) => console.warn("[sync] pass failed", error));
+    };
+    syncRef.current = sync;
+
     const apply = (isOnline: boolean) => {
       if (cancelled) return;
       setOfflineConnectivity(isOnline);
       runMaintenance();
-      // REQ-D60 gate: only a paid, signed-in user drains the queue or pulls from Convex. Free /
-      // signed-out users still track connectivity and run local maintenance, but the worker never
-      // touches Convex personal data (REQ-D10).
-      if (syncEnabled && isOnline) {
-        // Drain queued offline writes, top up the local store, then mirror local images to cloud.
-        void drainMutationQueue(convex)
-          .then(() => warmEntityRows(convex))
-          .then(() => uploadLocalImages(convex, tier))
-          // REQ-D95: one-time upgrade backfill of rows created while FREE (idempotent; marked done).
-          .then(() => runBackfill(convex, tier));
-      }
+      if (isOnline) sync();
     };
 
     // Establish the real initial state before any drain — never drain on the optimistic default.
@@ -78,12 +103,15 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
         /* leave connectivity at its current value; the listener will correct it */
       });
 
-    const unsub = NetInfo.addEventListener((state) => apply(isOnlineFromState(state)));
+    const unsubNet = NetInfo.addEventListener((state) => apply(isOnlineFromState(state)));
+    const unsubRequests = onReplicationRequested(() => syncRef.current());
     return () => {
       cancelled = true;
-      unsub();
+      invalidateSyncSession();
+      unsubNet();
+      unsubRequests();
     };
-  }, [convex, syncEnabled, tier]);
+  }, [convex, syncEnabled, liveTier, userId, credential]);
 
   return <>{children}</>;
 }

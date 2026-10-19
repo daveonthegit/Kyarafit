@@ -14,7 +14,7 @@
     "planner": "Planificador",
     "more": "Más",
     "settings": "Ajustes",
-    "offlineBanner": "Sin conexión — los cambios se sincronizarán al volver online.",
+    "offlineBanner": "Sin conexión — tus cambios se guardan en este dispositivo.",
     "syncPendingCount": "{{count}} cambios pendientes de sincronizar",
     "syncFailedCount": "{{count}} cambio(s) no se pudieron sincronizar",
     "syncNow": "Sincronizar ahora",
@@ -605,7 +605,7 @@
       "forgotPasswordLink": "olvidé mi contraseña",
       "yourEmailFallback": "tu correo",
       "sectionDataPrivacy": "Datos y privacidad",
-      "dataPrivacyBody": "Kyarafit guarda en la nube los datos de cuenta, builds, imágenes y planes de convención cuando has iniciado sesión. En este dispositivo, los tokens de autenticación se guardan de forma segura para mantener la sesión.",
+      "dataPrivacyBody": "Tus builds, elementos, convenciones y fotos se guardan en este dispositivo. Con Kyarafit Cloud también se sincronizan con tu cuenta. Los datos de inicio de sesión se guardan en el almacenamiento seguro del dispositivo.",
       "termsOfService": "Términos del servicio",
       "privacyPolicy": "Política de privacidad",
       "securitySupport": "Seguridad y soporte",
@@ -613,7 +613,7 @@
       "deleteAction": "Eliminar cuenta",
       "deletePermanentLabel": "Acción permanente",
       "deleteConfirmTitle": "¿Eliminar la cuenta para siempre?",
-      "deleteConfirmBody": "No se puede deshacer. Eliminaremos tu cuenta Kyarafit, el contenido en la nube, las imágenes subidas y la sesión en este dispositivo.",
+      "deleteConfirmBody": "No se puede deshacer. Eliminaremos tu cuenta de Kyarafit, el contenido sincronizado en la nube, las imágenes subidas y el planificador y las fotos de esta cuenta en este dispositivo. Exporta antes tus datos si quieres conservar una copia.",
       "typeDeleteLabel": "Escribe DELETE para confirmar",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "Escribe DELETE para confirmar que quieres eliminar la cuenta de forma permanente.",
@@ -679,8 +679,8 @@
     "cloudBackupUpgrade": "Mejora tu plan para sincronizar y hacer copias de seguridad automáticas en la nube.",
     "signOutError": "No se pudo cerrar sesión. Inténtalo de nuevo.",
     "signOutConfirmTitle": "¿Cerrar sesión en Kyarafit?",
-    "signOutExportWarning": "Tus datos se quedan en este dispositivo. Expórtalos antes de cerrar sesión: si otra cuenta inicia sesión en este dispositivo, podría reemplazarlos.",
-    "signOutConfirmBody": "Tus datos locales se quedan en este dispositivo. ¿Seguro que quieres cerrar sesión?",
+    "signOutExportWarning": "Tu planificador se queda en este dispositivo, bloqueado hasta que vuelvas a iniciar sesión con esta cuenta. Otras cuentas no pueden verlo. Exporta tus datos si quieres una copia en otro lugar.",
+    "signOutConfirmBody": "Tu planificador se queda en este dispositivo, bloqueado hasta que vuelvas a iniciar sesión. ¿Seguro que quieres cerrar sesión?",
     "accountGlass": {
       "editDisplayName": "Editar nombre visible",
       "editUsername": "Editar usuario",
@@ -770,7 +770,13 @@
           }
         }
       }
-    }
+    },
+    "dataRemoveTitle": "Quitar de este dispositivo",
+    "dataRemoveConfirmAction": "Quitar",
+    "dataRemoveConfirmTitle": "¿Quitar tu planificador de este dispositivo?",
+    "dataRemoveButton": "Quitar datos del dispositivo",
+    "dataRemoveDescription": "Borra de este dispositivo el planificador y las fotos de esta cuenta y cierra la sesión. Exporta antes tus datos si quieres conservar una copia.",
+    "dataRemoveConfirmBody": "No se puede deshacer. Los datos que hayas exportado no se ven afectados."
   },
   "groups": {
     "title": "Grupos",
@@ -1171,10 +1177,19 @@
     "headline": "Hecho a mano.\nPlaneado hasta la costura.",
     "subcopy": "Cada elemento, tarea y día de convención de tu próximo proyecto, en un estudio silencioso que funciona sin conexión.",
     "ctaPrimary": "Empieza a planificar — gratis",
-    "ctaMeta": "Sin cuenta · funciona en tu dispositivo"
+    "ctaMeta": "Gratis · funciona sin conexión tras iniciar sesión"
   },
   "offline": {
     "onlineOnlyBanner": "Estás sin conexión: esta sección necesita internet.",
     "retry": "Reintentar"
+  },
+  "vault": {
+    "openErrorTitle": "No se pudo abrir tu planificador",
+    "openErrorBody": "No se ha borrado nada. Libera espacio o reinicia la app e inténtalo de nuevo. ({{detail}})",
+    "saveFailedTitle": "No se pudo guardar en este dispositivo",
+    "saveFailedBody": "Ese cambio no se guardó. Libera espacio e inténtalo de nuevo. ({{detail}})",
+    "sessionExpired": "Has cerrado sesión en Kyarafit en línea. Tu planificador sigue funcionando aquí.",
+    "sessionExpiredAction": "Vuelve a iniciar sesión para sincronizar y usar las funciones en línea",
+    "sessionExpiredHint": "Abre el inicio de sesión"
   }
 }

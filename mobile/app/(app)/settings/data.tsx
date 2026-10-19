@@ -2,10 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Share, Text } from "react-native";
 import { glass } from "@kyarafit/design-system/rn";
 import * as FileSystem from "expo-file-system/legacy";
-import { useQuery } from "convex/react";
+import { useVaultState } from "@/vault/hooks";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
+import { deleteVaultDatabase, vaultExportFilePath } from "@/offline/db";
+import { signOut } from "@/lib/auth/client";
 import {
   buildExport,
   buildPortableRows,
@@ -34,13 +36,6 @@ import {
  * reads the known export file written by Export on this device — enough for an on-device round-trip
  * and for the orchestration logic to be fully exercised. See `dataPortability.ts`.
  */
-const EXPORT_FILE_NAME = "kyarafit-export.json";
-
-function exportFilePath(): string | null {
-  const dir = FileSystem.documentDirectory;
-  return dir ? `${dir}${EXPORT_FILE_NAME}` : null;
-}
-
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
@@ -66,8 +61,8 @@ function toDocs(rows: readonly { _id: string }[] | undefined): EntityDoc[] {
 
 export default function SettingsDataScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
-  const userId = identity?.subject;
+  const vault = useVaultState();
+  const userId = vault.status === "unlocked" ? vault.account.subject : undefined;
 
   const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
   const elements = useOfflineQuery(api.cosplayNodes.list, userId ? { userId } : "skip");
@@ -153,7 +148,7 @@ export default function SettingsDataScreen() {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
       return;
     }
-    const path = exportFilePath();
+    const path = vaultExportFilePath(userId);
     if (!path) {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
       return;
@@ -187,7 +182,7 @@ export default function SettingsDataScreen() {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataSignInRequired"));
       return;
     }
-    const path = exportFilePath();
+    const path = vaultExportFilePath(userId);
     if (!path) {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportNoFile"));
       return;
@@ -219,7 +214,38 @@ export default function SettingsDataScreen() {
     }
   }, [collections, createRow, t, userId]);
 
-  const status = identity === undefined ? "loading" : "ready";
+  const [removing, setRemoving] = useState(false);
+
+  // The only destructive path for local data: an explicit, confirmed delete of this account's
+  // vault followed by sign-out. Signing out alone never deletes anything (it locks the vault).
+  const removeDeviceData = useCallback(async () => {
+    if (!userId) return;
+    setRemoving(true);
+    try {
+      // Lock first (sign-out closes the vault), then delete the closed files.
+      await signOut();
+      await deleteVaultDatabase(userId);
+    } catch (error) {
+      Alert.alert(
+        t("settings.dataErrorTitle"),
+        error instanceof Error ? error.message : String(error)
+      );
+      setRemoving(false);
+    }
+  }, [t, userId]);
+
+  const confirmRemove = useCallback(() => {
+    Alert.alert(t("settings.dataRemoveConfirmTitle"), t("settings.dataRemoveConfirmBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("settings.dataRemoveConfirmAction"),
+        style: "destructive",
+        onPress: () => void removeDeviceData(),
+      },
+    ]);
+  }, [removeDeviceData, t]);
+
+  const status = vault.status === "booting" ? "loading" : "ready";
 
   return (
     <SettingsGlassFrame
@@ -257,6 +283,17 @@ export default function SettingsDataScreen() {
               {importing ? (
                 <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
               ) : null}
+            </SettingsGlassSection>
+            <SettingsGlassSection label={t("settings.dataRemoveTitle")}>
+              <Text style={styles.body}>{t("settings.dataRemoveDescription")}</Text>
+              <PhotoPill
+                style={styles.action}
+                variant="text"
+                label={t("settings.dataRemoveButton")}
+                disabled={removing || exporting || importing}
+                accessibilityState={{ busy: removing }}
+                onPress={confirmRemove}
+              />
             </SettingsGlassSection>
             <SettingsGlassSection>
               <Text style={styles.body}>{t("settings.dataPortabilityFootnote")}</Text>

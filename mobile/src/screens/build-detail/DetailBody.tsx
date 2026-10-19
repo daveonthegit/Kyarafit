@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useOnlineId } from "@/vault/hooks";
+import { runLocalMutations } from "@/vault/functions";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -19,7 +21,8 @@ import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { FloatingCreateMenu } from "@/ui";
@@ -192,6 +195,8 @@ function SheetGrip() {
 }
 
 export function BuildDetailBody(props: Props) {
+  const onlineBuildId = useOnlineId(props.buildId);
+  const saveLocalImage = useSaveLocalImage();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -244,34 +249,32 @@ export function BuildDetailBody(props: Props) {
   const inspector = useNodeInspector({ buildId, userId });
 
   const openNodeSheet = useCallback(
-    (meta: NodeSelectionMeta, path: ExplorerPathSegment[]) => {
+    async (meta: NodeSelectionMeta, path: ExplorerPathSegment[]) => {
+      if (!(await inspector.commitSelection(meta))) return;
       setSelectedPath(path);
-      void inspector.commitSelection(meta);
       detailSheetRef.current?.present();
     },
     [inspector]
   );
 
-  const handleSheetDismiss = useCallback(() => {
-    void inspector.commitSelection(null);
+  const handleSheetDismiss = useCallback(async () => {
+    if (await inspector.commitSelection(null)) setSelectedPath([]);
+    else detailSheetRef.current?.present();
   }, [inspector]);
 
   const handleSheetUnlink = useCallback(async () => {
-    await inspector.unlinkSelected();
+    if (!(await inspector.unlinkSelected())) return;
     detailSheetRef.current?.dismiss();
   }, [inspector]);
 
   const isOwner = build.userId === userId;
 
   const updateBuild = useOfflineMutation(api.builds.update);
-  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
   const addRef = useOfflineMutation(api.buildReferenceImages.add);
   const removeRef = useOfflineMutation(api.buildReferenceImages.remove);
   const addProcess = useOfflineMutation(api.buildProcessPictures.add);
   const removeProcess = useOfflineMutation(api.buildProcessPictures.remove);
-  const createNode = useOfflineMutation(api.cosplayNodes.create);
-  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
-  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+
   const addCollaboratorByEmail = useOfflineMutation(api.buildCollaborators.addByEmail);
   const removeCollaborator = useOfflineMutation(api.buildCollaborators.remove);
 
@@ -418,7 +421,7 @@ export function BuildDetailBody(props: Props) {
     onError: (message) => Alert.alert(t("common.errorTitle"), message),
   });
 
-  const pickAndUpload = useCallback(async () => {
+  const pickAndSave = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert(t("buildDetail.needPhotoAccess"));
@@ -429,35 +432,29 @@ export function BuildDetailBody(props: Props) {
       quality: 0.85,
     });
     if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    const url = await generateUploadUrl();
-    const storageId = await uploadUriToConvexStorage(
-      asset.uri,
-      url,
-      asset.mimeType ?? "image/jpeg"
-    );
-    return storageId;
-  }, [generateUploadUrl, t]);
+    // Copy into this device's vault first — galleries work offline; paid sync uploads later.
+    return (await saveLocalImage(result.assets[0].uri)).uri;
+  }, [t, saveLocalImage]);
 
   const onAddReference = useCallback(async () => {
     try {
-      const storageId = await pickAndUpload();
-      if (!storageId) return;
-      await addRef({ buildId, userId, imageStorageId: storageId });
+      const imageUrl = await pickAndSave();
+      if (!imageUrl) return;
+      await addRef({ buildId, userId, imageUrl });
     } catch (e) {
-      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      alertUnlessReported(t("common.errorTitle"), e);
     }
-  }, [addRef, buildId, pickAndUpload, t, userId]);
+  }, [addRef, buildId, pickAndSave, t, userId]);
 
   const onAddProcess = useCallback(async () => {
     try {
-      const storageId = await pickAndUpload();
-      if (!storageId) return;
-      await addProcess({ buildId, userId, imageStorageId: storageId });
+      const imageUrl = await pickAndSave();
+      if (!imageUrl) return;
+      await addProcess({ buildId, userId, imageUrl });
     } catch (e) {
-      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      alertUnlessReported(t("common.errorTitle"), e);
     }
-  }, [addProcess, buildId, pickAndUpload, t, userId]);
+  }, [addProcess, buildId, pickAndSave, t, userId]);
 
   const saveFocal = useCallback(
     async (fx: number, fy: number) => {
@@ -557,11 +554,11 @@ export function BuildDetailBody(props: Props) {
     setFocalOpen(true);
   }, []);
 
-  const openSelectedElement = useCallback(() => {
-    if (!inspector.selected?.nodeId) return;
+  const openSelectedElement = useCallback(async () => {
+    if (!inspector.selected?.nodeId || !(await inspector.flushSave())) return;
     detailSheetRef.current?.dismiss();
     router.push(APP_HREF.element(inspector.selected.nodeId as string));
-  }, [inspector.selected?.nodeId, router]);
+  }, [inspector, router]);
 
   const openQuickCreate = useCallback(
     (type: "element" | "material", parentId?: Id<"cosplayNodes"> | null) => {
@@ -574,12 +571,12 @@ export function BuildDetailBody(props: Props) {
   );
 
   const openQuickCreateFromSheet = useCallback(
-    (type: "element" | "material") => {
-      if (!inspector.selected?.nodeId) return;
+    async (type: "element" | "material") => {
+      if (!inspector.selected?.nodeId || !(await inspector.flushSave())) return;
       detailSheetRef.current?.dismiss();
       openQuickCreate(type, inspector.selected.nodeId);
     },
-    [inspector.selected?.nodeId, openQuickCreate]
+    [inspector, openQuickCreate]
   );
 
   const openChildFromSheet = useCallback(
@@ -610,28 +607,23 @@ export function BuildDetailBody(props: Props) {
     if (!name || quickCreateBusy) return;
     setQuickCreateBusy(true);
     try {
-      const node = await createNode({
-        userId,
-        nodeType: quickCreateType,
-        name,
-        tags: [],
-      });
-      if (!node?._id) throw new Error("Could not create node");
-
-      if (quickCreateParentId) {
-        await addChildLink({
-          userId,
-          parentNodeId: quickCreateParentId,
-          childNodeId: node._id,
-          linkMode: "owned",
-        });
-      } else {
-        await addNodesToBuild({
-          userId,
-          buildId,
-          cosplayNodeIds: [node._id],
-        });
-      }
+      runLocalMutations([
+        { fn: "cosplayNodes:create", args: { userId, nodeType: quickCreateType, name, tags: [] } },
+        {
+          fn: quickCreateParentId ? "cosplayNodes:addChildLink" : "builds:addNodesToBuild",
+          args: (results) => {
+            const node = results[0] as { _id: string };
+            return quickCreateParentId
+              ? {
+                  userId,
+                  parentNodeId: quickCreateParentId,
+                  childNodeId: node._id,
+                  linkMode: "owned",
+                }
+              : { userId, buildId, cosplayNodeIds: [node._id] };
+          },
+        },
+      ]);
 
       setQuickCreateOpen(false);
       setQuickCreateName("");
@@ -640,18 +632,7 @@ export function BuildDetailBody(props: Props) {
     } finally {
       setQuickCreateBusy(false);
     }
-  }, [
-    addChildLink,
-    addNodesToBuild,
-    buildId,
-    createNode,
-    quickCreateBusy,
-    quickCreateName,
-    quickCreateParentId,
-    quickCreateType,
-    t,
-    userId,
-  ]);
+  }, [buildId, quickCreateBusy, quickCreateName, quickCreateParentId, quickCreateType, t, userId]);
 
   useEffect(() => {
     if (!inviteModalOpen) return;
@@ -663,13 +644,13 @@ export function BuildDetailBody(props: Props) {
 
   const handleSendCollaboratorInvite = useCallback(async () => {
     const email = inviteEmail.trim();
-    if (!email || invitePending) return;
+    if (!email || invitePending || !onlineBuildId) return;
     setInvitePending(true);
     setInviteError(null);
     setInviteFeedback(null);
     try {
       await addCollaboratorByEmail({
-        buildId,
+        buildId: onlineBuildId,
         ownerId: userId,
         email,
         role: inviteRole,
@@ -681,10 +662,11 @@ export function BuildDetailBody(props: Props) {
     } finally {
       setInvitePending(false);
     }
-  }, [addCollaboratorByEmail, buildId, inviteEmail, invitePending, inviteRole, t, userId]);
+  }, [addCollaboratorByEmail, onlineBuildId, inviteEmail, invitePending, inviteRole, t, userId]);
 
   const confirmRemoveCollaborator = useCallback(
     (collaboratorUserId: string) => {
+      if (!onlineBuildId) return;
       Alert.alert(t("buildDetail.inviteRemoveTitle"), t("buildDetail.inviteRemoveBody"), [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -692,7 +674,7 @@ export function BuildDetailBody(props: Props) {
           style: "destructive",
           onPress: () => {
             void removeCollaborator({
-              buildId,
+              buildId: onlineBuildId,
               ownerId: userId,
               userId: collaboratorUserId,
             });
@@ -700,7 +682,7 @@ export function BuildDetailBody(props: Props) {
         },
       ]);
     },
-    [buildId, removeCollaborator, t, userId]
+    [onlineBuildId, removeCollaborator, t, userId]
   );
 
   const updateRootFrame = useCallback(() => {
@@ -1428,9 +1410,8 @@ export function BuildDetailBody(props: Props) {
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Pressable
-                    onPress={() => {
-                      setSelectedPath([]);
-                      void inspector.commitSelection(null);
+                    onPress={async () => {
+                      if (await inspector.commitSelection(null)) setSelectedPath([]);
                     }}
                     style={{ minHeight: 28, justifyContent: "center" }}
                   >
@@ -1788,7 +1769,7 @@ export function BuildDetailBody(props: Props) {
         inspectorForm={inspector.inspectorForm}
         persistStatus={inspector.persistStatus}
         onFormChange={inspector.setInspectorForm}
-        onFlushSave={() => void inspector.flushSave()}
+        onFlushSave={inspector.flushSave}
         onCreateChild={openQuickCreateFromSheet}
         onOpenDetail={openSelectedElement}
         onSelectChild={openChildFromSheet}

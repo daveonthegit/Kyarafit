@@ -9,9 +9,11 @@ import Offline from "../../../../app/(app)/settings/offline";
 import Data from "../../../../app/(app)/settings/data";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildExport } from "@/lib/dataPortability";
+import { vaultExportFilePath } from "@/offline/db";
 
 const state = vi.hoisted(() => ({
   identity: { subject: "owner" } as { subject: string } | null | undefined,
+  vaultSubject: "owner" as string | null,
   tier: "FREE",
   tierLoading: false,
   connected: true,
@@ -33,6 +35,7 @@ const state = vi.hoisted(() => ({
   share: vi.fn(),
   alert: vi.fn(),
   create: vi.fn(),
+  deleteVault: vi.fn(),
 }));
 
 vi.mock("react-native", async () => ({
@@ -62,6 +65,12 @@ vi.mock("@/lib/useTier", () => ({
   }),
 }));
 vi.mock("@/lib/auth/client", () => ({ signOut: state.signOut }));
+vi.mock("@/vault/hooks", () => ({
+  useVaultState: () =>
+    state.vaultSubject
+      ? { status: "unlocked", account: { subject: state.vaultSubject } }
+      : { status: "locked" },
+}));
 vi.mock("@/lib/openWebAppPath", () => ({ openWebAppPath: state.openWeb }));
 vi.mock("@/i18n", () => ({ SUPPORTED_LOCALES: ["en", "ja", "es"], setAppLocale: state.setLocale }));
 vi.mock("@/theme/ThemeProvider", () => ({
@@ -89,10 +98,23 @@ vi.mock("@/ui", () => ({
   DataBoundary: ({ status, children }: { status: string; children: () => React.ReactNode }) =>
     status === "loading" ? <div>Loading data</div> : children(),
 }));
-vi.mock("@/offline", () => ({
-  usePendingQueueCount: () => state.pending,
-  useOfflineQuery: () => state.rows,
-  useOfflineMutation: () => state.create,
+vi.mock("@/offline", async () => {
+  const { getFunctionName } = await import("convex/server");
+  return {
+    usePendingQueueCount: () => state.pending,
+    // Identity comes from the vault hook too; every other read returns the fixture rows.
+    useOfflineQuery: (query: never, args?: unknown) =>
+      getFunctionName(query) === "auth:getCurrentUser"
+        ? state.identity
+        : args === "skip"
+          ? undefined
+          : state.rows,
+    useOfflineMutation: () => state.create,
+  };
+});
+vi.mock("@/offline/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/offline/db")>()),
+  deleteVaultDatabase: state.deleteVault,
 }));
 vi.mock("@/components/settings/SyncStatusSection", () => ({
   SyncStatusSection: ({ offline }: { offline: boolean }) => (
@@ -119,6 +141,7 @@ beforeEach(() => {
   vi.stubGlobal("__DEV__", false);
   vi.clearAllMocks();
   state.identity = { subject: "owner" };
+  state.vaultSubject = "owner";
   state.tier = "FREE";
   state.tierLoading = false;
   state.connected = true;
@@ -130,6 +153,7 @@ beforeEach(() => {
   state.share.mockResolvedValue(undefined);
   state.fileInfo.mockResolvedValue({ exists: false });
   state.create.mockResolvedValue("new-id");
+  state.deleteVault.mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
@@ -146,7 +170,9 @@ describe("settings confirmation and controls", () => {
     render(<Settings />);
     const dialog = openSignOut();
     expect(state.signOut).not.toHaveBeenCalled();
-    expect(within(dialog).getByText(/another account signing in/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(/locked until you sign in again with this account/)
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
   });
@@ -179,16 +205,29 @@ describe("settings confirmation and controls", () => {
     state.tier = "unknown";
     render(<Settings />);
     expect(screen.getByText("Upgrade for automatic cloud sync and backup.")).toBeTruthy();
-    expect(within(openSignOut()).getByText(/another account signing in/)).toBeTruthy();
+    expect(
+      within(openSignOut()).getByText(/locked until you sign in again with this account/)
+    ).toBeTruthy();
   });
 
-  it("disables sign-out until plan state is known", () => {
-    state.tierLoading = true;
-    render(<Settings />);
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.queryByTestId("modal")).toBeNull();
-    expect(state.signOut).not.toHaveBeenCalled();
-  });
+  it.each(["FREE", "PRO"])(
+    "allows sign-out while offline plan information is unavailable (%s)",
+    async (tier) => {
+      state.tier = tier;
+      state.tierLoading = true;
+      state.connected = false;
+      render(<Settings />);
+      const dialog = openSignOut();
+      expect(
+        within(dialog).getByText(/locked until you sign in again with this account/)
+      ).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Export data" })).toBeTruthy();
+      expect(state.signOut).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
+      await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
+    }
+  );
 
   it("retains confirmation after sign-out fails and allows retry", async () => {
     state.signOut.mockRejectedValueOnce(new Error("failure"));
@@ -267,7 +306,7 @@ describe("small settings screens", () => {
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Export data" }));
     await waitFor(() => expect(state.share).toHaveBeenCalled());
-    expect(state.write).toHaveBeenCalledWith("/documents/kyarafit-export.json", expect.any(String));
+    expect(state.write).toHaveBeenCalledWith(vaultExportFilePath("owner"), expect.any(String));
     expect(state.alert).toHaveBeenCalledWith("Export ready", expect.any(String));
   });
 
@@ -334,6 +373,22 @@ describe("small settings screens", () => {
     );
   });
 
+  it("never imports another account's generated export after switching accounts", async () => {
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
+    await waitFor(() => expect(state.write).toHaveBeenCalledTimes(1));
+    const ownerPath = state.write.mock.calls[0][0];
+    cleanup();
+    state.vaultSubject = "other";
+    state.fileInfo.mockImplementation(async (path) => ({ exists: path === ownerPath }));
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
+    await waitFor(() => expect(state.fileInfo).toHaveBeenCalledWith(vaultExportFilePath("other")));
+    expect(vaultExportFilePath("other")).not.toBe(ownerPath);
+    expect(state.read).not.toHaveBeenCalled();
+    expect(state.create).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed imports without creating rows", async () => {
     state.fileInfo.mockResolvedValue({ exists: true });
     state.read.mockResolvedValue("not-json");
@@ -378,6 +433,7 @@ describe("small settings screens", () => {
 
   it("keeps export and import free but requires a signed-in owner", () => {
     state.identity = null;
+    state.vaultSubject = null;
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Export data" }));
     fireEvent.click(screen.getByRole("button", { name: "Import data" }));
@@ -385,4 +441,28 @@ describe("small settings screens", () => {
     expect(state.write).not.toHaveBeenCalled();
     expect(state.create).not.toHaveBeenCalled();
   });
+
+  it.each([undefined, null])(
+    "removes device data without remote identity (%s) after confirmation",
+    async (identity) => {
+      state.identity = identity;
+      render(<Data />);
+      expect(screen.queryByText("Loading data")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Remove device data" }));
+      expect(state.deleteVault).not.toHaveBeenCalled();
+      const [title, , buttons] = state.alert.mock.calls[0] as [
+        string,
+        string,
+        { text: string; style?: string; onPress?: () => void }[],
+      ];
+      expect(title).toBe(en.settings.dataRemoveConfirmTitle);
+      expect(buttons.find((b) => b.style === "cancel")).toBeTruthy();
+      buttons.find((b) => b.style === "destructive")?.onPress?.();
+      await waitFor(() => expect(state.deleteVault).toHaveBeenCalledWith("owner"));
+      // Locks (signs out) before deleting the closed vault files.
+      expect(state.signOut.mock.invocationCallOrder[0]).toBeLessThan(
+        state.deleteVault.mock.invocationCallOrder[0]
+      );
+    }
+  );
 });

@@ -2,16 +2,16 @@ import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { glass } from "@kyarafit/design-system/rn";
-import { useSession } from "@/lib/auth/client";
+import { useAppSession } from "@/lib/auth/appSession";
 import { APP_HREF } from "@/lib/appRoutes";
 
 /** Auth lives in the photo-dark studio world — no cream, no theme flip. */
 const STUDIO_WALL_BG = glass.scrim.studioWall.stops[1].color;
 
 export default function AuthGroupLayout() {
-  const { session, loading } = useSession();
+  const session = useAppSession();
 
-  if (loading) {
+  if (session.status === "loading") {
     return (
       <View
         style={{
@@ -27,7 +27,11 @@ export default function AuthGroupLayout() {
     );
   }
 
-  if (session?.user) {
+  // An expired session may come here to sign in again; any other signed-in state goes home.
+  if (
+    (session.status === "signedIn" && session.connection !== "expired") ||
+    session.status === "vaultError"
+  ) {
     return <Redirect href={APP_HREF.home} />;
   }
 

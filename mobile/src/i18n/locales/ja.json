@@ -14,7 +14,7 @@
     "planner": "プランナー",
     "more": "その他",
     "settings": "設定",
-    "offlineBanner": "オフラインです — 再接続すると同期されます。",
+    "offlineBanner": "オフラインです — 変更はこの端末に保存されています。",
     "syncPendingCount": "同期待ちの変更が{{count}}件あります",
     "syncFailedCount": "{{count}}件の変更を同期できませんでした",
     "syncNow": "今すぐ同期",
@@ -605,7 +605,7 @@
       "forgotPasswordLink": "パスワードを忘れた場合",
       "yourEmailFallback": "登録メール",
       "sectionDataPrivacy": "データとプライバシー",
-      "dataPrivacyBody": "サインイン中は、アカウント情報、ビルド、アップロード画像、コンベンションの計画などがクラウドに保存されます。この端末では認証トークンを安全に保存し、サインイン状態を維持します。",
+      "dataPrivacyBody": "ビルド、エレメント、コンベンション、写真はこの端末に保存されます。Kyarafit Cloud をご利用の場合はアカウントにも同期されます。サインイン情報は端末の安全なストレージに保存されます。",
       "termsOfService": "利用規約",
       "privacyPolicy": "プライバシーポリシー",
       "securitySupport": "セキュリティとサポート",
@@ -613,7 +613,7 @@
       "deleteAction": "アカウントを削除",
       "deletePermanentLabel": "取り消しできない操作",
       "deleteConfirmTitle": "アカウントを完全に削除しますか？",
-      "deleteConfirmBody": "元に戻せません。Kyarafit アカウント、クラウド同期データ、アップロード画像、この端末のサインイン情報を削除します。",
+      "deleteConfirmBody": "この操作は元に戻せません。Kyarafit アカウント、クラウドに同期されたコンテンツ、アップロードした画像、そしてこの端末にあるこのアカウントのプランナーと写真を削除します。残しておきたい場合は先にデータをエクスポートしてください。",
       "typeDeleteLabel": "確認のため DELETE と入力",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "アカウントを完全に削除するには DELETE と入力してください。",
@@ -679,8 +679,8 @@
     "cloudBackupUpgrade": "アップグレードすると、クラウド同期とバックアップが自動で行われます。",
     "signOutError": "サインアウトできませんでした。もう一度お試しください。",
     "signOutConfirmTitle": "Kyarafit からサインアウトしますか？",
-    "signOutExportWarning": "データはこの端末に残ります。別のアカウントでこの端末にサインインすると上書きされる可能性があるため、サインアウト前にエクスポートしてください。",
-    "signOutConfirmBody": "ローカルデータはこの端末に残ります。サインアウトしてもよろしいですか？",
+    "signOutExportWarning": "プランナーはこの端末に残り、このアカウントで再びサインインするまでロックされます。他のアカウントからは見えません。別の場所にも残したい場合はデータをエクスポートしてください。",
+    "signOutConfirmBody": "プランナーはこの端末に残り、再びサインインするまでロックされます。サインアウトしてもよろしいですか？",
     "accountGlass": {
       "editDisplayName": "表示名を編集",
       "editUsername": "ユーザー名を編集",
@@ -770,7 +770,13 @@
           }
         }
       }
-    }
+    },
+    "dataRemoveTitle": "この端末から削除",
+    "dataRemoveConfirmAction": "削除",
+    "dataRemoveConfirmTitle": "この端末からプランナーを削除しますか？",
+    "dataRemoveButton": "端末のデータを削除",
+    "dataRemoveDescription": "このアカウントのプランナーと写真をこの端末から削除し、サインアウトします。残しておきたい場合は先にデータをエクスポートしてください。",
+    "dataRemoveConfirmBody": "この操作は元に戻せません。エクスポート済みのデータには影響しません。"
   },
   "groups": {
     "title": "グループ",
@@ -1171,10 +1177,19 @@
     "headline": "手づくりのものを、\n縫い目まで計画する。",
     "subcopy": "次のビルドのエレメント、タスク、イベント当日まで——オフラインでも使える静かなスタジオでまとめて管理。",
     "ctaPrimary": "無料で計画を始める",
-    "ctaMeta": "アカウント不要 · 端末上で動作"
+    "ctaMeta": "無料 · サインイン後はオフラインで動作"
   },
   "offline": {
     "onlineOnlyBanner": "オフラインです — このセクションには接続が必要です。",
     "retry": "再試行"
+  },
+  "vault": {
+    "openErrorTitle": "プランナーを開けませんでした",
+    "openErrorBody": "何も削除されていません。空き容量を増やすかアプリを再起動して、もう一度お試しください。({{detail}})",
+    "saveFailedTitle": "この端末に保存できませんでした",
+    "saveFailedBody": "この変更は保存されていません。空き容量を増やして、もう一度お試しください。({{detail}})",
+    "sessionExpired": "オンラインの Kyarafit からサインアウトされています。プランナーはこの端末でそのまま使えます。",
+    "sessionExpiredAction": "同期とオンライン機能を使うには、もう一度サインインしてください",
+    "sessionExpiredHint": "サインイン画面を開きます"
   }
 }

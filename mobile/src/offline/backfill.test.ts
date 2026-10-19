@@ -14,6 +14,11 @@ import { runBackfill } from "./syncWorker";
  * `runBackfill` wrapper reaches SQLite via `./db`; it is mocked to throw so tests exercise the
  * injected deps + the paid/free gate without a real store.
  */
+vi.mock("./syncIdentity", () => ({
+  syncScope: async () => ({ current: () => true, assertCurrent: () => {} }),
+  invalidateSyncSession: vi.fn(),
+}));
+
 vi.mock("./db", () => ({
   getOfflineDb: () => {
     throw new Error("db unavailable in unit test");

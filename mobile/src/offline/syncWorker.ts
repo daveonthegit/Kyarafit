@@ -1,7 +1,7 @@
 import type { ConvexReactClient } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { shouldRetryMutation } from "@kyarafit/design-system/domain/offlineMutationQueue";
-import { rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
+import { hasUnmappedClientId, rewriteIdsDeep } from "@kyarafit/design-system/domain/offlineIdMap";
 import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
   IMAGE_REF_TABLES,
@@ -9,15 +9,17 @@ import {
   planCloudMirror,
 } from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
+import { syncScope } from "./syncIdentity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
 import {
-  clearEntityOverlay,
   listPendingEntityRows,
   listSyncedEntityRows,
+  markEntityRowSynced,
+  markEntityRowsSynced,
   upsertSyncedEntityRow,
 } from "./entityRows";
-import { overlayWritesFor } from "./offlineEntityWrites";
+import { getActiveVault } from "@/vault/activeVault";
 import {
   getSyncCursor,
   isBackfillComplete,
@@ -29,6 +31,7 @@ import {
   IDLE_BACKFILL,
   runUpgradeBackfill,
   setBackfillProgress,
+  type BackfillChunkResult,
   type BackfillDeps,
   type BackfillProgress,
 } from "./backfill";
@@ -41,6 +44,7 @@ import {
   listPendingMutations,
   requeueFailedMutations,
 } from "./mutationQueue";
+export { invalidateSyncSession } from "./syncIdentity";
 
 /** Inject the queued idempotency key into the args of mutations that dedupe replays server-side. */
 function argsForReplay(fn: string, args: unknown, idempotencyKey: string): unknown {
@@ -50,8 +54,20 @@ function argsForReplay(fn: string, args: unknown, idempotencyKey: string): unkno
   return args;
 }
 
+function hasUnmappedRelationship(value: unknown, idMap: Record<string, string>): boolean {
+  if (Array.isArray(value)) return value.some((entry) => hasUnmappedRelationship(entry, idMap));
+  if (value === null || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, entry]) => {
+    if (["userId", "ownerId", "ownerUserId", "assigneeUserId"].includes(key)) return false;
+    return key === "id" || key === "ids" || key.endsWith("Id") || key.endsWith("Ids")
+      ? hasUnmappedClientId(entry, idMap)
+      : hasUnmappedRelationship(entry, idMap);
+  });
+}
+
 /** Pull a server document id out of a create mutation's result, if it returned a doc. */
 function serverIdFromResult(result: unknown): string | null {
+  if (typeof result === "string") return result;
   if (result !== null && typeof result === "object" && "_id" in result) {
     const id = (result as { _id: unknown })._id;
     return typeof id === "string" ? id : null;
@@ -59,6 +75,29 @@ function serverIdFromResult(result: unknown): string | null {
   return null;
 }
 
+function parseTouched(json: string | null): [string, string][] {
+  if (!json) return [];
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (entry): entry is [string, string] =>
+            Array.isArray(entry) && typeof entry[0] === "string" && typeof entry[1] === "string"
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/** server id -> local id, so pulled server docs land on (and reference) the rows this vault owns. */
+function reverseIdMap(): Record<string, string> {
+  const reverse: Record<string, string> = {};
+  for (const [clientId, serverId] of Object.entries(loadIdMap())) reverse[serverId] = clientId;
+  return reverse;
+}
+
+const DRAIN_BATCH = 100;
 let draining = false;
 
 export type DrainResult = { processed: number; failed: number };
@@ -81,61 +120,79 @@ export type DrainResult = { processed: number; failed: number };
  */
 export async function drainMutationQueue(client: ConvexReactClient): Promise<DrainResult> {
   if (draining || !getIsOnline()) return { processed: 0, failed: 0 };
+  const scope = await syncScope();
+  if (draining || !scope.current()) return { processed: 0, failed: 0 };
   draining = true;
   let processed = 0;
   let failed = 0;
   try {
-    const pending = listPendingMutations();
     // Resolve optimistic client ids to their synced server ids as the pass progresses, so a queued
     // op that referenced an offline-created entity is rewritten before it is sent.
     const idMap = loadIdMap();
-    for (const row of pending) {
-      let args: unknown;
-      try {
-        args = JSON.parse(row.args_json);
-      } catch {
-        // Corrupt args can never succeed — drop the row.
-        deleteMutation(row.id);
-        continue;
-      }
-
-      try {
-        const rewritten = rewriteIdsDeep(args, idMap);
-        const callArgs = argsForReplay(row.fn, rewritten, row.idempotency_key);
-        const result = await client.mutation(
-          makeFunctionReference<"mutation">(row.fn),
-          callArgs as never
-        );
-        // Map an offline-created entity's client id to the server id it just received, so later
-        // rows in this pass (and future passes) can reference it.
-        if (row.client_id) {
-          const serverId = serverIdFromResult(result);
-          if (serverId) {
-            setServerId(row.client_id, serverId);
-            idMap[row.client_id] = serverId;
-          }
-        }
-        // Drop the optimistic overlay now that the live/cached server data is authoritative.
-        for (const write of overlayWritesFor(row.fn, args, row.client_id ?? undefined)) {
-          clearEntityOverlay(write.table, write.id);
-        }
-        deleteMutation(row.id);
-        processed += 1;
-      } catch {
-        if (!getIsOnline()) {
-          // Went offline mid-drain: treat as transient, don't penalize. Resume on reconnect.
-          break;
-        }
-        if (shouldRetryMutation(row.retry_count + 1)) {
-          bumpMutationRetry(row.id);
-        } else {
+    // Drain batch after batch until the queue is empty or a row fails (FIFO stop).
+    let stopped = false;
+    while (!stopped && scope.current()) {
+      const pending = listPendingMutations(DRAIN_BATCH);
+      if (pending.length === 0) break;
+      for (const row of pending) {
+        if (!scope.current()) break;
+        let args: unknown;
+        try {
+          args = JSON.parse(row.args_json);
+        } catch {
+          // Corrupt args can never succeed — park the row as failed (visible), never drop it.
           failMutation(row.id);
           failed += 1;
+          continue;
         }
-        // Preserve FIFO: stop on first failure; the next trigger retries from here.
-        break;
+
+        try {
+          if (hasUnmappedRelationship(args, idMap)) throw new Error("Unmapped queued relationship");
+          const rewritten = rewriteIdsDeep(args, idMap);
+          const callArgs = argsForReplay(row.fn, rewritten, row.idempotency_key);
+          const result = await client.mutation(
+            makeFunctionReference<"mutation">(row.fn),
+            callArgs as never
+          );
+          scope.assertCurrent();
+          // Map an offline-created entity's client id to the server id it just received, so later
+          // rows in this pass (and future passes) can reference it.
+          if (row.client_id && !idMap[row.client_id]) {
+            const serverId = serverIdFromResult(result);
+            if (serverId) {
+              setServerId(row.client_id, serverId);
+              idMap[row.client_id] = serverId;
+            }
+          }
+          if (row.client_id && !idMap[row.client_id])
+            throw new Error("Create has no server identity");
+          // The cloud now holds this change: mark the rows it covered as acknowledged (unless a
+          // later pending op still has unsent changes to them). The local rows never move.
+          markEntityRowsSynced(parseTouched(row.touched_json), row.id);
+          deleteMutation(row.id);
+          processed += 1;
+        } catch {
+          if (!scope.current()) return { processed, failed };
+          stopped = true;
+          if (!getIsOnline()) {
+            // Went offline mid-drain: treat as transient, don't penalize. Resume on reconnect.
+            break;
+          }
+          if (shouldRetryMutation(row.retry_count + 1)) {
+            bumpMutationRetry(row.id);
+          } else {
+            failMutation(row.id);
+            failed += 1;
+          }
+          // Preserve FIFO: stop on first failure; the next trigger retries from here.
+          break;
+        }
       }
+      if (pending.length < DRAIN_BATCH) break;
     }
+  } catch (error) {
+    // Vault locked mid-pass or SQLite failure: stop; queued rows stay queued for the next trigger.
+    console.warn("[sync] drain stopped", error);
   } finally {
     draining = false;
   }
@@ -179,22 +236,27 @@ let warming = false;
  */
 export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
   if (warming || !getIsOnline()) return;
+  const scope = await syncScope();
+  if (warming || !scope.current()) return;
   warming = true;
   try {
     let cursor = getSyncCursor();
+    const toLocal = reverseIdMap();
     for (let page = 0; page < WARMUP_MAX_PAGES; page += 1) {
-      if (!getIsOnline()) break;
+      if (!getIsOnline() || !scope.current()) break;
       const res = (await client.query(makeFunctionReference<"query">("sync:listChangedSince"), {
         since: cursor,
         limit: WARMUP_PAGE_LIMIT,
       } as never)) as ChangedSince | null;
+      scope.assertCurrent();
       if (!res) break;
 
       let maxPageLen = 0;
       for (const table of WARMUP_TABLES) {
         const docs = res[table] ?? [];
         for (const doc of docs) {
-          upsertSyncedEntityRow(table, doc._id, String(doc.userId ?? ""), doc);
+          const local = rewriteIdsDeep(doc, toLocal);
+          upsertSyncedEntityRow(table, local._id, String(doc.userId ?? ""), local);
         }
         if (docs.length > maxPageLen) maxPageLen = docs.length;
       }
@@ -207,11 +269,14 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
       // A short page across every table means we've caught up.
       if (maxPageLen < WARMUP_PAGE_LIMIT) break;
     }
+    scope.assertCurrent();
     setLastSyncedAt(Date.now());
-  } catch {
-    // Best-effort; leave the cursor for the next trigger.
+  } catch (error) {
+    // Leave the cursor for the next trigger.
+    console.warn("[sync] warm-up pull failed", error);
   } finally {
     warming = false;
+    if (scope.current()) getActiveVault()?.reloadFromDisk();
   }
 }
 
@@ -273,6 +338,8 @@ export async function uploadLocalImages(
   // REQ-D71/D10: free users never upload — no Convex calls whatsoever.
   if (!isPaidConvexTier(tier)) return { uploaded: 0, failed: 0 };
   if (uploadingImages || !getIsOnline()) return { uploaded: 0, failed: 0 };
+  const scope = await syncScope();
+  if (uploadingImages || !scope.current()) return { uploaded: 0, failed: 0 };
   uploadingImages = true;
   let uploaded = 0;
   let failed = 0;
@@ -282,26 +349,37 @@ export async function uploadLocalImages(
         const sites = collectLocalImageRefs(table, original);
         if (sites.length === 0) continue;
         const entityId = String(original._id ?? "");
+        if (hasUnmappedClientId(entityId, loadIdMap())) continue;
         const userId = String(original.userId ?? "");
         let working = original;
         let changed = false;
         for (const site of sites) {
-          if (!getIsOnline()) break;
+          if (!getIsOnline() || !scope.current()) return { uploaded, failed };
           try {
             const bytes = await deps.readImageBytes(site.imageKey);
+            scope.assertCurrent();
             // No local binary to upload (e.g. missing on disk): leave the ref for a later sync.
             if (!bytes) continue;
             const uploadUrl = (await client.mutation(
               makeFunctionReference<"mutation">("files:generateUploadUrl"),
               {} as never
             )) as string;
+            scope.assertCurrent();
             const storageId = await deps.uploadBytes(uploadUrl, bytes.body, bytes.contentType);
+            scope.assertCurrent();
             if (!storageId) {
               failed += 1;
               continue;
             }
             const plan = planCloudMirror(site, working, storageId);
-            await client.mutation(makeFunctionReference<"mutation">(plan.fn), plan.args as never);
+            const idMap = loadIdMap();
+            if (hasUnmappedRelationship(plan.args, idMap))
+              throw new Error("Photo owner has no server identity");
+            await client.mutation(
+              makeFunctionReference<"mutation">(plan.fn),
+              rewriteIdsDeep(plan.args, idMap) as never
+            );
+            scope.assertCurrent();
             working = plan.nextDoc;
             changed = true;
             uploaded += 1;
@@ -311,7 +389,10 @@ export async function uploadLocalImages(
           }
         }
         // Persist the flipped refs locally so the next pass sees `cloud`, not `local` (no re-upload).
-        if (changed) deps.writeSyncedRow(table, entityId, userId, working);
+        if (changed && scope.current()) {
+          deps.writeSyncedRow(table, entityId, userId, working);
+          getActiveVault()?.reloadFromDisk();
+        }
       }
     }
   } finally {
@@ -330,10 +411,13 @@ export async function syncNow(
   client: ConvexReactClient,
   opts: { tier?: string | null } = {}
 ): Promise<DrainResult> {
-  if (getIsOnline()) requeueFailedMutations();
+  if (!getIsOnline()) return { processed: 0, failed: 0 };
+  const scope = await syncScope();
+  if (!scope.current()) return { processed: 0, failed: 0 };
+  requeueFailedMutations();
   const result = await drainMutationQueue(client);
-  await warmEntityRows(client);
-  await uploadLocalImages(client, opts.tier ?? null);
+  if (scope.current()) await warmEntityRows(client);
+  if (scope.current()) await uploadLocalImages(client, opts.tier ?? null);
   return result;
 }
 
@@ -343,26 +427,44 @@ export async function syncNow(
  * each with its client-minted id as the dedupe `clientId`. It only READS local data — copies are
  * pushed to the cloud; nothing local is ever mutated or deleted (the REQ-D95 invariant).
  */
-function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
+function defaultBackfillDeps(
+  client: ConvexReactClient,
+  scope: Awaited<ReturnType<typeof syncScope>>
+): BackfillDeps {
   return {
-    listLocalRows: (table) =>
-      listPendingEntityRows(table)
+    listLocalRows: (table) => {
+      scope.assertCurrent();
+      return listPendingEntityRows(table)
         .filter((row) => !row.deleted && row.doc)
-        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id })),
-    pushChunk: (table, rows) =>
-      client.mutation(makeFunctionReference<"mutation">("tierTransition:backfillRows"), {
-        table,
-        rows,
-      } as never) as Promise<{
-        table: string;
-        total: number;
-        inserted: number;
-        skipped: number;
-        cloudCount: number;
-      }>,
-    isComplete: () => isBackfillComplete(),
-    markComplete: () => setBackfillComplete(),
-    onProgress: (progress) => setBackfillProgress(progress),
+        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id }));
+    },
+    pushChunk: async (table, rows) => {
+      scope.assertCurrent();
+      const result = (await client.mutation(
+        makeFunctionReference<"mutation">("tierTransition:backfillRows"),
+        { table, rows } as never
+      )) as BackfillChunkResult;
+      // Remember which server row each local row became, so later pulls land on the same local id
+      // instead of duplicating it, and mark the local row acknowledged.
+      scope.assertCurrent();
+      for (const { clientId, id } of result.ids ?? []) {
+        setServerId(clientId, id);
+        markEntityRowSynced(table, clientId);
+      }
+      return result;
+    },
+    isComplete: () => {
+      scope.assertCurrent();
+      return isBackfillComplete();
+    },
+    markComplete: () => {
+      scope.assertCurrent();
+      setBackfillComplete();
+    },
+    onProgress: (progress) => {
+      scope.assertCurrent();
+      setBackfillProgress(progress);
+    },
   };
 }
 
@@ -378,9 +480,35 @@ function defaultBackfillDeps(client: ConvexReactClient): BackfillDeps {
 export async function runBackfill(
   client: ConvexReactClient,
   tier: string | null | undefined,
-  deps: BackfillDeps = defaultBackfillDeps(client)
+  deps?: BackfillDeps
 ): Promise<BackfillProgress> {
-  // REQ-D95/D10: free users never back up — no Convex calls whatsoever.
-  if (!isPaidConvexTier(tier)) return IDLE_BACKFILL;
-  return runUpgradeBackfill(deps);
+  if (!isPaidConvexTier(tier) || !getIsOnline()) return IDLE_BACKFILL;
+  const scope = await syncScope();
+  if (!scope.current()) return IDLE_BACKFILL;
+  const source = deps ?? defaultBackfillDeps(client, scope);
+  return runUpgradeBackfill({
+    listLocalRows: (table) => {
+      scope.assertCurrent();
+      return source.listLocalRows(table);
+    },
+    pushChunk: async (table, rows) => {
+      scope.assertCurrent();
+      const result = await source.pushChunk(table, rows);
+      scope.assertCurrent();
+      return result;
+    },
+    isComplete: () => {
+      scope.assertCurrent();
+      return source.isComplete();
+    },
+    markComplete: async () => {
+      scope.assertCurrent();
+      await source.markComplete();
+      scope.assertCurrent();
+    },
+    onProgress: (progress) => {
+      scope.assertCurrent();
+      source.onProgress?.(progress);
+    },
+  });
 }

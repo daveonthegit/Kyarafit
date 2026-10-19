@@ -3,8 +3,8 @@
 A mobile-first cosplay wardrobe and convention-planning app, with web and Expo clients.
 
 Build-scoped **elements** → character **builds** → progress timelines → convention day plans
-and packing lists. Personal-data editing is local-first; social, groups, billing, and public
-sharing are online features.
+and packing lists. Mobile personal-data editing uses a local vault; social, groups, billing,
+and public sharing are online features. Web's cloud-first conversion remains pending.
 
 > Start with [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md), the [domain glossary](CONTEXT.md), and
 > the [documentation index](docs/README.md). Agent instructions are in [AGENTS.md](AGENTS.md).
@@ -23,6 +23,14 @@ See the [roadmap](docs/ROADMAP.md) and [ADR status notes](docs/adr/).
 
 Repository code, passing tests, a published branch, and a live deployment are different states.
 Authorization remediation remains in progress; this README is not a security or rollout guarantee.
+
+## Using the mobile planner offline
+
+Sign in online once, then keep planning on this device without a connection, even after the
+cloud session expires. Signing out locks your saved work; sign back into the same account to
+reopen it. To erase that account's local work and photos, use **Settings → Data → Remove from
+this device** and confirm. Do not remove device data expecting the current JSON export to be
+a full backup: see [export/import limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
 
 ## Stack and layout
 

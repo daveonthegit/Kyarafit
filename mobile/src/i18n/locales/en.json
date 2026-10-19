@@ -14,7 +14,7 @@
     "planner": "Planner",
     "more": "More",
     "settings": "Settings",
-    "offlineBanner": "You are offline — changes sync when you reconnect.",
+    "offlineBanner": "Offline — your changes are saved on this device.",
     "syncPendingCount": "{{count}} pending changes waiting to sync",
     "syncFailedCount": "{{count}} change(s) failed to sync",
     "syncNow": "Sync now",
@@ -605,7 +605,7 @@
       "forgotPasswordLink": "forgot password",
       "yourEmailFallback": "your address",
       "sectionDataPrivacy": "Data & privacy",
-      "dataPrivacyBody": "Kyarafit stores your account details, cosplay builds, uploaded images, and convention plans in the cloud when you're signed in. On this device, auth tokens are stored securely so you stay signed in.",
+      "dataPrivacyBody": "Your builds, elements, conventions, and photos are stored on this device. With Kyarafit Cloud they are also synced to your account. Sign-in details are kept in this device's secure storage.",
       "termsOfService": "Terms of Service",
       "privacyPolicy": "Privacy policy",
       "securitySupport": "Security & support",
@@ -613,7 +613,7 @@
       "deleteAction": "Delete account",
       "deletePermanentLabel": "Permanent action",
       "deleteConfirmTitle": "Delete account permanently?",
-      "deleteConfirmBody": "This can't be undone. We'll remove your Kyarafit account, cloud-synced content, uploaded images, and this device's signed-in session data.",
+      "deleteConfirmBody": "This can't be undone. We'll remove your Kyarafit account, cloud-synced content, uploaded images, and this account's planner and photos on this device. Export your data first if you want to keep a copy.",
       "typeDeleteLabel": "Type DELETE to confirm",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "Type DELETE to confirm you want to permanently remove your account.",
@@ -679,8 +679,8 @@
     "cloudBackupUpgrade": "Upgrade for automatic cloud sync and backup.",
     "signOutError": "Could not sign out. Please try again.",
     "signOutConfirmTitle": "Sign out of Kyarafit?",
-    "signOutExportWarning": "Your data stays on this device. Export it before signing out: another account signing in on this device may replace it.",
-    "signOutConfirmBody": "Your local data stays on this device. Are you sure you want to sign out?",
+    "signOutExportWarning": "Your planner stays on this device, locked until you sign in again with this account. Other accounts can't see it. Export your data if you want a copy elsewhere.",
+    "signOutConfirmBody": "Your planner stays on this device, locked until you sign in again. Are you sure you want to sign out?",
     "accountGlass": {
       "editDisplayName": "Edit display name",
       "editUsername": "Edit username",
@@ -770,7 +770,13 @@
           }
         }
       }
-    }
+    },
+    "dataRemoveTitle": "Remove from this device",
+    "dataRemoveConfirmAction": "Remove",
+    "dataRemoveConfirmTitle": "Remove your planner from this device?",
+    "dataRemoveButton": "Remove device data",
+    "dataRemoveDescription": "Deletes this account's planner and photos from this device, then signs you out. Export your data first if you want to keep a copy.",
+    "dataRemoveConfirmBody": "This can't be undone. Data you exported is not affected."
   },
   "groups": {
     "title": "Groups",
@@ -1171,10 +1177,19 @@
     "headline": "Made by hand.\nPlanned to the seam.",
     "subcopy": "Every element, task, and convention day for your next build — tracked in one quiet studio that works offline.",
     "ctaPrimary": "Start planning — free",
-    "ctaMeta": "No account · runs on your device"
+    "ctaMeta": "Free · works offline after you sign in"
   },
   "offline": {
     "onlineOnlyBanner": "You're offline — this section needs a connection.",
     "retry": "Retry"
+  },
+  "vault": {
+    "openErrorTitle": "Your planner couldn't be opened",
+    "openErrorBody": "Nothing was deleted. Free up some storage or restart the app, then try again. ({{detail}})",
+    "saveFailedTitle": "Couldn't save on this device",
+    "saveFailedBody": "That change wasn't saved. Free up some storage and try again. ({{detail}})",
+    "sessionExpired": "You're signed out of Kyarafit online. Your planner still works here.",
+    "sessionExpiredAction": "Sign in again to sync and use online features",
+    "sessionExpiredHint": "Opens sign in"
   }
 }

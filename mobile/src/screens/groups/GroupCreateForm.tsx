@@ -3,11 +3,12 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { can, normalizeTier } from "@kyarafit/design-system/domain/entitlements";
 import { glass, ls } from "@kyarafit/design-system/rn";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { UpgradeNotice } from "@/components/UpgradeNotice";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -26,7 +27,7 @@ export function GroupCreateForm() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tierInfo } = useTier(userId);
   const createGroup = useMutation(api.groups.create);

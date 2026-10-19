@@ -2,8 +2,9 @@ import { useCallback, useLayoutEffect } from "react";
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { glass } from "@kyarafit/design-system/rn";
 import { DataBoundary } from "@/ui";
@@ -11,6 +12,9 @@ import { PhotoBackdrop } from "@/ui/glass";
 import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { BuildDetailBody } from "@/screens/build-detail/DetailBody";
+import { PublicBuildDetailScreen } from "@/screens/public-build/PublicBuildDetailScreen";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { useLocalId, useOnlineId } from "@/vault/hooks";
 
 type BuildRow = Doc<"builds"> & {
   tasksTotal: number;
@@ -44,8 +48,8 @@ export default function BuildDetailScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const router = useRouter();
-  const duplicateBuild = useMutation(api.builds.duplicate);
-  const removeBuild = useMutation(api.builds.remove);
+  const duplicateBuild = useOfflineMutation(api.builds.duplicate);
+  const removeBuild = useOfflineMutation(api.builds.remove);
   const params = useLocalSearchParams<{ buildId: string | string[]; tab?: string | string[] }>();
   const raw = params.buildId;
   const buildIdParam = Array.isArray(raw) ? raw[0] : raw;
@@ -58,38 +62,42 @@ export default function BuildDetailScreen() {
     rawTab === "updates"
       ? rawTab
       : undefined;
-  const id = buildIdParam ? (buildIdParam as Id<"builds">) : undefined;
+  const id = useLocalId(buildIdParam ? (buildIdParam as Id<"builds">) : undefined);
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const onlineId = useOnlineId(id);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
-  const build = useQuery(api.builds.get, id ? { id } : "skip");
+  const build = useOfflineQuery(api.builds.get, id ? { id } : "skip");
   const heroStorageUrl = useQuery(
     api.files.getUrl,
     build?.imageStorageId ? { storageId: build.imageStorageId } : "skip"
   );
-  const summary = useQuery(api.builds.getSummary, id && userId ? { buildId: id, userId } : "skip");
-  const outlineNodes = useQuery(
+  const summary = useOfflineQuery(
+    api.builds.getSummary,
+    id && userId ? { buildId: id, userId } : "skip"
+  );
+  const outlineNodes = useOfflineQuery(
     api.cosplayNodes.listBuildVisualNodes,
     id ? { buildId: id } : "skip"
   );
-  const refImages = useQuery(api.buildReferenceImages.listByBuild, id ? { buildId: id } : "skip");
-  const processPics = useQuery(api.buildProcessPictures.listByBuild, id ? { buildId: id } : "skip");
+  const refImages = useOfflineQuery(
+    api.buildReferenceImages.listByBuild,
+    id ? { buildId: id } : "skip"
+  );
+  const processPics = useOfflineQuery(
+    api.buildProcessPictures.listByBuild,
+    id ? { buildId: id } : "skip"
+  );
 
   const collaborators = useQuery(
     api.buildCollaborators.listByBuild,
-    id && build && userId && build.userId === userId ? { buildId: id, userId } : "skip"
+    onlineId && build && userId && build.userId === userId ? { buildId: onlineId, userId } : "skip"
   );
 
-  const loading =
-    identity === undefined ||
-    (id != null && build === undefined) ||
-    (build != null && build.imageStorageId != null && heroStorageUrl === undefined) ||
-    (id != null &&
-      build != null &&
-      userId != null &&
-      build.userId === userId &&
-      collaborators === undefined);
+  // Only the local build gates the screen. Collaborators and cloud-hosted hero photos are online
+  // extras that fill in when a connection is available.
+  const loading = identity === undefined || (id != null && build === undefined);
 
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
 
@@ -151,6 +159,19 @@ export default function BuildDetailScreen() {
     ]);
   }, [build, removeBuild, router, t, userId]);
 
+  // Builds that are not in this device's vault (shared by a collaborator or a group) live online:
+  // show them read-only through the online viewer rather than as "not found".
+  if (onlineId != null && identity != null && build === null) {
+    return (
+      <View style={{ flex: 1 }}>
+        <PublicBuildDetailScreen buildId={onlineId} />
+        <View style={{ position: "absolute", left: 12, right: 12, bottom: 24 }}>
+          <OfflineBanner />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <DataBoundary<DetailLoaded>
       status={status}
@@ -184,7 +205,9 @@ export default function BuildDetailScreen() {
           outlineNodes={outlineNodes}
           refImages={refImages}
           processPics={processPics}
-          collaborators={loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined}
+          collaborators={
+            onlineId && loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined
+          }
           onDuplicate={loaded.build.userId === loaded.userId ? handleDuplicate : undefined}
           onDelete={loaded.build.userId === loaded.userId ? handleDelete : undefined}
           initialTab={initialTab}

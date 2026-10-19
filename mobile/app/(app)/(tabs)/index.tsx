@@ -2,13 +2,14 @@ import { useCallback, useMemo, useRef, useState, type ComponentRef } from "react
 import { Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { glass, ls } from "@kyarafit/design-system/rn";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { ChooseFocusSheet } from "@/components/ChooseFocusSheet";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
@@ -77,18 +78,18 @@ function daysUntil(startDate: string): number {
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
-  const recentBuild = useQuery(
+  const recentBuild = useOfflineQuery(
     api.builds.getFocusedOrMostRecentForUser,
     userId ? { userId } : "skip"
   );
-  const upcoming = useQuery(
+  const upcoming = useOfflineQuery(
     api.conventions.listUpcomingWithPlanCounts,
     userId ? { userId, limit: 6 } : "skip"
   );
-  const eventForBuild = useQuery(
+  const eventForBuild = useOfflineQuery(
     api.conventions.getEventForBuild,
     userId && recentBuild ? { buildId: recentBuild._id, userId } : "skip"
   );
@@ -108,9 +109,9 @@ export default function HomeScreen() {
       }),
     [userId]
   );
-  const allBuilds = useQuery(api.builds.list, listArgs);
-  const plannerRows = useQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
-  const focusedBuildId = useQuery(
+  const allBuilds = useOfflineQuery(api.builds.list, listArgs);
+  const plannerRows = useOfflineQuery(api.workflow.listPlanner, userId ? { userId } : "skip");
+  const focusedBuildId = useOfflineQuery(
     api.users.getFocusedBuildId,
     userId ? { externalId: userId } : "skip"
   );
@@ -153,6 +154,8 @@ export default function HomeScreen() {
     ).length;
   }, [plannerRows]);
 
+  // Only local-vault data gates the dashboard. The following feed and cloud-hosted hero photos are
+  // online extras: offline they are simply absent, never a reason to keep spinning.
   const loading =
     identity === undefined ||
     (userId != null &&
@@ -161,9 +164,7 @@ export default function HomeScreen() {
         allBuilds === undefined ||
         plannerRows === undefined ||
         focusedBuildId === undefined ||
-        followingFeedRows === undefined ||
-        (recentBuild != null && eventForBuild === undefined) ||
-        (recentBuild?.imageStorageId != null && heroStorageUrl === undefined)));
+        (recentBuild != null && eventForBuild === undefined)));
 
   const error = identity === null ? new Error(t("home.loadError")) : undefined;
 
@@ -305,7 +306,7 @@ function HomeDashboardBody({ loaded }: { loaded: HomeLoaded }) {
   } = loaded;
 
   const focusSheetRef = useRef<FocusSheetRef>(null);
-  const setFocusedBuild = useMutation(api.users.setFocusedBuild);
+  const setFocusedBuild = useOfflineMutation(api.users.setFocusedBuild);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {

@@ -1,13 +1,13 @@
 import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { glass } from "@kyarafit/design-system/rn";
-import { useSession } from "@/lib/auth/client";
+import { useAppSession } from "@/lib/auth/appSession";
 import { APP_HREF } from "@/lib/appRoutes";
 
 export default function Index() {
-  const { session, loading } = useSession();
+  const session = useAppSession();
 
-  if (loading) {
+  if (session.status === "loading") {
     // Both destinations (studio tabs, welcome) are photo-dark — boot on the
     // studio wall so there is no cream flash.
     return (
@@ -24,7 +24,9 @@ export default function Index() {
     );
   }
 
-  if (session?.user) {
+  // A signed-in account (or a vault error to explain) opens the studio — even offline or with an
+  // expired session; only a device with no active account goes to the welcome flow.
+  if (session.status === "signedIn" || session.status === "vaultError") {
     return <Redirect href={APP_HREF.home} />;
   }
 

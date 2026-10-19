@@ -1,31 +1,33 @@
 /**
- * Mobile on-device local image store (PRODUCT_SPEC.md §3.1, REQ-011). FREE users keep image binaries
- * LOCALLY on the device indefinitely — no cloud upload — and those binaries are included in export.
+ * On-device photo store for the unlocked vault (PRODUCT_SPEC.md §3.1, REQ-011).
  *
- * A picked image is copied into the app's document directory under a stable `imageKey`; the returned
- * `file://` uri is the durable display source. The persisted `local` `ImageRef` carries both the
- * `uri` (for display) and the `imageKey` (the durable handle to re-resolve / delete the file).
+ * Every photo the user attaches is first copied into the vault's own directory
+ * (`<documents>/vaults/<vaultKey>/images/<imageKey>`) and the entity stores that durable `file://`
+ * URI — never a picker cache path and never an upload result. This is what makes photo flows work
+ * offline for everyone; only the paid sync worker later mirrors local photos to the cloud.
  *
- * Uses `expo-file-system/legacy` to match the rest of the app (see `settings/data.tsx`, `offline/db`).
+ * Vault documents persist photos as portable `kyarafit-image:<imageKey>` tokens (see
+ * `@/vault/images`), so the same data survives an iOS container move and travels in exports.
+ *
+ * Uses `expo-file-system/legacy` to match the rest of the app.
  */
 import * as FileSystem from "expo-file-system/legacy";
+import { useCallback } from "react";
+import type { VaultStore } from "@/vault/store";
+import { useActiveVault } from "@/vault/hooks";
 import { localImageRef, type ImageRef } from "@kyarafit/design-system/domain/imageRef";
+import { activeVaultImageDir, getActiveVault, requireActiveVault } from "@/vault/activeVault";
+import { VaultLockedError } from "@/offline/db";
 
-/** Sub-directory of the document dir that holds local image binaries. */
-const LOCAL_IMAGE_DIRNAME = "local-images";
-
-function documentDir(): string | null {
-  return FileSystem.documentDirectory ?? null;
+function requireImageDir(): string {
+  const dir = activeVaultImageDir();
+  if (!dir) throw new VaultLockedError();
+  return dir;
 }
 
-function imageDir(): string | null {
-  const docs = documentDir();
-  return docs ? `${docs}${LOCAL_IMAGE_DIRNAME}/` : null;
-}
-
-/** Absolute on-device path for an `imageKey` (no extension; RN Image loads any `file://`). */
+/** Absolute on-device path for an `imageKey` in the unlocked vault, or null when locked. */
 export function localImagePath(imageKey: string): string | null {
-  const dir = imageDir();
+  const dir = activeVaultImageDir();
   return dir ? `${dir}${imageKey}` : null;
 }
 
@@ -34,63 +36,84 @@ function generateImageKey(): string {
     typeof globalThis.crypto?.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  return `local_${rand}`;
+  return `img_${rand}`;
 }
 
-async function ensureImageDir(): Promise<string> {
-  const dir = imageDir();
-  if (!dir) throw new Error("Document directory unavailable");
+async function ensureImageDir(vault: VaultStore): Promise<string> {
+  requireActiveVault(vault);
+  const dir = requireImageDir();
   const info = await FileSystem.getInfoAsync(dir);
+  requireActiveVault(vault);
   if (!info.exists) {
     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    requireActiveVault(vault);
   }
   return dir;
 }
 
 export interface SavedLocalImage {
   imageKey: string;
-  /** Durable `file://` uri for display. */
+  /** Durable `file://` uri for display and for the entity's `imageUrl`. */
   uri: string;
-  /** The `local` `ImageRef` to persist on the entity. */
+  /** The `local` `ImageRef` to persist on entities that carry `imageRefs`. */
   ref: ImageRef;
 }
 
 /**
- * Copy a picked image (e.g. from `expo-image-picker`) into the app document dir under a fresh
- * `imageKey` and return its durable `file://` uri + `local` `ImageRef`.
+ * Copy a picked image (e.g. from `expo-image-picker`) into the vault under a fresh `imageKey`.
+ * Throws when the vault is locked or the copy fails — callers must surface that and keep the draft.
  */
 export async function saveLocalImage(
   sourceUri: string,
-  opts: { imageKey?: string } = {}
+  opts: { imageKey?: string } = {},
+  expectedVault: VaultStore | null = getActiveVault()
 ): Promise<SavedLocalImage> {
+  const vault = requireActiveVault(expectedVault);
   const imageKey = opts.imageKey ?? generateImageKey();
-  await ensureImageDir();
-  const target = localImagePath(imageKey);
-  if (!target) throw new Error("Document directory unavailable");
+  const dir = await ensureImageDir(vault);
+  requireActiveVault(vault);
+  const target = `${dir}${imageKey}`;
   await FileSystem.copyAsync({ from: sourceUri, to: target });
+  requireActiveVault(vault);
   return { imageKey, uri: target, ref: localImageRef(target, imageKey) };
+}
+
+export function useSaveLocalImage() {
+  const vault = useActiveVault();
+  return useCallback(
+    (uri: string, opts: { imageKey?: string } = {}) => saveLocalImage(uri, opts, vault),
+    [vault]
+  );
 }
 
 /** Resolve a stored image's `file://` uri, or null when the key is unknown / missing on disk. */
 export async function getLocalImageUri(imageKey: string): Promise<string | null> {
+  const vault = getActiveVault();
   const target = localImagePath(imageKey);
   if (!target) return null;
   const info = await FileSystem.getInfoAsync(target);
+  requireActiveVault(vault);
   return info.exists ? target : null;
 }
 
 /** Delete a stored local image. Idempotent: deleting an unknown key is a no-op. */
 export async function deleteLocalImage(imageKey: string): Promise<void> {
+  const vault = getActiveVault();
   const target = localImagePath(imageKey);
   if (!target) return;
   await FileSystem.deleteAsync(target, { idempotent: true });
+  requireActiveVault(vault);
 }
 
-/** All stored local `imageKey`s (filenames in the local-images dir). */
+/** All stored local `imageKey`s in the unlocked vault. */
 export async function listLocalImages(): Promise<string[]> {
-  const dir = imageDir();
+  const vault = getActiveVault();
+  const dir = activeVaultImageDir();
   if (!dir) return [];
   const info = await FileSystem.getInfoAsync(dir);
+  requireActiveVault(vault);
   if (!info.exists) return [];
-  return FileSystem.readDirectoryAsync(dir);
+  const keys = await FileSystem.readDirectoryAsync(dir);
+  requireActiveVault(vault);
+  return keys;
 }
