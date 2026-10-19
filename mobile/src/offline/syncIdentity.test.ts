@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConvexReactClient } from "convex/react";
 import { unlockVault, lockVault, requireActiveVault } from "@/vault/activeVault";
 import { getServerId } from "./idMap";
+import { getBuildScopedWorkflow, syncGeneratedWorkflowForNode } from "@/vault/handlers/workflow";
 import { deleteVaultDatabase, getOfflineDb } from "./db";
 import { setOfflineConnectivity } from "./connectivity";
 import {
@@ -103,17 +104,37 @@ describe("sync credential ownership", () => {
 
   it("reconciles restored client identities before rewriting pulled references", async () => {
     const store = requireActiveVault();
-    store.importRows([
-      { table: "builds", id: "local:build", doc: { userId: "owner", name: "Restored", updatedAt: 1 } },
-      { table: "workflowItems", id: "local:task", doc: { userId: "owner", title: "Restored task", updatedAt: 1 } },
-    ], "owner");
-    const query = vi.fn().mockResolvedValue({ cursor: 10,
-      builds: [{ _id: "server-build", clientId: "local:build", userId: "owner" }],
-      workflowItems: [{ _id: "server-task", clientId: "local:task", userId: "owner" }],
-      workflowAttachments: [{ _id: "server-attachment", userId: "owner",
-        workflowItemId: "server-task", entityId: "server-build" }],
-      cosplayNodes: [{ _id: "server-element", userId: "owner", buildId: "server-build" }],
-    });
+    store.importRows(
+      [
+        {
+          table: "builds",
+          id: "local:build",
+          doc: { userId: "owner", name: "Restored", updatedAt: 1 },
+        },
+        {
+          table: "workflowItems",
+          id: "local:task",
+          doc: { userId: "owner", title: "Restored task", updatedAt: 1 },
+        },
+      ],
+      "owner"
+    );
+    const query = vi
+      .fn()
+      .mockResolvedValue({
+        cursor: 10,
+        builds: [{ _id: "server-build", clientId: "local:build", userId: "owner" }],
+        workflowItems: [{ _id: "server-task", clientId: "local:task", userId: "owner" }],
+        workflowAttachments: [
+          {
+            _id: "server-attachment",
+            userId: "owner",
+            workflowItemId: "server-task",
+            entityId: "server-build",
+          },
+        ],
+        cosplayNodes: [{ _id: "server-element", userId: "owner", buildId: "server-build" }],
+      });
     const client = { query } as unknown as ConvexReactClient;
     await warmEntityRows(client);
     await warmEntityRows(client);
@@ -123,10 +144,97 @@ describe("sync credential ownership", () => {
     expect(store.exportRows().filter((row) => row.table === "workflowItems")).toHaveLength(1);
     expect(store.reader().get("local:build")?.name).toBe("Restored");
     expect(store.reader().get("server-attachment")).toMatchObject({
-      workflowItemId: "local:task", entityId: "local:build",
+      workflowItemId: "local:task",
+      entityId: "local:build",
     });
     expect(store.reader().get("server-element")?.buildId).toBe("local:build");
     expect(store.reader().get("server-build")).toBeNull();
+  });
+
+  it("normalizes pulled composite keys for workflow visibility and generated-task matching", async () => {
+    const store = requireActiveVault();
+    store.importRows(
+      [
+        { table: "builds", id: "local:build", doc: { userId: "owner", name: "Build" } },
+        {
+          table: "cosplayNodes",
+          id: "local:element",
+          doc: {
+            userId: "owner",
+            name: "Element",
+            buildId: "local:build",
+          },
+        },
+      ],
+      "owner"
+    );
+    const query = vi.fn().mockResolvedValue({
+      cursor: 10,
+      builds: [{ _id: "server-build", clientId: "local:build", userId: "owner" }],
+      cosplayNodes: [{ _id: "server-element", clientId: "local:element", userId: "owner" }],
+      workflowItems: [
+        {
+          _id: "server-task",
+          userId: "owner",
+          title: "Work on Element",
+          kind: "task",
+          category: "craft",
+          status: "in_progress",
+          ancestorIds: [],
+          sortOrder: 0,
+          scopeKind: "build_specific",
+          sourceKind: "automation",
+          dedupeKey: "autogen:wip:server-build:server-element",
+        },
+      ],
+      workflowAttachments: [
+        {
+          _id: "server-attachment",
+          userId: "owner",
+          workflowItemId: "server-task",
+          entityType: "build",
+          entityId: "server-build",
+          entityKey: "build:server-build",
+          role: "primary",
+          buildContextId: "server-build",
+        },
+        {
+          _id: "other-attachment",
+          userId: "owner",
+          workflowItemId: "server-task",
+          entityType: "build",
+          entityId: "server-build-extra",
+          entityKey: "build:server-build-extra",
+          role: "context",
+        },
+      ],
+    });
+    await warmEntityRows({ query } as unknown as ConvexReactClient);
+    expect(
+      getBuildScopedWorkflow({ db: store.reader() }, "local:build")?.items.map((item) => item._id)
+    ).toEqual(["server-task"]);
+    expect(store.reader().get("server-task")?.dedupeKey).toBe(
+      "autogen:wip:local:build:local:element"
+    );
+    expect(store.reader().get("other-attachment")?.entityKey).toBe("build:server-build-extra");
+    store.commit((db) =>
+      syncGeneratedWorkflowForNode(
+        { db, userId: "owner", now: 20 },
+        {
+          userId: "owner",
+          cosplayNodeId: "local:element",
+          buildId: "local:build",
+          nodeName: "Element",
+          buildStatus: "wip",
+        }
+      )
+    );
+    expect(
+      store
+        .exportRows()
+        .filter((row) => row.table === "workflowItems")
+        .map((row) => row.id)
+    ).toEqual(["server-task"]);
   });
 
   it("drains normally with a confirmed matching account", async () => {

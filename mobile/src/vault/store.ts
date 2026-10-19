@@ -250,6 +250,17 @@ function withoutUndefined(doc: Record<string, unknown>): Record<string, unknown>
   return out;
 }
 
+function parseStoredDoc(json: string): Record<string, unknown> | null {
+  try {
+    const doc: unknown = JSON.parse(json);
+    return doc !== null && typeof doc === "object" && !Array.isArray(doc)
+      ? (doc as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 const SYSTEM_FIELDS = new Set(["_id", "_creationTime"]);
 
 export interface VaultStoreOptions {
@@ -291,10 +302,8 @@ export class VaultStore {
     const idToTable = new Map<string, string>();
     let corrupt = 0;
     for (const row of rows) {
-      let parsed: VaultDoc;
-      try {
-        parsed = JSON.parse(row.json) as VaultDoc;
-      } catch {
+      const parsed = parseStoredDoc(row.json);
+      if (!parsed) {
         corrupt += 1;
         continue;
       }
@@ -531,13 +540,10 @@ export class VaultStore {
     );
     const out: ImportedRow[] = [];
     for (const row of rows) {
-      try {
-        out.push({
-          table: row.table_name,
-          id: row.id,
-          doc: JSON.parse(row.json) as Record<string, unknown>,
-        });
-      } catch {
+      const doc = parseStoredDoc(row.json);
+      if (doc) {
+        out.push({ table: row.table_name, id: row.id, doc });
+      } else {
         onUnreadable?.();
       }
     }
@@ -567,11 +573,12 @@ export class VaultStore {
         [table, id]
       ) !== null;
     const byClientId = (table: string, clientId: string) =>
-      this.sql.getFirstSync<{ id: string }>(
-        `SELECT id FROM entity_rows
-         WHERE table_name = ? AND deleted = 0 AND json_extract(json, '$.clientId') = ?`,
-        [table, clientId]
-      )?.id ?? null;
+      this.sql
+        .getAllSync<{ id: string; json: string }>(
+          "SELECT id, json FROM entity_rows WHERE table_name = ? AND deleted = 0",
+          [table]
+        )
+        .find((row) => parseStoredDoc(row.json)?.clientId === clientId)?.id ?? null;
 
     const alias = new Map<string, string>();
     for (const row of rows) {
@@ -624,9 +631,11 @@ export class VaultStore {
         "SELECT id, json FROM entity_rows WHERE table_name = ? AND deleted = 0",
         [table]
       );
-      const docs = new Map(
-        rows.map((row) => [row.id, JSON.parse(row.json) as Record<string, unknown>])
-      );
+      const docs = new Map<string, Record<string, unknown>>();
+      for (const row of rows) {
+        const doc = parseStoredDoc(row.json);
+        if (doc) docs.set(row.id, doc);
+      }
       let repaired: boolean;
       do {
         repaired = false;
@@ -664,7 +673,9 @@ export class VaultStore {
         }
       }
       for (const row of rows) {
-        const json = JSON.stringify(docs.get(row.id));
+        const doc = docs.get(row.id);
+        if (!doc) continue;
+        const json = JSON.stringify(doc);
         if (json !== row.json) {
           this.sql.runSync(
             "UPDATE entity_rows SET json = ?, synced_at = NULL WHERE table_name = ? AND id = ?",
@@ -688,7 +699,13 @@ export class VaultStore {
     sourceSubject: string,
     availablePhotos: ReadonlySet<string> = new Set()
   ): ImportRowsResult {
-    const result: ImportRowsResult = { inserted: 0, updated: 0, skipped: 0, conflicts: 0, unknown: 0 };
+    const result: ImportRowsResult = {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      conflicts: 0,
+      unknown: 0,
+    };
     const changedParents = new Map<string, Map<string, unknown>>();
     const now = this.now();
     const known = new Set<string>(VAULT_TABLES);
@@ -709,36 +726,23 @@ export class VaultStore {
             "SELECT json, deleted FROM entity_rows WHERE table_name = ? AND id = ?",
             [row.table, row.id]
           );
+          const local = existing && !existing.deleted ? parseStoredDoc(existing.json) : null;
           if (existing && !existing.deleted) {
-            let localUpdatedAt = 0;
-            try {
-              const parsed = JSON.parse(existing.json) as { updatedAt?: unknown };
-              localUpdatedAt = typeof parsed.updatedAt === "number" ? parsed.updatedAt : 0;
-            } catch {
-              localUpdatedAt = 0;
-            }
+            const localUpdatedAt = typeof local?.updatedAt === "number" ? local.updatedAt : 0;
             const incoming = typeof doc.updatedAt === "number" ? doc.updatedAt : 0;
-            if (row.table === "vaultSettings" || incoming <= localUpdatedAt) {
+            if (local && (row.table === "vaultSettings" || incoming <= localUpdatedAt)) {
               result.skipped += 1;
               // The local copy wins, but a cloud-only photo it references may now have its original
               // on this device (restored from this backup): point the row at the local file without
               // touching its timestamp or sync state, so newer edits are never overwritten.
               if (row.table !== "vaultSettings" && availablePhotos.size > 0) {
-                let parsed: Record<string, unknown> | null = null;
-                try {
-                  parsed = JSON.parse(existing.json) as Record<string, unknown>;
-                } catch {
-                  parsed = null;
-                }
-                if (parsed) {
-                  const localized = localizeVaultPhotos(parsed, availablePhotos);
-                  const json = JSON.stringify(localized);
-                  if (json !== existing.json) {
-                    this.sql.runSync(
-                      "UPDATE entity_rows SET json = ? WHERE table_name = ? AND id = ?",
-                      [json, row.table, row.id]
-                    );
-                  }
+                const localized = localizeVaultPhotos(local, availablePhotos);
+                const json = JSON.stringify(localized);
+                if (json !== existing.json) {
+                  this.sql.runSync(
+                    "UPDATE entity_rows SET json = ? WHERE table_name = ? AND id = ?",
+                    [json, row.table, row.id]
+                  );
                 }
               }
               continue;
@@ -754,10 +758,7 @@ export class VaultStore {
               changes = new Map();
               changedParents.set(row.table, changes);
             }
-            const previous =
-              existing && !existing.deleted
-                ? (JSON.parse(existing.json) as Record<string, unknown>)[field]
-                : undefined;
+            const previous = local?.[field];
             if (previous !== doc[field] && !changes.has(row.id)) changes.set(row.id, previous);
           }
           this.sql.runSync(

@@ -49,7 +49,9 @@ function memoryArchive() {
 function readerFor(bytes: Uint8Array) {
   let offset = 0;
   return {
-    get remainingBytes() { return bytes.length - offset; },
+    get remainingBytes() {
+      return bytes.length - offset;
+    },
     read(length: number): Uint8Array {
       const slice = bytes.subarray(offset, offset + length);
       offset += slice.length;
@@ -503,33 +505,100 @@ describe("vault export / import", () => {
     expect(target.store.exportRows()).toEqual([]);
   });
 
-  it.each(["cosplayNodes", "workflowItems"])("keeps local parents when merging %s would create a cycle", (table) => {
-    const target = makeTestVault();
-    const parent = table === "cosplayNodes" ? "parentNodeId" : "parentId";
-    target.store.importRows([
-      { table, id: "A", doc: { [parent]: "B", updatedAt: 10, ancestorIds: ["B"] } },
-      { table, id: "B", doc: { updatedAt: 1, ancestorIds: [] } },
-      { table, id: "C", doc: { [parent]: "B", updatedAt: 1, ancestorIds: ["B"] } },
-    ], target.subject);
-    const result = target.store.importRows([
-      { table, id: "A", doc: { updatedAt: 1, ancestorIds: [] } },
-      { table, id: "B", doc: { [parent]: "A", updatedAt: 20, ancestorIds: ["A"] } },
-    ], target.subject);
-    expect(result.conflicts).toBe(1);
-    expect(target.store.reader().get("A")?.[parent]).toBe("B");
-    expect(target.store.reader().get("B")?.[parent]).toBeUndefined();
-    if (table === "workflowItems") {
-      expect(target.store.reader().get("B")?.ancestorIds).toEqual([]);
-      expect(target.store.reader().get("C")?.ancestorIds).toEqual(["B"]);
-      const moved = target.store.importRows([
-        { table, id: "B", doc: { parentId: "D", updatedAt: 30 } },
-        { table, id: "D", doc: { updatedAt: 1 } },
-      ], target.subject);
-      expect(moved.conflicts).toBe(0);
-      expect(target.store.reader().get("A")?.ancestorIds).toEqual(["D", "B"]);
-      expect(target.store.reader().get("C")?.ancestorIds).toEqual(["D", "B"]);
+  it.each(["cosplayNodes", "workflowItems"])(
+    "keeps local parents when merging %s would create a cycle",
+    (table) => {
+      const target = makeTestVault();
+      const parent = table === "cosplayNodes" ? "parentNodeId" : "parentId";
+      target.store.importRows(
+        [
+          { table, id: "A", doc: { [parent]: "B", updatedAt: 10, ancestorIds: ["B"] } },
+          { table, id: "B", doc: { updatedAt: 1, ancestorIds: [] } },
+          { table, id: "C", doc: { [parent]: "B", updatedAt: 1, ancestorIds: ["B"] } },
+        ],
+        target.subject
+      );
+      const result = target.store.importRows(
+        [
+          { table, id: "A", doc: { updatedAt: 1, ancestorIds: [] } },
+          { table, id: "B", doc: { [parent]: "A", updatedAt: 20, ancestorIds: ["A"] } },
+        ],
+        target.subject
+      );
+      expect(result.conflicts).toBe(1);
+      expect(target.store.reader().get("A")?.[parent]).toBe("B");
+      expect(target.store.reader().get("B")?.[parent]).toBeUndefined();
+      if (table === "workflowItems") {
+        expect(target.store.reader().get("B")?.ancestorIds).toEqual([]);
+        expect(target.store.reader().get("C")?.ancestorIds).toEqual(["B"]);
+        const moved = target.store.importRows(
+          [
+            { table, id: "B", doc: { parentId: "D", updatedAt: 30 } },
+            { table, id: "D", doc: { updatedAt: 1 } },
+          ],
+          target.subject
+        );
+        expect(moved.conflicts).toBe(0);
+        expect(target.store.reader().get("A")?.ancestorIds).toEqual(["D", "B"]);
+        expect(target.store.reader().get("C")?.ancestorIds).toEqual(["D", "B"]);
+      }
     }
-  });
+  );
+
+  it.each(["cosplayNodes", "workflowItems"])(
+    "restores healthy %s rows into a partially unreadable vault",
+    async (table) => {
+      const source = makeTestVault({ subject: "source" });
+      const parentField = table === "cosplayNodes" ? "parentNodeId" : "parentId";
+      source.store.importRows(
+        [
+          { table, id: "damaged", doc: { userId: "source", name: "Recovered" } },
+          { table, id: "child", doc: { userId: "source", [parentField]: "damaged" } },
+          { table, id: "local:aliased", doc: { userId: "source", updatedAt: 2, name: "Matched" } },
+        ],
+        "source"
+      );
+      const archive = memoryArchive();
+      await exportVault(source.store, memoryPhotos().photos, archive.writer);
+      const target = makeTestVault({ subject: "target" });
+      for (const [id, json] of [
+        ["damaged", "broken JSON"],
+        ["unrelated", "also broken"],
+        ["null-row", "null"],
+        ["array-row", "[]"],
+        ["cloud-held", JSON.stringify({ clientId: "local:aliased", updatedAt: 1 })],
+      ]) {
+        target.sql.runSync(
+          "INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted) VALUES (?, ?, ?, ?, 99, 99, 0)",
+          [table, id, target.subject, json]
+        );
+      }
+      const result = importVault(target.store, memoryPhotos().photos, readerFor(archive.bytes()));
+      expect(result.rows).toMatchObject({ inserted: 1, updated: 2, conflicts: 0 });
+      expect(target.store.reader().get("damaged")).toMatchObject({
+        name: "Recovered",
+        userId: "target",
+      });
+      expect(target.store.reader().get("cloud-held")?.name).toBe("Matched");
+      expect(target.store.reader().get("local:aliased")).toBeNull();
+      expect(target.store.reader().get("child")?.[parentField]).toBe("damaged");
+      if (table === "workflowItems") {
+        expect(target.store.reader().get("child")?.ancestorIds).toEqual(["damaged"]);
+      }
+      for (const [id, json] of [
+        ["unrelated", "also broken"],
+        ["null-row", "null"],
+        ["array-row", "[]"],
+      ]) {
+        expect(
+          target.sql.getFirstSync(
+            "SELECT json, synced_at FROM entity_rows WHERE table_name = ? AND id = ?",
+            [table, id]
+          )
+        ).toEqual({ json, synced_at: 99 });
+      }
+    }
+  );
 
   it("reports unreadable exported rows and unsupported imported rows as omissions", async () => {
     const source = makeTestVault();
@@ -544,11 +613,21 @@ describe("vault export / import", () => {
     const restored = importVault(target.store, memoryPhotos().photos, readerFor(archive.bytes()));
     expect(restored.rowsOmitted).toBe(1);
     const unsupported = memoryArchive();
-    writeVaultArchive({ subject: source.subject, now: 1,
-      rows: [{ table: "unsupported", id: "x", doc: {} }],
-      imageSize: () => null, readImage: () => new Uint8Array(),
-    }, unsupported.writer);
-    const skipped = importVault(target.store, memoryPhotos().photos, readerFor(unsupported.bytes()));
+    writeVaultArchive(
+      {
+        subject: source.subject,
+        now: 1,
+        rows: [{ table: "unsupported", id: "x", doc: {} }],
+        imageSize: () => null,
+        readImage: () => new Uint8Array(),
+      },
+      unsupported.writer
+    );
+    const skipped = importVault(
+      target.store,
+      memoryPhotos().photos,
+      readerFor(unsupported.bytes())
+    );
     expect(skipped.rowsOmitted).toBe(1);
     expect(skipped.rows.unknown).toBe(1);
     expect(target.store.exportRows()).toEqual([]);
@@ -556,17 +635,27 @@ describe("vault export / import", () => {
 
   it("validates every photo length before writing any replacement", () => {
     const archive = memoryArchive();
-    writeVaultArchive({ subject: "owner", now: 1,
-      rows: [{ table: "builds", id: "one", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}one` } },
-        { table: "builds", id: "two", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}two` } }],
-      imageSize: () => PHOTO.length, readImage: () => PHOTO,
-    }, archive.writer);
+    writeVaultArchive(
+      {
+        subject: "owner",
+        now: 1,
+        rows: [
+          { table: "builds", id: "one", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}one` } },
+          { table: "builds", id: "two", doc: { imageUrl: `${VAULT_IMAGE_TOKEN}two` } },
+        ],
+        imageSize: () => PHOTO.length,
+        readImage: () => PHOTO,
+      },
+      archive.writer
+    );
     const target = makeTestVault();
     const original = Uint8Array.from([9]);
     const directory = memoryPhotos({ one: original });
     const write = vi.spyOn(directory.photos, "write");
     const truncated = archive.bytes().slice(0, -1);
-    expect(() => importVault(target.store, directory.photos, readerFor(truncated))).toThrow(VaultArchiveError);
+    expect(() => importVault(target.store, directory.photos, readerFor(truncated))).toThrow(
+      VaultArchiveError
+    );
     expect(write).not.toHaveBeenCalled();
     expect(directory.files.get("one")).toEqual(original);
     expect(target.store.exportRows()).toEqual([]);

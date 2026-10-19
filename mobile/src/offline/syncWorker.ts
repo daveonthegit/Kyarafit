@@ -270,6 +270,14 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
         const docs = res[table] ?? [];
         for (const doc of docs) {
           const local = rewriteIdsDeep(doc, toLocal);
+          for (const field of ["entityKey", "dedupeKey"] as const) {
+            if (typeof doc[field] === "string") {
+              local[field] = doc[field]
+                .split(":")
+                .map((part) => toLocal[part] ?? part)
+                .join(":");
+            }
+          }
           upsertSyncedEntityRow(table, local._id, String(doc.userId ?? ""), local);
         }
         if (docs.length > maxPageLen) maxPageLen = docs.length;
