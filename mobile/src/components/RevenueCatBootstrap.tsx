@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import {
   ensureRevenueCatConfigured,
   isRevenueCatSupportedPlatform,
@@ -14,7 +14,7 @@ import {
  * so webhook + REST subscriber lookups use the same `app_user_id`.
  */
 export function RevenueCatBootstrap() {
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
 
   useEffect(() => {
     ensureRevenueCatConfigured();

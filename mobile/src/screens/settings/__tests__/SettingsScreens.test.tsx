@@ -33,6 +33,7 @@ const state = vi.hoisted(() => ({
   share: vi.fn(),
   alert: vi.fn(),
   create: vi.fn(),
+  deleteVault: vi.fn(),
 }));
 
 vi.mock("react-native", async () => ({
@@ -89,11 +90,21 @@ vi.mock("@/ui", () => ({
   DataBoundary: ({ status, children }: { status: string; children: () => React.ReactNode }) =>
     status === "loading" ? <div>Loading data</div> : children(),
 }));
-vi.mock("@/offline", () => ({
-  usePendingQueueCount: () => state.pending,
-  useOfflineQuery: () => state.rows,
-  useOfflineMutation: () => state.create,
-}));
+vi.mock("@/offline", async () => {
+  const { getFunctionName } = await import("convex/server");
+  return {
+    usePendingQueueCount: () => state.pending,
+    // Identity comes from the vault hook too; every other read returns the fixture rows.
+    useOfflineQuery: (query: never, args?: unknown) =>
+      getFunctionName(query) === "auth:getCurrentUser"
+        ? state.identity
+        : args === "skip"
+          ? undefined
+          : state.rows,
+    useOfflineMutation: () => state.create,
+  };
+});
+vi.mock("@/offline/db", () => ({ deleteVaultDatabase: state.deleteVault }));
 vi.mock("@/components/settings/SyncStatusSection", () => ({
   SyncStatusSection: ({ offline }: { offline: boolean }) => (
     <div data-testid="sync-section">Sync {offline ? "offline" : "online"}</div>
@@ -130,6 +141,7 @@ beforeEach(() => {
   state.share.mockResolvedValue(undefined);
   state.fileInfo.mockResolvedValue({ exists: false });
   state.create.mockResolvedValue("new-id");
+  state.deleteVault.mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
@@ -146,7 +158,9 @@ describe("settings confirmation and controls", () => {
     render(<Settings />);
     const dialog = openSignOut();
     expect(state.signOut).not.toHaveBeenCalled();
-    expect(within(dialog).getByText(/another account signing in/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(/locked until you sign in again with this account/)
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
   });
@@ -179,7 +193,9 @@ describe("settings confirmation and controls", () => {
     state.tier = "unknown";
     render(<Settings />);
     expect(screen.getByText("Upgrade for automatic cloud sync and backup.")).toBeTruthy();
-    expect(within(openSignOut()).getByText(/another account signing in/)).toBeTruthy();
+    expect(
+      within(openSignOut()).getByText(/locked until you sign in again with this account/)
+    ).toBeTruthy();
   });
 
   it("disables sign-out until plan state is known", () => {
@@ -384,5 +400,24 @@ describe("small settings screens", () => {
     expect(state.alert).toHaveBeenCalledTimes(2);
     expect(state.write).not.toHaveBeenCalled();
     expect(state.create).not.toHaveBeenCalled();
+  });
+
+  it("only removes device data after an explicit destructive confirmation", async () => {
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove device data" }));
+    expect(state.deleteVault).not.toHaveBeenCalled();
+    const [title, , buttons] = state.alert.mock.calls[0] as [
+      string,
+      string,
+      { text: string; style?: string; onPress?: () => void }[],
+    ];
+    expect(title).toBe(en.settings.dataRemoveConfirmTitle);
+    expect(buttons.find((b) => b.style === "cancel")).toBeTruthy();
+    buttons.find((b) => b.style === "destructive")?.onPress?.();
+    await waitFor(() => expect(state.deleteVault).toHaveBeenCalledWith("owner"));
+    // Locks (signs out) before deleting the closed vault files.
+    expect(state.signOut.mock.invocationCallOrder[0]).toBeLessThan(
+      state.deleteVault.mock.invocationCallOrder[0]
+    );
   });
 });

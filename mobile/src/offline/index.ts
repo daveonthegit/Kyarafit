@@ -1,10 +1,4 @@
-export {
-  enforceOfflineStorageCaps,
-  getOfflineDb,
-  pruneOfflineTombstones,
-  resetOfflineDatabaseForAccountSwitch,
-  resetOfflineStateForAccountSwitch,
-} from "./db";
+export { enforceOfflineStorageCaps, getOfflineDb, pruneOfflineTombstones } from "./db";
 export { usePendingQueueCount, useSyncStatus, type SyncStatus } from "./usePendingQueueCount";
 export { SyncWorkerProvider } from "./SyncWorkerProvider";
 export { useOfflineQuery, useOfflineMutation } from "./convex-bridge";

@@ -113,10 +113,11 @@ export default function BuildsScreen() {
   );
 
   const rows = useOfflineQuery(api.builds.list, listArgs);
+  // Builds shared with you come from collaborators online; the tab never waits on them (offline
+  // they are simply absent until a connection returns).
   const sharedRows = useOfflineQuery(api.builds.listSharedWithUser, userId ? { userId } : "skip");
 
-  const loading =
-    identity === undefined || (userId != null && (rows === undefined || sharedRows === undefined));
+  const loading = identity === undefined || (userId != null && rows === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
 
   let status: "loading" | "error" | "ready";

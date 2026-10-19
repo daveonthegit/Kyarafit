@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation } from "@/offline";
 import type { Id } from "convex/_generated/dataModel";
 import {
   canReorderAsSiblings,
@@ -83,12 +83,12 @@ export function useExplorerMove({
   setRootOrderIds,
   onError,
 }: UseExplorerMoveOpts) {
-  const reorderRoots = useMutation(api.builds.reorderRootLinks);
-  const linkNodes = useMutation(api.builds.linkNodes);
-  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
-  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
-  const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
+  const reorderRoots = useOfflineMutation(api.builds.reorderRootLinks);
+  const linkNodes = useOfflineMutation(api.builds.linkNodes);
+  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
+  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
+  const reorderChildren = useOfflineMutation(api.cosplayNodes.reorderChildren);
 
   const rowRegistryRef = useRef(new Map<string, RegisteredRow>());
   const rowRectsRef = useRef(new Map<string, RectLike>());

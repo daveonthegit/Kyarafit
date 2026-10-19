@@ -44,6 +44,10 @@ not deletion of existing media; the accepted allowances are not evidence of curr
 
 ## Sync — accepted terminology
 
+**Local vault**: The per-account SQLite database (plus its photo directory) on a device that is the
+authoritative home of that account's personal planning data, online or offline, free or paid.
+Sign-out locks it; only an explicit "remove from this device" or account deletion deletes it.
+
 **Managed sync**: Personal-data sync through Kyarafit's backend, distinct from online social actions.
 
 **BYO sync**: Personal-data sync through storage the user owns (Google Drive first), rather than

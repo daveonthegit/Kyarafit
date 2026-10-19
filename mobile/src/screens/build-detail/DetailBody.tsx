@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useOnlineId } from "@/vault/hooks";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -19,7 +20,8 @@ import { api } from "convex/_generated/api";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 import { APP_HREF } from "@/lib/appRoutes";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { FloatingCreateMenu } from "@/ui";
@@ -192,6 +194,8 @@ function SheetGrip() {
 }
 
 export function BuildDetailBody(props: Props) {
+  const onlineBuildId = useOnlineId(props.buildId);
+  const saveLocalImage = useSaveLocalImage();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -264,7 +268,6 @@ export function BuildDetailBody(props: Props) {
   const isOwner = build.userId === userId;
 
   const updateBuild = useOfflineMutation(api.builds.update);
-  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
   const addRef = useOfflineMutation(api.buildReferenceImages.add);
   const removeRef = useOfflineMutation(api.buildReferenceImages.remove);
   const addProcess = useOfflineMutation(api.buildProcessPictures.add);
@@ -418,7 +421,7 @@ export function BuildDetailBody(props: Props) {
     onError: (message) => Alert.alert(t("common.errorTitle"), message),
   });
 
-  const pickAndUpload = useCallback(async () => {
+  const pickAndSave = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert(t("buildDetail.needPhotoAccess"));
@@ -429,35 +432,29 @@ export function BuildDetailBody(props: Props) {
       quality: 0.85,
     });
     if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    const url = await generateUploadUrl();
-    const storageId = await uploadUriToConvexStorage(
-      asset.uri,
-      url,
-      asset.mimeType ?? "image/jpeg"
-    );
-    return storageId;
-  }, [generateUploadUrl, t]);
+    // Copy into this device's vault first — galleries work offline; paid sync uploads later.
+    return (await saveLocalImage(result.assets[0].uri)).uri;
+  }, [t, saveLocalImage]);
 
   const onAddReference = useCallback(async () => {
     try {
-      const storageId = await pickAndUpload();
-      if (!storageId) return;
-      await addRef({ buildId, userId, imageStorageId: storageId });
+      const imageUrl = await pickAndSave();
+      if (!imageUrl) return;
+      await addRef({ buildId, userId, imageUrl });
     } catch (e) {
-      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      alertUnlessReported(t("common.errorTitle"), e);
     }
-  }, [addRef, buildId, pickAndUpload, t, userId]);
+  }, [addRef, buildId, pickAndSave, t, userId]);
 
   const onAddProcess = useCallback(async () => {
     try {
-      const storageId = await pickAndUpload();
-      if (!storageId) return;
-      await addProcess({ buildId, userId, imageStorageId: storageId });
+      const imageUrl = await pickAndSave();
+      if (!imageUrl) return;
+      await addProcess({ buildId, userId, imageUrl });
     } catch (e) {
-      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      alertUnlessReported(t("common.errorTitle"), e);
     }
-  }, [addProcess, buildId, pickAndUpload, t, userId]);
+  }, [addProcess, buildId, pickAndSave, t, userId]);
 
   const saveFocal = useCallback(
     async (fx: number, fy: number) => {
@@ -663,13 +660,13 @@ export function BuildDetailBody(props: Props) {
 
   const handleSendCollaboratorInvite = useCallback(async () => {
     const email = inviteEmail.trim();
-    if (!email || invitePending) return;
+    if (!email || invitePending || !onlineBuildId) return;
     setInvitePending(true);
     setInviteError(null);
     setInviteFeedback(null);
     try {
       await addCollaboratorByEmail({
-        buildId,
+        buildId: onlineBuildId,
         ownerId: userId,
         email,
         role: inviteRole,
@@ -681,10 +678,11 @@ export function BuildDetailBody(props: Props) {
     } finally {
       setInvitePending(false);
     }
-  }, [addCollaboratorByEmail, buildId, inviteEmail, invitePending, inviteRole, t, userId]);
+  }, [addCollaboratorByEmail, onlineBuildId, inviteEmail, invitePending, inviteRole, t, userId]);
 
   const confirmRemoveCollaborator = useCallback(
     (collaboratorUserId: string) => {
+      if (!onlineBuildId) return;
       Alert.alert(t("buildDetail.inviteRemoveTitle"), t("buildDetail.inviteRemoveBody"), [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -692,7 +690,7 @@ export function BuildDetailBody(props: Props) {
           style: "destructive",
           onPress: () => {
             void removeCollaborator({
-              buildId,
+              buildId: onlineBuildId,
               ownerId: userId,
               userId: collaboratorUserId,
             });
@@ -700,7 +698,7 @@ export function BuildDetailBody(props: Props) {
         },
       ]);
     },
-    [buildId, removeCollaborator, t, userId]
+    [onlineBuildId, removeCollaborator, t, userId]
   );
 
   const updateRootFrame = useCallback(() => {

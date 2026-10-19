@@ -19,8 +19,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import {
   COSPLAY_CATEGORIES,
@@ -47,7 +47,7 @@ import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRoot
 import { usePlannerTaskMove } from "@/planner/usePlannerTaskMove";
 import { applyWorkflowTreeDrop, promoteWorkflowTaskToRoot } from "@/workflow/applyWorkflowTreeDrop";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
 import { Button, DataBoundary, MetaLabel, SurfaceCard, TextField } from "@/ui";
 import type { PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 
@@ -142,15 +142,15 @@ export default function ElementDetailScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const router = useRouter();
-  const convertType = useMutation(api.cosplayNodes.convertType);
-  const removeNode = useMutation(api.cosplayNodes.remove);
+  const convertType = useOfflineMutation(api.cosplayNodes.convertType);
+  const removeNode = useOfflineMutation(api.cosplayNodes.remove);
   const raw = useLocalSearchParams<{ id: string | string[] }>().id;
   const param = Array.isArray(raw) ? raw[0] : raw;
   const id = param ? (param as Id<"cosplayNodes">) : undefined;
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const node = useQuery(api.cosplayNodes.get, id ? { id } : "skip");
+  const node = useOfflineQuery(api.cosplayNodes.get, id ? { id } : "skip");
 
   const loading = identity === undefined || (id != null && node === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -238,16 +238,16 @@ function ElementDetailBody({
   const { colors } = useDesignTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-  const update = useMutation(api.cosplayNodes.update);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
-  const reorderChildren = useMutation(api.cosplayNodes.reorderChildren);
-  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
-  const createWorkflowTask = useMutation(api.workflow.create);
-  const updateWorkflowTask = useMutation(api.workflow.update);
-  const deleteWorkflowTask = useMutation(api.workflow.remove);
-  const moveWorkflowTask = useMutation(api.workflow.move);
-  const moveAndResequenceWorkflowTask = useMutation(api.workflow.moveAndResequence);
+  const update = useOfflineMutation(api.cosplayNodes.update);
+  const saveLocalImage = useSaveLocalImage();
+  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
+  const reorderChildren = useOfflineMutation(api.cosplayNodes.reorderChildren);
+  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
+  const createWorkflowTask = useOfflineMutation(api.workflow.create);
+  const updateWorkflowTask = useOfflineMutation(api.workflow.update);
+  const deleteWorkflowTask = useOfflineMutation(api.workflow.remove);
+  const moveWorkflowTask = useOfflineMutation(api.workflow.move);
+  const moveAndResequenceWorkflowTask = useOfflineMutation(api.workflow.moveAndResequence);
   const router = useRouter();
   const { node, userId, id } = loaded;
 
@@ -274,9 +274,9 @@ function ElementDetailBody({
   const [editUnitLabel, setEditUnitLabel] = useState("");
   const [pickedReferenceUri, setPickedReferenceUri] = useState<string | null>(null);
 
-  const buildsUsingRaw = useQuery(api.builds.getBuildsUsingNode, { cosplayNodeId: id });
+  const buildsUsingRaw = useOfflineQuery(api.builds.getBuildsUsingNode, { cosplayNodeId: id });
   const buildsUsing = useMemo(() => buildsUsingRaw ?? [], [buildsUsingRaw]);
-  const nodeWorkflow = useQuery(api.workflow.listNodeWorkflow, {
+  const nodeWorkflow = useOfflineQuery(api.workflow.listNodeWorkflow, {
     cosplayNodeId: id,
     buildId: selectedWorkflowBuildId ? (selectedWorkflowBuildId as Id<"builds">) : undefined,
   });
@@ -564,11 +564,8 @@ function ElementDetailBody({
     if (!trimmedName || quickEditBusy) return;
     setQuickEditBusy(true);
     try {
-      let imageStorageId: Id<"_storage"> | undefined;
-      if (pickedReferenceUri) {
-        const uploadUrl = await generateUploadUrl();
-        imageStorageId = await uploadUriToConvexStorage(pickedReferenceUri, uploadUrl);
-      }
+      // A newly picked photo is copied into this device's vault first — works offline.
+      const localPhoto = pickedReferenceUri ? await saveLocalImage(pickedReferenceUri) : null;
 
       const tags = editTagsRaw
         .split(",")
@@ -598,7 +595,7 @@ function ElementDetailBody({
         unitCostCents,
         quantity,
         unit: editPricingMode === "per_unit" && editUnitLabel.trim() ? editUnitLabel.trim() : null,
-        ...(imageStorageId ? { imageStorageId } : {}),
+        ...(localPhoto ? { imageUrl: localPhoto.uri, imageStorageId: null } : {}),
       });
       setQuickEditVisible(false);
       setPickedReferenceUri(null);
@@ -617,9 +614,9 @@ function ElementDetailBody({
     editTagsRaw,
     editUnitCostDollars,
     editUnitLabel,
-    generateUploadUrl,
     id,
     pickedReferenceUri,
+    saveLocalImage,
     quickEditBusy,
     t,
     update,

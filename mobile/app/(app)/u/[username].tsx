@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ProfileAvatar } from "@/components/social/ProfileAvatar";
 import { PublicBuildCard } from "@/components/social/PublicBuildCard";
@@ -21,7 +22,7 @@ export default function PublicProfileScreen() {
   const router = useRouter();
   const rawUsername = useLocalSearchParams<{ username: string | string[] }>().username;
   const username = Array.isArray(rawUsername) ? rawUsername[0] : rawUsername;
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const currentUserId = identity?.subject;
   const profile = useQuery(api.users.getByUsername, username ? { username } : "skip");
   const builds = useQuery(

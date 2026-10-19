@@ -6,6 +6,8 @@ import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
+import { deleteVaultDatabase } from "@/offline/db";
+import { signOut } from "@/lib/auth/client";
 import {
   buildExport,
   buildPortableRows,
@@ -219,6 +221,37 @@ export default function SettingsDataScreen() {
     }
   }, [collections, createRow, t, userId]);
 
+  const [removing, setRemoving] = useState(false);
+
+  // The only destructive path for local data: an explicit, confirmed delete of this account's
+  // vault followed by sign-out. Signing out alone never deletes anything (it locks the vault).
+  const removeDeviceData = useCallback(async () => {
+    if (!userId) return;
+    setRemoving(true);
+    try {
+      // Lock first (sign-out closes the vault), then delete the closed files.
+      await signOut();
+      await deleteVaultDatabase(userId);
+    } catch (error) {
+      Alert.alert(
+        t("settings.dataErrorTitle"),
+        error instanceof Error ? error.message : String(error)
+      );
+      setRemoving(false);
+    }
+  }, [t, userId]);
+
+  const confirmRemove = useCallback(() => {
+    Alert.alert(t("settings.dataRemoveConfirmTitle"), t("settings.dataRemoveConfirmBody"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("settings.dataRemoveConfirmAction"),
+        style: "destructive",
+        onPress: () => void removeDeviceData(),
+      },
+    ]);
+  }, [removeDeviceData, t]);
+
   const status = identity === undefined ? "loading" : "ready";
 
   return (
@@ -257,6 +290,17 @@ export default function SettingsDataScreen() {
               {importing ? (
                 <ActivityIndicator color={glass.text.fg} accessibilityLabel={t("common.loading")} />
               ) : null}
+            </SettingsGlassSection>
+            <SettingsGlassSection label={t("settings.dataRemoveTitle")}>
+              <Text style={styles.body}>{t("settings.dataRemoveDescription")}</Text>
+              <PhotoPill
+                style={styles.action}
+                variant="text"
+                label={t("settings.dataRemoveButton")}
+                disabled={removing || exporting || importing}
+                accessibilityState={{ busy: removing }}
+                onPress={confirmRemove}
+              />
             </SettingsGlassSection>
             <SettingsGlassSection>
               <Text style={styles.body}>{t("settings.dataPortabilityFootnote")}</Text>

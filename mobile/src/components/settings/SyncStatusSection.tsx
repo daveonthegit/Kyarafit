@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useConvex, useQuery } from "convex/react";
+import { useConvex } from "convex/react";
 import { api } from "convex/_generated/api";
 import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
 import { useTier } from "@/lib/useTier";
-import { syncNow, useSyncStatus } from "@/offline";
+import { syncNow, useOfflineQuery, useSyncStatus } from "@/offline";
 import { MetaLabel, SurfaceCard } from "@/ui";
 
 function formatLastSynced(ts: number | null): string | null {
@@ -27,7 +27,7 @@ function formatLastSynced(ts: number | null): string | null {
 export function SyncStatusSection({ offline }: { offline: boolean }) {
   const { t } = useTranslation();
   const convex = useConvex();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject ?? null;
   const signedIn = userId !== null;
   const { data: tierInfo } = useTier(userId);

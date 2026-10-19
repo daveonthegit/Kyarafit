@@ -119,8 +119,8 @@ are standardized in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §states; per-module 
 - **Purpose:** required account; gateway to personal data and social.
 - **Flows:** sign up (Google/email) → first-run sets up local store → optional welcome. Sign in on a new device (paid) pulls cloud data. Sign out. Delete account.
 - **REQ-030** First successful sign-in initializes the local store and `users.upsert`; no data sync is triggered for free users.
-- **REQ-031** Sign-out keeps local data on the device but warns **free** users to export first (data is at risk if another account signs in on the same device). Paid users' data is safe in cloud.
-- **REQ-032** Account deletion removes the user's cloud data and offers a local export; it requires explicit confirmation.
+- **REQ-031** Sign-out keeps local data on the device, locked until the same account signs in again; other accounts on the device get their own separate local vault and never see it. Free users are reminded that an export is their only copy off the device. Paid users' data is also in the cloud.
+- **REQ-032** Account deletion removes the user's cloud data and that account's local vault on the device, after explicit confirmation that tells the user to export their data first.
 - **REQ-033** Expired session → app drops to a signed-out state but does **not** wipe local data; re-auth restores access.
 
 ### 4.2 Elements (catalog) — managed per build
@@ -225,7 +225,7 @@ are standardized in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §states; per-module 
 - **AC-05 (REQ-017)** Given a free user, When they try to set a build to public or generate a share link, Then they see an upgrade prompt and the build stays private.
 - **AC-06 (REQ-021)** Given a free user who is a member of a group, When a build is linked to that group's cosplay, Then that build (and its images, within the group allowance) may sync to cloud, while their other builds do not.
 - **AC-07 (REQ-049)** Given a build with no progress updates, When the user opens build detail, Then an empty state invites adding the first progress update; adding one shows it in a dated timeline immediately (offline-capable for the owner).
-- **AC-08 (REQ-031)** Given a free user signs out, When sign-out is requested, Then they are warned to export and confirm before local data is left on a shared device.
+- **AC-08 (REQ-031)** Given a free user signs out, When sign-out is requested, Then they confirm, are reminded to export their data, and their local vault stays on the device locked (not deleted) until they sign in again.
 - **AC-09 (REQ-040 Elements)** Given a build, When the user manages elements, Then there is no separate Closet navigation destination; element CRUD happens inside the build.
 - **AC-10 (EC-03)** Given the same build edited on two paid devices (different fields), When both sync, Then both field edits survive (per-field LWW), not a whole-document clobber.
 

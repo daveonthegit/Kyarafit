@@ -4,8 +4,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import {
   COSPLAY_CATEGORIES,
@@ -14,7 +14,7 @@ import {
 } from "@kyarafit/design-system/types";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { useDesignTheme } from "@/theme/useDesignTheme";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
 import { Button, DataBoundary, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
 
 function dollarsFromCents(cents: number | undefined): string {
@@ -47,9 +47,9 @@ export default function ElementEditScreen() {
     navigation.setOptions({ title: t("elements.editTitle") });
   }, [navigation, t]);
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const node = useQuery(api.cosplayNodes.get, nodeId ? { id: nodeId } : "skip");
+  const node = useOfflineQuery(api.cosplayNodes.get, nodeId ? { id: nodeId } : "skip");
 
   const loading = identity === undefined || (nodeId != null && node === undefined);
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -86,8 +86,8 @@ function ElementEditForm({
   t: TFunction;
 }) {
   const { colors } = useDesignTheme();
-  const update = useMutation(api.cosplayNodes.update);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const update = useOfflineMutation(api.cosplayNodes.update);
+  const saveLocalImage = useSaveLocalImage();
 
   const [seeded, setSeeded] = useState(false);
   const [name, setName] = useState("");
@@ -135,11 +135,8 @@ function ElementEditForm({
     setBusy(true);
     void (async () => {
       try {
-        let imageStorageId: Id<"_storage"> | undefined;
-        if (pickedUri) {
-          const uploadUrl = await generateUploadUrl();
-          imageStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
-        }
+        // A newly picked photo is copied into this device's vault first — works offline.
+        const localPhoto = pickedUri ? await saveLocalImage(pickedUri) : null;
 
         const tags = tagsRaw
           .split(",")
@@ -170,7 +167,7 @@ function ElementEditForm({
           unitCostCents,
           quantity,
           unit: pricingMode === "per_unit" && unitLabel.trim() ? unitLabel.trim() : null,
-          ...(imageStorageId ? { imageStorageId } : {}),
+          ...(localPhoto ? { imageUrl: localPhoto.uri, imageStorageId: null } : {}),
         });
         onSaved();
       } catch (e) {

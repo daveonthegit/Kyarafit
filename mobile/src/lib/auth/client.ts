@@ -6,7 +6,7 @@ import {
   hydrateBearerFromSecureStore,
   setStoredBearerToken,
 } from "./bearer-storage-plugin";
-import { resetOfflineStateForAccountSwitch } from "@/offline/db";
+import { lockVault } from "@/vault/activeVault";
 import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
 
 const CONVEX_SITE_URL = EXPO_PUBLIC_CONVEX_SITE_URL || undefined;
@@ -72,8 +72,24 @@ export async function setCredentialPassword(args: SetPasswordArgs) {
   ).setPassword(args);
 }
 
+/**
+ * Sign out: revoke the server session when reachable, forget the local credential, and LOCK this
+ * account's vault. The vault (planner data and photos) stays on the device and unlocks again when
+ * this account signs back in; other accounts get their own vaults. Works offline — an unreachable
+ * server never keeps a user signed in on this device.
+ */
 export async function signOut() {
-  await authClient.signOut();
-  await setStoredBearerToken(null);
-  await resetOfflineStateForAccountSwitch();
+  let revokeError: unknown = null;
+  try {
+    await authClient.signOut();
+  } catch (error) {
+    revokeError = error;
+  }
+  const results = await Promise.allSettled([setStoredBearerToken(null), lockVault()]);
+  if (revokeError)
+    console.warn("[auth] server sign-out failed; local sign-out attempted", revokeError);
+  const errors = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1)
+    throw new AggregateError(errors, "Could not finish signing out on this device");
 }

@@ -30,6 +30,12 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+// Identity / personal-data reads go through the vault hooks; route them to the same stubs.
+vi.mock("@/offline", async () => {
+  const convex = (await import("convex/react")) as Record<string, unknown>;
+  return { useOfflineQuery: convex.useQuery };
+});
+
 vi.mock("convex/react", () => ({
   useQuery: () => ({ subject: "user_1" }),
 }));

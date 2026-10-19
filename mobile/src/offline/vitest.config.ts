@@ -51,12 +51,14 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    setupFiles: [path.resolve(mobileRoot, "src/test-support/nativeModuleMocks.ts")],
     root: mobileRoot,
     include: [
       "src/offline/**/*.test.{ts,tsx}",
       "src/screens/**/*.test.{ts,tsx}",
       "src/lib/**/*.test.{ts,tsx}",
       "src/components/**/*.test.{ts,tsx}",
+      "src/vault/**/*.test.{ts,tsx}",
     ],
   },
 });

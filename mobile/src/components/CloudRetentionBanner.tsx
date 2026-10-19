@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { cloudRetentionBanner } from "@kyarafit/design-system/domain/tierTransition";
 import { borderWidth, glass } from "@kyarafit/design-system/rn";
 import { useTier } from "@/lib/useTier";
@@ -33,7 +33,7 @@ function formatDate(ts: number): string {
  */
 export function CloudRetentionBanner({ now = Date.now() }: { now?: number }) {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject ?? null;
   const { data } = useTier(userId);
   const banner = cloudRetentionBanner(data?.downgradedAt ?? null, now);

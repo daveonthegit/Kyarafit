@@ -11,9 +11,9 @@ import {
 import * as Linking from "expo-linking";
 import { Link, useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { formatStorageMb } from "@kyarafit/design-system/domain/cloudStoragePolicy";
 import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
@@ -45,7 +45,7 @@ const SETTINGS_LINKS = [
 export default function SettingsIndexScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const { data: tier, isLoading: tierLoading } = useTier(userId);
   const { preference, setPreference } = useTheme();

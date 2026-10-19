@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { APP_HREF } from "@/lib/appRoutes";
@@ -31,7 +32,7 @@ function ownerLabelOf(build: FeedBuild): string | null {
 }
 
 export default function FeedScreen() {
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const builds =
     useQuery(api.builds.listFeedFromFollowing, userId ? { userId, limit: 50 } : "skip") ?? [];

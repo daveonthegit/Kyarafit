@@ -25,7 +25,7 @@ const h = vi.hoisted(() => ({
   warmEntityRows: vi.fn(),
   uploadLocalImages: vi.fn(),
   runBackfill: vi.fn(),
-  getOfflineDb: vi.fn(),
+  setReplicationEnabled: vi.fn(),
   enforceOfflineStorageCaps: vi.fn(),
   pruneOfflineTombstones: vi.fn(),
 }));
@@ -39,11 +39,18 @@ vi.mock("@react-native-community/netinfo", () => ({
 
 vi.mock("convex/react", () => ({
   useConvex: () => h.convexClient,
-  useQuery: () => h.state.identity,
 }));
 
-vi.mock("convex/_generated/api", () => ({
-  api: { auth: { getCurrentUser: "auth:getCurrentUser" } },
+vi.mock("@/vault/hooks", () => ({
+  useVaultState: () =>
+    h.state.identity
+      ? { status: "unlocked", account: { subject: h.state.identity.subject, lastVerifiedAt: 0 } }
+      : { status: "locked" },
+}));
+
+vi.mock("@/vault/replication", () => ({
+  setReplicationEnabled: h.setReplicationEnabled,
+  onReplicationRequested: () => () => {},
 }));
 
 vi.mock("@/lib/useTier", () => ({
@@ -54,12 +61,12 @@ vi.mock("@/lib/useTier", () => ({
 }));
 
 vi.mock("./db", () => ({
-  getOfflineDb: h.getOfflineDb,
   enforceOfflineStorageCaps: h.enforceOfflineStorageCaps,
   pruneOfflineTombstones: h.pruneOfflineTombstones,
 }));
 
 vi.mock("./syncWorker", () => ({
+  invalidateSyncSession: vi.fn(),
   drainMutationQueue: h.drainMutationQueue,
   warmEntityRows: h.warmEntityRows,
   uploadLocalImages: h.uploadLocalImages,
@@ -132,6 +139,21 @@ describe("SyncWorkerProvider gating (REQ-D60, REQ-D10)", () => {
     await flushAsync();
 
     expectZeroConvexCalls();
+  });
+
+  it("persists the server-confirmed paid state so offline launches keep queueing", async () => {
+    h.state.identity = { subject: "user_free" };
+    h.state.tier = "FREE";
+    renderProvider();
+    await flushAsync();
+    expect(h.setReplicationEnabled).toHaveBeenLastCalledWith(false);
+
+    cleanup();
+    h.state.identity = { subject: "user_pro" };
+    h.state.tier = "PRO";
+    renderProvider();
+    await flushAsync();
+    expect(h.setReplicationEnabled).toHaveBeenLastCalledWith(true);
   });
 
   it("DOES start the worker (drain then warm-up pull) for a paid, signed-in user", async () => {

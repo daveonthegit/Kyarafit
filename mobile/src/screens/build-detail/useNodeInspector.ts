@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Id } from "convex/_generated/dataModel";
 import {
   dbFromElementCombined,
@@ -59,9 +59,9 @@ type UseNodeInspectorOpts = {
 };
 
 export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
-  const updateNode = useMutation(api.cosplayNodes.update);
-  const removeNodeFromBuild = useMutation(api.builds.removeNodeFromBuild);
-  const removeChildLink = useMutation(api.cosplayNodes.removeChildLink);
+  const updateNode = useOfflineMutation(api.cosplayNodes.update);
+  const removeNodeFromBuild = useOfflineMutation(api.builds.removeNodeFromBuild);
+  const removeChildLink = useOfflineMutation(api.cosplayNodes.removeChildLink);
 
   const [selected, setSelected] = useState<NodeSelectionMeta | null>(null);
   const [persistStatus, setPersistStatus] = useState<PersistStatus>("saved");
@@ -78,7 +78,7 @@ export function useNodeInspector({ buildId, userId }: UseNodeInspectorOpts) {
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydrateKeyRef = useRef<CosplayNodeId | null>(null);
 
-  const selectedDetail = useQuery(
+  const selectedDetail = useOfflineQuery(
     api.cosplayNodes.get,
     selected ? { id: selected.nodeId, buildId } : "skip"
   ) as DetailedNode | null | undefined;

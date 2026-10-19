@@ -28,6 +28,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
 import { SyncWorkerProvider } from "@/offline";
+import { bootVault } from "@/vault/activeVault";
+import { SessionExpiredNotice } from "@/components/vault/SessionExpiredNotice";
+import { VaultWriteErrorAlerts } from "@/components/vault/VaultWriteErrorAlerts";
 import { RevenueCatBootstrap } from "@/components/RevenueCatBootstrap";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -62,6 +65,8 @@ function RootLayoutNav() {
     (async () => {
       try {
         await hydrateBearerFromSecureStore();
+        // Unlock the last signed-in account's vault from disk before any route renders — no network.
+        await bootVault();
         await initI18n();
       } finally {
         if (!cancelled) {
@@ -113,6 +118,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(public)" />
       </Stack>
       <GlobalStatusChrome />
+      <VaultWriteErrorAlerts />
     </View>
   );
 }
@@ -138,6 +144,7 @@ function GlobalStatusChrome() {
         }}
       >
         <ConnectivityBanner />
+        <SessionExpiredNotice />
         <CloudRetentionBanner />
       </View>
     </View>

@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   getSession: vi.fn(),
   setPassword: vi.fn(),
   deleteAccount: vi.fn(),
+  signOut: vi.fn(),
+  deleteVault: vi.fn(),
   link: vi.fn(),
   replace: vi.fn(),
   push: vi.fn(),
@@ -71,6 +73,12 @@ vi.mock("convex/_generated/api", () => ({
     files: { generateUploadUrl: "uploadUrl" },
   },
 }));
+// Identity / personal-data reads go through the vault hooks; route them to the same stubs.
+vi.mock("@/offline", async () => {
+  const convex = (await import("convex/react")) as Record<string, unknown>;
+  return { useOfflineQuery: convex.useQuery, useOfflineMutation: convex.useMutation };
+});
+
 vi.mock("convex/react", () => ({
   useQuery: (ref: string) =>
     ref === "identity"
@@ -96,7 +104,9 @@ vi.mock("@/lib/auth/client", () => ({
   getSession: h.getSession,
   setCredentialPassword: h.setPassword,
   deleteAccount: h.deleteAccount,
+  signOut: h.signOut,
 }));
+vi.mock("@/offline/db", () => ({ deleteVaultDatabase: h.deleteVault }));
 vi.mock("@/lib/auth/startSocialSignIn", () => ({ startSocialLink: h.link }));
 vi.mock("@/lib/uploadConvexStorage", () => ({ uploadUriToConvexStorage: h.upload }));
 vi.mock("@/lib/openWebAppPath", () => ({ openWebAppPath: h.webPath }));
@@ -324,7 +334,10 @@ describe("Glass account actions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: en.settings.accountPage.confirmDelete }));
     await waitFor(() => expect(h.deleteAccount).toHaveBeenCalledOnce());
-    expect(h.replace).toHaveBeenCalled();
+    await waitFor(() => expect(h.replace).toHaveBeenCalled());
+    // The deleted account's vault is locked, then removed from the device.
+    expect(h.signOut).toHaveBeenCalledOnce();
+    expect(h.deleteVault).toHaveBeenCalledWith(h.identity?.subject);
   });
   it("reports deletion errors without navigating away", async () => {
     h.deleteAccount.mockResolvedValue({ error: { message: "Fixture deletion failed" } });
@@ -336,6 +349,7 @@ describe("Glass account actions", () => {
     fireEvent.click(screen.getByRole("button", { name: en.settings.accountPage.confirmDelete }));
     await screen.findByText("Fixture deletion failed");
     expect(h.replace).not.toHaveBeenCalled();
+    expect(h.deleteVault).not.toHaveBeenCalled();
   });
   it("keeps legal navigation wired to the web paths", async () => {
     await openAccount();

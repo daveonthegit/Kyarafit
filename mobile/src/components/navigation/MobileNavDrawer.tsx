@@ -23,6 +23,7 @@ import {
 } from "@kyarafit/design-system";
 import { borderWidth, glass, ls, motion } from "@kyarafit/design-system/rn";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import { signOut, useSession } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
 import { getMobileNavActiveSection } from "@/lib/getMobileNavActiveSection";
@@ -293,7 +294,7 @@ function DrawerProfileFooterWithData({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const profile = useQuery(api.users.getByExternalId, userId ? { externalId: userId } : "skip");
 

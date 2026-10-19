@@ -3,21 +3,18 @@ import { getOfflineDb } from "./db";
 /**
  * SQLite-backed `client_id -> server_id` map (blueprint §3.13.3), over the `id_map` table in
  * `./db`. Populated by the sync worker when an offline-created entity finally syncs and the server
- * returns its real document id. All helpers are best-effort and never throw, degrading to no-ops /
- * empty results so callers never crash (e.g. web / RN-web where `expo-sqlite` may be unavailable).
+ * returns its real document id. Mappings are never evicted while the vault exists: queued ops and
+ * pulls depend on them.
  */
 
 /** Record (or refresh) the mapping from a locally-minted client id to its synced server id. */
 export function setServerId(clientId: string, serverId: string): void {
-  try {
-    getOfflineDb().runSync(
-      `INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, ?)
-       ON CONFLICT(client_id) DO UPDATE SET server_id = excluded.server_id, synced_at = excluded.synced_at`,
-      [clientId, serverId, Date.now()]
-    );
-  } catch {
-    // Best-effort; ignore.
-  }
+  // Throws on failure: a lost mapping would make the next pull duplicate the entity.
+  getOfflineDb().runSync(
+    `INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, ?)
+     ON CONFLICT(client_id) DO UPDATE SET server_id = excluded.server_id, synced_at = excluded.synced_at`,
+    [clientId, serverId, Date.now()]
+  );
 }
 
 /** Resolve a client id to its synced server id, or null if it has not synced yet. */

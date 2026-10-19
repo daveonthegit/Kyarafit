@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
+import { useOfflineQuery } from "@/offline";
 import type { Doc } from "convex/_generated/dataModel";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
@@ -25,7 +26,7 @@ export default function GroupsIndexScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
   const groups = useQuery(api.groups.listForUser, userId ? { userId } : "skip") ?? [];
   const status = identity === undefined ? "loading" : "ready";
