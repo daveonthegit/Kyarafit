@@ -10,6 +10,7 @@ import { offlineRuntime, useOfflineMutation } from "@/lib/offline";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { SyncStatus } from "@/components/SyncStatus";
 import { readLocalCollections } from "@/lib/localFirstData";
+import { getIsOnline } from "@/lib/offline/connectivity";
 import {
   buildDataBundle,
   countRows,
@@ -65,6 +66,9 @@ export default function SettingsDataPage() {
 
   const createBuild = useOfflineMutation(api.builds.create);
   const createConvention = useOfflineMutation(api.conventions.create);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
+  const addChildNode = useOfflineMutation(api.cosplayNodes.addChildLink);
+  const addBuildNodes = useOfflineMutation(api.builds.addNodesToBuild);
   const createWorkflowItem = useOfflineMutation(api.workflow.create);
   const updateWorkflowItem = useOfflineMutation(api.workflow.update);
   const moveWorkflowItem = useOfflineMutation(api.workflow.move);
@@ -107,6 +111,45 @@ export default function SettingsDataPage() {
             endDate: readString(row.endDate) ?? new Date().toISOString().slice(0, 10),
             idempotencyKey,
           });
+        case "cosplayNodes": {
+          const created = await createNode({
+            userId,
+            nodeType: readString(row.nodeType)!,
+            name: readString(row.name) ?? "Untitled element",
+            tags: (row.tags ?? []) as string[],
+            category: readString(row.category),
+            notes: readString(row.notes),
+            sourceUrl: readString(row.sourceUrl),
+            pricingMode: readString(row.pricingMode),
+            directCostCents: readNumber(row.directCostCents),
+            unitCostCents: readNumber(row.unitCostCents),
+            quantity: readNumber(row.quantity),
+            unit: readString(row.unit),
+            purchaseStatus: readString(row.purchaseStatus),
+            buildStatus: readString(row.buildStatus),
+            materialStatus: readString(row.materialStatus),
+            manualOverallBucket: readString(row.manualOverallBucket),
+            buildInstructions: readString(row.buildInstructions),
+            consumable: typeof row.consumable === "boolean" ? row.consumable : undefined,
+          });
+          if (!created?._id) throw new Error("Element restore did not return an identity");
+          if (row.parentNodeId) {
+            await addChildNode({
+              userId,
+              parentNodeId: row.parentNodeId as Id<"cosplayNodes">,
+              childNodeId: created._id,
+              sortOrder: readNumber(row.sortOrder),
+            });
+          } else if (row.buildId) {
+            await addBuildNodes({
+              userId,
+              buildId: row.buildId as Id<"builds">,
+              cosplayNodeIds: [created._id],
+              idempotencyKey,
+            });
+          }
+          return created;
+        }
         case "workflowItems": {
           const fields = {
             userId,
@@ -158,6 +201,9 @@ export default function SettingsDataPage() {
       userId,
       createBuild,
       createConvention,
+      createNode,
+      addChildNode,
+      addBuildNodes,
       createWorkflowItem,
       updateWorkflowItem,
       moveWorkflowItem,
@@ -171,6 +217,9 @@ export default function SettingsDataPage() {
       try {
         const text = await file.text();
         const imported = parseDataBundle(text);
+        if (imported.cosplayNodes.length && !getIsOnline()) {
+          throw new MalformedBundleError("Element backups must be restored while online.");
+        }
         const summary = await runImport({ imported, existing: collections, createRow });
         const { added, skipped } = summarizeTotals(summary);
         setImportStatus({ kind: "done", added, skipped });

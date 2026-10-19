@@ -11,6 +11,7 @@ import {
 import { offlineRuntime } from "./runtime";
 import { offlineEntityQuery } from "./offlineEntityQueries";
 import { getIsOnline } from "./connectivity";
+import { readLocalAccount } from "@/lib/auth/localAccount";
 
 /**
  * Offline-aware drop-in for Convex `useQuery` (stale-while-revalidate + optimistic overlay). The web
@@ -50,7 +51,11 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
 
   // Persist each live result so the same query+args can paint offline next time.
   useEffect(() => {
-    if (key != null && live !== undefined) {
+    if (
+      key != null &&
+      live !== undefined &&
+      offlineRuntime.getSubject() === readLocalAccount()
+    ) {
       offlineRuntime.writeQueryCache(key, live);
     }
   }, [key, live]);
@@ -62,7 +67,9 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     offlineRuntime.getVersion
   );
 
+  const accountMatches = offlineRuntime.getSubject() === readLocalAccount();
   return useMemo(() => {
+    if (!accountMatches) return undefined;
     const cached =
       key != null && live === undefined
         ? (offlineRuntime.readQueryCacheSync(key) as FunctionReturnType<Query> | undefined)
@@ -104,5 +111,5 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
       pending,
       typeof viewedId === "string" ? viewedId : undefined
     ) as FunctionReturnType<Query>;
-  }, [key, live, fnName, version, args[0]]);
+  }, [key, live, fnName, version, args[0], accountMatches]);
 }

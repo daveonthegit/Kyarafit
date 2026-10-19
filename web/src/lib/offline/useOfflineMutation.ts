@@ -15,6 +15,7 @@ import { newClientId } from "./clientId";
 import { isCreateMutation } from "./offlineCreateMutations";
 import { overlayWritesFor } from "./offlineEntityWrites";
 import { isOnlineOnlyMutation } from "./onlineOnlyMutations";
+import { readLocalAccount } from "@/lib/auth/localAccount";
 
 /**
  * Offline-aware drop-in for Convex `useMutation`. The web mirror of mobile's `useOfflineMutation`.
@@ -51,7 +52,9 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
   const subject = useSyncExternalStore(offlineRuntime.subscribe, getSubjectSnapshot, () => null);
   return useCallback(
     async (...args: OptionalRestArgs<Mutation>): Promise<FunctionReturnType<Mutation>> => {
-      if (offlineRuntime.getSubject() !== subject) throw new AccountChangedError();
+      if (offlineRuntime.getSubject() !== subject || subject !== readLocalAccount()) {
+        throw new AccountChangedError();
+      }
       let name: string | null = null;
       try {
         name = getFunctionName(mutation);

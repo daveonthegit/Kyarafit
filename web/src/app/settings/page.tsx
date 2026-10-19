@@ -1,5 +1,7 @@
 "use client";
 
+import { rememberLocalAccount } from "@/lib/auth/localAccount";
+
 import { useState } from "react";
 import { offlineRuntime } from "@/lib/offline/runtime";
 import Link from "next/link";
@@ -62,6 +64,7 @@ export default function Settings() {
 
   const performSignOut = async () => {
     setShowSignOutWarning(false);
+    rememberLocalAccount(null);
     offlineRuntime.lock();
     await authClient.signOut();
     router.push("/home");

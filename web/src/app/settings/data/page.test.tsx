@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { getFunctionName } from "convex/server";
 import SettingsDataPage from "./page";
 import { offlineRuntime } from "@/lib/offline/runtime";
 import { InMemoryLocalStore } from "@/lib/offline/localStore";
 import { setOfflineConnectivity } from "@/lib/offline/connectivity";
+import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import {
   buildDataBundle,
   emptyCollections,
@@ -19,7 +21,7 @@ import {
 // page sources data from the LOCAL STORE (DATA_AND_SYNC.md §11 REQ-D100, invariant #2), not Convex, so
 // a free user with no cloud data still exports their locally-created rows.
 
-const client = { mutation: vi.fn(() => Promise.resolve(null)) };
+const client = { mutation: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null) };
 
 vi.mock("convex/react", () => ({
   useConvex: () => client,
@@ -83,6 +85,7 @@ vi.mock("@/components/layout/PageHeader", () => ({
 describe("Settings data export/import page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rememberLocalAccount("user-free-1");
     offlineRuntime.setStore(new InMemoryLocalStore(), "user-free-1");
   });
 
@@ -135,6 +138,54 @@ describe("Settings data export/import page", () => {
 
     clickSpy.mockRestore();
     vi.unstubAllGlobals();
+  });
+
+  it("restores element parents, build membership, and task attachments through the page", async () => {
+    setOfflineConnectivity(true);
+    client.mutation.mockImplementation(async (_fn, args) => {
+      const row = args as { name?: string; title?: string };
+      return { _id: `restored:${row.name ?? row.title ?? "link"}` };
+    });
+    render(<SettingsDataPage />);
+    const bundle = buildDataBundle({
+      ...emptyCollections(),
+      builds: [{ id: "build", name: "Build" }],
+      cosplayNodes: [
+        { id: "child", name: "Child", nodeType: "material", parentNodeId: "root" },
+        { id: "root", name: "Root", nodeType: "element", buildId: "build" },
+      ],
+      workflowItems: [{ id: "task", title: "Task", attachments: [
+        { entityType: "cosplayNode", entityId: "child", role: "primary", buildContextId: "build" },
+      ] }],
+    });
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByTestId("import-summary")).toHaveTextContent("Imported 4");
+    expect(client.mutation.mock.calls.map(([fn]) => getFunctionName(fn as never))).toEqual([
+      "builds:create", "cosplayNodes:create", "builds:addNodesToBuild",
+      "cosplayNodes:create", "cosplayNodes:addChildLink", "workflow:create",
+    ]);
+    expect(client.mutation.mock.calls[2][1]).toMatchObject({ buildId: "restored:Build", cosplayNodeIds: ["restored:Root"] });
+    expect(client.mutation.mock.calls[4][1]).toMatchObject({ parentNodeId: "restored:Root", childNodeId: "restored:Child" });
+    expect(client.mutation.mock.calls[5][1]).toMatchObject({ attachments: [
+      { entityType: "cosplayNode", entityId: "restored:Child", role: "primary", buildContextId: "restored:Build" },
+    ] });
+  });
+
+  it("reports an unsupported offline element restore before enqueuing anything", async () => {
+    setOfflineConnectivity(false);
+    render(<SettingsDataPage />);
+    const bundle = buildDataBundle({
+      ...emptyCollections(), builds: [{ id: "build" }],
+      cosplayNodes: [{ id: "node", nodeType: "element" }],
+    });
+    fireEvent.change(screen.getByTestId("import-file-input"), {
+      target: { files: [new File([bundle], "backup.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByTestId("import-error")).toHaveTextContent("while online");
+    expect(client.mutation).not.toHaveBeenCalled();
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
   });
 
   it("should_not_duplicate_rows_on_reimport", async () => {

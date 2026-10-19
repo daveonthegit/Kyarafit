@@ -88,10 +88,29 @@ export async function createBrowserLocalStore(subject: string): Promise<LocalSto
     createFallbackStore: () => createFallbackStore(accountKey),
   });
   if (typeof indexedDB !== "undefined") {
-    await adoptLegacyStore(new IndexedDbLocalStore(), store, subject, "indexeddb");
+    try {
+      await adoptLegacyStore(new IndexedDbLocalStore(), store, subject, "indexeddb");
+    } catch (error) {
+      reportIncompleteRecovery(error);
+    }
   }
-  if (isWaSqliteOpfsSupported() && !(await store.getMeta("legacy-adopted:opfs"))) {
-    await adoptLegacyStore(await openLegacyOpfs(), store, subject, "opfs");
+  if (isWaSqliteOpfsSupported()) {
+    try {
+      if (!(await store.getMeta("legacy-adopted:opfs"))) {
+        await adoptLegacyStore(await openLegacyOpfs(), store, subject, "opfs");
+      }
+    } catch (error) {
+      reportIncompleteRecovery(error);
+    }
   }
   return store;
+}
+
+function reportIncompleteRecovery(error: unknown): void {
+  console.error("Legacy data recovery is incomplete", error);
+  if (typeof window !== "undefined") {
+    window.alert(
+      "Your account data is available, but older device data could not be recovered. Try again when online."
+    );
+  }
 }

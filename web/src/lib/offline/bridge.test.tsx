@@ -38,11 +38,13 @@ import { useBuildsList } from "@/lib/builds/useBuildsList";
 import { offlineRuntime } from "./runtime";
 import { InMemoryLocalStore } from "./localStore";
 import { setOfflineConnectivity } from "./connectivity";
+import { rememberLocalAccount } from "@/lib/auth/localAccount";
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(window, "alert").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  rememberLocalAccount("u1");
   offlineRuntime.setStore(new InMemoryLocalStore(), "u1");
   state.builds = [];
 });
@@ -53,6 +55,29 @@ afterEach(() => {
 });
 
 describe("offline bridge (REQ-D51 / REQ-D52)", () => {
+  it.each([true, false])("rejects writes during a local account switch before the next vault opens (online=%s)", async (online) => {
+    setOfflineConnectivity(online);
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    const retained = result.current;
+    rememberLocalAccount("other-account");
+    await expect(retained({ userId: "u1", name: "Wrong vault", status: "idea" })).rejects.toThrow("active account changed");
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+    expect(client.mutation).not.toHaveBeenCalled();
+  });
+
+  it("does not read or cache another account's data while switching vaults", () => {
+    state.builds = [{ _id: "a", userId: "u1", name: "A", status: "idea" }];
+    const { result, rerender } = renderHook(() => useBuildsList({
+      userId: "u1", view: { tab: "all", search: "", sortBy: "name", order: "asc" },
+    }));
+    expect(result.current.builds).toHaveLength(1);
+    const cache = vi.spyOn(offlineRuntime, "writeQueryCache");
+    rememberLocalAccount("other-account");
+    state.builds = [{ _id: "b", userId: "other-account", name: "B", status: "idea" }];
+    rerender();
+    expect(result.current.builds).toEqual([]);
+    expect(cache).not.toHaveBeenCalled();
+  });
   it("queues a packing restore and updates its generated task using reconciled ids", async () => {
     setOfflineConnectivity(false);
     const { result } = renderHook(() => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useConvex } from "convex/react";
 import { shouldRunSyncWorker } from "@kyarafit/design-system/domain/syncPolicy";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -23,8 +23,9 @@ import { drainMutationQueue, runBackfill, uploadLocalImages, warmEntityRows } fr
  */
 export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const convex = useConvex();
-  const { userId } = useCurrentUser();
-  const signedIn = userId !== null;
+  const { userId, identity } = useCurrentUser();
+  const signedIn = userId !== null && identity?.subject === userId;
+  const [readySubject, setReadySubject] = useState<string | null>(null);
   const { data: tierInfo } = useTier();
   const tier = tierInfo?.tier ?? null;
   const syncEnabled = shouldRunSyncWorker(tier, signedIn);
@@ -35,23 +36,19 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       offlineRuntime.lock();
+      setReadySubject(null);
       if (!userId) return;
       const store = await createBrowserLocalStore(userId);
       if (cancelled) return;
       offlineRuntime.setStore(store, userId);
       await offlineRuntime.hydrate();
-      if (!cancelled && syncEnabled && navigator.onLine !== false) {
-        await drainMutationQueue(convex);
-        if (!cancelled) await warmEntityRows(convex);
-        if (!cancelled) await uploadLocalImages(convex, tier);
-        if (!cancelled) await runBackfill(convex, tier);
-      }
+      if (!cancelled) setReadySubject(userId);
     })().catch((error: unknown) => console.error("Local vault could not open", error));
     return () => {
       cancelled = true;
       offlineRuntime.lock();
     };
-  }, [userId, convex, syncEnabled, tier]);
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +58,13 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
       setOfflineConnectivity(isOnline);
       // REQ-D60 gate: only a paid, signed-in user drains the queue or pulls from Convex. Free /
       // signed-out users still track connectivity, but the worker never touches Convex (REQ-D10).
-      if (syncEnabled && isOnline && userId && offlineRuntime.getSubject() === userId) {
+      if (
+        syncEnabled &&
+        isOnline &&
+        userId &&
+        readySubject === userId &&
+        offlineRuntime.getSubject() === userId
+      ) {
         void drainMutationQueue(convex)
           .then(() => {
             if (!cancelled) return warmEntityRows(convex);
@@ -92,7 +95,7 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
         window.removeEventListener("offline", handleOffline);
       }
     };
-  }, [convex, syncEnabled, tier, userId]);
+  }, [convex, syncEnabled, tier, userId, readySubject]);
 
   return <>{children}</>;
 }

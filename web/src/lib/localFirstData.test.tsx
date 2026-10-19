@@ -21,6 +21,7 @@ import { InMemoryLocalStore } from "./offline/localStore";
 import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
+import { rememberLocalAccount } from "./auth/localAccount";
 import {
   buildDataBundle,
   countRows,
@@ -33,6 +34,7 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  rememberLocalAccount("u1");
   offlineRuntime.setStore(new InMemoryLocalStore(), "u1");
 });
 
@@ -41,6 +43,23 @@ afterEach(() => {
 });
 
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
+  it("exports elements alongside the task attachments that reference them", () => {
+    offlineRuntime.upsertSyncedEntityRow("cosplayNodes", "node", "u1", {
+      _id: "node", userId: "u1", nodeType: "element", name: "Wig", tags: [],
+    });
+    offlineRuntime.upsertSyncedEntityRow("workflowItems", "task", "u1", {
+      _id: "task", userId: "u1", title: "Style wig",
+    });
+    offlineRuntime.upsertSyncedEntityRow("workflowAttachments", "attachment", "u1", {
+      _id: "attachment", userId: "u1", workflowItemId: "task",
+      entityType: "cosplayNode", entityId: "node", role: "primary",
+    });
+    const restored = parseDataBundle(buildDataBundle(readLocalCollections()));
+    expect(restored.cosplayNodes).toEqual([expect.objectContaining({ id: "node", name: "Wig" })]);
+    expect(restored.workflowItems[0].attachments).toEqual([
+      expect.objectContaining({ entityType: "cosplayNode", entityId: "node" }),
+    ]);
+  });
   it("returns a FREE user's locally-created rows so their export is not empty", async () => {
     // A free user's data lives only in the local store (never synced to Convex). Seed a synced base
     // row and an unsynced optimistic overlay across two collections.

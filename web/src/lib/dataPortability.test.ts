@@ -96,6 +96,135 @@ describe("parseDataBundle error handling (REQ-D101, graceful failure)", () => {
 });
 
 describe("runImport idempotency (REQ-D101)", () => {
+  it("round-trips elements and remaps all attachment targets before restoring tasks", async () => {
+    const imported = parseDataBundle(
+      buildDataBundle({
+        ...emptyCollections(),
+        builds: [{ id: "build" }],
+        conventions: [{ id: "con" }],
+        cosplayNodes: [
+          { id: "child", nodeType: "material", parentNodeId: "root", tags: [] },
+          { id: "root", nodeType: "element", buildId: "build", tags: [] },
+        ],
+        packingListItems: [
+          { id: "pack", conventionId: "con", buildId: "build", workflowItemId: "task" },
+        ],
+        workflowItems: [
+          {
+            id: "task",
+            attachments: [
+              { entityType: "build", entityId: "build" },
+              { entityType: "convention", entityId: "con" },
+              { entityType: "cosplayNode", entityId: "child", buildContextId: "build" },
+              { entityType: "packingItem", entityId: "pack" },
+            ],
+          },
+        ],
+      })
+    );
+    const calls: { collection: string; row: ExportableRow }[] = [];
+    await runImport({
+      imported,
+      existing: emptyCollections(),
+      createRow: (collection, row) => {
+        calls.push({ collection, row });
+        return { _id: `new:${row.id}`, workflowItemId: "new:task" };
+      },
+    });
+    expect(calls.map(({ row }) => row.id)).toEqual(["build", "con", "root", "child", "pack", "task"]);
+    expect(calls.find(({ row }) => row.id === "root")?.row.buildId).toBe("new:build");
+    expect(calls.find(({ row }) => row.id === "child")?.row.parentNodeId).toBe("new:root");
+    expect(calls[calls.length - 1]?.row.attachments).toEqual([
+      expect.objectContaining({ entityType: "build", entityId: "new:build" }),
+      expect.objectContaining({ entityType: "convention", entityId: "new:con" }),
+      expect.objectContaining({
+        entityType: "cosplayNode",
+        entityId: "new:child",
+        buildContextId: "new:build",
+      }),
+      expect.objectContaining({ entityType: "packingItem", entityId: "new:pack" }),
+    ]);
+  });
+
+  it.each([
+    { attachments: [{ entityType: "cosplayNode", entityId: "missing" }] },
+    { attachments: [{ entityType: "cosplayNode", entityId: "build" }] },
+    { attachments: [{ entityType: "unsupported", entityId: "build" }] },
+    { attachments: [{ entityType: "build" }] },
+    { attachments: "invalid" },
+    { dueDate: "not-a-date" },
+    { parentId: "task" },
+    { parentId: "missing" },
+  ])("rejects invalid late workflow relationships before writing: %j", async (fields) => {
+    const createRow = vi.fn();
+    await expect(
+      runImport({
+        imported: {
+          ...emptyCollections(),
+          builds: [{ id: "build" }],
+          workflowItems: [{ id: "task", ...fields }],
+        },
+        existing: emptyCollections(),
+        createRow,
+      })
+    ).rejects.toThrow(MalformedBundleError);
+    expect(createRow).not.toHaveBeenCalled();
+  });
+
+  it("validates late collection field limits before writing earlier collections", async () => {
+    const createRow = vi.fn();
+    await expect(runImport({
+      imported: {
+        ...emptyCollections(),
+        builds: [{ id: "build" }],
+        workflowItems: [{ id: "task", notes: "x".repeat(10_001) }],
+      },
+      existing: emptyCollections(),
+      createRow,
+    })).rejects.toThrow(MalformedBundleError);
+    expect(createRow).not.toHaveBeenCalled();
+  });
+
+  it("rejects cyclic element parents before creating even the first build", async () => {
+    const createRow = vi.fn();
+    await expect(
+      runImport({
+        imported: {
+          ...emptyCollections(),
+          builds: [{ id: "build" }],
+          cosplayNodes: [
+            { id: "a", nodeType: "element", parentNodeId: "b" },
+            { id: "b", nodeType: "element", parentNodeId: "a" },
+          ],
+        },
+        existing: emptyCollections(),
+        createRow,
+      })
+    ).rejects.toThrow("cyclic");
+    expect(createRow).not.toHaveBeenCalled();
+  });
+  it("maps tasks to an already-restored packing item's workflow identity", async () => {
+    const createRow = vi.fn<CreateRowFn>((_collection, _row, existingId) => existingId);
+    await runImport({
+      imported: {
+        ...emptyCollections(),
+        conventions: [{ id: "con" }],
+        packingListItems: [{ id: "pack", conventionId: "con", workflowItemId: "source-task" }],
+        workflowItems: [{ id: "source-task" }],
+      },
+      existing: {
+        ...emptyCollections(),
+        conventions: [{ id: "con" }],
+        packingListItems: [{ id: "pack", conventionId: "con", workflowItemId: "actual-task" }],
+      },
+      createRow,
+    });
+    expect(createRow).toHaveBeenCalledExactlyOnceWith(
+      "workflowItems",
+      expect.objectContaining({ id: "source-task" }),
+      "actual-task"
+    );
+  });
   it("restores packing before updating its automatically created workflow task", async () => {
     const imported = {
       ...emptyCollections(),

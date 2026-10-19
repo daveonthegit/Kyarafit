@@ -11,6 +11,12 @@
  * bundle never creates duplicate rows.
  */
 import {
+  MAX_LENGTH,
+  sanitizeAndLimit,
+  sanitizeOptionalUrl,
+  validateDateString,
+} from "../../../convex/lib/validation";
+import {
   exportBundle,
   importBundle,
   mergeImported,
@@ -22,6 +28,7 @@ import {
 export const PORTABLE_COLLECTIONS = [
   "builds",
   "conventions",
+  "cosplayNodes",
   "packingListItems",
   "workflowItems",
 ] as const;
@@ -61,6 +68,7 @@ export function emptyCollections(): PortableCollections {
   return {
     builds: [],
     conventions: [],
+    cosplayNodes: [],
     workflowItems: [],
     packingListItems: [],
   };
@@ -120,6 +128,9 @@ export function parseDataBundle(serialized: string): PortableCollections {
   if (!isRecord(parsed) || !isRecord(parsed.collections)) {
     throw new MalformedBundleError("This file isn't a Kyarafit data export.");
   }
+  if (parsed.version !== DATA_BUNDLE_VERSION || parsed.bundleVersion !== EXPORT_BUNDLE_VERSION) {
+    throw new MalformedBundleError("This export version is not supported.");
+  }
   const rawCollections = parsed.collections;
   const result = emptyCollections();
   for (const key of PORTABLE_COLLECTIONS) {
@@ -167,6 +178,214 @@ export interface RunImportArgs {
   createRow: CreateRowFn;
 }
 
+const RELATION_FIELDS = {
+  conventionId: "conventions",
+  buildId: "builds",
+  parentId: "workflowItems",
+  parentNodeId: "cosplayNodes",
+  cosplayNodeId: "cosplayNodes",
+} as const;
+
+const ATTACHMENT_TARGETS: Record<string, PortableCollectionKey> = {
+  build: "builds",
+  convention: "conventions",
+  cosplayNode: "cosplayNodes",
+  packingItem: "packingListItems",
+};
+
+type ResolveImportId = (id: unknown, collection: PortableCollectionKey) => string | undefined;
+
+function remapRow(row: ExportableRow, resolve: ResolveImportId): ExportableRow {
+  const restored = { ...row };
+  for (const [field, collection] of Object.entries(RELATION_FIELDS)) {
+    if (row[field] != null) restored[field] = resolve(row[field], collection);
+  }
+  if (row.attachments !== undefined) {
+    if (!Array.isArray(row.attachments)) throw new MalformedBundleError("Invalid imported attachments");
+    restored.attachments = row.attachments.map((value: unknown) => {
+      if (
+        !isRecord(value) ||
+        typeof value.entityType !== "string" ||
+        !Object.prototype.hasOwnProperty.call(ATTACHMENT_TARGETS, value.entityType) ||
+        typeof value.entityId !== "string" ||
+        !value.entityId ||
+        (value.role !== undefined && typeof value.role !== "string")
+      ) {
+        throw new MalformedBundleError("Invalid imported attachment");
+      }
+      return {
+        entityType: value.entityType,
+        entityId: resolve(value.entityId, ATTACHMENT_TARGETS[value.entityType]),
+        role: value.role,
+        buildContextId: resolve(value.buildContextId, "builds"),
+      };
+    });
+  }
+  return restored;
+}
+
+function validateRowFields(row: ExportableRow): void {
+  const textLimits = {
+    name: MAX_LENGTH.name,
+    title: MAX_LENGTH.label,
+    label: MAX_LENGTH.label,
+    character: MAX_LENGTH.character,
+    notes: MAX_LENGTH.notes,
+    location: MAX_LENGTH.location,
+    category: MAX_LENGTH.category,
+    unit: MAX_LENGTH.category,
+    buildInstructions: MAX_LENGTH.notes,
+  };
+  try {
+    for (const [field, limit] of Object.entries(textLimits)) {
+      const value = row[field];
+      if (value == null) continue;
+      if (typeof value !== "string") throw new Error(`Invalid imported ${field}`);
+      sanitizeAndLimit(value, limit, field);
+    }
+    for (const field of ["date", "startDate", "endDate", "targetDate", "dueDate"]) {
+      const value = row[field];
+      if (value == null || value === "") continue;
+      if (typeof value !== "string") throw new Error(`Invalid imported ${field}`);
+      validateDateString(value, field);
+    }
+    if (row.tags != null) {
+      if (!Array.isArray(row.tags)) throw new Error("Invalid imported element tags");
+      for (const tag of row.tags) {
+        if (typeof tag !== "string") throw new Error("Invalid imported element tag");
+        sanitizeAndLimit(tag, MAX_LENGTH.tag, "Tag");
+      }
+    }
+    if (row.sourceUrl != null) {
+      if (typeof row.sourceUrl !== "string") throw new Error("Invalid imported source URL");
+      sanitizeOptionalUrl(row.sourceUrl);
+    }
+    for (const field of [
+      "budgetCents",
+      "sortOrder",
+      "priority",
+      "directCostCents",
+      "unitCostCents",
+      "quantity",
+    ]) {
+      const value = row[field];
+      if (value != null && (typeof value !== "number" || !Number.isFinite(value))) {
+        throw new Error(`Invalid imported ${field}`);
+      }
+    }
+    if (row.consumable != null && typeof row.consumable !== "boolean") {
+      throw new Error("Invalid imported consumable flag");
+    }
+  } catch (error) {
+    throw new MalformedBundleError(error instanceof Error ? error.message : "Invalid imported row");
+  }
+}
+
+function prepareImport(
+  imported: PortableCollections,
+  existing: PortableCollections
+): PortableCollections {
+  const registry = new Map<string, { collection: PortableCollectionKey; row: ExportableRow }>();
+  for (const collection of PORTABLE_COLLECTIONS) {
+    if (!Array.isArray(imported[collection]) || !Array.isArray(existing[collection])) {
+      throw new MalformedBundleError(`Invalid imported collection: ${collection}`);
+    }
+    for (const row of [...existing[collection], ...imported[collection]]) {
+      if (!isRecord(row) || typeof row.id !== "string" || !row.id) {
+        throw new MalformedBundleError("Invalid imported row");
+      }
+      const previous = registry.get(row.id);
+      if (previous && previous.collection !== collection) {
+        throw new MalformedBundleError(`Ambiguous imported identity: ${row.id}`);
+      }
+      registry.set(row.id, { collection, row });
+    }
+    if (new Set(imported[collection].map((row) => row.id)).size !== imported[collection].length) {
+      throw new MalformedBundleError(`Duplicate imported identity in ${collection}`);
+    }
+  }
+  const existingPacking = new Map(existing.packingListItems.map((row) => [row.id, row]));
+  const generatedWorkflows = new Set<string>();
+  for (const row of imported.packingListItems) {
+    if (row.workflowItemId != null) {
+      if (typeof row.workflowItemId !== "string" || !row.workflowItemId) {
+        throw new MalformedBundleError("Invalid packing workflow identity");
+      }
+      if (generatedWorkflows.has(row.workflowItemId)) {
+        throw new MalformedBundleError("Duplicate packing workflow identity");
+      }
+      generatedWorkflows.add(row.workflowItemId);
+      if (
+        existingPacking.has(row.id) &&
+        typeof existingPacking.get(row.id)?.workflowItemId !== "string"
+      ) {
+        throw new MalformedBundleError("Existing packing item has no workflow identity");
+      }
+      const target = registry.get(row.workflowItemId);
+      if (target && target.collection !== "workflowItems") {
+        throw new MalformedBundleError("Invalid packing workflow identity");
+      }
+      if (!target) {
+        registry.set(row.workflowItemId, {
+          collection: "workflowItems",
+          row: { id: row.workflowItemId },
+        });
+      }
+    }
+  }
+  const resolve: ResolveImportId = (id, collection) => {
+    if (id === undefined || id === null) return undefined;
+    if (typeof id !== "string" || registry.get(id)?.collection !== collection) {
+      throw new MalformedBundleError(`Missing imported relationship: ${String(id)}`);
+    }
+    return id;
+  };
+  for (const collection of PORTABLE_COLLECTIONS) {
+    for (const row of imported[collection]) {
+      validateRowFields(row);
+      remapRow(row, resolve);
+      if (collection === "packingListItems" && !row.conventionId) {
+        throw new MalformedBundleError("Packing item has no convention");
+      }
+      if (collection === "cosplayNodes") {
+        if (row.nodeType !== "element" && row.nodeType !== "material") {
+          throw new MalformedBundleError("Invalid element type");
+        }
+        if (
+          row.parentNodeId &&
+          registry.get(String(row.parentNodeId))?.row.nodeType === "material" &&
+          row.nodeType !== "material"
+        ) {
+          throw new MalformedBundleError("Invalid element parent type");
+        }
+      }
+    }
+  }
+  const plan = emptyCollections();
+  for (const collection of PORTABLE_COLLECTIONS) {
+    const available = new Set(existing[collection].map((row) => row.id));
+    if (collection === "workflowItems") {
+      for (const id of generatedWorkflows) {
+        if (!imported.workflowItems.some((row) => row.id === id)) available.add(id);
+      }
+    }
+    const pending = mergeImported(existing[collection], imported[collection]).filter(
+      (row) => !available.has(row.id)
+    );
+    while (pending.length) {
+      const index = pending.findIndex((row) => {
+        const parent = collection === "cosplayNodes" ? row.parentNodeId : row.parentId;
+        return parent == null || available.has(String(parent));
+      });
+      if (index < 0) throw new MalformedBundleError("Missing or cyclic imported parent");
+      const [row] = pending.splice(index, 1);
+      plan[collection].push(row);
+      available.add(row.id);
+    }
+  }
+  return plan;
+}
+
 /**
  * Merge imported rows into the existing data and create only the rows that are missing by id
  * (REQ-D101). Idempotent: re-running with the same bundle once its rows already exist creates
@@ -177,10 +396,18 @@ export async function runImport({
   existing,
   createRow,
 }: RunImportArgs): Promise<ImportSummary> {
+  const plan = prepareImport(imported, existing);
   const summary = {} as ImportSummary;
   const ids = new Map<string, string>();
   for (const key of PORTABLE_COLLECTIONS) {
-    for (const row of existing[key] ?? []) ids.set(row.id, row.id);
+    for (const row of existing[key]) ids.set(row.id, row.id);
+  }
+  for (const packing of imported.packingListItems) {
+    if (typeof packing.workflowItemId !== "string") continue;
+    const present = existing.packingListItems.find((row) => row.id === packing.id);
+    if (present && typeof present.workflowItemId === "string") {
+      ids.set(packing.workflowItemId, present.workflowItemId);
+    }
   }
   const resolve = (id: unknown): string | undefined => {
     if (id === undefined || id === null) return undefined;
@@ -189,34 +416,10 @@ export async function runImport({
     return ids.get(id);
   };
   for (const key of PORTABLE_COLLECTIONS) {
-    const existingRows = existing[key] ?? [];
-    const importedRows = imported[key] ?? [];
-    const existingIds = new Set(existingRows.map((row) => row.id));
-    // mergeImported dedupes by id (existing wins, new ids appended once). The rows to create are
-    // exactly the merged ids that were not already present.
-    const merged = mergeImported(existingRows, importedRows);
-    const toCreate = merged.filter((row) => !existingIds.has(row.id));
-    const pending = [...toCreate];
-    while (pending.length) {
-      const index = pending.findIndex((row) => !row.parentId || ids.has(String(row.parentId)));
-      if (index < 0) throw new Error("Missing or cyclic imported workflow parent");
-      const [row] = pending.splice(index, 1);
-      const restored = { ...row };
-      for (const field of ["conventionId", "buildId", "parentId"] as const) {
-        if (row[field] != null) restored[field] = resolve(row[field]);
-      }
-      if (Array.isArray(row.attachments)) {
-        restored.attachments = row.attachments.map((value: unknown) => {
-          if (!value || typeof value !== "object") throw new Error("Invalid imported attachment");
-          const attachment = value as Record<string, unknown>;
-          return {
-            entityType: attachment.entityType,
-            entityId: resolve(attachment.entityId),
-            role: attachment.role,
-            buildContextId: resolve(attachment.buildContextId),
-          };
-        });
-      }
+    const importedRows = imported[key];
+    const toCreate = plan[key];
+    for (const row of toCreate) {
+      const restored = remapRow(row, resolve);
       const result = await createRow(key, restored, ids.get(row.id));
       const id =
         typeof result === "string"
