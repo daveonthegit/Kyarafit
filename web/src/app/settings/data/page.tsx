@@ -30,6 +30,9 @@ import {
 import {
   createRestoreSession,
   IncompleteRestoreError,
+  RestoreBusyError,
+  restoreLockName,
+  withRestoreLock,
   readRestoreSession,
   undoRestoreSession,
   type RestoreSession,
@@ -133,6 +136,7 @@ export default function SettingsDataPage() {
     () => null
   );
   const [incomplete, setIncomplete] = useState(false);
+  const [lockedElsewhere, setLockedElsewhere] = useState(false);
 
   /**
    * Restore talks to the server directly: it never queues offline writes, so a lost connection
@@ -153,21 +157,36 @@ export default function SettingsDataPage() {
   );
 
   useEffect(() => {
-    setIncomplete(false);
-    if (!userId || vaultSubject !== userId) return;
+    if (!userId || vaultSubject !== userId) {
+      setIncomplete(false);
+      setLockedElsewhere(false);
+      return;
+    }
     let active = true;
-    readRestoreSession(userId).then(
-      (session) => {
-        if (active) setIncomplete(session !== null);
-      },
-      () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      try {
+        const [session, locks] = await Promise.all([
+          readRestoreSession(userId),
+          navigator.locks ? navigator.locks.query() : Promise.resolve({ held: [] }),
+        ]);
+        if (!active) return;
+        const held = locks.held?.some((lock) => lock.name === restoreLockName(userId)) ?? false;
+        setIncomplete(session !== null);
+        setLockedElsewhere(
+          held && importStatus.kind !== "importing" && importStatus.kind !== "undoing"
+        );
+        if (held) timer = setTimeout(() => void refresh(), 500);
+      } catch {
         if (active && offlineRuntime.getSubject() === userId) setIncomplete(true);
       }
-    );
+    };
+    void refresh();
     return () => {
       active = false;
+      clearTimeout(timer);
     };
-  }, [userId, vaultSubject]);
+  }, [userId, vaultSubject, version, importStatus.kind]);
 
   const collections = useMemo(() => readLocalCollections(userId), [version, userId]);
 
@@ -356,15 +375,17 @@ export default function SettingsDataPage() {
 
   const describeError = useCallback(
     (error: unknown) =>
-      error instanceof NonEmptyVaultError
-        ? t("importRequiresEmptyVault")
-        : error instanceof IncompleteRestoreError
-          ? t("importIncomplete")
-          : error instanceof RestoreOfflineError
-            ? t("importRequiresOnline")
-            : error instanceof MalformedBundleError
-              ? error.message
-              : t("importErrorGeneric"),
+      error instanceof RestoreBusyError
+        ? t("restoreOtherTab")
+        : error instanceof NonEmptyVaultError
+          ? t("importRequiresEmptyVault")
+          : error instanceof IncompleteRestoreError
+            ? t("importIncomplete")
+            : error instanceof RestoreOfflineError
+              ? t("importRequiresOnline")
+              : error instanceof MalformedBundleError
+                ? error.message
+                : t("importErrorGeneric"),
     [t]
   );
 
@@ -373,39 +394,42 @@ export default function SettingsDataPage() {
       setImportStatus({ kind: "importing" });
       try {
         if (!userId) throw new Error("Sign in to import data");
-        if (await readRestoreSession(userId)) throw new IncompleteRestoreError();
-        if (!getIsOnline()) throw new RestoreOfflineError();
-        const imported = parseDataBundle(await file.text());
-        validateImport(imported);
-        const existing = readLocalCollections(userId);
-        if (countRows(existing) > 0 || (await hasDurablePersonalRows(userId))) {
-          throw new NonEmptyVaultError();
-        }
-        const session = createRestoreSession(userId);
-        await session.start();
-        const assertCurrent = offlineRuntime.sessionGuard();
-        const summary = await runImport({
-          imported,
-          existing,
-          createRow: createRow(session),
-          generatedWorkflow: async (nodeId, buildId) => {
-            assertCurrent();
-            const tasks = await generatedTasks(nodeId, buildId);
-            assertCurrent();
-            return tasks;
-          },
-          onRestored: (collection, id, row) =>
-            offlineRuntime.writeImportedEntityRow({
-              table: collection,
-              id,
-              userId,
-              json: JSON.stringify({ ...row, id, _id: id, userId }),
-              updatedAt: Date.now(),
-              deleted: false,
-              synced: true,
-            }),
+        const summary = await withRestoreLock(userId, async () => {
+          if (await readRestoreSession(userId)) throw new IncompleteRestoreError();
+          if (!getIsOnline()) throw new RestoreOfflineError();
+          const imported = parseDataBundle(await file.text());
+          validateImport(imported);
+          const existing = readLocalCollections(userId);
+          if (countRows(existing) > 0 || (await hasDurablePersonalRows(userId))) {
+            throw new NonEmptyVaultError();
+          }
+          const session = createRestoreSession(userId);
+          await session.start();
+          const assertCurrent = offlineRuntime.sessionGuard();
+          const summary = await runImport({
+            imported,
+            existing,
+            createRow: createRow(session),
+            generatedWorkflow: async (nodeId, buildId) => {
+              assertCurrent();
+              const tasks = await generatedTasks(nodeId, buildId);
+              assertCurrent();
+              return tasks;
+            },
+            onRestored: (collection, id, row) =>
+              offlineRuntime.writeImportedEntityRow({
+                table: collection,
+                id,
+                userId,
+                json: JSON.stringify({ ...row, id, _id: id, userId }),
+                updatedAt: Date.now(),
+                deleted: false,
+                synced: true,
+              }),
+          });
+          await session.complete();
+          return summary;
         });
-        await session.complete();
         const { added, skipped } = summarizeTotals(summary);
         setImportStatus({ kind: "done", added, skipped });
       } catch (error) {
@@ -494,6 +518,15 @@ export default function SettingsDataPage() {
             aria-label={t("importButton")}
             data-testid="import-file-input"
           />
+          {lockedElsewhere && (
+            <p
+              className="mt-4 text-sm text-on-glass-danger"
+              role="status"
+              data-testid="restore-other-tab"
+            >
+              {t("restoreOtherTab")}
+            </p>
+          )}
           {incomplete && (
             <div className="mt-4 space-y-3" data-testid="import-incomplete">
               <p className="text-sm text-on-glass-danger" role="alert">
@@ -502,7 +535,9 @@ export default function SettingsDataPage() {
               <button
                 type="button"
                 onClick={() => void handleUndo()}
-                disabled={importStatus.kind === "importing" || importStatus.kind === "undoing"}
+                disabled={
+                  lockedElsewhere || importStatus.kind === "importing" || importStatus.kind === "undoing"
+                }
                 className="min-h-[44px] inline-flex items-center rounded-full bg-glass-solid px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importStatus.kind === "undoing" ? t("undoingRestore") : t("undoRestoreButton")}
@@ -513,7 +548,10 @@ export default function SettingsDataPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={
-              incomplete || importStatus.kind === "importing" || importStatus.kind === "undoing"
+              lockedElsewhere ||
+              incomplete ||
+              importStatus.kind === "importing" ||
+              importStatus.kind === "undoing"
             }
             className="mt-4 min-h-[44px] inline-flex items-center rounded-full border border-glass-border-strong bg-glass-bar px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >

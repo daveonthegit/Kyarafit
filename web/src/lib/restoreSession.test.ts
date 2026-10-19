@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryLocalStore } from "./offline/localStore";
 import { offlineRuntime } from "./offline/runtime";
 import { RestoreInProgressError } from "./offline/restoreState";
-import { createRestoreSession, readRestoreSession, undoRestoreSession } from "./restoreSession";
+import {
+  createRestoreSession,
+  IncompleteRestoreError,
+  readRestoreSession,
+  undoRestoreSession,
+} from "./restoreSession";
 
 const subject = "restore-owner";
 
@@ -27,8 +32,21 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("restore session write lock", () => {
+  it("refuses a second session and rejects updates or clearing by a stale session", async () => {
+    const first = createRestoreSession(subject);
+    const second = createRestoreSession(subject);
+    await first.start();
+    await expect(second.start()).rejects.toBeInstanceOf(IncompleteRestoreError);
+    await first.complete();
+    await second.start();
+    await expect(first.record("builds", "stale")).rejects.toBeInstanceOf(IncompleteRestoreError);
+    await expect(first.complete()).rejects.toBeInstanceOf(IncompleteRestoreError);
+    expect(await readRestoreSession(subject)).toEqual({ id: second.id, created: [] });
+  });
+
   it("deletes every recorded row, including cascaded tasks and tasks absent locally", async () => {
     const session = createRestoreSession(subject);
+    await session.start();
     await session.record("conventions", "convention");
     await session.record("packingListItems", "packing");
     await session.record("workflowItems", "packing-task");
@@ -61,6 +79,7 @@ describe("restore session write lock", () => {
 
   it("restores the lock on vault reopen and hydration and clears it on completion", async () => {
     const session = createRestoreSession(subject);
+    await session.start();
     await session.record("builds", "build");
     const store = offlineRuntime.getStore();
     offlineRuntime.lock();
@@ -78,6 +97,7 @@ describe("restore session write lock", () => {
 
   it("does not carry one account's restore lock into another account", async () => {
     const session = createRestoreSession(subject);
+    await session.start();
     await session.record("builds", "build");
     offlineRuntime.setStore(new InMemoryLocalStore(), "other-owner");
     await expect(offlineRuntime.assertPersonalWritesAllowed()).resolves.toBeUndefined();

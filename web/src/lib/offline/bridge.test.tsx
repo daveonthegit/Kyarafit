@@ -97,6 +97,7 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
     async (online) => {
       setOfflineConnectivity(online);
       const session = createRestoreSession("u1");
+      await session.start();
       await session.record("builds", "restored-build");
       const store = offlineRuntime.getStore();
       offlineRuntime.lock();
@@ -129,6 +130,7 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
 
   it("reports the restore write refusal in the selected locale", async () => {
     const session = createRestoreSession("u1");
+    await session.start();
     await session.record("builds", "restored-build");
     setStoredLocale("es");
     const { result } = renderHook(() => useOfflineMutation(api.builds.create));
@@ -143,6 +145,7 @@ describe("offline bridge (REQ-D51 / REQ-D52)", () => {
 
   it("allows a non-planner upload URL request while restore is incomplete", async () => {
     const session = createRestoreSession("u1");
+    await session.start();
     await session.record("builds", "restored-build");
     const { result } = renderHook(() => useOfflineMutation(api.files.generateUploadUrl));
     await result.current({});

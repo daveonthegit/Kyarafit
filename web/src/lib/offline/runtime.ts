@@ -43,6 +43,15 @@ export class OfflineRuntime {
     return this.restoreInProgress;
   }
 
+  notifyRestoreChange(): void {
+    try {
+      this.restoreChannel?.postMessage(this.restoreInProgress);
+    } catch {
+      this.restoreChannel = null;
+    }
+    this.bump();
+  }
+
   async assertPersonalWritesAllowed(): Promise<void> {
     const check = this.sessionGuard();
     await this.restoreReady;
@@ -423,12 +432,7 @@ export class OfflineRuntime {
     check();
     if (key === RESTORE_SESSION_KEY) {
       this.restoreInProgress = Boolean(value);
-      try {
-        this.restoreChannel?.postMessage(Boolean(value));
-      } catch {
-        this.restoreChannel = null;
-      }
-      this.bump();
+      this.notifyRestoreChange();
     }
   }
 

@@ -127,6 +127,7 @@
     "importRequiresOnline": "Restore needs an internet connection. Connect and try again.",
     "importIncomplete": "Restore incomplete - undo and try again.",
     "restoreReadOnly": "Finish or undo your restore first.",
+    "restoreOtherTab": "Restore in progress in another tab",
     "undoRestoreButton": "Undo restore",
     "undoingRestore": "Undoing…",
     "restoreUndone": "The incomplete restore was undone. You can restore your backup again.",

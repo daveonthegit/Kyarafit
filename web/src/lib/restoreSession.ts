@@ -20,6 +20,35 @@ export class IncompleteRestoreError extends Error {
   }
 }
 
+export class RestoreBusyError extends Error {
+  constructor() {
+    super("Restore in progress in another tab");
+    this.name = "RestoreBusyError";
+  }
+}
+
+export const restoreLockName = (subject: string): string => `kyarafit-restore:${subject}`;
+
+export async function withRestoreLock<T>(subject: string, operation: () => Promise<T>): Promise<T> {
+  const check = guard(subject);
+  check();
+  try {
+    if (typeof navigator === "undefined" || !navigator.locks) return await operation();
+    return await navigator.locks.request(
+      restoreLockName(subject),
+      { mode: "exclusive", ifAvailable: true },
+      async (lock) => {
+        if (!lock) throw new RestoreBusyError();
+        check();
+        offlineRuntime.notifyRestoreChange();
+        return operation();
+      }
+    );
+  } finally {
+    if (offlineRuntime.getSubject() === subject) offlineRuntime.notifyRestoreChange();
+  }
+}
+
 function guard(subject: string): () => void {
   const assertCurrent = offlineRuntime.sessionGuard();
   return () => {
@@ -55,9 +84,16 @@ export async function readRestoreSession(subject: string): Promise<RestoreSessio
   return parseRecord(raw);
 }
 
-async function save(subject: string, record: RestoreSessionRecord | null): Promise<void> {
+async function save(
+  subject: string,
+  record: RestoreSessionRecord | null,
+  expectedId: string | null
+): Promise<void> {
   const check = guard(subject);
   check();
+  const current = await readRestoreSession(subject);
+  check();
+  if ((current?.id ?? null) !== expectedId) throw new IncompleteRestoreError();
   await offlineRuntime.setMeta(RESTORE_SESSION_KEY, record ? JSON.stringify(record) : "");
   check();
 }
@@ -76,16 +112,16 @@ export function createRestoreSession(subject: string): RestoreSession {
   return {
     id: record.id,
     async start() {
-      await save(subject, record);
+      await save(subject, record, null);
     },
     async record(collection, id) {
       if (record.created.some((entry) => entry.collection === collection && entry.id === id))
         return;
       record.created.push({ collection, id });
-      await save(subject, record);
+      await save(subject, record, record.id);
     },
     async complete() {
-      await save(subject, null);
+      await save(subject, null, record.id);
     },
   };
 }
@@ -114,23 +150,25 @@ export async function undoRestoreSession({
   subject,
   deleteRow,
 }: UndoRestoreArgs): Promise<void> {
-  const session = await readRestoreSession(subject);
-  if (!session) return;
-  const check = guard(subject);
-  const remaining = [...session.created];
-  const remove = async (collection: PortableCollectionKey, id: string) => {
-    check();
-    await deleteRow(collection, id);
-    check();
-    await offlineRuntime.removeImportedEntityRow(collection, id);
-  };
-  for (const collection of UNDO_ORDER) {
-    const entries = [...remaining].reverse().filter((entry) => entry.collection === collection);
-    for (const entry of entries) {
-      await remove(collection, entry.id);
-      remaining.splice(remaining.indexOf(entry), 1);
-      await save(subject, { ...session, created: remaining });
+  await withRestoreLock(subject, async () => {
+    const session = await readRestoreSession(subject);
+    if (!session) return;
+    const check = guard(subject);
+    const remaining = [...session.created];
+    const remove = async (collection: PortableCollectionKey, id: string) => {
+      check();
+      await deleteRow(collection, id);
+      check();
+      await offlineRuntime.removeImportedEntityRow(collection, id);
+    };
+    for (const collection of UNDO_ORDER) {
+      const entries = [...remaining].reverse().filter((entry) => entry.collection === collection);
+      for (const entry of entries) {
+        await remove(collection, entry.id);
+        remaining.splice(remaining.indexOf(entry), 1);
+        await save(subject, { ...session, created: remaining }, session.id);
+      }
     }
-  }
-  await save(subject, null);
+    await save(subject, null, session.id);
+  });
 }

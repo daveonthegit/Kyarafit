@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import SettingsDataPage from "./page";
 import { offlineRuntime } from "@/lib/offline/runtime";
@@ -7,7 +7,12 @@ import { InMemoryLocalStore } from "@/lib/offline/localStore";
 import { setOfflineConnectivity } from "@/lib/offline/connectivity";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import { readLocalCollections } from "@/lib/localFirstData";
-import { readRestoreSession } from "@/lib/restoreSession";
+import {
+  createRestoreSession,
+  readRestoreSession,
+  RestoreBusyError,
+  undoRestoreSession,
+} from "@/lib/restoreSession";
 import {
   buildDataBundle,
   emptyCollections,
@@ -59,6 +64,7 @@ vi.mock("next-intl", () => ({
       importRequiresEmptyVault: "Restore requires an empty vault. Export your current data first.",
       importRequiresOnline: "Restore needs an internet connection.",
       importIncomplete: "Restore incomplete - undo and try again.",
+      restoreOtherTab: "Restore in progress in another tab",
       undoRestoreButton: "Undo restore",
       undoingRestore: "Undoing…",
       restoreUndone: "The incomplete restore was undone.",
@@ -101,6 +107,96 @@ describe("Settings data export/import page", () => {
 
   afterEach(() => {
     setOfflineConnectivity(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("serializes two pages' restore and Undo and refreshes both pages after release", async () => {
+    const held = new Map<string, Lock>();
+    const locks = {
+      request: vi.fn(async (
+        name: string,
+        options: LockOptions,
+        callback: (lock: Lock | null) => Promise<unknown>
+      ) => {
+        expect(options).toMatchObject({ mode: "exclusive", ifAvailable: true });
+        if (held.has(name)) return callback(null);
+        const lock: Lock = { name, mode: "exclusive" };
+        held.set(name, lock);
+        try {
+          return await callback(lock);
+        } finally {
+          held.delete(name);
+        }
+      }),
+      query: async () => ({ held: [...held.values()], pending: [] }),
+    };
+    vi.stubGlobal("navigator", { locks, onLine: true });
+    setOfflineConnectivity(true);
+    let finishCreate!: (value: { _id: string }) => void;
+    const pendingCreate = new Promise<{ _id: string }>((resolve) => { finishCreate = resolve; });
+    const serverRows = new Set<string>();
+    client.mutation.mockImplementation(async (fn, raw) => {
+      const name = getFunctionName(fn as never);
+      if (name === "builds:create") {
+        const created = await pendingCreate;
+        serverRows.add(created._id);
+        return created;
+      }
+      if (name === "conventions:create") throw new Error("Interrupted restore");
+      if (name === "builds:remove") serverRows.delete((raw as { id: string }).id);
+      return null;
+    });
+    const first = render(<SettingsDataPage />);
+    const second = render(<SettingsDataPage />);
+    const a = within(first.container);
+    const b = within(second.container);
+    const bundle = buildDataBundle({
+      ...emptyCollections(),
+      builds: [{ id: "build", name: "Build" }],
+      conventions: [{ id: "convention", name: "Con" }],
+    });
+    const file = new File([bundle], "backup.json", { type: "application/json" });
+    fireEvent.change(a.getByTestId("import-file-input"), { target: { files: [file] } });
+    expect(await b.findByTestId("restore-other-tab")).toHaveTextContent("another tab");
+    expect(await b.findByRole("button", { name: "Undo restore" })).toBeDisabled();
+    expect(b.getByRole("button", { name: "Choose a backup file" })).toBeDisabled();
+    await waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(1));
+
+    const deleteRow = vi.fn(async () => {});
+    await expect(undoRestoreSession({ subject: "user-free-1", deleteRow }))
+      .rejects.toBeInstanceOf(RestoreBusyError);
+    expect(deleteRow).not.toHaveBeenCalled();
+    fireEvent.change(b.getByTestId("import-file-input"), { target: { files: [file] } });
+    expect(await b.findByTestId("import-error")).toHaveTextContent("another tab");
+    expect(client.mutation).toHaveBeenCalledTimes(1);
+    expect((await readRestoreSession("user-free-1"))?.created).toEqual([]);
+
+    await act(async () => finishCreate({ _id: "restored-build" }));
+    await a.findByTestId("import-error");
+    await waitFor(() => expect(b.getByRole("button", { name: "Undo restore" })).toBeEnabled());
+    expect(b.queryByTestId("restore-other-tab")).not.toBeInTheDocument();
+    expect((await readRestoreSession("user-free-1"))?.created).toEqual([
+      { collection: "builds", id: "restored-build" },
+    ]);
+    fireEvent.click(b.getByRole("button", { name: "Undo restore" }));
+    await b.findByTestId("import-undone");
+    await waitFor(() => expect(a.queryByTestId("import-incomplete")).not.toBeInTheDocument());
+    expect(a.getByRole("button", { name: "Choose a backup file" })).toBeEnabled();
+    expect(b.getByRole("button", { name: "Choose a backup file" })).toBeEnabled();
+    expect(serverRows.size).toBe(0);
+    expect(await offlineRuntime.getStore().listEntityRows()).toEqual([]);
+    expect(await readRestoreSession("user-free-1")).toBeNull();
+  });
+
+  it("refreshes an already-open page when a session starts and completes elsewhere", async () => {
+    render(<SettingsDataPage />);
+    const session = createRestoreSession("user-free-1");
+    await act(async () => session.start());
+    await screen.findByTestId("import-incomplete");
+    expect(screen.getByRole("button", { name: "Choose a backup file" })).toBeDisabled();
+    await act(async () => session.complete());
+    await waitFor(() => expect(screen.queryByTestId("import-incomplete")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Choose a backup file" })).toBeEnabled();
   });
 
   it("waits for the account vault to open before reading its restore session", async () => {

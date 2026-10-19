@@ -37,7 +37,9 @@ beforeEach(async () => {
   vi.spyOn(window, "alert").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   offlineRuntime.setStore(new InMemoryLocalStore(), "owner");
-  await createRestoreSession("owner").record("builds", "restored-build");
+  const session = createRestoreSession("owner");
+  await session.start();
+  await session.record("builds", "restored-build");
 });
 afterEach(() => vi.restoreAllMocks());
 

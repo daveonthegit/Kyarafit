@@ -127,6 +127,7 @@
     "importRequiresOnline": "Restaurar requiere conexión a internet. Conéctate e inténtalo de nuevo.",
     "importIncomplete": "Restauración incompleta: deshazla e inténtalo de nuevo.",
     "restoreReadOnly": "Termina o deshaz la restauración primero.",
+    "restoreOtherTab": "Restauración en curso en otra pestaña",
     "undoRestoreButton": "Deshacer restauración",
     "undoingRestore": "Deshaciendo…",
     "restoreUndone": "Se deshizo la restauración incompleta. Puedes volver a restaurar tu copia de seguridad.",
