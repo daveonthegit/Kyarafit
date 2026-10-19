@@ -45,13 +45,13 @@ function todayIso(): string {
 }
 
 export default function HomePage() {
-  const { userId } = useCurrentUser();
+  const { userId, isAuthenticated } = useCurrentUser();
   const t = useTranslations("Home");
   const locale = useLocale();
   // users + file-storage reads/writes are online-only (no sync metadata) — stay on convex/react.
   const focusedBuildId = useQuery(
     api.users.getFocusedBuildId,
-    userId ? { externalId: userId } : "skip"
+    userId && isAuthenticated ? { externalId: userId } : "skip"
   );
   // builds + conventions carry ...syncMetaFields — read/write through the local-first bridge.
   const focusedOrRecent = useOfflineQuery(

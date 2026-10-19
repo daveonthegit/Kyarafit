@@ -8,7 +8,10 @@ import { offlineRuntime } from "./runtime";
 import { useOfflineQuery } from "./useOfflineQuery";
 
 const { live } = vi.hoisted(() => ({ live: [{ _id: "build", userId: "owner", name: "Build" }] }));
-vi.mock("convex/react", () => ({ useQuery: () => live }));
+vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+  useQuery: () => live,
+}));
 
 beforeEach(() => {
   rememberLocalAccount("owner");

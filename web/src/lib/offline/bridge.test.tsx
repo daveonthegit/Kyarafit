@@ -27,6 +27,7 @@ const { client, state } = vi.hoisted(() => ({
 }));
 
 vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
   useQuery: (_query: unknown, args: unknown) => (args === "skip" ? undefined : state.builds),
   useConvex: () => client,
 }));

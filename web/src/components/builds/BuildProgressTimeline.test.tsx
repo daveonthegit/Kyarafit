@@ -27,6 +27,7 @@ const { addMock, state } = vi.hoisted(() => ({
 // bridge wraps `useQuery` (read) and, on the online path, calls `useConvex().mutation(ref, args)`
 // (write). We route that write to the same `addMock` spy so the behavioral assertions are unchanged.
 vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
   useQuery: () => state.updates,
   useMutation: () => addMock,
   useConvex: () => ({

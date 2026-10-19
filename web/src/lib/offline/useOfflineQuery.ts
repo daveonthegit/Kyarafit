@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { useQuery, type OptionalRestArgsOrSkip } from "convex/react";
+import { useConvexAuth, useQuery, type OptionalRestArgsOrSkip } from "convex/react";
 import { getFunctionName, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { offlineQueryKey } from "@kyarafit/design-system/domain/offlineQueryCache";
 import {
@@ -32,7 +32,13 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
 ): FunctionReturnType<Query> | undefined {
-  const live = useQuery(query, ...args);
+  const { isAuthenticated } = useConvexAuth();
+  // A remembered account unlocks local data, not server access during token refresh.
+  // Keep the original args below so cached results remain available while auth loads.
+  const live = useQuery(
+    query,
+    ...((isAuthenticated ? args : ["skip"]) as OptionalRestArgsOrSkip<Query>)
+  );
 
   const fnName = useMemo(() => {
     try {
