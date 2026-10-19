@@ -172,10 +172,23 @@ export type CreateRowFn = (
   existingId?: string
 ) => Promise<unknown> | unknown;
 
+export interface ImportIdentity {
+  id: string;
+  complete: boolean;
+  row: ExportableRow;
+}
+
+export interface ImportIdentityStore {
+  read(collection: PortableCollectionKey, sourceId: string): Promise<ImportIdentity | null>;
+  write(collection: PortableCollectionKey, sourceId: string, identity: ImportIdentity): Promise<void>;
+}
+
 export interface RunImportArgs {
   imported: PortableCollections;
   existing: PortableCollections;
   createRow: CreateRowFn;
+  identities?: ImportIdentityStore;
+  generatedWorkflow?: (nodeId: string, buildId?: string) => Promise<ExportableRow[]>;
 }
 
 const RELATION_FIELDS = {
@@ -298,7 +311,7 @@ function prepareImport(
       if (previous && previous.collection !== collection) {
         throw new MalformedBundleError(`Ambiguous imported identity: ${row.id}`);
       }
-      registry.set(row.id, { collection, row });
+      if (!previous) registry.set(row.id, { collection, row });
     }
     if (new Set(imported[collection].map((row) => row.id)).size !== imported[collection].length) {
       throw new MalformedBundleError(`Duplicate imported identity in ${collection}`);
@@ -342,19 +355,20 @@ function prepareImport(
   };
   for (const collection of PORTABLE_COLLECTIONS) {
     for (const row of imported[collection]) {
-      validateRowFields(row);
-      remapRow(row, resolve);
-      if (collection === "packingListItems" && !row.conventionId) {
+      const retained = registry.get(row.id)!.row;
+      validateRowFields(retained);
+      remapRow(retained, resolve);
+      if (collection === "packingListItems" && !retained.conventionId) {
         throw new MalformedBundleError("Packing item has no convention");
       }
       if (collection === "cosplayNodes") {
-        if (row.nodeType !== "element" && row.nodeType !== "material") {
+        if (retained.nodeType !== "element" && retained.nodeType !== "material") {
           throw new MalformedBundleError("Invalid element type");
         }
         if (
-          row.parentNodeId &&
-          registry.get(String(row.parentNodeId))?.row.nodeType === "material" &&
-          row.nodeType !== "material"
+          retained.parentNodeId &&
+          registry.get(String(retained.parentNodeId))?.row.nodeType === "material" &&
+          retained.nodeType !== "material"
         ) {
           throw new MalformedBundleError("Invalid element parent type");
         }
@@ -395,16 +409,45 @@ export async function runImport({
   imported,
   existing,
   createRow,
+  identities,
+  generatedWorkflow,
 }: RunImportArgs): Promise<ImportSummary> {
-  const plan = prepareImport(imported, existing);
-  const summary = {} as ImportSummary;
+  const retained = emptyCollections();
+  const effective = emptyCollections();
   const ids = new Map<string, string>();
   for (const key of PORTABLE_COLLECTIONS) {
+    retained[key] = [...existing[key]];
+    effective[key] = [...imported[key]];
     for (const row of existing[key]) ids.set(row.id, row.id);
+    for (const row of imported[key]) {
+      if (existing[key].some((present) => present.id === row.id)) continue;
+      const identity = await identities?.read(key, row.id);
+      if (!identity) continue;
+      ids.set(row.id, identity.id);
+      if (key === "cosplayNodes" && !identity.complete) {
+        const present = existing[key].find((value) => value.id === identity.id) ?? identity.row;
+        effective[key][effective[key].findIndex((value) => value.id === row.id)] = {
+          ...present,
+          id: row.id,
+          parentNodeId: row.parentNodeId,
+          buildId: row.buildId,
+          sortOrder: row.sortOrder,
+        };
+      }
+      if (identity.complete && !retained[key].some((present) => present.id === row.id)) {
+        const present = existing[key].find((value) => value.id === identity.id);
+        if (!present && identity.id !== row.id) {
+          retained[key].push({ ...identity.row, id: identity.id });
+        }
+        retained[key].push({ ...(present ?? identity.row), id: row.id });
+      }
+    }
   }
+  const plan = prepareImport(effective, retained);
+  const summary = {} as ImportSummary;
   for (const packing of imported.packingListItems) {
     if (typeof packing.workflowItemId !== "string") continue;
-    const present = existing.packingListItems.find((row) => row.id === packing.id);
+    const present = retained.packingListItems.find((row) => row.id === packing.id);
     if (present && typeof present.workflowItemId === "string") {
       ids.set(packing.workflowItemId, present.workflowItemId);
     }
@@ -416,6 +459,54 @@ export async function runImport({
     return ids.get(id);
   };
   for (const key of PORTABLE_COLLECTIONS) {
+    if (key === "workflowItems" && generatedWorkflow) {
+      const nodes = new Map(
+        [...imported.cosplayNodes, ...retained.cosplayNodes].map((row) => [row.id, row])
+      );
+      for (const node of nodes.values()) {
+        if (
+          !plan.workflowItems.some((row) =>
+            !ids.has(row.id) &&
+            typeof row.dedupeKey === "string" &&
+            /^autogen:(buy|wip):/.test(row.dedupeKey) &&
+            row.dedupeKey.endsWith(`:${node.id}`)
+          )
+        ) {
+          continue;
+        }
+        const nodeId = ids.get(node.id);
+        if (!nodeId) continue;
+        const buildId = typeof node.buildId === "string" ? ids.get(node.buildId) : undefined;
+        const generated = await generatedWorkflow(nodeId, buildId);
+        for (const task of generated) {
+          if (typeof task.dedupeKey !== "string") continue;
+          const operation = /^autogen:(buy|wip):/.exec(task.dedupeKey)?.[1];
+          if (!operation || !task.dedupeKey.endsWith(`:${nodeId}`)) continue;
+          const candidates = imported.workflowItems.filter(
+            (row) =>
+              typeof row.dedupeKey === "string" &&
+              row.dedupeKey.startsWith(`autogen:${operation}:`) &&
+              row.dedupeKey.endsWith(`:${node.id}`)
+          );
+          const source =
+            candidates.find((row) => {
+              const scope = String(row.dedupeKey).slice(
+                `autogen:${operation}:`.length,
+                -`:${node.id}`.length
+              );
+              return task.dedupeKey === `autogen:${operation}:${ids.get(scope) ?? scope}:${nodeId}`;
+            }) ?? (candidates.length === 1 ? candidates[0] : undefined);
+          if (source && !ids.has(source.id)) {
+            ids.set(source.id, task.id);
+            await identities?.write("workflowItems", source.id, {
+              id: task.id,
+              complete: false,
+              row: source,
+            });
+          }
+        }
+      }
+    }
     const importedRows = imported[key];
     const toCreate = plan[key];
     for (const row of toCreate) {
@@ -429,6 +520,7 @@ export async function runImport({
             : undefined;
       if (typeof id !== "string") throw new Error("Import did not return a restored id");
       ids.set(row.id, id);
+      let storedRow = row;
       if (key === "packingListItems" && typeof row.workflowItemId === "string") {
         const workflowId =
           result && typeof result === "object" && "workflowItemId" in result
@@ -437,7 +529,16 @@ export async function runImport({
         if (typeof workflowId !== "string")
           throw new Error("Packing restore did not return its workflow identity");
         ids.set(row.workflowItemId, workflowId);
+        storedRow = { ...row, workflowItemId: workflowId };
+        await identities?.write("workflowItems", row.workflowItemId, {
+          id: workflowId,
+          complete: false,
+          row: imported.workflowItems.find((task) => task.id === row.workflowItemId) ?? {
+            id: row.workflowItemId,
+          },
+        });
       }
+      await identities?.write(key, row.id, { id, complete: true, row: storedRow });
     }
     summary[key] = {
       added: toCreate.length,

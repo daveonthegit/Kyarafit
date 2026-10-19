@@ -96,6 +96,103 @@ describe("parseDataBundle error handling (REQ-D101, graceful failure)", () => {
 });
 
 describe("runImport idempotency (REQ-D101)", () => {
+  it.each([false, true])("validates retained element types before writes (mapped=%s)", async (mapped) => {
+    const createRow = vi.fn();
+    const parent = { id: "source-parent", nodeType: "element" };
+    await expect(runImport({
+      imported: {
+        ...emptyCollections(),
+        builds: [{ id: "new-build" }],
+        cosplayNodes: [parent, { id: "child", nodeType: "element", parentNodeId: parent.id }],
+      },
+      existing: {
+        ...emptyCollections(),
+        cosplayNodes: [{ id: mapped ? "destination-parent" : parent.id, nodeType: "material" }],
+      },
+      identities: mapped ? {
+        read: async (_collection, id) => id === parent.id
+          ? { id: "destination-parent", complete: true, row: parent } : null,
+        write: async () => undefined,
+      } : undefined,
+      createRow,
+    })).rejects.toThrow("Invalid element parent type");
+    expect(createRow).not.toHaveBeenCalled();
+  });
+
+  it("validates destination types while resuming an incomplete element attachment", async () => {
+    const createRow = vi.fn();
+    await expect(runImport({
+      imported: {
+        ...emptyCollections(),
+        cosplayNodes: [
+          { id: "parent", nodeType: "element" },
+          { id: "child", nodeType: "element", parentNodeId: "parent" },
+        ],
+      },
+      existing: { ...emptyCollections(), cosplayNodes: [{ id: "destination", nodeType: "material" }] },
+      identities: {
+        read: async (_collection, id) => id === "parent"
+          ? { id: "destination", complete: false, row: { id, nodeType: "element" } } : null,
+        write: async () => undefined,
+      },
+      createRow,
+    })).rejects.toThrow("Invalid element parent type");
+    expect(createRow).not.toHaveBeenCalled();
+  });
+
+  it("validates the retained child type when an archived child is skipped", async () => {
+    const summary = await runImport({
+      imported: {
+        ...emptyCollections(),
+        cosplayNodes: [
+          { id: "parent", nodeType: "element" },
+          { id: "child", nodeType: "element", parentNodeId: "parent" },
+        ],
+      },
+      existing: {
+        ...emptyCollections(),
+        cosplayNodes: [
+          { id: "parent", nodeType: "material" },
+          { id: "child", nodeType: "material", parentNodeId: "parent" },
+        ],
+      },
+      createRow: () => { throw new Error("No rows should be created"); },
+    });
+    expect(summary.cosplayNodes).toEqual({ added: 0, skipped: 2 });
+  });
+  it("reconciles buy and work tasks in shared and build scopes without losing parents", async () => {
+    const restored: { id: string; parentId: unknown; existingId: string | undefined }[] = [];
+    await runImport({
+      imported: {
+        ...emptyCollections(),
+        builds: [{ id: "b" }],
+        cosplayNodes: [{ id: "n", nodeType: "element", buildId: "b" }],
+        workflowItems: [
+          { id: "shared-buy", dedupeKey: "autogen:buy:shared:n", status: "done" },
+          { id: "build-buy", dedupeKey: "autogen:buy:b:n", status: "in_progress" },
+          { id: "work", dedupeKey: "autogen:wip:b:n", parentId: "shared-buy", status: "done" },
+        ],
+      },
+      existing: emptyCollections(),
+      generatedWorkflow: async () => [
+        { id: "generated-shared-buy", dedupeKey: "autogen:buy:shared:new:n" },
+        { id: "generated-build-buy", dedupeKey: "autogen:buy:new:b:new:n" },
+        { id: "generated-work", dedupeKey: "autogen:wip:shared:new:n" },
+      ],
+      createRow: (collection, row, existingId) => {
+        if (collection !== "workflowItems") return `new:${row.id}`;
+        restored.push({ id: row.id, parentId: row.parentId, existingId });
+        expect(existingId).toBeDefined();
+        return existingId;
+      },
+    });
+    expect(restored).toEqual([
+      { id: "shared-buy", parentId: undefined, existingId: "generated-shared-buy" },
+      { id: "build-buy", parentId: undefined, existingId: "generated-build-buy" },
+      { id: "work", parentId: "generated-shared-buy", existingId: "generated-work" },
+    ]);
+  });
+
   it("round-trips elements and remaps all attachment targets before restoring tasks", async () => {
     const imported = parseDataBundle(
       buildDataBundle({

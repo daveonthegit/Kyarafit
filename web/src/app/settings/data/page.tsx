@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
+import { useConvex } from "convex/react";
+import { createImportIdentityStore } from "@/lib/importIdentityStore";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { importKey } from "@/lib/importKey";
@@ -19,6 +21,7 @@ import {
   runImport,
   summarizeTotals,
   type CreateRowFn,
+  type ImportIdentityStore,
 } from "@/lib/dataPortability";
 
 type ImportStatus =
@@ -48,7 +51,20 @@ function downloadFile(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
+function flattenGeneratedTasks(rows: readonly unknown[]): { id: string; dedupeKey: unknown }[] {
+  return rows.flatMap((row) => {
+    if (!row || typeof row !== "object" || !("_id" in row) || typeof row._id !== "string") {
+      throw new Error("Invalid generated workflow item");
+    }
+    return [
+      { id: row._id, dedupeKey: "dedupeKey" in row ? row.dedupeKey : undefined },
+      ...("children" in row && Array.isArray(row.children) ? flattenGeneratedTasks(row.children) : []),
+    ];
+  });
+}
+
 export default function SettingsDataPage() {
+  const convex = useConvex();
   const t = useTranslations("DataPortability");
   const { userId, isLoading: authLoading } = useCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,8 +101,8 @@ export default function SettingsDataPage() {
     downloadFile(`kyarafit-export-${stamp}.json`, bundle);
   }, [collections]);
 
-  const createRow = useCallback<CreateRowFn>(
-    async (collection, row, existingId) => {
+  const createRow = useCallback(
+    (identities: ImportIdentityStore): CreateRowFn => async (collection, row, existingId) => {
       if (!userId) throw new Error("Sign in to import data");
       const idempotencyKey = importKey(userId, collection, row);
       switch (collection) {
@@ -112,7 +128,7 @@ export default function SettingsDataPage() {
             idempotencyKey,
           });
         case "cosplayNodes": {
-          const created = await createNode({
+          const created = existingId ? { _id: existingId as Id<"cosplayNodes"> } : await createNode({
             userId,
             nodeType: readString(row.nodeType)!,
             name: readString(row.name) ?? "Untitled element",
@@ -133,6 +149,9 @@ export default function SettingsDataPage() {
             consumable: typeof row.consumable === "boolean" ? row.consumable : undefined,
           });
           if (!created?._id) throw new Error("Element restore did not return an identity");
+          await identities.write("cosplayNodes", row.id, {
+            id: created._id, complete: false, row,
+          });
           if (row.parentNodeId) {
             await addChildNode({
               userId,
@@ -170,12 +189,11 @@ export default function SettingsDataPage() {
           if (existingId) {
             const { parentId, ...updateFields } = fields;
             await updateWorkflowItem({ ...updateFields, id: existingId as Id<"workflowItems"> });
-            if (parentId)
-              await moveWorkflowItem({
-                id: existingId as Id<"workflowItems">,
-                parentId,
-                idempotencyKey,
-              });
+            await moveWorkflowItem({
+              id: existingId as Id<"workflowItems">,
+              parentId: parentId ?? null,
+              idempotencyKey,
+            });
             return existingId;
           }
           return createWorkflowItem(fields);
@@ -220,7 +238,25 @@ export default function SettingsDataPage() {
         if (imported.cosplayNodes.length && !getIsOnline()) {
           throw new MalformedBundleError("Element backups must be restored while online.");
         }
-        const summary = await runImport({ imported, existing: collections, createRow });
+        if (!userId) throw new Error("Sign in to import data");
+        const identities = createImportIdentityStore(userId);
+        const assertCurrent = offlineRuntime.sessionGuard();
+        const summary = await runImport({
+          imported,
+          existing: collections,
+          createRow: createRow(identities),
+          identities,
+          generatedWorkflow: async (nodeId, buildId) => {
+            assertCurrent();
+            const result = await convex.query(api.workflow.listNodeWorkflow, {
+              cosplayNodeId: nodeId as Id<"cosplayNodes">,
+              buildId: buildId as Id<"builds"> | undefined,
+            });
+            assertCurrent();
+            if (!result) throw new Error("Generated element tasks could not be loaded");
+            return flattenGeneratedTasks([...result.shared, ...result.buildSpecific]);
+          },
+        });
         const { added, skipped } = summarizeTotals(summary);
         setImportStatus({ kind: "done", added, skipped });
       } catch (error) {
@@ -229,7 +265,7 @@ export default function SettingsDataPage() {
         setImportStatus({ kind: "error", reason });
       }
     },
-    [collections, createRow, t]
+    [collections, createRow, t, userId, convex]
   );
 
   const onFileChange = useCallback(
