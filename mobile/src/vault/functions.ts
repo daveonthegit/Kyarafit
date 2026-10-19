@@ -81,25 +81,28 @@ export function runLocalMutations(
   const intents: ReplicationIntent[] = [];
   const replicate = isReplicationEnabled();
   try {
-    const results = vault.commit((db) => {
-      const results: unknown[] = [];
-      for (const step of steps) {
-        const handler = LOCAL_MUTATIONS[step.fn];
-        if (!handler) throw new Error(`No local mutation registered for ${step.fn}`);
-        const args = asArgs(typeof step.args === "function" ? step.args(results) : step.args);
-        const result = handler({ db, userId: vault.subject, now: Date.now() }, args);
-        results.push(result);
-        if (replicate && !DEVICE_LOCAL_MUTATIONS.has(step.fn)) {
-          intents.push({
-            fn: step.fn,
-            args: toPortableImageRefs(args),
-            idempotencyKey: newIdempotencyKey(),
-            clientId: isCreateMutation(step.fn) ? createdId(result) : undefined,
-          });
+    const results = vault.commit(
+      (db) => {
+        const results: unknown[] = [];
+        for (const step of steps) {
+          const handler = LOCAL_MUTATIONS[step.fn];
+          if (!handler) throw new Error(`No local mutation registered for ${step.fn}`);
+          const args = asArgs(typeof step.args === "function" ? step.args(results) : step.args);
+          const result = handler({ db, userId: vault.subject, now: Date.now() }, args);
+          results.push(result);
+          if (replicate && !DEVICE_LOCAL_MUTATIONS.has(step.fn)) {
+            intents.push({
+              fn: step.fn,
+              args: toPortableImageRefs(args),
+              idempotencyKey: newIdempotencyKey(),
+              clientId: isCreateMutation(step.fn) ? createdId(result) : undefined,
+            });
+          }
         }
-      }
-      return results;
-    }, () => intents);
+        return results;
+      },
+      () => intents
+    );
     if (intents.length > 0) requestReplication();
     return results;
   } catch (error) {

@@ -10,7 +10,6 @@ import {
 } from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
 import { syncScope } from "./syncIdentity";
-export { invalidateSyncSession } from "./syncIdentity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
 import {
@@ -45,6 +44,7 @@ import {
   listPendingMutations,
   requeueFailedMutations,
 } from "./mutationQueue";
+export { invalidateSyncSession } from "./syncIdentity";
 
 /** Inject the queued idempotency key into the args of mutations that dedupe replays server-side. */
 function argsForReplay(fn: string, args: unknown, idempotencyKey: string): unknown {
@@ -427,7 +427,10 @@ export async function syncNow(
  * each with its client-minted id as the dedupe `clientId`. It only READS local data — copies are
  * pushed to the cloud; nothing local is ever mutated or deleted (the REQ-D95 invariant).
  */
-function defaultBackfillDeps(client: ConvexReactClient, scope: Awaited<ReturnType<typeof syncScope>>): BackfillDeps {
+function defaultBackfillDeps(
+  client: ConvexReactClient,
+  scope: Awaited<ReturnType<typeof syncScope>>
+): BackfillDeps {
   return {
     listLocalRows: (table) => {
       scope.assertCurrent();
@@ -484,15 +487,28 @@ export async function runBackfill(
   if (!scope.current()) return IDLE_BACKFILL;
   const source = deps ?? defaultBackfillDeps(client, scope);
   return runUpgradeBackfill({
-    listLocalRows: (table) => { scope.assertCurrent(); return source.listLocalRows(table); },
+    listLocalRows: (table) => {
+      scope.assertCurrent();
+      return source.listLocalRows(table);
+    },
     pushChunk: async (table, rows) => {
       scope.assertCurrent();
       const result = await source.pushChunk(table, rows);
       scope.assertCurrent();
       return result;
     },
-    isComplete: () => { scope.assertCurrent(); return source.isComplete(); },
-    markComplete: async () => { scope.assertCurrent(); await source.markComplete(); scope.assertCurrent(); },
-    onProgress: (progress) => { scope.assertCurrent(); source.onProgress?.(progress); },
+    isComplete: () => {
+      scope.assertCurrent();
+      return source.isComplete();
+    },
+    markComplete: async () => {
+      scope.assertCurrent();
+      await source.markComplete();
+      scope.assertCurrent();
+    },
+    onProgress: (progress) => {
+      scope.assertCurrent();
+      source.onProgress?.(progress);
+    },
   });
 }

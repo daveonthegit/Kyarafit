@@ -614,7 +614,12 @@ export function BuildDetailBody(props: Props) {
           args: (results) => {
             const node = results[0] as { _id: string };
             return quickCreateParentId
-              ? { userId, parentNodeId: quickCreateParentId, childNodeId: node._id, linkMode: "owned" }
+              ? {
+                  userId,
+                  parentNodeId: quickCreateParentId,
+                  childNodeId: node._id,
+                  linkMode: "owned",
+                }
               : { userId, buildId, cosplayNodeIds: [node._id] };
           },
         },
@@ -627,15 +632,7 @@ export function BuildDetailBody(props: Props) {
     } finally {
       setQuickCreateBusy(false);
     }
-  }, [
-    buildId,
-    quickCreateBusy,
-    quickCreateName,
-    quickCreateParentId,
-    quickCreateType,
-    t,
-    userId,
-  ]);
+  }, [buildId, quickCreateBusy, quickCreateName, quickCreateParentId, quickCreateType, t, userId]);
 
   useEffect(() => {
     if (!inviteModalOpen) return;

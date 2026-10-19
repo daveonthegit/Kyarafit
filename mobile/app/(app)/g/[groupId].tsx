@@ -88,14 +88,24 @@ export default function GroupDetailScreen() {
     [];
   const myConventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const myBuildsQuery = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
-  const myConventions = useMemo(() => (myConventionsQuery ?? []).flatMap((convention) => {
-    const id = convention._id.startsWith(LOCAL_ID_PREFIX) ? getServerId(convention._id) : convention._id;
-    return id ? [{ ...convention, _id: id as Id<"conventions"> }] : [];
-  }), [myConventionsQuery]);
-  const myBuilds = useMemo(() => (myBuildsQuery ?? []).flatMap((build) => {
-    const id = build._id.startsWith(LOCAL_ID_PREFIX) ? getServerId(build._id) : build._id;
-    return id ? [{ ...build, _id: id as Id<"builds"> }] : [];
-  }), [myBuildsQuery]);
+  const myConventions = useMemo(
+    () =>
+      (myConventionsQuery ?? []).flatMap((convention) => {
+        const id = convention._id.startsWith(LOCAL_ID_PREFIX)
+          ? getServerId(convention._id)
+          : convention._id;
+        return id ? [{ ...convention, _id: id as Id<"conventions"> }] : [];
+      }),
+    [myConventionsQuery]
+  );
+  const myBuilds = useMemo(
+    () =>
+      (myBuildsQuery ?? []).flatMap((build) => {
+        const id = build._id.startsWith(LOCAL_ID_PREFIX) ? getServerId(build._id) : build._id;
+        return id ? [{ ...build, _id: id as Id<"builds"> }] : [];
+      }),
+    [myBuildsQuery]
+  );
 
   const setDays = useMutation(api.groupConventionDays.setDays);
   const setBuildGroup = useMutation(api.builds.setGroupId);

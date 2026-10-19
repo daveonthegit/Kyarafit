@@ -28,12 +28,12 @@ export async function syncScope() {
   const current = () =>
     Boolean(
       getIsOnline() &&
-        vault &&
-        token &&
-        subject === vault.subject &&
-        getActiveVault() === vault &&
-        getBearerToken() === token &&
-        generation === started
+      vault &&
+      token &&
+      subject === vault.subject &&
+      getActiveVault() === vault &&
+      getBearerToken() === token &&
+      generation === started
     );
   const assertCurrent = () => {
     if (!current()) throw new Error("Sync account changed");

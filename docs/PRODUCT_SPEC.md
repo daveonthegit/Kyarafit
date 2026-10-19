@@ -119,9 +119,9 @@ are standardized in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §states; per-module 
 - **Purpose:** required account; gateway to personal data and social.
 - **Flows:** sign up (Google/email) → first-run sets up local store → optional welcome. Sign in on a new device (paid) pulls cloud data. Sign out. Delete account.
 - **REQ-030** First successful sign-in initializes the local store and `users.upsert`; no data sync is triggered for free users.
-- **REQ-031** Sign-out keeps local data on the device, locked until the same account signs in again; other accounts on the device get their own separate local vault and never see it. Free users are reminded that an export is their only copy off the device. Paid users' data is also in the cloud.
+- **REQ-031** Sign-out keeps local data on the device, locked until the same account signs in again; other accounts on the device get their own separate local vault and never see it. Users are reminded to export or verify sync before signing out; a paid subscription alone does not guarantee their latest work reached the cloud. Current export limitations are documented in [Data & Sync §11](DATA_AND_SYNC.md#11-export--import-free).
 - **REQ-032** Account deletion removes the user's cloud data and that account's local vault on the device, after explicit confirmation that tells the user to export their data first.
-- **REQ-033** Expired session → app drops to a signed-out state but does **not** wipe local data; re-auth restores access.
+- **REQ-033** An expired or unreachable remote session does not lock the already-unlocked mobile vault or block personal editing. Only online features and sync require re-authentication; explicit sign-out follows REQ-031.
 
 ### 4.2 Elements (catalog) — managed per build
 
@@ -196,23 +196,23 @@ are standardized in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §states; per-module 
 
 ## 6. Edge cases
 
-| ID    | Scenario                                              | Expected behavior                                                            |
-| ----- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
-| EC-01 | Create/edit/delete while offline (local-first module) | Succeeds locally, visible immediately, queued for sync (paid)                |
-| EC-02 | Free user attempts paid action                        | Upgrade prompt; local work never blocked/lost                                |
-| EC-03 | Same record edited on two devices (paid)              | Per-field last-write-wins by `updatedAt` (REQ-040 DATA_AND_SYNC)             |
-| EC-04 | Duplicate offline create replayed twice               | Server idempotency dedupes (no duplicate row)                                |
-| EC-05 | Open online-only surface offline                      | Offline banner + retry; no crash, no stale write                             |
-| EC-06 | Sign out on shared device (free)                      | Warned to export; local data remains until overwritten                       |
-| EC-07 | Storage cap exceeded (paid)                           | New cloud uploads blocked; existing data intact; prompt to trim/upgrade      |
-| EC-08 | Downgrade with synced data                            | Sync stops; local works; cloud kept (grace) then frozen; never deletes local |
-| EC-09 | Free user leaves a group with a cloud-hosted build    | Build's cloud copy freezes; local copy unaffected (REQ-021)                  |
-| EC-10 | Delete parent element with children                   | Prompt; cascade or re-parent per user choice                                 |
-| EC-11 | Packing regenerated after day plan change             | Manual items + checked state preserved where possible                        |
-| EC-12 | Public build opened by anonymous viewer               | Shows only sections allowed by `publicViewerSettings`; no private data       |
-| EC-13 | Invalid/expired share token                           | Friendly "not found / no longer shared" page                                 |
-| EC-14 | Import a file exported on another device              | Idempotent merge; no duplicates on re-import                                 |
-| EC-15 | Large dataset (1000+ elements/tasks)                  | Lists paginate/virtualize; remain smooth (REQ perf)                          |
+| ID    | Scenario                                              | Expected behavior                                                                                  |
+| ----- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| EC-01 | Create/edit/delete while offline (local-first module) | Succeeds locally, visible immediately, queued for sync (paid)                                      |
+| EC-02 | Free user attempts paid action                        | Upgrade prompt; local work never blocked/lost                                                      |
+| EC-03 | Same record edited on two devices (paid)              | Per-field last-write-wins by `updatedAt` (REQ-040 DATA_AND_SYNC)                                   |
+| EC-04 | Duplicate offline create replayed twice               | Server idempotency dedupes (no duplicate row)                                                      |
+| EC-05 | Open online-only surface offline                      | Offline banner + retry; no crash, no stale write                                                   |
+| EC-06 | Sign out on shared device (free)                      | Confirmation and vault-lock behavior follow REQ-031; another account never overwrites or adopts it |
+| EC-07 | Storage cap exceeded (paid)                           | New cloud uploads blocked; existing data intact; prompt to trim/upgrade                            |
+| EC-08 | Downgrade with synced data                            | Sync stops; local works; cloud kept (grace) then frozen; never deletes local                       |
+| EC-09 | Free user leaves a group with a cloud-hosted build    | Build's cloud copy freezes; local copy unaffected (REQ-021)                                        |
+| EC-10 | Delete parent element with children                   | Prompt; cascade or re-parent per user choice                                                       |
+| EC-11 | Packing regenerated after day plan change             | Manual items + checked state preserved where possible                                              |
+| EC-12 | Public build opened by anonymous viewer               | Shows only sections allowed by `publicViewerSettings`; no private data                             |
+| EC-13 | Invalid/expired share token                           | Friendly "not found / no longer shared" page                                                       |
+| EC-14 | Import a file exported on another device              | Idempotent merge; no duplicates on re-import                                                       |
+| EC-15 | Large dataset (1000+ elements/tasks)                  | Lists paginate/virtualize; remain smooth (REQ perf)                                                |
 
 ---
 

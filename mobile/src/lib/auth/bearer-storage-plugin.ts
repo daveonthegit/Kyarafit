@@ -142,7 +142,10 @@ export function bearerStoragePlugin(): BetterAuthClientPlugin {
         hooks: {
           async onRequest(context) {
             const headers = toHeaders(context.headers);
-            if (isAuthEndpoint(context.url.toString(), "sign-out") && headers.has("Authorization")) {
+            if (
+              isAuthEndpoint(context.url.toString(), "sign-out") &&
+              headers.has("Authorization")
+            ) {
               context.headers = headers;
               return context;
             }

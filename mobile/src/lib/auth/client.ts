@@ -83,11 +83,13 @@ export async function signOut() {
   const token = getBearerToken();
   const results = await Promise.allSettled([setStoredBearerToken(null), lockVault()]);
   if (token) {
-    void authClient.signOut({
-      fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
-    }).catch((error: unknown) => {
-      console.warn("[auth] server sign-out failed; signed out locally", error);
-    });
+    void authClient
+      .signOut({
+        fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
+      })
+      .catch((error: unknown) => {
+        console.warn("[auth] server sign-out failed; signed out locally", error);
+      });
   }
   const errors = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
   if (errors.length === 1) throw errors[0];

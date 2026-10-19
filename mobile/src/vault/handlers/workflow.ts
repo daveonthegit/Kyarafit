@@ -405,7 +405,9 @@ export function syncGeneratedWorkflowForNode(
     {
       key: "buy",
       active: input.purchaseStatus === "to_buy" || input.materialStatus === "to_buy",
-      done: input.purchaseStatus === "bought" || ["bought", "in_use", "complete"].includes(input.materialStatus ?? ""),
+      done:
+        input.purchaseStatus === "bought" ||
+        ["bought", "in_use", "complete"].includes(input.materialStatus ?? ""),
       title: `Buy ${input.nodeName}`,
       category: "buy",
       status: "not_started",
@@ -421,7 +423,10 @@ export function syncGeneratedWorkflowForNode(
   ];
   for (const spec of specs) {
     const dedupeKey = `autogen:${spec.key}:${input.buildId ?? "shared"}:${input.cosplayNodeId}`;
-    const existing = ctx.db.query("workflowItems").withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey)).unique();
+    const existing = ctx.db
+      .query("workflowItems")
+      .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey))
+      .unique();
     if (spec.active || (spec.done && existing)) {
       ensureWorkflowItem(ctx, {
         userId: input.userId,
@@ -440,11 +445,17 @@ export function syncGeneratedWorkflowForNode(
 }
 
 export function removeGeneratedWorkflowForNode(ctx: LocalMutationCtx, cosplayNodeId: string): void {
-  const items = ctx.db.query("workflowItems").withIndex("by_userId", (q) => q.eq("userId", ctx.userId)).collect();
+  const items = ctx.db
+    .query("workflowItems")
+    .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+    .collect();
   for (const item of items) {
-    if (item.sourceKind === "automation" && typeof item.dedupeKey === "string" &&
+    if (
+      item.sourceKind === "automation" &&
+      typeof item.dedupeKey === "string" &&
       (item.dedupeKey.startsWith("autogen:buy:") || item.dedupeKey.startsWith("autogen:wip:")) &&
-      item.dedupeKey.endsWith(`:${cosplayNodeId}`)) {
+      item.dedupeKey.endsWith(`:${cosplayNodeId}`)
+    ) {
       removeWorkflowItemCascade(ctx, item._id);
     }
   }

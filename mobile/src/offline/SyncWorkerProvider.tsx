@@ -45,7 +45,9 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   const userId = vault.status === "unlocked" ? vault.account.subject : null;
   const remote = useSession();
   const credential = useSyncExternalStore(subscribeBearerToken, getBearerToken, getBearerToken);
-  const signedIn = Boolean(credential && userId && !remote.isPending && remote.data?.user?.id === userId);
+  const signedIn = Boolean(
+    credential && userId && !remote.isPending && remote.data?.user?.id === userId
+  );
   const { data: tierInfo } = useTier(signedIn ? userId : null);
   const liveTier = tierInfo?.tier ?? null;
 
@@ -53,10 +55,14 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!signedIn || liveTier == null) return;
     let cancelled = false;
-    void syncScope().then((scope) => {
-      if (!cancelled && scope.current()) setReplicationEnabled(isPaidConvexTier(liveTier));
-    }).catch((error: unknown) => console.warn("[sync] could not persist sync state", error));
-    return () => { cancelled = true; };
+    void syncScope()
+      .then((scope) => {
+        if (!cancelled && scope.current()) setReplicationEnabled(isPaidConvexTier(liveTier));
+      })
+      .catch((error: unknown) => console.warn("[sync] could not persist sync state", error));
+    return () => {
+      cancelled = true;
+    };
   }, [signedIn, liveTier, userId, credential]);
 
   const syncEnabled = shouldRunSyncWorker(liveTier, signedIn);

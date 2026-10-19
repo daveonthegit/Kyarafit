@@ -4,18 +4,27 @@ _Source of truth for **data, local storage, sync, conflicts, migration, quotas, 
 Product rules live in [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); code structure in
 [`ARCHITECTURE.md`](ARCHITECTURE.md). Requirement IDs here are `REQ-D*`._
 
+## Implementation scope
+
+The `REQ-D*` rules below describe the target contract, not completed rollout. Mobile personal
+reads and commands now use the per-account vault; its lifecycle and isolation decision is
+[ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Web still uses cloud-first
+wrappers. Whole-vault backup/restore (including original photos), web isolation/write-failure
+hardening, and paid-sync correctness are separate follow-ups tracked in the
+[roadmap](ROADMAP.md#current-status).
+
 ---
 
 ## 1. Invariants (the contract everything obeys)
 
 1. **The local store is authoritative on-device.** Reads/writes never block on network or entitlement.
-2. **UI reads/writes only through `useOfflineQuery` / `useOfflineMutation`.** Direct Convex hooks for local-first data are banned (ESLint-enforced on both platforms).
-3. **The sync worker is the only code that talks to Convex for personal data, and it runs iff `canUseCloudSync && signedIn`.** Free → worker never starts (REQ-D10).
+2. **UI reads/writes through the personal-data boundary.** See [Architecture B1](ARCHITECTURE.md#2-layering--boundaries) for the hooks, local command boundary, and current enforcement scope.
+3. **Only the sync worker talks to Convex for personal data.** It requires paid entitlement, connectivity, and remote authentication (REQ-D10); mobile additionally verifies the credential's account matches the open vault and aborts a pass if that scope changes (`mobile/src/offline/syncIdentity.ts`).
 4. **Conflict resolution = per-field last-write-wins by `updatedAt`.** No CRDT.
-5. **Cloud data is deleted in exactly one place:** the downgrade retention cron, gated on grace + warnings. Nothing else deletes server data; local data is never auto-deleted.
+5. **Automatic cloud retention deletion** belongs to the downgrade retention cron, gated on grace + warnings. Explicit user deletion and account deletion are separate paths; local data is never auto-deleted.
 6. **Images:** local file/blob is the durable home for free; cloud copy is an additive paid cache.
 
-- **REQ-D10** A dev/CI assertion verifies a free, signed-in user generates **zero** Convex data-function calls (auth-only traffic).
+- **REQ-D10** A dev/CI assertion verifies free personal-data CRUD generates **zero personal-data Convex calls**. Authentication and explicit online-only surfaces are separate boundaries; they are not prohibited by this requirement.
 
 ---
 
@@ -100,15 +109,15 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 ## 5. Local store (per platform)
 
-| Concern   | Mobile                                                               | Web                                                                                                       |
-| --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Engine    | SQLite (`expo-sqlite`)                                               | See the current [platform adapters](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue). |
-| Tables    | `entity_rows`, `mutation_queue`, `id_map`, `query_cache`, tombstones | same schema                                                                                               |
-| Interface | one shared `LocalStore` contract (§ARCHITECTURE)                     | same                                                                                                      |
+| Concern   | Mobile                                                   | Web                                                                                                       |
+| --------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Engine    | SQLite (`expo-sqlite`)                                   | See the current [platform adapters](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue). |
+| Schema    | [`vaultSchema.ts`](../mobile/src/offline/vaultSchema.ts) | [Platform adapters](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue)                  |
+| Interface | `VaultStore` reader/writer and local handlers            | `LocalStore`                                                                                              |
 
-- **REQ-D50** Both platforms implement the same `LocalStore` interface so sync logic is platform-agnostic and shared.
-- **REQ-D51** Reads are stale-while-revalidate: serve last local snapshot immediately; revalidate from cloud only when paid + online.
-- **REQ-D52** Offline writes append to `mutation_queue` and update `entity_rows` optimistically so they are visible immediately across list/detail/derived (planner, build-tree) views.
+- **REQ-D50 (target)** Shared persistence/sync contracts remain a target; current platform boundaries are documented in [Architecture §4](ARCHITECTURE.md#4-platform-adapters-the-only-platform-specific-glue).
+- **REQ-D51** Mobile personal reads are synchronous vault queries, re-derived after committed writes; they never revalidate through the UI hook. Paid cloud pulls run separately in the worker. Web's cloud-first wrapper has not yet been converted.
+- **REQ-D52** Mobile commands stage complete `entity_rows` documents and any enabled replication intents in one SQLite transaction; success and reactive publication occur only after commit. Multi-command edits use `runLocalMutations` for the same atomic boundary. Failed persistence throws `VaultWriteError`; no optimistic success is returned.
 
 ---
 
@@ -170,6 +179,12 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 ---
 
 ## 11. Export / import (free)
+
+**Current mobile limitation:** Settings → Data exports JSON for builds, elements, and conventions
+only; it does not include the complete vault graph or original photo files. Import reads that
+account's existing on-device export file, not an arbitrary backup from another device. The file
+is account-keyed (`vaultExportFilePath`) and is deleted with that account's device data. This is
+not a complete backup or fresh-vault restore; the requirements below remain follow-up work.
 
 - **REQ-D100** CSV (one per entity), JSON-ZIP (`data.json` + `/images/<imageKey>.<ext>`, relative refs, via `fflate`), and PDF export are all free.
 - **REQ-D101** Import parses zip/json, rehydrates images into the local store, remaps ids via `id_map`, merges per-field LWW (REQ-D65), respects tombstones, and is **idempotent** on re-import (no duplicates).

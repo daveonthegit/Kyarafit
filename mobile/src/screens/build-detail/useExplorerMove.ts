@@ -203,27 +203,28 @@ export function useExplorerMove({
 
       const steps: LocalMutationStep[] = [];
       if (dragMeta.isRoot) {
-        steps.push({ fn: "builds:removeNodeFromBuild", args: { userId, buildId, cosplayNodeId: dragMeta.nodeId } });
+        steps.push({
+          fn: "builds:removeNodeFromBuild",
+          args: { userId, buildId, cosplayNodeId: dragMeta.nodeId },
+        });
       } else {
         const linkId = dragMeta.siblingLinkIds?.[dragMeta.siblingIndex ?? -1];
         if (!linkId) return;
         steps.push({ fn: "cosplayNodes:removeChildLink", args: { userId, id: linkId } });
       }
-      steps.push({ fn: "cosplayNodes:addChildLink", args: {
-        userId,
-        parentNodeId: targetMeta.nodeId,
-        childNodeId: dragMeta.nodeId,
-        linkMode: "owned",
-      } });
+      steps.push({
+        fn: "cosplayNodes:addChildLink",
+        args: {
+          userId,
+          parentNodeId: targetMeta.nodeId,
+          childNodeId: dragMeta.nodeId,
+          linkMode: "owned",
+        },
+      });
       runLocalMutations(steps);
       if (dragMeta.isRoot) setRootOrderIds(rootOrderIds.filter((id) => id !== dragMeta.nodeId));
     },
-    [
-      buildId,
-      rootOrderIds,
-      setRootOrderIds,
-      userId,
-    ]
+    [buildId, rootOrderIds, setRootOrderIds, userId]
   );
 
   const commitDrop = useCallback(

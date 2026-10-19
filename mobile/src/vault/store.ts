@@ -463,7 +463,11 @@ export class VaultStore {
             }
           }
         }
-        for (const entry of replication ? (Array.isArray(replication) ? replication : [replication]) : []) {
+        for (const entry of replication
+          ? Array.isArray(replication)
+            ? replication
+            : [replication]
+          : []) {
           this.sql.runSync(
             `INSERT INTO mutation_queue
                (idempotency_key, op, fn, args_json, client_id, created_at, status, touched_json)

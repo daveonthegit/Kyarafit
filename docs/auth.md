@@ -94,8 +94,11 @@ the link, sign-in returns an "email not verified" error and the UI shows a resen
 
 ### Email + password — mobile
 
-Identical to web, except `setStoredBearerToken` uses `expo-secure-store` (async) and the session
-atom is refreshed via `await authClient.getSession()` before navigating.
+The initial remote sign-in follows the web flow, except `setStoredBearerToken` uses
+`expo-secure-store` (async) and the session atom is refreshed via `await authClient.getSession()`
+before navigating. Afterward, mobile route access uses `useAppSession`, not the live session
+alone; local access and sign-out semantics follow
+[ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md).
 
 ### OAuth — web
 
@@ -207,7 +210,8 @@ user completes the reset in their browser. A native reset-password screen can be
 | ---------------------------------------------- | ------------------------------------------------------------------------- |
 | `mobile/src/lib/auth/client.ts`                | `authClient`, `useSession`, `setStoredBearerToken`                        |
 | `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores Bearer token in `expo-secure-store`, hydrates memory, and sends it |
-| `mobile/src/screens/AuthScreen.tsx`            | Auth screen (email + password + OAuth)                                    |
+| `mobile/app/(auth)/sign-in.tsx`                | Sign-in screen (email + password + OAuth)                                 |
+| `mobile/src/lib/auth/appSession.ts`            | Local-vault-aware route access                                            |
 | `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, deep-link OTT handler                         |
 
 ---

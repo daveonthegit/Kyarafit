@@ -58,21 +58,21 @@ change product requirements or certify quota consistency.
             └────────────────────────────────┘
 ```
 
-- **B1** Local-first data: UI → `useOfflineQuery`/`useOfflineMutation` → `LocalStore` → (paid) sync worker → Convex. **No direct Convex hooks** for local-first data (ESLint guard on both platforms).
+- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Paid replication is separate from the UI path. Web retains cloud-first offline wrappers; its conversion remains pending. ESLint guards cover selected core routes/components, not every personal-data call site.
 - **B2** Online-only data (social, groups, billing, public pages): UI → Convex hooks directly, wrapped in an online-guard/offline-banner component.
-- **B3** All business logic, validation, types, entitlement checks, sync/merge/queue logic, and ID rules live in `design-system/` and are imported everywhere. Platform packages contain only UI + platform adapters (storage, connectivity, image capture).
+- **B3** Platform-independent domain helpers belong in `design-system/`. Mobile vault handlers also implement local query/command behavior using a Convex-like reader/writer interface; they are not a shared server runtime. Platform adapters own storage, connectivity, and image capture.
 
 ---
 
 ## 3. Shared package (`design-system/`)
 
-| Area                    | Module(s)                                                                                                                                                                                        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Domain logic            | `domain/workflowDomain.ts`, `workflowProgress.ts`, `cosplay*`, planner overlays                                                                                                                  |
-| Entitlements            | `domain/entitlements.ts`, `subscriptionTierPolicy.ts`, `subscriptionPlans.ts`                                                                                                                    |
-| Sync (pure)             | `domain/offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, `offlineEntityOverlay.ts`, planner/build-tree overlays                                                              |
-| Implemented foundations | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared `LocalStore` interface, shared validators |
-| Tokens                  | `design_tokens.json`, `rn_tokens.ts`, Tailwind config                                                                                                                                            |
+| Area                    | Module(s)                                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain logic            | `domain/workflowDomain.ts`, `workflowProgress.ts`, `cosplay*`, planner overlays                                                                                   |
+| Entitlements            | `domain/entitlements.ts`, `subscriptionTierPolicy.ts`, `subscriptionPlans.ts`                                                                                     |
+| Sync (pure)             | `domain/offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, `offlineEntityOverlay.ts`, planner/build-tree overlays                               |
+| Implemented foundations | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared validators |
+| Tokens                  | `design_tokens.json`, `rn_tokens.ts`, Tailwind config                                                                                                             |
 
 - **A1** `design-system/domain/*` must be **pure** (no React, no platform imports) so it runs in web vitest, mobile, and Convex.
 - **A2** Validation schemas are shared and used by both client (form validation) and Convex (arg validation) — single definition.
@@ -88,7 +88,8 @@ change product requirements or certify quota consistency.
 | Image capture | camera / picker (`expo-*`)        | `<input type=file>`                   |
 | Secure token  | `expo-secure-store`               | `localStorage`                        |
 
-Both expose the **same interface** consumed by shared sync logic. Web engine selection lives in
+Mobile's authoritative `VaultStore` is distinct from web's `LocalStore` interface; the platforms
+currently have separate sync workers. Web engine selection lives in
 `web/src/lib/offline/engineSelection.ts`; Dexie is not the current fallback.
 
 ---
@@ -121,7 +122,8 @@ web/src/
   lib/                  # web adapters + offline bridge + tests
 mobile/
   app/                  # Expo Router screens
-  src/offline/          # mobile offline bridge (LocalStore, sync worker)
+  src/offline/          # per-account SQLite lifecycle, compatibility hooks, sync worker
+  src/vault/            # authoritative local store, handlers, transactions, reactive reads
   src/ui/               # mobile primitives
 docs/                   # consolidated docs (this set)
 ```
@@ -133,7 +135,7 @@ docs/                   # consolidated docs (this set)
 
 ## 7. State management
 
-- **S1** Server/local-first data state comes from `useOfflineQuery` (reactive over `LocalStore` + Convex). No duplicate global cache.
+- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web retains its existing offline wrapper. No duplicate global personal-data cache.
 - **S2** Ephemeral UI state is local component state / lightweight context. Avoid a global store for data that the offline bridge already owns.
 
 ---
