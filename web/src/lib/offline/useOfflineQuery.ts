@@ -49,16 +49,23 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
     return offlineQueryKey(fnName, args[0]);
   }, [fnName, args[0]]);
 
+  const vaultSubject = useSyncExternalStore(
+    offlineRuntime.subscribe,
+    () => offlineRuntime.getSubject(),
+    () => null
+  );
+
   // Persist each live result so the same query+args can paint offline next time.
   useEffect(() => {
     if (
       key != null &&
       live !== undefined &&
-      offlineRuntime.getSubject() === readLocalAccount()
+      vaultSubject !== null &&
+      vaultSubject === readLocalAccount()
     ) {
       offlineRuntime.writeQueryCache(key, live);
     }
-  }, [key, live]);
+  }, [key, live, vaultSubject]);
 
   // Re-read pending overlays whenever an offline write (or a drain that clears one) bumps the runtime.
   const version = useSyncExternalStore(

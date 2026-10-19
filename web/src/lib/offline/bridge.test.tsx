@@ -34,12 +34,12 @@ vi.mock("convex/react", () => ({
 import { api } from "convex/_generated/api";
 import { useOfflineMutation } from "./useOfflineMutation";
 import { useBuildsList } from "@/lib/builds/useBuildsList";
-import { offlineRuntime } from "./runtime";
+import { OfflineRuntime, offlineRuntime } from "./runtime";
 import { InMemoryLocalStore } from "./localStore";
 import { setOfflineConnectivity } from "./connectivity";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import { createRestoreSession, undoRestoreSession } from "../restoreSession";
-import { RestoreInProgressError } from "./restoreState";
+import { RESTORE_SESSION_KEY, RestoreInProgressError } from "./restoreState";
 import { setStoredLocale } from "../i18n/locale";
 
 beforeEach(() => {
@@ -54,9 +54,44 @@ beforeEach(() => {
 afterEach(() => {
   setOfflineConnectivity(true);
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("offline bridge (REQ-D51 / REQ-D52)", () => {
+  it("refuses writes from a stale tab using the shared durable restore session", async () => {
+    vi.stubGlobal("BroadcastChannel", undefined);
+    const shared = new InMemoryLocalStore();
+    const tabA = new OfflineRuntime();
+    tabA.setStore(shared, "u1");
+    offlineRuntime.setStore(shared, "u1");
+    await offlineRuntime.hydrate();
+    await tabA.setMeta(RESTORE_SESSION_KEY, JSON.stringify({ id: "tab-a-session", created: [] }));
+    expect(offlineRuntime.getRestoreInProgress()).toBe(false);
+    const { result } = renderHook(() => ({
+      create: useOfflineMutation(api.builds.create),
+      edit: useOfflineMutation(api.builds.update),
+    }));
+    setOfflineConnectivity(true);
+    await expect(result.current.create({ userId: "u1", name: "Online", status: "idea" }))
+      .rejects.toBeInstanceOf(RestoreInProgressError);
+    setOfflineConnectivity(false);
+    await expect(result.current.create({ userId: "u1", name: "Offline", status: "idea" }))
+      .rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(result.current.edit({ id: "restored-task" as never, name: "Edit" }))
+      .rejects.toBeInstanceOf(RestoreInProgressError);
+    expect(client.mutation).not.toHaveBeenCalled();
+    expect(await shared.listPendingMutations()).toEqual([]);
+    await undoRestoreSession({ subject: "u1", deleteRow: async () => {} });
+    await act(async () => {
+      await result.current.create({ userId: "u1", name: "Allowed offline", status: "idea" });
+    });
+    expect(await shared.listPendingMutations()).toHaveLength(1);
+    setOfflineConnectivity(true);
+    await result.current.create({ userId: "u1", name: "Allowed online", status: "idea" });
+    expect(client.mutation).toHaveBeenCalledTimes(1);
+    tabA.lock();
+  });
+
   it.each([true, false])(
     "refuses create, edit, and delete during an incomplete restore, including after reopen (online=%s)",
     async (online) => {

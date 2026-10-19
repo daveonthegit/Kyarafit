@@ -64,7 +64,8 @@ async function save(subject: string, record: RestoreSessionRecord | null): Promi
 
 export interface RestoreSession {
   readonly id: string;
-  /** Durably record a row this restore created. The first record opens the session. */
+  start(): Promise<void>;
+  /** Durably record a row this restore created. */
   record(collection: PortableCollectionKey, id: string): Promise<void>;
   /** Mark the restore finished: its rows are kept and the session is cleared. */
   complete(): Promise<void>;
@@ -74,6 +75,9 @@ export function createRestoreSession(subject: string): RestoreSession {
   const record: RestoreSessionRecord = { id: newIdempotencyKey(), created: [] };
   return {
     id: record.id,
+    async start() {
+      await save(subject, record);
+    },
     async record(collection, id) {
       if (record.created.some((entry) => entry.collection === collection && entry.id === id))
         return;

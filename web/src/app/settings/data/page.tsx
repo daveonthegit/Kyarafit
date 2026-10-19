@@ -382,6 +382,7 @@ export default function SettingsDataPage() {
           throw new NonEmptyVaultError();
         }
         const session = createRestoreSession(userId);
+        await session.start();
         const assertCurrent = offlineRuntime.sessionGuard();
         const summary = await runImport({
           imported,

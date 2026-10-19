@@ -165,7 +165,10 @@ describe("Settings data export/import page", () => {
 
   it("restores element parents, build membership, and task attachments through the page", async () => {
     setOfflineConnectivity(true);
-    client.mutation.mockImplementation(async (_fn, args) => {
+    client.mutation.mockImplementation(async (fn, args) => {
+      if (getFunctionName(fn as never) === "builds:create") {
+        expect((await readRestoreSession("user-free-1"))?.created).toEqual([]);
+      }
       const row = args as { name?: string; title?: string };
       return { _id: `restored:${row.name ?? row.title ?? "link"}` };
     });

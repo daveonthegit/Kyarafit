@@ -17,6 +17,13 @@ import type {
   StoredQueryCache,
 } from "./localStore";
 
+import {
+  RESTORE_SESSION_KEY,
+  RestoreInProgressError,
+  isPersonalTable,
+  type EntityWriteOptions,
+} from "./restoreState";
+
 const DB_NAME = "kyarafit-offline";
 const DB_VERSION = 1;
 
@@ -87,9 +94,25 @@ export class IndexedDbLocalStore implements LocalStore {
     await db.put(QUERY_CACHE, { key, payload_json: payloadJson, fetched_at: Date.now() });
   }
 
-  async putEntityRow(row: StoredEntityRow): Promise<void> {
+  async putEntityRow(row: StoredEntityRow, options?: EntityWriteOptions): Promise<void> {
     const db = await this.db();
-    await db.put(ENTITY_ROWS, { ...row });
+    const tx = db.transaction([ENTITY_ROWS, SYNC_META], "readwrite");
+    try {
+      if (!options?.restore && isPersonalTable(row.table)) {
+        const session = await tx.objectStore(SYNC_META).get(RESTORE_SESSION_KEY);
+        if (session?.value) throw new RestoreInProgressError();
+      }
+      await tx.objectStore(ENTITY_ROWS).put({ ...row });
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch (abortError) {
+        void abortError;
+      }
+      await tx.done.catch(() => undefined);
+      throw error;
+    }
   }
 
   async deleteEntityRow(table: string, id: string): Promise<void> {
@@ -108,8 +131,10 @@ export class IndexedDbLocalStore implements LocalStore {
 
   async commitCommand(input: EnqueueMutationInput, rows: StoredEntityRow[]): Promise<void> {
     const db = await this.db();
-    const tx = db.transaction([MUTATION_QUEUE, ENTITY_ROWS], "readwrite");
+    const tx = db.transaction([MUTATION_QUEUE, ENTITY_ROWS, SYNC_META], "readwrite");
     try {
+      const session = await tx.objectStore(SYNC_META).get(RESTORE_SESSION_KEY);
+      if (session?.value) throw new RestoreInProgressError();
       const queue = tx.objectStore(MUTATION_QUEUE);
       const existing = await queue.index("idempotency_key").getKey(input.idempotencyKey);
       if (existing === undefined) {

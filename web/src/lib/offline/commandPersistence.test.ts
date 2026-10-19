@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { InMemoryLocalStore, type StoredEntityRow } from "./localStore";
 import { WaSqliteLocalStore } from "./waSqliteStore";
+import { RESTORE_SESSION_KEY, RestoreInProgressError } from "./restoreState";
 
 const input = {
   fn: "builds:create",
@@ -19,6 +20,21 @@ const row: StoredEntityRow = {
 };
 
 describe("in-memory command persistence", () => {
+  it("refuses queued and overlay writes from durable session state, but allows restore writes", async () => {
+    const store = new InMemoryLocalStore();
+    await store.setMeta(RESTORE_SESSION_KEY, "session");
+    await expect(store.enqueueMutation(input)).rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(store.commitCommand(input, [row])).rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(store.putEntityRow(row)).rejects.toBeInstanceOf(RestoreInProgressError);
+    expect(await store.listPendingMutations()).toEqual([]);
+    expect(await store.listEntityRows()).toEqual([]);
+    await store.putEntityRow(row, { restore: true });
+    expect(await store.listEntityRows()).toEqual([row]);
+    await store.setMeta(RESTORE_SESSION_KEY, "");
+    await store.commitCommand(input, [row]);
+    expect(await store.listPendingMutations()).toHaveLength(1);
+  });
+
   it("stages all rows before committing queue intent", async () => {
     const store = new InMemoryLocalStore();
     const invalid = {
@@ -41,6 +57,21 @@ describe("in-memory command persistence", () => {
 });
 
 describe("OPFS command transaction protocol", () => {
+  it("checks persisted session state within the write transaction", async () => {
+    const store = new WaSqliteLocalStore();
+    const run = vi.fn(async (_db: number, _sql: string, _params?: unknown[]) => 0);
+    const read = vi.fn(async () => ({ rows: [["session"]], columns: ["value"] }));
+    Object.assign(store, { db: 1, sqlite3: { run, execWithParams: read } });
+    await expect(store.enqueueMutation(input)).rejects.toBeInstanceOf(RestoreInProgressError);
+    await expect(store.putEntityRow(row)).rejects.toBeInstanceOf(RestoreInProgressError);
+    expect(run.mock.calls.map((call) => call[1])).toEqual([
+      "BEGIN IMMEDIATE", "ROLLBACK", "BEGIN IMMEDIATE", "ROLLBACK",
+    ]);
+    run.mockClear();
+    await store.putEntityRow(row, { restore: true });
+    expect(run).toHaveBeenCalledTimes(3);
+  });
+
   it("rolls back an overlay failure and serializes a concurrent command until rollback", async () => {
     const store = new WaSqliteLocalStore();
     let release!: () => void;

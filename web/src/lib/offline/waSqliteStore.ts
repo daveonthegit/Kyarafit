@@ -25,6 +25,13 @@ import type {
   StoredQueryCache,
 } from "./localStore";
 
+import {
+  RESTORE_SESSION_KEY,
+  RestoreInProgressError,
+  isPersonalTable,
+  type EntityWriteOptions,
+} from "./restoreState";
+
 /** OPFS directory that holds the SQLite database + journal files for the AccessHandle pool. */
 const OPFS_DIRECTORY = "/kyarafit-offline";
 /** SQLite database filename within the pool. */
@@ -273,8 +280,28 @@ export class WaSqliteLocalStore implements LocalStore {
 
   // --- entity rows (overlays + synced base) ---
 
-  async putEntityRow(row: StoredEntityRow): Promise<void> {
-    await this.exec(UPSERT_ENTITY_ROW, entityRowToValues(row));
+  async putEntityRow(row: StoredEntityRow, options?: EntityWriteOptions): Promise<void> {
+    await this.exclusive(async () => {
+      const run = (sql: string, params?: SqlValue[]) => this.api().run(this.db, sql, params);
+      await run("BEGIN IMMEDIATE");
+      try {
+        if (!options?.restore && isPersonalTable(row.table)) await this.checkRestoreState();
+        await run(UPSERT_ENTITY_ROW, entityRowToValues(row));
+        await run("COMMIT");
+      } catch (error) {
+        await run("ROLLBACK");
+        throw error;
+      }
+    });
+  }
+
+  private async checkRestoreState(): Promise<void> {
+    const session = await this.api().execWithParams(
+      this.db,
+      `SELECT value FROM ${TABLES.syncMeta} WHERE key = ?`,
+      [RESTORE_SESSION_KEY]
+    );
+    if (session.rows[0]?.[0]) throw new RestoreInProgressError();
   }
 
   async deleteEntityRow(table: string, id: string): Promise<void> {
@@ -302,6 +329,7 @@ export class WaSqliteLocalStore implements LocalStore {
       const run = (sql: string, params?: SqlValue[]) => this.api().run(this.db, sql, params);
       await run("BEGIN IMMEDIATE");
       try {
+        await this.checkRestoreState();
         const existing = await this.api().execWithParams(
           this.db,
           `SELECT id FROM ${TABLES.mutationQueue} WHERE idempotency_key = ?`,

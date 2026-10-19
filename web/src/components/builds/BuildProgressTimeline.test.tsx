@@ -1,7 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildProgressTimeline } from "./BuildProgressTimeline";
+import { offlineRuntime } from "@/lib/offline/runtime";
+import { InMemoryLocalStore } from "@/lib/offline/localStore";
+import { rememberLocalAccount } from "@/lib/auth/localAccount";
+import { setOfflineConnectivity } from "@/lib/offline/connectivity";
 
 interface TestUpdate {
   id: string;
@@ -59,6 +63,14 @@ describe("BuildProgressTimeline", () => {
     vi.clearAllMocks();
     state.updates = [];
     state.tier = "free";
+    rememberLocalAccount("user_1");
+    offlineRuntime.setStore(new InMemoryLocalStore(), "user_1");
+    setOfflineConnectivity(true);
+  });
+
+  afterEach(() => {
+    offlineRuntime.lock();
+    rememberLocalAccount(null);
   });
 
   it("should_show_empty_state_when_build_has_no_progress_updates", () => {

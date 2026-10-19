@@ -29,7 +29,7 @@ function createDefaultStore(): LocalStore {
   return new InMemoryLocalStore();
 }
 
-class OfflineRuntime {
+export class OfflineRuntime {
   private store: LocalStore = createDefaultStore();
   private version = 0;
   private generation = 0;
@@ -37,6 +37,7 @@ class OfflineRuntime {
   private commands: Promise<unknown> = Promise.resolve();
   private restoreInProgress = false;
   private restoreReady: Promise<void> = Promise.resolve();
+  private restoreChannel: BroadcastChannel | null = null;
 
   getRestoreInProgress(): boolean {
     return this.restoreInProgress;
@@ -45,6 +46,13 @@ class OfflineRuntime {
   async assertPersonalWritesAllowed(): Promise<void> {
     const check = this.sessionGuard();
     await this.restoreReady;
+    check();
+    try {
+      await this.loadRestoreState();
+    } catch (error) {
+      reportWriteError(error);
+      throw error;
+    }
     check();
     if (!this.subject || this.restoreInProgress) {
       const error = new RestoreInProgressError();
@@ -87,6 +95,8 @@ class OfflineRuntime {
 
   /** Swap the durable engine (browser wires IndexedDB; tests inject an in-memory store). Resets mirror. */
   setStore(store: LocalStore, subject: string | null = null): void {
+    this.restoreChannel?.close();
+    this.restoreChannel = null;
     this.generation += 1;
     this.subject = subject;
     this.store = store;
@@ -96,6 +106,16 @@ class OfflineRuntime {
     this.restoreInProgress = subject !== null;
     this.restoreReady = subject ? this.loadRestoreState() : Promise.resolve();
     void this.restoreReady.catch(() => undefined);
+    if (subject && typeof window !== "undefined" && window.BroadcastChannel) {
+      try {
+        this.restoreChannel = new window.BroadcastChannel(`kyarafit-restore:${subject}`);
+        this.restoreChannel.onmessage = () => {
+          void this.loadRestoreState().catch(() => undefined);
+        };
+      } catch {
+        this.restoreChannel = null;
+      }
+    }
     this.bump();
   }
 
@@ -107,7 +127,7 @@ class OfflineRuntime {
     if (!this.subject || row.userId !== this.subject) throw new Error("Local account changed");
     const assertCurrent = this.sessionGuard();
     const store = this.store;
-    await this.persist(() => store.putEntityRow(row));
+    await this.persist(() => store.putEntityRow(row, { restore: true }));
     assertCurrent();
     this.table(row.table).set(row.id, row);
     this.bump();
@@ -403,6 +423,11 @@ class OfflineRuntime {
     check();
     if (key === RESTORE_SESSION_KEY) {
       this.restoreInProgress = Boolean(value);
+      try {
+        this.restoreChannel?.postMessage(Boolean(value));
+      } catch {
+        this.restoreChannel = null;
+      }
       this.bump();
     }
   }
