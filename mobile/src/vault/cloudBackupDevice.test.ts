@@ -166,7 +166,10 @@ describe("device cloud-original backup", () => {
     const first = await firstPending;
     expect(first.uri).toBe(firstUri);
 
-    for (const [backup, expectedPhoto] of [[first, PHOTO], [second, secondPhoto]] as const) {
+    for (const [backup, expectedPhoto] of [
+      [first, PHOTO],
+      [second, secondPhoto],
+    ] as const) {
       expect(backup.uri).toContain(`/backups/${vaultKeyForSubject("owner")}/`);
       expect(backup.uri).toMatch(/kyarafit-backup-2026-10-18T12-34-56.*\.kyarafit$/);
       expect(backup.summary).toMatchObject({ rows: 1, images: 1, missingImages: [] });
