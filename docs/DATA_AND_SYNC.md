@@ -187,7 +187,8 @@ outside the app through the iOS share sheet or Android folder picker; the app's 
 removed afterward. Backups contain private planner data and photos without encryption, so keep
 them in a trusted location.
 
-Restore picks a `.kyarafit` file with the system file picker. Photos are copied first, then rows
+Restore picks a `.kyarafit` file with the system file picker; the previous mobile JSON exports
+are not accepted by this restore flow. Photos are copied first, then rows
 merge in one SQLite transaction: missing rows are added; a strictly newer row `updatedAt` replaces
 the older copy (not a per-field merge); equal or older copies preserve destination edits. Records
 whose ids differ between devices are matched through `id_map`/`clientId` instead of duplicated,
@@ -198,7 +199,7 @@ and id maps are not exported as planner rows, and tombstones are not included.
 
 Unreadable export rows, unsupported import tables, unavailable or unwritable photos, and repaired
 hierarchy conflicts are reported as partial results rather than complete success. Invalid archive
-headers, unsupported versions, or damaged photo lengths reject the import before row changes;
+headers, newer archive versions, or damaged photo lengths reject the import before row changes;
 row-commit failures surface as errors. The versioned archive layout is defined in
 [`archive.ts`](../mobile/src/vault/archive.ts). Not yet implemented from the requirements below:
 CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware import.
