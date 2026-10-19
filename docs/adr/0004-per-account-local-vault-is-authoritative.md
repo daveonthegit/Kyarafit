@@ -31,11 +31,8 @@ maintenance could evict queued operations and id mappings.
 - **Photos are saved into the vault first** and stored as portable `kyarafit-image:<key>` tokens.
   Uploading is a paid-sync step, never a prerequisite for creating anything.
 
-- **Free whole-vault backup.** A `.kyarafit` archive holds every row plus original photo bytes,
-  including cloud-only originals downloaded when online (missing ones are listed, never hidden).
-  Restore is a transactional, idempotent merge: newer copies win, records whose ids differ between
-  devices (local id vs. cloud id) are matched rather than duplicated, and missing photos are
-  reported.
+- **Free whole-vault backup.** The current archive, merge rules, exclusions, and partial-result
+  reporting are owned by [Data & Sync §11](../DATA_AND_SYNC.md#11-export--import-free).
 
 ## Consequences
 

@@ -28,9 +28,10 @@ Authorization remediation remains in progress; this README is not a security or 
 
 Sign in online once, then keep planning on this device without a connection, even after the
 cloud session expires. Signing out locks your saved work; sign back into the same account to
-reopen it. To erase that account's local work and photos, use **Settings → Data → Remove from
-this device** and confirm. Do not remove device data expecting the current JSON export to be
-a full backup: see [export/import limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
+reopen it. Use **Settings → Backup & restore** to save or restore a free backup, or explicitly
+**Remove from this device** and confirm to erase that account's local work and photos.
+Before removing data, save the backup outside the app and check for partial-backup warnings;
+see the [backup contract and limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
 
 ## Stack and layout
 

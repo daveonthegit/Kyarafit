@@ -9,8 +9,8 @@ Product rules live in [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); code structure in
 The `REQ-D*` rules below describe the target contract, not completed rollout. Mobile personal
 reads and commands now use the per-account vault; its lifecycle and isolation decision is
 [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Web still uses cloud-first
-wrappers. Whole-vault backup/restore (including original photos), web isolation/write-failure
-hardening, and paid-sync correctness are separate follow-ups tracked in the
+wrappers. Mobile whole-vault backup/restore is implemented (§11); web isolation/write-failure
+hardening and paid-sync correctness remain separate follow-ups tracked in the
 [roadmap](ROADMAP.md#current-status).
 
 ---
@@ -182,11 +182,26 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 **Current mobile behavior:** Settings → Backup & restore writes the whole unlocked vault to one
 `.kyarafit` file: every live row plus the original bytes of every referenced photo, including
-cloud-only originals downloaded when online (unavailable ones are listed as missing). Restore picks
-a file with the system file picker and merges it in one transaction: rows the vault lacks are
-added, newer copies replace older ones, records whose ids differ between devices are matched
-through `id_map`/`clientId` instead of duplicated, re-importing is a no-op, and missing photos are
-reported. Not yet implemented from the requirements below: CSV, JSON-ZIP and PDF formats.
+cloud-only originals downloaded when online (unavailable ones are listed as missing). Save it
+outside the app through the iOS share sheet or Android folder picker; the app's temporary copy is
+removed afterward. Backups contain private planner data and photos without encryption, so keep
+them in a trusted location.
+
+Restore picks a `.kyarafit` file with the system file picker. Photos are copied first, then rows
+merge in one SQLite transaction: missing rows are added; a strictly newer row `updatedAt` replaces
+the older copy (not a per-field merge); equal or older copies preserve destination edits. Records
+whose ids differ between devices are matched through `id_map`/`clientId` instead of duplicated,
+and references are rewritten. Re-importing is idempotent. Source-account ownership is reassigned
+to the unlocked destination account. Device-local `vaultSettings` (including focused build) are
+not restored or counted as omissions; destination preferences remain unchanged. Replication queues
+and id maps are not exported as planner rows, and tombstones are not included.
+
+Unreadable export rows, unsupported import tables, unavailable or unwritable photos, and repaired
+hierarchy conflicts are reported as partial results rather than complete success. Invalid archive
+headers, unsupported versions, or damaged photo lengths reject the import before row changes;
+row-commit failures surface as errors. The versioned archive layout is defined in
+[`archive.ts`](../mobile/src/vault/archive.ts). Not yet implemented from the requirements below:
+CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware import.
 
 - **REQ-D100** CSV (one per entity), JSON-ZIP (`data.json` + `/images/<imageKey>.<ext>`, relative refs, via `fflate`), and PDF export are all free.
 - **REQ-D101** Import parses zip/json, rehydrates images into the local store, remaps ids via `id_map`, merges per-field LWW (REQ-D65), respects tombstones, and is **idempotent** on re-import (no duplicates).

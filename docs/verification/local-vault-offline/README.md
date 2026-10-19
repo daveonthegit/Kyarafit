@@ -33,12 +33,12 @@ with every server URL overridden to an unreachable `.invalid` host and no sessio
 The source planner contained 1 build with hero and reference photos, 1 linked element,
 2 tasks, and 1 convention with 8 day plans and 1 checked packing item (20 items · 3 photos).
 
-| Step                                                                            | Result                                                                                                  | Screenshot                         |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Step                                                                              | Result                                                                                                       | Screenshot                         |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
 | Settings → Backup & restore → Save backup → share sheet → Save to Files           | 8,960,351-byte `.kyarafit` archive: valid header, 20 rows, 3 images, 0 missing                               | `s11-backup-share-sheet.jpg`       |
 | Activate a different account's fresh, empty vault → Choose backup → pick the file | 0 items · 0 photos becomes 20 items · 3 photos; “Backup restored: 20 added, 0 updated, 0 already up to date” | `s12-restore-into-fresh-vault.jpg` |
-| Open the restored build                                                         | Hero and reference photos displayed; 1 / 2 tasks · 58%; 0 / 1 linked elements complete                     | `s13-restored-build.jpg`           |
-| Open restored convention packing                                                | Studio Con: 1 / 1 PACKED, BUILDS · 1                                                                      | `s14-restored-packing.jpg`         |
+| Open the restored build                                                           | Hero and reference photos displayed; 1 / 2 tasks · 58%; 0 / 1 linked elements complete                       | `s13-restored-build.jpg`           |
+| Open restored convention packing                                                  | Studio Con: 1 / 1 PACKED, BUILDS · 1                                                                         | `s14-restored-packing.jpg`         |
 
 The three photo files in the destination account's vault directory were byte-identical to
 those in the source vault. Screenshots contain only simulator sample photos and a fake account.

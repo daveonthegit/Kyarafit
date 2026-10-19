@@ -99,8 +99,11 @@ export default function SettingsDataScreen() {
         lines.push(t("settings.dataExportOmittedRows", { count: summary.rowsOmitted }));
       }
       Alert.alert(
-        t(summary.rowsOmitted > 0 || summary.missingImages.length > 0
-          ? "settings.dataExportPartialTitle" : "settings.dataExportSuccessTitle"),
+        t(
+          summary.rowsOmitted > 0 || summary.missingImages.length > 0
+            ? "settings.dataExportPartialTitle"
+            : "settings.dataExportSuccessTitle"
+        ),
         lines.join("\n\n")
       );
     } catch (error) {
