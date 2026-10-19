@@ -18,7 +18,7 @@ maintenance could evict queued operations and id mappings.
   tasks, conventions, day plans, packing and photo references — for free and paid users, online or
   offline. Screens read and write it through local handlers keyed by the existing Convex function
   names (`mobile/src/vault/handlers`); the UI never calls Convex for personal data.
-- **Sign-out locks; it does not delete.** Only "Remove from this device" (Settings → Data) or
+- **Sign-out locks; it does not delete.** Only "Remove from this device" (Settings → Backup & restore) or
   account deletion deletes a vault, after explicit confirmation.
 - **Durable offline sign-in.** After the first online sign-in the persisted account record unlocks
   its vault at launch with no network. A missing, slow or expired remote session never blocks local
@@ -31,6 +31,9 @@ maintenance could evict queued operations and id mappings.
 - **Photos are saved into the vault first** and stored as portable `kyarafit-image:<key>` tokens.
   Uploading is a paid-sync step, never a prerequisite for creating anything.
 
+- **Free whole-vault backup.** The current archive, merge rules, exclusions, and partial-result
+  reporting are owned by [Data & Sync §11](../DATA_AND_SYNC.md#11-export--import-free).
+
 ## Consequences
 
 - Free users make no personal-data Convex calls; online-only surfaces (social, groups,
@@ -40,9 +43,8 @@ maintenance could evict queued operations and id mappings.
 - The existing Convex replication path (queue drain, warm-up pull, upgrade backfill) is retained
   but not extended. Its correctness gaps (cursor pagination, tombstones, conflict policy) and the
   paid sync provider choice (Convex vs. PowerSync) are the next decision, not settled here.
-- Delivered in follow-up pull requests, per the owner's split decision: a free whole-vault backup
-  and restore that includes original photos (stacked on this change), and web account isolation
-  plus visible write failures (independent). Converting web's cloud-first reads/writes and removing
+- Web account isolation plus visible write failures are delivered in a separate pull request, per
+  the owner's split decision. Converting web's cloud-first reads/writes and removing
   personal-data Convex calls for free web users is deferred beyond those.
 - The paid-sync replay protocol (server-side reconciliation of every row a queued command creates,
   so replays never duplicate rows or leave unmapped local ids) is set aside for the paid-sync step.

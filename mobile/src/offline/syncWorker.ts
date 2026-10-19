@@ -9,6 +9,7 @@ import {
   planCloudMirror,
 } from "@kyarafit/design-system/domain/imageUpload";
 import { getIsOnline } from "./connectivity";
+import { getOfflineDb } from "./db";
 import { syncScope } from "./syncIdentity";
 import { isIdempotentMutation } from "./idempotentMutations";
 import { loadIdMap, setServerId } from "./idMap";
@@ -251,11 +252,32 @@ export async function warmEntityRows(client: ConvexReactClient): Promise<void> {
       scope.assertCurrent();
       if (!res) break;
 
+      for (const table of WARMUP_TABLES) {
+        for (const doc of res[table] ?? []) {
+          if (typeof doc.clientId !== "string") continue;
+          const existing = getOfflineDb().getFirstSync<{ id: string }>(
+            "SELECT id FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0",
+            [table, doc.clientId]
+          );
+          if (existing) {
+            setServerId(existing.id, doc._id);
+            toLocal[doc._id] = existing.id;
+          }
+        }
+      }
       let maxPageLen = 0;
       for (const table of WARMUP_TABLES) {
         const docs = res[table] ?? [];
         for (const doc of docs) {
           const local = rewriteIdsDeep(doc, toLocal);
+          for (const field of ["entityKey", "dedupeKey"] as const) {
+            if (typeof doc[field] === "string") {
+              local[field] = doc[field]
+                .split(":")
+                .map((part) => toLocal[part] ?? part)
+                .join(":");
+            }
+          }
           upsertSyncedEntityRow(table, local._id, String(doc.userId ?? ""), local);
         }
         if (docs.length > maxPageLen) maxPageLen = docs.length;
@@ -436,7 +458,11 @@ function defaultBackfillDeps(
       scope.assertCurrent();
       return listPendingEntityRows(table)
         .filter((row) => !row.deleted && row.doc)
-        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id }));
+        .map((row) => ({
+          ...(row.doc as Record<string, unknown>),
+          _id: row.id,
+          clientId: typeof row.doc?.clientId === "string" ? row.doc.clientId : row.id,
+        }));
     },
     pushChunk: async (table, rows) => {
       scope.assertCurrent();
@@ -448,8 +474,10 @@ function defaultBackfillDeps(
       // instead of duplicating it, and mark the local row acknowledged.
       scope.assertCurrent();
       for (const { clientId, id } of result.ids ?? []) {
-        setServerId(clientId, id);
-        markEntityRowSynced(table, clientId);
+        const row = rows.find((candidate) => candidate.clientId === clientId);
+        if (typeof row?._id !== "string") continue;
+        setServerId(row._id, id);
+        markEntityRowSynced(table, row._id);
       }
       return result;
     },
