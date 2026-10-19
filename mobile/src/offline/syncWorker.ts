@@ -458,7 +458,11 @@ function defaultBackfillDeps(
       scope.assertCurrent();
       return listPendingEntityRows(table)
         .filter((row) => !row.deleted && row.doc)
-        .map((row) => ({ ...(row.doc as Record<string, unknown>), clientId: row.id }));
+        .map((row) => ({
+          ...(row.doc as Record<string, unknown>),
+          _id: row.id,
+          clientId: typeof row.doc?.clientId === "string" ? row.doc.clientId : row.id,
+        }));
     },
     pushChunk: async (table, rows) => {
       scope.assertCurrent();
@@ -470,8 +474,10 @@ function defaultBackfillDeps(
       // instead of duplicating it, and mark the local row acknowledged.
       scope.assertCurrent();
       for (const { clientId, id } of result.ids ?? []) {
-        setServerId(clientId, id);
-        markEntityRowSynced(table, clientId);
+        const row = rows.find((candidate) => candidate.clientId === clientId);
+        if (typeof row?._id !== "string") continue;
+        setServerId(row._id, id);
+        markEntityRowSynced(table, row._id);
       }
       return result;
     },
