@@ -55,7 +55,7 @@ export default function SettingsIndexScreen() {
   const [languageBusy, setLanguageBusy] = useState<string | null>(null);
   const canUseCloudSync = shouldRunSyncWorker(tier?.tier ?? null, Boolean(userId));
   // Unknown/free tiers receive the conservative export warning, never an assurance of cloud backup.
-  const warnBeforeSignOut = !isPaidTier(normalizeTier(tier?.tier));
+  const warnBeforeSignOut = tierLoading || !isPaidTier(normalizeTier(tier?.tier));
 
   const handleSignOut = useCallback(async () => {
     if (signOutInFlight.current) return;
@@ -245,7 +245,7 @@ export default function SettingsIndexScreen() {
             <SettingsGlassSection>
               <SignOutAction
                 label={t("common.signOut")}
-                disabled={signingOut || tierLoading}
+                disabled={signingOut}
                 onPress={() => setSignOutOpen(true)}
               />
             </SettingsGlassSection>

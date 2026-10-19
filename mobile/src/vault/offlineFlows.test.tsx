@@ -160,6 +160,7 @@ describe("free user, offline: personal data never touches Convex", () => {
       ),
     } as unknown as ConvexReactClient;
     const warming = warmEntityRows(client);
+    await vi.waitFor(() => expect(client.query).toHaveBeenCalledTimes(1));
     await unlockVault(ACCOUNT_B);
     resolve({
       cursor: 10,
@@ -185,6 +186,7 @@ describe("free user, offline: personal data never touches Convex", () => {
       ),
     } as unknown as ConvexReactClient;
     const draining = drainMutationQueue(client);
+    await vi.waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(1));
     await unlockVault(ACCOUNT_B);
     setReplicationEnabled(true);
     runLocalMutation("builds:create", { name: "B", status: "idea" });

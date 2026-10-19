@@ -207,12 +207,20 @@ describe("settings confirmation and controls", () => {
     ).toBeTruthy();
   });
 
-  it("disables sign-out until plan state is known", () => {
+  it.each(["FREE", "PRO"])("allows sign-out while offline plan information is unavailable (%s)", async (tier) => {
+    state.tier = tier;
     state.tierLoading = true;
+    state.connected = false;
     render(<Settings />);
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.queryByTestId("modal")).toBeNull();
+    const dialog = openSignOut();
+    expect(
+      within(dialog).getByText(/locked until you sign in again with this account/)
+    ).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Export data" })).toBeTruthy();
     expect(state.signOut).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(state.signOut).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
   });
 
   it("retains confirmation after sign-out fails and allows retry", async () => {
