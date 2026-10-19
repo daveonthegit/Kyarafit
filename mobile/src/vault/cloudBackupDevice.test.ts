@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestVault } from "@/test-support/vaultHarness";
 import { __setActiveVaultForTests, activeVaultImageDir } from "./activeVault";
 import { setOfflineConnectivity } from "@/offline/connectivity";
-import { writeVaultBackup, pickAndImportVaultBackup } from "./portabilityDevice";
+import {
+  writeVaultBackup,
+  pickAndImportVaultBackup,
+  discardVaultBackup,
+} from "./portabilityDevice";
+import { vaultKeyForSubject } from "@/offline/db";
 import { readVaultArchiveImages, readVaultArchiveManifest, writeVaultArchive } from "./archive";
 
 const fs = vi.hoisted(() => ({
@@ -42,6 +47,7 @@ vi.mock("expo-file-system", () => {
       return fs.files.get(this.uri)?.length ?? 0;
     }
     create() {
+      if (this.exists) throw new Error("Destination exists");
       fs.files.set(this.uri, new Uint8Array());
     }
     delete() {
@@ -134,6 +140,59 @@ describe("device cloud-original backup", () => {
     expect(originals).toEqual([PHOTO]);
     expect(manifest.rows[0].doc.imageStorageId).toBeUndefined();
     expect(manifest.rows[0].doc.imageUrl).toBe(`kyarafit-image:${manifest.images[0].key}`);
+  });
+
+  it("isolates overlapping exports and discards only the owning invocation's file", async () => {
+    let finishFirst!: (response: Response) => void;
+    const secondPhoto = Uint8Array.from([5, 6, 7]);
+    const fetch = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((done) => {
+            finishFirst = done;
+          })
+      )
+      .mockResolvedValueOnce(new Response(secondPhoto));
+    vi.stubGlobal("fetch", fetch);
+    const now = new Date("2026-10-18T12:34:56.000Z");
+    const resolve = async () => "https://example.com/original";
+    const firstPending = writeVaultBackup(resolve, now);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const firstUri = [...fs.files.keys()][0];
+    const second = await writeVaultBackup(resolve, now);
+    expect(second.uri).not.toBe(firstUri);
+    finishFirst(new Response(PHOTO));
+    const first = await firstPending;
+    expect(first.uri).toBe(firstUri);
+
+    for (const [backup, expectedPhoto] of [[first, PHOTO], [second, secondPhoto]] as const) {
+      expect(backup.uri).toContain(`/backups/${vaultKeyForSubject("owner")}/`);
+      expect(backup.uri).toMatch(/kyarafit-backup-2026-10-18T12-34-56.*\.kyarafit$/);
+      expect(backup.summary).toMatchObject({ rows: 1, images: 1, missingImages: [] });
+      const bytes = fs.files.get(backup.uri)!;
+      let offset = 0;
+      const reader = {
+        read: (length: number) => {
+          const chunk = bytes.subarray(offset, offset + length);
+          offset += length;
+          return chunk;
+        },
+      };
+      const manifest = readVaultArchiveManifest(reader);
+      const originals: Uint8Array[] = [];
+      readVaultArchiveImages(reader, manifest, (_key, image) => originals.push(image));
+      expect(manifest.rows).toHaveLength(1);
+      expect(originals).toEqual([expectedPhoto]);
+      expect(offset).toBe(bytes.length);
+    }
+
+    const secondBytes = fs.files.get(second.uri)!.slice();
+    discardVaultBackup(first.uri);
+    expect(fs.files.has(first.uri)).toBe(false);
+    expect(fs.files.get(second.uri)).toEqual(secondBytes);
+    discardVaultBackup(second.uri);
+    expect(fs.files.size).toBe(0);
   });
 
   it.each(["success", "disk-full", "move-failed"])(

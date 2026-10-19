@@ -1,5 +1,6 @@
 import { Platform, Share } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
+import { randomUUID } from "expo-crypto";
 import { VAULT_ARCHIVE_EXTENSION, type ExportSummary } from "./archive";
 import { activeVaultImageDir, requireActiveVault } from "./activeVault";
 import {
@@ -61,9 +62,9 @@ function vaultPhotoFiles(): VaultPhotoFiles {
   };
 }
 
-function backupFileName(now: Date): string {
-  const stamp = now.toISOString().slice(0, 10);
-  return `kyarafit-backup-${stamp}${VAULT_ARCHIVE_EXTENSION}`;
+function backupFileName(now: Date, account: string): string {
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  return `kyarafit-backup-${stamp}-${account}-${randomUUID()}${VAULT_ARCHIVE_EXTENSION}`;
 }
 
 export interface WrittenBackup {
@@ -81,10 +82,10 @@ export async function writeVaultBackup(
     requireActiveVault(store);
   };
   const photos = vaultPhotoFiles();
-  const dir = new Directory(Paths.cache, "backups", vaultKeyForSubject(store.subject));
+  const account = vaultKeyForSubject(store.subject);
+  const dir = new Directory(Paths.cache, "backups", account);
   if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
-  const file = new File(dir, backupFileName(now));
-  if (file.exists) file.delete();
+  const file = new File(dir, backupFileName(now, account));
   file.create();
   const handle = file.open();
   let summary: ExportSummary;
