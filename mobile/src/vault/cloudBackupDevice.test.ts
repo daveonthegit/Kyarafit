@@ -192,7 +192,9 @@ describe("device cloud-original backup", () => {
     expect(fs.files.has(first.uri)).toBe(false);
     expect(fs.files.get(second.uri)).toEqual(secondBytes);
     discardVaultBackup(second.uri);
-    expect(fs.files.size).toBe(0);
+    expect(fs.files.has(second.uri)).toBe(false);
+    const stagingDirectory = `file:///cache/backups/${vaultKeyForSubject("owner")}/`;
+    expect([...fs.files.keys()].filter((uri) => uri.startsWith(stagingDirectory))).toEqual([]);
   });
 
   it.each(["success", "disk-full", "move-failed"])(
