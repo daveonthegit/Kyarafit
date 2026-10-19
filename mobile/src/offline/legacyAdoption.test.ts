@@ -5,7 +5,8 @@ import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
 import { VaultStore } from "@/vault/store";
 import { vaultImageCodec, vaultImageDir } from "@/vault/images";
 import { migrateVaultSchema } from "./vaultSchema";
-import { closeVaultDatabase, openVaultDatabase, vaultKeyForSubject } from "./db";
+import { closeVaultDatabase, getOfflineDb, openVaultDatabase, vaultKeyForSubject } from "./db";
+import { getActiveVault, getVaultState, lockVault, unlockVault } from "@/vault/activeVault";
 
 const fixture = vi.hoisted(() => ({ directory: "", failCopy: false }));
 vi.mock("expo-file-system/legacy", () => ({
@@ -67,7 +68,8 @@ beforeEach(() => {
   );
   legacy.closeSync();
 });
-afterEach(() => {
+afterEach(async () => {
+  await lockVault();
   closeVaultDatabase();
   rmSync(fixture.directory, { recursive: true, force: true });
 });
@@ -103,29 +105,39 @@ describe("legacy photo adoption", () => {
     expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(false);
   });
 
-  it("skips incomplete overlays and visibly preserves the legacy database", () => {
-    const legacy = new NodeSqliteDatabase(`${fixture.directory}/SQLite/kyarafit.db`);
-    legacy.runSync("UPDATE entity_rows SET json = ?", [JSON.stringify({ _id: "local:legacy", userId: "owner", budgetCents: 400 })]);
+  it.each(["incomplete", "malformed"])("publishes a retryable vault error for %s legacy records", async (kind) => {
+    const legacyPath = `${fixture.directory}/SQLite/kyarafit.db`;
+    const legacy = new NodeSqliteDatabase(legacyPath);
+    const json = kind === "malformed" ? "{invalid" : JSON.stringify({ _id: "local:legacy", userId: "owner", budgetCents: 400 });
+    legacy.runSync("UPDATE entity_rows SET json = ?", [json]);
     legacy.closeSync();
-    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const db = openVaultDatabase("owner");
-      expect(db.getAllSync("SELECT * FROM entity_rows")).toEqual([]);
-      expect(db.getFirstSync("SELECT * FROM sync_meta WHERE key = 'vault:legacyAdopted'")).toBeNull();
-      expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(true);
-      expect(warning).toHaveBeenCalledWith(expect.stringContaining("incomplete legacy recovery"));
-    } finally {
-      warning.mockRestore();
-    }
+    const account = { subject: "owner", lastVerifiedAt: 1 };
+    await unlockVault(account);
+    expect(getVaultState()).toMatchObject({ status: "error", account, message: expect.stringContaining("Incomplete legacy recovery") });
+    expect(getActiveVault()).toBeNull();
+    expect(() => getOfflineDb()).toThrow();
+    expect(existsSync(legacyPath)).toBe(true);
+    const retained = new NodeSqliteDatabase(legacyPath);
+    expect(retained.getFirstSync<{ json: string }>("SELECT json FROM entity_rows")?.json).toBe(json);
+    retained.runSync("UPDATE entity_rows SET json = ?", [JSON.stringify({ userId: "owner", name: "Recovered", status: "idea", budgetCents: 400 })]);
+    retained.closeSync();
+    await unlockVault(account);
+    expect(getVaultState().status).toBe("unlocked");
+    expect(getActiveVault()?.reader().get("local:legacy")).toMatchObject({ name: "Recovered", budgetCents: 400 });
   });
 
-  it("leaves adoption uncommitted when copying an existing original fails", () => {
+  it("publishes a retryable vault error when copying an original fails", async () => {
     fixture.failCopy = true;
-    const db = openVaultDatabase("owner");
-    expect(db.getAllSync("SELECT * FROM entity_rows")).toEqual([]);
+    const account = { subject: "owner", lastVerifiedAt: 1 };
+    await unlockVault(account);
+    expect(getVaultState()).toMatchObject({ status: "error", account, message: "disk full" });
+    expect(getActiveVault()).toBeNull();
+    expect(() => getOfflineDb()).toThrow();
     expect(existsSync(`${fixture.directory}/SQLite/kyarafit.db`)).toBe(true);
-    closeVaultDatabase();
+    expect([...readFileSync(`${fixture.directory}/local-images/img_original`)]).toEqual([1, 2, 3]);
     fixture.failCopy = false;
-    expect(openVaultDatabase("owner").getAllSync("SELECT * FROM entity_rows")).toHaveLength(1);
+    await unlockVault(account);
+    expect(getVaultState().status).toBe("unlocked");
+    expect(getActiveVault()?.reader().get("local:legacy")?.name).toBe("Legacy");
   });
 });

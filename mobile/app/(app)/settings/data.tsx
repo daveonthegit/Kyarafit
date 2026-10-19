@@ -6,7 +6,7 @@ import { useVaultState } from "@/vault/hooks";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
-import { deleteVaultDatabase } from "@/offline/db";
+import { deleteVaultDatabase, vaultExportFilePath } from "@/offline/db";
 import { signOut } from "@/lib/auth/client";
 import {
   buildExport,
@@ -36,13 +36,6 @@ import {
  * reads the known export file written by Export on this device — enough for an on-device round-trip
  * and for the orchestration logic to be fully exercised. See `dataPortability.ts`.
  */
-const EXPORT_FILE_NAME = "kyarafit-export.json";
-
-function exportFilePath(): string | null {
-  const dir = FileSystem.documentDirectory;
-  return dir ? `${dir}${EXPORT_FILE_NAME}` : null;
-}
-
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
@@ -155,7 +148,7 @@ export default function SettingsDataScreen() {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
       return;
     }
-    const path = exportFilePath();
+    const path = vaultExportFilePath(userId);
     if (!path) {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataExportEmpty"));
       return;
@@ -189,7 +182,7 @@ export default function SettingsDataScreen() {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataSignInRequired"));
       return;
     }
-    const path = exportFilePath();
+    const path = vaultExportFilePath(userId);
     if (!path) {
       Alert.alert(t("settings.dataErrorTitle"), t("settings.dataImportNoFile"));
       return;

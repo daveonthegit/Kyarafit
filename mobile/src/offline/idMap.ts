@@ -30,6 +30,18 @@ export function getServerId(clientId: string): string | null {
   }
 }
 
+export function getClientId(serverId: string): string | null {
+  try {
+    const row = getOfflineDb().getFirstSync<{ client_id: string }>(
+      "SELECT client_id FROM id_map WHERE server_id = ? LIMIT 1",
+      [serverId]
+    );
+    return row?.client_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Load the full `client_id -> server_id` map for in-memory rewriting during a drain pass. */
 export function loadIdMap(): Record<string, string> {
   try {

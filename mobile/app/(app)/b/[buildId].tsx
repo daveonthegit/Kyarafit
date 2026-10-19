@@ -14,7 +14,7 @@ import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { BuildDetailBody } from "@/screens/build-detail/DetailBody";
 import { PublicBuildDetailScreen } from "@/screens/public-build/PublicBuildDetailScreen";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { useOnlineId } from "@/vault/hooks";
+import { useLocalId, useOnlineId } from "@/vault/hooks";
 
 type BuildRow = Doc<"builds"> & {
   tasksTotal: number;
@@ -62,7 +62,7 @@ export default function BuildDetailScreen() {
     rawTab === "updates"
       ? rawTab
       : undefined;
-  const id = buildIdParam ? (buildIdParam as Id<"builds">) : undefined;
+  const id = useLocalId(buildIdParam ? (buildIdParam as Id<"builds">) : undefined);
 
   const onlineId = useOnlineId(id);
   const identity = useOfflineQuery(api.auth.getCurrentUser);

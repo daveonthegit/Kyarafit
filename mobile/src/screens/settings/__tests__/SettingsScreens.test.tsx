@@ -9,6 +9,7 @@ import Offline from "../../../../app/(app)/settings/offline";
 import Data from "../../../../app/(app)/settings/data";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildExport } from "@/lib/dataPortability";
+import { vaultExportFilePath } from "@/offline/db";
 
 const state = vi.hoisted(() => ({
   identity: { subject: "owner" } as { subject: string } | null | undefined,
@@ -108,7 +109,10 @@ vi.mock("@/offline", async () => {
     useOfflineMutation: () => state.create,
   };
 });
-vi.mock("@/offline/db", () => ({ deleteVaultDatabase: state.deleteVault }));
+vi.mock("@/offline/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/offline/db")>()),
+  deleteVaultDatabase: state.deleteVault,
+}));
 vi.mock("@/components/settings/SyncStatusSection", () => ({
   SyncStatusSection: ({ offline }: { offline: boolean }) => (
     <div data-testid="sync-section">Sync {offline ? "offline" : "online"}</div>
@@ -288,7 +292,7 @@ describe("small settings screens", () => {
     render(<Data />);
     fireEvent.click(screen.getByRole("button", { name: "Export data" }));
     await waitFor(() => expect(state.share).toHaveBeenCalled());
-    expect(state.write).toHaveBeenCalledWith("/documents/kyarafit-export.json", expect.any(String));
+    expect(state.write).toHaveBeenCalledWith(vaultExportFilePath("owner"), expect.any(String));
     expect(state.alert).toHaveBeenCalledWith("Export ready", expect.any(String));
   });
 
@@ -353,6 +357,22 @@ describe("small settings screens", () => {
         "Added 3 item(s); 0 already existed."
       )
     );
+  });
+
+  it("never imports another account's generated export after switching accounts", async () => {
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Export data" }));
+    await waitFor(() => expect(state.write).toHaveBeenCalledTimes(1));
+    const ownerPath = state.write.mock.calls[0][0];
+    cleanup();
+    state.vaultSubject = "other";
+    state.fileInfo.mockImplementation(async (path) => ({ exists: path === ownerPath }));
+    render(<Data />);
+    fireEvent.click(screen.getByRole("button", { name: "Import data" }));
+    await waitFor(() => expect(state.fileInfo).toHaveBeenCalledWith(vaultExportFilePath("other")));
+    expect(vaultExportFilePath("other")).not.toBe(ownerPath);
+    expect(state.read).not.toHaveBeenCalled();
+    expect(state.create).not.toHaveBeenCalled();
   });
 
   it("rejects malformed imports without creating rows", async () => {

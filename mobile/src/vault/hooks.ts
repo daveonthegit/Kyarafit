@@ -6,7 +6,7 @@ import {
   subscribeVault,
   type VaultState,
 } from "./activeVault";
-import { getServerId } from "@/offline/idMap";
+import { getClientId, getServerId } from "@/offline/idMap";
 import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
 
 export function useActiveVault() {
@@ -16,6 +16,11 @@ export function useActiveVault() {
 export function useOnlineId<T extends string>(id: T | undefined): T | undefined {
   useSyncExternalStore(subscribeVault, getVaultDataVersion, getVaultDataVersion);
   return id?.startsWith(LOCAL_ID_PREFIX) ? ((getServerId(id) as T | null) ?? undefined) : id;
+}
+
+export function useLocalId<T extends string>(id: T | undefined): T | undefined {
+  useSyncExternalStore(subscribeVault, getVaultDataVersion, getVaultDataVersion);
+  return id && !id.startsWith(LOCAL_ID_PREFIX) ? ((getClientId(id) as T | null) ?? id) : id;
 }
 
 /** Reactive vault lifecycle state (booting / locked / unlocked / error). */

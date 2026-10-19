@@ -56,11 +56,16 @@ export function vaultDatabaseName(subject: string): string {
   return `kyarafit-vault-${vaultKeyForSubject(subject)}.db`;
 }
 
+export function vaultExportFilePath(subject: string): string | null {
+  const docs = FileSystem.documentDirectory;
+  return docs ? `${docs}kyarafit-export-${vaultKeyForSubject(subject)}.json` : null;
+}
+
 /**
  * Before vaults were partitioned, the app kept one shared `kyarafit.db` that sign-out deleted, so a
  * surviving legacy file always belongs to the account that is still signed in. Adopt its rows into
  * that account's vault once (only when every row is either unowned or owned by this subject), then
- * remove it. Best-effort: a failure leaves the legacy file in place and never blocks the vault.
+ * remove it.
  */
 function adoptLegacyDatabase(db: SQLiteDatabase, subject: string): void {
   const docs = FileSystem.documentDirectory;
@@ -122,17 +127,21 @@ function adoptLegacyDatabase(db: SQLiteDatabase, subject: string): void {
           console.warn(`[vault] incomplete legacy recovery: ${row.table_name}/${row.id}; legacy database retained`);
         }
       }
-      for (const [key, row] of recovered) {
+      for (const row of recovered.values()) {
         if (row.deleted) continue;
         const doc = JSON.parse(row.json);
         const fields = required[row.table_name];
         if (!fields || Object.entries({ userId: "string", ...fields }).some(([field, type]) =>
           type === "array" ? !Array.isArray(doc[field]) : typeof doc[field] !== type
         )) {
-          recovered.delete(key);
           incomplete = true;
           console.warn(`[vault] incomplete legacy recovery: ${row.table_name}/${row.id}; legacy database retained`);
         }
+      }
+      if (incomplete) {
+        throw new Error(
+          "Incomplete legacy recovery. The original database has been retained. Retry after resolving the incomplete records."
+        );
       }
       const keys = collectVaultImageKeys([...recovered.values()].filter((row) => !row.deleted).map((row) => JSON.parse(row.json)));
       const imageDir = new Directory(vaultImageDir(docs, vaultKeyForSubject(subject)));
@@ -162,18 +171,18 @@ function adoptLegacyDatabase(db: SQLiteDatabase, subject: string): void {
         for (const row of queued) {
           db.runSync("UPDATE mutation_queue SET args_json = ? WHERE id = ?", [JSON.stringify(toPortableImageRefs(JSON.parse(row.args_json))), row.id]);
         }
-        if (!incomplete) db.runSync(
+        db.runSync(
           "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('vault:legacyAdopted', ?)",
           [String(Date.now())]
         );
       });
-      if (incomplete) return;
     }
     db.execSync("DETACH DATABASE legacy");
     attached = false;
     deleteDatabaseSync(LEGACY_DB_NAME);
   } catch (error) {
     console.warn("[vault] legacy recovery failed; legacy database retained", error);
+    throw error;
   } finally {
     if (attached) {
       try {
@@ -196,6 +205,7 @@ export function openVaultDatabase(subject: string): SQLiteDatabase {
   const db = openDatabaseSync(vaultDatabaseName(subject));
   try {
     migrateVaultSchema(db, subject);
+    adoptLegacyDatabase(db, subject);
   } catch (error) {
     try {
       db.closeSync();
@@ -204,7 +214,6 @@ export function openVaultDatabase(subject: string): SQLiteDatabase {
     }
     throw error;
   }
-  adoptLegacyDatabase(db, subject);
   _db = db;
   _vaultKey = key;
   return db;
@@ -250,6 +259,8 @@ export async function deleteVaultDatabase(subject: string): Promise<void> {
   if (docs) {
     await FileSystem.deleteAsync(`${docs}vaults/${key}/`, { idempotent: true });
   }
+  const exportPath = vaultExportFilePath(subject);
+  if (exportPath) await FileSystem.deleteAsync(exportPath, { idempotent: true });
 }
 
 function queryCacheBytes(db: SQLiteDatabase): number {
