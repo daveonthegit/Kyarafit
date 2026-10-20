@@ -16,6 +16,8 @@ function walk(dir) {
       continue;
     }
     if (!/\.(ts|tsx|js|jsx)$/.test(name.name)) continue;
+    // Node-only tests may use private staging credentials; they are not application code.
+    if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(name.name)) continue;
     const text = fs.readFileSync(full, "utf8");
     const re = /process\.env\.(?!EXPO_PUBLIC_)[A-Za-z0-9_]+/g;
     let m;
