@@ -3,7 +3,10 @@ import { api } from "convex/_generated/api";
 import { REPLICA_PROTOCOL_VERSION } from "@kyarafit/design-system/domain/replicaProtocol";
 import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
 import type { ReplicaAssetIo } from "./assets";
-import type { ReplicaConvexClient } from "./convexTransport";
+import { withTimeout, type ReplicaConvexClient } from "./convexTransport";
+
+/** A single photo transfer that has not finished by now is abandoned until the next pass. */
+const TRANSFER_TIMEOUT_MS = 120_000;
 
 /** Photo-byte transfers for the vault whose photos live in `imageDir` (see `./assets`). */
 export function deviceReplicaAssetIo(
@@ -16,7 +19,10 @@ export function deviceReplicaAssetIo(
     hasLocal: async (imageKey) => (await FileSystem.getInfoAsync(`${imageDir}${imageKey}`)).exists,
     upload: async (imageKey) => {
       const uploadUrl = (await client.mutation(api.files.generateUploadUrl, {})) as string;
-      return uploadUriToConvexStorage(`${imageDir}${imageKey}`, uploadUrl, "image/jpeg");
+      return withTimeout(
+        uploadUriToConvexStorage(`${imageDir}${imageKey}`, uploadUrl, "image/jpeg"),
+        TRANSFER_TIMEOUT_MS
+      );
     },
     register: async (imageKey, storageId) => {
       await client.mutation(api.replica.registerAsset, {
@@ -37,7 +43,7 @@ export function deviceReplicaAssetIo(
       // Download beside the target and move into place, so a dropped transfer never leaves a
       // truncated photo under the real key.
       const partial = `${imageDir}${imageKey}.partial`;
-      const result = await FileSystem.downloadAsync(url, partial);
+      const result = await withTimeout(FileSystem.downloadAsync(url, partial), TRANSFER_TIMEOUT_MS);
       if (result.status !== 200) {
         await FileSystem.deleteAsync(partial, { idempotent: true });
         throw new Error(`Photo download failed (${result.status})`);

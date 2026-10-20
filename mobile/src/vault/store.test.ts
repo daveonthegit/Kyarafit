@@ -112,6 +112,42 @@ describe("VaultStore", () => {
     expect(seen[2]).toMatchObject({ before: { name: "Y" }, after: null });
   });
 
+  it("hands rows a restore inserts or updates to the persist hook in the same transaction", () => {
+    const seen: { table: string; id: string; before: unknown; after: unknown }[] = [];
+    const { store, subject } = makeTestVault({
+      onPersist: (_tx, changes) => {
+        seen.push(...changes);
+      },
+    });
+    const existing = store.commit((db) =>
+      db.insert("builds", { name: "Old", status: "idea", updatedAt: 1 })
+    );
+    seen.length = 0;
+    store.importRows(
+      [
+        { table: "builds", id: existing, doc: { name: "Newer", status: "wip", updatedAt: 5 } },
+        { table: "builds", id: "local:restored", doc: { name: "Restored", status: "idea" } },
+      ],
+      subject
+    );
+    expect(seen).toHaveLength(2);
+    expect(seen.find((change) => change.id === existing)).toMatchObject({
+      before: { name: "Old" },
+      after: { name: "Newer", status: "wip", _id: existing },
+    });
+    expect(seen.find((change) => change.id === "local:restored")).toMatchObject({
+      before: null,
+      after: { name: "Restored", _id: "local:restored" },
+    });
+    // Re-importing the same backup changes nothing, so it records nothing.
+    seen.length = 0;
+    store.importRows(
+      [{ table: "builds", id: "local:restored", doc: { name: "Restored", status: "idea" } }],
+      subject
+    );
+    expect(seen).toEqual([]);
+  });
+
   it("deletes rows outright: deletes travel to the cloud as sync ops, not tombstones", () => {
     const { store, sql } = makeTestVault();
     const local = store.commit((db) => db.insert("builds", { name: "local", status: "idea" }));

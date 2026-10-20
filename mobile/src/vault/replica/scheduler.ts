@@ -25,6 +25,8 @@ export class ReplicaScheduler {
   private retry: unknown = null;
   private disposed = false;
   private inFlight: Promise<void> | null = null;
+  /** A trigger arrived during a pass: run once more after it, so nothing waits for a later one. */
+  private again = false;
 
   constructor(
     private readonly replicator: Replicator | null,
@@ -55,11 +57,18 @@ export class ReplicaScheduler {
   /** Run now ("Sync now", reconnect). Resolves when the pass (and its follow-up work) is done. */
   run(): Promise<void> {
     if (this.disposed) return Promise.resolve();
-    if (this.inFlight) return this.inFlight;
+    if (this.inFlight) {
+      this.again = true;
+      return this.inFlight;
+    }
     this.clear(this.retry);
     this.retry = null;
     this.inFlight = this.pass().finally(() => {
       this.inFlight = null;
+      if (this.again && !this.disposed) {
+        this.again = false;
+        void this.run();
+      }
     });
     return this.inFlight;
   }

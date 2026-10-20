@@ -92,6 +92,21 @@ describe("replica scheduler", () => {
     expect(signedOut.timers).toEqual([]);
   });
 
+  it("runs one more pass when a trigger arrives during a pass", async () => {
+    const { scheduler, replicator } = setup("idle");
+    let release!: () => void;
+    (replicator.sync as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => new Promise<void>((done) => (release = done))
+    );
+    const first = scheduler.run();
+    await vi.waitFor(() => expect(replicator.sync).toHaveBeenCalledTimes(1));
+    void scheduler.run(); // e.g. a local commit or reconnect while the pass is in flight
+    void scheduler.run();
+    release();
+    await first;
+    await vi.waitFor(() => expect(replicator.sync).toHaveBeenCalledTimes(2));
+  });
+
   it("makes no call when it cannot sync, and runs follow-up work for every tier", async () => {
     const { replicator } = setup("idle");
     const afterPass = vi.fn(async () => {});

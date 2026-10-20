@@ -42,7 +42,7 @@ export function classifyReplicaError(error: unknown): unknown {
   return error;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new ReplicaOfflineError("Sync timed out")), ms);
     promise.then(
@@ -90,5 +90,20 @@ export function convexReplicaTransport(
     dismissConflicts: async (ids) => {
       await call(() => client.mutation(api.replica.dismissConflicts, { protocol, subject, ids }));
     },
+  };
+}
+
+/**
+ * The same client with every call bounded by a timeout, for sync follow-up work (photo bytes,
+ * publication removals): the Convex client otherwise waits indefinitely while offline, which would
+ * hold up the next sync pass.
+ */
+export function timedConvexClient(
+  client: ReplicaConvexClient,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): ReplicaConvexClient {
+  return {
+    mutation: (reference, args) => withTimeout(client.mutation(reference, args), timeoutMs),
+    query: (reference, args) => withTimeout(client.query(reference, args), timeoutMs),
   };
 }

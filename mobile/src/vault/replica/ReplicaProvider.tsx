@@ -17,7 +17,7 @@ import {
 import { useVaultState } from "../hooks";
 import { flushPublicationRemovals } from "../publications";
 import { syncReplicaAssets } from "./assets";
-import { convexReplicaTransport } from "./convexTransport";
+import { convexReplicaTransport, timedConvexClient } from "./convexTransport";
 import { deviceReplicaAssetIo } from "./deviceAssets";
 import { ReplicaScheduler } from "./scheduler";
 
@@ -81,6 +81,7 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
       canSync: () => live.current.signedIn && getIsOnline(),
       isEntitled: () => live.current.entitled,
       afterPass: async (synced) => {
+        const client = timedConvexClient(convex);
         const sql = getActiveVaultSql();
         if (!sql || getActiveReplicator() !== replicator) return;
         if (synced && replicator) {
@@ -88,13 +89,13 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
           if (imageDir) {
             await syncReplicaAssets(
               sql,
-              deviceReplicaAssetIo(convex, userId, imageDir),
+              deviceReplicaAssetIo(client, userId, imageDir),
               () => getActiveReplicator() === replicator && getIsOnline()
             );
           }
         }
         // Publication removals apply to every tier (publishing is free).
-        await flushPublicationRemovals(convex, sql);
+        await flushPublicationRemovals(client, sql);
       },
     });
     activeScheduler = scheduler;

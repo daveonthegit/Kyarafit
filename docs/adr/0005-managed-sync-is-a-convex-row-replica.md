@@ -56,5 +56,6 @@ after sign-in, and signing out keeps local data.
   token, group) are kept.
 - Rows synced by the legacy path are uploaded to the replica under their existing vault ids when a
   device enables replication. A second legacy device that pulled the same records under server
-  ids would upload them as separate rows; there are no paying users today, so no migration was
-  written.
+  ids would upload them as separate rows. No migration was written on the understanding, from the
+  2026-07 tier decision, that there are no paying subscribers yet; the owner should confirm this
+  before paid sync launches.
