@@ -55,6 +55,12 @@ export const ownership = {
   storageReferenceEpochs: [],
   accountDeletionState: [],
   ledgerValidationState: [],
+  replicaRows: ["userId"],
+  replicaLinks: ["userId"],
+  replicaHeads: ["userId"],
+  replicaOps: ["userId"],
+  replicaConflicts: ["userId"],
+  replicaAssets: ["userId"],
 } as const satisfies Record<TableNames, readonly string[]>;
 
 export const controlTables = new Set<TableNames>([
@@ -87,6 +93,13 @@ const argumentSubjects = new Set([
 ]);
 const plainStrings = new Set([
   "clientId",
+  // Managed-sync replica bookkeeping: device-minted row/op ids, never server resources.
+  "table",
+  "rowId",
+  "opId",
+  "target",
+  "field",
+  "recoveredBuildId",
   "name",
   "email",
   "image",
@@ -371,7 +384,16 @@ export function documentReferences(ctx: QueryCtx, table: TableNames, row: Row): 
   if (table === "workflowTemplates" && row.userId == null && row.isBuiltIn !== true)
     throw new Error("Unknown reference shape");
   const opaque = new Set(
-    table === "idempotencyLedger" ? ["result"] : table === "broadcasts" ? ["audienceArgs"] : []
+    table === "idempotencyLedger"
+      ? ["result"]
+      : table === "broadcasts"
+        ? ["audienceArgs"]
+        : // Replica payloads are opaque device data (client ids, `kyarafit-image:` tokens).
+          table === "replicaRows"
+          ? ["doc", "fieldRevs"]
+          : table === "replicaConflicts"
+            ? ["lost"]
+            : []
   );
   const refs = schemaReferences(ctx, validatorShape(schema.tables[table].validator), row, opaque);
   for (const [field, value] of Object.entries(row)) {

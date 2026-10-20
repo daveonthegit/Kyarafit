@@ -99,6 +99,12 @@ export const DELETION_TABLES = [
   "userPushPreferences",
   "idempotencyLedger",
   "broadcasts",
+  "replicaOps",
+  "replicaConflicts",
+  "replicaLinks",
+  "replicaRows",
+  "replicaHeads",
+  "replicaAssets",
   "users", // detach a surviving profile's focus before removing its referenced build
   "workflowTemplateItems",
   "workflowDependencies",

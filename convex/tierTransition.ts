@@ -15,6 +15,7 @@ import {
 } from "@kyarafit/design-system/domain/tierTransition";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
+import { purgeAccountReplica } from "./lib/replicaStore";
 
 /**
  * Tier-transition backend (DATA_AND_SYNC.md §10, REQ-D95/D96/D97).
@@ -122,6 +123,8 @@ async function resolvePaidUserId(ctx: MutationCtx | QueryCtx): Promise<string> {
  * table parents in this chunk are inserted first; cross-table dependencies must already exist.
  * Rows without a `clientId` are left to normal sync push and counted as skipped.
  * Cloud media is fail-closed at the S4 ownership/quota integration seam in backfillValidation.ts.
+ *
+ * Only web's legacy worker still calls this; the mobile vault upgrades through `convex/replica.ts`.
  */
 export const backfillRows = mutation({
   args: {
@@ -283,6 +286,7 @@ export const purgeDowngradedCloudData = cleanupMutation({
       }
 
       rowsDeleted += await purgeUserCloudMirror(ctx, user.externalId);
+      rowsDeleted += await purgeAccountReplica(ctx, user.externalId);
       await ctx.db.patch(user._id, { cloudPurgedAt: now, downgradedAt: undefined });
       usersPurged += 1;
       purgedUserIds.push(user.externalId);
@@ -294,7 +298,7 @@ export const purgeDowngradedCloudData = cleanupMutation({
 
 /** Count (without deleting) a user's cloud-mirror rows — used by the cron's dryRun mode. */
 async function countUserCloudMirror(ctx: MutationCtx, userId: string): Promise<number> {
-  let total = 0;
+  let total = await purgeAccountReplica(ctx, userId, true);
   for (const table of LOCAL_FIRST_TABLES) {
     total += (await userRowsInTable(ctx, table, userId)).length;
   }

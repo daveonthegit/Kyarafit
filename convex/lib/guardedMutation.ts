@@ -57,6 +57,7 @@ const mediaTables = new Set<TableNames>([
   "buildProcessPictures",
   "buildProgressUpdates",
   "progressMediaReferences",
+  "replicaAssets",
 ]);
 function storageIds(row: Row | null): Set<Id<"_storage">> {
   const ids = new Set<Id<"_storage">>();

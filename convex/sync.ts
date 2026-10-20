@@ -16,7 +16,9 @@ import { query } from "./_generated/server";
  * rows touched since. Rows that predate the sync-metadata migration (no `updatedAt`) are still seeded
  * via the `_creationTime` create scan; they simply do not advance the cursor.
  *
- * The consumer is the mobile/web sync worker warm-up; it is not dead code.
+ * The consumer is the web sync worker warm-up; it is not dead code. Mobile no longer calls it: the
+ * mobile vault replicates through `convex/replica.ts`. Retire this with web's legacy worker once web
+ * has a local vault (ADR-0004).
  */
 
 /** Union creates (`_creationTime` scan) with field-edits (`updatedAt` scan), de-duped by `_id`. */

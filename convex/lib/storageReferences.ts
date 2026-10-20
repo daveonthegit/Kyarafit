@@ -60,7 +60,22 @@ export async function storageReferences(ctx: QueryCtx, storageId: Id<"_storage">
       row.imageRefs.some((ref) => ref.kind === "cloud" && ref.storageId === storageId)
     )
   );
-  return { builds, nodes, references, pictures, conventions, closet, users, groups, progress };
+  const assets = await ctx.db
+    .query("replicaAssets")
+    .withIndex("by_imageStorageId", (q) => q.eq("imageStorageId", storageId))
+    .collect();
+  return {
+    builds,
+    nodes,
+    references,
+    pictures,
+    conventions,
+    closet,
+    users,
+    groups,
+    progress,
+    assets,
+  };
 }
 
 export type StorageReferences = Awaited<ReturnType<typeof storageReferences>>;
@@ -103,6 +118,8 @@ export async function canAttachReferencedStorage(
       return true;
   }
   for (const group of refs.groups) if (await isGroupMember(ctx, group._id, actorId)) return true;
+  // A synced vault photo may be attached (published) by its owner only.
+  if (refs.assets.some((asset) => asset.userId === actorId)) return true;
   return false;
 }
 

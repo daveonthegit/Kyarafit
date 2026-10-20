@@ -662,4 +662,79 @@ export default defineSchema({
     transactionalOptIn: v.boolean(),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // Managed-sync row replica (convex/replica.ts). The authoritative cloud copy of a paid account's
+  // vault rows: opaque documents keyed by the vault's client-minted ids, ordered by a per-account
+  // `rev`. The domain tables above are published projections, never a second editable copy.
+  replicaRows: defineTable({
+    userId: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    doc: v.any(),
+    /** Per field: the rev and device that last wrote it (conflict detection). */
+    fieldRevs: v.any(),
+    deleted: v.boolean(),
+    /** Set on tombstones; retention purges them after `REPLICA_RETENTION_MS`. */
+    deletedAt: v.optional(v.number()),
+    rev: v.number(),
+  })
+    .index("by_user_row", ["userId", "table", "rowId"])
+    .index("by_user_rev", ["userId", "rev"])
+    .index("by_deletedAt", ["deletedAt"]),
+  /** Parent references extracted from replica docs, so a delete can find the rows it orphans. */
+  replicaLinks: defineTable({
+    userId: v.string(),
+    target: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    field: v.string(),
+  })
+    .index("by_user_target", ["userId", "target"])
+    .index("by_user_row", ["userId", "table", "rowId"]),
+  replicaHeads: defineTable({
+    userId: v.string(),
+    rev: v.number(),
+    /** Highest rev whose tombstone retention has purged; older cursors must resnapshot. */
+    floorRev: v.number(),
+    /** The account's current Recovered build (orphan bucket), once one exists. */
+    recoveredBuildId: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+  /** Applied-op dedupe, so a resend after a lost acknowledgement is a no-op. */
+  replicaOps: defineTable({
+    userId: v.string(),
+    opId: v.string(),
+    status: v.union(v.literal("applied"), v.literal("rejected")),
+    rev: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user_op", ["userId", "opId"])
+    .index("by_createdAt", ["createdAt"]),
+  /** "Changes that didn't apply": the losing value of every conflict, restorable as a new edit. */
+  replicaConflicts: defineTable({
+    userId: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    kind: v.string(),
+    lost: v.any(),
+    /** Stream position; dismissal moves the record to a new rev so other devices learn of it. */
+    rev: v.number(),
+    createdAt: v.number(),
+    dismissed: v.boolean(),
+  })
+    .index("by_user_rev", ["userId", "rev"])
+    .index("by_createdAt", ["createdAt"]),
+  /**
+   * Typed media registry for replicated photos: replica docs only carry `kyarafit-image:<key>`
+   * tokens, so the storage blob behind each key is recorded here where media access, quota and
+   * account deletion can see it.
+   */
+  replicaAssets: defineTable({
+    userId: v.string(),
+    imageKey: v.string(),
+    imageStorageId: v.id("_storage"),
+    createdAt: v.number(),
+  })
+    .index("by_user_key", ["userId", "imageKey"])
+    .index("by_userId", ["userId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 });
