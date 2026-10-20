@@ -252,6 +252,9 @@ export const prune = internalMutation({
     for (const row of tombstones) {
       const head = await loadHead(ctx, row.userId);
       if (head && head.floorRev < row.rev) await ctx.db.patch(head._id, { floorRev: row.rev });
+      const links = await ctx.db.query("replicaLinks")
+        .withIndex("by_user_row", q => q.eq("userId", row.userId).eq("table", row.table).eq("rowId", row.rowId)).collect();
+      for (const link of links) await ctx.db.delete(link._id);
       await ctx.db.delete(row._id);
     }
     const conflicts = await ctx.db

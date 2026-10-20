@@ -992,6 +992,7 @@ function applyMove(ctx: LocalMutationCtx, move: MoveArgs) {
     throw new Error("Workflow items cannot parent themselves");
   }
   const parent = parentId ? (ctx.db.get(parentId) as WorkflowItemDoc | null) : null;
+  if (parentId && !parent) throw new Error("Parent not found");
   if (parent?.ancestorIds.includes(move.id)) {
     throw new Error("Workflow items cannot move under a descendant");
   }
@@ -1020,7 +1021,6 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
     resequence: { id: string; sortOrder: number }[];
   };
   const { item, parentId, parent } = applyMove(ctx, args.move);
-  if (parentId && !parent) throw new Error("Parent not found");
 
   const resequenceItems = new Map<string, WorkflowItemDoc>();
   for (const row of args.resequence) {

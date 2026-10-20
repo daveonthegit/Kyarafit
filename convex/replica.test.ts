@@ -355,6 +355,27 @@ describe("replica cross-row integrity", () => {
 });
 
 describe("replica retention", () => {
+  it("retains a deleted attachment's task index across mutations and removes it with its tombstone", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const t = convexTest(schema, modules);
+    await user(t, "alice");
+    const alice = session(t, "alice");
+    await alice.push([
+      put("local:build", { name: "Build" }),
+      put("local:task", { title: "Task", ancestorIds: [] }, 0, "workflowItems"),
+      put("local:attachment", { workflowItemId: "local:task", entityType: "build", entityId: "local:build" }, 0, "workflowAttachments"),
+    ]);
+    await alice.push([del("local:attachment", 0, "workflowAttachments")]);
+    const links = await t.run(ctx => ctx.db.query("replicaLinks")
+      .withIndex("by_user_row", q => q.eq("userId", "alice").eq("table", "workflowAttachments").eq("rowId", "local:attachment")).collect());
+    expect(links.map(link => ({ field: link.field, target: link.target }))).toEqual([{ field: "workflowItemId", target: "local:task" }]);
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    expect(await t.run(ctx => ctx.db.query("replicaLinks")
+      .withIndex("by_user_row", q => q.eq("userId", "alice").eq("table", "workflowAttachments").eq("rowId", "local:attachment")).collect())).toEqual([]);
+    expect((await liveRows(t, "alice")).map(row => row.rowId).sort()).toEqual(["local:build", "local:task"]);
+  });
+
   it("purges old dedupe records, tombstones and conflicts and makes stale cursors resnapshot", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));

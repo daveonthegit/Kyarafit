@@ -70,8 +70,20 @@ export async function syncReplicaAssets(
     ]);
     known.add(imageKey);
   };
-  const keys = referencedImageKeys(sql);
+  let keys = referencedImageKeys(sql);
+  const cursor = sql.getFirstSync<{ value: string }>(
+    "SELECT value FROM sync_meta WHERE key = 'replica:assetCursor'"
+  )?.value;
+  if (cursor) {
+    const next = keys.findIndex(key => key > cursor);
+    if (next > 0) keys = [...keys.slice(next), ...keys.slice(0, next)];
+  }
   let transfers = 0;
+  const attempt = (key: string) => {
+    transfers += 1;
+    sql.runSync(`INSERT INTO sync_meta (key, value) VALUES ('replica:assetCursor', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key]);
+  };
   for (let i = 0; i < keys.length; i += URL_BATCH) {
     const batch = keys.slice(i, i + URL_BATCH);
     const local = new Map<string, boolean>();
@@ -93,12 +105,12 @@ export async function syncReplicaAssets(
         if (url) {
           markKnown(key);
           if (!local.get(key)) {
-            transfers += 1;
+            attempt(key);
             await io.download(key, url);
             result.downloaded += 1;
           }
         } else if (local.get(key)) {
-          transfers += 1;
+          attempt(key);
           const storageId = await io.upload(key);
           if (!isCurrent()) return result;
           await io.register(key, storageId);

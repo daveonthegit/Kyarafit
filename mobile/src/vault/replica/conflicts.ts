@@ -2,10 +2,14 @@ import {
   REPLICA_META_FIELDS,
   REPLICA_SYSTEM_FIELDS,
   replicaLinksFor,
+  replicaBuildIdsFor,
   type ReplicaConflictKind,
 } from "@kyarafit/design-system/domain/replicaProtocol";
 import { withCreateMeta, withUpdateMeta } from "../handlers/lib/syncMeta";
 import { getWorkflowItemById, parentAncestorIds } from "../handlers/lib/workflowDomain";
+import { mutations as workflowMutations } from "../handlers/workflow";
+import { mutations as nodeMutations } from "../handlers/cosplayNodes";
+import type { LocalMutationCtx } from "../types";
 import type { VaultReader, VaultSql, VaultStore } from "../store";
 import { conflictBuildIds } from "./buildMembership";
 
@@ -66,13 +70,28 @@ function restorableRow(
   for (const rule of replicaLinksFor(table, row)) {
     const target = row[rule.field];
     if (typeof target !== "string" || reader.get(target)) continue;
-    if (rule.onMissing === "unlink") delete row[rule.field];
+    if (rule.onMissing === "unlink" || (table === "workflowItems" && rule.field === "parentId")) delete row[rule.field];
     else return null;
   }
   if (table === "workflowItems") row.ancestorIds = parentAncestorIds(
     typeof row.parentId === "string" ? getWorkflowItemById({ db: reader }, row.parentId) : null
   );
   return row;
+}
+
+function restoreRelationships(ctx: LocalMutationCtx, table: string, id: string, fields: Record<string, unknown>): void {
+  if (table === "workflowItems" && Object.prototype.hasOwnProperty.call(fields, "parentId")) {
+    workflowMutations["workflow:move"](ctx, { id, parentId: fields.parentId ?? null, sortOrder: fields.sortOrder });
+    delete fields.parentId;
+    delete fields.sortOrder;
+  }
+  if (table === "cosplayNodes" && Object.prototype.hasOwnProperty.call(fields, "parentNodeId")) {
+    if (typeof fields.parentNodeId === "string") nodeMutations["cosplayNodes:addChildLink"](ctx, {
+      parentNodeId: fields.parentNodeId, childNodeId: id, sortOrder: fields.sortOrder,
+    });
+    else nodeMutations["cosplayNodes:removeChildLink"](ctx, { id });
+    delete fields.parentNodeId;
+  }
 }
 
 function describe(
@@ -162,11 +181,13 @@ export function restoreChange(store: VaultStore, change: ChangeNotApplied): stri
         if (OMIT_ON_RESTORE.has(key)) continue;
         fields[key] = value === null ? undefined : value;
       }
-      db.patch(
+      const ctx = { db, userId: store.subject, now: Date.now() };
+      restoreRelationships(ctx, change.table, change.rowId, fields);
+      if (Object.keys(fields).length) db.patch(
         change.rowId,
         withUpdateMeta(
-          current as { version?: number; fieldUpdatedAt?: Record<string, number> },
-          fields
+          db.get(change.rowId) as { version?: number; fieldUpdatedAt?: Record<string, number> },
+          fields, ctx.now
         )
       );
       return change.rowId;
@@ -176,7 +197,19 @@ export function restoreChange(store: VaultStore, change: ChangeNotApplied): stri
     return store.commit((db) => {
       const row = restorableRow(db, change.table, change.lost);
       if (!row) throw new Error("What this belonged to was deleted, so it can't come back.");
-      return db.insert(change.table, withCreateMeta(row));
+      const id = db.insert(change.table, withCreateMeta(row));
+      const ctx = { db, userId: store.subject, now: Date.now() };
+      restoreRelationships(ctx, change.table, id, { ...row });
+      if (change.table === "workflowItems") {
+        const buildIds = replicaBuildIdsFor(change.table, change.rowId, change.lost, []);
+        if (change.buildId) buildIds.add(change.buildId);
+        const surviving = db.query("builds").withIndex("by_userId", q => q.eq("userId", store.subject))
+          .collect().filter(build => build.deletedAt === undefined && buildIds.has(build._id));
+        workflowMutations["workflow:update"](ctx, { id, attachments: surviving.map(build => ({
+          entityType: "build", entityId: build._id, role: "context", buildContextId: build._id,
+        })) });
+      }
+      return id;
     });
   }
   throw new Error("Nothing to restore for this change.");

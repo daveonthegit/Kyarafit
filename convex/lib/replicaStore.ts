@@ -97,7 +97,6 @@ export class ReplicaWriter {
   private recoveredBuildId: string | undefined;
   /** Rows deleted in this mutation whose children must be checked. */
   private readonly deletedParents: string[] = [];
-  private readonly deletedAttachments = new Map<string, Set<string>>();
   /** Rows put in this mutation whose parents must be checked. */
   private readonly putRows: { table: string; rowId: string }[] = [];
 
@@ -144,7 +143,7 @@ export class ReplicaWriter {
       if (kind === "workflowItems") {
         const links = await this.ctx.db.query("replicaLinks")
           .withIndex("by_user_target", q => q.eq("userId", this.userId).eq("target", id)).collect();
-        const attachments = new Set(this.deletedAttachments.get(id));
+        const attachments = new Set<string>();
         for (const link of links) {
           if (link.table === "workflowAttachments" && link.field === "workflowItemId") attachments.add(link.rowId);
         }
@@ -282,11 +281,6 @@ export class ReplicaWriter {
       const buildIds = [...await this.buildIds(table, rowId, row.doc as Fields)];
       const doc: Fields = { ...(row.doc as Fields), [REPLICA_CONFLICT_BUILD_IDS]: buildIds };
       await this.ctx.db.patch(row._id, { doc, deleted: true, deletedAt: this.now, rev });
-      if (table === "workflowAttachments" && typeof doc.workflowItemId === "string") {
-        const attachments = this.deletedAttachments.get(doc.workflowItemId) ?? new Set<string>();
-        attachments.add(rowId);
-        this.deletedAttachments.set(doc.workflowItemId, attachments);
-      }
     } else {
       await this.ctx.db.insert("replicaRows", {
         userId: this.userId,
@@ -299,7 +293,8 @@ export class ReplicaWriter {
         rev,
       });
     }
-    await this.relink(table, rowId, null);
+    await this.relink(table, rowId, table === "workflowAttachments" && row
+      ? { workflowItemId: (row.doc as Fields).workflowItemId } : null);
     await removePublishedProjection(this.ctx, this.userId, table, rowId);
     this.deletedParents.push(rowId);
   }

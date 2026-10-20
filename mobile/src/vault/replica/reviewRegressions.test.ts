@@ -9,6 +9,7 @@ import { makeDevice, now, seedSlice, settle, type ReplicaBackend } from "@/test-
 import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
 import { migrateVaultSchema } from "@/offline/vaultSchema";
 import { VaultStore } from "../store";
+import { getBuildScopedWorkflow } from "../handlers/workflow";
 import { Replicator } from "./replicator";
 import { convexReplicaTransport } from "./convexTransport";
 import { syncReplicaAssets, type ReplicaAssetIo } from "./assets";
@@ -46,6 +47,147 @@ function assetIo(): ReplicaAssetIo {
 }
 
 describe("replica review regressions", () => {
+  it.each(["cosplayNodes", "workflowItems"])("validates restored %s parents atomically and maintains workflow descendant caches", async table => {
+    const { a, b } = await setup();
+    const make = (name: string) => a.mutate<{ _id: string }>(table === "cosplayNodes" ? "cosplayNodes:create" : "workflow:create",
+      table === "cosplayNodes" ? { nodeType: "element", name } : { title: name });
+    const x = make("X")._id;
+    const y = make("Y")._id;
+    const z = make("Z")._id;
+    const child = make("Child")._id;
+    const field = table === "cosplayNodes" ? "parentNodeId" : "parentId";
+    const move = (device: typeof a, id: string, parent: string | null) => {
+      if (table === "workflowItems") device.mutate("workflow:move", { id, parentId: parent });
+      else if (parent) device.mutate("cosplayNodes:addChildLink", { parentNodeId: parent, childNodeId: id });
+      else device.mutate("cosplayNodes:removeChildLink", { id });
+    };
+    move(a, child, x);
+    await settle(a, b);
+    a.net.online = false;
+    b.net.online = false;
+    move(a, x, y);
+    move(b, x, z);
+    a.net.online = true;
+    b.net.online = true;
+    await a.sync();
+    await b.sync();
+    await settle(a, b);
+    const change = a.changes().find(row => row.rowId === x && row.kind === "concurrent-field-edit" && row.lost[field] === y)!;
+    expect(change).toBeDefined();
+    a.net.online = false;
+    move(a, y, x);
+    const before = a.store.exportRows();
+    const pending = a.replicator.pendingCount();
+    expect(() => restoreChange(a.store, change)).toThrow(/cycle|descendant/i);
+    expect(a.store.exportRows()).toEqual(before);
+    expect(a.replicator.pendingCount()).toBe(pending);
+    move(a, y, null);
+    expect(restoreChange(a.store, change)).toBe(x);
+    expect(a.get(x)?.[field]).toBe(y);
+    if (table === "workflowItems") {
+      expect(a.get(x)?.ancestorIds).toEqual([y]);
+      expect(a.get(child)?.ancestorIds).toEqual([y, x]);
+    }
+    restoreChange(a.store, { ...change, lost: { [field]: null } });
+    expect(a.get(x)?.[field]).toBeUndefined();
+    if (table === "workflowItems") {
+      expect(a.get(x)?.ancestorIds).toEqual([]);
+      expect(a.get(child)?.ancestorIds).toEqual([x]);
+    }
+  });
+
+  it("keeps build membership when attachment and task tombstones span push batches", async () => {
+    const { a, b, backend } = await setup();
+    const build = a.mutate<{ _id: string }>("builds:create", { name: "Subtree", status: "idea" });
+    const root = a.mutate<{ _id: string }>("workflow:create", { title: "Root", kind: "group",
+      attachments: [{ entityType: "build", entityId: build._id }] });
+    const children: string[] = [];
+    for (let i = 0; i < 60; i++) children.push(a.mutate<{ _id: string }>("workflow:create", {
+      title: `Child ${i}`, parentId: root._id, attachments: [{ entityType: "build", entityId: build._id }],
+    })._id);
+    await settle(a, b);
+    b.net.online = false;
+    for (const id of [root._id, ...children]) b.mutate("workflow:update", { id, title: `Offline ${id}` });
+    a.mutate("workflow:remove", { id: root._id });
+    const transport = backend.transport(a.net);
+    const batches: number[] = [];
+    a.replicator.setTransport({ ...transport, push: (...args) => {
+      batches.push(args[1].length);
+      return transport.push(...args);
+    } });
+    await a.sync();
+    expect(batches).toEqual([100, 22]);
+    b.net.online = true;
+    await settle(a, b);
+    const rejected = b.changes(build._id).filter(row => row.kind === "edit-after-delete");
+    expect(new Set(rejected.map(row => row.rowId))).toEqual(new Set([root._id, ...children]));
+    expect(countChangesNotApplied(b.sql, build._id)).toBe(b.changes(build._id).length);
+    expect(b.get(build._id)).not.toBeNull();
+  });
+
+  it.each(["edit-after-delete", "delete-over-unseen-edit", "orphan-removed"])("reattaches a %s workflow restoration to surviving builds atomically", async kind => {
+    const { a } = await setup();
+    const first = a.mutate<{ _id: string }>("builds:create", { name: "First", status: "idea" });
+    const second = a.mutate<{ _id: string }>("builds:create", { name: "Second", status: "idea" });
+    const gone = a.mutate<{ _id: string }>("builds:create", { name: "Gone", status: "idea" });
+    const task = a.mutate<{ _id: string }>("workflow:create", { title: "Restore me", attachments: [
+      { entityType: "build", entityId: first._id }, { entityType: "build", entityId: second._id },
+    ] });
+    const lost = { ...a.get(task._id), _replicaBuildIds: [first._id, second._id, gone._id],
+      ...(kind === "orphan-removed" ? { parentId: "local:deleted-parent" } : {}),
+    };
+    a.mutate("workflow:remove", { id: task._id });
+    a.mutate("builds:remove", { id: gone._id });
+    a.sql.runSync("INSERT INTO replica_conflicts (id, table_name, row_id, kind, lost_json, rev, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ["restore-fixture", "workflowItems", task._id, kind, JSON.stringify(lost), 1, 1]);
+    const change = a.changes(first._id).find(row => row.id === "restore-fixture")!;
+    expect(change.restorable).toBe(true);
+    const restored = restoreChange(a.store, change);
+    expect(a.get(restored)).toMatchObject({ title: "Restore me", ancestorIds: [] });
+    expect(a.get(restored)).not.toHaveProperty("_replicaBuildIds");
+    expect(a.get(restored)?.parentId).toBeUndefined();
+    for (const buildId of [first._id, second._id]) {
+      expect(getBuildScopedWorkflow({ db: a.store.reader() }, buildId)!.items.map(item => item._id)).toContain(restored);
+    }
+    const attachments = a.store.reader().query("workflowAttachments")
+      .withIndex("by_workflowItemId", q => q.eq("workflowItemId", restored)).collect();
+    expect(attachments.map(row => row.entityId).sort()).toEqual([first._id, second._id].sort());
+  });
+
+  it.each(["upload", "download"])("does not let persistent %s failures starve later transfers in the other direction", async direction => {
+    const { a } = await setup();
+    a.store.commit(db => {
+      for (let i = 0; i < 20; i++) db.insert("builds", { name: `Blocked ${i}`, imageUrl: `kyarafit-image:a_${String(i).padStart(2, "0")}` });
+      db.insert("builds", { name: "Ready", imageUrl: "kyarafit-image:z_ready" });
+    });
+    let attempts = 0;
+    const successes: string[] = [];
+    const downloaded = new Set<string>();
+    const io: ReplicaAssetIo = {
+      hasLocal: async key => downloaded.has(key) || (direction === "upload" ? key !== "z_ready" : key === "z_ready"),
+      urls: async keys => keys.filter(key => direction === "upload" ? key === "z_ready" : key !== "z_ready")
+        .map(imageKey => ({ imageKey, url: `https://example.invalid/${imageKey}` })),
+      upload: async key => {
+        attempts++;
+        if (key !== "z_ready") throw new Error("Storage full");
+        successes.push(key);
+        return `storage-${key}`;
+      },
+      register: async () => {},
+      download: async key => {
+        attempts++;
+        if (key !== "z_ready") throw new Error("Temporarily unavailable");
+        downloaded.add(key);
+        successes.push(key);
+      },
+    };
+    expect(await syncReplicaAssets(a.sql, io)).toMatchObject({ failed: 20, remaining: 1 });
+    expect(attempts).toBe(20);
+    expect(successes).toEqual([]);
+    await syncReplicaAssets(a.sql, io);
+    expect(attempts).toBe(40);
+    expect(successes).toEqual(["z_ready"]);
+  });
   it.each([[false, false], [true, false], [true, true]])("recovers acknowledged data deleted before its first pull (positive cursor=%s, existing edit=%s)", async (positiveCursor, editExisting) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const { t, a, b, backend } = await setup();
@@ -181,6 +323,9 @@ describe("replica review regressions", () => {
     expect(b.get(restored)?.title).toBe("Offline task edit");
     expect(b.get(restored)?.ancestorIds).toEqual([]);
     expect(b.get(restored)).not.toHaveProperty("_replicaBuildIds");
+    for (const buildId of [ids.build, other._id]) {
+      expect(getBuildScopedWorkflow({ db: b.store.reader() }, buildId)!.items.map(item => item._id)).toContain(restored);
+    }
     const beltChange = b.changes(ids.build).find(row => row.rowId === ids.belt && row.kind === "edit-after-delete")!;
     expect(beltChange.lost.name).toBe("Offline belt edit");
     expect(beltChange.lost._replicaBuildIds).toContain(ids.build);
@@ -539,23 +684,42 @@ describe("replica review regressions", () => {
     }
   });
 
-  it("uses one identity for concurrently generated purchase and packing tasks", async () => {
-    const { a, b } = await setup();
+  it("converges two offline devices' generated purchase and packing tasks and their references", async () => {
+    const { t, a, b } = await setup();
     const ids = seedSlice(a);
     await settle(a, b);
-    for (const d of [a, b]) d.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
+    for (const d of [a, b]) {
+      d.net.online = false;
+      d.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
+    }
+    for (const d of [a, b]) d.net.online = true;
     await settle(a, b);
     const tasks = a.store.exportRows().filter(row => row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:"));
     expect(tasks).toHaveLength(1);
+    expect(b.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === tasks[0].doc.dedupeKey).map(row => row.id)).toEqual([tasks[0].id]);
+    const purchaseRows = await t.run(ctx => ctx.db.query("replicaRows").collect());
+    expect(purchaseRows.filter(row => !row.deleted && row.table === "workflowItems" && row.doc.dedupeKey === tasks[0].doc.dedupeKey).map(row => row.rowId)).toEqual([tasks[0].id]);
     expect(() => a.mutate("cosplayNodes:update", { id: ids.tunic, name: "Renamed" })).not.toThrow();
     await settle(a, b);
     expect(b.get(tasks[0].id)?.title).toBe("Buy Renamed");
     const convention = a.mutate<{ _id: string }>("conventions:create", { name: "Expo", startDate: "2026-10-01", endDate: "2026-10-02" });
     const packing = a.store.commit(db => db.insert("packingListItems", { userId: "owner", conventionId: convention._id, label: "Wig", checked: false }));
     await settle(a, b);
-    for (const d of [a, b]) d.mutate("conventions:updatePackingItem", { id: packing, checked: true });
+    for (const d of [a, b]) {
+      d.net.online = false;
+      d.mutate("conventions:updatePackingItem", { id: packing, checked: true });
+    }
+    for (const d of [a, b]) d.net.online = true;
     await settle(a, b);
-    expect(a.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`)).toHaveLength(1);
+    const packingTasks = a.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`);
+    expect(packingTasks).toHaveLength(1);
+    for (const d of [a, b]) {
+      expect(d.get(packing)?.workflowItemId).toBe(packingTasks[0].id);
+      expect(d.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`).map(row => row.id)).toEqual([packingTasks[0].id]);
+      expect(() => d.mutate("conventions:updatePackingItem", { id: packing, checked: false })).not.toThrow();
+    }
+    const packingRows = await t.run(ctx => ctx.db.query("replicaRows").collect());
+    expect(packingRows.filter(row => !row.deleted && row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`).map(row => row.rowId)).toEqual([packingTasks[0].id]);
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: null });
     await settle(a, b);
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
