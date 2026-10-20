@@ -235,6 +235,141 @@ describe("replica review regressions", () => {
     expect(b.get(y)?.parentId).toBeUndefined();
   });
 
+  it("preserves independent generated-task deletions from two offline devices", async () => {
+    const { a, b } = await setup();
+    const ids = seedSlice(a);
+    a.mutate("cosplayNodes:update", {
+      id: ids.tunic,
+      purchaseStatus: "to_buy",
+      buildStatus: "wip",
+    });
+    await settle(a, b);
+    const taskId = (key: string, incarnation: number) =>
+      replicaGeneratedWorkflowId(`autogen:${key}:shared:${ids.tunic}#${incarnation}`);
+    a.net.online = false;
+    b.net.online = false;
+    a.mutate("workflow:remove", { id: taskId("buy", 0) });
+    b.mutate("workflow:remove", { id: taskId("wip", 0) });
+    a.net.online = true;
+    b.net.online = true;
+    await settle(a, b);
+    for (const device of [a, b]) {
+      expect(device.get(ids.tunic)?.generatedTaskBuy).toEqual({ incarnation: 1, deleted: true });
+      expect(device.get(ids.tunic)?.generatedTaskWip).toEqual({ incarnation: 1, deleted: true });
+      device.mutate("cosplayNodes:update", { id: ids.tunic, name: "Renamed" });
+      expect(device.get(taskId("buy", 0))).toBeNull();
+      expect(device.get(taskId("wip", 0))).toBeNull();
+    }
+    await settle(a, b);
+    expect(a.changes().filter((row) => row.kind === "edit-after-delete")).toEqual([]);
+    a.mutate("cosplayNodes:update", {
+      id: ids.tunic,
+      purchaseStatus: "bought",
+      buildStatus: "built",
+    });
+    await settle(a, b);
+    for (const device of [a, b]) {
+      device.net.online = false;
+      device.mutate("cosplayNodes:update", {
+        id: ids.tunic,
+        purchaseStatus: "to_buy",
+        buildStatus: "wip",
+      });
+      expect(device.get(taskId("buy", 1))).not.toBeNull();
+      expect(device.get(taskId("wip", 1))).not.toBeNull();
+      device.net.online = true;
+    }
+    await settle(a, b);
+    expect(a.get(taskId("buy", 1))).toEqual(b.get(taskId("buy", 1)));
+    expect(a.get(taskId("wip", 1))).toEqual(b.get(taskId("wip", 1)));
+  });
+
+  it.each(["out", "in"])(
+    "deletes only actual descendants after a partially pulled move %s of a subtree",
+    async (direction) => {
+      const { a, b, backend } = await setup();
+      const x = a.mutate<{ _id: string }>("workflow:create", { title: "X" })._id;
+      const y = a.mutate<{ _id: string }>("workflow:create", {
+        title: "Y",
+        ...(direction === "out" ? { parentId: x } : {}),
+      })._id;
+      const children: string[] = [];
+      for (let i = 0; i < 501; i++)
+        children.push(
+          a.mutate<{ _id: string }>("workflow:create", { title: `Z${i}`, parentId: y })._id
+        );
+      await settle(a, b);
+      a.mutate("workflow:move", { id: y, parentId: direction === "out" ? null : x });
+      await a.sync();
+      const transport = backend.transport(b.net);
+      let pages = 0;
+      b.replicator.setTransport({
+        ...transport,
+        pull: async (...args) => {
+          if (args[1] > 1 && ++pages === 2) throw new Error("Interrupted pull");
+          return transport.pull(...args);
+        },
+      });
+      await b.sync();
+      b.net.online = false;
+      expect(b.get(y)?.parentId).toBe(direction === "out" ? undefined : x);
+      expect(
+        children.some(
+          (id) =>
+            JSON.stringify(b.get(id)?.ancestorIds) ===
+            JSON.stringify(direction === "out" ? [x, y] : [y])
+        )
+      ).toBe(true);
+      b.mutate("workflow:remove", { id: x });
+      expect(b.get(x)).toBeNull();
+      for (const id of [y, ...children]) {
+        if (direction === "out") expect(b.get(id)).not.toBeNull();
+        else expect(b.get(id)).toBeNull();
+      }
+    }
+  );
+
+  it("moves valid subtrees while a partially pulled root swap leaves an unrelated cycle", async () => {
+    const { a, b, backend } = await setup();
+    const x = a.mutate<{ _id: string }>("workflow:create", { title: "X" })._id;
+    const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", parentId: x })._id;
+    const root = a.mutate<{ _id: string }>("workflow:create", { title: "Root" })._id;
+    const child = a.mutate<{ _id: string }>("workflow:create", {
+      title: "Child",
+      parentId: root,
+    })._id;
+    const target = a.mutate<{ _id: string }>("workflow:create", { title: "Target" })._id;
+    const fillers: string[] = [];
+    for (let i = 0; i < 501; i++)
+      fillers.push(a.mutate<{ _id: string }>("workflow:create", { title: `Filler ${i}` })._id);
+    await settle(a, b);
+    a.mutate("workflow:move", { id: y, parentId: null });
+    a.mutate("workflow:move", { id: x, parentId: y });
+    for (const id of fillers) a.mutate("workflow:update", { id, title: "Updated" });
+    a.mutate("workflow:update", { id: y, title: "Last" });
+    await a.sync();
+    const transport = backend.transport(b.net);
+    let pages = 0;
+    b.replicator.setTransport({
+      ...transport,
+      pull: async (...args) => {
+        if (args[1] > 1 && ++pages === 2) throw new Error("Interrupted pull");
+        return transport.pull(...args);
+      },
+    });
+    await b.sync();
+    b.net.online = false;
+    expect(b.get(x)?.parentId).toBe(y);
+    expect(b.get(y)?.parentId).toBe(x);
+    b.mutate("workflow:move", { id: root, parentId: target });
+    expect(b.get(child)?.ancestorIds).toEqual([target, root]);
+    b.mutate("workflow:moveAndResequence", {
+      move: { id: root, parentId: null },
+      resequence: [],
+    });
+    expect(b.get(child)?.ancestorIds).toEqual([root]);
+  });
+
   it("keeps build membership when attachment and task tombstones span push batches", async () => {
     const { a, b, backend } = await setup();
     const build = a.mutate<{ _id: string }>("builds:create", { name: "Subtree", status: "idea" });
