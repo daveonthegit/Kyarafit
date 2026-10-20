@@ -43,6 +43,29 @@ export function replicaGeneratedWorkflowKey(doc: Record<string, unknown>): strin
     : null;
 }
 
+export function mergeReplicaField(
+  table: string,
+  field: string,
+  current: unknown,
+  incoming: unknown
+): unknown {
+  if (
+    table === "cosplayNodes" &&
+    (field === "generatedTaskBuy" || field === "generatedTaskWip") &&
+    current &&
+    typeof current === "object" &&
+    "incarnation" in current &&
+    typeof current.incarnation === "number"
+  ) {
+    const next =
+      incoming && typeof incoming === "object" && "incarnation" in incoming
+        ? incoming.incarnation
+        : 0;
+    if (typeof next === "number" && current.incarnation > next) return current;
+  }
+  return incoming;
+}
+
 export function replicaGeneratedWorkflowId(dedupeKey: string): string {
   let a = 1779033703,
     b = 3144134277,

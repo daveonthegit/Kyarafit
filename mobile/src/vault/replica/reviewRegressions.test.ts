@@ -235,6 +235,57 @@ describe("replica review regressions", () => {
     expect(b.get(y)?.parentId).toBeUndefined();
   });
 
+  it.each([
+    ["buy", "purchaseStatus", "to_buy", "bought", "generatedTaskBuy"],
+    ["wip", "buildStatus", "wip", "built", "generatedTaskWip"],
+  ])(
+    "never rolls back the %s incarnation after a stale offline deletion",
+    async (key, status, active, inactive, field) => {
+      const { a, b } = await setup();
+      const ids = seedSlice(a);
+      const id = (incarnation: number) =>
+        replicaGeneratedWorkflowId(`autogen:${key}:shared:${ids.tunic}#${incarnation}`);
+      const transition = (device: typeof a, value: string) =>
+        device.mutate("cosplayNodes:update", { id: ids.tunic, [status]: value });
+      transition(a, active);
+      await settle(a, b);
+      a.net.online = false;
+      b.net.online = false;
+      a.mutate("workflow:remove", { id: id(0) });
+      transition(a, inactive);
+      transition(a, active);
+      expect(a.get(id(1))).not.toBeNull();
+      a.mutate("workflow:remove", { id: id(1) });
+      b.mutate("workflow:remove", { id: id(0) });
+      expect(a.get(ids.tunic)?.[field]).toEqual({ incarnation: 2, deleted: true });
+      expect(b.get(ids.tunic)?.[field]).toEqual({ incarnation: 1, deleted: true });
+      a.net.online = true;
+      await a.sync();
+      b.net.online = true;
+      await b.sync();
+      await settle(a, b);
+      for (const device of [a, b]) {
+        expect(device.get(ids.tunic)?.[field]).toEqual({ incarnation: 2, deleted: true });
+        device.mutate("cosplayNodes:update", { id: ids.tunic, name: "Still deleted" });
+        expect(device.get(id(0))).toBeNull();
+        expect(device.get(id(1))).toBeNull();
+        expect(device.get(id(2))).toBeNull();
+      }
+      await settle(a, b);
+      transition(a, inactive);
+      transition(a, active);
+      expect(a.get(id(2))).not.toBeNull();
+      await settle(a, b);
+      expect(b.get(id(2))).toEqual(a.get(id(2)));
+      expect(a.replicator.pendingCount()).toBe(0);
+      expect(b.replicator.pendingCount()).toBe(0);
+      for (const device of [a, b])
+        expect(device.changes().filter((change) => change.kind === "edit-after-delete")).toEqual(
+          []
+        );
+    }
+  );
+
   it("preserves independent generated-task deletions from two offline devices", async () => {
     const { a, b } = await setup();
     const ids = seedSlice(a);

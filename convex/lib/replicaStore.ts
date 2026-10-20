@@ -10,6 +10,7 @@ import {
   REPLICA_PROTOCOL_VERSION,
   replicaLinksFor,
   replicaGeneratedWorkflowKey,
+  mergeReplicaField,
   type ReplicaConflictKind,
   type ReplicaErrorCode,
   type ReplicaErrorData,
@@ -245,7 +246,8 @@ export class ReplicaWriter {
     const doc: Fields = { ...((row?.doc as Fields | undefined) ?? {}) };
     const fieldRevs: FieldRevs = { ...((row?.fieldRevs as FieldRevs | undefined) ?? {}) };
     const lost: Fields = {};
-    for (const [field, value] of Object.entries(fields)) {
+    for (const [field, incoming] of Object.entries(fields)) {
+      const value = mergeReplicaField(table, field, doc[field], incoming);
       const last = fieldRevs[field];
       if (
         !REPLICA_META_FIELDS.has(field) &&

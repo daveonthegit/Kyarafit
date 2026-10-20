@@ -5,6 +5,7 @@ import {
   REPLICA_SYSTEM_FIELDS,
   REPLICA_CONFLICT_BUILD_IDS,
   replicaBuildIdOf,
+  mergeReplicaField,
   isReplicaTable,
   replicaLinksFor,
   type ReplicaConflict,
@@ -677,10 +678,22 @@ export class Replicator {
     // A local delete not yet pushed wins locally; the server applies it on the next push.
     if (pending.some((op) => op.kind === "delete")) return;
     const doc: Record<string, unknown> = { ...(row.doc ?? {}), _id: row.rowId };
+    if (row.table === "cosplayNodes") {
+      const local = this.sql.getFirstSync<{ json: string }>(
+        "SELECT json FROM entity_rows WHERE table_name = ? AND id = ?",
+        [row.table, row.rowId]
+      );
+      const current = local ? JSON.parse(local.json) : {};
+      for (const key of ["generatedTaskBuy", "generatedTaskWip"]) {
+        const value = mergeReplicaField(row.table, key, current[key], doc[key]);
+        if (value !== undefined) doc[key] = value;
+      }
+    }
     for (const op of pending) {
-      for (const [key, value] of Object.entries(
+      for (const [key, incoming] of Object.entries(
         JSON.parse(op.fields_json ?? "{}") as Record<string, unknown>
       )) {
+        const value = mergeReplicaField(row.table, key, doc[key], incoming);
         if (value === null) delete doc[key];
         else doc[key] = value;
       }
