@@ -79,9 +79,9 @@ export function convexReplicaTransport(
     }
   };
   return {
-    push: (deviceId, ops) =>
+    push: (deviceId, ops, after, generation) =>
       call<ReplicaPushResult>(() =>
-        client.mutation(api.replica.push, { protocol, subject, deviceId, ops })
+        client.mutation(api.replica.push, { protocol, subject, deviceId, ops, after, generation })
       ),
     pull: (after, limit) =>
       call<ReplicaPullResult>(() =>

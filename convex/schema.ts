@@ -696,6 +696,7 @@ export default defineSchema({
     rev: v.number(),
     /** Highest rev whose tombstone retention has purged; older cursors must resnapshot. */
     floorRev: v.number(),
+    generation: v.optional(v.string()),
     /** The account's current Recovered build (orphan bucket), once one exists. */
     recoveredBuildId: v.optional(v.string()),
   }).index("by_user", ["userId"]),

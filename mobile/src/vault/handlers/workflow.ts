@@ -319,7 +319,7 @@ function ensureWorkflowItem(
   const existing = ctx.db
     .query("workflowItems")
     .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", input.dedupeKey))
-    .unique() as WorkflowItemDoc | null;
+    .first() as WorkflowItemDoc | null;
 
   const normalizedStatus = coerceStatus(input.status);
   if (existing) {
@@ -426,7 +426,7 @@ export function syncGeneratedWorkflowForNode(
     const existing = ctx.db
       .query("workflowItems")
       .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey))
-      .unique();
+      .first();
     if (spec.active || (spec.done && existing)) {
       ensureWorkflowItem(ctx, {
         userId: input.userId,

@@ -416,10 +416,6 @@ const writers = [
   writer("push tokens", api.push.registerToken, () => ({ token: "synthetic-token" })),
   writer("push consent", api.push.setMarketingOptIn, () => ({ marketingOptIn: true })),
   writer("upload reservations", api.files.generateUploadUrlForSize, () => ({ sizeBytes: 1 })),
-  writer("backfill", api.tierTransition.backfillRows, () => ({
-    table: "builds",
-    rows: [{ clientId: "mirror", name: "Active", status: "idea" }],
-  })),
   writer(
     "broadcast creation",
     api.broadcasts.create,

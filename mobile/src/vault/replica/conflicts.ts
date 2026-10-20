@@ -5,6 +5,7 @@ import {
 } from "@kyarafit/design-system/domain/replicaProtocol";
 import { withCreateMeta, withUpdateMeta } from "../handlers/lib/syncMeta";
 import type { VaultReader, VaultSql, VaultStore } from "../store";
+import { conflictBuildIds } from "./buildMembership";
 
 /**
  * "Changes that didn't apply": the losing side of every managed-sync conflict, kept so the user can
@@ -127,23 +128,19 @@ export function listChangesNotApplied(
     build_id: string | null;
     created_at: number;
   }>(
-    buildId
-      ? "SELECT * FROM replica_conflicts WHERE resolved = 0 AND build_id = ? ORDER BY rev DESC"
-      : "SELECT * FROM replica_conflicts WHERE resolved = 0 ORDER BY rev DESC",
-    buildId ? [buildId] : []
+    "SELECT * FROM replica_conflicts WHERE resolved = 0 ORDER BY rev DESC"
   );
-  return rows.map((row) => describe(reader, row));
+  return rows.map((row) => describe(reader, row)).filter(change =>
+    !buildId || change.buildId === buildId || conflictBuildIds(sql, change.table, change.rowId, change.lost).has(buildId)
+  );
 }
 
 export function countChangesNotApplied(sql: VaultSql, buildId?: string): number {
-  return (
-    sql.getFirstSync<{ c: number }>(
-      buildId
-        ? "SELECT COUNT(*) AS c FROM replica_conflicts WHERE resolved = 0 AND build_id = ?"
-        : "SELECT COUNT(*) AS c FROM replica_conflicts WHERE resolved = 0",
-      buildId ? [buildId] : []
-    )?.c ?? 0
+  const rows = sql.getAllSync<{ table_name: string; row_id: string; lost_json: string; build_id: string | null }>(
+    "SELECT table_name, row_id, lost_json, build_id FROM replica_conflicts WHERE resolved = 0"
   );
+  return rows.filter(row => !buildId || row.build_id === buildId ||
+    conflictBuildIds(sql, row.table_name, row.row_id, JSON.parse(row.lost_json)).has(buildId)).length;
 }
 
 /**

@@ -4,7 +4,8 @@ import { getOfflineDb } from "@/offline/db";
 import { getIsOnline } from "@/offline/connectivity";
 import { NeedsConnectionError } from "@/offline/useOfflineMutation";
 import { isVaultImageValue } from "./images";
-import type { VaultPersistHook, VaultSql } from "./store";
+import type { VaultSql } from "./store";
+export { recordPublicationRemovals } from "./publicationRemovals";
 
 /**
  * Published server copies of vault rows (DATA_AND_SYNC.md §6.4).
@@ -37,10 +38,6 @@ const PUBLISHED_FIELDS: Record<PublishableTable, readonly string[]> = {
   conventions: ["name", "location", "imageUrl", "startDate", "endDate", "archived"],
 };
 
-function isPublishable(table: string): table is PublishableTable {
-  return table === "builds" || table === "conventions";
-}
-
 /** The server copy a vault row maps to (its own id for rows first pulled from the cloud). */
 function serverIdFor(sql: VaultSql, id: string): string | null {
   if (!id.startsWith(LOCAL_ID_PREFIX)) return id;
@@ -50,20 +47,6 @@ function serverIdFor(sql: VaultSql, id: string): string | null {
     ])?.server_id ?? null
   );
 }
-
-/** `onPersist` hook: queue removal of the server copy of every deleted published row. */
-export const recordPublicationRemovals: VaultPersistHook = (sql, changes) => {
-  for (const change of changes) {
-    if (change.after || !isPublishable(change.table)) continue;
-    const serverId = serverIdFor(sql, change.id);
-    if (!serverId) continue;
-    sql.runSync(
-      `INSERT INTO publish_removals (client_id, table_name, server_id) VALUES (?, ?, ?)
-       ON CONFLICT(client_id) DO UPDATE SET server_id = excluded.server_id`,
-      [change.id, change.table, serverId]
-    );
-  }
-};
 
 /** The published server id for a vault row, or null when it has never been published. */
 export function getPublishedId(localId: string): string | null {
@@ -158,7 +141,7 @@ export async function flushPublicationRemovals(
     try {
       await client.mutation(api.publications.unpublish, {
         table: entry.table_name === "conventions" ? "conventions" : "builds",
-        serverId: entry.server_id,
+        clientId: entry.client_id,
       });
     } catch {
       continue; // Stays queued; retried on the next pass.

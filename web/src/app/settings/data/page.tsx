@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { useConvex } from "convex/react";
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
+import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
+import { assertWebMutationAllowed } from "@/lib/offline/publishedReadOnly";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -151,6 +152,7 @@ export default function SettingsDataPage() {
         throw new Error("Local account changed");
       }
       if (!getIsOnline()) throw new RestoreOfflineError();
+      assertWebMutationAllowed(getFunctionName(mutation));
       return convex.mutation(mutation, args);
     },
     [convex, userId]

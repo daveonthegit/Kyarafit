@@ -403,7 +403,9 @@ describe("replica media", () => {
       assets: await ctx.db.query("replicaAssets").collect(),
       blob: await ctx.db.system.get("_storage", storageId as Id<"_storage">),
     }));
-    expect(left).toEqual({ rows: [], heads: [], assets: [], blob: null });
+    expect(left).toMatchObject({ rows: [], assets: [], blob: null });
+    expect(left.heads).toHaveLength(1);
+    expect(left.heads[0].generation).toBeTruthy();
   });
 
   it("deletes the replica and its photos with the account", async () => {
@@ -493,18 +495,18 @@ describe("explicit publication", () => {
     expect(
       await t
         .withIdentity({ subject: "bob" })
-        .mutation(api.publications.unpublish, { table: "builds", serverId: id })
+        .mutation(api.publications.unpublish, { table: "builds", clientId: id })
     ).toEqual({ removed: false });
     expect(
-      await asAlice.mutation(api.publications.unpublish, { table: "builds", serverId: id })
+      await asAlice.mutation(api.publications.unpublish, { table: "builds", clientId: id })
     ).toEqual({ removed: true });
     expect(
-      await asAlice.mutation(api.publications.unpublish, { table: "builds", serverId: id })
+      await asAlice.mutation(api.publications.unpublish, { table: "builds", clientId: id })
     ).toEqual({ removed: false });
     expect(
       await asAlice.mutation(api.publications.unpublish, {
         table: "conventions",
-        serverId: "not-an-id",
+        clientId: "not-an-id",
       })
     ).toEqual({ removed: false });
     expect(await t.run((ctx) => ctx.db.get(id as Id<"builds">))).toBeNull();

@@ -3,7 +3,7 @@ import {
   REPLICA_MAX_PUSH_OPS,
   REPLICA_SYSTEM_FIELDS,
   isReplicaTable,
-  replicaBuildIdOf,
+  replicaLinksFor,
   type ReplicaConflict,
   type ReplicaOp,
   type ReplicaPullResult,
@@ -11,6 +11,8 @@ import {
   type ReplicaPushResult,
 } from "@kyarafit/design-system/domain/replicaProtocol";
 import type { VaultDoc, VaultPersistHook, VaultRowChange, VaultSql } from "../store";
+import { queuePublicationRemoval } from "../publicationRemovals";
+import { conflictBuildIds } from "./buildMembership";
 
 /**
  * Device half of managed sync (Kyarafit Cloud): replicates this vault's rows to the account's
@@ -31,7 +33,7 @@ import type { VaultDoc, VaultPersistHook, VaultRowChange, VaultSql } from "../st
  */
 
 export interface ReplicaTransport {
-  push(deviceId: string, ops: ReplicaOp[]): Promise<ReplicaPushResult>;
+  push(deviceId: string, ops: ReplicaOp[], after?: number, generation?: string): Promise<ReplicaPushResult>;
   pull(after: number, limit: number): Promise<ReplicaPullResult>;
   dismissConflicts(ids: string[]): Promise<void>;
 }
@@ -74,6 +76,7 @@ const META = {
   deviceId: "replica:deviceId",
   resnapshot: "replica:resnapshot",
   lastSyncedAt: "replica:lastSyncedAt",
+  generation: "replica:generation",
 } as const;
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -191,7 +194,9 @@ export class Replicator {
   }
 
   pendingCount(): number {
-    return this.sql.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM replica_outbox")?.c ?? 0;
+    return this.sql.getFirstSync<{ c: number }>(
+      "SELECT (SELECT COUNT(*) FROM replica_outbox) + (SELECT COUNT(*) FROM replica_conflicts WHERE dismiss_pending = 1) AS c"
+    )?.c ?? 0;
   }
 
   /** The signed-in session's transport, or null while signed out / switching accounts. */
@@ -322,8 +327,17 @@ export class Replicator {
     }
     this.setStatus("syncing");
     try {
+      const check = await transport.pull(Number(readMeta(this.sql, META.cursor) ?? 0), 1);
+      this.assertLive();
+      if (check.resnapshot || readMeta(this.sql, META.resnapshot) === "1" ||
+          (check.generation ?? "initial") !== (readMeta(this.sql, META.generation) ?? "initial")) {
+        await this.pull(transport);
+      }
       await this.pushDismissals(transport);
-      await this.push(transport);
+      if (!(await this.push(transport))) {
+        this.rerun = true;
+        return true;
+      }
       await this.pull(transport);
       if (this.disposed) return false;
       writeMeta(this.sql, META.lastSyncedAt, String(this.now()));
@@ -351,6 +365,7 @@ export class Replicator {
   }
 
   private async pushDismissals(transport: ReplicaTransport): Promise<void> {
+    for (;;) {
     const ids = this.sql
       .getAllSync<{ id: string }>(
         "SELECT id FROM replica_conflicts WHERE dismiss_pending = 1 ORDER BY rev LIMIT ?",
@@ -363,15 +378,44 @@ export class Replicator {
     this.sql.withTransactionSync(() => {
       for (const id of ids) this.sql.runSync("DELETE FROM replica_conflicts WHERE id = ?", [id]);
     });
+    }
   }
 
-  private async push(transport: ReplicaTransport): Promise<void> {
+  private async push(transport: ReplicaTransport): Promise<boolean> {
     for (;;) {
-      const rows = this.sql.getAllSync<OutboxRow>(
-        "SELECT * FROM replica_outbox ORDER BY seq LIMIT ?",
-        [REPLICA_MAX_PUSH_OPS]
-      );
-      if (rows.length === 0) return;
+      const pending = this.sql.getAllSync<OutboxRow>("SELECT * FROM replica_outbox ORDER BY seq");
+      const groups = new Map<string, OutboxRow[]>();
+      const key = (table: string, id: string) => JSON.stringify([table, id]);
+      for (const row of pending) {
+        const id = key(row.table_name, row.row_id);
+        const group = groups.get(id) ?? [];
+        group.push(row);
+        groups.set(id, group);
+      }
+      const ordered: OutboxRow[] = [];
+      const visited = new Set<string>();
+      const visit = (id: string) => {
+        if (visited.has(id)) return;
+        visited.add(id);
+        const group = groups.get(id);
+        if (!group) return;
+        const first = group[0];
+        const local = this.sql.getFirstSync<{ json: string }>(
+          "SELECT json FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0", [first.table_name, first.row_id]);
+        const doc: Record<string, unknown> = local ? JSON.parse(local.json) : {};
+        for (const row of group) {
+          const fields = JSON.parse(row.fields_json ?? "{}");
+          const state = { ...doc, ...fields };
+          for (const rule of replicaLinksFor(row.table_name, state)) {
+            const target = state[rule.field];
+            if (typeof target === "string") visit(key(rule.target, target));
+          }
+        }
+        ordered.push(...group);
+      };
+      for (const id of groups.keys()) visit(id);
+      const rows = ordered.slice(0, REPLICA_MAX_PUSH_OPS);
+      if (rows.length === 0) return true;
       const ops: ReplicaOp[] = rows.map((row) => ({
         opId: row.op_id,
         table: row.table_name,
@@ -381,8 +425,11 @@ export class Replicator {
         baseRev: row.base_rev,
       }));
       // The server dedupes by opId, so a resend after a lost acknowledgement is harmless.
-      await transport.push(this.deviceId, ops);
+      const result = await transport.push(this.deviceId, ops,
+        Number(readMeta(this.sql, META.cursor) ?? 0),
+        readMeta(this.sql, META.generation) ?? "initial");
       this.assertLive();
+      if (result.resnapshot) return false;
       // Acknowledged (applied, or rejected and kept as a conflict server-side).
       this.sql.withTransactionSync(() => {
         for (const row of rows)
@@ -400,11 +447,28 @@ export class Replicator {
         const after = Number(readMeta(this.sql, META.cursor) ?? 0);
         const page = await transport.pull(after, REPLICA_MAX_PULL_ROWS);
         this.assertLive();
+        const generation = page.generation ?? "initial";
+        if (generation !== (readMeta(this.sql, META.generation) ?? "initial")) {
+          this.sql.withTransactionSync(() => {
+            this.sql.runSync("DELETE FROM replica_state");
+            this.sql.runSync("DELETE FROM replica_outbox");
+            this.sql.runSync("DELETE FROM replica_assets");
+            this.sql.runSync("DELETE FROM replica_seen");
+            this.sql.runSync("DELETE FROM replica_conflicts");
+            this.sql.runSync("DELETE FROM sync_meta WHERE key = ?", [META.resnapshot]);
+            writeMeta(this.sql, META.cursor, "0");
+            writeMeta(this.sql, META.generation, generation);
+          });
+          this.enableReplication();
+          continue;
+        }
         if (page.resnapshot) {
           this.sql.withTransactionSync(() => {
             writeMeta(this.sql, META.resnapshot, "1");
             writeMeta(this.sql, META.cursor, "0");
             this.sql.runSync("DELETE FROM replica_seen");
+            const pending = this.sql.getAllSync<{ seq: number }>("SELECT seq FROM replica_outbox");
+            for (const op of pending) this.sql.runSync("UPDATE replica_outbox SET op_id = ? WHERE seq = ?", [this.options.newOpId(), op.seq]);
           });
           continue;
         }
@@ -441,11 +505,19 @@ export class Replicator {
     const gone = this.sql.getAllSync<{ table_name: string; row_id: string }>(
       `SELECT s.table_name, s.row_id FROM replica_state s
        WHERE NOT EXISTS (SELECT 1 FROM replica_seen x
-                         WHERE x.table_name = s.table_name AND x.row_id = s.row_id)
-         AND NOT EXISTS (SELECT 1 FROM replica_outbox o
-                         WHERE o.table_name = s.table_name AND o.row_id = s.row_id)`
+                         WHERE x.table_name = s.table_name AND x.row_id = s.row_id)`
     );
     for (const row of gone) {
+      const pending = this.sql.getFirstSync("SELECT 1 FROM replica_outbox WHERE table_name = ? AND row_id = ? AND kind = 'put'", [row.table_name, row.row_id]);
+      const local = this.sql.getFirstSync<{ json: string }>("SELECT json FROM entity_rows WHERE table_name = ? AND id = ?", [row.table_name, row.row_id]);
+      if (pending && local) this.applyConflict({
+        id: this.options.newOpId(), table: row.table_name, rowId: row.row_id,
+        kind: "edit-after-delete", lost: JSON.parse(local.json), rev: 0,
+        createdAt: this.now(), dismissed: false,
+      });
+      this.sql.runSync("DELETE FROM replica_outbox WHERE table_name = ? AND row_id = ?", [row.table_name, row.row_id]);
+      this.enqueue(row.table_name, row.row_id, "delete", null);
+      queuePublicationRemoval(this.sql, row.table_name, row.row_id);
       this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
         row.table_name,
         row.row_id,
@@ -461,6 +533,7 @@ export class Replicator {
 
   private applyPulled(row: ReplicaPulledRow): void {
     if (row.deleted) {
+      queuePublicationRemoval(this.sql, row.table, row.rowId);
       // Delete wins. Any edit still queued here reaches the server, which keeps it as a conflict.
       this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
         row.table,
@@ -509,19 +582,7 @@ export class Replicator {
       this.sql.runSync("DELETE FROM replica_conflicts WHERE id = ?", [conflict.id]);
       return;
     }
-    const local = this.sql.getFirstSync<{ json: string }>(
-      "SELECT json FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0",
-      [conflict.table, conflict.rowId]
-    );
-    let current: Record<string, unknown> = {};
-    try {
-      current = local ? (JSON.parse(local.json) as Record<string, unknown>) : {};
-    } catch {
-      current = {};
-    }
-    const buildId =
-      replicaBuildIdOf(conflict.table, { ...current, ...conflict.lost, _id: conflict.rowId }) ??
-      null;
+    const buildId = conflictBuildIds(this.sql, conflict.table, conflict.rowId, conflict.lost).values().next().value ?? null;
     this.sql.runSync(
       `INSERT OR IGNORE INTO replica_conflicts
          (id, table_name, row_id, kind, lost_json, build_id, rev, created_at)

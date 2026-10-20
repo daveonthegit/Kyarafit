@@ -36,6 +36,11 @@ export const REPLICA_TABLES = [
 ] as const;
 export type ReplicaTable = (typeof REPLICA_TABLES)[number];
 
+export function replicaGeneratedWorkflowKey(doc: Record<string, unknown>): string | null {
+  return (doc.sourceKind === "automation" || doc.sourceKind === "packing") && typeof doc.dedupeKey === "string"
+    ? doc.dedupeKey : null;
+}
+
 export function isReplicaTable(table: string): table is ReplicaTable {
   return (REPLICA_TABLES as readonly string[]).includes(table);
 }
@@ -48,6 +53,7 @@ export const REPLICA_META_FIELDS: ReadonlySet<string> = new Set([
   "updatedAt",
   "version",
   "fieldUpdatedAt",
+  "ancestorIds",
 ]);
 
 /** Fields never carried in an op (the row id is the op's `rowId`). */
@@ -83,6 +89,7 @@ export type ReplicaOpStatus = "applied" | "rejected";
 export interface ReplicaPushResult {
   outcomes: { opId: string; status: ReplicaOpStatus; rev: number }[];
   head: number;
+  resnapshot?: boolean;
 }
 
 export interface ReplicaPulledRow {
@@ -135,6 +142,7 @@ export interface ReplicaPullResult {
   hasMore: boolean;
   /** The device's cursor is older than retained history: restart from 0 and reconcile. */
   resnapshot: boolean;
+  generation?: string;
 }
 
 /**

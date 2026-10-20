@@ -27,6 +27,7 @@ export interface ReplicaAssetResult {
   uploaded: number;
   downloaded: number;
   failed: number;
+  remaining: number;
 }
 
 const URL_BATCH = 50;
@@ -56,7 +57,7 @@ export async function syncReplicaAssets(
   isCurrent: () => boolean = () => true,
   now: () => number = Date.now
 ): Promise<ReplicaAssetResult> {
-  const result: ReplicaAssetResult = { uploaded: 0, downloaded: 0, failed: 0 };
+  const result: ReplicaAssetResult = { uploaded: 0, downloaded: 0, failed: 0, remaining: 0 };
   const known = new Set(
     sql
       .getAllSync<{ image_key: string }>("SELECT image_key FROM replica_assets")
@@ -71,7 +72,7 @@ export async function syncReplicaAssets(
   };
   const keys = referencedImageKeys(sql);
   let transfers = 0;
-  for (let i = 0; i < keys.length && transfers < MAX_TRANSFERS_PER_PASS; i += URL_BATCH) {
+  for (let i = 0; i < keys.length; i += URL_BATCH) {
     const batch = keys.slice(i, i + URL_BATCH);
     const local = new Map<string, boolean>();
     for (const key of batch) local.set(key, await io.hasLocal(key));
@@ -81,8 +82,12 @@ export async function syncReplicaAssets(
     const remote = new Map((await io.urls(ask)).map((entry) => [entry.imageKey, entry.url]));
     if (!isCurrent()) return result;
     for (const key of ask) {
-      if (transfers >= MAX_TRANSFERS_PER_PASS || !isCurrent()) break;
+      if (!isCurrent()) return result;
       const url = remote.get(key);
+      if (transfers >= MAX_TRANSFERS_PER_PASS) {
+        if (url || local.get(key)) result.remaining += 1;
+        continue;
+      }
       try {
         if (url) {
           markKnown(key);

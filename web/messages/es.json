@@ -201,6 +201,7 @@
     "imagePreviewAlt": "Vista previa de la imagen del elemento"
   },
   "Sync": {
+    "publishedReadOnly": "La web solo muestra copias publicadas. Edita tus datos personales en la aplicación móvil y vuelve a publicarlos.",
     "offline": "Sin conexión — los cambios se sincronizarán al volver online.",
     "pending": "{count} cambios pendientes de sincronizar",
     "failed": "{count} cambio(s) no se pudieron sincronizar",

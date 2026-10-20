@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 
 // Spec: DATA_AND_SYNC.md §6 (REQ-D60) + REQ-D10. The Convex-facing sync worker (queue drain +
 // warm-up pull) runs ONLY for a paid, signed-in user. Free / signed-out users must make ZERO Convex
@@ -81,7 +81,7 @@ describe("SyncWorkerProvider gating (REQ-D60 / REQ-D10)", () => {
     expect(client.mutation).not.toHaveBeenCalled();
   });
 
-  it("should_run_sync_worker_for_paid_signed_in_user", async () => {
+  it("does not replay or pull personal rows for paid web accounts", async () => {
     authState.signedIn = true;
     tierState.tier = "PRO";
 
@@ -91,7 +91,9 @@ describe("SyncWorkerProvider gating (REQ-D60 / REQ-D10)", () => {
       </SyncWorkerProvider>
     );
 
-    // Paid + signed-in: the warm-up pull queries `sync.listChangedSince` against Convex.
-    await waitFor(() => expect(client.query).toHaveBeenCalled());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.query).not.toHaveBeenCalled();
+    expect(client.mutation).not.toHaveBeenCalled();
   });
 });

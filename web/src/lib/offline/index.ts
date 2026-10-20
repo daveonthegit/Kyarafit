@@ -11,13 +11,6 @@ export { SyncWorkerProvider } from "./SyncWorkerProvider";
 export { offlineRuntime } from "./runtime";
 export { getIsOnline, setOfflineConnectivity } from "./connectivity";
 export {
-  drainMutationQueue,
-  warmEntityRows,
-  syncNow,
-  uploadLocalImages,
-  runBackfill,
-} from "./syncWorker";
-export {
   runUpgradeBackfill,
   IDLE_BACKFILL,
   BACKFILL_TABLES,

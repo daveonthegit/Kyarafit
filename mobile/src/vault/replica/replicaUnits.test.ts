@@ -173,7 +173,7 @@ describe("replica photo bytes", () => {
     row(sql, "builds", "b2", { imageUrl: "kyarafit-image:img_theirs" });
     row(sql, "builds", "b3", { imageUrl: "kyarafit-image:img_nowhere" });
     const first = io(["img_mine"], { img_theirs: "https://files.test/theirs" });
-    expect(await syncReplicaAssets(sql, first)).toEqual({ uploaded: 1, downloaded: 1, failed: 0 });
+    expect(await syncReplicaAssets(sql, first)).toEqual({ uploaded: 1, downloaded: 1, failed: 0, remaining: 0 });
     expect(first.calls).toEqual([
       "urls:img_mine,img_nowhere,img_theirs",
       "upload:img_mine",
@@ -195,7 +195,7 @@ describe("replica photo bytes", () => {
       if (key === "img_a") throw new Error("upload failed");
       return `storage-${key}`;
     };
-    expect(await syncReplicaAssets(sql, flaky)).toEqual({ uploaded: 1, downloaded: 0, failed: 1 });
+    expect(await syncReplicaAssets(sql, flaky)).toEqual({ uploaded: 1, downloaded: 0, failed: 1, remaining: 0 });
     expect(sql.getAllSync("SELECT image_key FROM replica_assets")).toEqual([
       { image_key: "img_b" },
     ]);

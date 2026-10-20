@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation } from "./lib/guardedMutation";
 import { requireIdentity } from "./lib/authz";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
@@ -65,6 +66,10 @@ export const publish = mutation({
       if (existing.deletedAt !== undefined) throw new Error("This copy was removed");
       // Social settings belong to the published copy, not to the vault.
       delete fields.visibility;
+      const optional = table === "builds"
+        ? ["character", "notes", "imageUrl", "imageStorageId", "imageRef", "imageFocalX", "imageFocalY", "budgetCents", "targetDate", "manualProgressPercent"]
+        : ["location", "imageUrl", "imageStorageId", "imageRef", "archived"];
+      for (const field of optional) if (!(field in fields)) fields[field] = undefined;
       await db.patch(
         existing._id,
         withUpdateMeta(
@@ -87,21 +92,32 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: {
     table: v.union(v.literal("builds"), v.literal("conventions")),
-    serverId: v.string(),
+    clientId: v.string(),
   },
-  handler: async (ctx, { table, serverId }): Promise<{ removed: boolean }> => {
+  handler: async (ctx, { table, clientId }): Promise<{ removed: boolean }> => {
     const userId = await requireIdentity(ctx);
-    if (table === "builds") {
-      const id = ctx.db.normalizeId("builds", serverId);
-      const build = id ? await ctx.db.get(id) : null;
-      if (!build || build.userId !== userId) return { removed: false };
-      await deleteOwnedBuild(ctx, userId, build);
-      return { removed: true };
-    }
-    const id = ctx.db.normalizeId("conventions", serverId);
-    const convention = id ? await ctx.db.get(id) : null;
-    if (!convention || convention.userId !== userId) return { removed: false };
-    await deleteOwnedConvention(ctx, userId, convention);
-    return { removed: true };
+    return { removed: await removePublishedProjection(ctx, userId, table, clientId) };
   },
 });
+
+export async function removePublishedProjection(
+  ctx: MutationCtx, userId: string, table: string, clientId: string
+): Promise<boolean> {
+  if (table === "builds") {
+    const id = ctx.db.normalizeId("builds", clientId);
+    const build = (id ? await ctx.db.get(id) : null) ?? await ctx.db.query("builds")
+      .withIndex("by_userId_clientId", q => q.eq("userId", userId).eq("clientId", clientId)).unique();
+    if (!build || build.userId !== userId || build.deletedAt !== undefined) return false;
+    await deleteOwnedBuild(ctx, userId, build);
+    return true;
+  }
+  if (table === "conventions") {
+    const id = ctx.db.normalizeId("conventions", clientId);
+    const convention = (id ? await ctx.db.get(id) : null) ?? await ctx.db.query("conventions")
+      .withIndex("by_userId_clientId", q => q.eq("userId", userId).eq("clientId", clientId)).unique();
+    if (!convention || convention.userId !== userId || convention.deletedAt !== undefined) return false;
+    await deleteOwnedConvention(ctx, userId, convention);
+    return true;
+  }
+  return false;
+}

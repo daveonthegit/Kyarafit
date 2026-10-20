@@ -13,7 +13,7 @@ export interface ReplicaSchedulerOptions {
   /** The account is on Kyarafit Cloud (row sync runs only then). */
   isEntitled: () => boolean;
   /** Work after a successful row pass (photo bytes) and for every tier (publication removals). */
-  afterPass?: (synced: boolean) => Promise<void>;
+  afterPass?: (synced: boolean) => Promise<void | { remaining: number; failed: number }>;
   debounceMs?: number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -27,6 +27,7 @@ export class ReplicaScheduler {
   private inFlight: Promise<void> | null = null;
   /** A trigger arrived during a pass: run once more after it, so nothing waits for a later one. */
   private again = false;
+  private followupFailures = 0;
 
   constructor(
     private readonly replicator: Replicator | null,
@@ -92,9 +93,20 @@ export class ReplicaScheduler {
       }
     }
     try {
-      await this.options.afterPass?.(synced);
+      const result = await this.options.afterPass?.(synced);
+      if (result && result.failed) throw new Error("Photo transfers failed");
+      this.followupFailures = 0;
+      if (result && result.remaining && !this.disposed) this.request();
     } catch (error) {
       console.warn("[sync] follow-up work failed", error);
+      this.followupFailures += 1;
+      if (!this.disposed) {
+        this.clear(this.retry);
+        this.retry = this.set(() => {
+          this.retry = null;
+          void this.run();
+        }, replicaBackoffMs(this.followupFailures, this.options.random));
+      }
     }
   }
 

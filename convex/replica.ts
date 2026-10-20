@@ -50,8 +50,10 @@ export const push = mutation({
     subject: v.string(),
     deviceId: v.string(),
     ops: v.array(opValidator),
+    after: v.optional(v.number()),
+    generation: v.optional(v.string()),
   },
-  handler: async (ctx, { protocol, subject, deviceId, ops }): Promise<ReplicaPushResult> => {
+  handler: async (ctx, { protocol, subject, deviceId, ops, after = 0, generation = "initial" }): Promise<ReplicaPushResult> => {
     assertProtocol(protocol);
     if (ops.length > REPLICA_MAX_PUSH_OPS) throw new Error("Too many changes in one sync batch");
     if (!deviceId || deviceId.length > 128) throw new Error("Invalid device");
@@ -64,6 +66,9 @@ export const push = mutation({
         throw new Error("Change too large to sync");
     }
 
+    const current = await loadHead(ctx, userId);
+    if (after < (current?.floorRev ?? 0) || generation !== (current?.generation ?? "initial"))
+      return { outcomes: [], head: current?.rev ?? 0, resnapshot: true };
     const writer = await ReplicaWriter.open(ctx, userId);
     const outcomes: ReplicaPushResult["outcomes"] = [];
     const now = Date.now();
@@ -98,7 +103,7 @@ export const pull = query({
     const userId = await requireReplicaActor(ctx, subject);
     const head = await loadHead(ctx, userId);
     if (after > 0 && after < (head?.floorRev ?? 0)) {
-      return { rows: [], conflicts: [], cursor: after, hasMore: false, resnapshot: true };
+      return { rows: [], conflicts: [], cursor: after, hasMore: false, resnapshot: true, generation: head?.generation ?? "initial" };
     }
     const take = Math.min(
       Math.max(Math.floor(limit ?? REPLICA_MAX_PULL_ROWS), 1),
@@ -141,6 +146,7 @@ export const pull = query({
       cursor,
       hasMore,
       resnapshot: false,
+      generation: head?.generation ?? "initial",
     };
   },
 });

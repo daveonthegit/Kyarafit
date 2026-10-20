@@ -51,9 +51,9 @@ export function makeDevice(
   const base = backend.transport(net);
   let pulls = 0;
   const transport: ReplicaTransport = {
-    push: async (deviceId, ops) => {
+    push: async (deviceId, ops, after, generation) => {
       if (!net.online) throw new ReplicaOfflineError();
-      const result = await base.push(deviceId, ops);
+      const result = await base.push(deviceId, ops, after, generation);
       if (net.loseNextPushAck) {
         net.loseNextPushAck = false;
         throw new Error("acknowledgement lost after the server committed");

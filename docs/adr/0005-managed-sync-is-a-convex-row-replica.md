@@ -48,9 +48,11 @@ after sign-in, and signing out keeps local data.
 - **The staging gate is still open.** Scenario tests run on `convex-test` in CI and can target a
   real non-production deployment (docs/TESTING.md); they have not yet run on one. Optimistic
   concurrency on the per-account head and transaction limits are only verifiable there.
-- Web has no vault yet: it keeps its legacy worker and the server endpoints it calls
-  (`sync.listChangedSince`, `tierTransition.backfillRows`). For an account using both platforms,
-  web edits domain rows that mobile no longer reads, until web gets a vault.
+- Web has no vault yet: personal-data views show published projections read-only, with a notice
+  directing edits to mobile followed by explicit publication. Web personal mutations, restore,
+  command replay, domain pull, media mirroring and upgrade backfill are disabled or removed;
+  `sync.listChangedSince` and `tierTransition.backfillRows` are removed. Social actions remain online.
+  Existing device data is retained for export, not replayed or overlaid onto published views.
 - Collaborator edits to a published copy are not merged back into the owner's vault, and a
   re-publish overwrites the copy's content fields. Social settings on the copy (visibility, share
   token, group) are kept.

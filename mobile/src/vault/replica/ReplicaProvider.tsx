@@ -84,10 +84,11 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
         const client = timedConvexClient(convex);
         const sql = getActiveVaultSql();
         if (!sql || getActiveReplicator() !== replicator) return;
+        let assets;
         if (synced && replicator) {
           const imageDir = activeVaultImageDir();
           if (imageDir) {
-            await syncReplicaAssets(
+            assets = await syncReplicaAssets(
               sql,
               deviceReplicaAssetIo(client, userId, imageDir),
               () => getActiveReplicator() === replicator && getIsOnline()
@@ -96,6 +97,7 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
         }
         // Publication removals apply to every tier (publishing is free).
         await flushPublicationRemovals(client, sql);
+        return assets;
       },
     });
     activeScheduler = scheduler;

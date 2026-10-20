@@ -53,7 +53,7 @@ describe("published projections", () => {
     });
     store.commit((db) => db.delete(id));
     expect(sql.getAllSync("SELECT client_id, server_id FROM publish_removals")).toEqual([
-      { client_id: id, server_id: "server-1" },
+      { client_id: id, server_id: id },
     ]);
 
     const failing = { mutation: vi.fn(async () => Promise.reject(new Error("offline"))) };
@@ -62,17 +62,17 @@ describe("published projections", () => {
 
     const ok = { mutation: vi.fn(async (_ref: unknown, _args: unknown) => ({ removed: true })) };
     expect(await flushPublicationRemovals(ok, sql)).toBe(1);
-    expect(ok.mutation.mock.calls[0][1]).toEqual({ table: "builds", serverId: "server-1" });
+    expect(ok.mutation.mock.calls[0][1]).toEqual({ table: "builds", clientId: id });
     expect(sql.getAllSync("SELECT * FROM publish_removals")).toEqual([]);
     expect(sql.getAllSync("SELECT * FROM id_map")).toEqual([]);
   });
 
-  it("never calls the server for a vault that published nothing", async () => {
+  it("resolves removals without a device-only publication mapping", async () => {
     const { store, sql } = makeTestVault({ onPersist: recordPublicationRemovals });
     const id = store.commit((db) => db.insert("builds", { name: "Private", status: "idea" }));
     store.commit((db) => db.delete(id));
-    const client = { mutation: vi.fn() };
-    expect(await flushPublicationRemovals(client, sql)).toBe(0);
-    expect(client.mutation).not.toHaveBeenCalled();
+    const client = { mutation: vi.fn(async () => ({ removed: false })) };
+    expect(await flushPublicationRemovals(client, sql)).toBe(1);
+    expect(client.mutation).toHaveBeenCalledWith(expect.anything(), { table: "builds", clientId: id });
   });
 });

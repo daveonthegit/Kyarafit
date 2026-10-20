@@ -201,6 +201,7 @@
     "imagePreviewAlt": "Element image preview"
   },
   "Sync": {
+    "publishedReadOnly": "Web shows published copies only. Edit personal data in the mobile app, then publish it again.",
     "offline": "You are offline — changes sync when you reconnect.",
     "pending": "{count} pending changes waiting to sync",
     "failed": "{count} change(s) failed to sync",
