@@ -28,6 +28,50 @@ describe("VaultStore", () => {
     expect(sql.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM entity_rows")?.c).toBe(2);
   });
 
+  it.each(["generatedTaskBuy", "generatedTaskWip"])(
+    "preserves %s through staged patch, replace, and reinsertion",
+    (field) => {
+      const seen: unknown[] = [];
+      const { store, sql } = makeTestVault({
+        onPersist: (_tx, changes) => seen.push(...changes.map((change) => change.after?.[field])),
+      });
+      const id = store.commit((db) =>
+        db.insert("cosplayNodes", {
+          name: "Element",
+          [field]: { incarnation: 2, deleted: true },
+        })
+      );
+      store.commit((db) => {
+        db.patch(id, { [field]: { incarnation: 1 } });
+        expect(db.get(id)?.[field]).toEqual({ incarnation: 2, deleted: true });
+        db.patch(id, { [field]: undefined });
+        expect(db.get(id)?.[field]).toEqual({ incarnation: 2, deleted: true });
+        db.replace(id, { name: "Replaced" });
+        expect(db.get(id)?.[field]).toEqual({ incarnation: 2, deleted: true });
+        db.patch(id, { [field]: { incarnation: 3 } });
+        db.delete(id);
+        db.insert(
+          "cosplayNodes",
+          { name: "Reinserted", [field]: { incarnation: 1, deleted: true } },
+          id
+        );
+        expect(db.get(id)?.[field]).toEqual({ incarnation: 3 });
+      });
+      expect(store.reader().get(id)?.[field]).toEqual({ incarnation: 3 });
+      store.reloadFromDisk();
+      expect(store.reader().get(id)?.[field]).toEqual({ incarnation: 3 });
+      expect(seen).toEqual([{ incarnation: 2, deleted: true }, { incarnation: 3 }]);
+      const disk = JSON.parse(
+        sql.getFirstSync<{ json: string }>("SELECT json FROM entity_rows WHERE id = ?", [id])!.json
+      );
+      expect(disk[field]).toEqual({ incarnation: 3 });
+      store.commit((db) => db.patch(id, { [field]: { incarnation: 3, deleted: true } }));
+      expect(store.reader().get(id)?.[field]).toEqual({ incarnation: 3, deleted: true });
+      store.commit((db) => db.patch(id, { [field]: { incarnation: 3 } }));
+      expect(store.reader().get(id)?.[field]).toEqual({ incarnation: 3 });
+    }
+  );
+
   it("orders withIndex results by the index fields", () => {
     const { store } = makeTestVault();
     store.commit((db) => {

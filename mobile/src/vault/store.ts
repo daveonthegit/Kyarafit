@@ -1,4 +1,5 @@
 import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
+import { mergeReplicaField } from "@kyarafit/design-system/domain/replicaProtocol";
 import { localizeVaultPhotos } from "./images";
 import { VAULT_INDEX_FIELDS, VAULT_TABLES } from "./indexes";
 
@@ -36,6 +37,19 @@ export interface ImportRowsResult {
  */
 
 export type VaultDoc = { _id: string; _creationTime: number } & Record<string, unknown>;
+
+export function mergeVaultRow<T extends Record<string, unknown>>(
+  table: string,
+  existing: Record<string, unknown> | null | undefined,
+  incoming: T
+): T {
+  const merged = { ...incoming };
+  for (const field of ["generatedTaskBuy", "generatedTaskWip"] as const) {
+    const value = mergeReplicaField(table, field, existing?.[field], incoming[field]);
+    if (value !== undefined) Object.assign(merged, { [field]: value });
+  }
+  return merged;
+}
 
 export type VaultBindValue = string | number | null | boolean | Uint8Array;
 
@@ -247,7 +261,7 @@ export interface VaultWriter extends VaultReader {
 // Store
 // ---------------------------------------------------------------------------------------------
 
-type Staged = { table: string; doc: VaultDoc | null; existed: boolean };
+type Staged = { table: string; doc: VaultDoc | null; lastDoc: VaultDoc | null; existed: boolean };
 
 function withoutUndefined(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -405,7 +419,9 @@ export class VaultStore {
     const stage = (id: string, table: string, doc: VaultDoc | null) => {
       const prior = staged.get(id);
       const existed = prior ? prior.existed : this.idToTable.has(id);
-      staged.set(id, { table, doc, existed });
+      const existing = prior?.lastDoc ?? this.tables.get(table)?.get(id);
+      const merged = doc ? mergeVaultRow(table, existing, doc) : null;
+      staged.set(id, { table, doc: merged, lastDoc: merged ?? existing ?? null, existed });
     };
 
     const writer: VaultWriter = {
@@ -672,7 +688,7 @@ export class VaultStore {
       for (const row of rows) {
         const doc = docs.get(row.id);
         if (!doc) continue;
-        const json = JSON.stringify(doc);
+        const json = JSON.stringify(mergeVaultRow(table, parseStoredDoc(row.json), doc));
         if (json !== row.json) {
           touch(table, row.id, row.json);
           this.sql.runSync(
@@ -722,7 +738,7 @@ export class VaultStore {
             result.unknown += 1;
             continue;
           }
-          const doc: Record<string, unknown> = { ...row.doc, _id: row.id };
+          let doc: Record<string, unknown> = { ...row.doc, _id: row.id };
           if (typeof doc._creationTime !== "number") doc._creationTime = now;
           for (const field of OWNER_FIELDS) {
             if (doc[field] === sourceSubject) doc[field] = this.subject;
@@ -732,6 +748,7 @@ export class VaultStore {
             [row.table, row.id]
           );
           const local = existing && !existing.deleted ? parseStoredDoc(existing.json) : null;
+          doc = mergeVaultRow(row.table, local, doc);
           if (typeof local?.clientId === "string") doc.clientId = local.clientId;
           if (existing && !existing.deleted) {
             const localUpdatedAt = typeof local?.updatedAt === "number" ? local.updatedAt : 0;
@@ -742,7 +759,11 @@ export class VaultStore {
               // on this device (restored from this backup): point the row at the local file without
               // touching its timestamp or sync state, so newer edits are never overwritten.
               if (availablePhotos.size > 0) {
-                const localized = localizeVaultPhotos(local, availablePhotos);
+                const localized = mergeVaultRow(
+                  row.table,
+                  local,
+                  localizeVaultPhotos(local, availablePhotos)
+                );
                 const json = JSON.stringify(localized);
                 if (json !== existing.json) {
                   touch(row.table, row.id, existing.json);

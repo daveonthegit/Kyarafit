@@ -5,7 +5,6 @@ import {
   REPLICA_SYSTEM_FIELDS,
   REPLICA_CONFLICT_BUILD_IDS,
   replicaBuildIdOf,
-  mergeReplicaField,
   isReplicaTable,
   replicaLinksFor,
   type ReplicaConflict,
@@ -14,7 +13,13 @@ import {
   type ReplicaPulledRow,
   type ReplicaPushResult,
 } from "@kyarafit/design-system/domain/replicaProtocol";
-import type { VaultDoc, VaultPersistHook, VaultRowChange, VaultSql } from "../store";
+import {
+  mergeVaultRow,
+  type VaultDoc,
+  type VaultPersistHook,
+  type VaultRowChange,
+  type VaultSql,
+} from "../store";
 import { queuePublicationRemoval } from "../publicationRemovals";
 import { conflictBuildIds } from "./buildMembership";
 
@@ -677,26 +682,23 @@ export class Replicator {
     );
     // A local delete not yet pushed wins locally; the server applies it on the next push.
     if (pending.some((op) => op.kind === "delete")) return;
-    const doc: Record<string, unknown> = { ...(row.doc ?? {}), _id: row.rowId };
-    if (row.table === "cosplayNodes") {
-      const local = this.sql.getFirstSync<{ json: string }>(
-        "SELECT json FROM entity_rows WHERE table_name = ? AND id = ?",
-        [row.table, row.rowId]
-      );
-      const current = local ? JSON.parse(local.json) : {};
-      for (const key of ["generatedTaskBuy", "generatedTaskWip"]) {
-        const value = mergeReplicaField(row.table, key, current[key], doc[key]);
-        if (value !== undefined) doc[key] = value;
-      }
-    }
+    const local = this.sql.getFirstSync<{ json: string }>(
+      "SELECT json FROM entity_rows WHERE table_name = ? AND id = ?",
+      [row.table, row.rowId]
+    );
+    let doc = mergeVaultRow(row.table, local ? JSON.parse(local.json) : null, {
+      ...(row.doc ?? {}),
+      _id: row.rowId,
+    } as Record<string, unknown>);
     for (const op of pending) {
-      for (const [key, incoming] of Object.entries(
+      const next = { ...doc };
+      for (const [key, value] of Object.entries(
         JSON.parse(op.fields_json ?? "{}") as Record<string, unknown>
       )) {
-        const value = mergeReplicaField(row.table, key, doc[key], incoming);
-        if (value === null) delete doc[key];
-        else doc[key] = value;
+        if (value === null) delete next[key];
+        else next[key] = value;
       }
+      doc = mergeVaultRow(row.table, doc, next);
     }
     const now = this.now();
     const subject = readMeta(this.sql, "vault:subject") ?? "";

@@ -286,6 +286,80 @@ describe("replica review regressions", () => {
     }
   );
 
+  it.each(
+    [
+      ["buy", "purchaseStatus", "to_buy", "generatedTaskBuy", "conflict"],
+      ["wip", "buildStatus", "wip", "generatedTaskWip", "conflict"],
+      ["buy", "purchaseStatus", "to_buy", "generatedTaskBuy", "backup"],
+      ["wip", "buildStatus", "wip", "generatedTaskWip", "backup"],
+    ].map(([key, status, active, field, boundary]) => ({ key, status, active, field, boundary }))
+  )(
+    "keeps $key incarnations monotonic through a $boundary restore",
+    async ({ key, status, active, field, boundary }) => {
+      const { a, b } = await setup();
+      const ids = seedSlice(a);
+      const taskId = (incarnation: number) =>
+        replicaGeneratedWorkflowId(`autogen:${key}:shared:${ids.tunic}#${incarnation}`);
+      const transition = (device: typeof a, value: string | null) =>
+        device.mutate("cosplayNodes:update", { id: ids.tunic, [status]: value });
+      transition(a, active);
+      await settle(a, b);
+      a.net.online = false;
+      b.net.online = false;
+      transition(b, null);
+      a.mutate("workflow:remove", { id: taskId(0) });
+      expect(b.get(ids.tunic)?.[field]).toEqual({ incarnation: 1 });
+      expect(a.get(ids.tunic)?.[field]).toEqual({ incarnation: 1, deleted: true });
+      b.net.online = true;
+      await b.sync();
+      a.net.online = true;
+      await a.sync();
+      await settle(a, b);
+      const change = a
+        .changes()
+        .find(
+          (row) =>
+            row.rowId === ids.tunic &&
+            JSON.stringify(row.lost[field]) === JSON.stringify({ incarnation: 1 })
+        )!;
+      expect(change).toBeDefined();
+      expect(change.action).toBe("restore-fields");
+      transition(a, null);
+      transition(a, active);
+      expect(a.get(taskId(1))).not.toBeNull();
+      await settle(a, b);
+      a.mutate("workflow:remove", { id: taskId(1) });
+      await settle(a, b);
+      expect(a.get(ids.tunic)?.[field]).toEqual({ incarnation: 2, deleted: true });
+      if (boundary === "conflict") {
+        expect(restoreChange(a.store, change)).toBe(ids.tunic);
+      } else {
+        const result = a.store.importRows(
+          [
+            {
+              table: "cosplayNodes",
+              id: ids.tunic,
+              doc: { ...a.get(ids.tunic), [field]: change.lost[field], updatedAt: now() + 100000 },
+            },
+          ],
+          "owner"
+        );
+        expect(result.updated).toBe(1);
+      }
+      expect(a.get(ids.tunic)?.[field]).toEqual({ incarnation: 2, deleted: true });
+      a.mutate("cosplayNodes:update", { id: ids.tunic, name: "Still deleted" });
+      expect(a.get(taskId(1))).toBeNull();
+      expect(a.get(taskId(2))).toBeNull();
+      await settle(a, b);
+      for (const device of [a, b]) {
+        expect(device.get(ids.tunic)?.[field]).toEqual({ incarnation: 2, deleted: true });
+        expect(device.get(taskId(1))).toBeNull();
+        expect(device.changes().filter((row) => row.kind === "edit-after-delete")).toEqual([]);
+        expect(device.replicator.pendingCount()).toBe(0);
+      }
+    }
+  );
+
   it("preserves independent generated-task deletions from two offline devices", async () => {
     const { a, b } = await setup();
     const ids = seedSlice(a);
