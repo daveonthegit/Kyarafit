@@ -97,16 +97,16 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 ## 4. Sync metadata (every local-first row)
 
-| Field                                      | Purpose                                                                         |
-| ------------------------------------------ | ------------------------------------------------------------------------------- |
-| `clientId` (string)                        | stable client-minted id for offline-created rows (`local:` prefix until mapped) |
-| `version` (number)                         | monotonically bumped on each write (optimistic concurrency)                     |
-| `updatedAt` (number, ms)                   | **bumped on every field write**; basis for per-field LWW                        |
-| `fieldUpdatedAt` (record<string, number>)? | **per-field** timestamps for field-level LWW (REQ-D40)                          |
-| `deletedAt` (number)?                      | soft-delete tombstone                                                           |
+| Field                                      | Purpose                                                                                      |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `clientId` (string)                        | stable client-minted identity for offline-created rows                                       |
+| `version` (number)                         | monotonically bumped on each write (optimistic concurrency)                                  |
+| `updatedAt` (number, ms)                   | **bumped on every field write**; local backup-import ordering, not replica conflict ordering |
+| `fieldUpdatedAt` (record<string, number>)? | local/legacy field timestamps; replica ordering uses server revisions (§6.1)                 |
+| `deletedAt` (number)?                      | soft-delete tombstone                                                                        |
 
 - **REQ-D40** Writes set `updatedAt` and the touched fields' `fieldUpdatedAt`; backend create/update helpers live in `convex/lib/syncMeta.ts`.
-- **REQ-D41** Local id ↔ server id mapping is recorded on first successful create replay; later queued ops referencing the local id are rewritten before send.
+- **REQ-D41** The row replica keeps vault ids unchanged; it does not remap ids or rewrite references on acknowledgement. Legacy `id_map` entries remain available for backup import and legacy-data adoption.
 
 ---
 
@@ -128,8 +128,8 @@ Keep `conventions`, `conventionDayPlans`, `packingListItems` + sync metadata.
 
 The browser opens a separate `LocalStore` for each signed-in account (account-keyed OPFS database
 or IndexedDB). Sign-out locks the runtime and clears its in-memory mirrors without deleting the
-account's durable store. Account changes invalidate retained command callbacks and worker passes;
-the paid worker waits for the matching account's vault and remote identity. Local identity versus
+account's durable store. Account changes invalidate retained command callbacks. Web no longer runs
+a personal-data sync worker; its retained store is available for export. Local identity versus
 remote authentication is described in [Authentication](auth.md#web-local-access).
 
 On upgrade, `legacyRecovery.ts` adopts only ownership-verifiable rows, pending operations and
@@ -189,10 +189,17 @@ has no vault and is read-only (§5.1).
   two offline devices generating the same task create one row. An element-generated task's id is a
   hash of its dedupe key and an incarnation counter kept on the element: a task the user deletes
   (any path) stays deleted through ordinary element edits; leaving and re-entering the generating
-  status creates the next incarnation under a new id.
+  status creates the next incarnation under a new id. Buy and work lifecycles are independent
+  element fields (`generatedTaskBuy`, `generatedTaskWip`). Their incarnation counters never
+  decrease: the maximum wins in server merges and at the device write boundary (`mergeVaultRow`
+  in `mobile/src/vault/store.ts`), including staged insert/patch/replace, backup import and pulled
+  upserts. A lower-incarnation value cannot replace the maximum's deletion state; equal
+  incarnations retain normal incoming-value ordering.
 - **REQ-D67b** Moves and restores check for cycles by walking the actual parent links in the local
   vault at write time, never the cached `ancestorIds`; a restore that would create a cycle is
-  refused and stays in the "changes that didn't apply" list.
+  refused and stays in the "changes that didn't apply" list. Workflow cascade deletion and
+  descendant-cache recomputation traverse current `parentId` children outward from the root,
+  never selecting descendants from replicated `ancestorIds` or validating unrelated trees.
 
 - **REQ-D67** After each batch the server checks parent references (`REPLICA_LINK_RULES`): photos,
   progress updates, tasks and build attachments under a deleted build move to the account's
@@ -269,7 +276,8 @@ them in a trusted location.
 Restore picks a `.kyarafit` file with the system file picker; the previous mobile JSON exports
 are not accepted by this restore flow. Photos are copied first, then rows
 merge in one SQLite transaction: missing rows are added; a strictly newer row `updatedAt` replaces
-the older copy (not a per-field merge); equal or older copies preserve destination edits. Records
+the older copy (not a general per-field merge), subject to the generated-task lifecycle invariant
+in §6.2; equal or older copies preserve destination edits. Records
 whose ids differ between devices are matched through `id_map`/`clientId` instead of duplicated,
 and references are rewritten. Re-importing is idempotent. Source-account ownership is reassigned
 to the unlocked destination account. Device-local `vaultSettings` (including focused build) are

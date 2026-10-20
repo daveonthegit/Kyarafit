@@ -4,7 +4,8 @@ A mobile-first cosplay wardrobe and convention-planning app, with web and Expo c
 
 Build-scoped **elements** → character **builds** → progress timelines → convention day plans
 and packing lists. Mobile personal-data editing uses a local vault; social, groups, billing,
-and public sharing are online features. Web's cloud-first conversion remains pending.
+and public sharing are online features. Web shows published copies read-only; personal planning
+edits are made in mobile.
 
 > Start with [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md), the [domain glossary](CONTEXT.md), and
 > the [documentation index](docs/README.md). Agent instructions are in [AGENTS.md](AGENTS.md).
@@ -34,7 +35,7 @@ Before removing data, save the backup outside the app and check for partial-back
 see the [backup contract and limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
 
 For web, use **Settings → Data**; its export and restore differ from mobile backups.
-See the [web restore requirements and limitations](docs/DATA_AND_SYNC.md#current-web-behavior).
+See the [web export limitations](docs/DATA_AND_SYNC.md#current-web-behavior).
 
 ## Stack and layout
 

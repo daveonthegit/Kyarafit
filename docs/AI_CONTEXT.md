@@ -88,7 +88,7 @@ lives in `design-system/domain/*` and is tested via web vitest.
 
 ## Inspect first
 
-`design-system/domain/`, `mobile/src/offline/`, `convex/schema.ts`, `convex/sync.ts`,
+`design-system/domain/`, `mobile/src/vault/replica/`, `convex/schema.ts`, `convex/replica.ts`,
 `convex/lib/idempotency.ts`, `web/src/lib/api/useTier.ts`, `web/src/lib/offline/*.test.ts`.
 
 ## Don't modify casually
@@ -100,7 +100,7 @@ lives in `design-system/domain/*` and is tested via web vitest.
 - Adding direct Convex `useQuery`/`useMutation` for local-first data (use the offline bridge).
 - Running the sync worker for free users (must be gated).
 - Whole-document writes that clobber other devices' field edits (use field-LWW).
-- Enqueuing a non-idempotent mutation for offline replay.
+- Bypassing the [managed-sync outbox and dedupe contract](DATA_AND_SYNC.md#6-managed-sync-paid--online-only).
 - Reintroducing `closetItems`/`buildTasks` or a standalone Closet page.
 
 ## Open questions

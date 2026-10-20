@@ -62,9 +62,8 @@ after sign-in, and signing out keeps local data.
   token, group) are kept, but no client can change visibility or sharing yet: web's build edit is
   refused as a personal write and mobile has no visibility control. A social-settings path for
   published copies is a follow-up.
-- Generated tasks have deterministic ids from their dedupe key and a per-element incarnation, so
-  offline devices converge on one task, a task the user deleted stays deleted, and a new trigger
-  creates a fresh row rather than colliding with the synced tombstone.
+- Generated-task identity and lifecycle safety are specified in
+  [Data & Sync §6.2](../DATA_AND_SYNC.md#62-cross-row-integrity).
 - Rows synced by the legacy path are uploaded to the replica under their existing vault ids when a
   device enables replication. A second legacy device that pulled the same records under server
   ids would upload them as separate rows. No migration was written on the understanding, from the

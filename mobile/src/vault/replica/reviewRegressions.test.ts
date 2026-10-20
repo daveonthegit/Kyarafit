@@ -471,6 +471,9 @@ describe("replica review regressions", () => {
     a.mutate("workflow:move", { id: y, parentId: null });
     a.mutate("workflow:move", { id: x, parentId: y });
     for (const id of fillers) a.mutate("workflow:update", { id, title: "Updated" });
+    await a.sync();
+    // Push groups each row's pending edits together. Send this edit in a later pass so
+    // Y's latest revision really lands after the filler rows, on the second pull page.
     a.mutate("workflow:update", { id: y, title: "Last" });
     await a.sync();
     const transport = backend.transport(b.net);

@@ -8,23 +8,23 @@ a blanket restart of the historical phase plan._
 
 Status is repository implementation, not deployment or owner acceptance.
 
-| Area                                            | State                                                                   | Evidence / next gate                                                                                                                  |
-| ----------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Local-first foundations                         | Implemented                                                             | `design-system/domain/{syncPolicy,offlineConflict,cloudStoragePolicy}.ts`; platform offline bridges                                   |
-| Elements and progress                           | Implemented with legacy persistence names                               | `cosplayNodes`, `buildProgressUpdates`, `workflowItems`; see [architecture](ARCHITECTURE.md)                                          |
-| Web local store                                 | Implemented                                                             | OPFS + wa-sqlite with IndexedDB fallback in `web/src/lib/offline/engineSelection.ts`                                                  |
-| Mobile per-account vault core                   | Implemented; native acceptance remains limited to the recorded evidence | [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md); [verification scope](verification/local-vault-offline/README.md)    |
-| Mobile whole-vault backup/restore               | Implemented; live fresh-vault restore recorded                          | [Backup contract](DATA_AND_SYNC.md#11-export--import-free); [verification scope](verification/local-vault-offline/README.md)          |
-| Web isolation and write-failure correctness     | Implemented in the independent web slice                                | [Current guarantees and remaining cloud-first boundary](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees)               |
-| Paid-sync correctness                           | Deferred to the paid-sync step                                          | Existing drain/pull/backfill retained; replay reconciliation, cursors, tombstones, and conflict policy remain open (ADR-0004)         |
-| Other export formats and tier transitions       | Partial implementation                                                  | [Remaining export requirements](DATA_AND_SYNC.md#11-export--import-free), `convex/tierTransition.ts`; live E2E is a separate dev gate |
-| Glass Studio web                                | Implemented                                                             | [Redesign](redesign/README.md)                                                                                                        |
-| Mobile events/social (7.3/7.4)                  | Implemented; owner-device acceptance pending                            | [Handoff](redesign/HANDOFF.md)                                                                                                        |
-| Mobile settings (7.5) and build-detail feedback | Outstanding                                                             | Settings pass; owner walkthrough before feedback changes                                                                              |
-| Two-tier entitlements                           | Accepted, unbuilt                                                       | GH #147; existing legacy policy is not the target policy                                                                              |
-| R2 media, migration, takedown                   | Accepted, unbuilt                                                       | GH #148 and ADR-0001; current storage remains `_storage`                                                                              |
-| BYO merge engine, Drive, sync-method settings   | Engine present but disabled; user integration unbuilt                   | GH #149 and ADR-0003; [engine contract](../design-system/domain/byoSnapshot.md). No public export, user wiring, or Drive transport.   |
-| Security/remediation and release                | In progress / operator verification required                            | [Authorization contract](backend-authorization.md); no release or clean-security guarantee                                            |
+| Area                                            | State                                                                   | Evidence / next gate                                                                                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Local-first foundations                         | Implemented                                                             | `design-system/domain/{syncPolicy,offlineConflict,cloudStoragePolicy}.ts`; platform offline bridges                                      |
+| Elements and progress                           | Implemented with legacy persistence names                               | `cosplayNodes`, `buildProgressUpdates`, `workflowItems`; see [architecture](ARCHITECTURE.md)                                             |
+| Web local store                                 | Implemented                                                             | OPFS + wa-sqlite with IndexedDB fallback in `web/src/lib/offline/engineSelection.ts`                                                     |
+| Mobile per-account vault core                   | Implemented; native acceptance remains limited to the recorded evidence | [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md); [verification scope](verification/local-vault-offline/README.md)       |
+| Mobile whole-vault backup/restore               | Implemented; live fresh-vault restore recorded                          | [Backup contract](DATA_AND_SYNC.md#11-export--import-free); [verification scope](verification/local-vault-offline/README.md)             |
+| Web isolation and write-failure correctness     | Implemented in the independent web slice                                | [Current web isolation and read-only boundary](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees)                           |
+| Paid-sync correctness                           | Mobile row replica implemented; staging gate pending                    | [Current sync contract](DATA_AND_SYNC.md#6-managed-sync-paid--online-only); [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md) |
+| Other export formats and tier transitions       | Partial implementation                                                  | [Remaining export requirements](DATA_AND_SYNC.md#11-export--import-free), `convex/tierTransition.ts`; live E2E is a separate dev gate    |
+| Glass Studio web                                | Implemented                                                             | [Redesign](redesign/README.md)                                                                                                           |
+| Mobile events/social (7.3/7.4)                  | Implemented; owner-device acceptance pending                            | [Handoff](redesign/HANDOFF.md)                                                                                                           |
+| Mobile settings (7.5) and build-detail feedback | Outstanding                                                             | Settings pass; owner walkthrough before feedback changes                                                                                 |
+| Two-tier entitlements                           | Accepted, unbuilt                                                       | GH #147; existing legacy policy is not the target policy                                                                                 |
+| R2 media, migration, takedown                   | Accepted, unbuilt                                                       | GH #148 and ADR-0001; current storage remains `_storage`                                                                                 |
+| BYO merge engine, Drive, sync-method settings   | Engine present but disabled; user integration unbuilt                   | GH #149 and ADR-0003; [engine contract](../design-system/domain/byoSnapshot.md). No public export, user wiring, or Drive transport.      |
+| Security/remediation and release                | In progress / operator verification required                            | [Authorization contract](backend-authorization.md); no release or clean-security guarantee                                               |
 
 Product order: shared entitlement changes precede R2 clients/migration; BYO merge precedes Drive
 and sync-method settings; native/provider acceptance precedes release. Broader moderation remains
@@ -85,12 +85,11 @@ Agentflow is deprecated; preserve `WORK.md` and `.agentflow/` as historical reco
 - Progressive-disclosure **planner** redesign (REQ-063).
 - **DoD:** AC-07, AC-09 green; planner advanced fields hidden by default.
 
-## Phase 3 — Sync correctness & warm-up completion
+## Phase 3 — Sync correctness (superseded)
 
-- Extend idempotency to all offline-enqueued mutations (REQ-D62).
-- `sync.listChangedSince` covers all local-first tables + field-edit deltas (REQ-D63).
-- Sync-status UX suite: banner, pending badge, last-synced, manual sync, surfaced errors (REQ-D64).
-- **DoD:** AC-03 green; backend sync tests pass.
+The command-replay/warm-up plan was replaced by [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md).
+Current behavior is owned by [Data & Sync §6](DATA_AND_SYNC.md#6-managed-sync-paid--online-only);
+the remaining staging gate is described in [Testing](TESTING.md#managed-sync-scenarios-and-staging-gate).
 
 ## Phase 4 — Local images
 

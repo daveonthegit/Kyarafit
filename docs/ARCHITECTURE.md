@@ -58,7 +58,7 @@ change product requirements or certify quota consistency.
             └────────────────────────────────┘
 ```
 
-- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Managed sync (Kyarafit Cloud) is separate from the UI path: the vault's `onPersist` hook records changed rows in an outbox inside the same SQLite transaction, and `mobile/src/vault/replica` replicates them to the row replica (`convex/replica.ts`, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)). Web retains cloud-first offline wrappers; its conversion remains pending. ESLint guards cover selected core routes/components, not every personal-data call site.
+- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Managed sync (Kyarafit Cloud) is separate from the UI path: the vault's `onPersist` hook records changed rows in an outbox inside the same SQLite transaction, and `mobile/src/vault/replica` replicates them to the row replica (`convex/replica.ts`, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)). Web's retained wrappers expose published copies read-only; see [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). ESLint guards cover selected core routes/components, not every personal-data call site.
 - **B2** Online-only data (social, groups, billing, public pages): UI → Convex hooks directly, wrapped in an online-guard/offline-banner component.
 - **B3** Platform-independent domain helpers belong in `design-system/`. Mobile vault handlers also implement local query/command behavior using a Convex-like reader/writer interface; they are not a shared server runtime. Platform adapters own storage, connectivity, and image capture.
 
@@ -137,7 +137,7 @@ docs/                   # consolidated docs (this set)
 
 ## 7. State management
 
-- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web retains its existing offline wrapper. No duplicate global personal-data cache.
+- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web's read-only published-data boundary is described in [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). No duplicate global personal-data cache.
 - **S2** Ephemeral UI state is local component state / lightweight context. Avoid a global store for data that the offline bridge already owns.
 
 ---

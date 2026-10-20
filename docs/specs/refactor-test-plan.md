@@ -3,6 +3,10 @@
 _Maps spec requirements to tests. Philosophy/conventions in [`../TESTING.md`](../TESTING.md). Tests
 are written against the **spec**; many **fail first** (marked ⛔ = expected red before implementation)._
 
+The command-replay, id-remap and `sync.listChangedSince` mappings below are historical,
+superseded by ADR-0005. Current replica coverage and the remaining deployment gate are owned by
+[Testing → managed-sync scenarios](../TESTING.md#managed-sync-scenarios-and-staging-gate).
+
 ---
 
 ## 1. Existing tests: keep / rewrite / delete
