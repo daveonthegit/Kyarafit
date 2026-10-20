@@ -565,6 +565,25 @@ describe("replica media", () => {
 });
 
 describe("explicit publication", () => {
+  it("validates published content with the shared shapes and fails closed on unowned media", async () => {
+    const t = convexTest(schema, modules);
+    await user(t, "alice");
+    const asAlice = t.withIdentity({ subject: "alice" });
+    const publish = (doc: Record<string, unknown>) =>
+      asAlice.mutation(api.publications.publish, { table: "builds", clientId: "local:v", doc });
+    await expect(publish({ name: "Zelda", status: "wip", secret: "x" })).rejects.toThrow(
+      /Invalid backfill field: secret/
+    );
+    await expect(publish({ name: "Zelda", status: "unknown" })).rejects.toThrow(
+      /Invalid backfill field: status/
+    );
+    await expect(publish({ status: "wip" })).rejects.toThrow(/Invalid backfill field: name/);
+    await expect(
+      publish({ name: "Zelda", status: "wip", imageStorageId: "kg2notmine" })
+    ).rejects.toThrow(/Cloud media/);
+    expect(await t.run((ctx) => ctx.db.query("builds").collect())).toEqual([]);
+  });
+
   it("projects a vault build for any tier and re-publishes without touching social settings", async () => {
     const t = convexTest(schema, modules);
     await user(t, "free", "FREE");
