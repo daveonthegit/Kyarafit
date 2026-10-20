@@ -41,6 +41,23 @@ export function replicaGeneratedWorkflowKey(doc: Record<string, unknown>): strin
     ? doc.dedupeKey : null;
 }
 
+export function replicaGeneratedWorkflowId(dedupeKey: string): string {
+  let a = 1779033703, b = 3144134277, c = 1013904242, d = 2773480762;
+  for (let i = 0; i < dedupeKey.length; i++) {
+    const code = dedupeKey.charCodeAt(i);
+    a = b ^ Math.imul(a ^ code, 597399067);
+    b = c ^ Math.imul(b ^ code, 2869860233);
+    c = d ^ Math.imul(c ^ code, 951274213);
+    d = a ^ Math.imul(d ^ code, 2716044179);
+  }
+  a = Math.imul(c ^ (a >>> 18), 597399067);
+  b = Math.imul(d ^ (b >>> 22), 2869860233);
+  c = Math.imul(a ^ (c >>> 17), 951274213);
+  d = Math.imul(b ^ (d >>> 19), 2716044179);
+  return `local:workflow:${[a ^ b ^ c ^ d, b ^ a, c ^ a, d ^ a]
+    .map(value => (value >>> 0).toString(16).padStart(8, "0")).join("")}`;
+}
+
 export function isReplicaTable(table: string): table is ReplicaTable {
   return (REPLICA_TABLES as readonly string[]).includes(table);
 }
@@ -50,6 +67,7 @@ export function isReplicaTable(table: string): table is ReplicaTable {
  * conflict: without this, every concurrent edit to different fields would look like a clash.
  */
 export const REPLICA_META_FIELDS: ReadonlySet<string> = new Set([
+  "_creationTime",
   "updatedAt",
   "version",
   "fieldUpdatedAt",

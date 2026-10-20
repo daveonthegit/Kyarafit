@@ -236,7 +236,7 @@ export interface VaultReader {
 
 export interface VaultWriter extends VaultReader {
   /** Insert a new document; returns its new local id. */
-  insert(table: string, fields: Record<string, unknown>): string;
+  insert(table: string, fields: Record<string, unknown>, rowId?: string): string;
   /** Shallow-merge fields; an `undefined` value removes that field (Convex semantics). */
   patch(id: string, fields: Record<string, unknown>): void;
   replace(id: string, fields: Record<string, unknown>): void;
@@ -411,8 +411,9 @@ export class VaultStore {
     const writer: VaultWriter = {
       get: (id) => lookup(id)?.doc ?? null,
       query: (table) => new LocalQuery(table, () => tableDocs(table)),
-      insert: (table, fields) => {
-        const id = this.newId();
+      insert: (table, fields, rowId) => {
+        const id = rowId ?? this.newId();
+        if (lookup(id)) throw new Error(`Document already exists: ${id}`);
         const doc = {
           ...withoutUndefined(fields),
           _id: id,

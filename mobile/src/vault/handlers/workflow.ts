@@ -22,6 +22,8 @@ import {
   type WorkflowStatus,
 } from "@kyarafit/design-system/domain/workflowProgress";
 import type { VaultDoc } from "../store";
+import { replicaGeneratedWorkflowId } from "@kyarafit/design-system/domain/replicaProtocol";
+import { readAncestorIds } from "./lib/parentChain";
 import type {
   LocalMutationCtx,
   LocalMutationHandler,
@@ -45,7 +47,6 @@ import {
   getWorkflowDependenciesForUser,
   getWorkflowItemsByAttachmentKey,
   getWorkflowItemsForUser,
-  parentAncestorIds,
   type ReadCtx,
   type WorkflowAttachmentDoc,
   type WorkflowAttachmentInput,
@@ -206,21 +207,13 @@ function getSiblingCount(ctx: ReadCtx, userId: string, parentId: string | undefi
 function patchDescendantAncestors(
   ctx: LocalMutationCtx,
   userId: string,
-  rootId: string,
-  newAncestorIds: string[]
+  rootId: string
 ) {
-  const items = getWorkflowItemsForUser(ctx, userId);
-  const descendants = items
-    .filter((item) => item.ancestorIds.includes(rootId))
-    .sort((a, b) => a.ancestorIds.length - b.ancestorIds.length);
-
-  for (const descendant of descendants) {
-    const movedIndex = descendant.ancestorIds.indexOf(rootId);
-    const tail = descendant.ancestorIds.slice(movedIndex);
-    ctx.db.patch(
-      descendant._id,
-      withUpdateMeta(descendant, { ancestorIds: [...newAncestorIds, ...tail] }, ctx.now)
-    );
+  for (const item of getWorkflowItemsForUser(ctx, userId)) {
+    const ancestorIds = readAncestorIds(ctx.db, item.parentId, "parentId");
+    if (ancestorIds.includes(rootId) && JSON.stringify(item.ancestorIds) !== JSON.stringify(ancestorIds)) {
+      ctx.db.patch(item._id, withUpdateMeta(item, { ancestorIds }, ctx.now));
+    }
   }
 }
 
@@ -361,7 +354,8 @@ function ensureWorkflowItem(
         dedupeKey: input.dedupeKey,
       },
       ctx.now
-    )
+    ),
+    replicaGeneratedWorkflowId(input.dedupeKey)
   );
   replaceAttachments(ctx, input.userId, id, input.attachments);
   return id;
@@ -439,7 +433,8 @@ export function syncGeneratedWorkflowForNode(
         attachments,
       });
     } else if (existing) {
-      removeWorkflowItemCascade(ctx, existing._id);
+      ctx.db.patch(existing._id, withUpdateMeta(meta(existing), { status: "cancelled" }, ctx.now));
+      replaceAttachments(ctx, input.userId, existing._id, []);
     }
   }
 }
@@ -835,7 +830,7 @@ type CreateArgs = {
 function create(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
   const args = rawArgs as unknown as CreateArgs;
   const actorId = ctx.userId;
-  const parent = args.parentId ? (ctx.db.get(args.parentId) as WorkflowItemDoc | null) : null;
+  const ancestorIds = readAncestorIds(ctx.db, args.parentId, "parentId");
 
   const sanitized = sanitizeWorkflowInput(args);
   const workflowItemId = ctx.db.insert(
@@ -849,7 +844,7 @@ function create(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
         category: sanitized.category ?? "craft",
         status: sanitized.status ?? "not_started",
         parentId: args.parentId,
-        ancestorIds: parentAncestorIds(parent),
+        ancestorIds,
         sortOrder: args.sortOrder ?? getSiblingCount(ctx, actorId, args.parentId),
         scopeKind: sanitized.scopeKind ?? "build_specific",
         sourceKind: sanitized.sourceKind ?? "manual",
@@ -988,21 +983,18 @@ function applyMove(ctx: LocalMutationCtx, move: MoveArgs) {
   if (!item) throw new Error("Workflow item not found");
 
   const parentId = move.parentId ?? undefined;
-  if (parentId && parentId === move.id) {
-    throw new Error("Workflow items cannot parent themselves");
+  const ancestorIds = readAncestorIds(ctx.db, parentId, "parentId");
+  if (ancestorIds.includes(move.id)) {
+    throw new Error(parentId === move.id
+      ? "Workflow items cannot parent themselves: this would create a cycle."
+      : "Workflow items cannot move under a descendant: this would create a cycle.");
   }
-  const parent = parentId ? (ctx.db.get(parentId) as WorkflowItemDoc | null) : null;
-  if (parentId && !parent) throw new Error("Parent not found");
-  if (parent?.ancestorIds.includes(move.id)) {
-    throw new Error("Workflow items cannot move under a descendant");
-  }
-  return { item, parentId, parent };
+  return { item, parentId, ancestorIds };
 }
 
 function move(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
   const args = rawArgs as unknown as MoveArgs;
-  const { item, parentId, parent } = applyMove(ctx, args);
-  const ancestorIds = parentAncestorIds(parent);
+  const { item, parentId, ancestorIds } = applyMove(ctx, args);
   ctx.db.patch(
     args.id,
     withUpdateMeta(
@@ -1011,7 +1003,7 @@ function move(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
       ctx.now
     )
   );
-  patchDescendantAncestors(ctx, item.userId, args.id, ancestorIds);
+  patchDescendantAncestors(ctx, item.userId, args.id);
   return ctx.db.get(args.id);
 }
 
@@ -1020,7 +1012,7 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
     move: MoveArgs;
     resequence: { id: string; sortOrder: number }[];
   };
-  const { item, parentId, parent } = applyMove(ctx, args.move);
+  const { item, parentId, ancestorIds } = applyMove(ctx, args.move);
 
   const resequenceItems = new Map<string, WorkflowItemDoc>();
   for (const row of args.resequence) {
@@ -1030,7 +1022,6 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
     resequenceItems.set(row.id, rowItem);
   }
 
-  const ancestorIds = parentAncestorIds(parent);
   ctx.db.patch(
     args.move.id,
     withUpdateMeta(
@@ -1039,7 +1030,7 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
       ctx.now
     )
   );
-  patchDescendantAncestors(ctx, item.userId, args.move.id, ancestorIds);
+  patchDescendantAncestors(ctx, item.userId, args.move.id);
 
   for (const row of args.resequence) {
     const rowItem = resequenceItems.get(row.id);

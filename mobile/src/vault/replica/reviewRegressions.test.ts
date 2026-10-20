@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { convexTest } from "convex-test";
 import { api, internal } from "../../../../convex/_generated/api";
 import schema from "../../../../convex/schema";
-import { REPLICA_PROTOCOL_VERSION as protocol, REPLICA_RETENTION_MS, type ReplicaOp } from "@kyarafit/design-system/domain/replicaProtocol";
+import { REPLICA_PROTOCOL_VERSION as protocol, REPLICA_RETENTION_MS, replicaGeneratedWorkflowId, type ReplicaOp } from "@kyarafit/design-system/domain/replicaProtocol";
 import { DOWNGRADE_RETENTION_MS } from "@kyarafit/design-system/domain/tierTransition";
 import { makeDevice, now, seedSlice, settle, type ReplicaBackend } from "@/test-support/replicaHarness";
 import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
@@ -79,6 +79,7 @@ describe("replica review regressions", () => {
     const before = a.store.exportRows();
     const pending = a.replicator.pendingCount();
     expect(() => restoreChange(a.store, change)).toThrow(/cycle|descendant/i);
+    expect(a.changes().some(row => row.id === change.id)).toBe(true);
     expect(a.store.exportRows()).toEqual(before);
     expect(a.replicator.pendingCount()).toBe(pending);
     move(a, y, null);
@@ -94,6 +95,63 @@ describe("replica review regressions", () => {
       expect(a.get(x)?.ancestorIds).toEqual([]);
       expect(a.get(child)?.ancestorIds).toEqual([x]);
     }
+  });
+
+  it("rejects moves and restores from actual parents while over 500 descendant caches are partially pulled", async () => {
+    const { a, b, backend, actor } = await setup();
+    const x = a.mutate<{ _id: string }>("workflow:create", { title: "X", kind: "group" })._id;
+    const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", kind: "group" })._id;
+    const descendants: string[] = [];
+    for (let i = 0; i < 501; i++) descendants.push(a.mutate<{ _id: string }>("workflow:create", {
+      title: `Descendant ${i}`, parentId: y,
+    })._id);
+    await settle(a, b);
+    a.mutate("workflow:move", { id: y, parentId: x });
+    await a.sync();
+    const after = Number(b.sql.getFirstSync<{ value: string }>("SELECT value FROM sync_meta WHERE key = 'replica:cursor'")!.value);
+    const firstPage = await actor.query(api.replica.pull, { protocol, subject: "owner", after, limit: 500 });
+    expect(firstPage.hasMore).toBe(true);
+    const firstIds = new Set(firstPage.rows.map(row => row.rowId));
+    const z = descendants.find(id => !firstIds.has(id))!;
+    const refreshed = descendants.find(id => firstIds.has(id))!;
+    expect(z).toBeDefined();
+    const transport = backend.transport(b.net);
+    let entered!: () => void;
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => { entered = resolve; });
+    const resume = new Promise<void>(resolve => { release = resolve; });
+    let pages = 0;
+    b.replicator.setTransport({ ...transport, pull: async (cursor, limit, snapshot) => {
+      if (limit > 1 && ++pages === 2) { entered(); await resume; }
+      return transport.pull(cursor, limit, snapshot);
+    } });
+    const syncing = b.sync();
+    await waiting;
+    b.net.online = false;
+    try {
+      expect(b.get(y)?.parentId).toBe(x);
+      expect(b.get(z)?.parentId).toBe(y);
+      expect(b.get(z)?.ancestorIds).toEqual([y]);
+      expect(b.get(refreshed)?.ancestorIds).toEqual([x, y]);
+      b.sql.runSync("INSERT INTO replica_conflicts (id, table_name, row_id, kind, lost_json, rev, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ["partial-parent", "workflowItems", x, "concurrent-field-edit", JSON.stringify({ parentId: z }), 1, 1]);
+      const change = b.changes().find(row => row.id === "partial-parent")!;
+      const before = b.store.exportRows();
+      expect(() => b.mutate("workflow:move", { id: x, parentId: z })).toThrow(/cycle/i);
+      expect(() => b.mutate("workflow:moveAndResequence", { move: { id: x, parentId: z }, resequence: [] })).toThrow(/cycle/i);
+      expect(() => restoreChange(b.store, change)).toThrow(/cycle/i);
+      expect(b.store.exportRows()).toEqual(before);
+      expect(b.replicator.pendingCount()).toBe(0);
+      expect(b.changes().some(row => row.id === change.id)).toBe(true);
+      b.mutate("workflow:move", { id: y, parentId: null });
+      expect(b.get(y)?.ancestorIds).toEqual([]);
+      expect(b.get(refreshed)?.ancestorIds).toEqual([y]);
+      expect(b.get(z)?.ancestorIds).toEqual([y]);
+    } finally { release(); }
+    await syncing;
+    expect(b.replicator.status).toBe("offline");
+    expect(b.get(x)?.parentId).toBeUndefined();
+    expect(b.get(y)?.parentId).toBeUndefined();
   });
 
   it("keeps build membership when attachment and task tombstones span push batches", async () => {
@@ -692,10 +750,17 @@ describe("replica review regressions", () => {
       d.net.online = false;
       d.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
     }
-    for (const d of [a, b]) d.net.online = true;
+    const purchaseKey = `autogen:buy:${ids.build}:${ids.tunic}`;
+    const purchaseId = replicaGeneratedWorkflowId(purchaseKey);
+    for (const d of [a, b]) {
+      expect(d.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === purchaseKey).map(row => row.id)).toEqual([purchaseId]);
+      d.net.online = true;
+    }
     await settle(a, b);
     const tasks = a.store.exportRows().filter(row => row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:"));
     expect(tasks).toHaveLength(1);
+    expect(a.changes()).toEqual([]);
+    expect(b.changes()).toEqual([]);
     expect(b.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === tasks[0].doc.dedupeKey).map(row => row.id)).toEqual([tasks[0].id]);
     const purchaseRows = await t.run(ctx => ctx.db.query("replicaRows").collect());
     expect(purchaseRows.filter(row => !row.deleted && row.table === "workflowItems" && row.doc.dedupeKey === tasks[0].doc.dedupeKey).map(row => row.rowId)).toEqual([tasks[0].id]);
@@ -709,7 +774,13 @@ describe("replica review regressions", () => {
       d.net.online = false;
       d.mutate("conventions:updatePackingItem", { id: packing, checked: true });
     }
-    for (const d of [a, b]) d.net.online = true;
+    const packingId = replicaGeneratedWorkflowId(`packing:${packing}`);
+    expect(packingId).not.toBe(purchaseId);
+    for (const d of [a, b]) {
+      expect(d.get(packing)?.workflowItemId).toBe(packingId);
+      expect(d.get(packingId)?.dedupeKey).toBe(`packing:${packing}`);
+      d.net.online = true;
+    }
     await settle(a, b);
     const packingTasks = a.store.exportRows().filter(row => row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`);
     expect(packingTasks).toHaveLength(1);
@@ -721,10 +792,13 @@ describe("replica review regressions", () => {
     const packingRows = await t.run(ctx => ctx.db.query("replicaRows").collect());
     expect(packingRows.filter(row => !row.deleted && row.table === "workflowItems" && row.doc.dedupeKey === `packing:${packing}`).map(row => row.rowId)).toEqual([packingTasks[0].id]);
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: null });
+    expect(a.get(purchaseId)?.status).toBe("cancelled");
+    expect(getBuildScopedWorkflow({ db: a.store.reader() }, ids.build)!.items.map(item => item._id)).not.toContain(purchaseId);
     await settle(a, b);
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
     await settle(a, b);
-    expect(a.store.exportRows().filter(row => row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:"))).toHaveLength(1);
+    expect(a.store.exportRows().filter(row => row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:")).map(row => row.id)).toEqual([purchaseId]);
+    expect(b.get(purchaseId)?.status).toBe("not_started");
   });
 
   it.each(["builds", "conventions"] as const)("clears omitted %s publication fields and removes copies by client identity", async table => {
