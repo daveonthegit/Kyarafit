@@ -24,6 +24,11 @@ export const APP_HREF = {
   settingsNotifications: href("/settings/notifications"),
   settingsOffline: href("/settings/offline"),
   settingsData: href("/settings/data"),
+  /** Managed-sync "changes that didn't apply" (all, or one build's). */
+  syncChanges: (buildId?: string) =>
+    href(
+      buildId ? `/settings/changes?buildId=${encodeURIComponent(buildId)}` : "/settings/changes"
+    ),
   settingsDevGallery: href("/settings/dev/gallery"),
   groups: href("/groups"),
   groupNew: href("/groups/new"),

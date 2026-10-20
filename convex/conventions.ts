@@ -272,26 +272,35 @@ export const remove = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
-    // Cascade: delete day plans and packing items
-    const plans = await ctx.db
-      .query("conventionDayPlans")
-      .withIndex("by_conventionId", (q) => q.eq("conventionId", args.id))
-      .collect();
-    for (const p of plans) await ctx.db.delete(p._id);
-
-    const packingItems = await ctx.db
-      .query("packingListItems")
-      .withIndex("by_conventionId", (q) => q.eq("conventionId", args.id))
-      .collect();
-    for (const pi of packingItems) {
-      if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-      else await ctx.db.delete(pi._id);
-    }
-
-    await ctx.db.delete(args.id);
+    await deleteOwnedConvention(ctx, actorId, convention);
   },
 });
+
+/** Delete an owned convention with its day plans and packing items. */
+export async function deleteOwnedConvention(
+  ctx: MutationCtx,
+  actorId: string,
+  convention: Doc<"conventions">
+) {
+  await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
+  // Cascade: delete day plans and packing items
+  const plans = await ctx.db
+    .query("conventionDayPlans")
+    .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
+    .collect();
+  for (const p of plans) await ctx.db.delete(p._id);
+
+  const packingItems = await ctx.db
+    .query("packingListItems")
+    .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
+    .collect();
+  for (const pi of packingItems) {
+    if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
+    else await ctx.db.delete(pi._id);
+  }
+
+  await ctx.db.delete(convention._id);
+}
 
 /**
  * A convention's day-by-day plan. Takes no actor argument, so the owner check on

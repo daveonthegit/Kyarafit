@@ -50,6 +50,20 @@ Sign-out locks it; only an explicit "remove from this device" or account deletio
 
 **Managed sync**: Personal-data sync through Kyarafit's backend, distinct from online social actions.
 
+**Row replica**: Managed sync's cloud copy of a vault: one opaque document per vault row, keyed
+by the row's own id and ordered by a per-account revision. It is the paid account's authoritative
+cloud copy of personal data.
+
+**Published copy**: The server copy of a build or convention that its owner explicitly published
+for a social feature (collaborators, groups). A projection of the vault row, never edited back into
+it. _Avoid_: cloud mirror (for these rows).
+
+**Changes that didn't apply**: The losing side of a managed-sync conflict (an overwritten value, an
+edit to something deleted elsewhere), kept so the user can restore it as a new edit.
+
+**Recovered build**: The build managed sync moves content into when another device deleted the
+build it belonged to.
+
 **BYO sync**: Personal-data sync through storage the user owns (Google Drive first), rather than
 personal snapshots stored on Kyarafit's servers. An accepted direction, not a currently available
 Drive integration.

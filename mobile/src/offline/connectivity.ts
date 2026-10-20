@@ -1,10 +1,10 @@
 /**
  * Process-wide connectivity flag for the offline layer. Updated by the NetInfo listener in
- * `SyncWorkerProvider`; read by `useOfflineMutation` to decide whether to call Convex directly
- * (online) or enqueue for later replay (offline).
+ * `ReplicaProvider`; read by `useOfflineMutation` to fail online-only actions fast while offline,
+ * and by managed sync to wait for a connection.
  *
  * Defaults to `true` so that before NetInfo has reported — or on platforms where it is
- * unavailable — mutations behave exactly like a plain Convex call (no regression).
+ * unavailable — online actions behave exactly like a plain Convex call (no regression).
  */
 let online = true;
 

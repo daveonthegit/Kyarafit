@@ -229,7 +229,6 @@ describe("progress session authorization", () => {
     try {
       vi.setSystemTime(new Date("2026-10-01T00:00:00Z"));
       const { t, owner, buildId, row } = await fixture();
-      const since = row.updatedAt!;
       vi.advanceTimersByTime(1000);
       await owner.mutation(api.buildProgressUpdates.remove, { id: row._id });
       const deleted = await t.run((ctx) => ctx.db.get(row._id));
@@ -238,13 +237,6 @@ describe("progress session authorization", () => {
       expect(deleted?.version).toBe(row.version! + 1);
       expect(deleted?.fieldUpdatedAt).toEqual(row.fieldUpdatedAt);
       expect(await owner.query(api.buildProgressUpdates.listByBuild, { buildId })).toEqual([]);
-      const delta = await owner.query(api.sync.listChangedSince, { since });
-      expect(delta.buildProgressUpdates).toEqual([deleted]);
-      expect(delta.cursor).toBe(deleted?.updatedAt);
-      expect(
-        (await t.withIdentity({ subject: OTHER }).query(api.sync.listChangedSince, { since }))
-          .buildProgressUpdates
-      ).toEqual([]);
       vi.advanceTimersByTime(1000);
       await owner.mutation(api.buildProgressUpdates.remove, { id: row._id, userId: OTHER });
       expect(await t.run((ctx) => ctx.db.get(row._id))).toEqual(deleted);

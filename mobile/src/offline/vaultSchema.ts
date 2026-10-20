@@ -5,7 +5,7 @@ import type { VaultSql } from "@/vault/store";
  * `node:sqlite`. Versioned: each step is idempotent and guarded so re-running on an up-to-date file is
  * a no-op.
  */
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 6;
 
 export function migrateVaultSchema(db: VaultSql, subject: string): void {
   db.execSync(`
@@ -22,12 +22,14 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
       fetched_at INTEGER NOT NULL
     );
 
+    -- client id -> published server copy (and legacy cloud ids). Never evicted.
     CREATE TABLE IF NOT EXISTS id_map (
       client_id TEXT PRIMARY KEY,
       server_id TEXT NOT NULL,
       synced_at INTEGER NOT NULL
     );
 
+    -- Legacy command replay queue: no longer written (see replica_outbox), kept so older files open.
     CREATE TABLE IF NOT EXISTS mutation_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       idempotency_key TEXT UNIQUE NOT NULL,
@@ -57,6 +59,57 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    -- Managed sync (vault/replica): one op per changed row, written in the commit's transaction.
+    CREATE TABLE IF NOT EXISTS replica_outbox (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      op_id TEXT UNIQUE NOT NULL,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      fields_json TEXT,
+      base_rev INTEGER NOT NULL,
+      attempted_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS replica_outbox_row ON replica_outbox (table_name, row_id);
+    -- The last acknowledged or pulled server rev of each row (an op's base revision).
+    CREATE TABLE IF NOT EXISTS replica_state (
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      rev INTEGER NOT NULL,
+      unpulled_at INTEGER,
+      PRIMARY KEY (table_name, row_id)
+    );
+    -- "Changes that didn't apply", streamed from the server with the rows.
+    CREATE TABLE IF NOT EXISTS replica_conflicts (
+      id TEXT PRIMARY KEY,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      lost_json TEXT NOT NULL,
+      build_id TEXT,
+      rev INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      resolved INTEGER NOT NULL DEFAULT 0,
+      dismiss_pending INTEGER NOT NULL DEFAULT 0
+    );
+    -- Rows seen during a forced resnapshot (devices behind the server's retention horizon).
+    CREATE TABLE IF NOT EXISTS replica_seen (
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      PRIMARY KEY (table_name, row_id)
+    );
+    -- Photo keys whose bytes this device has uploaded to (or found on) Kyarafit Cloud.
+    CREATE TABLE IF NOT EXISTS replica_assets (
+      image_key TEXT PRIMARY KEY,
+      uploaded_at INTEGER NOT NULL
+    );
+    -- Published server copies to remove once online (the vault row was deleted).
+    CREATE TABLE IF NOT EXISTS publish_removals (
+      client_id TEXT PRIMARY KEY,
+      table_name TEXT NOT NULL,
+      server_id TEXT NOT NULL
+    );
   `);
 
   const row = db.getFirstSync<{ version: number }>(
@@ -66,6 +119,7 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
 
   // v2: mutation_queue.client_id. v3: mutation_queue.touched_json (which vault rows a queued
   // replication op covers). Fresh DBs get both from CREATE TABLE; guard on PRAGMA so re-runs are safe.
+  // v4: the replica_* tables above replace command replay; nothing to alter in place.
   if (v < 3) {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(mutation_queue)");
     if (!columns.some((column) => column.name === "client_id")) {
@@ -73,6 +127,20 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
     }
     if (!columns.some((column) => column.name === "touched_json")) {
       db.execSync("ALTER TABLE mutation_queue ADD COLUMN touched_json TEXT");
+    }
+  }
+
+  if (v < 5) {
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_outbox)");
+    if (!columns.some((column) => column.name === "attempted_at")) {
+      db.execSync("ALTER TABLE replica_outbox ADD COLUMN attempted_at INTEGER");
+    }
+  }
+
+  if (v < 6) {
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_state)");
+    if (!columns.some((column) => column.name === "unpulled_at")) {
+      db.execSync("ALTER TABLE replica_state ADD COLUMN unpulled_at INTEGER");
     }
   }
 

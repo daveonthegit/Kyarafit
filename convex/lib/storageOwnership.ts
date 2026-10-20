@@ -139,6 +139,7 @@ const deletionReferenceTables = [
   "groups",
   "progressMediaReferences",
   "buildProgressUpdates",
+  "replicaAssets",
 ] as const;
 type DeletionStorageCursor = {
   storageId: Id<"_storage">;

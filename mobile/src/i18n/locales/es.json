@@ -16,12 +16,10 @@
     "settings": "Ajustes",
     "offlineBanner": "Sin conexión — tus cambios se guardan en este dispositivo.",
     "syncPendingCount": "{{count}} cambios pendientes de sincronizar",
-    "syncFailedCount": "{{count}} cambio(s) no se pudieron sincronizar",
     "syncNow": "Sincronizar ahora",
     "syncing": "Sincronizando…",
     "lastSynced": "Última sincronización {{time}}",
     "neverSynced": "Sin sincronizar todavía",
-    "backingUp": "Haciendo copia de tu biblioteca… {{done}}/{{total}}",
     "cloudGrace": "Copia en la nube activa hasta {{date}}",
     "cloudFrozen": "Copia en la nube congelada — vuelve a suscribirte para seguir sincronizando (se eliminará {{date}})",
     "cloudPurgeable": "Copia en la nube caducada — vuelve a suscribirte para restaurar la sincronización",
@@ -1195,5 +1193,54 @@
     "sessionExpired": "Has cerrado sesión en Kyarafit en línea. Tu planificador sigue funcionando aquí.",
     "sessionExpiredAction": "Vuelve a iniciar sesión para sincronizar y usar las funciones en línea",
     "sessionExpiredHint": "Abre el inicio de sesión"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "Vuelve a iniciar sesión para seguir sincronizando. Tus cambios están guardados en este dispositivo.",
+      "notEntitled": "La sincronización está en pausa porque Kyarafit Cloud no está activo en esta cuenta. Tus cambios están guardados en este dispositivo.",
+      "offline": "Estás sin conexión. Los cambios se sincronizarán al reconectar.",
+      "retrying": "La sincronización tuvo un problema y se reintentará automáticamente."
+    },
+    "changes": {
+      "title": "Cambios que no se aplicaron",
+      "intro": "Otro dispositivo los cambió o eliminó antes. Tu versión se guarda aquí: recupérala como una edición nueva o descártala.",
+      "introBuild": "En {{name}}. Otro dispositivo los cambió o eliminó antes. Tu versión se guarda aquí: recupérala como una edición nueva o descártala.",
+      "reviewCount_one": "Revisar {{count}} cambio que no se aplicó",
+      "reviewCount_other": "Revisar {{count}} cambios que no se aplicaron",
+      "buildBanner_one": "{{count}} cambio no se aplicó",
+      "buildBanner_other": "{{count}} cambios no se aplicaron",
+      "review": "Revisar",
+      "openHint": "Abre la lista de cambios que no se aplicaron",
+      "emptyTitle": "Nada que revisar",
+      "emptyBody": "Todos los cambios se sincronizaron tal como se hicieron.",
+      "untitled": "Elemento sin título",
+      "emptyValue": "(vacío)",
+      "yes": "Sí",
+      "no": "No",
+      "useMine": "Usar mi versión",
+      "restoreAsNew": "Restaurar como nuevo",
+      "dismiss": "Descartar",
+      "acknowledge": "Entendido",
+      "openBuild": "Abrir build",
+      "restoreFailed": "No se pudo restaurar este cambio.",
+      "goneItem": "Este elemento ya no existe, así que no hay dónde restaurarlo.",
+      "goneParent": "Aquello a lo que pertenecía se eliminó, así que no puede volver.",
+      "kind": {
+        "concurrent": "Cambiado en otro dispositivo",
+        "editAfterDelete": "Editado después de eliminarse",
+        "deletedWithEdits": "Eliminado con ediciones más nuevas",
+        "recovered": "Movido a Recovered",
+        "unlinked": "Desvinculado",
+        "removed": "Eliminado con su elemento principal"
+      },
+      "explain": {
+        "concurrent": "Otro dispositivo guardó primero un valor distinto. Tu valor está abajo.",
+        "editAfterDelete": "Editaste esto después de que otro dispositivo lo eliminara.",
+        "deletedWithEdits": "Otro dispositivo eliminó esto antes de que llegaran tus últimas ediciones.",
+        "recovered": "Su build se eliminó en otro dispositivo, así que se guardó en el build Recovered.",
+        "unlinked": "Aquello a lo que estaba vinculado se eliminó en otro dispositivo. Sigue en tu biblioteca.",
+        "removed": "Aquello a lo que pertenecía se eliminó en otro dispositivo."
+      }
+    }
   }
 }

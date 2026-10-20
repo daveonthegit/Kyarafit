@@ -1,4 +1,5 @@
 import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
+import { mergeReplicaField } from "@kyarafit/design-system/domain/replicaProtocol";
 import { localizeVaultPhotos } from "./images";
 import { VAULT_INDEX_FIELDS, VAULT_TABLES } from "./indexes";
 
@@ -25,9 +26,10 @@ export interface ImportRowsResult {
  *
  * SQLite (`entity_rows`) is the durable copy; this store keeps a fully materialized in-memory
  * mirror so local queries run synchronously during render. Every write goes through `commit`, which
- * stages changes in a transaction object, persists them (plus any replication intent) inside ONE
- * SQLite transaction, and only then publishes them to memory. A failed write therefore throws and
- * changes nothing — there is no "optimistic" success for a write that never reached disk.
+ * stages changes in a transaction object, persists them inside ONE SQLite transaction (together with
+ * whatever the `onPersist` hook records for them, such as managed-sync outbox ops), and only then
+ * publishes them to memory. A failed write therefore throws and changes nothing — there is no
+ * "optimistic" success for a write that never reached disk.
  *
  * The query/write surface deliberately mirrors the subset of Convex's `ctx.db` that the ported
  * personal-data handlers use (`get`, `query().withIndex().filter().order().collect()`, `insert`,
@@ -35,6 +37,19 @@ export interface ImportRowsResult {
  */
 
 export type VaultDoc = { _id: string; _creationTime: number } & Record<string, unknown>;
+
+export function mergeVaultRow<T extends Record<string, unknown>>(
+  table: string,
+  existing: Record<string, unknown> | null | undefined,
+  incoming: T
+): T {
+  const merged = { ...incoming };
+  for (const field of ["generatedTaskBuy", "generatedTaskWip"] as const) {
+    const value = mergeReplicaField(table, field, existing?.[field], incoming[field]);
+    if (value !== undefined) Object.assign(merged, { [field]: value });
+  }
+  return merged;
+}
 
 export type VaultBindValue = string | number | null | boolean | Uint8Array;
 
@@ -58,14 +73,20 @@ export interface VaultDocCodec {
 
 const IDENTITY_CODEC: VaultDocCodec = { toStored: (doc) => doc, fromStored: (doc) => doc };
 
-/** A durable replication intent recorded atomically with the local write (paid sync only). */
-export interface ReplicationIntent {
-  fn: string;
-  args: unknown;
-  idempotencyKey: string;
-  /** Local id of the entity this op creates, so the drain can map it to the server id. */
-  clientId?: string;
+/** One row changed by a write, in stored (portable) form; `after` is null for a delete. */
+export interface VaultRowChange {
+  table: string;
+  id: string;
+  before: VaultDoc | null;
+  after: VaultDoc | null;
 }
+
+/**
+ * Runs inside every write's SQLite transaction with the rows it changed. Whatever it records (for
+ * example a managed-sync outbox op) commits or rolls back together with the rows; throwing aborts
+ * the write.
+ */
+export type VaultPersistHook = (sql: VaultSql, changes: readonly VaultRowChange[]) => void;
 
 /** Raised when a local write could not be persisted. The caller's draft must stay recoverable. */
 export class VaultWriteError extends Error {
@@ -229,7 +250,7 @@ export interface VaultReader {
 
 export interface VaultWriter extends VaultReader {
   /** Insert a new document; returns its new local id. */
-  insert(table: string, fields: Record<string, unknown>): string;
+  insert(table: string, fields: Record<string, unknown>, rowId?: string): string;
   /** Shallow-merge fields; an `undefined` value removes that field (Convex semantics). */
   patch(id: string, fields: Record<string, unknown>): void;
   replace(id: string, fields: Record<string, unknown>): void;
@@ -240,7 +261,7 @@ export interface VaultWriter extends VaultReader {
 // Store
 // ---------------------------------------------------------------------------------------------
 
-type Staged = { table: string; doc: VaultDoc | null; existed: boolean };
+type Staged = { table: string; doc: VaultDoc | null; lastDoc: VaultDoc | null; existed: boolean };
 
 function withoutUndefined(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -269,6 +290,7 @@ export interface VaultStoreOptions {
   newId: () => string;
   now?: () => number;
   codec?: VaultDocCodec;
+  onPersist?: VaultPersistHook;
 }
 
 export class VaultStore {
@@ -277,6 +299,7 @@ export class VaultStore {
   private readonly newId: () => string;
   private readonly now: () => number;
   private readonly codec: VaultDocCodec;
+  private readonly onPersist?: VaultPersistHook;
   private tables = new Map<string, Map<string, VaultDoc>>();
   private idToTable = new Map<string, string>();
   private version = 0;
@@ -290,10 +313,11 @@ export class VaultStore {
     this.newId = options.newId;
     this.now = options.now ?? Date.now;
     this.codec = options.codec ?? IDENTITY_CODEC;
+    this.onPersist = options.onPersist;
     this.reloadFromDisk();
   }
 
-  /** Re-read every live row from SQLite (initial open, and after the sync worker pulls). */
+  /** Re-read every live row from SQLite (initial open, and after a managed-sync pull). */
   reloadFromDisk(): void {
     const rows = this.sql.getAllSync<{ table_name: string; id: string; json: string }>(
       "SELECT table_name, id, json FROM entity_rows WHERE deleted = 0"
@@ -362,15 +386,12 @@ export class VaultStore {
   }
 
   /**
-   * Run `task` against a staged write view and persist everything it wrote — plus the optional
-   * replication intent — in one SQLite transaction. Returns the task's result only after commit.
-   * Throws the task's own error unchanged (validation), or `VaultWriteError` when persistence fails;
-   * in both cases nothing is published.
+   * Run `task` against a staged write view and persist everything it wrote — plus whatever
+   * `onPersist` records for those rows — in one SQLite transaction. Returns the task's result only
+   * after commit. Throws the task's own error unchanged (validation), or `VaultWriteError` when
+   * persistence fails; in both cases nothing is published.
    */
-  commit<T>(
-    task: (db: VaultWriter) => T,
-    intent?: (result: T, touched: string[][]) => ReplicationIntent | ReplicationIntent[] | null
-  ): T {
+  commit<T>(task: (db: VaultWriter) => T): T {
     const staged = new Map<string, Staged>();
     const now = this.now();
 
@@ -398,14 +419,17 @@ export class VaultStore {
     const stage = (id: string, table: string, doc: VaultDoc | null) => {
       const prior = staged.get(id);
       const existed = prior ? prior.existed : this.idToTable.has(id);
-      staged.set(id, { table, doc, existed });
+      const existing = prior?.lastDoc ?? this.tables.get(table)?.get(id);
+      const merged = doc ? mergeVaultRow(table, existing, doc) : null;
+      staged.set(id, { table, doc: merged, lastDoc: merged ?? existing ?? null, existed });
     };
 
     const writer: VaultWriter = {
       get: (id) => lookup(id)?.doc ?? null,
       query: (table) => new LocalQuery(table, () => tableDocs(table)),
-      insert: (table, fields) => {
-        const id = this.newId();
+      insert: (table, fields, rowId) => {
+        const id = rowId ?? this.newId();
+        if (lookup(id)) throw new Error(`Document already exists: ${id}`);
         const doc = {
           ...withoutUndefined(fields),
           _id: id,
@@ -445,17 +469,15 @@ export class VaultStore {
     };
 
     const result = task(writer);
-    if (staged.size === 0 && !intent) return result;
-
-    const touched = Array.from(staged.entries()).map(([id, s]) => [s.table, id]);
-    const replication = intent ? intent(result, touched) : null;
+    if (staged.size === 0) return result;
 
     try {
       this.sql.withTransactionSync(() => {
+        const changes: VaultRowChange[] = [];
         for (const [id, s] of staged) {
+          const prior = this.idToTable.has(id) ? this.tables.get(s.table)?.get(id) : undefined;
           if (s.doc) {
             const stored = this.codec.toStored(s.doc);
-            const json = JSON.stringify(stored);
             this.sql.runSync(
               `INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
                VALUES (?, ?, ?, ?, ?, NULL, 0)
@@ -465,51 +487,26 @@ export class VaultStore {
                  updated_at = excluded.updated_at,
                  synced_at = NULL,
                  deleted = 0`,
-              [s.table, id, this.subject, json, now]
+              [s.table, id, this.subject, JSON.stringify(stored), now]
             );
+            changes.push({
+              table: s.table,
+              id,
+              before: prior ? this.codec.toStored(prior) : null,
+              after: stored,
+            });
           } else if (s.existed) {
-            // Never-replicated local rows can simply disappear; anything the cloud may hold keeps a
-            // pending tombstone so a later sync can propagate the delete.
-            const neverReplicated =
-              s.table === "vaultSettings" ||
-              (id.startsWith(LOCAL_ID_PREFIX) &&
-                !this.sql.getFirstSync<{ c: number }>(
-                  "SELECT 1 AS c FROM id_map WHERE client_id = ?",
-                  [id]
-                ));
-            if (neverReplicated) {
-              this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
-                s.table,
-                id,
-              ]);
-            } else {
-              this.sql.runSync(
-                `UPDATE entity_rows SET deleted = 1, synced_at = NULL, updated_at = ?
-                 WHERE table_name = ? AND id = ?`,
-                [now, s.table, id]
-              );
+            // Deletes propagate as managed-sync outbox ops, so the row itself simply goes.
+            this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
+              s.table,
+              id,
+            ]);
+            if (prior) {
+              changes.push({ table: s.table, id, before: this.codec.toStored(prior), after: null });
             }
           }
         }
-        for (const entry of replication
-          ? Array.isArray(replication)
-            ? replication
-            : [replication]
-          : []) {
-          this.sql.runSync(
-            `INSERT INTO mutation_queue
-               (idempotency_key, op, fn, args_json, client_id, created_at, status, touched_json)
-             VALUES (?, 'mutation', ?, ?, ?, ?, 'pending', ?)`,
-            [
-              entry.idempotencyKey,
-              entry.fn,
-              JSON.stringify(entry.args ?? {}),
-              entry.clientId ?? null,
-              now,
-              JSON.stringify(touched),
-            ]
-          );
-        }
+        this.onPersist?.(this.sql, changes);
       });
     } catch (error) {
       throw new VaultWriteError(error);
@@ -636,7 +633,10 @@ export class VaultStore {
     }));
   }
 
-  private repairImportedHierarchies(changedParents: Map<string, Map<string, unknown>>): number {
+  private repairImportedHierarchies(
+    changedParents: Map<string, Map<string, unknown>>,
+    touch: (table: string, id: string, json: string | null) => void
+  ): number {
     let conflicts = 0;
     for (const [table, previous] of changedParents) {
       const parentField = table === "cosplayNodes" ? "parentNodeId" : "parentId";
@@ -688,8 +688,9 @@ export class VaultStore {
       for (const row of rows) {
         const doc = docs.get(row.id);
         if (!doc) continue;
-        const json = JSON.stringify(doc);
+        const json = JSON.stringify(mergeVaultRow(table, parseStoredDoc(row.json), doc));
         if (json !== row.json) {
+          touch(table, row.id, row.json);
           this.sql.runSync(
             "UPDATE entity_rows SET json = ?, synced_at = NULL WHERE table_name = ? AND id = ?",
             [json, table, row.id]
@@ -704,8 +705,8 @@ export class VaultStore {
    * Merge rows from a backup into this vault in ONE SQLite transaction: rows this vault lacks are
    * added, rows the backup holds a newer copy of (`updatedAt`) replace the local copy, everything
    * else is kept. Re-importing the same backup is therefore a no-op. Rows written by `sourceSubject`
-   * are re-owned to this vault's account. Imported rows are local changes the cloud has not seen, so
-   * the one-time upgrade backfill is re-armed for paid sync.
+   * are re-owned to this vault's account. Every row the import changes goes through `onPersist` in
+   * the same transaction, so a paid vault syncs a restore like any other edit.
    */
   importRows(
     rows: readonly ImportedRow[],
@@ -722,6 +723,11 @@ export class VaultStore {
     const changedParents = new Map<string, Map<string, unknown>>();
     const now = this.now();
     const known = new Set<string>(VAULT_TABLES);
+    const priorJson = new Map<string, { table: string; id: string; json: string | null }>();
+    const touch = (table: string, id: string, json: string | null) => {
+      const key = JSON.stringify([table, id]);
+      if (!priorJson.has(key)) priorJson.set(key, { table, id, json });
+    };
     try {
       this.sql.withTransactionSync(() => {
         const incoming = this.reconcileImportIds(
@@ -732,7 +738,7 @@ export class VaultStore {
             result.unknown += 1;
             continue;
           }
-          const doc: Record<string, unknown> = { ...row.doc, _id: row.id };
+          let doc: Record<string, unknown> = { ...row.doc, _id: row.id };
           if (typeof doc._creationTime !== "number") doc._creationTime = now;
           for (const field of OWNER_FIELDS) {
             if (doc[field] === sourceSubject) doc[field] = this.subject;
@@ -742,6 +748,7 @@ export class VaultStore {
             [row.table, row.id]
           );
           const local = existing && !existing.deleted ? parseStoredDoc(existing.json) : null;
+          doc = mergeVaultRow(row.table, local, doc);
           if (typeof local?.clientId === "string") doc.clientId = local.clientId;
           if (existing && !existing.deleted) {
             const localUpdatedAt = typeof local?.updatedAt === "number" ? local.updatedAt : 0;
@@ -752,9 +759,14 @@ export class VaultStore {
               // on this device (restored from this backup): point the row at the local file without
               // touching its timestamp or sync state, so newer edits are never overwritten.
               if (availablePhotos.size > 0) {
-                const localized = localizeVaultPhotos(local, availablePhotos);
+                const localized = mergeVaultRow(
+                  row.table,
+                  local,
+                  localizeVaultPhotos(local, availablePhotos)
+                );
                 const json = JSON.stringify(localized);
                 if (json !== existing.json) {
+                  touch(row.table, row.id, existing.json);
                   this.sql.runSync(
                     "UPDATE entity_rows SET json = ? WHERE table_name = ? AND id = ?",
                     [json, row.table, row.id]
@@ -777,6 +789,7 @@ export class VaultStore {
             const previous = local?.[field];
             if (previous !== doc[field] && !changes.has(row.id)) changes.set(row.id, previous);
           }
+          touch(row.table, row.id, local ? existing!.json : null);
           this.sql.runSync(
             `INSERT INTO entity_rows (table_name, id, user_id, json, updated_at, synced_at, deleted)
              VALUES (?, ?, ?, ?, ?, NULL, 0)
@@ -786,9 +799,26 @@ export class VaultStore {
             [row.table, row.id, this.subject, JSON.stringify(doc), now]
           );
         }
-        result.conflicts = this.repairImportedHierarchies(changedParents);
-        if (result.inserted + result.updated > 0) {
-          this.sql.runSync("DELETE FROM sync_meta WHERE key = 'backfill:complete'");
+        result.conflicts = this.repairImportedHierarchies(changedParents, touch);
+        if (this.onPersist) {
+          const rowChanges: VaultRowChange[] = [];
+          for (const { table, id, json } of priorJson.values()) {
+            const current = this.sql.getFirstSync<{ json: string }>(
+              "SELECT json FROM entity_rows WHERE table_name = ? AND id = ? AND deleted = 0",
+              [table, id]
+            );
+            if (!current || current.json === json) continue;
+            const before = json ? parseStoredDoc(json) : null;
+            const after = parseStoredDoc(current.json);
+            if (!after) continue;
+            rowChanges.push({
+              table,
+              id,
+              before: before ? ({ ...before, _id: id } as VaultDoc) : null,
+              after: { ...after, _id: id } as VaultDoc,
+            });
+          }
+          this.onPersist(this.sql, rowChanges);
         }
       });
     } catch (error) {

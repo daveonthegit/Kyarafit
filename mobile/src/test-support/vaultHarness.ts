@@ -1,5 +1,5 @@
 import { migrateVaultSchema } from "@/offline/vaultSchema";
-import { VaultStore } from "@/vault/store";
+import { VaultStore, type VaultPersistHook } from "@/vault/store";
 import { LOCAL_MUTATIONS, LOCAL_QUERIES } from "@/vault/handlers";
 import { NodeSqliteDatabase } from "./nodeSqlite";
 
@@ -10,7 +10,9 @@ export const TEST_SUBJECT = "user_test";
  * registered local handlers exactly as `runLocalQuery` / `runLocalMutation` do (minus the active
  * vault singleton). Ids are deterministic (`local:1`, `local:2`, …) and the clock is controllable.
  */
-export function makeTestVault(options: { subject?: string; sql?: NodeSqliteDatabase } = {}) {
+export function makeTestVault(
+  options: { subject?: string; sql?: NodeSqliteDatabase; onPersist?: VaultPersistHook } = {}
+) {
   const subject = options.subject ?? TEST_SUBJECT;
   const sql = options.sql ?? new NodeSqliteDatabase();
   migrateVaultSchema(sql, subject);
@@ -21,6 +23,7 @@ export function makeTestVault(options: { subject?: string; sql?: NodeSqliteDatab
     sql,
     newId: () => `local:${++seq}`,
     now: () => clock,
+    onPersist: options.onPersist,
   });
 
   function query<T = unknown>(fn: string, args: Record<string, unknown> = {}): T {

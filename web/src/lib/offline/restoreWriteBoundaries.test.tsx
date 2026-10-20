@@ -6,10 +6,12 @@ import SeedClient from "@/app/dev/seed/SeedClient";
 import { offlineRuntime } from "./runtime";
 import { InMemoryLocalStore } from "./localStore";
 import { createRestoreSession } from "../restoreSession";
+import { rememberLocalAccount } from "../auth/localAccount";
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock("convex/react", () => ({
   useMutation: () => mutate,
+  useConvex: () => ({ mutation: mutate }),
   useQuery: (fn: never) => {
     const name = getFunctionName(fn);
     if (name === "groups:getWithMembers") {
@@ -36,6 +38,7 @@ beforeEach(async () => {
   mutate.mockReset();
   vi.spyOn(window, "alert").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  rememberLocalAccount("owner");
   offlineRuntime.setStore(new InMemoryLocalStore(), "owner");
   const session = createRestoreSession("owner");
   await session.start();

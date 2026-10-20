@@ -112,6 +112,10 @@ export async function canReadStorageId(
     )
       return true;
   }
+  // Synced vault photos are private: only their owner can discover them.
+  for (const asset of refs.assets) {
+    if (viewerId && asset.userId === viewerId && (await active(asset.userId))) return true;
+  }
   // Even a tombstone counts as a reference: never reopen it as a pending preview.
   if (Object.values(refs).some((rows) => rows.length > 0)) return false;
   return !!(

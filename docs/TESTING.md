@@ -24,8 +24,8 @@ coordinate their amendments with the owning implementation package._
 | --------------------- | ------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
 | Unit (pure domain)    | `design-system/domain` tested from `web/src/lib/**/*.test.ts` | vitest                   | entitlements, sync gating, conflict merge, queue/backoff, overlays, validators, progress math |
 | Component             | `web/src/**/*.test.tsx`                                       | vitest + Testing Library | screens/components: states (empty/loading/error/offline), gating UI                           |
-| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, `listChangedSince`, ownership/authorization                        |
-| Integration (offline) | mobile Vitest harness + pure queue/store simulations          | vitest                   | offline create→drain→idempotent replay, id remap                                              |
+| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, replica push/pull, ownership/authorization                         |
+| Integration (offline) | mobile Vitest harness + pure queue/store simulations          | vitest                   | vault commits, replica push/pull, conflicts, resnapshot and lifecycle regressions             |
 | A11y (web)            | `web/src/test/a11y.test.tsx`                                  | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
 | E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                              | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
 | E2E (mobile, later)   | mobile (Detox / Maestro)                                      | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §11               |
@@ -56,7 +56,7 @@ Avoid names describing implementation (`should_call_setServerId`).
 
 - All `REQ-*` with a testable rule (see test plan).
 - Entitlement boundaries (free vs paid) — every paid lever and every free-but-online action.
-- Sync correctness: gating, FIFO, idempotency, id remap, field-level LWW, tombstones.
+- Sync correctness: gating, FIFO, idempotency, stable row ids, server-arrival field merges, tombstones.
 - Offline visibility of writes across list/detail/derived views.
 - State rendering: empty/loading/error/offline per [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §4.
 - Authorization/ownership on Convex functions.
@@ -178,6 +178,33 @@ Sample-data seeding is [development-only and opt-in](runbooks/development-seed.m
 sample is not a paid/backfill/downgrade fixture; prepare those states explicitly in the authorized
 dev environment rather than claiming `/dev/seed` establishes them.
 
+### Managed-sync scenarios and staging gate
+
+`mobile/src/vault/replica/replica.gate.test.ts` runs two simulated phones (each the real vault,
+handlers and replicator over its own SQLite database) against the real Convex replica functions:
+offline creation on two devices, concurrent same/different-field edits with one-tap restore,
+delete-versus-edit in both orders, cross-row orphans moving to Recovered, upgrading two free vaults,
+an expired session, more than 500 rows with a lost push acknowledgement and a dropped pull page,
+simultaneous pushes, a plan lapsing mid-sync, a session for another account, and a device offline
+past the 90-day retention horizon. Backend-only contracts (containment, retention, assets,
+publication) are in `convex/replica.test.ts`.
+
+By default the scenarios use `convex-test` and run with `npm test -w mobile`. To run the shared
+scenarios against a real **non-production** deployment (the ADR-0005 staging gate), deploy the
+branch's functions to a dev or preview deployment, then set:
+
+- `KYARAFIT_GATE_CONVEX_URL` — the deployment URL (the run refuses URLs containing `prod`)
+- `KYARAFIT_GATE_TOKEN` — a Convex auth JWT for a test account on a paid tier
+- `KYARAFIT_GATE_SUBJECT` — that account's subject (Better Auth user id)
+
+```bash
+KYARAFIT_GATE_CONVEX_URL=… KYARAFIT_GATE_TOKEN=… KYARAFIT_GATE_SUBJECT=… \
+  npx vitest run --config mobile/src/offline/vitest.config.ts src/vault/replica/replica.gate.test.ts
+```
+
+Deployment runs only add rows under fresh ids. Scenarios that change tiers, move the clock or read
+server tables stay on `convex-test`.
+
 ## 10. Performance budgets (plan)
 
 No runnable perf gate yet — documented here to avoid a flaky/unrunnable check:
@@ -217,13 +244,13 @@ off the default `mobile.yml` gate, mirroring how web E2E stays out of `web.yml` 
 
 ### Flows to cover (mirror the local-first invariants)
 
-| Flow                    | Asserts                                                                                                                        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Offline CRUD round-trip | create a build/element with the device in airplane mode → data visible immediately (local store) → persists across app restart |
-| Sync on reconnect       | go online → pending writes drain to Convex; last-synced updates; no duplicates on replay (idempotency)                         |
-| Free → paid backfill    | upgrade a signed-in free account → "Backing up your library… N/M" indicator → cloud rows appear, deduped by `clientId`         |
-| Downgrade banner        | a downgraded account shows the cloud-retention banner; local data stays fully editable                                         |
-| Image add offline       | add a build reference/process image offline (local `ImageRef`) → survives restart → uploads on sync for a paid user            |
+| Flow                    | Asserts                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Offline CRUD round-trip | create a build/element with the device in airplane mode → data visible immediately (local store) → persists across app restart                          |
+| Sync on reconnect       | go online → pending writes drain to Convex; last-synced updates; no duplicates on replay (idempotency)                                                  |
+| Free → paid replication | upgrade a signed-in free account → vault rows replicate under unchanged ids; see the [sync contract](DATA_AND_SYNC.md#6-managed-sync-paid--online-only) |
+| Downgrade banner        | a downgraded account shows the cloud-retention banner; local data stays fully editable                                                                  |
+| Image add offline       | add a build reference/process image offline (local `ImageRef`) → survives restart → uploads on sync for a paid user                                     |
 
 These are the same critical paths the web Playwright specs (§9) target; keep the two suites conceptually
 in sync so web/mobile parity is actually exercised end to end.

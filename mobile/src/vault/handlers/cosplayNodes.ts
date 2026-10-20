@@ -12,9 +12,9 @@ import {
   isAllowedLink,
   normalizeDirectCostCents,
   OVERALL_BUCKETS,
-  wouldCreateCycle,
 } from "./lib/cosplayGraph";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
+import { readAncestorIds } from "./lib/parentChain";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -317,10 +317,6 @@ function sanitizeTags(tags: unknown): string[] {
   return tags
     .map((tag, index) => sanitizeAndLimit(String(tag), MAX_LENGTH.tag, `Tag ${index + 1}`))
     .filter(Boolean);
-}
-
-function getAllowedChildren(ctx: ReadCtx, nodeId: string): string[] {
-  return getChildNodes(ctx, nodeId).map((child) => child._id);
 }
 
 /** Shared implementation for build visual outline / board lists. */
@@ -738,7 +734,7 @@ export const mutations: Record<string, LocalMutationHandler> = {
     if (!isAllowedLink(parent.nodeType as NodeType, child.nodeType as NodeType)) {
       throw new Error("That relationship is not allowed");
     }
-    if (wouldCreateCycle(parent._id, child._id, (nodeId) => getAllowedChildren(ctx, nodeId))) {
+    if (readAncestorIds(ctx.db, parent._id, "parentNodeId").includes(child._id)) {
       throw new Error("That link would create a cycle");
     }
     const existingChildren = getChildNodes(ctx, parent._id);

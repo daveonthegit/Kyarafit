@@ -5,17 +5,22 @@ import { deleteVaultDatabase, getOfflineDb } from "@/offline/db";
 import { setOfflineConnectivity } from "@/offline/connectivity";
 import { NeedsConnectionError, useOfflineMutation } from "@/offline/useOfflineMutation";
 import { useOfflineQuery } from "@/offline/useOfflineQuery";
-import { bootVault, getActiveVault, getVaultState, lockVault, unlockVault } from "./activeVault";
+import {
+  bootVault,
+  getActiveReplicator,
+  getActiveVault,
+  getVaultState,
+  lockVault,
+  unlockVault,
+} from "./activeVault";
 import { onVaultWriteError, runLocalMutation, runLocalMutations } from "./functions";
 import { VAULT_IMAGE_TOKEN } from "./images";
 import { VaultWriteError } from "./store";
-import { setReplicationEnabled } from "./replication";
 import * as FileSystem from "expo-file-system/legacy";
 import { useSaveLocalImage } from "@/lib/images/localImageStore";
-import { useOnlineId } from "./hooks";
-import { setServerId } from "@/offline/idMap";
-import { drainMutationQueue, warmEntityRows } from "@/offline/syncWorker";
-import type { ConvexReactClient } from "convex/react";
+import { useLocalId, useOnlineId } from "./hooks";
+import { cachePublicationIdentities, publishVaultRow } from "./publications";
+import type { ReplicaTransport } from "./replica/replicator";
 
 /**
  * End-to-end vault behavior through the real hooks, active-vault lifecycle and SQLite schema
@@ -70,6 +75,35 @@ afterEach(async () => {
 /** A photo already copied into the vault's image directory (see localImageStore.saveLocalImage). */
 function photoUri(key: string): string {
   return `file:///documents/vaults/user_a-1a2b3c4d/images/${key}`;
+}
+
+/** Turn managed sync on for the open vault (what the first confirmed paid session does). */
+function enableSync() {
+  getActiveReplicator()!.enableReplication();
+}
+
+function outbox() {
+  return getOfflineDb().getAllSync<{
+    table_name: string;
+    row_id: string;
+    kind: string;
+    fields_json: string | null;
+  }>("SELECT table_name, row_id, kind, fields_json FROM replica_outbox ORDER BY seq");
+}
+
+/** A transport whose calls hang until the test resolves them. */
+function hangingTransport() {
+  const pending: ((value: unknown) => void)[] = [];
+  const hang = () =>
+    new Promise<never>((resolve) => {
+      pending.push(resolve as (value: unknown) => void);
+    });
+  const transport: ReplicaTransport = {
+    push: vi.fn(hang),
+    pull: vi.fn(hang),
+    dismissConflicts: vi.fn(hang),
+  };
+  return { transport, resolveAll: (value: unknown) => pending.splice(0).forEach((r) => r(value)) };
 }
 
 /** Live rows on disk in the open vault (what an export would read). */
@@ -143,66 +177,89 @@ describe("free user, offline: personal data never touches Convex", () => {
     });
     expect(vaultRows().map((row) => row.doc.name)).toEqual(["B draft"]);
   });
-  it("resolves only mapped local ids for online build operations", () => {
-    const { result, rerender } = renderHook(() => useOnlineId("local:build"));
-    expect(result.current).toBeUndefined();
-    setServerId("local:build", "server-build");
-    rerender();
-    expect(result.current).toBe("server-build");
+  it("refreshes both identity directions when account-wide publication identities arrive", () => {
+    const build = runLocalMutation("builds:create", { name: "Local", status: "idea" }) as {
+      _id: string;
+    };
+    const { result } = renderHook(() => ({
+      online: useOnlineId(build._id),
+      local: useLocalId("server-build"),
+    }));
+    expect(result.current).toEqual({ online: undefined, local: "server-build" });
+    act(() =>
+      cachePublicationIdentities(getOfflineDb(), [
+        { clientId: build._id, serverId: "server-build" },
+      ])
+    );
+    expect(result.current).toEqual({ online: "server-build", local: build._id });
+  });
+
+  it("refreshes identity consumers immediately after explicit publication", async () => {
+    const build = runLocalMutation("builds:create", { name: "Published", status: "idea" }) as {
+      _id: string;
+    };
+    const { result } = renderHook(() => ({
+      online: useOnlineId(build._id),
+      local: useLocalId("server-published"),
+    }));
+    expect(result.current.online).toBeUndefined();
+    convex.mutation.mockResolvedValue({ id: "server-published" });
+    await act(async () => {
+      await publishVaultRow({ mutation: convex.mutation }, "builds", build._id);
+    });
+    expect(result.current).toEqual({ online: "server-published", local: build._id });
   });
 
   it("does not write an old account's in-flight pull into the next vault", async () => {
-    let resolve!: (value: unknown) => void;
-    const client = {
-      query: vi.fn(
-        () =>
-          new Promise((done) => {
-            resolve = done;
-          })
-      ),
-    } as unknown as ConvexReactClient;
-    const warming = warmEntityRows(client);
-    await vi.waitFor(() => expect(client.query).toHaveBeenCalledTimes(1));
+    enableSync();
+    const replicatorA = getActiveReplicator()!;
+    const { transport, resolveAll } = hangingTransport();
+    replicatorA.setTransport(transport);
+    const syncing = replicatorA.sync();
+    await vi.waitFor(() => expect(transport.pull).toHaveBeenCalledTimes(1));
     await unlockVault(ACCOUNT_B);
-    resolve({
-      cursor: 10,
-      builds: [{ _id: "private-a", userId: ACCOUNT_A.subject, name: "Private" }],
+    resolveAll({
+      rows: [{ table: "builds", rowId: "local:private-a", doc: { name: "Private" }, rev: 1 }],
+      conflicts: [],
+      cursor: 1,
+      hasMore: false,
+      resnapshot: false,
     });
-    await warming;
+    await syncing;
     expect(vaultRows()).toEqual([]);
     expect(
-      getOfflineDb().getFirstSync("SELECT * FROM sync_meta WHERE key = 'listChangedSince:cursor'")
+      getOfflineDb().getFirstSync("SELECT * FROM sync_meta WHERE key = 'replica:cursor'")
     ).toBeNull();
   });
 
-  it("does not acknowledge another account's queue after a stale mutation response", async () => {
-    setReplicationEnabled(true);
+  it("does not acknowledge another account's outbox after a stale push response", async () => {
+    enableSync();
     runLocalMutation("builds:create", { name: "A", status: "idea" });
-    let resolve!: (value: unknown) => void;
-    const client = {
-      mutation: vi.fn(
-        () =>
-          new Promise((done) => {
-            resolve = done;
-          })
-      ),
-    } as unknown as ConvexReactClient;
-    const draining = drainMutationQueue(client);
-    await vi.waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(1));
+    const replicatorA = getActiveReplicator()!;
+    const { transport, resolveAll } = hangingTransport();
+    vi.mocked(transport.pull).mockResolvedValueOnce({
+      rows: [],
+      conflicts: [],
+      cursor: 0,
+      hasMore: false,
+      resnapshot: false,
+    });
+    replicatorA.setTransport(transport);
+    const syncing = replicatorA.sync();
+    await vi.waitFor(() => expect(transport.push).toHaveBeenCalledTimes(1));
     await unlockVault(ACCOUNT_B);
-    setReplicationEnabled(true);
+    enableSync();
     runLocalMutation("builds:create", { name: "B", status: "idea" });
-    resolve({ _id: "server-a" });
-    await draining;
-    expect(
-      getOfflineDb().getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM mutation_queue")?.c
-    ).toBe(1);
+    resolveAll({ outcomes: [], head: 1 });
+    await syncing;
+    expect(outbox().map((op) => JSON.parse(op.fields_json ?? "{}").name)).toEqual(["B"]);
     expect(
       vaultRows()
         .filter((row) => row.table === "builds")
         .map((row) => row.doc.name)
     ).toEqual(["B"]);
   });
+
   it("creates a build with a photo offline, stored durably with a portable photo token", async () => {
     setOfflineConnectivity(false);
     const { result } = renderHook(() => useOfflineMutation(fn("mutation", "builds:create")));
@@ -224,9 +281,7 @@ describe("free user, offline: personal data never touches Convex", () => {
     expect(JSON.parse(row!.json).imageUrl).toBe(`${VAULT_IMAGE_TOKEN}img_hero`);
     expect(row!.synced_at).toBeNull();
     // A free vault queues nothing for the cloud.
-    expect(
-      getOfflineDb().getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM mutation_queue")?.c
-    ).toBe(0);
+    expect(outbox()).toEqual([]);
   });
 
   it("reads personal queries from the vault and asks Convex to skip them, online or offline", () => {
@@ -267,22 +322,28 @@ describe("free user, offline: personal data never touches Convex", () => {
   });
 });
 
-describe("paid vault: replication intent is durable and atomic", () => {
-  it("queues the op in the same transaction as the row, keyed to the local id", () => {
-    setReplicationEnabled(true);
+describe("paid vault: sync ops are durable and atomic", () => {
+  it("queues a row op in the same transaction as the row, keyed to the vault id", () => {
+    enableSync();
     const doc = runLocalMutation("builds:create", { name: "Synced", status: "idea" }) as {
       _id: string;
     };
-    const queued = getOfflineDb().getAllSync<{ fn: string; client_id: string }>(
-      "SELECT fn, client_id FROM mutation_queue"
-    );
-    expect(queued).toEqual([{ fn: "builds:create", client_id: doc._id }]);
+    expect(outbox()).toEqual([
+      expect.objectContaining({ table_name: "builds", row_id: doc._id, kind: "put" }),
+    ]);
+    expect(JSON.parse(outbox()[0].fields_json!)).toMatchObject({ name: "Synced", status: "idea" });
     expect(convex.mutation).not.toHaveBeenCalled();
+  });
+
+  it("queues nothing for a free vault", () => {
+    runLocalMutation("builds:create", { name: "Local only", status: "idea" });
+    expect(outbox()).toEqual([]);
   });
 });
 
 describe("compound explorer commands", () => {
   it.each([false, true])("rolls back a rejected attach after detaching (child=%s)", (child) => {
+    enableSync();
     const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as {
       _id: string;
     };
@@ -310,7 +371,7 @@ describe("compound explorer commands", () => {
       childNodeId: target._id,
     });
     const before = vaultRows();
-    const queue = getOfflineDb().getAllSync("SELECT * FROM mutation_queue");
+    const queue = outbox();
     expect(() =>
       runLocalMutations([
         child
@@ -327,11 +388,11 @@ describe("compound explorer commands", () => {
     ).toThrow("cycle");
     getActiveVault()!.reloadFromDisk();
     expect(vaultRows()).toEqual(before);
-    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue")).toEqual(queue);
+    expect(outbox()).toEqual(queue);
   });
 
-  it("commits create/link and promotion with one intent per step", () => {
-    setReplicationEnabled(true);
+  it("commits create/link and promotion with their sync ops", () => {
+    enableSync();
     const build = runLocalMutation("builds:create", { name: "Build", status: "idea" }) as {
       _id: string;
     };
@@ -357,7 +418,12 @@ describe("compound explorer commands", () => {
     getActiveVault()!.reloadFromDisk();
     expect(getActiveVault()!.reader().get(node._id)).toMatchObject({ buildId: build._id });
     expect(getActiveVault()!.reader().get(node._id)?.parentNodeId).toBeUndefined();
-    expect(getOfflineDb().getAllSync("SELECT * FROM mutation_queue")).toHaveLength(6);
+    const nodeOps = outbox().filter((op) => op.row_id === node._id);
+    expect(JSON.parse(nodeOps[0].fields_json!)).toMatchObject({ parentNodeId: parent._id });
+    expect(JSON.parse(nodeOps[nodeOps.length - 1].fields_json!)).toMatchObject({
+      buildId: build._id,
+      parentNodeId: null,
+    });
   });
 });
 

@@ -27,7 +27,7 @@ import { useAppFonts } from "@/theme/appFonts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
-import { SyncWorkerProvider } from "@/offline";
+import { ReplicaProvider } from "@/vault/replica/ReplicaProvider";
 import { bootVault } from "@/vault/activeVault";
 import { SessionExpiredNotice } from "@/components/vault/SessionExpiredNotice";
 import { VaultWriteErrorAlerts } from "@/components/vault/VaultWriteErrorAlerts";
@@ -173,9 +173,9 @@ export default function RootLayout() {
           <ErrorBoundary>
             <ConvexBetterAuthProvider client={convex} authClient={authClient}>
               <RevenueCatBootstrap />
-              <SyncWorkerProvider>
+              <ReplicaProvider>
                 <BottomSheetModalProvider>{content}</BottomSheetModalProvider>
-              </SyncWorkerProvider>
+              </ReplicaProvider>
             </ConvexBetterAuthProvider>
           </ErrorBoundary>
         </ThemeProvider>

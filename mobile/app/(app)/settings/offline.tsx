@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useTranslation } from "react-i18next";
 
-import { usePendingQueueCount } from "@/offline";
+import { useReplicaSummary } from "@/vault/replica/hooks";
 import { SyncStatusSection } from "@/components/settings/SyncStatusSection";
 import {
   SettingsGlassFrame,
@@ -13,7 +13,7 @@ import {
 
 export default function SettingsOfflineScreen() {
   const { t } = useTranslation();
-  const pending = usePendingQueueCount();
+  const { pending } = useReplicaSummary();
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {

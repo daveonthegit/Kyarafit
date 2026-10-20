@@ -23,8 +23,8 @@ export class NeedsConnectionError extends Error {
  *
  * - **Personal data** (registered in `@/vault/handlers`): committed to the local vault in a single
  *   SQLite transaction and resolved only after that commit — for everyone, online or offline, free
- *   or paid. Convex is never called from here; paid sync replays the durable replication intent
- *   recorded in the same transaction. A failed write REJECTS (`VaultWriteError`); there is no
+ *   or paid. Convex is never called from here; managed sync replicates the outbox ops recorded in
+ *   the same transaction. A failed write REJECTS (`VaultWriteError`); there is no
  *   placeholder result for unsaved work.
  * - **Online surfaces** (social, groups, profile, billing, uploads): called on Convex directly; when
  *   the device is offline they reject immediately with `NeedsConnectionError` instead of hanging or

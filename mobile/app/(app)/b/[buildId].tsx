@@ -205,9 +205,7 @@ export default function BuildDetailScreen() {
           outlineNodes={outlineNodes}
           refImages={refImages}
           processPics={processPics}
-          collaborators={
-            onlineId && loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined
-          }
+          collaborators={loaded.build.userId === loaded.userId ? (collaborators ?? []) : undefined}
           onDuplicate={loaded.build.userId === loaded.userId ? handleDuplicate : undefined}
           onDelete={loaded.build.userId === loaded.userId ? handleDelete : undefined}
           initialTab={initialTab}

@@ -4,8 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import BuildDetailScreen from "../../../../app/(app)/b/[buildId]";
 import { lockVault, unlockVault } from "@/vault/activeVault";
 import { runLocalMutation } from "@/vault/functions";
-import { deleteVaultDatabase } from "@/offline/db";
-import { setServerId } from "@/offline/idMap";
+import { deleteVaultDatabase, getOfflineDb } from "@/offline/db";
 
 const h = vi.hoisted(() => ({
   routeId: "server-build",
@@ -89,7 +88,10 @@ it.each(["server", "local"])(
       buildId: build._id,
       imageUrl: "https://example.test/process.jpg",
     }) as { _id: string };
-    setServerId(build._id, "server-build");
+    getOfflineDb().runSync(
+      "INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, 'server-build', 1)",
+      [build._id]
+    );
     if (representation === "local") h.routeId = build._id;
     render(<BuildDetailScreen />);
     expect(screen.getByText("My build")).toBeTruthy();

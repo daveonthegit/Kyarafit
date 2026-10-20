@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { useOfflineQuery } from "@/offline";
-import { getServerId } from "@/offline/idMap";
-import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
+import { getPublishedId, publishVaultRow } from "@/vault/publications";
+import { getVaultDataVersion, subscribeVault } from "@/vault/activeVault";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { MobileBackButton } from "@/components/navigation/MobileBackButton";
@@ -88,24 +88,36 @@ export default function GroupDetailScreen() {
     [];
   const myConventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const myBuildsQuery = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
+  const vaultVersion = useSyncExternalStore(
+    subscribeVault,
+    getVaultDataVersion,
+    getVaultDataVersion
+  );
+  // Vault rows, keyed by their published server copy once they have one. Adding one to the group
+  // publishes (or refreshes) that copy first: the group only ever sees an explicit projection.
   const myConventions = useMemo(
     () =>
-      (myConventionsQuery ?? []).flatMap((convention) => {
-        const id = convention._id.startsWith(LOCAL_ID_PREFIX)
-          ? getServerId(convention._id)
-          : convention._id;
-        return id ? [{ ...convention, _id: id as Id<"conventions"> }] : [];
-      }),
-    [myConventionsQuery]
+      (myConventionsQuery ?? []).map((convention) => ({
+        ...convention,
+        localId: convention._id as string,
+        _id: (getPublishedId(convention._id) ?? convention._id) as Id<"conventions">,
+      })),
+    // `vaultVersion` re-reads published ids when the vault's id map changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [myConventionsQuery, vaultVersion]
   );
   const myBuilds = useMemo(
     () =>
-      (myBuildsQuery ?? []).flatMap((build) => {
-        const id = build._id.startsWith(LOCAL_ID_PREFIX) ? getServerId(build._id) : build._id;
-        return id ? [{ ...build, _id: id as Id<"builds"> }] : [];
-      }),
-    [myBuildsQuery]
+      (myBuildsQuery ?? []).map((build) => ({
+        ...build,
+        localId: build._id as string,
+        _id: (getPublishedId(build._id) ?? build._id) as Id<"builds">,
+      })),
+    // `vaultVersion` re-reads published ids when the vault's id map changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [myBuildsQuery, vaultVersion]
   );
+  const convex = useConvex();
 
   const setDays = useMutation(api.groupConventionDays.setDays);
   const setBuildGroup = useMutation(api.builds.setGroupId);
@@ -154,11 +166,16 @@ export default function GroupDetailScreen() {
   };
 
   const saveDays = async () => {
-    if (!groupId || !userId || !selectedConventionId) return;
+    if (!groupId || !userId || !selectedConvention) return;
     try {
+      const conventionId = (await publishVaultRow(
+        convex,
+        "conventions",
+        selectedConvention.localId
+      )) as Id<"conventions">;
       await setDays({
         groupId,
-        conventionId: selectedConventionId,
+        conventionId,
         userId,
         dates: [...selectedDates].sort(),
       });
@@ -168,9 +185,10 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const addBuildToGroup = async (buildId: Id<"builds">) => {
+  const addBuildToGroup = async (localId: string) => {
     if (!groupId || !userId) return;
     try {
+      const buildId = (await publishVaultRow(convex, "builds", localId)) as Id<"builds">;
       await setBuildGroup({ buildId, userId, groupId });
       setBuildModalOpen(false);
       setSearch("");
@@ -791,7 +809,7 @@ export default function GroupDetailScreen() {
               availableBuilds.map((build) => (
                 <Pressable
                   key={build._id}
-                  onPress={() => void addBuildToGroup(build._id)}
+                  onPress={() => void addBuildToGroup(build.localId)}
                   accessibilityRole="button"
                   accessibilityLabel={build.name}
                   className="active:opacity-80"

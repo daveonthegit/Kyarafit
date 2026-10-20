@@ -25,6 +25,7 @@ import type {
   WorkflowStatus,
 } from "@kyarafit/design-system/domain/workflowProgress";
 import type { VaultDoc, VaultReader } from "../../store";
+import { replicaGeneratedWorkflowKey } from "@kyarafit/design-system/domain/replicaProtocol";
 
 export {
   buildWorkflowTree,
@@ -109,10 +110,19 @@ export function getWorkflowItemById(ctx: ReadCtx, id: string): WorkflowItemDoc |
 }
 
 export function getWorkflowItemsForUser(ctx: ReadCtx, userId: string): WorkflowItemDoc[] {
-  return ctx.db
-    .query("workflowItems")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect() as WorkflowItemDoc[];
+  const seen = new Set<string>();
+  return (
+    ctx.db
+      .query("workflowItems")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect() as WorkflowItemDoc[]
+  ).filter((item) => {
+    const key = replicaGeneratedWorkflowKey(item);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function getWorkflowAttachmentsForUser(

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 
 // Spec: DATA_AND_SYNC.md §11 (REQ-D100 "export is free") + invariant #2 ("UI reads/writes only
 // through the offline bridge for local-first data"). A FREE user has NO cloud data, so an export
 // sourced from Convex (`sync.listChangedSince`) would be EMPTY. Sourcing it from the LOCAL STORE
-// makes it non-empty, and imports written through the offline bridge land in the local store.
+// makes it non-empty. Web never writes personal data (ADR-0005): personal commands are refused.
 
 const { client } = vi.hoisted(() => ({
   client: { mutation: vi.fn(() => Promise.resolve(null)) },
@@ -22,15 +22,8 @@ import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
 import { rememberLocalAccount } from "./auth/localAccount";
-import {
-  buildDataBundle,
-  countRows,
-  emptyCollections,
-  parseDataBundle,
-  runImport,
-  summarizeTotals,
-  type CreateRowFn,
-} from "./dataPortability";
+import { PUBLISHED_READ_ONLY_MESSAGE } from "./offline/publishedReadOnly";
+import { buildDataBundle, countRows, parseDataBundle } from "./dataPortability";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -116,45 +109,17 @@ describe("readLocalCollections (REQ-D100 — export is free)", () => {
   });
 });
 
-describe("import writes land in the local store (invariant #2)", () => {
-  it("routes imported rows through the offline bridge into the local store", async () => {
-    setOfflineConnectivity(false);
-
-    // The page uses `useOfflineMutation(api.builds.create)` as its import sink.
-    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
-
-    const createRow: CreateRowFn = async (_collection, row) => {
-      return result.current({
-        userId: "u1",
-        name: String(row.name ?? "Untitled build"),
-        status: String(row.status ?? "idea"),
-        idempotencyKey: `import:builds:${row.id}`,
-      });
-    };
-
-    const imported = parseDataBundle(
-      buildDataBundle({
-        ...emptyCollections(),
-        builds: [
-          { id: "b1", name: "Cloud", status: "wip" },
-          { id: "b2", name: "Tifa", status: "idea" },
-        ],
-      })
-    );
-
-    await act(async () => {
-      const summary = await runImport({ imported, existing: emptyCollections(), createRow });
-      expect(summarizeTotals(summary)).toEqual({ added: 2, skipped: 0 });
-    });
-
-    // Offline: nothing was sent to Convex — the writes were queued into the local store instead.
-    expect(client.mutation).not.toHaveBeenCalled();
-    const pending = await offlineRuntime.listPendingMutations();
-    expect(pending).toHaveLength(2);
-    expect(pending.every((m) => m.fn === "builds:create")).toBe(true);
-
-    // And they are immediately re-exportable from the local store (overlay-visible before sync).
-    const collections = readLocalCollections();
-    expect(collections.builds.map((r) => r.name).sort()).toEqual(["Cloud", "Tifa"]);
-  });
+describe("web never writes personal data (ADR-0005)", () => {
+  it.each([true, false])(
+    "refuses a personal create before it reaches Convex or the local store (online=%s)",
+    async (online) => {
+      setOfflineConnectivity(online);
+      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+      await expect(
+        result.current({ userId: "u1", name: "Cloud", status: "wip" } as never)
+      ).rejects.toThrow(PUBLISHED_READ_ONLY_MESSAGE);
+      expect(client.mutation).not.toHaveBeenCalled();
+      expect(readLocalCollections().builds).toEqual([]);
+    }
+  );
 });

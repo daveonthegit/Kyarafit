@@ -118,19 +118,8 @@
     "itemCount": "{count} item(s) ready to export",
     "loading": "Loading your data…",
     "importTitle": "Import a backup",
-    "importDescription": "Restore a previously exported JSON file into an empty vault. Restoring needs an internet connection.",
-    "importButton": "Choose a backup file",
-    "importing": "Importing…",
-    "importSummary": "Restored {added} item(s).",
-    "importErrorGeneric": "Something went wrong while importing that file.",
-    "importRequiresEmptyVault": "Restore requires an empty vault. Export your current data first, then remove it before restoring.",
-    "importRequiresOnline": "Restore needs an internet connection. Connect and try again.",
-    "importIncomplete": "Restore incomplete - undo and try again.",
+    "importInMobileApp": "Backups are restored in the Kyarafit mobile app. Web shows published copies only, so it does not write personal data.",
     "restoreReadOnly": "Finish or undo your restore first.",
-    "restoreOtherTab": "Restore in progress in another tab",
-    "undoRestoreButton": "Undo restore",
-    "undoingRestore": "Undoing…",
-    "restoreUndone": "The incomplete restore was undone. You can restore your backup again.",
     "backToSettings": "Back to settings"
   },
   "Theme": {
@@ -201,6 +190,7 @@
     "imagePreviewAlt": "Element image preview"
   },
   "Sync": {
+    "publishedReadOnly": "Web shows published copies only. Edit personal data in the mobile app, then publish it again.",
     "offline": "You are offline — changes sync when you reconnect.",
     "pending": "{count} pending changes waiting to sync",
     "failed": "{count} change(s) failed to sync",

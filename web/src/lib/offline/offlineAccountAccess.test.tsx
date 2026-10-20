@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { api } from "convex/_generated/api";
 import { useOfflineMutation } from "./useOfflineMutation";
@@ -42,16 +43,22 @@ vi.mock("./engineSelection", () => ({
 function AccountView() {
   const { userId, isLoading } = useCurrentUser();
   const create = useOfflineMutation(api.builds.create);
+  const [error, setError] = useState<string | null>(null);
   return (
     <>
       <span>{isLoading ? "loading" : (userId ?? "locked")}</span>
       <button
         onClick={async () => {
-          if (userId) await create({ userId, name: "Offline edit", status: "idea" });
+          try {
+            if (userId) await create({ userId, name: "Offline edit", status: "idea" });
+          } catch (error) {
+            setError(error instanceof Error ? error.name : String(error));
+          }
         }}
       >
         Create
       </button>
+      {error && <span role="alert">{error}</span>}
     </>
   );
 }
@@ -111,8 +118,12 @@ it("opens the remembered vault on an offline cold launch without authenticating 
   await waitFor(() => expect(offlineRuntime.getSubject()).toBe("A"));
   expect(screen.getByText("A")).toBeInTheDocument();
   expect(readLocalCollections("A").builds.map((row) => row.id)).toEqual(["A"]);
+  // Reading works offline; personal writes are refused on web (ADR-0005), visibly and locally.
+  const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
   fireEvent.click(screen.getByText("Create"));
-  await waitFor(() => expect(readLocalCollections("A").builds).toHaveLength(2));
+  expect(await screen.findByRole("alert")).toHaveTextContent("PublishedReadOnlyError");
+  expect(alert).toHaveBeenCalledOnce();
+  expect(readLocalCollections("A").builds).toHaveLength(1);
   expect(state.redirect).not.toHaveBeenCalled();
   expect(state.mutation).not.toHaveBeenCalled();
   expect(state.query).not.toHaveBeenCalled();

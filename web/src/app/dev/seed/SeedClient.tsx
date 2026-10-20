@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline/useOfflineMutation";
 import Link from "next/link";
 import { api } from "convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -9,7 +9,7 @@ import { offlineRuntime } from "@/lib/offline/runtime";
 
 export default function SeedClient() {
   const { userId } = useCurrentUser();
-  const createStarterSeed = useMutation(api.seed.createStarter);
+  const createStarterSeed = useOfflineMutation(api.seed.createStarter);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 

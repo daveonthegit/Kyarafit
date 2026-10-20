@@ -37,4 +37,7 @@ crons.interval(
   {}
 );
 
+// Managed-sync replica retention: op dedupe, tombstones and conflict records older than 90 days.
+crons.interval("replica-retention-prune", { hours: 24 }, internal.replica.prune, {});
+
 export default crons;

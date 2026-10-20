@@ -3,20 +3,19 @@ import { Text, View } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useTranslation } from "react-i18next";
 import { borderWidth, glass } from "@kyarafit/design-system/rn";
-import { useSyncStatus } from "@/offline";
+import { useReplicaSummary } from "@/vault/replica/hooks";
 import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 
 /**
  * Offline connectivity strip (DATA_AND_SYNC.md §6, REQ-D64) — floats below
- * the status bar as a dark glass strip (7.1 shell). The online sync-status
- * half of the old banner lives in `SyncStatusChip` (bottom-left, per
- * 03-component-changes).
+ * the status bar as a dark glass strip (7.1 shell) only while offline. Sync
+ * status itself lives in Settings → Offline (ADR-0002).
  */
 export function ConnectivityBanner() {
   const { t } = useTranslation();
   const [offline, setOffline] = useState(false);
 
-  const { pending, failed } = useSyncStatus();
+  const { pending } = useReplicaSummary();
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state: NetInfoState) => {
@@ -65,23 +64,6 @@ export function ConnectivityBanner() {
           {t("common.syncPendingCount", {
             defaultValue: "{{count}} pending changes waiting to sync",
             count: pending,
-          })}
-        </Text>
-      ) : null}
-      {failed > 0 ? (
-        <Text
-          accessibilityRole="alert"
-          style={{
-            marginTop: 4,
-            textAlign: "center",
-            fontFamily: APP_FONT_FAMILIES.sansMedium,
-            fontSize: 12,
-            color: glass.text.danger,
-          }}
-        >
-          {t("common.syncFailedCount", {
-            defaultValue: "{{count}} change(s) failed to sync",
-            count: failed,
           })}
         </Text>
       ) : null}

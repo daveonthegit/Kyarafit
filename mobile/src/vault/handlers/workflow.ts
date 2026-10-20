@@ -22,6 +22,8 @@ import {
   type WorkflowStatus,
 } from "@kyarafit/design-system/domain/workflowProgress";
 import type { VaultDoc } from "../store";
+import { replicaGeneratedWorkflowId } from "@kyarafit/design-system/domain/replicaProtocol";
+import { readAncestorIds } from "./lib/parentChain";
 import type {
   LocalMutationCtx,
   LocalMutationHandler,
@@ -45,7 +47,6 @@ import {
   getWorkflowDependenciesForUser,
   getWorkflowItemsByAttachmentKey,
   getWorkflowItemsForUser,
-  parentAncestorIds,
   type ReadCtx,
   type WorkflowAttachmentDoc,
   type WorkflowAttachmentInput,
@@ -203,24 +204,20 @@ function getSiblingCount(ctx: ReadCtx, userId: string, parentId: string | undefi
   return items.filter((item) => item.parentId === parentId).length;
 }
 
-function patchDescendantAncestors(
-  ctx: LocalMutationCtx,
-  userId: string,
-  rootId: string,
-  newAncestorIds: string[]
-) {
+function patchDescendantAncestors(ctx: LocalMutationCtx, userId: string, rootId: string) {
   const items = getWorkflowItemsForUser(ctx, userId);
-  const descendants = items
-    .filter((item) => item.ancestorIds.includes(rootId))
-    .sort((a, b) => a.ancestorIds.length - b.ancestorIds.length);
-
-  for (const descendant of descendants) {
-    const movedIndex = descendant.ancestorIds.indexOf(rootId);
-    const tail = descendant.ancestorIds.slice(movedIndex);
-    ctx.db.patch(
-      descendant._id,
-      withUpdateMeta(descendant, { ancestorIds: [...newAncestorIds, ...tail] }, ctx.now)
-    );
+  const visited = new Set([rootId]);
+  const frontier = [rootId];
+  for (const parentId of frontier) {
+    for (const item of items) {
+      if (item.parentId !== parentId || visited.has(item._id)) continue;
+      visited.add(item._id);
+      frontier.push(item._id);
+      const ancestorIds = readAncestorIds(ctx.db, parentId, "parentId");
+      if (JSON.stringify(item.ancestorIds) !== JSON.stringify(ancestorIds)) {
+        ctx.db.patch(item._id, withUpdateMeta(item, { ancestorIds }, ctx.now));
+      }
+    }
   }
 }
 
@@ -306,6 +303,8 @@ function ensureWorkflowItem(
   input: {
     userId: string;
     dedupeKey: string;
+    /** Seed for the generated row id (defaults to the dedupe key). */
+    idSeed?: string;
     title: string;
     notes?: string;
     category: string;
@@ -319,7 +318,7 @@ function ensureWorkflowItem(
   const existing = ctx.db
     .query("workflowItems")
     .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", input.dedupeKey))
-    .unique() as WorkflowItemDoc | null;
+    .first() as WorkflowItemDoc | null;
 
   const normalizedStatus = coerceStatus(input.status);
   if (existing) {
@@ -361,10 +360,62 @@ function ensureWorkflowItem(
         dedupeKey: input.dedupeKey,
       },
       ctx.now
-    )
+    ),
+    replicaGeneratedWorkflowId(input.idSeed ?? input.dedupeKey)
   );
   replaceAttachments(ctx, input.userId, id, input.attachments);
   return id;
+}
+
+/**
+ * Per element and generated-task key ("buy", "wip"): how many times the user's generated task has
+ * been deleted (`incarnation`), and whether the current one was deleted by the user (`deleted`).
+ * A generated task's row id is a stable hash of its dedupe key and incarnation, so two offline
+ * devices generating the same task create the same row, while a task generated again after a
+ * deletion gets a new row instead of colliding with the synced tombstone.
+ */
+type GeneratedTaskState = { incarnation: number; deleted?: boolean };
+
+const AUTOGEN_KEY = /^autogen:(buy|wip):[^:]+:(.+)$/;
+
+function generatedTaskField(key: string) {
+  return key === "buy" ? "generatedTaskBuy" : "generatedTaskWip";
+}
+
+function generatedTaskState(node: VaultDoc | null, key: string): GeneratedTaskState | undefined {
+  const state = node?.[generatedTaskField(key)];
+  return state && typeof state === "object" ? (state as GeneratedTaskState) : undefined;
+}
+
+function setGeneratedTaskState(
+  ctx: LocalMutationCtx,
+  nodeId: string,
+  key: string,
+  state: GeneratedTaskState
+) {
+  const node = ctx.db.get(nodeId);
+  if (!node) return;
+  ctx.db.patch(nodeId, withUpdateMeta(meta(node), { [generatedTaskField(key)]: state }, ctx.now));
+}
+
+/**
+ * A generated task was deleted: start its next incarnation. A deletion by the user (any path:
+ * the task editor, a cascade) also keeps it deleted until its element leaves and re-enters the
+ * generating status; the generator's own removal when the status is left does not.
+ */
+function noteGeneratedTaskDeleted(ctx: LocalMutationCtx, item: VaultDoc, byUser: boolean) {
+  if (item.sourceKind !== "automation" || typeof item.dedupeKey !== "string") return;
+  const match = AUTOGEN_KEY.exec(item.dedupeKey);
+  if (!match) return;
+  const [, key, nodeId] = match;
+  const state = generatedTaskState(ctx.db.get(nodeId), key);
+  const incarnation = (state?.incarnation ?? 0) + 1;
+  setGeneratedTaskState(
+    ctx,
+    nodeId,
+    key,
+    byUser ? { incarnation, deleted: true } : { incarnation }
+  );
 }
 
 /** Auto-generated "Buy X" / "Work on X" tasks that follow an element's statuses. */
@@ -426,8 +477,9 @@ export function syncGeneratedWorkflowForNode(
     const existing = ctx.db
       .query("workflowItems")
       .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey))
-      .unique();
-    if (spec.active || (spec.done && existing)) {
+      .first();
+    const state = generatedTaskState(ctx.db.get(input.cosplayNodeId), spec.key);
+    if (existing && (spec.active || spec.done)) {
       ensureWorkflowItem(ctx, {
         userId: input.userId,
         dedupeKey,
@@ -438,8 +490,28 @@ export function syncGeneratedWorkflowForNode(
         sourceKind: "automation",
         attachments,
       });
-    } else if (existing) {
-      removeWorkflowItemCascade(ctx, existing._id);
+    } else if (spec.active && !state?.deleted) {
+      // A deleted task stays deleted: ordinary element edits never bring it back.
+      ensureWorkflowItem(ctx, {
+        userId: input.userId,
+        dedupeKey,
+        idSeed: `${dedupeKey}#${state?.incarnation ?? 0}`,
+        title: spec.title,
+        category: spec.category,
+        status: spec.status,
+        scopeKind: input.buildId ? "build_specific" : "shared",
+        sourceKind: "automation",
+        attachments,
+      });
+    }
+    if (!spec.active) {
+      if (existing && !spec.done) removeWorkflowItemCascade(ctx, existing._id, { byUser: false });
+      // Leaving the generating status re-arms it: entering it again generates a fresh task.
+      if (state?.deleted) {
+        setGeneratedTaskState(ctx, input.cosplayNodeId, spec.key, {
+          incarnation: state.incarnation,
+        });
+      }
     }
   }
 }
@@ -456,7 +528,7 @@ export function removeGeneratedWorkflowForNode(ctx: LocalMutationCtx, cosplayNod
       (item.dedupeKey.startsWith("autogen:buy:") || item.dedupeKey.startsWith("autogen:wip:")) &&
       item.dedupeKey.endsWith(`:${cosplayNodeId}`)
     ) {
-      removeWorkflowItemCascade(ctx, item._id);
+      removeWorkflowItemCascade(ctx, item._id, { byUser: false });
     }
   }
 }
@@ -565,19 +637,29 @@ function syncPackingItemsFromWorkflowItem(ctx: LocalMutationCtx, workflowItem: W
   }
 }
 
-/** Delete a workflow item, its whole subtree, their attachments (and packed rows) and deps. */
-export function removeWorkflowItemCascade(ctx: LocalMutationCtx, workflowItemId: string): void {
+/**
+ * Delete a workflow item, its whole subtree, their attachments (and packed rows) and deps.
+ * Deleting a generated task starts its next incarnation; `byUser` (the default) also keeps it
+ * deleted until its element re-enters the generating status.
+ */
+export function removeWorkflowItemCascade(
+  ctx: LocalMutationCtx,
+  workflowItemId: string,
+  { byUser = true }: { byUser?: boolean } = {}
+): void {
   const item = ctx.db.get(workflowItemId) as WorkflowItemDoc | null;
   if (!item) return;
 
   const userItems = getWorkflowItemsForUser(ctx, item.userId);
-  const subtreeIds = userItems
-    .filter(
-      (candidate) =>
-        candidate._id === workflowItemId || candidate.ancestorIds.includes(workflowItemId)
-    )
-    .map((candidate) => candidate._id);
+  const subtreeIds = [workflowItemId];
   const idSet = new Set(subtreeIds);
+  for (const parentId of subtreeIds) {
+    for (const candidate of userItems) {
+      if (candidate.parentId !== parentId || idSet.has(candidate._id)) continue;
+      idSet.add(candidate._id);
+      subtreeIds.push(candidate._id);
+    }
+  }
 
   const attachments = getWorkflowAttachmentsForUser(ctx, item.userId);
   for (const attachment of attachments) {
@@ -599,7 +681,10 @@ export function removeWorkflowItemCascade(ctx: LocalMutationCtx, workflowItemId:
   }
 
   for (const id of subtreeIds.reverse()) {
-    if (ctx.db.get(id)) ctx.db.delete(id);
+    const removed = ctx.db.get(id);
+    if (!removed) continue;
+    ctx.db.delete(id);
+    noteGeneratedTaskDeleted(ctx, removed, byUser);
   }
 }
 
@@ -835,7 +920,7 @@ type CreateArgs = {
 function create(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
   const args = rawArgs as unknown as CreateArgs;
   const actorId = ctx.userId;
-  const parent = args.parentId ? (ctx.db.get(args.parentId) as WorkflowItemDoc | null) : null;
+  const ancestorIds = readAncestorIds(ctx.db, args.parentId, "parentId");
 
   const sanitized = sanitizeWorkflowInput(args);
   const workflowItemId = ctx.db.insert(
@@ -849,7 +934,7 @@ function create(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
         category: sanitized.category ?? "craft",
         status: sanitized.status ?? "not_started",
         parentId: args.parentId,
-        ancestorIds: parentAncestorIds(parent),
+        ancestorIds,
         sortOrder: args.sortOrder ?? getSiblingCount(ctx, actorId, args.parentId),
         scopeKind: sanitized.scopeKind ?? "build_specific",
         sourceKind: sanitized.sourceKind ?? "manual",
@@ -988,20 +1073,21 @@ function applyMove(ctx: LocalMutationCtx, move: MoveArgs) {
   if (!item) throw new Error("Workflow item not found");
 
   const parentId = move.parentId ?? undefined;
-  if (parentId && parentId === move.id) {
-    throw new Error("Workflow items cannot parent themselves");
+  if (parentId && !ctx.db.get(parentId)) throw new Error("Parent not found");
+  const ancestorIds = readAncestorIds(ctx.db, parentId, "parentId");
+  if (ancestorIds.includes(move.id)) {
+    throw new Error(
+      parentId === move.id
+        ? "Workflow items cannot parent themselves: this would create a cycle."
+        : "Workflow items cannot move under a descendant: this would create a cycle."
+    );
   }
-  const parent = parentId ? (ctx.db.get(parentId) as WorkflowItemDoc | null) : null;
-  if (parent?.ancestorIds.includes(move.id)) {
-    throw new Error("Workflow items cannot move under a descendant");
-  }
-  return { item, parentId, parent };
+  return { item, parentId, ancestorIds };
 }
 
 function move(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
   const args = rawArgs as unknown as MoveArgs;
-  const { item, parentId, parent } = applyMove(ctx, args);
-  const ancestorIds = parentAncestorIds(parent);
+  const { item, parentId, ancestorIds } = applyMove(ctx, args);
   ctx.db.patch(
     args.id,
     withUpdateMeta(
@@ -1010,7 +1096,7 @@ function move(ctx: LocalMutationCtx, rawArgs: Record<string, unknown>) {
       ctx.now
     )
   );
-  patchDescendantAncestors(ctx, item.userId, args.id, ancestorIds);
+  patchDescendantAncestors(ctx, item.userId, args.id);
   return ctx.db.get(args.id);
 }
 
@@ -1019,8 +1105,7 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
     move: MoveArgs;
     resequence: { id: string; sortOrder: number }[];
   };
-  const { item, parentId, parent } = applyMove(ctx, args.move);
-  if (parentId && !parent) throw new Error("Parent not found");
+  const { item, parentId, ancestorIds } = applyMove(ctx, args.move);
 
   const resequenceItems = new Map<string, WorkflowItemDoc>();
   for (const row of args.resequence) {
@@ -1030,7 +1115,6 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
     resequenceItems.set(row.id, rowItem);
   }
 
-  const ancestorIds = parentAncestorIds(parent);
   ctx.db.patch(
     args.move.id,
     withUpdateMeta(
@@ -1039,7 +1123,7 @@ function moveAndResequence(ctx: LocalMutationCtx, rawArgs: Record<string, unknow
       ctx.now
     )
   );
-  patchDescendantAncestors(ctx, item.userId, args.move.id, ancestorIds);
+  patchDescendantAncestors(ctx, item.userId, args.move.id);
 
   for (const row of args.resequence) {
     const rowItem = resequenceItems.get(row.id);

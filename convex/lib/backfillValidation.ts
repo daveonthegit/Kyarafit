@@ -13,7 +13,7 @@ import {
   WORKFLOW_STATUSES,
 } from "./workflowProgress";
 import { MAX_LENGTH, sanitizeString, sanitizeOptionalUrl, validateDateString } from "./validation";
-import type { LocalFirstTable } from "../tierTransition";
+import type { ReplicaTable as LocalFirstTable } from "@kyarafit/design-system/domain/replicaProtocol";
 
 // Matches the installed web/mobile backfill chunk size. Limits apply before dedupe, including
 // ignored metadata, so retries cannot hide an unbounded or malformed request.

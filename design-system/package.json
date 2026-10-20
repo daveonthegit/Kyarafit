@@ -25,6 +25,7 @@
     "./domain/accessPolicy": "./domain/accessPolicy.ts",
     "./domain/subscriptionPlans": "./domain/subscriptionPlans.ts",
     "./domain/syncPolicy": "./domain/syncPolicy.ts",
+    "./domain/replicaProtocol": "./domain/replicaProtocol.ts",
     "./domain/cloudStoragePolicy": "./domain/cloudStoragePolicy.ts",
     "./domain/offlineConflict": "./domain/offlineConflict.ts",
     "./domain/mediaGallery": "./domain/mediaGallery.ts",

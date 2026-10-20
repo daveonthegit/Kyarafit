@@ -58,7 +58,7 @@ change product requirements or certify quota consistency.
             └────────────────────────────────┘
 ```
 
-- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Paid replication is separate from the UI path. Web retains cloud-first offline wrappers; its conversion remains pending. ESLint guards cover selected core routes/components, not every personal-data call site.
+- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Managed sync (Kyarafit Cloud) is separate from the UI path: the vault's `onPersist` hook records changed rows in an outbox inside the same SQLite transaction, and `mobile/src/vault/replica` replicates them to the row replica (`convex/replica.ts`, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)). Web's retained wrappers expose published copies read-only; see [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). ESLint guards cover selected core routes/components, not every personal-data call site.
 - **B2** Online-only data (social, groups, billing, public pages): UI → Convex hooks directly, wrapped in an online-guard/offline-banner component.
 - **B3** Platform-independent domain helpers belong in `design-system/`. Mobile vault handlers also implement local query/command behavior using a Convex-like reader/writer interface; they are not a shared server runtime. Platform adapters own storage, connectivity, and image capture.
 
@@ -70,7 +70,7 @@ change product requirements or certify quota consistency.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Domain logic            | `domain/workflowDomain.ts`, `workflowProgress.ts`, `cosplay*`, planner overlays                                                                                   |
 | Entitlements            | `domain/entitlements.ts`, `subscriptionTierPolicy.ts`, `subscriptionPlans.ts`                                                                                     |
-| Sync (pure)             | `domain/offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, `offlineEntityOverlay.ts`, planner/build-tree overlays                               |
+| Sync (pure)             | `domain/replicaProtocol.ts` (mobile managed sync); web's legacy `offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, overlays                    |
 | Implemented foundations | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared validators |
 | Tokens                  | `design_tokens.json`, `rn_tokens.ts`, Tailwind config                                                                                                             |
 
@@ -88,8 +88,9 @@ change product requirements or certify quota consistency.
 | Image capture | camera / picker (`expo-*`)        | `<input type=file>`                   |
 | Secure token  | `expo-secure-store`               | `localStorage`                        |
 
-Mobile's authoritative `VaultStore` is distinct from web's `LocalStore` interface; the platforms
-currently have separate sync workers. Web engine selection lives in
+Mobile's authoritative `VaultStore` is distinct from web's `LocalStore` interface. Mobile syncs
+through the row replica; web has no vault yet and shows published copies read-only, refusing every
+personal-data command (`web/src/lib/offline/publishedReadOnly.ts`). Web engine selection lives in
 `web/src/lib/offline/engineSelection.ts`; Dexie is not the current fallback.
 
 ---
@@ -101,7 +102,7 @@ currently have separate sync workers. Web engine selection lives in
   legitimate public-by-design reads. The current contract and exceptions are documented in
   [`backend-authorization.md`](backend-authorization.md); remediation remains open, so this
   convention is not a claim that every endpoint already satisfies it.
-- **C3** Offline-replayable mutations use the idempotency pattern (`convex/lib/idempotency.ts`) and are registered in the offline bridge's idempotent-mutation list.
+- **C3** Managed-sync ops are deduped by `opId` in `replicaOps`. Mutations that accept an `idempotencyKey` keep the ledger pattern in `convex/lib/idempotency.ts`.
 - **C4** Use indexes, never `filter()`, for queries; paginate large datasets.
 - **C5** Function-level authorization and shared resource-access helpers protect user data;
   Convex tables do not acquire automatic row-level isolation from the schema alone.
@@ -122,8 +123,9 @@ web/src/
   lib/                  # web adapters + offline bridge + tests
 mobile/
   app/                  # Expo Router screens
-  src/offline/          # per-account SQLite lifecycle, compatibility hooks, sync worker
+  src/offline/          # per-account SQLite lifecycle, schema, compatibility hooks
   src/vault/            # authoritative local store, handlers, transactions, reactive reads
+  src/vault/replica/    # managed sync: replicator, scheduler, conflicts, photo bytes
   src/ui/               # mobile primitives
 docs/                   # consolidated docs (this set)
 ```
@@ -135,7 +137,7 @@ docs/                   # consolidated docs (this set)
 
 ## 7. State management
 
-- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web retains its existing offline wrapper. No duplicate global personal-data cache.
+- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web's read-only published-data boundary is described in [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). No duplicate global personal-data cache.
 - **S2** Ephemeral UI state is local component state / lightweight context. Avoid a global store for data that the offline bridge already owns.
 
 ---
