@@ -206,6 +206,7 @@ function getSiblingCount(ctx: ReadCtx, userId: string, parentId: string | undefi
 
 function patchDescendantAncestors(ctx: LocalMutationCtx, userId: string, rootId: string) {
   for (const item of getWorkflowItemsForUser(ctx, userId)) {
+    if (item._id === rootId || typeof item.parentId !== "string") continue;
     const ancestorIds = readAncestorIds(ctx.db, item.parentId, "parentId");
     if (
       ancestorIds.includes(rootId) &&
@@ -298,6 +299,8 @@ function ensureWorkflowItem(
   input: {
     userId: string;
     dedupeKey: string;
+    /** Seed for the generated row id (defaults to the dedupe key). */
+    idSeed?: string;
     title: string;
     notes?: string;
     category: string;
@@ -354,10 +357,50 @@ function ensureWorkflowItem(
       },
       ctx.now
     ),
-    replicaGeneratedWorkflowId(input.dedupeKey)
+    replicaGeneratedWorkflowId(input.idSeed ?? input.dedupeKey)
   );
   replaceAttachments(ctx, input.userId, id, input.attachments);
   return id;
+}
+
+/**
+ * Per element and generated-task key ("buy", "wip"): how many times the user's generated task has
+ * been deleted (`incarnation`), and whether the current one was deleted by the user (`deleted`).
+ * A generated task's row id is a stable hash of its dedupe key and incarnation, so two offline
+ * devices generating the same task create the same row, while a task generated again after a
+ * deletion gets a new row instead of colliding with the synced tombstone.
+ */
+type GeneratedTaskState = Record<string, { incarnation: number; deleted?: boolean }>;
+
+const AUTOGEN_KEY = /^autogen:(buy|wip):[^:]+:(.+)$/;
+
+function generatedTaskState(node: VaultDoc | null): GeneratedTaskState {
+  const state = node?.generatedTaskState;
+  return state && typeof state === "object" ? (state as GeneratedTaskState) : {};
+}
+
+function setGeneratedTaskState(ctx: LocalMutationCtx, nodeId: string, state: GeneratedTaskState) {
+  const node = ctx.db.get(nodeId);
+  if (!node) return;
+  ctx.db.patch(nodeId, withUpdateMeta(meta(node), { generatedTaskState: state }, ctx.now));
+}
+
+/**
+ * A generated task was deleted: start its next incarnation. A deletion by the user (any path:
+ * the task editor, a cascade) also keeps it deleted until its element leaves and re-enters the
+ * generating status; the generator's own removal when the status is left does not.
+ */
+function noteGeneratedTaskDeleted(ctx: LocalMutationCtx, item: VaultDoc, byUser: boolean) {
+  if (item.sourceKind !== "automation" || typeof item.dedupeKey !== "string") return;
+  const match = AUTOGEN_KEY.exec(item.dedupeKey);
+  if (!match) return;
+  const [, key, nodeId] = match;
+  const state = generatedTaskState(ctx.db.get(nodeId));
+  const incarnation = (state[key]?.incarnation ?? 0) + 1;
+  setGeneratedTaskState(ctx, nodeId, {
+    ...state,
+    [key]: byUser ? { incarnation, deleted: true } : { incarnation },
+  });
 }
 
 /** Auto-generated "Buy X" / "Work on X" tasks that follow an element's statuses. */
@@ -420,7 +463,8 @@ export function syncGeneratedWorkflowForNode(
       .query("workflowItems")
       .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey))
       .first();
-    if (spec.active || (spec.done && existing)) {
+    const state = generatedTaskState(ctx.db.get(input.cosplayNodeId))[spec.key];
+    if (existing && (spec.active || spec.done)) {
       ensureWorkflowItem(ctx, {
         userId: input.userId,
         dedupeKey,
@@ -431,9 +475,30 @@ export function syncGeneratedWorkflowForNode(
         sourceKind: "automation",
         attachments,
       });
-    } else if (existing) {
-      ctx.db.patch(existing._id, withUpdateMeta(meta(existing), { status: "cancelled" }, ctx.now));
-      replaceAttachments(ctx, input.userId, existing._id, []);
+    } else if (spec.active && !state?.deleted) {
+      // A deleted task stays deleted: ordinary element edits never bring it back.
+      ensureWorkflowItem(ctx, {
+        userId: input.userId,
+        dedupeKey,
+        idSeed: `${dedupeKey}#${state?.incarnation ?? 0}`,
+        title: spec.title,
+        category: spec.category,
+        status: spec.status,
+        scopeKind: input.buildId ? "build_specific" : "shared",
+        sourceKind: "automation",
+        attachments,
+      });
+    }
+    if (!spec.active) {
+      if (existing && !spec.done) removeWorkflowItemCascade(ctx, existing._id, { byUser: false });
+      // Leaving the generating status re-arms it: entering it again generates a fresh task.
+      if (state?.deleted) {
+        const all = generatedTaskState(ctx.db.get(input.cosplayNodeId));
+        setGeneratedTaskState(ctx, input.cosplayNodeId, {
+          ...all,
+          [spec.key]: { incarnation: state.incarnation },
+        });
+      }
     }
   }
 }
@@ -450,7 +515,7 @@ export function removeGeneratedWorkflowForNode(ctx: LocalMutationCtx, cosplayNod
       (item.dedupeKey.startsWith("autogen:buy:") || item.dedupeKey.startsWith("autogen:wip:")) &&
       item.dedupeKey.endsWith(`:${cosplayNodeId}`)
     ) {
-      removeWorkflowItemCascade(ctx, item._id);
+      removeWorkflowItemCascade(ctx, item._id, { byUser: false });
     }
   }
 }
@@ -559,8 +624,16 @@ function syncPackingItemsFromWorkflowItem(ctx: LocalMutationCtx, workflowItem: W
   }
 }
 
-/** Delete a workflow item, its whole subtree, their attachments (and packed rows) and deps. */
-export function removeWorkflowItemCascade(ctx: LocalMutationCtx, workflowItemId: string): void {
+/**
+ * Delete a workflow item, its whole subtree, their attachments (and packed rows) and deps.
+ * Deleting a generated task starts its next incarnation; `byUser` (the default) also keeps it
+ * deleted until its element re-enters the generating status.
+ */
+export function removeWorkflowItemCascade(
+  ctx: LocalMutationCtx,
+  workflowItemId: string,
+  { byUser = true }: { byUser?: boolean } = {}
+): void {
   const item = ctx.db.get(workflowItemId) as WorkflowItemDoc | null;
   if (!item) return;
 
@@ -593,7 +666,10 @@ export function removeWorkflowItemCascade(ctx: LocalMutationCtx, workflowItemId:
   }
 
   for (const id of subtreeIds.reverse()) {
-    if (ctx.db.get(id)) ctx.db.delete(id);
+    const removed = ctx.db.get(id);
+    if (!removed) continue;
+    ctx.db.delete(id);
+    noteGeneratedTaskDeleted(ctx, removed, byUser);
   }
 }
 
@@ -982,6 +1058,7 @@ function applyMove(ctx: LocalMutationCtx, move: MoveArgs) {
   if (!item) throw new Error("Workflow item not found");
 
   const parentId = move.parentId ?? undefined;
+  if (parentId && !ctx.db.get(parentId)) throw new Error("Parent not found");
   const ancestorIds = readAncestorIds(ctx.db, parentId, "parentId");
   if (ancestorIds.includes(move.id)) {
     throw new Error(

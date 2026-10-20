@@ -1110,8 +1110,9 @@ describe("replica review regressions", () => {
       d.net.online = false;
       d.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
     }
-    const purchaseKey = `autogen:buy:${ids.build}:${ids.tunic}`;
-    const purchaseId = replicaGeneratedWorkflowId(purchaseKey);
+    // Element-generated tasks are shared (not build-scoped); the id hashes key + incarnation.
+    const purchaseKey = `autogen:buy:shared:${ids.tunic}`;
+    const purchaseId = replicaGeneratedWorkflowId(`${purchaseKey}#0`);
     for (const d of [a, b]) {
       expect(
         d.store
@@ -1208,24 +1209,68 @@ describe("replica review regressions", () => {
         )
         .map((row) => row.rowId)
     ).toEqual([packingTasks[0].id]);
+    // Leaving the purchase status removes the task; entering it again generates its next
+    // incarnation under a new id, never colliding with the synced tombstone.
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: null });
-    expect(a.get(purchaseId)?.status).toBe("cancelled");
+    expect(a.get(purchaseId)).toBeNull();
     expect(
       getBuildScopedWorkflow({ db: a.store.reader() }, ids.build)!.items.map((item) => item._id)
     ).not.toContain(purchaseId);
     await settle(a, b);
     a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
     await settle(a, b);
-    expect(
-      a.store
+    const nextId = replicaGeneratedWorkflowId(`${purchaseKey}#1`);
+    for (const d of [a, b]) {
+      expect(
+        d.store
+          .exportRows()
+          .filter(
+            (row) =>
+              row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:")
+          )
+          .map((row) => row.id)
+      ).toEqual([nextId]);
+      expect(d.get(nextId)?.status).toBe("not_started");
+      expect(d.changes()).toEqual([]);
+    }
+  });
+
+  it("keeps a user-deleted generated task deleted until its element re-enters the status", async () => {
+    const { t, a, b } = await setup();
+    const ids = seedSlice(a);
+    a.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
+    await settle(a, b);
+    const key = `autogen:buy:shared:${ids.tunic}`;
+    const first = replicaGeneratedWorkflowId(`${key}#0`);
+    expect(b.get(first)?.title).toBe("Buy Tunic");
+
+    // Delete the synced generated task through the task editor's command, then rename the element.
+    a.mutate("workflow:remove", { id: first });
+    await settle(a, b);
+    a.mutate("cosplayNodes:update", { id: ids.tunic, name: "Green tunic" });
+    b.mutate("cosplayNodes:update", { id: ids.tunic, notes: "linen" });
+    await settle(a, b);
+    const buyTasks = (d: typeof a) =>
+      d.store
         .exportRows()
-        .filter(
-          (row) =>
-            row.table === "workflowItems" && String(row.doc.dedupeKey).startsWith("autogen:buy:")
-        )
-        .map((row) => row.id)
-    ).toEqual([purchaseId]);
-    expect(b.get(purchaseId)?.status).toBe("not_started");
+        .filter((row) => row.table === "workflowItems" && row.doc.dedupeKey === key)
+        .map((row) => row.id);
+    for (const d of [a, b]) {
+      expect(buyTasks(d)).toEqual([]); // no recreation from ordinary edits
+      expect(d.changes()).toEqual([]); // and nothing for the server to reject
+    }
+    const rejected = await t.run((ctx) => ctx.db.query("replicaConflicts").collect());
+    expect(rejected.filter((row) => row.kind === "edit-after-delete")).toEqual([]);
+
+    // A new trigger (leave and re-enter to_buy) generates exactly one fresh task everywhere.
+    b.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "bought" });
+    b.mutate("cosplayNodes:update", { id: ids.tunic, purchaseStatus: "to_buy" });
+    await settle(a, b);
+    const next = replicaGeneratedWorkflowId(`${key}#1`);
+    for (const d of [a, b]) {
+      expect(buyTasks(d)).toEqual([next]);
+      expect(d.get(next)?.title).toBe("Buy Green tunic");
+    }
   });
 
   it.each(["builds", "conventions"] as const)(

@@ -102,6 +102,8 @@ export default function GroupDetailScreen() {
         localId: convention._id as string,
         _id: (getPublishedId(convention._id) ?? convention._id) as Id<"conventions">,
       })),
+    // `vaultVersion` re-reads published ids when the vault's id map changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [myConventionsQuery, vaultVersion]
   );
   const myBuilds = useMemo(
@@ -111,6 +113,8 @@ export default function GroupDetailScreen() {
         localId: build._id as string,
         _id: (getPublishedId(build._id) ?? build._id) as Id<"builds">,
       })),
+    // `vaultVersion` re-reads published ids when the vault's id map changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [myBuildsQuery, vaultVersion]
   );
   const convex = useConvex();
