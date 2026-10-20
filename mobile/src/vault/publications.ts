@@ -5,6 +5,7 @@ import { getIsOnline } from "@/offline/connectivity";
 import { NeedsConnectionError } from "@/offline/useOfflineMutation";
 import { isVaultImageValue } from "./images";
 import type { VaultSql } from "./store";
+import { notifyVaultDataChanged } from "./activeVault";
 export { recordPublicationRemovals } from "./publicationRemovals";
 
 /**
@@ -48,21 +49,46 @@ function serverIdFor(sql: VaultSql, id: string): string | null {
   );
 }
 
+export function cachePublicationIdentities(
+  sql: VaultSql,
+  mappings: readonly { clientId: string; serverId: string }[]
+): void {
+  let changed = false;
+  sql.withTransactionSync(() => {
+    for (const { clientId, serverId } of mappings) {
+      const existing = sql.getFirstSync<{ server_id: string }>(
+        "SELECT server_id FROM id_map WHERE client_id = ?", [clientId]
+      );
+      if (existing?.server_id === serverId) continue;
+      sql.runSync(
+        `INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, ?)
+         ON CONFLICT(client_id) DO UPDATE SET server_id = excluded.server_id,
+           synced_at = excluded.synced_at`,
+        [clientId, serverId, Date.now()]
+      );
+      changed = true;
+    }
+  });
+  if (changed) notifyVaultDataChanged(sql);
+}
+
 /** The published server id for a vault row, or null when it has never been published. */
-export function getPublishedId(localId: string): string | null {
+export function getPublishedId(localId: string, sql?: VaultSql): string | null {
   try {
-    return serverIdFor(getOfflineDb(), localId);
+    return serverIdFor(sql ?? getOfflineDb(), localId);
   } catch {
     return null;
   }
 }
 
 /** The vault row a published server id belongs to (deep links that carry a server id). */
-export function getLocalIdForPublished(serverId: string): string | null {
+export function getLocalIdForPublished(serverId: string, sql?: VaultSql): string | null {
   try {
     return (
-      getOfflineDb().getFirstSync<{ client_id: string }>(
-        "SELECT client_id FROM id_map WHERE server_id = ? LIMIT 1",
+      (sql ?? getOfflineDb()).getFirstSync<{ client_id: string }>(
+        `SELECT m.client_id FROM id_map m JOIN entity_rows e ON e.id = m.client_id
+         WHERE m.server_id = ? AND e.deleted = 0
+           AND e.table_name IN ('builds', 'conventions') LIMIT 1`,
         [serverId]
       )?.client_id ?? null
     );
@@ -113,14 +139,7 @@ export async function publishVaultRow(
     clientId: localId,
     doc: publishedProjection(table, doc),
   })) as { id: string };
-  if (localId.startsWith(LOCAL_ID_PREFIX)) {
-    sql.runSync(
-      `INSERT INTO id_map (client_id, server_id, synced_at) VALUES (?, ?, ?)
-       ON CONFLICT(client_id) DO UPDATE SET server_id = excluded.server_id,
-         synced_at = excluded.synced_at`,
-      [localId, id, Date.now()]
-    );
-  }
+  cachePublicationIdentities(sql, [{ clientId: localId, serverId: id }]);
   return id;
 }
 
@@ -152,5 +171,6 @@ export async function flushPublicationRemovals(
     });
     removed += 1;
   }
+  if (removed) notifyVaultDataChanged(sql);
   return removed;
 }

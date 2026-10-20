@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { useConvex } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 import { isPaidConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { useSession } from "@/lib/auth/client";
 import { getBearerToken, subscribeBearerToken } from "@/lib/auth/bearer-storage-plugin";
@@ -12,10 +13,11 @@ import {
   activeVaultImageDir,
   getActiveReplicator,
   getActiveVaultSql,
+  getVaultState,
   subscribeVault,
 } from "../activeVault";
 import { useVaultState } from "../hooks";
-import { flushPublicationRemovals } from "../publications";
+import { cachePublicationIdentities, flushPublicationRemovals } from "../publications";
 import { syncReplicaAssets } from "./assets";
 import { convexReplicaTransport, timedConvexClient } from "./convexTransport";
 import { deviceReplicaAssetIo } from "./deviceAssets";
@@ -50,6 +52,15 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
   const signedIn = Boolean(
     credential && userId && !remote.isPending && remote.data?.user?.id === userId
   );
+  const publicationIds = useQuery(api.publications.identities, signedIn ? {} : "skip");
+  useEffect(() => {
+    const sql = getActiveVaultSql();
+    const current = getVaultState();
+    if (sql && signedIn && publicationIds && publicationIds.subject === userId &&
+        current.status === "unlocked" && current.account.subject === userId) {
+      cachePublicationIdentities(sql, publicationIds.mappings);
+    }
+  }, [publicationIds, signedIn, userId]);
   const { data: tierInfo } = useTier(signedIn ? userId : null);
   const entitled = isPaidConvexTier(tierInfo?.tier ?? null);
   const replicator = useSyncExternalStore(subscribeVault, getActiveReplicator, getActiveReplicator);

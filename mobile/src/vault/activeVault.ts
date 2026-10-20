@@ -13,7 +13,7 @@ import {
   type VaultAccount,
 } from "./account";
 import { vaultImageCodec, vaultImageDir } from "./images";
-import { recordPublicationRemovals } from "./publications";
+import { recordPublicationRemovals } from "./publicationRemovals";
 import { Replicator } from "./replica/replicator";
 import { VaultStore, type VaultSql } from "./store";
 
@@ -78,6 +78,10 @@ export function getActiveReplicator(): Replicator | null {
 /** The unlocked vault's database, for vault-scoped bookkeeping outside the store. */
 export function getActiveVaultSql(): VaultSql | null {
   return vaultSql;
+}
+
+export function notifyVaultDataChanged(expectedSql: VaultSql): void {
+  if (vaultSql === expectedSql) notify();
 }
 
 export function requireActiveVault(expected: VaultStore | null = store): VaultStore {

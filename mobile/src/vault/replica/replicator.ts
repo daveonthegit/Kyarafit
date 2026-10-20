@@ -335,6 +335,7 @@ export class Replicator {
       }
       await this.pushDismissals(transport);
       if (!(await this.push(transport))) {
+        await this.pull(transport);
         this.rerun = true;
         return true;
       }
@@ -451,7 +452,8 @@ export class Replicator {
         if (generation !== (readMeta(this.sql, META.generation) ?? "initial")) {
           this.sql.withTransactionSync(() => {
             this.sql.runSync("DELETE FROM replica_state");
-            this.sql.runSync("DELETE FROM replica_outbox");
+            this.sql.runSync("DELETE FROM replica_outbox WHERE kind = 'put'");
+            this.sql.runSync("UPDATE replica_outbox SET base_rev = 0 WHERE kind = 'delete'");
             this.sql.runSync("DELETE FROM replica_assets");
             this.sql.runSync("DELETE FROM replica_seen");
             this.sql.runSync("DELETE FROM replica_conflicts");
@@ -508,41 +510,43 @@ export class Replicator {
                          WHERE x.table_name = s.table_name AND x.row_id = s.row_id)`
     );
     for (const row of gone) {
-      const pending = this.sql.getFirstSync("SELECT 1 FROM replica_outbox WHERE table_name = ? AND row_id = ? AND kind = 'put'", [row.table_name, row.row_id]);
-      const local = this.sql.getFirstSync<{ json: string }>("SELECT json FROM entity_rows WHERE table_name = ? AND id = ?", [row.table_name, row.row_id]);
-      if (pending && local) this.applyConflict({
-        id: this.options.newOpId(), table: row.table_name, rowId: row.row_id,
-        kind: "edit-after-delete", lost: JSON.parse(local.json), rev: 0,
-        createdAt: this.now(), dismissed: false,
-      });
-      this.sql.runSync("DELETE FROM replica_outbox WHERE table_name = ? AND row_id = ?", [row.table_name, row.row_id]);
+      this.removeReplicaRow(row.table_name, row.row_id);
       this.enqueue(row.table_name, row.row_id, "delete", null);
-      queuePublicationRemoval(this.sql, row.table_name, row.row_id);
-      this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
-        row.table_name,
-        row.row_id,
-      ]);
-      this.sql.runSync("DELETE FROM replica_state WHERE table_name = ? AND row_id = ?", [
-        row.table_name,
-        row.row_id,
-      ]);
     }
     this.sql.runSync("DELETE FROM replica_seen");
     this.sql.runSync("DELETE FROM sync_meta WHERE key = ?", [META.resnapshot]);
   }
 
+  private removeReplicaRow(table: string, rowId: string): void {
+    const pending = this.sql.getAllSync<{ fields_json: string | null }>(
+      "SELECT fields_json FROM replica_outbox WHERE table_name = ? AND row_id = ? AND kind = 'put' ORDER BY seq",
+      [table, rowId]
+    );
+    if (pending.length) {
+      const local = this.sql.getFirstSync<{ json: string }>(
+        "SELECT json FROM entity_rows WHERE table_name = ? AND id = ?", [table, rowId]
+      );
+      const lost: Record<string, unknown> = local ? JSON.parse(local.json) : {};
+      for (const op of pending) {
+        for (const [field, value] of Object.entries(JSON.parse(op.fields_json ?? "{}"))) {
+          if (value === null) delete lost[field];
+          else lost[field] = value;
+        }
+      }
+      this.applyConflict({
+        id: this.options.newOpId(), table, rowId, kind: "edit-after-delete", lost,
+        rev: 0, createdAt: this.now(), dismissed: false,
+      });
+    }
+    this.sql.runSync("DELETE FROM replica_outbox WHERE table_name = ? AND row_id = ?", [table, rowId]);
+    queuePublicationRemoval(this.sql, table, rowId);
+    this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [table, rowId]);
+    this.sql.runSync("DELETE FROM replica_state WHERE table_name = ? AND row_id = ?", [table, rowId]);
+  }
+
   private applyPulled(row: ReplicaPulledRow): void {
     if (row.deleted) {
-      queuePublicationRemoval(this.sql, row.table, row.rowId);
-      // Delete wins. Any edit still queued here reaches the server, which keeps it as a conflict.
-      this.sql.runSync("DELETE FROM entity_rows WHERE table_name = ? AND id = ?", [
-        row.table,
-        row.rowId,
-      ]);
-      this.sql.runSync("DELETE FROM replica_state WHERE table_name = ? AND row_id = ?", [
-        row.table,
-        row.rowId,
-      ]);
+      this.removeReplicaRow(row.table, row.rowId);
       return;
     }
     const pending = this.sql.getAllSync<{ kind: string; fields_json: string | null }>(

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import type { Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
 import { useOfflineQuery } from "@/offline";
 import { getPublishedId, publishVaultRow } from "@/vault/publications";
+import { getVaultDataVersion, subscribeVault } from "@/vault/activeVault";
 import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { MobileBackButton } from "@/components/navigation/MobileBackButton";
@@ -87,6 +88,7 @@ export default function GroupDetailScreen() {
     [];
   const myConventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const myBuildsQuery = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
+  const vaultVersion = useSyncExternalStore(subscribeVault, getVaultDataVersion, getVaultDataVersion);
   // Vault rows, keyed by their published server copy once they have one. Adding one to the group
   // publishes (or refreshes) that copy first: the group only ever sees an explicit projection.
   const myConventions = useMemo(
@@ -96,7 +98,7 @@ export default function GroupDetailScreen() {
         localId: convention._id as string,
         _id: (getPublishedId(convention._id) ?? convention._id) as Id<"conventions">,
       })),
-    [myConventionsQuery]
+    [myConventionsQuery, vaultVersion]
   );
   const myBuilds = useMemo(
     () =>
@@ -105,7 +107,7 @@ export default function GroupDetailScreen() {
         localId: build._id as string,
         _id: (getPublishedId(build._id) ?? build._id) as Id<"builds">,
       })),
-    [myBuildsQuery]
+    [myBuildsQuery, vaultVersion]
   );
   const convex = useConvex();
 

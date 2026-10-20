@@ -297,7 +297,7 @@ describe("replica cross-row integrity", () => {
     expect(live.find((row) => row.rowId === "local:q")!.doc.buildId).toBe(second.rowId);
   });
 
-  it("leaves a reference to a parent the replica has not seen yet", async () => {
+  it("recovers an unseen-parent reference even if that parent arrives later", async () => {
     const t = convexTest(schema, modules);
     await user(t, "alice");
     const alice = session(t, "alice");
@@ -306,8 +306,12 @@ describe("replica cross-row integrity", () => {
     ]);
     await alice.push([put("local:later", { name: "Arrives next batch" })]);
     const rows = await liveRows(t, "alice");
-    expect(rows.find((row) => row.rowId === "local:p")!.doc.buildId).toBe("local:later");
-    expect(rows.some((row) => row.doc.recovered)).toBe(false);
+    const recovered = rows.find((row) => row.doc.recovered)!;
+    expect(rows.find((row) => row.rowId === "local:p")!.doc.buildId).toBe(recovered.rowId);
+    expect(rows.some((row) => row.rowId === "local:later")).toBe(true);
+    expect((await alice.pull()).conflicts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rowId: "local:p", kind: "orphan-recovered", lost: { buildId: "local:later" } }),
+    ]));
   });
 });
 

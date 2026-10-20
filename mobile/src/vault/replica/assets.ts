@@ -86,6 +86,7 @@ export async function syncReplicaAssets(
       const url = remote.get(key);
       if (transfers >= MAX_TRANSFERS_PER_PASS) {
         if (url || local.get(key)) result.remaining += 1;
+        else result.failed += 1;
         continue;
       }
       try {
@@ -103,7 +104,7 @@ export async function syncReplicaAssets(
           await io.register(key, storageId);
           markKnown(key);
           result.uploaded += 1;
-        }
+        } else result.failed += 1;
       } catch {
         // Left for the next pass; a missing photo never blocks row sync.
         result.failed += 1;

@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
 import { mutation } from "./lib/guardedMutation";
-import { requireIdentity } from "./lib/authz";
+import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { prepareBackfillRow, validateBackfillBatch } from "./lib/backfillValidation";
 import { deleteOwnedBuild } from "./builds";
@@ -38,6 +38,24 @@ interface LooseDb {
   insert(table: Publishable, value: Record<string, unknown>): Promise<string>;
   patch(id: string, value: Record<string, unknown>): Promise<void>;
 }
+
+export const identities = query({
+  args: {},
+  handler: async (ctx) => {
+    const subject = await optionalIdentity(ctx);
+    if (!subject) return { subject, mappings: [] };
+    const builds = await ctx.db.query("builds")
+      .withIndex("by_userId", q => q.eq("userId", subject)).collect();
+    const conventions = await ctx.db.query("conventions")
+      .withIndex("by_userId", q => q.eq("userId", subject)).collect();
+    return {
+      subject,
+      mappings: [...builds, ...conventions]
+        .filter(row => row.deletedAt === undefined)
+        .map(row => ({ clientId: row.clientId ?? row._id, serverId: row._id })),
+    };
+  },
+});
 
 export const publish = mutation({
   args: {

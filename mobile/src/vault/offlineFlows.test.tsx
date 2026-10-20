@@ -18,7 +18,8 @@ import { VAULT_IMAGE_TOKEN } from "./images";
 import { VaultWriteError } from "./store";
 import * as FileSystem from "expo-file-system/legacy";
 import { useSaveLocalImage } from "@/lib/images/localImageStore";
-import { useOnlineId } from "./hooks";
+import { useLocalId, useOnlineId } from "./hooks";
+import { cachePublicationIdentities, publishVaultRow } from "./publications";
 import type { ReplicaTransport } from "./replica/replicator";
 
 /**
@@ -176,14 +177,29 @@ describe("free user, offline: personal data never touches Convex", () => {
     });
     expect(vaultRows().map((row) => row.doc.name)).toEqual(["B draft"]);
   });
-  it("resolves only published local ids for online build operations", () => {
-    const { result, rerender } = renderHook(() => useOnlineId("local:build"));
-    expect(result.current).toBeUndefined();
-    getOfflineDb().runSync(
-      "INSERT INTO id_map (client_id, server_id, synced_at) VALUES ('local:build', 'server-build', 1)"
-    );
-    rerender();
-    expect(result.current).toBe("server-build");
+  it("refreshes both identity directions when account-wide publication identities arrive", () => {
+    const build = runLocalMutation("builds:create", { name: "Local", status: "idea" }) as { _id: string };
+    const { result } = renderHook(() => ({
+      online: useOnlineId(build._id),
+      local: useLocalId("server-build"),
+    }));
+    expect(result.current).toEqual({ online: undefined, local: "server-build" });
+    act(() => cachePublicationIdentities(getOfflineDb(), [{ clientId: build._id, serverId: "server-build" }]));
+    expect(result.current).toEqual({ online: "server-build", local: build._id });
+  });
+
+  it("refreshes identity consumers immediately after explicit publication", async () => {
+    const build = runLocalMutation("builds:create", { name: "Published", status: "idea" }) as { _id: string };
+    const { result } = renderHook(() => ({
+      online: useOnlineId(build._id),
+      local: useLocalId("server-published"),
+    }));
+    expect(result.current.online).toBeUndefined();
+    convex.mutation.mockResolvedValue({ id: "server-published" });
+    await act(async () => {
+      await publishVaultRow({ mutation: convex.mutation }, "builds", build._id);
+    });
+    expect(result.current).toEqual({ online: "server-published", local: build._id });
   });
 
   it("does not write an old account's in-flight pull into the next vault", async () => {

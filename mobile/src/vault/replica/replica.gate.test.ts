@@ -320,7 +320,7 @@ describe.each(backends)("managed sync on $label", ({ make }) => {
     expect(a.replicator.status).toBe("error");
     await a.sync(); // resent batch is deduplicated
     expect(a.replicator.pendingCount()).toBe(0);
-    b.net.failPullPage = 2;
+    b.net.failPullPage = 3;
     await b.sync(); // dropped on page 2: the first page and its cursor are durable
     expect(b.replicator.status).toBe("error");
     expect(runRows(b, runId).length).toBeGreaterThan(0);

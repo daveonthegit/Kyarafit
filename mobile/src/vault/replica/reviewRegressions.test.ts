@@ -10,6 +10,7 @@ import { convexReplicaTransport } from "./convexTransport";
 import { syncReplicaAssets, type ReplicaAssetIo } from "./assets";
 import { ReplicaScheduler } from "./scheduler";
 import { countChangesNotApplied } from "./conflicts";
+import { cachePublicationIdentities, getLocalIdForPublished, getPublishedId } from "../publications";
 
 const modules = import.meta.glob(["../../../../convex/**/*.{ts,js}", "!../../../../convex/**/*.test.ts", "!../../../../convex/betterAuth/**", "!../../../../convex/node_modules/**"]);
 afterEach(() => vi.useRealTimers());
@@ -27,7 +28,7 @@ async function setup() {
   };
   const a = makeDevice("A", backend, { runId: "review" });
   const b = makeDevice("B", backend, { runId: "review" });
-  return { t, user, actor, a, b };
+  return { t, user, actor, a, b, backend };
 }
 
 function assetIo(): ReplicaAssetIo {
@@ -41,6 +42,150 @@ function assetIo(): ReplicaAssetIo {
 }
 
 describe("replica review regressions", () => {
+  it("completes a fresh-device snapshot after a retention-rejected push", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, a, backend } = await setup();
+    const gone = a.mutate<{ _id: string }>("builds:create", { name: "Gone", status: "idea" });
+    const keep = a.mutate<{ _id: string }>("builds:create", { name: "Keep", status: "idea" });
+    await a.sync();
+    a.mutate("builds:remove", { id: gone._id });
+    await a.sync();
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    const fresh = makeDevice("Fresh", backend, { runId: "fresh" });
+    const local = fresh.mutate<{ _id: string }>("builds:create", { name: "New", status: "idea" });
+    const transport = backend.transport(fresh.net);
+    let pushes = 0;
+    fresh.replicator.setTransport({
+      ...transport,
+      push: (...args) => {
+        if (++pushes > 2) throw new Error("Snapshot was not reconciled");
+        return transport.push(...args);
+      },
+    });
+    await fresh.sync();
+    expect(fresh.replicator.status).toBe("idle");
+    expect(pushes).toBe(2);
+    expect(fresh.replicator.pendingCount()).toBe(0);
+    expect(fresh.get(keep._id)?.name).toBe("Keep");
+    expect(fresh.get(local._id)?.name).toBe("New");
+    expect(fresh.get(gone._id)).toBeNull();
+  });
+
+  it.each(["builds", "conventions"] as const)("preserves pending %s deletions when another device reseeds a reset replica", async table => {
+    const { t, user, a, b } = await setup();
+    const fields = table === "builds" ? { name: "Build", status: "idea" } : { name: "Expo", startDate: "2026-10-01", endDate: "2026-10-02" };
+    const id = a.store.commit(db => db.insert(table, { userId: "owner", ...fields }));
+    await settle(a, b);
+    await t.run(ctx => ctx.db.patch(user, { tier: "FREE", downgradedAt: Date.now() - DOWNGRADE_RETENTION_MS - 1 }));
+    await t.mutation(internal.tierTransition.purgeDowngradedCloudData, {});
+    b.net.online = false;
+    b.store.commit(db => db.delete(id));
+    await t.run(ctx => ctx.db.patch(user, { tier: "SUPPORTER", cloudPurgedAt: undefined }));
+    await a.sync();
+    expect(a.get(id)?.name).toBe(fields.name);
+    b.net.online = true;
+    await settle(b, a);
+    expect(b.replicator.status).toBe("idle");
+    expect(b.replicator.pendingCount()).toBe(0);
+    expect(a.get(id)).toBeNull();
+    expect(b.get(id)).toBeNull();
+    const rows = await t.run(ctx => ctx.db.query("replicaRows").collect());
+    expect(rows.find(row => row.rowId === id)?.deleted).toBe(true);
+  });
+
+  it("keeps an edit made during a tombstone pull as a conflict, not a replayable partial put", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, a, b, backend } = await setup();
+    const build = a.mutate<{ _id: string }>("builds:create", { name: "Original", status: "idea" });
+    await settle(a, b);
+    a.mutate("builds:remove", { id: build._id });
+    await a.sync();
+    const transport = backend.transport(b.net);
+    let edited = false;
+    b.replicator.setTransport({
+      ...transport,
+      pull: async (after, limit) => {
+        const page = await transport.pull(after, limit);
+        if (!edited && limit > 1 && page.rows.some(row => row.rowId === build._id && row.deleted)) {
+          edited = true;
+          b.mutate("builds:update", { id: build._id, notes: "Edited during pull" });
+          b.net.online = false;
+        }
+        return page;
+      },
+    });
+    await b.sync();
+    expect(edited).toBe(true);
+    expect(b.get(build._id)).toBeNull();
+    expect(b.replicator.pendingCount()).toBe(0);
+    expect(b.changes(build._id)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "edit-after-delete", lost: expect.objectContaining({ name: "Original", notes: "Edited during pull" }) }),
+    ]));
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    b.net.online = true;
+    await settle(a, b);
+    expect(b.replicator.status).toBe("idle");
+    expect(b.get(build._id)).toBeNull();
+    expect((await t.run(ctx => ctx.db.query("replicaRows").collect())).some(row => row.rowId === build._id && !row.deleted)).toBe(false);
+  });
+
+  it.each([0, 20])("retries waiting-for-upload photos after %i transfers without an unrelated trigger", async transfers => {
+    const { b } = await setup();
+    const local = new Set<string>();
+    b.store.commit(db => {
+      for (let i = 0; i < transfers; i++) {
+        const key = `photo_${i}`;
+        local.add(key);
+        db.insert("builds", { name: key, imageUrl: `kyarafit-image:${key}` });
+      }
+      db.insert("builds", { name: "Waiting", imageUrl: "kyarafit-image:zz_wait" });
+    });
+    let uploadedElsewhere = false;
+    const io: ReplicaAssetIo = {
+      ...assetIo(),
+      hasLocal: async key => local.has(key),
+      urls: async keys => uploadedElsewhere && keys.includes("zz_wait") ? [{ imageKey: "zz_wait", url: "https://example.invalid/photo" }] : [],
+      download: vi.fn(async (key: string) => { local.add(key); }),
+    };
+    vi.useFakeTimers();
+    const afterPass = vi.fn(async () => syncReplicaAssets(b.sql, io));
+    const scheduler = new ReplicaScheduler(null, { canSync: () => true, isEntitled: () => true, random: () => 1, afterPass });
+    await scheduler.run();
+    expect(await afterPass.mock.results[0].value).toMatchObject({ uploaded: transfers, failed: 1 });
+    uploadedElsewhere = true;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(afterPass).toHaveBeenCalledTimes(2);
+    expect(io.download).toHaveBeenCalledWith("zz_wait", "https://example.invalid/photo");
+    expect(local.has("zz_wait")).toBe(true);
+    scheduler.dispose();
+  });
+
+  it("resolves both publication identity directions on a second device without sharing content or identities across accounts", async () => {
+    const { t, actor, a, b, backend } = await setup();
+    const build = a.mutate<{ _id: string }>("builds:create", { name: "Build", status: "idea" });
+    const convention = a.mutate<{ _id: string }>("conventions:create", { name: "Expo", startDate: "2026-10-01", endDate: "2026-10-02" });
+    await settle(a, b);
+    const publishedBuild = await actor.mutation(api.publications.publish, { table: "builds", clientId: build._id, doc: { name: "Build", status: "idea" } });
+    const publishedConvention = await actor.mutation(api.publications.publish, { table: "conventions", clientId: convention._id, doc: { name: "Expo", startDate: "2026-10-01", endDate: "2026-10-02" } });
+    expect(getPublishedId(build._id, b.sql)).toBeNull();
+    const identities = await actor.query(api.publications.identities, {});
+    expect(identities.subject).toBe("owner");
+    cachePublicationIdentities(b.sql, identities.mappings);
+    const fresh = makeDevice("Empty", backend, { runId: "empty" });
+    cachePublicationIdentities(fresh.sql, identities.mappings);
+    expect(getLocalIdForPublished(publishedBuild.id, fresh.sql)).toBeNull();
+    expect(fresh.get(build._id)).toBeNull();
+    await fresh.sync();
+    expect(getLocalIdForPublished(publishedBuild.id, fresh.sql)).toBe(build._id);
+    for (const [clientId, serverId] of [[build._id, publishedBuild.id], [convention._id, publishedConvention.id]]) {
+      expect(getPublishedId(clientId, b.sql)).toBe(serverId);
+      expect(getLocalIdForPublished(serverId, b.sql)).toBe(clientId);
+    }
+    expect(await t.withIdentity({ subject: "other" }).query(api.publications.identities, {})).toEqual({ subject: "other", mappings: [] });
+    expect(await t.query(api.publications.identities, {})).toEqual({ subject: null, mappings: [] });
+  });
   it("reconciles expired edits before pushing, keeping losing content rather than resurrecting it", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const { t, a, b, actor } = await setup();
