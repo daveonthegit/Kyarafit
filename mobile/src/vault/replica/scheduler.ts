@@ -102,10 +102,13 @@ export class ReplicaScheduler {
       this.followupFailures += 1;
       if (!this.disposed) {
         this.clear(this.retry);
-        this.retry = this.set(() => {
-          this.retry = null;
-          void this.run();
-        }, replicaBackoffMs(this.followupFailures, this.options.random));
+        this.retry = this.set(
+          () => {
+            this.retry = null;
+            void this.run();
+          },
+          replicaBackoffMs(this.followupFailures, this.options.random)
+        );
       }
     }
   }

@@ -75,14 +75,17 @@ export async function syncReplicaAssets(
     "SELECT value FROM sync_meta WHERE key = 'replica:assetCursor'"
   )?.value;
   if (cursor) {
-    const next = keys.findIndex(key => key > cursor);
+    const next = keys.findIndex((key) => key > cursor);
     if (next > 0) keys = [...keys.slice(next), ...keys.slice(0, next)];
   }
   let transfers = 0;
   const attempt = (key: string) => {
     transfers += 1;
-    sql.runSync(`INSERT INTO sync_meta (key, value) VALUES ('replica:assetCursor', ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key]);
+    sql.runSync(
+      `INSERT INTO sync_meta (key, value) VALUES ('replica:assetCursor', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [key]
+    );
   };
   for (let i = 0; i < keys.length; i += URL_BATCH) {
     const batch = keys.slice(i, i + URL_BATCH);

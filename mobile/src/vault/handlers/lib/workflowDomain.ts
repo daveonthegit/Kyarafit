@@ -111,16 +111,18 @@ export function getWorkflowItemById(ctx: ReadCtx, id: string): WorkflowItemDoc |
 
 export function getWorkflowItemsForUser(ctx: ReadCtx, userId: string): WorkflowItemDoc[] {
   const seen = new Set<string>();
-  return (ctx.db
-    .query("workflowItems")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect() as WorkflowItemDoc[]).filter(item => {
-      const key = replicaGeneratedWorkflowKey(item);
-      if (!key) return true;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  return (
+    ctx.db
+      .query("workflowItems")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect() as WorkflowItemDoc[]
+  ).filter((item) => {
+    const key = replicaGeneratedWorkflowKey(item);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function getWorkflowAttachmentsForUser(

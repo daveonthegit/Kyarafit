@@ -204,14 +204,13 @@ function getSiblingCount(ctx: ReadCtx, userId: string, parentId: string | undefi
   return items.filter((item) => item.parentId === parentId).length;
 }
 
-function patchDescendantAncestors(
-  ctx: LocalMutationCtx,
-  userId: string,
-  rootId: string
-) {
+function patchDescendantAncestors(ctx: LocalMutationCtx, userId: string, rootId: string) {
   for (const item of getWorkflowItemsForUser(ctx, userId)) {
     const ancestorIds = readAncestorIds(ctx.db, item.parentId, "parentId");
-    if (ancestorIds.includes(rootId) && JSON.stringify(item.ancestorIds) !== JSON.stringify(ancestorIds)) {
+    if (
+      ancestorIds.includes(rootId) &&
+      JSON.stringify(item.ancestorIds) !== JSON.stringify(ancestorIds)
+    ) {
       ctx.db.patch(item._id, withUpdateMeta(item, { ancestorIds }, ctx.now));
     }
   }
@@ -985,9 +984,11 @@ function applyMove(ctx: LocalMutationCtx, move: MoveArgs) {
   const parentId = move.parentId ?? undefined;
   const ancestorIds = readAncestorIds(ctx.db, parentId, "parentId");
   if (ancestorIds.includes(move.id)) {
-    throw new Error(parentId === move.id
-      ? "Workflow items cannot parent themselves: this would create a cycle."
-      : "Workflow items cannot move under a descendant: this would create a cycle.");
+    throw new Error(
+      parentId === move.id
+        ? "Workflow items cannot parent themselves: this would create a cycle."
+        : "Workflow items cannot move under a descendant: this would create a cycle."
+    );
   }
   return { item, parentId, ancestorIds };
 }

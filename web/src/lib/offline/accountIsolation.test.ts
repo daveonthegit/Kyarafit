@@ -86,5 +86,4 @@ describe("account-bound local web storage", () => {
     );
     expect(await offlineRuntime.listPendingMutations()).toEqual([]);
   });
-
 });

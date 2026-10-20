@@ -69,23 +69,36 @@ function restorableRow(
   for (const rule of replicaLinksFor(table, row)) {
     const target = row[rule.field];
     if (typeof target !== "string" || reader.get(target)) continue;
-    if (rule.onMissing === "unlink" || (table === "workflowItems" && rule.field === "parentId")) delete row[rule.field];
+    if (rule.onMissing === "unlink" || (table === "workflowItems" && rule.field === "parentId"))
+      delete row[rule.field];
     else return null;
   }
   if (table === "workflowItems") row.ancestorIds = [];
   return row;
 }
 
-function restoreRelationships(ctx: LocalMutationCtx, table: string, id: string, fields: Record<string, unknown>): void {
+function restoreRelationships(
+  ctx: LocalMutationCtx,
+  table: string,
+  id: string,
+  fields: Record<string, unknown>
+): void {
   if (table === "workflowItems" && Object.prototype.hasOwnProperty.call(fields, "parentId")) {
-    workflowMutations["workflow:move"](ctx, { id, parentId: fields.parentId ?? null, sortOrder: fields.sortOrder });
+    workflowMutations["workflow:move"](ctx, {
+      id,
+      parentId: fields.parentId ?? null,
+      sortOrder: fields.sortOrder,
+    });
     delete fields.parentId;
     delete fields.sortOrder;
   }
   if (table === "cosplayNodes" && Object.prototype.hasOwnProperty.call(fields, "parentNodeId")) {
-    if (typeof fields.parentNodeId === "string") nodeMutations["cosplayNodes:addChildLink"](ctx, {
-      parentNodeId: fields.parentNodeId, childNodeId: id, sortOrder: fields.sortOrder,
-    });
+    if (typeof fields.parentNodeId === "string")
+      nodeMutations["cosplayNodes:addChildLink"](ctx, {
+        parentNodeId: fields.parentNodeId,
+        childNodeId: id,
+        sortOrder: fields.sortOrder,
+      });
     else nodeMutations["cosplayNodes:removeChildLink"](ctx, { id });
     delete fields.parentNodeId;
   }
@@ -148,20 +161,30 @@ export function listChangesNotApplied(
     lost_json: string;
     build_id: string | null;
     created_at: number;
-  }>(
-    "SELECT * FROM replica_conflicts WHERE resolved = 0 ORDER BY rev DESC"
-  );
-  return rows.map((row) => describe(reader, row)).filter(change =>
-    !buildId || change.buildId === buildId || conflictBuildIds(sql, change.table, change.rowId, change.lost).has(buildId)
-  );
+  }>("SELECT * FROM replica_conflicts WHERE resolved = 0 ORDER BY rev DESC");
+  return rows
+    .map((row) => describe(reader, row))
+    .filter(
+      (change) =>
+        !buildId ||
+        change.buildId === buildId ||
+        conflictBuildIds(sql, change.table, change.rowId, change.lost).has(buildId)
+    );
 }
 
 export function countChangesNotApplied(sql: VaultSql, buildId?: string): number {
-  const rows = sql.getAllSync<{ table_name: string; row_id: string; lost_json: string; build_id: string | null }>(
-    "SELECT table_name, row_id, lost_json, build_id FROM replica_conflicts WHERE resolved = 0"
-  );
-  return rows.filter(row => !buildId || row.build_id === buildId ||
-    conflictBuildIds(sql, row.table_name, row.row_id, JSON.parse(row.lost_json)).has(buildId)).length;
+  const rows = sql.getAllSync<{
+    table_name: string;
+    row_id: string;
+    lost_json: string;
+    build_id: string | null;
+  }>("SELECT table_name, row_id, lost_json, build_id FROM replica_conflicts WHERE resolved = 0");
+  return rows.filter(
+    (row) =>
+      !buildId ||
+      row.build_id === buildId ||
+      conflictBuildIds(sql, row.table_name, row.row_id, JSON.parse(row.lost_json)).has(buildId)
+  ).length;
 }
 
 /**
@@ -180,13 +203,15 @@ export function restoreChange(store: VaultStore, change: ChangeNotApplied): stri
       }
       const ctx = { db, userId: store.subject, now: Date.now() };
       restoreRelationships(ctx, change.table, change.rowId, fields);
-      if (Object.keys(fields).length) db.patch(
-        change.rowId,
-        withUpdateMeta(
-          db.get(change.rowId) as { version?: number; fieldUpdatedAt?: Record<string, number> },
-          fields, ctx.now
-        )
-      );
+      if (Object.keys(fields).length)
+        db.patch(
+          change.rowId,
+          withUpdateMeta(
+            db.get(change.rowId) as { version?: number; fieldUpdatedAt?: Record<string, number> },
+            fields,
+            ctx.now
+          )
+        );
       return change.rowId;
     });
   }
@@ -200,11 +225,20 @@ export function restoreChange(store: VaultStore, change: ChangeNotApplied): stri
       if (change.table === "workflowItems") {
         const buildIds = replicaBuildIdsFor(change.table, change.rowId, change.lost, []);
         if (change.buildId) buildIds.add(change.buildId);
-        const surviving = db.query("builds").withIndex("by_userId", q => q.eq("userId", store.subject))
-          .collect().filter(build => build.deletedAt === undefined && buildIds.has(build._id));
-        workflowMutations["workflow:update"](ctx, { id, attachments: surviving.map(build => ({
-          entityType: "build", entityId: build._id, role: "context", buildContextId: build._id,
-        })) });
+        const surviving = db
+          .query("builds")
+          .withIndex("by_userId", (q) => q.eq("userId", store.subject))
+          .collect()
+          .filter((build) => build.deletedAt === undefined && buildIds.has(build._id));
+        workflowMutations["workflow:update"](ctx, {
+          id,
+          attachments: surviving.map((build) => ({
+            entityType: "build",
+            entityId: build._id,
+            role: "context",
+            buildContextId: build._id,
+          })),
+        });
       }
       return id;
     });

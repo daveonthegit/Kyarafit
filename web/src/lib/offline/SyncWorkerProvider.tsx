@@ -11,12 +11,13 @@ export function SyncWorkerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     offlineRuntime.lock();
-    if (userId) void (async () => {
-      const store = await createBrowserLocalStore(userId);
-      if (cancelled) return;
-      offlineRuntime.setStore(store, userId);
-      await offlineRuntime.hydrate();
-    })().catch((error: unknown) => console.error("Local vault could not open", error));
+    if (userId)
+      void (async () => {
+        const store = await createBrowserLocalStore(userId);
+        if (cancelled) return;
+        offlineRuntime.setStore(store, userId);
+        await offlineRuntime.hydrate();
+      })().catch((error: unknown) => console.error("Local vault could not open", error));
     return () => {
       cancelled = true;
       offlineRuntime.lock();

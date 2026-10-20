@@ -57,7 +57,8 @@ export function cachePublicationIdentities(
   sql.withTransactionSync(() => {
     for (const { clientId, serverId } of mappings) {
       const existing = sql.getFirstSync<{ server_id: string }>(
-        "SELECT server_id FROM id_map WHERE client_id = ?", [clientId]
+        "SELECT server_id FROM id_map WHERE client_id = ?",
+        [clientId]
       );
       if (existing?.server_id === serverId) continue;
       sql.runSync(

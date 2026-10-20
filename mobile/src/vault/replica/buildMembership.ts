@@ -2,7 +2,10 @@ import { replicaBuildIdsFor } from "@kyarafit/design-system/domain/replicaProtoc
 import type { VaultSql } from "../store";
 
 export function conflictBuildIds(
-  sql: VaultSql, table: string, rowId: string, lost: Record<string, unknown>
+  sql: VaultSql,
+  table: string,
+  rowId: string,
+  lost: Record<string, unknown>
 ): Set<string> {
   const rows = sql.getAllSync<{ table_name: string; id: string; json: string }>(
     "SELECT table_name, id, json FROM entity_rows WHERE deleted = 0"

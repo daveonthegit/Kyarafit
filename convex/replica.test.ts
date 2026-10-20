@@ -142,32 +142,50 @@ describe("replica push and pull", () => {
       put("local:y", { title: "Original Y" }, 0, "workflowItems"),
     ]);
     const base = (await alice.pull()).cursor;
-    await t.run(async ctx => {
-      for (let i = 1; i <= 499; i++) await ctx.db.insert("replicaConflicts", {
-        userId: "alice", table: "workflowItems", rowId: `fixture-${i}`,
-        kind: "concurrent-field-edit", lost: { title: `Prior ${i}` },
-        rev: base + i, createdAt: Date.now(), dismissed: false,
-      });
-      const head = await ctx.db.query("replicaHeads").withIndex("by_user", q => q.eq("userId", "alice")).unique();
+    await t.run(async (ctx) => {
+      for (let i = 1; i <= 499; i++)
+        await ctx.db.insert("replicaConflicts", {
+          userId: "alice",
+          table: "workflowItems",
+          rowId: `fixture-${i}`,
+          kind: "concurrent-field-edit",
+          lost: { title: `Prior ${i}` },
+          rev: base + i,
+          createdAt: Date.now(),
+          dismissed: false,
+        });
+      const head = await ctx.db
+        .query("replicaHeads")
+        .withIndex("by_user", (q) => q.eq("userId", "alice"))
+        .unique();
       await ctx.db.patch(head!._id, { rev: base + 499 });
     });
-    await alice.push([
-      put("local:x", { parentId: "local:y" }, base, "workflowItems"),
-      put("local:y", { title: "A's Y" }, base, "workflowItems"),
-    ], "A");
-    await alice.push([put("local:y", { parentId: "local:x", title: "B's Y" }, base, "workflowItems")], "B");
+    await alice.push(
+      [
+        put("local:x", { parentId: "local:y" }, base, "workflowItems"),
+        put("local:y", { title: "A's Y" }, base, "workflowItems"),
+      ],
+      "A"
+    );
+    await alice.push(
+      [put("local:y", { parentId: "local:x", title: "B's Y" }, base, "workflowItems")],
+      "B"
+    );
     const first = await alice.pull();
     expect(first.conflicts).toHaveLength(500);
     expect(first.hasMore).toBe(true);
     const second = await alice.pull(first.cursor);
     const conflicts = [...first.conflicts, ...second.conflicts];
     expect(conflicts).toHaveLength(501);
-    expect(new Set(conflicts.map(row => row.id)).size).toBe(501);
-    expect(conflicts.filter(row => row.rowId === "local:y").map(row => row.kind).sort()).toEqual([
-      "concurrent-field-edit", "orphan-unlinked",
-    ]);
+    expect(new Set(conflicts.map((row) => row.id)).size).toBe(501);
+    expect(
+      conflicts
+        .filter((row) => row.rowId === "local:y")
+        .map((row) => row.kind)
+        .sort()
+    ).toEqual(["concurrent-field-edit", "orphan-unlinked"]);
     expect(second.hasMore).toBe(false);
-    const y = (await liveRows(t, "alice")).find(row => row.rowId === "local:y")!;
+    const y = (await liveRows(t, "alice")).find((row) => row.rowId === "local:y")!;
     expect(y.doc.title).toBe("B's Y");
     expect(y.doc.parentId).toBeUndefined();
   });
@@ -185,7 +203,9 @@ describe("replica push and pull", () => {
     expect(rest.cursor).toBe(last.head);
     expect(rest.conflicts.map((c) => c.kind)).toEqual(["edit-after-delete"]);
     expect(rest.rows.find((r) => r.rowId === "local:1")).toMatchObject({ deleted: true });
-    expect(rest.rows.find((r) => r.rowId === "local:1")?.doc).toEqual({ _replicaBuildIds: ["local:1"] });
+    expect(rest.rows.find((r) => r.rowId === "local:1")?.doc).toEqual({
+      _replicaBuildIds: ["local:1"],
+    });
   });
 
   it("merges different fields, keeps the loser of a same-field edit, and never flags a device's own edits", async () => {
@@ -348,9 +368,15 @@ describe("replica cross-row integrity", () => {
     const recovered = rows.find((row) => row.doc.recovered)!;
     expect(rows.find((row) => row.rowId === "local:p")!.doc.buildId).toBe(recovered.rowId);
     expect(rows.some((row) => row.rowId === "local:later")).toBe(true);
-    expect((await alice.pull()).conflicts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ rowId: "local:p", kind: "orphan-recovered", lost: { buildId: "local:later" } }),
-    ]));
+    expect((await alice.pull()).conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rowId: "local:p",
+          kind: "orphan-recovered",
+          lost: { buildId: "local:later" },
+        }),
+      ])
+    );
   });
 });
 
@@ -363,17 +389,44 @@ describe("replica retention", () => {
     await alice.push([
       put("local:build", { name: "Build" }),
       put("local:task", { title: "Task", ancestorIds: [] }, 0, "workflowItems"),
-      put("local:attachment", { workflowItemId: "local:task", entityType: "build", entityId: "local:build" }, 0, "workflowAttachments"),
+      put(
+        "local:attachment",
+        { workflowItemId: "local:task", entityType: "build", entityId: "local:build" },
+        0,
+        "workflowAttachments"
+      ),
     ]);
     await alice.push([del("local:attachment", 0, "workflowAttachments")]);
-    const links = await t.run(ctx => ctx.db.query("replicaLinks")
-      .withIndex("by_user_row", q => q.eq("userId", "alice").eq("table", "workflowAttachments").eq("rowId", "local:attachment")).collect());
-    expect(links.map(link => ({ field: link.field, target: link.target }))).toEqual([{ field: "workflowItemId", target: "local:task" }]);
+    const links = await t.run((ctx) =>
+      ctx.db
+        .query("replicaLinks")
+        .withIndex("by_user_row", (q) =>
+          q.eq("userId", "alice").eq("table", "workflowAttachments").eq("rowId", "local:attachment")
+        )
+        .collect()
+    );
+    expect(links.map((link) => ({ field: link.field, target: link.target }))).toEqual([
+      { field: "workflowItemId", target: "local:task" },
+    ]);
     vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
     await t.mutation(internal.replica.prune, {});
-    expect(await t.run(ctx => ctx.db.query("replicaLinks")
-      .withIndex("by_user_row", q => q.eq("userId", "alice").eq("table", "workflowAttachments").eq("rowId", "local:attachment")).collect())).toEqual([]);
-    expect((await liveRows(t, "alice")).map(row => row.rowId).sort()).toEqual(["local:build", "local:task"]);
+    expect(
+      await t.run((ctx) =>
+        ctx.db
+          .query("replicaLinks")
+          .withIndex("by_user_row", (q) =>
+            q
+              .eq("userId", "alice")
+              .eq("table", "workflowAttachments")
+              .eq("rowId", "local:attachment")
+          )
+          .collect()
+      )
+    ).toEqual([]);
+    expect((await liveRows(t, "alice")).map((row) => row.rowId).sort()).toEqual([
+      "local:build",
+      "local:task",
+    ]);
   });
 
   it("purges old dedupe records, tombstones and conflicts and makes stale cursors resnapshot", async () => {

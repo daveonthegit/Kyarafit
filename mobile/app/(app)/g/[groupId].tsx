@@ -88,7 +88,11 @@ export default function GroupDetailScreen() {
     [];
   const myConventionsQuery = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const myBuildsQuery = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
-  const vaultVersion = useSyncExternalStore(subscribeVault, getVaultDataVersion, getVaultDataVersion);
+  const vaultVersion = useSyncExternalStore(
+    subscribeVault,
+    getVaultDataVersion,
+    getVaultDataVersion
+  );
   // Vault rows, keyed by their published server copy once they have one. Adding one to the group
   // publishes (or refreshes) that copy first: the group only ever sees an explicit projection.
   const myConventions = useMemo(

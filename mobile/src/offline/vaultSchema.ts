@@ -132,14 +132,14 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
 
   if (v < 5) {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_outbox)");
-    if (!columns.some(column => column.name === "attempted_at")) {
+    if (!columns.some((column) => column.name === "attempted_at")) {
       db.execSync("ALTER TABLE replica_outbox ADD COLUMN attempted_at INTEGER");
     }
   }
 
   if (v < 6) {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_state)");
-    if (!columns.some(column => column.name === "unpulled_at")) {
+    if (!columns.some((column) => column.name === "unpulled_at")) {
       db.execSync("ALTER TABLE replica_state ADD COLUMN unpulled_at INTEGER");
     }
   }

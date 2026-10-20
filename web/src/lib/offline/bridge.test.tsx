@@ -25,15 +25,26 @@ beforeEach(() => {
 });
 
 describe("published web views", () => {
-  it.each([true, false])("refuses personal edits online=%s without queueing or calling Convex", async online => {
-    setOfflineConnectivity(online);
-    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
-    await expect(result.current({ name: "Private", status: "idea" })).rejects.toThrow(/mobile app/);
-    expect(client.mutation).not.toHaveBeenCalled();
-    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
-  });
+  it.each([true, false])(
+    "refuses personal edits online=%s without queueing or calling Convex",
+    async (online) => {
+      setOfflineConnectivity(online);
+      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+      await expect(result.current({ name: "Private", status: "idea" })).rejects.toThrow(
+        /mobile app/
+      );
+      expect(client.mutation).not.toHaveBeenCalled();
+      expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+    }
+  );
   it("does not overlay retained legacy edits onto published views", async () => {
-    await offlineRuntime.writeEntityOverlay("builds", "local:old", "u1", { _id: "local:old", name: "Old" }, false);
+    await offlineRuntime.writeEntityOverlay(
+      "builds",
+      "local:old",
+      "u1",
+      { _id: "local:old", name: "Old" },
+      false
+    );
     const { result } = renderHook(() => useOfflineQuery(api.builds.list, {}));
     expect(result.current).toEqual(state.live);
   });

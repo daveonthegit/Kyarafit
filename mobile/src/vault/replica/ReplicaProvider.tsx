@@ -56,8 +56,14 @@ export function ReplicaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sql = getActiveVaultSql();
     const current = getVaultState();
-    if (sql && signedIn && publicationIds && publicationIds.subject === userId &&
-        current.status === "unlocked" && current.account.subject === userId) {
+    if (
+      sql &&
+      signedIn &&
+      publicationIds &&
+      publicationIds.subject === userId &&
+      current.status === "unlocked" &&
+      current.account.subject === userId
+    ) {
       cachePublicationIdentities(sql, publicationIds.mappings);
     }
   }, [publicationIds, signedIn, userId]);

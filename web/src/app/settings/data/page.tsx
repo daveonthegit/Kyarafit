@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { useConvex } from "convex/react";
-import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
+import {
+  getFunctionName,
+  type FunctionArgs,
+  type FunctionReference,
+  type FunctionReturnType,
+} from "convex/server";
 import { assertWebMutationAllowed } from "@/lib/offline/publishedReadOnly";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";

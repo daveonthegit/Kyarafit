@@ -77,7 +77,6 @@ export async function loadHead(ctx: QueryCtx, userId: string) {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-
 function liveFields(doc: Fields): Fields {
   const out: Fields = {};
   for (const [key, value] of Object.entries(doc)) if (value !== null) out[key] = value;
@@ -136,16 +135,20 @@ export class ReplicaWriter {
       const doc = (row?.doc as Fields | undefined) ?? {};
       rows.set(id, { table: kind, rowId: id, doc });
       const states = id === rowId ? [doc, { ...doc, ...lost }] : [doc];
-      for (const state of states) for (const rule of replicaLinksFor(kind, state)) {
-        const target = state[rule.field];
-        if (typeof target === "string") await visit(rule.target, target);
-      }
+      for (const state of states)
+        for (const rule of replicaLinksFor(kind, state)) {
+          const target = state[rule.field];
+          if (typeof target === "string") await visit(rule.target, target);
+        }
       if (kind === "workflowItems") {
-        const links = await this.ctx.db.query("replicaLinks")
-          .withIndex("by_user_target", q => q.eq("userId", this.userId).eq("target", id)).collect();
+        const links = await this.ctx.db
+          .query("replicaLinks")
+          .withIndex("by_user_target", (q) => q.eq("userId", this.userId).eq("target", id))
+          .collect();
         const attachments = new Set<string>();
         for (const link of links) {
-          if (link.table === "workflowAttachments" && link.field === "workflowItemId") attachments.add(link.rowId);
+          if (link.table === "workflowAttachments" && link.field === "workflowItemId")
+            attachments.add(link.rowId);
         }
         for (const attachment of attachments) await visit("workflowAttachments", attachment);
       }
@@ -160,10 +163,10 @@ export class ReplicaWriter {
     kind: ReplicaConflictKind,
     lost: Fields
   ): Promise<void> {
-    const buildIds = [...await this.buildIds(table, rowId, lost)];
+    const buildIds = [...(await this.buildIds(table, rowId, lost))];
     const direct = replicaBuildIdOf(table, { ...lost, _id: rowId });
     lost = { ...lost };
-    if (buildIds.some(id => id !== direct)) lost[REPLICA_CONFLICT_BUILD_IDS] = buildIds;
+    if (buildIds.some((id) => id !== direct)) lost[REPLICA_CONFLICT_BUILD_IDS] = buildIds;
     else delete lost[REPLICA_CONFLICT_BUILD_IDS];
     await this.ctx.db.insert("replicaConflicts", {
       userId: this.userId,
@@ -221,13 +224,16 @@ export class ReplicaWriter {
     rev: number
   ): Promise<void> {
     fields = { ...fields };
-    const parentField = table === "cosplayNodes" ? "parentNodeId" : table === "workflowItems" ? "parentId" : null;
+    const parentField =
+      table === "cosplayNodes" ? "parentNodeId" : table === "workflowItems" ? "parentId" : null;
     if (parentField && typeof fields[parentField] === "string") {
       const visited = new Set([rowId]);
       let parent: unknown = fields[parentField];
       while (typeof parent === "string") {
         if (visited.has(parent)) {
-          await this.conflict(table, rowId, "orphan-unlinked", { [parentField]: fields[parentField] });
+          await this.conflict(table, rowId, "orphan-unlinked", {
+            [parentField]: fields[parentField],
+          });
           fields[parentField] = null;
           break;
         }
@@ -278,7 +284,7 @@ export class ReplicaWriter {
   /** Tombstone a row. The last document is kept (server-side only) until retention purges it. */
   private async writeDelete(table: string, rowId: string, row: ReplicaRow | null, rev: number) {
     if (row) {
-      const buildIds = [...await this.buildIds(table, rowId, row.doc as Fields)];
+      const buildIds = [...(await this.buildIds(table, rowId, row.doc as Fields))];
       const doc: Fields = { ...(row.doc as Fields), [REPLICA_CONFLICT_BUILD_IDS]: buildIds };
       await this.ctx.db.patch(row._id, { doc, deleted: true, deletedAt: this.now, rev });
     } else {
@@ -293,8 +299,13 @@ export class ReplicaWriter {
         rev,
       });
     }
-    await this.relink(table, rowId, table === "workflowAttachments" && row
-      ? { workflowItemId: (row.doc as Fields).workflowItemId } : null);
+    await this.relink(
+      table,
+      rowId,
+      table === "workflowAttachments" && row
+        ? { workflowItemId: (row.doc as Fields).workflowItemId }
+        : null
+    );
     await removePublishedProjection(this.ctx, this.userId, table, rowId);
     this.deletedParents.push(rowId);
   }
@@ -398,12 +409,28 @@ export class ReplicaWriter {
         if (typeof target !== "string" || (only !== undefined && target !== only)) continue;
         const parent = await this.row(rule.target, target);
         if (parent && !parent.deleted) continue;
-        const dedupeKey = rule.target === "workflowItems" && parent ? replicaGeneratedWorkflowKey(parent.doc as Fields) : null;
-        const replacement = dedupeKey ? (await this.workflowRows()).find(candidate =>
-          !candidate.deleted && replicaGeneratedWorkflowKey(candidate.doc as Fields) === dedupeKey) : null;
+        const dedupeKey =
+          rule.target === "workflowItems" && parent
+            ? replicaGeneratedWorkflowKey(parent.doc as Fields)
+            : null;
+        const replacement = dedupeKey
+          ? (await this.workflowRows()).find(
+              (candidate) =>
+                !candidate.deleted &&
+                replicaGeneratedWorkflowKey(candidate.doc as Fields) === dedupeKey
+            )
+          : null;
         if (replacement) {
           const rev = this.nextRev();
-          await this.writePut(table, rowId, { [rule.field]: replacement.rowId }, rev, SERVER_DEVICE, row, rev);
+          await this.writePut(
+            table,
+            rowId,
+            { [rule.field]: replacement.rowId },
+            rev,
+            SERVER_DEVICE,
+            row,
+            rev
+          );
         } else await this.repair(row, rule);
         repaired = true;
         break;
@@ -418,19 +445,25 @@ export class ReplicaWriter {
    * Repairs that remove rows cascade to their own children.
    */
   private async workflowRows(): Promise<ReplicaRow[]> {
-    return this.ctx.db.query("replicaRows")
-      .withIndex("by_user_row", q => q.eq("userId", this.userId).eq("table", "workflowItems"))
+    return this.ctx.db
+      .query("replicaRows")
+      .withIndex("by_user_row", (q) => q.eq("userId", this.userId).eq("table", "workflowItems"))
       .collect();
   }
 
   async enforceIntegrity(): Promise<void> {
     const generated = new Map<string, ReplicaRow>();
-    for (const item of (await this.workflowRows()).sort((a, b) => a._creationTime - b._creationTime || a._id.localeCompare(b._id))) {
+    for (const item of (await this.workflowRows()).sort(
+      (a, b) => a._creationTime - b._creationTime || a._id.localeCompare(b._id)
+    )) {
       if (item.deleted) continue;
       const key = replicaGeneratedWorkflowKey(item.doc as Fields);
       if (!key) continue;
       const canonical = generated.get(key);
-      if (!canonical) { generated.set(key, item); continue; }
+      if (!canonical) {
+        generated.set(key, item);
+        continue;
+      }
       const current = (await this.row("workflowItems", canonical.rowId))!;
       const fields = { ...(item.doc as Fields) };
       delete fields._creationTime;
@@ -452,7 +485,7 @@ export class ReplicaWriter {
       for (const link of links) await this.repairIfOrphaned(link.table, link.rowId, parent);
     }
     const items = await this.workflowRows();
-    const live = new Map(items.filter(item => !item.deleted).map(item => [item.rowId, item]));
+    const live = new Map(items.filter((item) => !item.deleted).map((item) => [item.rowId, item]));
     for (const item of live.values()) {
       const ancestors: string[] = [];
       let parent = (item.doc as Fields).parentId;
@@ -462,7 +495,15 @@ export class ReplicaWriter {
       }
       if (!same((item.doc as Fields).ancestorIds, ancestors)) {
         const rev = this.nextRev();
-        await this.writePut("workflowItems", item.rowId, { ancestorIds: ancestors }, rev, SERVER_DEVICE, item, rev);
+        await this.writePut(
+          "workflowItems",
+          item.rowId,
+          { ancestorIds: ancestors },
+          rev,
+          SERVER_DEVICE,
+          item,
+          rev
+        );
       }
     }
   }
@@ -527,11 +568,12 @@ export async function purgeAccountReplica(
     .collect();
   if (dryRun) return docs.length + assets.length;
   const head = await loadHead(ctx, userId);
-  if (head) await ctx.db.patch(head._id, {
-    generation: `${head._id}:${Date.now()}`,
-    floorRev: head.rev,
-    recoveredBuildId: undefined,
-  });
+  if (head)
+    await ctx.db.patch(head._id, {
+      generation: `${head._id}:${Date.now()}`,
+      floorRev: head.rev,
+      recoveredBuildId: undefined,
+    });
   for (const doc of docs) await ctx.db.delete(doc._id);
   for (const asset of assets) {
     await ctx.db.delete(asset._id);

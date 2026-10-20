@@ -54,7 +54,10 @@ export const push = mutation({
     after: v.optional(v.number()),
     generation: v.optional(v.string()),
   },
-  handler: async (ctx, { protocol, subject, deviceId, ops, after = 0, generation = "initial" }): Promise<ReplicaPushResult> => {
+  handler: async (
+    ctx,
+    { protocol, subject, deviceId, ops, after = 0, generation = "initial" }
+  ): Promise<ReplicaPushResult> => {
     assertProtocol(protocol);
     if (ops.length > REPLICA_MAX_PUSH_OPS) throw new Error("Too many changes in one sync batch");
     if (!deviceId || deviceId.length > 128) throw new Error("Invalid device");
@@ -100,12 +103,22 @@ export const pull = query({
     limit: v.optional(v.number()),
     snapshot: v.optional(v.boolean()),
   },
-  handler: async (ctx, { protocol, subject, after, limit, snapshot }): Promise<ReplicaPullResult> => {
+  handler: async (
+    ctx,
+    { protocol, subject, after, limit, snapshot }
+  ): Promise<ReplicaPullResult> => {
     assertProtocol(protocol);
     const userId = await requireReplicaActor(ctx, subject);
     const head = await loadHead(ctx, userId);
     if (!snapshot && after < (head?.floorRev ?? 0)) {
-      return { rows: [], conflicts: [], cursor: after, hasMore: false, resnapshot: true, generation: head?.generation ?? "initial" };
+      return {
+        rows: [],
+        conflicts: [],
+        cursor: after,
+        hasMore: false,
+        resnapshot: true,
+        generation: head?.generation ?? "initial",
+      };
     }
     const take = Math.min(
       Math.max(Math.floor(limit ?? REPLICA_MAX_PULL_ROWS), 1),
@@ -133,9 +146,18 @@ export const pull = query({
     }
     return {
       rows: rows.map(({ table, rowId, doc, deleted, rev }) =>
-        deleted ? { table, rowId, deleted, rev, doc: {
-          [REPLICA_CONFLICT_BUILD_IDS]: (doc as Record<string, unknown>)[REPLICA_CONFLICT_BUILD_IDS] ?? [],
-        } } : { table, rowId, doc, deleted, rev }
+        deleted
+          ? {
+              table,
+              rowId,
+              deleted,
+              rev,
+              doc: {
+                [REPLICA_CONFLICT_BUILD_IDS]:
+                  (doc as Record<string, unknown>)[REPLICA_CONFLICT_BUILD_IDS] ?? [],
+              },
+            }
+          : { table, rowId, doc, deleted, rev }
       ),
       conflicts: conflicts.map((row): ReplicaConflict => ({
         id: row._id,
@@ -252,8 +274,12 @@ export const prune = internalMutation({
     for (const row of tombstones) {
       const head = await loadHead(ctx, row.userId);
       if (head && head.floorRev < row.rev) await ctx.db.patch(head._id, { floorRev: row.rev });
-      const links = await ctx.db.query("replicaLinks")
-        .withIndex("by_user_row", q => q.eq("userId", row.userId).eq("table", row.table).eq("rowId", row.rowId)).collect();
+      const links = await ctx.db
+        .query("replicaLinks")
+        .withIndex("by_user_row", (q) =>
+          q.eq("userId", row.userId).eq("table", row.table).eq("rowId", row.rowId)
+        )
+        .collect();
       for (const link of links) await ctx.db.delete(link._id);
       await ctx.db.delete(row._id);
     }

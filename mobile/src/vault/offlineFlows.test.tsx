@@ -178,18 +178,26 @@ describe("free user, offline: personal data never touches Convex", () => {
     expect(vaultRows().map((row) => row.doc.name)).toEqual(["B draft"]);
   });
   it("refreshes both identity directions when account-wide publication identities arrive", () => {
-    const build = runLocalMutation("builds:create", { name: "Local", status: "idea" }) as { _id: string };
+    const build = runLocalMutation("builds:create", { name: "Local", status: "idea" }) as {
+      _id: string;
+    };
     const { result } = renderHook(() => ({
       online: useOnlineId(build._id),
       local: useLocalId("server-build"),
     }));
     expect(result.current).toEqual({ online: undefined, local: "server-build" });
-    act(() => cachePublicationIdentities(getOfflineDb(), [{ clientId: build._id, serverId: "server-build" }]));
+    act(() =>
+      cachePublicationIdentities(getOfflineDb(), [
+        { clientId: build._id, serverId: "server-build" },
+      ])
+    );
     expect(result.current).toEqual({ online: "server-build", local: build._id });
   });
 
   it("refreshes identity consumers immediately after explicit publication", async () => {
-    const build = runLocalMutation("builds:create", { name: "Published", status: "idea" }) as { _id: string };
+    const build = runLocalMutation("builds:create", { name: "Published", status: "idea" }) as {
+      _id: string;
+    };
     const { result } = renderHook(() => ({
       online: useOnlineId(build._id),
       local: useLocalId("server-published"),
@@ -230,7 +238,11 @@ describe("free user, offline: personal data never touches Convex", () => {
     const replicatorA = getActiveReplicator()!;
     const { transport, resolveAll } = hangingTransport();
     vi.mocked(transport.pull).mockResolvedValueOnce({
-      rows: [], conflicts: [], cursor: 0, hasMore: false, resnapshot: false,
+      rows: [],
+      conflicts: [],
+      cursor: 0,
+      hasMore: false,
+      resnapshot: false,
     });
     replicatorA.setTransport(transport);
     const syncing = replicatorA.sync();

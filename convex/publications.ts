@@ -44,15 +44,19 @@ export const identities = query({
   handler: async (ctx) => {
     const subject = await optionalIdentity(ctx);
     if (!subject) return { subject, mappings: [] };
-    const builds = await ctx.db.query("builds")
-      .withIndex("by_userId", q => q.eq("userId", subject)).collect();
-    const conventions = await ctx.db.query("conventions")
-      .withIndex("by_userId", q => q.eq("userId", subject)).collect();
+    const builds = await ctx.db
+      .query("builds")
+      .withIndex("by_userId", (q) => q.eq("userId", subject))
+      .collect();
+    const conventions = await ctx.db
+      .query("conventions")
+      .withIndex("by_userId", (q) => q.eq("userId", subject))
+      .collect();
     return {
       subject,
       mappings: [...builds, ...conventions]
-        .filter(row => row.deletedAt === undefined)
-        .map(row => ({ clientId: row.clientId ?? row._id, serverId: row._id })),
+        .filter((row) => row.deletedAt === undefined)
+        .map((row) => ({ clientId: row.clientId ?? row._id, serverId: row._id })),
     };
   },
 });
@@ -84,9 +88,21 @@ export const publish = mutation({
       if (existing.deletedAt !== undefined) throw new Error("This copy was removed");
       // Social settings belong to the published copy, not to the vault.
       delete fields.visibility;
-      const optional = table === "builds"
-        ? ["character", "notes", "imageUrl", "imageStorageId", "imageRef", "imageFocalX", "imageFocalY", "budgetCents", "targetDate", "manualProgressPercent"]
-        : ["location", "imageUrl", "imageStorageId", "imageRef", "archived"];
+      const optional =
+        table === "builds"
+          ? [
+              "character",
+              "notes",
+              "imageUrl",
+              "imageStorageId",
+              "imageRef",
+              "imageFocalX",
+              "imageFocalY",
+              "budgetCents",
+              "targetDate",
+              "manualProgressPercent",
+            ]
+          : ["location", "imageUrl", "imageStorageId", "imageRef", "archived"];
       for (const field of optional) if (!(field in fields)) fields[field] = undefined;
       await db.patch(
         existing._id,
@@ -119,21 +135,33 @@ export const unpublish = mutation({
 });
 
 export async function removePublishedProjection(
-  ctx: MutationCtx, userId: string, table: string, clientId: string
+  ctx: MutationCtx,
+  userId: string,
+  table: string,
+  clientId: string
 ): Promise<boolean> {
   if (table === "builds") {
     const id = ctx.db.normalizeId("builds", clientId);
-    const build = (id ? await ctx.db.get(id) : null) ?? await ctx.db.query("builds")
-      .withIndex("by_userId_clientId", q => q.eq("userId", userId).eq("clientId", clientId)).unique();
+    const build =
+      (id ? await ctx.db.get(id) : null) ??
+      (await ctx.db
+        .query("builds")
+        .withIndex("by_userId_clientId", (q) => q.eq("userId", userId).eq("clientId", clientId))
+        .unique());
     if (!build || build.userId !== userId || build.deletedAt !== undefined) return false;
     await deleteOwnedBuild(ctx, userId, build);
     return true;
   }
   if (table === "conventions") {
     const id = ctx.db.normalizeId("conventions", clientId);
-    const convention = (id ? await ctx.db.get(id) : null) ?? await ctx.db.query("conventions")
-      .withIndex("by_userId_clientId", q => q.eq("userId", userId).eq("clientId", clientId)).unique();
-    if (!convention || convention.userId !== userId || convention.deletedAt !== undefined) return false;
+    const convention =
+      (id ? await ctx.db.get(id) : null) ??
+      (await ctx.db
+        .query("conventions")
+        .withIndex("by_userId_clientId", (q) => q.eq("userId", userId).eq("clientId", clientId))
+        .unique());
+    if (!convention || convention.userId !== userId || convention.deletedAt !== undefined)
+      return false;
     await deleteOwnedConvention(ctx, userId, convention);
     return true;
   }

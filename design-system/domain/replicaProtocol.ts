@@ -37,12 +37,17 @@ export const REPLICA_TABLES = [
 export type ReplicaTable = (typeof REPLICA_TABLES)[number];
 
 export function replicaGeneratedWorkflowKey(doc: Record<string, unknown>): string | null {
-  return (doc.sourceKind === "automation" || doc.sourceKind === "packing") && typeof doc.dedupeKey === "string"
-    ? doc.dedupeKey : null;
+  return (doc.sourceKind === "automation" || doc.sourceKind === "packing") &&
+    typeof doc.dedupeKey === "string"
+    ? doc.dedupeKey
+    : null;
 }
 
 export function replicaGeneratedWorkflowId(dedupeKey: string): string {
-  let a = 1779033703, b = 3144134277, c = 1013904242, d = 2773480762;
+  let a = 1779033703,
+    b = 3144134277,
+    c = 1013904242,
+    d = 2773480762;
   for (let i = 0; i < dedupeKey.length; i++) {
     const code = dedupeKey.charCodeAt(i);
     a = b ^ Math.imul(a ^ code, 597399067);
@@ -55,7 +60,8 @@ export function replicaGeneratedWorkflowId(dedupeKey: string): string {
   c = Math.imul(a ^ (c >>> 17), 951274213);
   d = Math.imul(b ^ (d >>> 19), 2716044179);
   return `local:workflow:${[a ^ b ^ c ^ d, b ^ a, c ^ a, d ^ a]
-    .map(value => (value >>> 0).toString(16).padStart(8, "0")).join("")}`;
+    .map((value) => (value >>> 0).toString(16).padStart(8, "0"))
+    .join("")}`;
 }
 
 export function isReplicaTable(table: string): table is ReplicaTable {
@@ -76,7 +82,10 @@ export const REPLICA_META_FIELDS: ReadonlySet<string> = new Set([
 
 /** Fields never carried in an op (the row id is the op's `rowId`). */
 export const REPLICA_CONFLICT_BUILD_IDS = "_replicaBuildIds";
-export const REPLICA_SYSTEM_FIELDS: ReadonlySet<string> = new Set(["_id", REPLICA_CONFLICT_BUILD_IDS]);
+export const REPLICA_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
+  "_id",
+  REPLICA_CONFLICT_BUILD_IDS,
+]);
 
 export const REPLICA_MAX_PUSH_OPS = 100;
 export const REPLICA_MAX_PULL_ROWS = 500;
@@ -279,19 +288,22 @@ export function replicaLinksFor(
 }
 
 export function replicaBuildIdsFor(
-  table: string, rowId: string, lost: Record<string, unknown>,
+  table: string,
+  rowId: string,
+  lost: Record<string, unknown>,
   rows: readonly { table: string; rowId: string; doc: Record<string, unknown> }[]
 ): Set<string> {
-  const docs = new Map(rows.map(row => [row.rowId, row]));
+  const docs = new Map(rows.map((row) => [row.rowId, row]));
   const builds = new Set<string>();
   const seen = new Set<string>();
   const visit = (kind: string, id: string, doc: Record<string, unknown>) => {
     if (seen.has(id)) return;
     seen.add(id);
     const saved = doc[REPLICA_CONFLICT_BUILD_IDS];
-    if (Array.isArray(saved)) for (const buildId of saved) {
-      if (typeof buildId === "string") builds.add(buildId);
-    }
+    if (Array.isArray(saved))
+      for (const buildId of saved) {
+        if (typeof buildId === "string") builds.add(buildId);
+      }
     const direct = replicaBuildIdOf(kind, { ...doc, _id: id });
     if (direct) builds.add(direct);
     for (const rule of replicaLinksFor(kind, doc)) {
@@ -301,10 +313,11 @@ export function replicaBuildIdsFor(
       const parent = docs.get(target);
       if (parent) visit(parent.table, parent.rowId, parent.doc);
     }
-    if (kind === "workflowItems") for (const attachment of rows) {
-      if (attachment.table === "workflowAttachments" && attachment.doc.workflowItemId === id)
-        visit(attachment.table, attachment.rowId, attachment.doc);
-    }
+    if (kind === "workflowItems")
+      for (const attachment of rows) {
+        if (attachment.table === "workflowAttachments" && attachment.doc.workflowItemId === id)
+          visit(attachment.table, attachment.rowId, attachment.doc);
+      }
   };
   const current = docs.get(rowId)?.doc ?? {};
   visit(table, rowId, current);

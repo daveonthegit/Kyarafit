@@ -59,7 +59,9 @@ describe("published projections", () => {
     ]);
 
     const failing = { mutation: vi.fn(async () => Promise.reject(new Error("offline"))) };
-    await expect(flushPublicationRemovals(failing, sql)).rejects.toThrow("Published copies could not be removed");
+    await expect(flushPublicationRemovals(failing, sql)).rejects.toThrow(
+      "Published copies could not be removed"
+    );
     expect(sql.getAllSync("SELECT client_id FROM publish_removals")).toHaveLength(1);
 
     const ok = { mutation: vi.fn(async (_ref: unknown, _args: unknown) => ({ removed: true })) };
@@ -69,24 +71,36 @@ describe("published projections", () => {
     expect(sql.getAllSync("SELECT * FROM id_map")).toEqual([]);
   });
 
-  it.each(["builds", "conventions"])("retries a free user's failed %s removal without an unrelated trigger", async table => {
-    const { store, sql } = makeTestVault({ onPersist: recordPublicationRemovals });
-    const id = store.commit(db => db.insert(table, { name: "Shared" }));
-    store.commit(db => db.delete(id));
-    const client = { mutation: vi.fn().mockRejectedValueOnce(new Error("temporary")).mockResolvedValue({ removed: true }) };
-    vi.useFakeTimers();
-    const scheduler = new ReplicaScheduler(null, {
-      canSync: () => true, isEntitled: () => false, random: () => 1,
-      afterPass: async () => { await flushPublicationRemovals(client, sql); },
-    });
-    await scheduler.run();
-    expect(sql.getAllSync("SELECT * FROM publish_removals")).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(client.mutation).toHaveBeenCalledTimes(2);
-    expect(client.mutation).toHaveBeenLastCalledWith(expect.anything(), { table, clientId: id });
-    expect(sql.getAllSync("SELECT * FROM publish_removals")).toEqual([]);
-    scheduler.dispose();
-  });
+  it.each(["builds", "conventions"])(
+    "retries a free user's failed %s removal without an unrelated trigger",
+    async (table) => {
+      const { store, sql } = makeTestVault({ onPersist: recordPublicationRemovals });
+      const id = store.commit((db) => db.insert(table, { name: "Shared" }));
+      store.commit((db) => db.delete(id));
+      const client = {
+        mutation: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("temporary"))
+          .mockResolvedValue({ removed: true }),
+      };
+      vi.useFakeTimers();
+      const scheduler = new ReplicaScheduler(null, {
+        canSync: () => true,
+        isEntitled: () => false,
+        random: () => 1,
+        afterPass: async () => {
+          await flushPublicationRemovals(client, sql);
+        },
+      });
+      await scheduler.run();
+      expect(sql.getAllSync("SELECT * FROM publish_removals")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(client.mutation).toHaveBeenCalledTimes(2);
+      expect(client.mutation).toHaveBeenLastCalledWith(expect.anything(), { table, clientId: id });
+      expect(sql.getAllSync("SELECT * FROM publish_removals")).toEqual([]);
+      scheduler.dispose();
+    }
+  );
 
   it("resolves removals without a device-only publication mapping", async () => {
     const { store, sql } = makeTestVault({ onPersist: recordPublicationRemovals });
@@ -94,6 +108,9 @@ describe("published projections", () => {
     store.commit((db) => db.delete(id));
     const client = { mutation: vi.fn(async () => ({ removed: false })) };
     expect(await flushPublicationRemovals(client, sql)).toBe(1);
-    expect(client.mutation).toHaveBeenCalledWith(expect.anything(), { table: "builds", clientId: id });
+    expect(client.mutation).toHaveBeenCalledWith(expect.anything(), {
+      table: "builds",
+      clientId: id,
+    });
   });
 });
