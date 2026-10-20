@@ -59,7 +59,12 @@ after sign-in, and signing out keeps local data.
   Existing device data is retained for export, not replayed or overlaid onto published views.
 - Collaborator edits to a published copy are not merged back into the owner's vault, and a
   re-publish overwrites the copy's content fields. Social settings on the copy (visibility, share
-  token, group) are kept.
+  token, group) are kept, but no client can change visibility or sharing yet: web's build edit is
+  refused as a personal write and mobile has no visibility control. A social-settings path for
+  published copies is a follow-up.
+- Generated tasks have deterministic ids from their dedupe key and a per-element incarnation, so
+  offline devices converge on one task, a task the user deleted stays deleted, and a new trigger
+  creates a fresh row rather than colliding with the synced tombstone.
 - Rows synced by the legacy path are uploaded to the replica under their existing vault ids when a
   device enables replication. A second legacy device that pulled the same records under server
   ids would upload them as separate rows. No migration was written on the understanding, from the

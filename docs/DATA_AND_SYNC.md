@@ -8,12 +8,12 @@ Product rules live in [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); code structure in
 
 The `REQ-D*` rules below describe the target contract, not completed rollout. Mobile personal
 reads and commands now use the per-account vault; its lifecycle and isolation decision is
-[ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Web still uses cloud-first
-wrappers, now with account isolation and visible persistence failures (§5.1). Mobile whole-vault
-backup/restore and web's narrower online restore are implemented (§11). Mobile managed sync is
-the Convex row replica (§6, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)); its
-staging-deployment gate is still open. Full web local-first conversion remains a follow-up tracked
-in the [roadmap](ROADMAP.md#current-status).
+[ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Mobile managed sync is the
+Convex row replica (§6, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)); its
+staging-deployment gate is still open. Web has no vault yet, so it shows published copies
+read-only and never writes personal data (§5.1); mobile whole-vault backup/restore is implemented
+and web exports only (§11). Giving web a vault remains a follow-up tracked in the
+[roadmap](ROADMAP.md#current-status).
 
 ---
 
@@ -22,7 +22,7 @@ in the [roadmap](ROADMAP.md#current-status).
 1. **The local store is authoritative on-device.** Reads/writes never block on network or entitlement.
 2. **UI reads/writes through the personal-data boundary.** See [Architecture B1](ARCHITECTURE.md#2-layering--boundaries) for the hooks, local command boundary, and current enforcement scope.
 3. **Only managed sync talks to Convex for personal data.** It requires paid entitlement, connectivity, and remote authentication (REQ-D10). On mobile every replica call names the vault's account and the server refuses a session for any other account, so a switch can never push one vault into another account's replica.
-4. **Conflict resolution = per field, in server-arrival order, delete wins, losing values kept** (mobile, §6.1). Web's legacy worker still writes in replay order. No CRDT.
+4. **Conflict resolution = per field, in server-arrival order, delete wins, losing values kept** (§6.1). No CRDT.
 5. **Automatic cloud retention deletion** belongs to the downgrade retention cron, gated on grace + warnings. Explicit user deletion and account deletion are separate paths; local data is never auto-deleted.
 6. **Images:** local file/blob is the durable home for free; cloud copy is an additive paid cache.
 
@@ -137,21 +137,21 @@ associated id mappings from the old shared IndexedDB/OPFS stores. Other accounts
 untouched; the legacy stores are never automatically deleted. Failed recovery is surfaced and
 can be retried on a later vault open.
 
-Offline commands commit the queue entry and entity overlays in one store transaction before
-publishing success or returning a local id. Persistence failures reject and surface through
-`reportWriteError`; they are not acknowledged as saved. This does **not** convert online web
-CRUD to local-first: online mutations still call Convex, and free users can still make personal-data
-cloud calls. The write boundary and rollback tests are in `web/src/lib/offline/commandPersistence.test.ts`
-and `indexedDbCommand.test.ts`.
+Web shows published copies only (ADR-0005): personal data is edited in the mobile app. Every
+personal-data command (builds, elements, tasks, conventions, media, progress updates, seeding) is
+refused before it reaches Convex or the local store, with a localized alert; Settings → Backup &
+data carries the same notice. Social actions on published copies (groups, collaborators, likes,
+comments) still call Convex online. Web build visibility and sharing settings are part of the
+refused build edit until a social-settings path for published copies exists.
 
 ---
 
 ## 6. Managed sync (paid + online only)
 
 Mobile replicates through the Convex row replica (`convex/replica.ts`, device half in
-`mobile/src/vault/replica`, shared vocabulary in `design-system/domain/replicaProtocol.ts`). Web has
-no vault yet and keeps its legacy replay worker (`sync.listChangedSince`, idempotent replay,
-`tierTransition.backfillRows`) until it does.
+`mobile/src/vault/replica`, shared vocabulary in `design-system/domain/replicaProtocol.ts`). The
+legacy replay worker, `sync.listChangedSince` and `tierTransition.backfillRows` are removed; web
+has no vault and is read-only (§5.1).
 
 - **REQ-D60** Gate: row sync runs only when `shouldRunSyncWorker(tier, signedIn)` holds for the
   vault's own account. The first confirmed paid session enables replication for the vault and
@@ -185,6 +185,15 @@ no vault yet and keeps its legacy replay worker (`sync.listChangedSince`, idempo
 
 ### 6.2 Cross-row integrity
 
+- **REQ-D67a** Generated tasks ("Buy X", "Work on X", packing tasks) get deterministic row ids, so
+  two offline devices generating the same task create one row. An element-generated task's id is a
+  hash of its dedupe key and an incarnation counter kept on the element: a task the user deletes
+  (any path) stays deleted through ordinary element edits; leaving and re-entering the generating
+  status creates the next incarnation under a new id.
+- **REQ-D67b** Moves and restores check for cycles by walking the actual parent links in the local
+  vault at write time, never the cached `ancestorIds`; a restore that would create a cycle is
+  refused and stays in the "changes that didn't apply" list.
+
 - **REQ-D67** After each batch the server checks parent references (`REPLICA_LINK_RULES`): photos,
   progress updates, tasks and build attachments under a deleted build move to the account's
   "Recovered" build; elements and optional links are unlinked; day plans, packing items and
@@ -215,7 +224,7 @@ no vault yet and keeps its legacy replay worker (`sync.listChangedSince`, idempo
 | Convex storage  | ❌ (except group exception REQ-021) | ✅ backup/sync |
 
 - **REQ-D70** `ImageRef` is a discriminated union: `{ kind: "local", uri, imageKey }` | `{ kind: "url", url }` | `{ kind: "cloud", storageId, imageKey }`. Resolver prefers local file, then cloud URL, then external URL.
-- **REQ-D71** Free images never upload to Convex (except REQ-021). For paid mobile vaults, upload is a sync step: each vault photo's bytes are uploaded once and registered by key in `replicaAssets` (owner-only, counted against the hosted-media cap, deleted with the account); vault rows keep their `kyarafit-image:` tokens. A device missing a referenced photo downloads it into the vault. Web's legacy worker still flips refs to `cloud`.
+- **REQ-D71** Free images never upload to Convex (except REQ-021). For paid mobile vaults, upload is a sync step: each vault photo's bytes are uploaded once and registered by key in `replicaAssets` (owner-only, counted against the hosted-media cap, deleted with the account); vault rows keep their `kyarafit-image:` tokens. A device missing a referenced photo downloads it into the vault.
 - **REQ-D72** Background-removal service is **removed**; image add is pick/capture/URL only.
 
 ---
@@ -224,7 +233,7 @@ no vault yet and keeps its legacy replay worker (`sync.listChangedSince`, idempo
 
 - **REQ-D80** Treat schema changes as greenfield: no heavy production data migration. Drop `closetItems`, `buildTasks`, `cosplayNodeLinks`, `buildCosplayLinks`, `buildNodeStates`, `buildItemLinks` and their cross-ref fields/indexes; introduce `elements`, `buildProgressUpdates`, rename `buildProcessPictures`→`buildProcessPhotos` (or keep name — implementer's call, document it).
 - **REQ-D81** Any existing `cosplayNodes`/`closetItems` rows are migrated best-effort into `elements` via a one-time script **or** discarded if empty/disposable; document which in the migration commit.
-- **REQ-D82** First post-cutover run for a paid user seeds the local store from cloud via `sync.listChangedSince(since=0)`.
+- **REQ-D82** A device enabling managed sync pulls the whole replica (cursor 0) and uploads every row the replica has not seen (§6, REQ-D95).
 
 ---
 
@@ -242,7 +251,7 @@ no vault yet and keeps its legacy replay worker (`sync.listChangedSince`, idempo
 
 ## 10. Tier transitions
 
-- **REQ-D95 (Upgrade free→paid)** On transition to paid: enqueue all local rows for replication under their vault ids (mobile: `Replicator.enableReplication`), push, then pull. Ids are globally unique, so two upgraded vaults merge without duplicates. Web still backfills by `clientId`.
+- **REQ-D95 (Upgrade free→paid)** On transition to paid: enqueue all local rows for replication under their vault ids (mobile: `Replicator.enableReplication`), push, then pull. Ids are globally unique, so two upgraded vaults merge without duplicates.
 - **REQ-D96 (Downgrade paid→free)** Stop sync immediately (mobile keeps recording outbox ops so a re-subscribe resumes without loss); local keeps working. Cloud kept intact for a **14-day grace**; then **freeze** (read-only). A retention cron purges frozen cloud data only after **~3 months** of no re-subscribe, **after** warnings + an export offer. Local data is never touched. Re-subscribe within grace resumes seamless sync.
 - **REQ-D97** The downgrade/grace/freeze state is recorded server-side (`tierSource`, `subscriptionStatus`, downgrade timestamp); the retention cron lives in `convex/crons.ts`.
 
@@ -280,33 +289,11 @@ Settings → Data exports a free JSON bundle from the signed-in account's local 
 cloud pull. The supported collections and versioned format are defined by
 [`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is not the mobile `.kyarafit` archive:
 photo binaries, build media collections and convention day plans are not included, and it is not
-a complete vault backup. Exported fields are not all accepted by the restore create mutations.
+a complete vault backup.
 
-Restore requires an internet connection and an empty account vault: any existing build, element,
-convention, task or packing row refuses the import before writes. The whole bundle and its
-relationships are validated before the first create. Restore remaps build/element/convention ids,
-workflow parents, generated tasks and attachments to their newly created destinations; it does not
-merge with existing work. Merge-restore and resumable restore are deferred.
-
-Before the first server write, an account-local restore session is persisted. Created destination
-ids are recorded as calls return. Until completion or Undo, personal planner writes in this
-browser's account vault are refused using persisted session state, including from other tabs;
-broadcasts update the read-only notice. Completion clears the record. On interruption, Settings
-shows **“Restore incomplete - undo and try again”**. Connect and choose **Undo** to delete the
-recorded server and local rows, children first, then restore again. Failed Undo retains its
-remaining recorded rows so Undo can be retried.
-
-Restore and Undo take one exclusive per-account Web Lock with `ifAvailable`; another tab holding
-it disables both actions and shows **“Restore in progress in another tab”**. Closing or crashing
-the holding tab releases the lock so an interrupted session can be undone elsewhere. Browsers
-without Web Locks retain single-tab behavior and cannot serialize concurrent restore/Undo.
-
-Known limits: an ordinary write already in flight in another tab when restore starts is not
-covered. Other devices are not locked, and Undo's server-side cascades can remove their edits.
-A server create that commits just before the browser closes, before its id is recorded, is not
-visible to Undo; that row leaves the vault non-empty and must be removed through normal UI.
-Closing this recording window needs backend work outside the web slice. Lifecycle and cross-tab
-coverage live in `web/src/lib/restoreSession.test.ts` and `web/src/app/settings/data/page.test.tsx`.
+Web does not restore. Restoring writes personal data, which web never does (§5.1), so the page
+explains that backups are restored in the mobile app. A restore session left incomplete by an
+earlier web version still locks personal writes in that browser until it is cleared.
 
 The requirements below remain the target across platforms, not claims of current web fidelity.
 

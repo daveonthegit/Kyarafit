@@ -24,7 +24,7 @@ coordinate their amendments with the owning implementation package._
 | --------------------- | ------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
 | Unit (pure domain)    | `design-system/domain` tested from `web/src/lib/**/*.test.ts` | vitest                   | entitlements, sync gating, conflict merge, queue/backoff, overlays, validators, progress math |
 | Component             | `web/src/**/*.test.tsx`                                       | vitest + Testing Library | screens/components: states (empty/loading/error/offline), gating UI                           |
-| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, `listChangedSince`, ownership/authorization                        |
+| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, replica push/pull, ownership/authorization                         |
 | Integration (offline) | mobile Vitest harness + pure queue/store simulations          | vitest                   | offline create→drain→idempotent replay, id remap                                              |
 | A11y (web)            | `web/src/test/a11y.test.tsx`                                  | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
 | E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                              | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
