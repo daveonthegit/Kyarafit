@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 
 // Spec: DATA_AND_SYNC.md §11 (REQ-D100 "export is free") + invariant #2 ("UI reads/writes only
 // through the offline bridge for local-first data"). A FREE user has NO cloud data, so an export
@@ -23,7 +23,7 @@ import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
 import { rememberLocalAccount } from "./auth/localAccount";
 import { PUBLISHED_READ_ONLY_MESSAGE } from "./offline/publishedReadOnly";
-import { buildDataBundle, countRows, emptyCollections, parseDataBundle } from "./dataPortability";
+import { buildDataBundle, countRows, parseDataBundle } from "./dataPortability";
 
 beforeEach(() => {
   vi.clearAllMocks();
