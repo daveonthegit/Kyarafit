@@ -33,6 +33,9 @@ native module or fixed cost.
 5. **90-day retention.** Op dedupe records, tombstones and conflict records older than 90 days are
    purged daily. A device whose cursor predates purged history resnapshots: it pulls the whole
    replica and drops synced rows the replica no longer has, keeping its own unsynced edits.
+   Queued creations durably record attempted sends. During expired-history reconciliation, an
+   attempted creation absent from the snapshot is kept as a restorable change that didn't apply,
+   not replayed; creations never sent remain queued.
 6. **Domain tables are published projections.** `builds`, `conventions`, … are written only by an
    explicit publish (`convex/publications.ts`): inviting a collaborator or adding a build or
    convention to a group publishes (or refreshes) its server copy first. Nothing flows back into

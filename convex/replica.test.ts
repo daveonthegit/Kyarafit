@@ -133,17 +133,56 @@ describe("replica push and pull", () => {
     expect(await liveRows(t, "alice")).toHaveLength(2);
   });
 
+  it("pages both a cycle repair and a concurrent field conflict after 499 preceding conflicts", async () => {
+    const t = convexTest(schema, modules);
+    await user(t, "alice");
+    const alice = session(t, "alice");
+    await alice.push([
+      put("local:x", { title: "X" }, 0, "workflowItems"),
+      put("local:y", { title: "Original Y" }, 0, "workflowItems"),
+    ]);
+    const base = (await alice.pull()).cursor;
+    await t.run(async ctx => {
+      for (let i = 1; i <= 499; i++) await ctx.db.insert("replicaConflicts", {
+        userId: "alice", table: "workflowItems", rowId: `fixture-${i}`,
+        kind: "concurrent-field-edit", lost: { title: `Prior ${i}` },
+        rev: base + i, createdAt: Date.now(), dismissed: false,
+      });
+      const head = await ctx.db.query("replicaHeads").withIndex("by_user", q => q.eq("userId", "alice")).unique();
+      await ctx.db.patch(head!._id, { rev: base + 499 });
+    });
+    await alice.push([
+      put("local:x", { parentId: "local:y" }, base, "workflowItems"),
+      put("local:y", { title: "A's Y" }, base, "workflowItems"),
+    ], "A");
+    await alice.push([put("local:y", { parentId: "local:x", title: "B's Y" }, base, "workflowItems")], "B");
+    const first = await alice.pull();
+    expect(first.conflicts).toHaveLength(500);
+    expect(first.hasMore).toBe(true);
+    const second = await alice.pull(first.cursor);
+    const conflicts = [...first.conflicts, ...second.conflicts];
+    expect(conflicts).toHaveLength(501);
+    expect(new Set(conflicts.map(row => row.id)).size).toBe(501);
+    expect(conflicts.filter(row => row.rowId === "local:y").map(row => row.kind).sort()).toEqual([
+      "concurrent-field-edit", "orphan-unlinked",
+    ]);
+    expect(second.hasMore).toBe(false);
+    const y = (await liveRows(t, "alice")).find(row => row.rowId === "local:y")!;
+    expect(y.doc.title).toBe("B's Y");
+    expect(y.doc.parentId).toBeUndefined();
+  });
+
   it("pages a complete prefix and advances past revs that changed no row", async () => {
     const t = convexTest(schema, modules);
     await user(t, "alice");
     const alice = session(t, "alice");
     await alice.push([put("local:1", { name: "a" }), put("local:2", { name: "b" })]);
-    await alice.push([del("local:1"), put("local:1", { name: "late" })]); // rejected edit
+    const last = await alice.push([del("local:1"), put("local:1", { name: "late" })]);
     const page1 = await alice.pull(0, 1);
     expect(page1).toMatchObject({ hasMore: true, cursor: page1.rows[0].rev });
     const rest = await alice.pull(page1.cursor);
     expect(rest.hasMore).toBe(false);
-    expect(rest.cursor).toBe(4);
+    expect(rest.cursor).toBe(last.head);
     expect(rest.conflicts.map((c) => c.kind)).toEqual(["edit-after-delete"]);
     expect(rest.rows.find((r) => r.rowId === "local:1")).toMatchObject({ deleted: true });
     expect(rest.rows.find((r) => r.rowId === "local:1")).not.toHaveProperty("doc");

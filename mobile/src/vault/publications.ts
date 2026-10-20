@@ -156,6 +156,7 @@ export async function flushPublicationRemovals(
     "SELECT client_id, table_name, server_id FROM publish_removals"
   );
   let removed = 0;
+  let failed = 0;
   for (const entry of pending) {
     try {
       await client.mutation(api.publications.unpublish, {
@@ -163,7 +164,8 @@ export async function flushPublicationRemovals(
         clientId: entry.client_id,
       });
     } catch {
-      continue; // Stays queued; retried on the next pass.
+      failed += 1;
+      continue;
     }
     sql.withTransactionSync(() => {
       sql.runSync("DELETE FROM publish_removals WHERE client_id = ?", [entry.client_id]);
@@ -172,5 +174,6 @@ export async function flushPublicationRemovals(
     removed += 1;
   }
   if (removed) notifyVaultDataChanged(sql);
+  if (failed) throw new Error("Published copies could not be removed");
   return removed;
 }

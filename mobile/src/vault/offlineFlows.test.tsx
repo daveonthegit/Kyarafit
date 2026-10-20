@@ -229,6 +229,9 @@ describe("free user, offline: personal data never touches Convex", () => {
     runLocalMutation("builds:create", { name: "A", status: "idea" });
     const replicatorA = getActiveReplicator()!;
     const { transport, resolveAll } = hangingTransport();
+    vi.mocked(transport.pull).mockResolvedValueOnce({
+      rows: [], conflicts: [], cursor: 0, hasMore: false, resnapshot: false,
+    });
     replicatorA.setTransport(transport);
     const syncing = replicatorA.sync();
     await vi.waitFor(() => expect(transport.push).toHaveBeenCalledTimes(1));

@@ -129,8 +129,7 @@ export class ReplicaWriter {
     table: string,
     rowId: string,
     kind: ReplicaConflictKind,
-    lost: Fields,
-    rev: number
+    lost: Fields
   ): Promise<void> {
     await this.ctx.db.insert("replicaConflicts", {
       userId: this.userId,
@@ -138,7 +137,7 @@ export class ReplicaWriter {
       rowId,
       kind,
       lost,
-      rev,
+      rev: this.nextRev(),
       createdAt: this.now,
       dismissed: false,
     });
@@ -194,7 +193,7 @@ export class ReplicaWriter {
       let parent: unknown = fields[parentField];
       while (typeof parent === "string") {
         if (visited.has(parent)) {
-          await this.conflict(table, rowId, "orphan-unlinked", { [parentField]: fields[parentField] }, rev);
+          await this.conflict(table, rowId, "orphan-unlinked", { [parentField]: fields[parentField] });
           fields[parentField] = null;
           break;
         }
@@ -222,7 +221,7 @@ export class ReplicaWriter {
       fieldRevs[field] = { rev, by: deviceId };
     }
     if (Object.keys(lost).length > 0) {
-      await this.conflict(table, rowId, "concurrent-field-edit", lost, rev);
+      await this.conflict(table, rowId, "concurrent-field-edit", lost);
     }
     if (row) await this.ctx.db.patch(row._id, { doc, fieldRevs, rev });
     else {
@@ -274,8 +273,7 @@ export class ReplicaWriter {
           op.table,
           op.rowId,
           "edit-after-delete",
-          liveFields({ ...(row.doc as Fields), ...fields }),
-          rev
+          liveFields({ ...(row.doc as Fields), ...fields })
         );
         return { status: "rejected", rev };
       }
@@ -288,7 +286,7 @@ export class ReplicaWriter {
         (last) => last.rev > op.baseRev && last.by !== deviceId
       );
       if (unseen) {
-        await this.conflict(op.table, op.rowId, "delete-over-unseen-edit", row.doc as Fields, rev);
+        await this.conflict(op.table, op.rowId, "delete-over-unseen-edit", row.doc as Fields);
       }
     }
     await this.writeDelete(op.table, op.rowId, row, rev);
@@ -327,7 +325,7 @@ export class ReplicaWriter {
     if (rule.onMissing === "remove" || rule.onMissing === "drop") {
       const rev = this.nextRev();
       if (rule.onMissing === "remove") {
-        await this.conflict(row.table, row.rowId, "orphan-removed", doc, rev);
+        await this.conflict(row.table, row.rowId, "orphan-removed", doc);
       }
       await this.writeDelete(row.table, row.rowId, row, rev);
       return;
@@ -349,7 +347,7 @@ export class ReplicaWriter {
     // Re-read: the Recovered build insert does not touch this row, but a prior repair might have.
     const current = (await this.row(row.table, row.rowId)) ?? row;
     await this.writePut(row.table, row.rowId, patch, rev, SERVER_DEVICE, current, rev);
-    await this.conflict(row.table, row.rowId, kind, { [rule.field]: parent }, rev);
+    await this.conflict(row.table, row.rowId, kind, { [rule.field]: parent });
   }
 
   private async repairIfOrphaned(table: string, rowId: string, only?: string): Promise<void> {

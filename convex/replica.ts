@@ -97,12 +97,13 @@ export const pull = query({
     subject: v.string(),
     after: v.number(),
     limit: v.optional(v.number()),
+    snapshot: v.optional(v.boolean()),
   },
-  handler: async (ctx, { protocol, subject, after, limit }): Promise<ReplicaPullResult> => {
+  handler: async (ctx, { protocol, subject, after, limit, snapshot }): Promise<ReplicaPullResult> => {
     assertProtocol(protocol);
     const userId = await requireReplicaActor(ctx, subject);
     const head = await loadHead(ctx, userId);
-    if (after > 0 && after < (head?.floorRev ?? 0)) {
+    if (!snapshot && after > 0 && after < (head?.floorRev ?? 0)) {
       return { rows: [], conflicts: [], cursor: after, hasMore: false, resnapshot: true, generation: head?.generation ?? "initial" };
     }
     const take = Math.min(

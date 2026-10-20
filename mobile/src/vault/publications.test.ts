@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ReplicaScheduler } from "./replica/scheduler";
 import { makeTestVault } from "@/test-support/vaultHarness";
 import {
   flushPublicationRemovals,
@@ -9,6 +10,7 @@ import {
 } from "./publications";
 
 vi.mock("@/offline/connectivity", () => ({ getIsOnline: () => true }));
+afterEach(() => vi.useRealTimers());
 
 describe("published projections", () => {
   it("carries whitelisted content only, never device photo tokens", () => {
@@ -57,7 +59,7 @@ describe("published projections", () => {
     ]);
 
     const failing = { mutation: vi.fn(async () => Promise.reject(new Error("offline"))) };
-    expect(await flushPublicationRemovals(failing, sql)).toBe(0);
+    await expect(flushPublicationRemovals(failing, sql)).rejects.toThrow("Published copies could not be removed");
     expect(sql.getAllSync("SELECT client_id FROM publish_removals")).toHaveLength(1);
 
     const ok = { mutation: vi.fn(async (_ref: unknown, _args: unknown) => ({ removed: true })) };
@@ -65,6 +67,25 @@ describe("published projections", () => {
     expect(ok.mutation.mock.calls[0][1]).toEqual({ table: "builds", clientId: id });
     expect(sql.getAllSync("SELECT * FROM publish_removals")).toEqual([]);
     expect(sql.getAllSync("SELECT * FROM id_map")).toEqual([]);
+  });
+
+  it.each(["builds", "conventions"])("retries a free user's failed %s removal without an unrelated trigger", async table => {
+    const { store, sql } = makeTestVault({ onPersist: recordPublicationRemovals });
+    const id = store.commit(db => db.insert(table, { name: "Shared" }));
+    store.commit(db => db.delete(id));
+    const client = { mutation: vi.fn().mockRejectedValueOnce(new Error("temporary")).mockResolvedValue({ removed: true }) };
+    vi.useFakeTimers();
+    const scheduler = new ReplicaScheduler(null, {
+      canSync: () => true, isEntitled: () => false, random: () => 1,
+      afterPass: async () => { await flushPublicationRemovals(client, sql); },
+    });
+    await scheduler.run();
+    expect(sql.getAllSync("SELECT * FROM publish_removals")).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(client.mutation).toHaveBeenCalledTimes(2);
+    expect(client.mutation).toHaveBeenLastCalledWith(expect.anything(), { table, clientId: id });
+    expect(sql.getAllSync("SELECT * FROM publish_removals")).toEqual([]);
+    scheduler.dispose();
   });
 
   it("resolves removals without a device-only publication mapping", async () => {

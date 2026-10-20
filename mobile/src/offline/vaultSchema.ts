@@ -5,7 +5,7 @@ import type { VaultSql } from "@/vault/store";
  * `node:sqlite`. Versioned: each step is idempotent and guarded so re-running on an up-to-date file is
  * a no-op.
  */
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 export function migrateVaultSchema(db: VaultSql, subject: string): void {
   db.execSync(`
@@ -68,7 +68,8 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
       row_id TEXT NOT NULL,
       kind TEXT NOT NULL,
       fields_json TEXT,
-      base_rev INTEGER NOT NULL
+      base_rev INTEGER NOT NULL,
+      attempted_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS replica_outbox_row ON replica_outbox (table_name, row_id);
     -- The server rev of each row this vault last pulled (an op's base revision).
@@ -125,6 +126,13 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
     }
     if (!columns.some((column) => column.name === "touched_json")) {
       db.execSync("ALTER TABLE mutation_queue ADD COLUMN touched_json TEXT");
+    }
+  }
+
+  if (v < 5) {
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_outbox)");
+    if (!columns.some(column => column.name === "attempted_at")) {
+      db.execSync("ALTER TABLE replica_outbox ADD COLUMN attempted_at INTEGER");
     }
   }
 

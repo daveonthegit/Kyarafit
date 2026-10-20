@@ -83,9 +83,9 @@ export function convexReplicaTransport(
       call<ReplicaPushResult>(() =>
         client.mutation(api.replica.push, { protocol, subject, deviceId, ops, after, generation })
       ),
-    pull: (after, limit) =>
+    pull: (after, limit, snapshot) =>
       call<ReplicaPullResult>(() =>
-        client.query(api.replica.pull, { protocol, subject, after, limit })
+        client.query(api.replica.pull, { protocol, subject, after, limit, snapshot })
       ),
     dismissConflicts: async (ids) => {
       await call(() => client.mutation(api.replica.dismissConflicts, { protocol, subject, ids }));

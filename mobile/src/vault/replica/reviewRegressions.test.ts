@@ -5,11 +5,15 @@ import { api, internal } from "../../../../convex/_generated/api";
 import schema from "../../../../convex/schema";
 import { REPLICA_PROTOCOL_VERSION as protocol, REPLICA_RETENTION_MS, type ReplicaOp } from "@kyarafit/design-system/domain/replicaProtocol";
 import { DOWNGRADE_RETENTION_MS } from "@kyarafit/design-system/domain/tierTransition";
-import { makeDevice, seedSlice, settle, type ReplicaBackend } from "@/test-support/replicaHarness";
+import { makeDevice, now, seedSlice, settle, type ReplicaBackend } from "@/test-support/replicaHarness";
+import { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
+import { migrateVaultSchema } from "@/offline/vaultSchema";
+import { VaultStore } from "../store";
+import { Replicator } from "./replicator";
 import { convexReplicaTransport } from "./convexTransport";
 import { syncReplicaAssets, type ReplicaAssetIo } from "./assets";
 import { ReplicaScheduler } from "./scheduler";
-import { countChangesNotApplied } from "./conflicts";
+import { countChangesNotApplied, listChangesNotApplied, restoreChange } from "./conflicts";
 import { cachePublicationIdentities, getLocalIdForPublished, getPublishedId } from "../publications";
 
 const modules = import.meta.glob(["../../../../convex/**/*.{ts,js}", "!../../../../convex/**/*.test.ts", "!../../../../convex/betterAuth/**", "!../../../../convex/node_modules/**"]);
@@ -42,6 +46,138 @@ function assetIo(): ReplicaAssetIo {
 }
 
 describe("replica review regressions", () => {
+  it("migrates existing outbox entries without losing durable attempt timestamps on reopen", () => {
+    const sql = new NodeSqliteDatabase();
+    sql.execSync(`
+      CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER NOT NULL);
+      INSERT INTO schema_version VALUES (1, 4);
+      CREATE TABLE replica_outbox (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT, op_id TEXT UNIQUE NOT NULL,
+        table_name TEXT NOT NULL, row_id TEXT NOT NULL, kind TEXT NOT NULL,
+        fields_json TEXT, base_rev INTEGER NOT NULL
+      );
+    `);
+    sql.runSync("INSERT INTO replica_outbox (op_id, table_name, row_id, kind, fields_json, base_rev) VALUES (?, ?, ?, ?, ?, ?)",
+      ["pending", "builds", "local:kept", "put", JSON.stringify({ name: "Kept" }), 0]);
+    migrateVaultSchema(sql, "owner");
+    expect(sql.getFirstSync("SELECT * FROM replica_outbox")).toMatchObject({ op_id: "pending", attempted_at: null });
+    sql.runSync("UPDATE replica_outbox SET attempted_at = 123 WHERE op_id = 'pending'");
+    migrateVaultSchema(sql, "owner");
+    expect(sql.getFirstSync("SELECT * FROM replica_outbox")).toMatchObject({ op_id: "pending", attempted_at: 123 });
+  });
+
+  it.each([
+    [false, false, false], [true, false, false], [false, true, false], [true, true, false], [false, false, true],
+  ])("recovers a lost-ack creation deleted by B after retention (positive cursor=%s, expired reconnect=%s, reset=%s)", async (positiveCursor, expiredReconnect, resetGeneration) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, user, a, b, backend } = await setup();
+    if (positiveCursor) {
+      a.mutate("builds:create", { name: "Anchor", status: "idea" });
+      await a.sync();
+    }
+    const created = a.mutate<{ _id: string }>("builds:create", { name: "Ambiguous", status: "idea", notes: "Keep for recovery" });
+    a.net.loseNextPushAck = true;
+    await a.sync();
+    expect(a.replicator.status).toBe("error");
+    expect(a.sql.getFirstSync("SELECT * FROM replica_state WHERE table_name = 'builds' AND row_id = ?", [created._id])).toBeNull();
+    await b.sync();
+    expect(b.get(created._id)?.name).toBe("Ambiguous");
+    b.mutate("builds:remove", { id: created._id });
+    await b.sync();
+    a.net.online = false;
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    const reset = async () => {
+      vi.setSystemTime(Date.now() + 1);
+      await t.run(ctx => ctx.db.patch(user, { tier: "FREE", downgradedAt: Date.now() - DOWNGRADE_RETENTION_MS - 1 }));
+      await t.mutation(internal.tierTransition.purgeDowngradedCloudData, {});
+      await t.run(ctx => ctx.db.patch(user, { tier: "SUPPORTER", cloudPurgedAt: undefined }));
+    };
+    if (resetGeneration) await reset();
+    a.replicator.dispose();
+    let seq = 0;
+    const deviceNow = now() + (expiredReconnect ? REPLICA_RETENTION_MS + 1 : 1000);
+    let store: VaultStore;
+    const reopened = new Replicator(a.sql, {
+      newOpId: () => `reopened-op-${++seq}`, now: () => deviceNow,
+      onRowsChanged: () => store.reloadFromDisk(),
+    });
+    store = new VaultStore({
+      subject: "owner", sql: a.sql, newId: () => `local:restored-${++seq}`,
+      now: () => deviceNow, onPersist: reopened.recordChanges,
+    });
+    const transport = backend.transport(a.net);
+    const sentPuts: string[] = [];
+    reopened.setTransport({
+      ...transport,
+      push: (...args) => {
+        sentPuts.push(...args[1].filter(op => op.kind === "put").map(op => op.rowId));
+        return transport.push(...args);
+      },
+    });
+    a.net.online = true;
+    await reopened.sync();
+    expect(reopened.status).toBe("idle");
+    expect(reopened.pendingCount()).toBe(0);
+    expect(store.reader().get(created._id)).toBeNull();
+    if (expiredReconnect || positiveCursor) expect(sentPuts).not.toContain(created._id);
+    expect((await t.run(ctx => ctx.db.query("replicaRows").collect())).some(row => row.rowId === created._id && !row.deleted)).toBe(false);
+    const change = listChangesNotApplied(a.sql, store.reader(), created._id).find(row => row.rowId === created._id)!;
+    expect(change).toMatchObject({ action: "restore-row", restorable: true, lost: { name: "Ambiguous", notes: "Keep for recovery" } });
+    if (resetGeneration) {
+      await reset();
+      await reopened.sync();
+      expect(listChangesNotApplied(a.sql, store.reader(), created._id).some(row => row.id === change.id)).toBe(true);
+    }
+    const restored = restoreChange(store, change);
+    expect(restored).not.toBe(created._id);
+    await reopened.sync();
+    await b.sync();
+    expect(b.get(restored)?.name).toBe("Ambiguous");
+    expect(b.get(created._id)).toBeNull();
+  });
+  it("resumes an interrupted multi-page expired snapshot before recovering an absent attempted creation", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, a, b, backend } = await setup();
+    a.store.commit(db => {
+      for (let i = 0; i < 600; i++) db.insert("builds", { userId: "owner", name: `Kept ${i}`, status: "idea" });
+    });
+    await a.sync();
+    const created = a.mutate<{ _id: string }>("builds:create", { name: "Ambiguous", status: "idea" });
+    a.net.loseNextPushAck = true;
+    await a.sync();
+    await b.sync();
+    b.mutate("builds:remove", { id: created._id });
+    await b.sync();
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    const transport = backend.transport(a.net);
+    let failed = false;
+    a.replicator.setTransport({
+      ...transport,
+      pull: async (after, limit, snapshot) => {
+        if (snapshot && after > 0 && limit > 1 && !failed) {
+          failed = true;
+          throw new Error("Dropped after a committed snapshot page");
+        }
+        return transport.pull(after, limit, snapshot);
+      },
+    });
+    await a.sync();
+    expect(a.replicator.status).toBe("error");
+    expect(a.sql.getAllSync("SELECT * FROM replica_seen")).toHaveLength(500);
+    expect(a.get(created._id)?.name).toBe("Ambiguous");
+    await a.sync();
+    expect(a.replicator.status).toBe("idle");
+    expect(a.replicator.pendingCount()).toBe(0);
+    expect(a.get(created._id)).toBeNull();
+    expect(a.changes(created._id)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rowId: created._id, action: "restore-row", restorable: true }),
+    ]));
+    expect(a.store.exportRows().filter(row => row.table === "builds")).toHaveLength(600);
+    expect(a.sql.getAllSync("SELECT * FROM replica_seen")).toEqual([]);
+  });
+
   it("completes a fresh-device snapshot after a retention-rejected push", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const { t, a, backend } = await setup();
@@ -105,8 +241,8 @@ describe("replica review regressions", () => {
     let edited = false;
     b.replicator.setTransport({
       ...transport,
-      pull: async (after, limit) => {
-        const page = await transport.pull(after, limit);
+      pull: async (after, limit, snapshot) => {
+        const page = await transport.pull(after, limit, snapshot);
         if (!edited && limit > 1 && page.rows.some(row => row.rowId === build._id && row.deleted)) {
           edited = true;
           b.mutate("builds:update", { id: build._id, notes: "Edited during pull" });

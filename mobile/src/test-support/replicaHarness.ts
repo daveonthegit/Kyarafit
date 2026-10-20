@@ -60,14 +60,14 @@ export function makeDevice(
       }
       return result;
     },
-    pull: async (after, limit) => {
+    pull: async (after, limit, snapshot) => {
       if (!net.online) throw new ReplicaOfflineError();
       pulls += 1;
       if (net.failPullPage > 0 && pulls === net.failPullPage) {
         net.failPullPage = 0;
         throw new Error("connection dropped mid-pull");
       }
-      return base.pull(after, limit);
+      return base.pull(after, limit, snapshot);
     },
     dismissConflicts: (ids) => {
       if (!net.online) return Promise.reject(new ReplicaOfflineError());
