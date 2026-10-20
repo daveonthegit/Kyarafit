@@ -479,4 +479,34 @@ describe("explicit publication", () => {
       })
     ).rejects.toThrow(/Unauthorized/);
   });
+
+  it("unpublishes idempotently and only the caller's own copy", async () => {
+    const t = convexTest(schema, modules);
+    await user(t, "alice");
+    await user(t, "bob");
+    const asAlice = t.withIdentity({ subject: "alice" });
+    const { id } = await asAlice.mutation(api.publications.publish, {
+      table: "builds",
+      clientId: "local:b",
+      doc: { name: "Zelda", status: "wip" },
+    });
+    expect(
+      await t
+        .withIdentity({ subject: "bob" })
+        .mutation(api.publications.unpublish, { table: "builds", serverId: id })
+    ).toEqual({ removed: false });
+    expect(
+      await asAlice.mutation(api.publications.unpublish, { table: "builds", serverId: id })
+    ).toEqual({ removed: true });
+    expect(
+      await asAlice.mutation(api.publications.unpublish, { table: "builds", serverId: id })
+    ).toEqual({ removed: false });
+    expect(
+      await asAlice.mutation(api.publications.unpublish, {
+        table: "conventions",
+        serverId: "not-an-id",
+      })
+    ).toEqual({ removed: false });
+    expect(await t.run((ctx) => ctx.db.get(id as Id<"builds">))).toBeNull();
+  });
 });

@@ -31,7 +31,11 @@ export function classifyReplicaError(error: unknown): unknown {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
-  if (/Unauthorized|Unauthenticated|not authenticated/i.test(message))
+  if (
+    /Unauthorized|Unauthenticated|not authenticated|InvalidAuthHeader|Could not (verify|validate|decode|parse)/i.test(
+      message
+    )
+  )
     return new ReplicaAuthError(message);
   if (/Network request failed|Failed to fetch|fetch failed|ECONNREFUSED|timed out/i.test(message))
     return new ReplicaOfflineError(message);

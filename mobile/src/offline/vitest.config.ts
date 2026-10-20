@@ -52,6 +52,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: [path.resolve(mobileRoot, "src/test-support/nativeModuleMocks.ts")],
+    // Managed-sync scenarios run the real Convex functions in-process (convex-test).
+    server: { deps: { inline: ["convex-test"] } },
     root: mobileRoot,
     include: [
       "src/offline/**/*.test.{ts,tsx}",

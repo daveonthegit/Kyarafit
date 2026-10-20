@@ -24,7 +24,7 @@ maintenance could evict queued operations and id mappings.
   its vault at launch with no network. A missing, slow or expired remote session never blocks local
   use; an expired session shows a transient "sign in again" notice and blocks only online features.
 - **Writes are transactional and loud.** A command commits its rows (and, for paid vaults, its
-  replication intent) in one SQLite transaction and resolves only after commit; failures throw
+  managed-sync outbox ops) in one SQLite transaction and resolves only after commit; failures throw
   `VaultWriteError` and are surfaced once app-wide.
 - **The replication queue and id map are never evicted.** Only the disposable online-query cache is
   size-capped.
@@ -40,12 +40,11 @@ maintenance could evict queued operations and id mappings.
   collaborators, public pages, billing, profile) still call Convex and fail fast offline.
 - Builds shared by others are not in the viewer's vault; they open read-only through the online
   viewer.
-- The existing Convex replication path (queue drain, warm-up pull, upgrade backfill) is retained
-  but not extended. Its correctness gaps (cursor pagination, tombstones, conflict policy) and the
-  paid sync provider choice (Convex vs. PowerSync) are the next decision, not settled here.
+- The Convex replication path this ADR retained (queue drain, warm-up pull, upgrade backfill) has
+  since been replaced on mobile by the row replica; see
+  [ADR-0005](0005-managed-sync-is-a-convex-row-replica.md).
 - Web account isolation plus visible write failures are delivered in a separate pull request, per
   the owner's split decision. Converting web's cloud-first reads/writes and removing
   personal-data Convex calls for free web users is deferred beyond those.
-- The paid-sync replay protocol (server-side reconciliation of every row a queued command creates,
-  so replays never duplicate rows or leave unmapped local ids) is set aside for the paid-sync step.
-  Until then the existing replay maps only the creates it already supported.
+- The command-replay protocol was not completed; row-state replication (ADR-0005) removed the need
+  for server-side reconciliation of replayed commands.

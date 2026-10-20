@@ -99,9 +99,9 @@ export const VAULT_INDEX_FIELDS: Record<string, Record<string, readonly string[]
 };
 
 /**
- * Every table the vault owns. These are the personal-data tables (the same set the sync warm-up
- * pulls and the upgrade backfill pushes) plus `vaultSettings`, a device-local key/value table for
- * per-account preferences such as the focused build.
+ * Every table the vault owns. These are the personal-data tables (the set managed sync replicates,
+ * `REPLICA_TABLES`) plus `vaultSettings`, a device-local key/value table for per-account
+ * preferences such as the focused build.
  */
 export const VAULT_TABLES = [
   "builds",

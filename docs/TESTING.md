@@ -178,6 +178,33 @@ Sample-data seeding is [development-only and opt-in](runbooks/development-seed.m
 sample is not a paid/backfill/downgrade fixture; prepare those states explicitly in the authorized
 dev environment rather than claiming `/dev/seed` establishes them.
 
+### Managed-sync scenarios and staging gate
+
+`mobile/src/vault/replica/replica.gate.test.ts` runs two simulated phones (each the real vault,
+handlers and replicator over its own SQLite database) against the real Convex replica functions:
+offline creation on two devices, concurrent same/different-field edits with one-tap restore,
+delete-versus-edit in both orders, cross-row orphans moving to Recovered, upgrading two free vaults,
+an expired session, more than 500 rows with a lost push acknowledgement and a dropped pull page,
+simultaneous pushes, a plan lapsing mid-sync, a session for another account, and a device offline
+past the 90-day retention horizon. Backend-only contracts (containment, retention, assets,
+publication) are in `convex/replica.test.ts`.
+
+By default the scenarios use `convex-test` and run with `npm test -w mobile`. To run the shared
+scenarios against a real **non-production** deployment (the ADR-0005 staging gate), deploy the
+branch's functions to a dev or preview deployment, then set:
+
+- `KYARAFIT_GATE_CONVEX_URL` — the deployment URL (the run refuses URLs containing `prod`)
+- `KYARAFIT_GATE_TOKEN` — a Convex auth JWT for a test account on a paid tier
+- `KYARAFIT_GATE_SUBJECT` — that account's subject (Better Auth user id)
+
+```bash
+KYARAFIT_GATE_CONVEX_URL=… KYARAFIT_GATE_TOKEN=… KYARAFIT_GATE_SUBJECT=… \
+  npx vitest run --config mobile/src/offline/vitest.config.ts src/vault/replica/replica.gate.test.ts
+```
+
+Deployment runs only add rows under fresh ids. Scenarios that change tiers, move the clock or read
+server tables stay on `convex-test`.
+
 ## 10. Performance budgets (plan)
 
 No runnable perf gate yet — documented here to avoid a flaky/unrunnable check:
