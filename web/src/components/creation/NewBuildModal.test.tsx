@@ -32,14 +32,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("handles a rejected offline create without navigating, acknowledging success, or leaving queued data", async () => {
+it("refuses a personal create on web with the read-only message and saves nothing", async () => {
   rememberLocalAccount("owner");
   const store = new InMemoryLocalStore();
   offlineRuntime.setStore(store, "owner");
-  setOfflineConnectivity(false);
-  vi.spyOn(store, "commitCommand").mockRejectedValue(
-    new DOMException("Disk full", "QuotaExceededError")
-  );
+  const commit = vi.spyOn(store, "commitCommand");
   const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
   const success = vi.fn();
   render(<NewBuildModal onDismiss={vi.fn()} onSuccessComplete={success} />);
@@ -48,12 +45,12 @@ it("handles a rejected offline create without navigating, acknowledging success,
   });
   fireEvent.click(screen.getByText("Select image"));
   fireEvent.click(screen.getByRole("button", { name: "Create build" }));
-  await waitFor(() => expect(store.commitCommand).toHaveBeenCalledOnce());
+  await waitFor(() => expect(alert).toHaveBeenCalledOnce());
+  expect(String(alert.mock.calls[0][0])).toContain("Web shows published copies only");
   await waitFor(() => expect(screen.getByRole("button", { name: "Create build" })).toBeEnabled());
-  expect(alert).toHaveBeenCalledOnce();
+  expect(commit).not.toHaveBeenCalled();
   expect(success).not.toHaveBeenCalled();
   expect(state.push).not.toHaveBeenCalled();
   expect(state.mutation).not.toHaveBeenCalled();
-  expect(await store.listPendingMutations()).toEqual([]);
   expect(await store.listEntityRows()).toEqual([]);
 });

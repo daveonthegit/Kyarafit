@@ -6,7 +6,6 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { WebContentContainer } from "@/components/layout/WebContentContainer";
 import { GlassTopBar } from "@/components/layout/GlassTopBar";
 import { GlobalFAB } from "@/components/layout/GlobalFAB";
-import { SyncStatus } from "@/components/SyncStatus";
 
 /**
  * Web-only app shell: glass top bar (desktop/tablet), content container,
@@ -35,7 +34,6 @@ export function WebAppShell({
       }`.trim()}
     >
       <GlassTopBar />
-      <SyncStatus />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
         <main className="flex-1 flex flex-col min-h-0 pb-24 lg:pb-0">

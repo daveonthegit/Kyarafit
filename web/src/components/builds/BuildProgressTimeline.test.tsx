@@ -95,7 +95,7 @@ describe("BuildProgressTimeline", () => {
     expect(within(items[1]).getByText("Older update")).toBeInTheDocument();
   });
 
-  it("should_block_publish_to_feed_for_free_user", async () => {
+  it("should_block_publish_to_feed_for_free_user_and_refuse_web_authoring", async () => {
     state.tier = "free";
     render(<BuildProgressTimeline buildId={BUILD_ID} userId="user_1" />);
 
@@ -107,16 +107,17 @@ describe("BuildProgressTimeline", () => {
     fireEvent.change(screen.getByLabelText(/note/i), {
       target: { value: "A private update" },
     });
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     fireEvent.click(screen.getByRole("button", { name: /add update/i }));
 
-    await waitFor(() => expect(addMock).toHaveBeenCalledTimes(1));
-    const callArg = addMock.mock.calls[0][0] as { publish?: boolean };
-    expect(callArg.publish).toBeUndefined();
-    expect(callArg).toMatchObject({ note: "A private update" });
-    expect(addMock).not.toHaveBeenCalledWith(expect.objectContaining({ publish: true }));
+    // Web shows published copies only (ADR-0005): authoring an update is refused, visibly.
+    await waitFor(() => expect(alert).toHaveBeenCalledOnce());
+    expect(String(alert.mock.calls[0][0])).toContain("Web shows published copies only");
+    expect(addMock).not.toHaveBeenCalled();
+    alert.mockRestore();
   });
 
-  it("should_allow_paid_user_to_publish_to_feed", async () => {
+  it("should_offer_paid_publish_toggle_but_refuse_web_authoring", async () => {
     state.tier = "pro";
     render(<BuildProgressTimeline buildId={BUILD_ID} userId="user_1" />);
 
@@ -124,9 +125,12 @@ describe("BuildProgressTimeline", () => {
       target: { value: "Publish me" },
     });
     fireEvent.click(screen.getByRole("checkbox", { name: /publish to feed/i }));
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     fireEvent.click(screen.getByRole("button", { name: /add update/i }));
 
-    await waitFor(() => expect(addMock).toHaveBeenCalledTimes(1));
-    expect(addMock).toHaveBeenCalledWith(expect.objectContaining({ publish: true }));
+    // The paid publish toggle is offered, but authoring on web is still refused, visibly.
+    await waitFor(() => expect(alert).toHaveBeenCalledOnce());
+    expect(addMock).not.toHaveBeenCalled();
+    alert.mockRestore();
   });
 });
