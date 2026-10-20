@@ -57,7 +57,8 @@ export const REPLICA_META_FIELDS: ReadonlySet<string> = new Set([
 ]);
 
 /** Fields never carried in an op (the row id is the op's `rowId`). */
-export const REPLICA_SYSTEM_FIELDS: ReadonlySet<string> = new Set(["_id"]);
+export const REPLICA_CONFLICT_BUILD_IDS = "_replicaBuildIds";
+export const REPLICA_SYSTEM_FIELDS: ReadonlySet<string> = new Set(["_id", REPLICA_CONFLICT_BUILD_IDS]);
 
 export const REPLICA_MAX_PUSH_OPS = 100;
 export const REPLICA_MAX_PULL_ROWS = 500;
@@ -80,7 +81,7 @@ export interface ReplicaOp {
   kind: ReplicaOpKind;
   /** Changed fields; `null` removes a field. Absent for deletes. */
   fields?: Record<string, unknown>;
-  /** The server rev of this row the device last pulled (0 = never seen). */
+  /** The last acknowledged or pulled server rev of this row (0 = never seen). */
   baseRev: number;
 }
 
@@ -95,7 +96,6 @@ export interface ReplicaPushResult {
 export interface ReplicaPulledRow {
   table: string;
   rowId: string;
-  /** Absent for a tombstone. */
   doc?: Record<string, unknown>;
   deleted: boolean;
   rev: number;
@@ -258,6 +258,41 @@ export function replicaLinksFor(
     (rule) =>
       rule.table === table && (rule.entityType === undefined || rule.entityType === doc.entityType)
   );
+}
+
+export function replicaBuildIdsFor(
+  table: string, rowId: string, lost: Record<string, unknown>,
+  rows: readonly { table: string; rowId: string; doc: Record<string, unknown> }[]
+): Set<string> {
+  const docs = new Map(rows.map(row => [row.rowId, row]));
+  const builds = new Set<string>();
+  const seen = new Set<string>();
+  const visit = (kind: string, id: string, doc: Record<string, unknown>) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const saved = doc[REPLICA_CONFLICT_BUILD_IDS];
+    if (Array.isArray(saved)) for (const buildId of saved) {
+      if (typeof buildId === "string") builds.add(buildId);
+    }
+    const direct = replicaBuildIdOf(kind, { ...doc, _id: id });
+    if (direct) builds.add(direct);
+    for (const rule of replicaLinksFor(kind, doc)) {
+      const target = doc[rule.field];
+      if (typeof target !== "string") continue;
+      if (rule.target === "builds") builds.add(target);
+      const parent = docs.get(target);
+      if (parent) visit(parent.table, parent.rowId, parent.doc);
+    }
+    if (kind === "workflowItems") for (const attachment of rows) {
+      if (attachment.table === "workflowAttachments" && attachment.doc.workflowItemId === id)
+        visit(attachment.table, attachment.rowId, attachment.doc);
+    }
+  };
+  const current = docs.get(rowId)?.doc ?? {};
+  visit(table, rowId, current);
+  seen.clear();
+  visit(table, rowId, { ...current, ...lost });
+  return builds;
 }
 
 /** The build a row belongs to, for the per-build "changes that didn't apply" list. */

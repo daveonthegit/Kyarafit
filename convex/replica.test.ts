@@ -49,8 +49,8 @@ function session(t: Harness, subject: string) {
   return {
     push: (ops: ReplicaOp[], deviceId = "A") =>
       as.mutation(api.replica.push, { protocol, subject, deviceId, ops }),
-    pull: (after = 0, limit?: number) =>
-      as.query(api.replica.pull, { protocol, subject, after, limit }),
+    pull: (after = 0, limit?: number, snapshot?: boolean) =>
+      as.query(api.replica.pull, { protocol, subject, after, limit, snapshot }),
     dismiss: (ids: string[]) =>
       as.mutation(api.replica.dismissConflicts, { protocol, subject, ids }),
   };
@@ -185,7 +185,7 @@ describe("replica push and pull", () => {
     expect(rest.cursor).toBe(last.head);
     expect(rest.conflicts.map((c) => c.kind)).toEqual(["edit-after-delete"]);
     expect(rest.rows.find((r) => r.rowId === "local:1")).toMatchObject({ deleted: true });
-    expect(rest.rows.find((r) => r.rowId === "local:1")).not.toHaveProperty("doc");
+    expect(rest.rows.find((r) => r.rowId === "local:1")?.doc).toEqual({ _replicaBuildIds: ["local:1"] });
   });
 
   it("merges different fields, keeps the loser of a same-field edit, and never flags a device's own edits", async () => {
@@ -370,7 +370,8 @@ describe("replica retention", () => {
     expect(pruned).toMatchObject({ ops: 4, tombstones: 1, conflicts: 1, more: false });
     // A device that last pulled before the purged tombstone must start over.
     expect(await alice.pull(staleCursor)).toMatchObject({ resnapshot: true, rows: [] });
-    const full = await alice.pull(0);
+    expect(await alice.pull(0)).toMatchObject({ resnapshot: true, rows: [] });
+    const full = await alice.pull(0, undefined, true);
     expect(full.resnapshot).toBe(false);
     expect(full.rows.map((row) => row.rowId).sort()).toEqual(["local:fresh", "local:keep"]);
     // An up-to-date cursor keeps working.

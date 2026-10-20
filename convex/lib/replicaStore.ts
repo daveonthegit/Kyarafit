@@ -4,6 +4,9 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
 import {
   REPLICA_META_FIELDS,
+  REPLICA_CONFLICT_BUILD_IDS,
+  replicaBuildIdsFor,
+  replicaBuildIdOf,
   REPLICA_PROTOCOL_VERSION,
   replicaLinksFor,
   replicaGeneratedWorkflowKey,
@@ -94,6 +97,7 @@ export class ReplicaWriter {
   private recoveredBuildId: string | undefined;
   /** Rows deleted in this mutation whose children must be checked. */
   private readonly deletedParents: string[] = [];
+  private readonly deletedAttachments = new Map<string, Set<string>>();
   /** Rows put in this mutation whose parents must be checked. */
   private readonly putRows: { table: string; rowId: string }[] = [];
 
@@ -125,12 +129,43 @@ export class ReplicaWriter {
       .unique();
   }
 
+  private async buildIds(table: string, rowId: string, lost: Fields): Promise<Set<string>> {
+    const rows = new Map<string, { table: string; rowId: string; doc: Fields }>();
+    const visit = async (kind: string, id: string): Promise<void> => {
+      if (rows.has(id)) return;
+      const row = await this.row(kind, id);
+      const doc = (row?.doc as Fields | undefined) ?? {};
+      rows.set(id, { table: kind, rowId: id, doc });
+      const states = id === rowId ? [doc, { ...doc, ...lost }] : [doc];
+      for (const state of states) for (const rule of replicaLinksFor(kind, state)) {
+        const target = state[rule.field];
+        if (typeof target === "string") await visit(rule.target, target);
+      }
+      if (kind === "workflowItems") {
+        const links = await this.ctx.db.query("replicaLinks")
+          .withIndex("by_user_target", q => q.eq("userId", this.userId).eq("target", id)).collect();
+        const attachments = new Set(this.deletedAttachments.get(id));
+        for (const link of links) {
+          if (link.table === "workflowAttachments" && link.field === "workflowItemId") attachments.add(link.rowId);
+        }
+        for (const attachment of attachments) await visit("workflowAttachments", attachment);
+      }
+    };
+    await visit(table, rowId);
+    return replicaBuildIdsFor(table, rowId, lost, [...rows.values()]);
+  }
+
   private async conflict(
     table: string,
     rowId: string,
     kind: ReplicaConflictKind,
     lost: Fields
   ): Promise<void> {
+    const buildIds = [...await this.buildIds(table, rowId, lost)];
+    const direct = replicaBuildIdOf(table, { ...lost, _id: rowId });
+    lost = { ...lost };
+    if (buildIds.some(id => id !== direct)) lost[REPLICA_CONFLICT_BUILD_IDS] = buildIds;
+    else delete lost[REPLICA_CONFLICT_BUILD_IDS];
     await this.ctx.db.insert("replicaConflicts", {
       userId: this.userId,
       table,
@@ -244,7 +279,14 @@ export class ReplicaWriter {
   /** Tombstone a row. The last document is kept (server-side only) until retention purges it. */
   private async writeDelete(table: string, rowId: string, row: ReplicaRow | null, rev: number) {
     if (row) {
-      await this.ctx.db.patch(row._id, { deleted: true, deletedAt: this.now, rev });
+      const buildIds = [...await this.buildIds(table, rowId, row.doc as Fields)];
+      const doc: Fields = { ...(row.doc as Fields), [REPLICA_CONFLICT_BUILD_IDS]: buildIds };
+      await this.ctx.db.patch(row._id, { doc, deleted: true, deletedAt: this.now, rev });
+      if (table === "workflowAttachments" && typeof doc.workflowItemId === "string") {
+        const attachments = this.deletedAttachments.get(doc.workflowItemId) ?? new Set<string>();
+        attachments.add(rowId);
+        this.deletedAttachments.set(doc.workflowItemId, attachments);
+      }
     } else {
       await this.ctx.db.insert("replicaRows", {
         userId: this.userId,

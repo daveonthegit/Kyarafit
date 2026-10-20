@@ -46,6 +46,175 @@ function assetIo(): ReplicaAssetIo {
 }
 
 describe("replica review regressions", () => {
+  it.each([[false, false], [true, false], [true, true]])("recovers acknowledged data deleted before its first pull (positive cursor=%s, existing edit=%s)", async (positiveCursor, editExisting) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, a, b, backend } = await setup();
+    if (positiveCursor) {
+      a.mutate("builds:create", { name: "Anchor", status: "idea" });
+      await a.sync();
+    }
+    const created = a.mutate<{ _id: string }>("builds:create", { name: "Acknowledged", status: "idea" });
+    if (editExisting) {
+      await a.sync();
+      a.mutate("builds:update", { id: created._id, notes: "Acknowledged edit" });
+    }
+    const priorRev = a.sql.getFirstSync<{ rev: number }>(
+      "SELECT rev FROM replica_state WHERE table_name = 'builds' AND row_id = ?", [created._id])?.rev;
+    const transport = backend.transport(a.net);
+    let acknowledgedRev = 0;
+    a.replicator.setTransport({
+      ...transport,
+      push: async (...args) => {
+        const result = await transport.push(...args);
+        acknowledgedRev = result.outcomes.find(outcome => outcome.opId === args[1][0].opId)!.rev;
+        a.net.online = false;
+        return result;
+      },
+    });
+    await a.sync();
+    expect(a.replicator.status).toBe("offline");
+    expect(a.replicator.pendingCount()).toBe(0);
+    const tracked = a.sql.getFirstSync<{ rev: number; unpulled_at: number | null }>(
+      "SELECT * FROM replica_state WHERE table_name = 'builds' AND row_id = ?", [created._id]);
+    expect(tracked?.rev).toBe(editExisting ? priorRev : acknowledgedRev);
+    expect(tracked?.unpulled_at).toEqual(expect.any(Number));
+    await b.sync();
+    b.mutate("builds:remove", { id: created._id });
+    await b.sync();
+    vi.setSystemTime(Date.now() + REPLICA_RETENTION_MS + 1);
+    await t.mutation(internal.replica.prune, {});
+    a.replicator.dispose();
+    let seq = 0;
+    let store: VaultStore;
+    const deviceNow = now() + REPLICA_RETENTION_MS + 1;
+    const reopened = new Replicator(a.sql, {
+      newOpId: () => `ack-op-${++seq}`, now: () => deviceNow,
+      onRowsChanged: () => store.reloadFromDisk(),
+    });
+    store = new VaultStore({ subject: "owner", sql: a.sql, now: () => deviceNow,
+      newId: () => `local:ack-restore-${++seq}`, onPersist: reopened.recordChanges });
+    a.net.online = true;
+    reopened.setTransport(backend.transport(a.net));
+    await reopened.sync();
+    expect(reopened.status).toBe("idle");
+    expect(store.reader().get(created._id)).toBeNull();
+    const change = listChangesNotApplied(a.sql, store.reader(), created._id).find(row => row.rowId === created._id)!;
+    expect(change).toMatchObject({ action: "restore-row", restorable: true, lost: { name: "Acknowledged" } });
+    if (editExisting) expect(change.lost.notes).toBe("Acknowledged edit");
+    expect((await t.run(ctx => ctx.db.query("replicaRows").collect())).some(row => row.rowId === created._id && !row.deleted)).toBe(false);
+    const restored = restoreChange(store, change);
+    await reopened.sync();
+    await b.sync();
+    expect(b.get(restored)?.name).toBe("Acknowledged");
+    expect(b.get(created._id)).toBeNull();
+  });
+
+  it("refreshes every committed page before edits can overwrite pulled fields or revive deleted rows", async () => {
+    const { a, b, backend } = await setup();
+    const kept = a.mutate<{ _id: string }>("builds:create", { name: "Old name", status: "idea" });
+    const gone = a.mutate<{ _id: string }>("builds:create", { name: "Gone", status: "idea" });
+    await settle(a, b);
+    a.store.commit(db => {
+      db.patch(kept._id, { name: "Remote name" });
+      db.delete(gone._id);
+      for (let i = 0; i < 501; i++) db.insert("builds", { userId: "owner", name: `Extra ${i}`, status: "idea" });
+    });
+    await a.sync();
+    const transport = backend.transport(b.net);
+    let entered!: () => void;
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => { entered = resolve; });
+    const resume = new Promise<void>(resolve => { release = resolve; });
+    let pages = 0;
+    b.replicator.setTransport({
+      ...transport,
+      pull: async (after, limit, snapshot) => {
+        if (limit > 1 && ++pages === 2) { entered(); await resume; }
+        return transport.pull(after, limit, snapshot);
+      },
+    });
+    const syncing = b.sync();
+    await waiting;
+    try {
+      expect(b.get(kept._id)?.name).toBe("Remote name");
+      expect(b.get(gone._id)).toBeNull();
+      b.mutate("builds:update", { id: kept._id, notes: "Local notes" });
+      expect(() => b.mutate("builds:update", { id: gone._id, notes: "Stale edit" })).toThrow();
+      const disk = b.sql.getFirstSync<{ json: string }>("SELECT json FROM entity_rows WHERE id = ?", [kept._id]);
+      expect(JSON.parse(disk!.json)).toMatchObject({ name: "Remote name", notes: "Local notes" });
+    } finally { release(); }
+    await syncing;
+    expect(b.get(kept._id)).toMatchObject({ name: "Remote name", notes: "Local notes" });
+    expect(b.get(gone._id)).toBeNull();
+    await settle(a, b);
+    expect(a.get(kept._id)).toMatchObject({ name: "Remote name", notes: "Local notes" });
+  });
+
+  it.each([false, true])("keeps deleted attachment and ancestor membership in conflict lists and restores (ancestor first=%s)", async ancestorFirst => {
+    const { a, b } = await setup();
+    const ids = seedSlice(a);
+    const other = a.mutate<{ _id: string }>("builds:create", { name: "Other build", status: "idea" });
+    const task = a.mutate<{ _id: string }>("workflow:create", {
+      title: "Shared task", attachments: [
+        { entityType: "build", entityId: ids.build }, { entityType: "build", entityId: other._id },
+      ],
+    });
+    await settle(a, b);
+    b.net.online = false;
+    b.mutate("workflow:update", { id: task._id, title: "Offline task edit" });
+    b.mutate("cosplayNodes:update", { id: ids.belt, name: "Offline belt edit" });
+    a.mutate("workflow:remove", { id: task._id });
+    a.store.commit(db => {
+      for (const id of ancestorFirst ? [ids.tunic, ids.belt] : [ids.belt, ids.tunic]) db.delete(id);
+    });
+    await a.sync();
+    b.net.online = true;
+    await settle(a, b);
+    expect(b.get(ids.build)).not.toBeNull();
+    expect(b.get(task._id)).toBeNull();
+    expect(b.get(ids.belt)).toBeNull();
+    expect(b.changes(ids.build).map(row => row.rowId)).toEqual(expect.arrayContaining([task._id, ids.belt]));
+    expect(b.changes(other._id).map(row => row.rowId)).toContain(task._id);
+    for (const buildId of [ids.build, other._id]) expect(countChangesNotApplied(b.sql, buildId)).toBe(b.changes(buildId).length);
+    const taskChange = b.changes(ids.build).find(row => row.rowId === task._id && row.kind === "edit-after-delete")!;
+    const restored = restoreChange(b.store, taskChange);
+    expect(b.get(restored)?.title).toBe("Offline task edit");
+    expect(b.get(restored)?.ancestorIds).toEqual([]);
+    expect(b.get(restored)).not.toHaveProperty("_replicaBuildIds");
+    const beltChange = b.changes(ids.build).find(row => row.rowId === ids.belt && row.kind === "edit-after-delete")!;
+    expect(beltChange.lost.name).toBe("Offline belt edit");
+    expect(beltChange.lost._replicaBuildIds).toContain(ids.build);
+  });
+  it("preserves local conflict membership when relationships are deleted earlier in a tombstone page", async () => {
+    const { a, b, backend } = await setup();
+    const ids = seedSlice(a);
+    await settle(a, b);
+    a.mutate("workflow:remove", { id: ids.task });
+    a.store.commit(db => { db.delete(ids.tunic); db.delete(ids.belt); });
+    await a.sync();
+    const transport = backend.transport(b.net);
+    let edited = false;
+    b.replicator.setTransport({
+      ...transport,
+      pull: async (after, limit, snapshot) => {
+        const page = await transport.pull(after, limit, snapshot);
+        if (!edited && limit > 1 && page.rows.some(row => row.rowId === ids.task && row.deleted)) {
+          edited = true;
+          b.mutate("workflow:update", { id: ids.task, title: "Edited during pull" });
+          b.mutate("cosplayNodes:update", { id: ids.belt, name: "Edited during pull" });
+        }
+        return page;
+      },
+    });
+    await b.sync();
+    expect(edited).toBe(true);
+    expect(b.replicator.pendingCount()).toBe(0);
+    expect(b.get(ids.task)).toBeNull();
+    expect(b.get(ids.belt)).toBeNull();
+    expect(b.changes(ids.build).filter(row => row.kind === "edit-after-delete").map(row => row.rowId)).toEqual(expect.arrayContaining([ids.task, ids.belt]));
+    expect(countChangesNotApplied(b.sql, ids.build)).toBe(b.changes(ids.build).length);
+  });
+
   it("migrates existing outbox entries without losing durable attempt timestamps on reopen", () => {
     const sql = new NodeSqliteDatabase();
     sql.execSync(`
@@ -56,14 +225,20 @@ describe("replica review regressions", () => {
         table_name TEXT NOT NULL, row_id TEXT NOT NULL, kind TEXT NOT NULL,
         fields_json TEXT, base_rev INTEGER NOT NULL
       );
+      CREATE TABLE replica_state (table_name TEXT NOT NULL, row_id TEXT NOT NULL, rev INTEGER NOT NULL,
+        PRIMARY KEY (table_name, row_id));
+      INSERT INTO replica_state VALUES ('builds', 'local:observed', 3);
     `);
     sql.runSync("INSERT INTO replica_outbox (op_id, table_name, row_id, kind, fields_json, base_rev) VALUES (?, ?, ?, ?, ?, ?)",
       ["pending", "builds", "local:kept", "put", JSON.stringify({ name: "Kept" }), 0]);
     migrateVaultSchema(sql, "owner");
     expect(sql.getFirstSync("SELECT * FROM replica_outbox")).toMatchObject({ op_id: "pending", attempted_at: null });
+    expect(sql.getFirstSync("SELECT * FROM replica_state")).toMatchObject({ row_id: "local:observed", unpulled_at: null });
     sql.runSync("UPDATE replica_outbox SET attempted_at = 123 WHERE op_id = 'pending'");
+    sql.runSync("UPDATE replica_state SET unpulled_at = 456");
     migrateVaultSchema(sql, "owner");
     expect(sql.getFirstSync("SELECT * FROM replica_outbox")).toMatchObject({ op_id: "pending", attempted_at: 123 });
+    expect(sql.getFirstSync("SELECT * FROM replica_state")).toMatchObject({ row_id: "local:observed", unpulled_at: 456 });
   });
 
   it.each([
@@ -201,7 +376,7 @@ describe("replica review regressions", () => {
     });
     await fresh.sync();
     expect(fresh.replicator.status).toBe("idle");
-    expect(pushes).toBe(2);
+    expect(pushes).toBe(1);
     expect(fresh.replicator.pendingCount()).toBe(0);
     expect(fresh.get(keep._id)?.name).toBe("Keep");
     expect(fresh.get(local._id)?.name).toBe("New");

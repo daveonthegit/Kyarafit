@@ -6,6 +6,7 @@ import {
   REPLICA_MAX_PULL_ROWS,
   REPLICA_MAX_PUSH_OPS,
   REPLICA_RETENTION_MS,
+  REPLICA_CONFLICT_BUILD_IDS,
   isReplicaTable,
   type ReplicaConflict,
   type ReplicaConflictKind,
@@ -103,7 +104,7 @@ export const pull = query({
     assertProtocol(protocol);
     const userId = await requireReplicaActor(ctx, subject);
     const head = await loadHead(ctx, userId);
-    if (!snapshot && after > 0 && after < (head?.floorRev ?? 0)) {
+    if (!snapshot && after < (head?.floorRev ?? 0)) {
       return { rows: [], conflicts: [], cursor: after, hasMore: false, resnapshot: true, generation: head?.generation ?? "initial" };
     }
     const take = Math.min(
@@ -132,7 +133,9 @@ export const pull = query({
     }
     return {
       rows: rows.map(({ table, rowId, doc, deleted, rev }) =>
-        deleted ? { table, rowId, deleted, rev } : { table, rowId, doc, deleted, rev }
+        deleted ? { table, rowId, deleted, rev, doc: {
+          [REPLICA_CONFLICT_BUILD_IDS]: (doc as Record<string, unknown>)[REPLICA_CONFLICT_BUILD_IDS] ?? [],
+        } } : { table, rowId, doc, deleted, rev }
       ),
       conflicts: conflicts.map((row): ReplicaConflict => ({
         id: row._id,

@@ -5,7 +5,7 @@ import type { VaultSql } from "@/vault/store";
  * `node:sqlite`. Versioned: each step is idempotent and guarded so re-running on an up-to-date file is
  * a no-op.
  */
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 export function migrateVaultSchema(db: VaultSql, subject: string): void {
   db.execSync(`
@@ -72,11 +72,12 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
       attempted_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS replica_outbox_row ON replica_outbox (table_name, row_id);
-    -- The server rev of each row this vault last pulled (an op's base revision).
+    -- The last acknowledged or pulled server rev of each row (an op's base revision).
     CREATE TABLE IF NOT EXISTS replica_state (
       table_name TEXT NOT NULL,
       row_id TEXT NOT NULL,
       rev INTEGER NOT NULL,
+      unpulled_at INTEGER,
       PRIMARY KEY (table_name, row_id)
     );
     -- "Changes that didn't apply", streamed from the server with the rows.
@@ -133,6 +134,13 @@ export function migrateVaultSchema(db: VaultSql, subject: string): void {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_outbox)");
     if (!columns.some(column => column.name === "attempted_at")) {
       db.execSync("ALTER TABLE replica_outbox ADD COLUMN attempted_at INTEGER");
+    }
+  }
+
+  if (v < 6) {
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(replica_state)");
+    if (!columns.some(column => column.name === "unpulled_at")) {
+      db.execSync("ALTER TABLE replica_state ADD COLUMN unpulled_at INTEGER");
     }
   }
 

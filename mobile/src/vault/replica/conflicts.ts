@@ -1,9 +1,11 @@
 import {
   REPLICA_META_FIELDS,
+  REPLICA_SYSTEM_FIELDS,
   replicaLinksFor,
   type ReplicaConflictKind,
 } from "@kyarafit/design-system/domain/replicaProtocol";
 import { withCreateMeta, withUpdateMeta } from "../handlers/lib/syncMeta";
+import { getWorkflowItemById, parentAncestorIds } from "../handlers/lib/workflowDomain";
 import type { VaultReader, VaultSql, VaultStore } from "../store";
 import { conflictBuildIds } from "./buildMembership";
 
@@ -41,7 +43,7 @@ const FULL_ROW_KINDS = new Set<ReplicaConflictKind>([
   "delete-over-unseen-edit",
   "orphan-removed",
 ]);
-const OMIT_ON_RESTORE = new Set(["_id", "_creationTime", ...REPLICA_META_FIELDS]);
+const OMIT_ON_RESTORE = new Set(["_creationTime", ...REPLICA_SYSTEM_FIELDS, ...REPLICA_META_FIELDS]);
 
 function labelOf(doc: Record<string, unknown> | null | undefined): string | null {
   for (const field of ["name", "title", "label", "note"]) {
@@ -67,6 +69,9 @@ function restorableRow(
     if (rule.onMissing === "unlink") delete row[rule.field];
     else return null;
   }
+  if (table === "workflowItems") row.ancestorIds = parentAncestorIds(
+    typeof row.parentId === "string" ? getWorkflowItemById({ db: reader }, row.parentId) : null
+  );
   return row;
 }
 
