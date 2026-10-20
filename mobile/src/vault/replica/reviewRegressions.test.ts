@@ -56,8 +56,10 @@ async function setup() {
     transport: (net) =>
       convexReplicaTransport(
         {
-          mutation: (ref, args) => actor.mutation(ref as never, args as never),
-          query: (ref, args) => actor.query(ref as never, args as never),
+          mutation: (ref, args) =>
+            (actor.mutation as unknown as (r: unknown, a: unknown) => Promise<unknown>)(ref, args),
+          query: (ref, args) =>
+            (actor.query as unknown as (r: unknown, a: unknown) => Promise<unknown>)(ref, args),
         },
         { subject: "owner", isOnline: () => net.online }
       ),
@@ -695,6 +697,8 @@ describe("replica review regressions", () => {
           })
         );
         await t.mutation(internal.tierTransition.purgeDowngradedCloudData, {});
+        // The purge schedules the new replica generation; run it as the scheduler would.
+        await t.mutation(internal.replica.startGeneration, { userId: "owner" });
         await t.run((ctx) => ctx.db.patch(user, { tier: "SUPPORTER", cloudPurgedAt: undefined }));
       };
       if (resetGeneration) await reset();
@@ -851,6 +855,8 @@ describe("replica review regressions", () => {
         ctx.db.patch(user, { tier: "FREE", downgradedAt: Date.now() - DOWNGRADE_RETENTION_MS - 1 })
       );
       await t.mutation(internal.tierTransition.purgeDowngradedCloudData, {});
+      // The purge schedules the new replica generation; run it as the scheduler would.
+      await t.mutation(internal.replica.startGeneration, { userId: "owner" });
       b.net.online = false;
       b.store.commit((db) => db.delete(id));
       await t.run((ctx) => ctx.db.patch(user, { tier: "SUPPORTER", cloudPurgedAt: undefined }));
@@ -1270,6 +1276,8 @@ describe("replica review regressions", () => {
       ctx.db.patch(user, { tier: "FREE", downgradedAt: Date.now() - DOWNGRADE_RETENTION_MS - 1 })
     );
     await t.mutation(internal.tierTransition.purgeDowngradedCloudData, {});
+    // The purge schedules the new replica generation; run it as the scheduler would.
+    await t.mutation(internal.replica.startGeneration, { userId: "owner" });
     await t.run((ctx) => ctx.db.patch(user, { tier: "SUPPORTER", cloudPurgedAt: undefined }));
     await a.sync();
     expect(a.get(ids.build)?.name).toBe("Zelda");

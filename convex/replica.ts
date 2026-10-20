@@ -13,7 +13,13 @@ import {
   type ReplicaPullResult,
   type ReplicaPushResult,
 } from "@kyarafit/design-system/domain/replicaProtocol";
-import { ReplicaWriter, assertProtocol, loadHead, requireReplicaActor } from "./lib/replicaStore";
+import {
+  ReplicaWriter,
+  assertProtocol,
+  loadHead,
+  requireReplicaActor,
+  startReplicaGeneration,
+} from "./lib/replicaStore";
 import { assertCanAttachStorage } from "./lib/storageOwnership";
 import { makeFunctionReference } from "convex/server";
 
@@ -291,5 +297,13 @@ export const prune = internalMutation({
     const more = [ops, tombstones, conflicts].some((batch) => batch.length === PRUNE_BATCH);
     if (more) await ctx.scheduler.runAfter(0, pruneNext, { now: args.now });
     return { ops: ops.length, tombstones: tombstones.length, conflicts: conflicts.length, more };
+  },
+});
+
+/** Scheduled by the downgrade purge once an account's replica rows are gone. */
+export const startGeneration = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    await startReplicaGeneration(ctx, userId);
   },
 });

@@ -80,8 +80,12 @@ export const REPLICA_META_FIELDS: ReadonlySet<string> = new Set([
   "ancestorIds",
 ]);
 
-/** Fields never carried in an op (the row id is the op's `rowId`). */
+/**
+ * Server bookkeeping kept on tombstones and conflict records: the builds a row belonged to, so a
+ * change still lists under its build after the links that placed it there are deleted.
+ */
 export const REPLICA_CONFLICT_BUILD_IDS = "_replicaBuildIds";
+/** Fields never carried in an op (the row id is the op's `rowId`). */
 export const REPLICA_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
   "_id",
   REPLICA_CONFLICT_BUILD_IDS,

@@ -567,17 +567,25 @@ export async function purgeAccountReplica(
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .collect();
   if (dryRun) return docs.length + assets.length;
-  const head = await loadHead(ctx, userId);
-  if (head)
-    await ctx.db.patch(head._id, {
-      generation: `${head._id}:${Date.now()}`,
-      floorRev: head.rev,
-      recoveredBuildId: undefined,
-    });
   for (const doc of docs) await ctx.db.delete(doc._id);
   for (const asset of assets) {
     await ctx.db.delete(asset._id);
     await cleanupStorageClaim(ctx, asset.imageStorageId);
   }
   return docs.length + assets.length;
+}
+
+/**
+ * Start a new replica generation after a purge: devices that synced the old generation see the
+ * change, drop their sync bookkeeping and upload their vault again. Kept out of the purge itself,
+ * which runs as a deletes-only cleanup mutation.
+ */
+export async function startReplicaGeneration(ctx: MutationCtx, userId: string): Promise<void> {
+  const head = await loadHead(ctx, userId);
+  if (!head) return;
+  await ctx.db.patch(head._id, {
+    generation: `${head._id}:${Date.now()}`,
+    floorRev: head.rev,
+    recoveredBuildId: undefined,
+  });
 }

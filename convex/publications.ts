@@ -95,14 +95,13 @@ export const publish = mutation({
               "notes",
               "imageUrl",
               "imageStorageId",
-              "imageRef",
               "imageFocalX",
               "imageFocalY",
               "budgetCents",
               "targetDate",
               "manualProgressPercent",
             ]
-          : ["location", "imageUrl", "imageStorageId", "imageRef", "archived"];
+          : ["location", "imageUrl", "imageStorageId", "archived"];
       for (const field of optional) if (!(field in fields)) fields[field] = undefined;
       await db.patch(
         existing._id,

@@ -21,6 +21,7 @@ describe("downgrade replica retention", () => {
           externalId: subject,
           email: `${subject}@example.invalid`,
           tier,
+          currentUsageMb: 0,
           downgradedAt: now - age,
         });
         ids[subject] = await ctx.db.insert("replicaRows", {

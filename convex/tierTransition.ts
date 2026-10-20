@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import { cleanupMutation } from "./lib/guardedMutation";
 import {
   DOWNGRADE_RETENTION_MS,
@@ -6,6 +7,18 @@ import {
 } from "@kyarafit/design-system/domain/tierTransition";
 import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import { purgeAccountReplica } from "./lib/replicaStore";
+
+/**
+ * Downgrade retention (DATA_AND_SYNC.md §10, REQ-D96/D97), daily cron. Purges the managed-sync row
+ * replica (and its photo blobs) of users who downgraded paid→free and stayed free past grace +
+ * freeze. Published copies are not personal sync data and stay: publishing is free for every tier.
+ * Never touches on-device data, which Convex cannot reach. Bounded by `limit`; idempotent through
+ * `cloudPurgedAt`; `dryRun` reports without deleting. Each purge schedules
+ * `replica:startGeneration`, so devices that synced the old replica upload their vault again.
+ */
+const startGeneration = makeFunctionReference<"mutation", { userId: string }>(
+  "replica:startGeneration"
+);
 
 export const purgeDowngradedCloudData = cleanupMutation({
   args: {
@@ -34,7 +47,10 @@ export const purgeDowngradedCloudData = cleanupMutation({
       )
         continue;
       rowsDeleted += await purgeAccountReplica(ctx, user.externalId, dryRun);
-      if (!dryRun) await ctx.db.patch(user._id, { cloudPurgedAt: now, downgradedAt: undefined });
+      if (!dryRun) {
+        await ctx.db.patch(user._id, { cloudPurgedAt: now, downgradedAt: undefined });
+        await ctx.scheduler.runAfter(0, startGeneration, { userId: user.externalId });
+      }
       usersPurged += 1;
       purgedUserIds.push(user.externalId);
     }

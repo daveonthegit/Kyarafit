@@ -373,7 +373,7 @@ describe("replica cross-row integrity", () => {
         expect.objectContaining({
           rowId: "local:p",
           kind: "orphan-recovered",
-          lost: { buildId: "local:later" },
+          lost: expect.objectContaining({ buildId: "local:later" }),
         }),
       ])
     );
@@ -515,6 +515,12 @@ describe("replica media", () => {
       ctx.db.patch(alice, { tier: "FREE", downgradedAt: now - DOWNGRADE_RETENTION_MS - 1 })
     );
     await t.mutation(internal.tierTransition.purgeDowngradedCloudData, { now });
+    const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled.map((job) => [job.name, job.args])).toContainEqual([
+      "replica:startGeneration",
+      [{ userId: "alice" }],
+    ]);
+    await t.mutation(internal.replica.startGeneration, { userId: "alice" });
     const left = await t.run(async (ctx) => ({
       rows: await ctx.db.query("replicaRows").collect(),
       heads: await ctx.db.query("replicaHeads").collect(),
