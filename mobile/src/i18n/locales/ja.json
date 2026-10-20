@@ -16,12 +16,10 @@
     "settings": "設定",
     "offlineBanner": "オフラインです — 変更はこの端末に保存されています。",
     "syncPendingCount": "同期待ちの変更が{{count}}件あります",
-    "syncFailedCount": "{{count}}件の変更を同期できませんでした",
     "syncNow": "今すぐ同期",
     "syncing": "同期中…",
     "lastSynced": "最終同期 {{time}}",
     "neverSynced": "まだ同期されていません",
-    "backingUp": "ライブラリをバックアップ中… {{done}}/{{total}}",
     "cloudGrace": "クラウドバックアップは{{date}}まで有効です",
     "cloudFrozen": "クラウドバックアップは凍結中 — 同期を続けるには再登録してください（{{date}}に削除されます）",
     "cloudPurgeable": "クラウドバックアップの期限切れ — 同期を復元するには再登録してください",
@@ -1195,5 +1193,54 @@
     "sessionExpired": "オンラインの Kyarafit からサインアウトされています。プランナーはこの端末でそのまま使えます。",
     "sessionExpiredAction": "同期とオンライン機能を使うには、もう一度サインインしてください",
     "sessionExpiredHint": "サインイン画面を開きます"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "同期を続けるには再度サインインしてください。変更はこの端末に保存されています。",
+      "notEntitled": "このアカウントで Kyarafit Cloud が有効でないため、同期を停止しています。変更はこの端末に保存されています。",
+      "offline": "オフラインです。再接続すると変更が同期されます。",
+      "retrying": "同期中に問題が発生しました。自動で再試行します。"
+    },
+    "changes": {
+      "title": "反映されなかった変更",
+      "intro": "別の端末が先に変更または削除しました。あなたの内容はここに保存されています。新しい編集として戻すか、閉じてください。",
+      "introBuild": "{{name}} 内。別の端末が先に変更または削除しました。あなたの内容はここに保存されています。新しい編集として戻すか、閉じてください。",
+      "reviewCount_one": "反映されなかった変更 {{count}} 件を確認",
+      "reviewCount_other": "反映されなかった変更 {{count}} 件を確認",
+      "buildBanner_one": "{{count}} 件の変更が反映されませんでした",
+      "buildBanner_other": "{{count}} 件の変更が反映されませんでした",
+      "review": "確認",
+      "openHint": "反映されなかった変更の一覧を開きます",
+      "emptyTitle": "確認するものはありません",
+      "emptyBody": "すべての変更がそのまま同期されました。",
+      "untitled": "無題の項目",
+      "emptyValue": "（空）",
+      "yes": "はい",
+      "no": "いいえ",
+      "useMine": "自分の内容を使う",
+      "restoreAsNew": "新規として復元",
+      "dismiss": "閉じる",
+      "acknowledge": "了解",
+      "openBuild": "ビルドを開く",
+      "restoreFailed": "この変更を復元できませんでした。",
+      "goneItem": "この項目はもう存在しないため、復元できません。",
+      "goneParent": "所属先が削除されたため、復元できません。",
+      "kind": {
+        "concurrent": "別の端末で変更",
+        "editAfterDelete": "削除後に編集",
+        "deletedWithEdits": "新しい編集ごと削除",
+        "recovered": "Recovered に移動",
+        "unlinked": "リンク解除",
+        "removed": "親と一緒に削除"
+      },
+      "explain": {
+        "concurrent": "別の端末が先に別の値を保存しました。あなたの値は下にあります。",
+        "editAfterDelete": "別の端末で削除された後にこの項目を編集しました。",
+        "deletedWithEdits": "あなたの最新の編集が届く前に、別の端末がこの項目を削除しました。",
+        "recovered": "ビルドが別の端末で削除されたため、Recovered ビルドに保存しました。",
+        "unlinked": "つながっていた項目が別の端末で削除されました。ライブラリには残っています。",
+        "removed": "所属先が別の端末で削除されました。"
+      }
+    }
   }
 }

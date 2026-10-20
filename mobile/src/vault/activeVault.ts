@@ -13,7 +13,9 @@ import {
   type VaultAccount,
 } from "./account";
 import { vaultImageCodec, vaultImageDir } from "./images";
-import { VaultStore } from "./store";
+import { recordPublicationRemovals } from "./publications";
+import { Replicator } from "./replica/replicator";
+import { VaultStore, type VaultSql } from "./store";
 
 /**
  * Lifecycle of the one unlocked vault.
@@ -31,6 +33,8 @@ export type VaultState =
 
 let state: VaultState = { status: "booting" };
 let store: VaultStore | null = null;
+let replicator: Replicator | null = null;
+let vaultSql: VaultSql | null = null;
 let storeUnsubscribe: (() => void) | null = null;
 let dataVersion = 0;
 const listeners = new Set<() => void>();
@@ -66,6 +70,16 @@ export function getActiveVault(): VaultStore | null {
   return store;
 }
 
+/** The unlocked vault's managed-sync replicator (idle and disabled for free vaults). */
+export function getActiveReplicator(): Replicator | null {
+  return replicator;
+}
+
+/** The unlocked vault's database, for vault-scoped bookkeeping outside the store. */
+export function getActiveVaultSql(): VaultSql | null {
+  return vaultSql;
+}
+
 export function requireActiveVault(expected: VaultStore | null = store): VaultStore {
   if (store !== expected)
     throw new Error("The active account changed. Reopen this screen and try again.");
@@ -80,26 +94,41 @@ export function activeVaultImageDir(): string | null {
   return vaultImageDir(docs, vaultKeyForSubject(store.subject));
 }
 
-function openStore(account: VaultAccount): VaultStore {
+type OpenVault = { store: VaultStore; replicator: Replicator; sql: VaultSql };
+
+function openStore(account: VaultAccount): OpenVault {
   const sql = openVaultDatabase(account.subject);
   const docs = FileSystem.documentDirectory ?? "";
+  let opened: VaultStore | null = null;
+  const sync = new Replicator(sql, {
+    newOpId: newClientId,
+    onRowsChanged: () => opened?.reloadFromDisk(),
+  });
   const next = new VaultStore({
     subject: account.subject,
     sql,
     newId: newClientId,
     codec: vaultImageCodec(vaultImageDir(docs, vaultKeyForSubject(account.subject))),
+    onPersist: (tx, changes) => {
+      sync.recordChanges(tx, changes);
+      recordPublicationRemovals(tx, changes);
+    },
   });
+  opened = next;
   if (next.corruptRowCount > 0) {
     console.warn(`[vault] ${next.corruptRowCount} unreadable rows were left untouched on disk`);
   }
-  return next;
+  return { store: next, replicator: sync, sql };
 }
 
-function attach(next: VaultStore | null): void {
+function attach(next: OpenVault | null): void {
   storeUnsubscribe?.();
   storeUnsubscribe = null;
-  store = next;
-  if (next) storeUnsubscribe = next.subscribe(notify);
+  replicator?.dispose();
+  store = next?.store ?? null;
+  replicator = next?.replicator ?? null;
+  vaultSql = next?.sql ?? null;
+  if (next) storeUnsubscribe = next.store.subscribe(notify);
 }
 
 /**
@@ -192,8 +221,18 @@ export function lockVault(): Promise<void> {
 }
 
 /** Test seam: install a store directly (no SQLite file / AsyncStorage). */
-export function __setActiveVaultForTests(next: VaultStore | null, account?: VaultAccount): void {
-  attach(next);
+export function __setActiveVaultForTests(
+  next: VaultStore | null,
+  account?: VaultAccount,
+  extra?: { replicator?: Replicator; sql?: VaultSql }
+): void {
+  storeUnsubscribe?.();
+  storeUnsubscribe = null;
+  replicator?.dispose();
+  store = next;
+  replicator = extra?.replicator ?? null;
+  vaultSql = extra?.sql ?? null;
+  if (next) storeUnsubscribe = next.subscribe(notify);
   state = next
     ? { status: "unlocked", account: account ?? { subject: next.subject, lastVerifiedAt: 0 } }
     : { status: "locked" };

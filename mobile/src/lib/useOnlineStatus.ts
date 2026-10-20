@@ -11,7 +11,7 @@ function isOnlineFromState(state: NetInfoState): boolean {
  *
  * Online-only surfaces (social, groups, billing — REQ-082/101) use this to decide whether to show
  * an offline banner. Seeds from the shared `getIsOnline()` flag so the first paint matches whatever
- * the `SyncWorkerProvider` NetInfo listener has already recorded, then keeps both the local React
+ * the `ReplicaProvider` NetInfo listener has already recorded, then keeps both the local React
  * state and the shared flag in sync as connectivity changes. We never gate local-first work on this.
  */
 export function useOnlineStatus(): boolean {

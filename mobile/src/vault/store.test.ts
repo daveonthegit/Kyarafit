@@ -77,42 +77,42 @@ describe("VaultStore", () => {
     expect(sql.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM entity_rows")?.c).toBe(1);
   });
 
-  it("rolls back the entity rows when the replication intent cannot be queued", () => {
-    const sql = new NodeSqliteDatabase();
-    const { store } = makeTestVault({ sql });
-    sql.failNextWrite = (source) => source.includes("INSERT INTO mutation_queue");
-    expect(() =>
-      store.commit(
-        (db) => db.insert("builds", { name: "X", status: "idea" }),
-        (id) => ({ fn: "builds:create", args: { name: "X" }, idempotencyKey: "k1", clientId: id })
-      )
-    ).toThrow(VaultWriteError);
+  it("rolls back the entity rows when the persist hook fails", () => {
+    const { store, sql } = makeTestVault({
+      onPersist: () => {
+        throw new Error("outbox full");
+      },
+    });
+    expect(() => store.commit((db) => db.insert("builds", { name: "X", status: "idea" }))).toThrow(
+      VaultWriteError
+    );
     expect(sql.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM entity_rows")?.c).toBe(0);
     expect(store.reader().query("builds").collect()).toEqual([]);
   });
 
-  it("records the replication intent in the same transaction as the rows it covers", () => {
-    const { store, sql } = makeTestVault();
-    const id = store.commit(
-      (db) => db.insert("builds", { name: "X", status: "idea" }),
-      (newId, touched) => ({
-        fn: "builds:create",
-        args: { name: "X" },
-        idempotencyKey: "k1",
-        clientId: newId,
-      })
-    );
-    const row = sql.getFirstSync<{ fn: string; client_id: string; touched_json: string }>(
-      "SELECT fn, client_id, touched_json FROM mutation_queue"
-    );
-    expect(row).toEqual({
-      fn: "builds:create",
-      client_id: id,
-      touched_json: JSON.stringify([["builds", id]]),
+  it("hands every changed row to the persist hook inside the commit's transaction", () => {
+    const seen: { table: string; id: string; before: unknown; after: unknown; rows: number }[] = [];
+    const { store } = makeTestVault({
+      onPersist: (tx, changes) => {
+        const rows =
+          tx.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM entity_rows")?.c ?? 0;
+        for (const change of changes) seen.push({ ...change, rows });
+      },
     });
+    const id = store.commit((db) => db.insert("builds", { name: "X", status: "idea" }));
+    store.commit((db) => db.patch(id, { name: "Y" }));
+    store.commit((db) => db.delete(id));
+    expect(seen.map(({ table, id: rowId, rows }) => [table, rowId, rows])).toEqual([
+      ["builds", id, 1],
+      ["builds", id, 1],
+      ["builds", id, 0],
+    ]);
+    expect(seen[0]).toMatchObject({ before: null, after: { name: "X", _id: id } });
+    expect(seen[1]).toMatchObject({ before: { name: "X" }, after: { name: "Y" } });
+    expect(seen[2]).toMatchObject({ before: { name: "Y" }, after: null });
   });
 
-  it("hard-deletes never-replicated local rows and tombstones rows the cloud may hold", () => {
+  it("deletes rows outright: deletes travel to the cloud as sync ops, not tombstones", () => {
     const { store, sql } = makeTestVault();
     const local = store.commit((db) => db.insert("builds", { name: "local", status: "idea" }));
     sql.runSync(
@@ -125,10 +125,7 @@ describe("VaultStore", () => {
       db.delete("srv1");
     });
     expect(store.reader().query("builds").collect()).toEqual([]);
-    const rows = sql.getAllSync<{ id: string; deleted: number; synced_at: number | null }>(
-      "SELECT id, deleted, synced_at FROM entity_rows ORDER BY id"
-    );
-    expect(rows).toEqual([{ id: "srv1", deleted: 1, synced_at: null }]);
+    expect(sql.getFirstSync<{ c: number }>("SELECT COUNT(*) AS c FROM entity_rows")?.c).toBe(0);
   });
 
   it("survives close and reopen: the vault on disk is the source of truth", () => {

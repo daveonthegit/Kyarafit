@@ -4,6 +4,8 @@ import { mutation } from "./lib/guardedMutation";
 import { requireIdentity } from "./lib/authz";
 import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import { prepareBackfillRow, validateBackfillBatch } from "./lib/backfillValidation";
+import { deleteOwnedBuild } from "./builds";
+import { deleteOwnedConvention } from "./conventions";
 
 /**
  * Explicit publication of vault rows (DATA_AND_SYNC.md §6.4).
@@ -74,5 +76,32 @@ export const publish = mutation({
     }
     const id = await db.insert(table, withCreateMeta({ ...fields, clientId, userId }));
     return { id: id as Id<Publishable> };
+  },
+});
+
+/**
+ * Remove a published copy whose vault row was deleted. Idempotent: a copy that is already gone (or
+ * was never this account's) reports `removed: false` instead of failing, so a device can retry a
+ * queued removal safely.
+ */
+export const unpublish = mutation({
+  args: {
+    table: v.union(v.literal("builds"), v.literal("conventions")),
+    serverId: v.string(),
+  },
+  handler: async (ctx, { table, serverId }): Promise<{ removed: boolean }> => {
+    const userId = await requireIdentity(ctx);
+    if (table === "builds") {
+      const id = ctx.db.normalizeId("builds", serverId);
+      const build = id ? await ctx.db.get(id) : null;
+      if (!build || build.userId !== userId) return { removed: false };
+      await deleteOwnedBuild(ctx, userId, build);
+      return { removed: true };
+    }
+    const id = ctx.db.normalizeId("conventions", serverId);
+    const convention = id ? await ctx.db.get(id) : null;
+    if (!convention || convention.userId !== userId) return { removed: false };
+    await deleteOwnedConvention(ctx, userId, convention);
+    return { removed: true };
   },
 });

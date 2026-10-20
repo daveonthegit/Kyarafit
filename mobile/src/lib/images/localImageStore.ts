@@ -4,7 +4,7 @@
  * Every photo the user attaches is first copied into the vault's own directory
  * (`<documents>/vaults/<vaultKey>/images/<imageKey>`) and the entity stores that durable `file://`
  * URI — never a picker cache path and never an upload result. This is what makes photo flows work
- * offline for everyone; only the paid sync worker later mirrors local photos to the cloud.
+ * offline for everyone; only managed sync later uploads photo bytes to Kyarafit Cloud.
  *
  * Vault documents persist photos as portable `kyarafit-image:<imageKey>` tokens (see
  * `@/vault/images`), so the same data survives an iOS container move and travels in exports.

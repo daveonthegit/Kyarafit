@@ -1007,56 +1007,62 @@ export const remove = mutation({
     if (!build || build.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await subtractUsageForStorageId(ctx, actorId, build.imageStorageId);
-    const refImages = await ctx.db
-      .query("buildReferenceImages")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const r of refImages) {
-      await subtractUsageForStorageId(ctx, actorId, r.imageStorageId);
-    }
-    const processPics = await ctx.db
-      .query("buildProcessPictures")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const p of processPics) {
-      await subtractUsageForStorageId(ctx, actorId, p.imageStorageId);
-    }
-    // Cascade: delete legacy tasks, workflow attachments/items, root links, and build-node states.
-    const tasks = await ctx.db
-      .query("buildTasks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const t of tasks) await ctx.db.delete(t._id);
-    const workflowAttachments = (
-      await ctx.db
-        .query("workflowAttachments")
-        .withIndex("by_userId", (q) => q.eq("userId", actorId))
-        .collect()
-    ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === args.id);
-    for (const attachment of workflowAttachments) {
-      const workflowItem = await ctx.db.get(attachment.workflowItemId);
-      await ctx.db.delete(attachment._id);
-      if (workflowItem?.scopeKind === "build_specific") {
-        await ctx.db.delete(workflowItem._id);
-      }
-    }
-
-    // Step 2c: build membership lives on the node. Deleting a build returns its nodes to the library
-    // (clear buildId), preserving the prior behavior where nodes survived build deletion.
-    const buildNodes = await ctx.db
-      .query("cosplayNodes")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.id))
-      .collect();
-    for (const n of buildNodes) {
-      await ctx.db.patch(n._id, withUpdateMeta(n, { buildId: undefined }));
-    }
-
-    for (const r of refImages) await ctx.db.delete(r._id);
-    for (const p of processPics) await ctx.db.delete(p._id);
-    await ctx.db.delete(args.id);
+    await deleteOwnedBuild(ctx, actorId, build);
   },
 });
+
+/** Delete an owned build and its cascade (tasks, attachments, photos; elements are unlinked). */
+export async function deleteOwnedBuild(ctx: MutationCtx, actorId: string, build: Doc<"builds">) {
+  const buildId = build._id;
+  await subtractUsageForStorageId(ctx, actorId, build.imageStorageId);
+  const refImages = await ctx.db
+    .query("buildReferenceImages")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  for (const r of refImages) {
+    await subtractUsageForStorageId(ctx, actorId, r.imageStorageId);
+  }
+  const processPics = await ctx.db
+    .query("buildProcessPictures")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  for (const p of processPics) {
+    await subtractUsageForStorageId(ctx, actorId, p.imageStorageId);
+  }
+  // Cascade: delete legacy tasks, workflow attachments/items, root links, and build-node states.
+  const tasks = await ctx.db
+    .query("buildTasks")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  for (const t of tasks) await ctx.db.delete(t._id);
+  const workflowAttachments = (
+    await ctx.db
+      .query("workflowAttachments")
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
+      .collect()
+  ).filter((attachment) => attachment.entityType === "build" && attachment.entityId === buildId);
+  for (const attachment of workflowAttachments) {
+    const workflowItem = await ctx.db.get(attachment.workflowItemId);
+    await ctx.db.delete(attachment._id);
+    if (workflowItem?.scopeKind === "build_specific") {
+      await ctx.db.delete(workflowItem._id);
+    }
+  }
+
+  // Step 2c: build membership lives on the node. Deleting a build returns its nodes to the library
+  // (clear buildId), preserving the prior behavior where nodes survived build deletion.
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
+    .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
+    .collect();
+  for (const n of buildNodes) {
+    await ctx.db.patch(n._id, withUpdateMeta(n, { buildId: undefined }));
+  }
+
+  for (const r of refImages) await ctx.db.delete(r._id);
+  for (const p of processPics) await ctx.db.delete(p._id);
+  await ctx.db.delete(buildId);
+}
 
 /** Delete multiple builds (cascade tasks + links). Authorized per build. */
 export const removeMany = mutation({

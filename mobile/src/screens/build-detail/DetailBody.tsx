@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useOnlineId } from "@/vault/hooks";
+import { useOnlineId, usePublishVaultRow } from "@/vault/hooks";
 import { runLocalMutations } from "@/vault/functions";
+import { useChangesNotApplied } from "@/vault/replica/hooks";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -195,7 +196,9 @@ function SheetGrip() {
 }
 
 export function BuildDetailBody(props: Props) {
+  const publishVaultRow = usePublishVaultRow();
   const onlineBuildId = useOnlineId(props.buildId);
+  const changesNotApplied = useChangesNotApplied(props.buildId).length;
   const saveLocalImage = useSaveLocalImage();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -644,13 +647,15 @@ export function BuildDetailBody(props: Props) {
 
   const handleSendCollaboratorInvite = useCallback(async () => {
     const email = inviteEmail.trim();
-    if (!email || invitePending || !onlineBuildId) return;
+    if (!email || invitePending) return;
     setInvitePending(true);
     setInviteError(null);
     setInviteFeedback(null);
     try {
+      // Sharing is an explicit publish: refresh (or create) the build's server copy first.
+      const sharedBuildId = (await publishVaultRow("builds", buildId)) as Id<"builds">;
       await addCollaboratorByEmail({
-        buildId: onlineBuildId,
+        buildId: sharedBuildId,
         ownerId: userId,
         email,
         role: inviteRole,
@@ -662,7 +667,16 @@ export function BuildDetailBody(props: Props) {
     } finally {
       setInvitePending(false);
     }
-  }, [addCollaboratorByEmail, onlineBuildId, inviteEmail, invitePending, inviteRole, t, userId]);
+  }, [
+    addCollaboratorByEmail,
+    buildId,
+    publishVaultRow,
+    inviteEmail,
+    invitePending,
+    inviteRole,
+    t,
+    userId,
+  ]);
 
   const confirmRemoveCollaborator = useCallback(
     (collaboratorUserId: string) => {
@@ -1221,6 +1235,34 @@ export function BuildDetailBody(props: Props) {
                   />
                 ) : null}
               </View>
+
+              {changesNotApplied > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityHint={t("sync.changes.openHint")}
+                  onPress={() => router.push(APP_HREF.syncChanges(buildId))}
+                  style={{
+                    minHeight: 44,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    borderRadius: 10,
+                    borderWidth: borderWidth.hairline,
+                    borderColor: glass.border.divider,
+                    backgroundColor: glass.surface.field,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <Ionicons name="git-compare-outline" size={18} color={glass.text.fg} />
+                  <GlassBody size={13} tone="fg" style={{ minWidth: 0, flex: 1 }}>
+                    {t("sync.changes.buildBanner", { count: changesNotApplied })}
+                  </GlassBody>
+                  <GlassMeta size={9} tone="fg70">
+                    {t("sync.changes.review")}
+                  </GlassMeta>
+                </Pressable>
+              ) : null}
 
               {summaryMetrics.length > 0 ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

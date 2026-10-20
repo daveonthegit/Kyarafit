@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { hasPaidAccess } from "@kyarafit/design-system/domain/accessPolicy";
@@ -6,6 +7,8 @@ import {
   REPLICA_PROTOCOL_VERSION,
   replicaLinksFor,
   type ReplicaConflictKind,
+  type ReplicaErrorCode,
+  type ReplicaErrorData,
   type ReplicaLinkRule,
   type ReplicaOp,
   type ReplicaOpStatus,
@@ -25,9 +28,13 @@ type ReplicaRow = Doc<"replicaRows">;
 /** Writes made by the server itself (integrity repairs, the Recovered build). */
 export const SERVER_DEVICE = "server";
 
+export function replicaError(code: ReplicaErrorCode, message: string) {
+  return new ConvexError<ReplicaErrorData>({ code, message });
+}
+
 export function assertProtocol(protocol: number): void {
   if (protocol !== REPLICA_PROTOCOL_VERSION) {
-    throw new Error("Unsupported sync protocol. Update the app to keep syncing.");
+    throw replicaError("protocol", "Unsupported sync protocol. Update the app to keep syncing.");
   }
 }
 
@@ -39,13 +46,20 @@ export async function requireReplicaActor(
   ctx: QueryCtx | MutationCtx,
   subject: string
 ): Promise<string> {
-  const userId = await requireIdentity(ctx);
-  if (subject !== userId) throw new Error("Unauthorized: the signed-in account changed");
+  let userId: string;
+  try {
+    userId = await requireIdentity(ctx);
+  } catch {
+    throw replicaError("unauthorized", "Unauthorized: sign in again to sync");
+  }
+  if (subject !== userId)
+    throw replicaError("unauthorized", "Unauthorized: the signed-in account changed");
   const user = await ctx.db
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", userId))
     .unique();
-  if (!hasPaidAccess(user?.tier, user?.role)) throw new Error("Sync requires Kyarafit Cloud");
+  if (!hasPaidAccess(user?.tier, user?.role))
+    throw replicaError("not-entitled", "Sync requires Kyarafit Cloud");
   return userId;
 }
 

@@ -16,12 +16,10 @@
     "settings": "Settings",
     "offlineBanner": "Offline — your changes are saved on this device.",
     "syncPendingCount": "{{count}} pending changes waiting to sync",
-    "syncFailedCount": "{{count}} change(s) failed to sync",
     "syncNow": "Sync now",
     "syncing": "Syncing…",
     "lastSynced": "Last synced {{time}}",
     "neverSynced": "Not synced yet",
-    "backingUp": "Backing up your library… {{done}}/{{total}}",
     "cloudGrace": "Cloud backup active until {{date}}",
     "cloudFrozen": "Cloud backup frozen — resubscribe to keep syncing (removed {{date}})",
     "cloudPurgeable": "Cloud backup expired — resubscribe to restore syncing",
@@ -1195,5 +1193,54 @@
     "sessionExpired": "You're signed out of Kyarafit online. Your planner still works here.",
     "sessionExpiredAction": "Sign in again to sync and use online features",
     "sessionExpiredHint": "Opens sign in"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "Sign in again to keep syncing. Your changes are saved on this device.",
+      "notEntitled": "Sync is paused because Kyarafit Cloud isn't active on this account. Your changes are saved on this device.",
+      "offline": "You're offline. Changes will sync when you reconnect.",
+      "retrying": "Sync hit a problem and will retry automatically."
+    },
+    "changes": {
+      "title": "Changes that didn't apply",
+      "intro": "Another device changed or deleted these first. Your version is kept here: bring it back as a new edit, or dismiss it.",
+      "introBuild": "In {{name}}. Another device changed or deleted these first. Your version is kept here: bring it back as a new edit, or dismiss it.",
+      "reviewCount_one": "Review {{count}} change that didn't apply",
+      "reviewCount_other": "Review {{count}} changes that didn't apply",
+      "buildBanner_one": "{{count}} change didn't apply",
+      "buildBanner_other": "{{count}} changes didn't apply",
+      "review": "Review",
+      "openHint": "Opens the list of changes that didn't apply",
+      "emptyTitle": "Nothing to review",
+      "emptyBody": "Every change synced the way it was made.",
+      "untitled": "Untitled item",
+      "emptyValue": "(empty)",
+      "yes": "Yes",
+      "no": "No",
+      "useMine": "Use my version",
+      "restoreAsNew": "Restore as new",
+      "dismiss": "Dismiss",
+      "acknowledge": "Got it",
+      "openBuild": "Open build",
+      "restoreFailed": "Couldn't restore this change.",
+      "goneItem": "This item no longer exists, so there is nothing to restore it onto.",
+      "goneParent": "What this belonged to was deleted, so it can't come back.",
+      "kind": {
+        "concurrent": "Changed on another device",
+        "editAfterDelete": "Edited after it was deleted",
+        "deletedWithEdits": "Deleted with newer edits",
+        "recovered": "Moved to Recovered",
+        "unlinked": "Unlinked",
+        "removed": "Removed with its parent"
+      },
+      "explain": {
+        "concurrent": "Another device saved a different value first. Your value is below.",
+        "editAfterDelete": "You edited this after another device deleted it.",
+        "deletedWithEdits": "Another device deleted this before your latest edits reached it.",
+        "recovered": "Its build was deleted on another device, so it was kept in the Recovered build.",
+        "unlinked": "What it was attached to was deleted on another device. It is still in your library.",
+        "removed": "What it belonged to was deleted on another device."
+      }
+    }
   }
 }

@@ -9,6 +9,16 @@
 
 export const REPLICA_PROTOCOL_VERSION = 1;
 
+/**
+ * Typed failure codes (carried as `ConvexError` data, which production deployments do not redact)
+ * so a device can tell "sign in again" and "not on Kyarafit Cloud" apart from a server fault.
+ */
+export type ReplicaErrorCode = "unauthorized" | "not-entitled" | "protocol";
+export type ReplicaErrorData = {
+  code: ReplicaErrorCode;
+  message: string;
+};
+
 /** Vault tables that replicate (everything but device-local settings). */
 export const REPLICA_TABLES = [
   "builds",

@@ -1,10 +1,6 @@
-import { newIdempotencyKey } from "@/offline/idempotencyKey";
-import { isCreateMutation } from "@/offline/offlineCreateMutations";
 import { getActiveVault, requireActiveVault } from "./activeVault";
-import { toPortableImageRefs } from "./images";
-import { isReplicationEnabled, requestReplication } from "./replication";
-import { VaultWriteError, type VaultStore, type ReplicationIntent } from "./store";
-import { LOCAL_MUTATIONS, LOCAL_QUERIES, DEVICE_LOCAL_MUTATIONS } from "./handlers";
+import { VaultWriteError, type VaultStore } from "./store";
+import { LOCAL_MUTATIONS, LOCAL_QUERIES } from "./handlers";
 
 /**
  * The seam between screens and personal data.
@@ -12,8 +8,8 @@ import { LOCAL_MUTATIONS, LOCAL_QUERIES, DEVICE_LOCAL_MUTATIONS } from "./handle
  * Screens still name a function (`api.builds.list`) because that is how the existing UI addresses
  * data, but for every personal-data function registered here the name is only a command key: the
  * local handler runs against the unlocked vault and NO Convex call is made — online or offline,
- * free or paid. Paid sync, when enabled, records a durable replication intent inside the same
- * SQLite transaction and the sync worker replays it later.
+ * free or paid. Managed sync, when enabled, records the changed rows in its outbox inside the same
+ * SQLite transaction (the vault's `onPersist` hook) and replicates them later.
  */
 
 export function hasLocalQuery(fn: string): boolean {
@@ -45,18 +41,9 @@ export function onVaultWriteError(listener: (error: VaultWriteError) => void): (
   };
 }
 
-function createdId(result: unknown): string | undefined {
-  if (typeof result === "string") return result;
-  if (result !== null && typeof result === "object" && "_id" in result) {
-    const id = (result as { _id: unknown })._id;
-    return typeof id === "string" ? id : undefined;
-  }
-  return undefined;
-}
-
 /**
  * Run a personal-data command against the vault. Resolves only after the change (and, for paid
- * vaults, its replication intent) is durably committed; rejects with the handler's own error for
+ * vaults, its sync outbox ops) is durably committed; rejects with the handler's own error for
  * invalid input, or with `VaultWriteError` when the device could not persist it. Never resolves a
  * placeholder for an unsaved write.
  */
@@ -78,33 +65,17 @@ export function runLocalMutations(
   expectedVault: VaultStore | null = getActiveVault()
 ): unknown[] {
   const vault = requireActiveVault(expectedVault);
-  const intents: ReplicationIntent[] = [];
-  const replicate = isReplicationEnabled();
   try {
-    const results = vault.commit(
-      (db) => {
-        const results: unknown[] = [];
-        for (const step of steps) {
-          const handler = LOCAL_MUTATIONS[step.fn];
-          if (!handler) throw new Error(`No local mutation registered for ${step.fn}`);
-          const args = asArgs(typeof step.args === "function" ? step.args(results) : step.args);
-          const result = handler({ db, userId: vault.subject, now: Date.now() }, args);
-          results.push(result);
-          if (replicate && !DEVICE_LOCAL_MUTATIONS.has(step.fn)) {
-            intents.push({
-              fn: step.fn,
-              args: toPortableImageRefs(args),
-              idempotencyKey: newIdempotencyKey(),
-              clientId: isCreateMutation(step.fn) ? createdId(result) : undefined,
-            });
-          }
-        }
-        return results;
-      },
-      () => intents
-    );
-    if (intents.length > 0) requestReplication();
-    return results;
+    return vault.commit((db) => {
+      const results: unknown[] = [];
+      for (const step of steps) {
+        const handler = LOCAL_MUTATIONS[step.fn];
+        if (!handler) throw new Error(`No local mutation registered for ${step.fn}`);
+        const args = asArgs(typeof step.args === "function" ? step.args(results) : step.args);
+        results.push(handler({ db, userId: vault.subject, now: Date.now() }, args));
+      }
+      return results;
+    });
   } catch (error) {
     if (error instanceof VaultWriteError) {
       for (const listener of writeErrorListeners) listener(error);

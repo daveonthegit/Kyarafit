@@ -2,9 +2,9 @@ import * as Crypto from "expo-crypto";
 import { LOCAL_ID_PREFIX } from "@kyarafit/design-system/domain/offlineIdMap";
 
 /**
- * Mint a temporary, locally-unique id for an entity created offline (blueprint §3.13.3). The
- * `local:` prefix marks it as not-yet-synced so the sync worker can rewrite references to it once
- * the create replays and the server returns the real document id (see `./idMap`, `offlineIdMap`).
+ * Mint a globally unique id for a vault row. The id is permanent: managed sync replicates the row
+ * under this same id (no server ids, no id map), and a published server copy is mapped to it in
+ * `id_map` (see `@/vault/publications`).
  */
 export function newClientId(): string {
   try {

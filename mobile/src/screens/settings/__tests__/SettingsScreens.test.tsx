@@ -106,7 +106,6 @@ vi.mock("@/ui", () => ({
 vi.mock("@/offline", async () => {
   const { getFunctionName } = await import("convex/server");
   return {
-    usePendingQueueCount: () => state.pending,
     // Identity comes from the vault hook too; every other read returns the fixture rows.
     useOfflineQuery: (query: never, args?: unknown) =>
       getFunctionName(query) === "auth:getCurrentUser"
@@ -117,6 +116,15 @@ vi.mock("@/offline", async () => {
     useOfflineMutation: () => state.create,
   };
 });
+vi.mock("@/vault/replica/hooks", () => ({
+  useReplicaSummary: () => ({
+    enabled: true,
+    status: "idle",
+    pending: state.pending,
+    lastSyncedAt: null,
+    changes: 0,
+  }),
+}));
 vi.mock("@/offline/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/offline/db")>()),
   deleteVaultDatabase: state.deleteVault,

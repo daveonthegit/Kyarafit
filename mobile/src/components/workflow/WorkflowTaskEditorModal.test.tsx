@@ -1,9 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Id } from "convex/_generated/dataModel";
-import { getActiveVault, lockVault, unlockVault } from "@/vault/activeVault";
+import { getActiveReplicator, getActiveVault, lockVault, unlockVault } from "@/vault/activeVault";
 import { runLocalMutation, runLocalQuery } from "@/vault/functions";
-import { setReplicationEnabled } from "@/vault/replication";
 import { deleteVaultDatabase, getOfflineDb } from "@/offline/db";
 import type { NodeSqliteDatabase } from "@/test-support/nodeSqlite";
 import { WorkflowTaskEditorModal } from "./WorkflowTaskEditorModal";
@@ -45,7 +44,7 @@ type Task = { _id: Id<"workflowItems">; title: string };
 beforeEach(async () => {
   vi.clearAllMocks();
   await unlockVault({ subject: "task-editor-owner", lastVerifiedAt: 1 });
-  setReplicationEnabled(true);
+  getActiveReplicator()!.enableReplication();
 });
 afterEach(async () => {
   cleanup();
@@ -53,7 +52,7 @@ afterEach(async () => {
   await deleteVaultDatabase("task-editor-owner");
 });
 
-it("rolls back fields, dependencies and intents when the second write fails, then saves atomically on retry", async () => {
+it("rolls back fields, dependencies and sync ops when the second write fails, then saves atomically on retry", async () => {
   const task = runLocalMutation("workflow:create", {
     title: "Original",
     status: "not_started",
@@ -68,7 +67,7 @@ it("rolls back fields, dependencies and intents when the second write fails, the
   });
   const sql = getOfflineDb() as unknown as NodeSqliteDatabase;
   const before = sql.getAllSync("SELECT * FROM entity_rows ORDER BY table_name, id");
-  const queuedBefore = sql.getAllSync("SELECT * FROM mutation_queue ORDER BY id");
+  const queuedBefore = sql.getAllSync("SELECT * FROM replica_outbox ORDER BY seq");
   const editorBefore = runLocalQuery("workflow:getItemEditorState", { id: task._id });
   render(
     <WorkflowTaskEditorModal
@@ -98,7 +97,7 @@ it("rolls back fields, dependencies and intents when the second write fails, the
   expect(writes).toBe(2);
   expect(h.close).not.toHaveBeenCalled();
   expect(sql.getAllSync("SELECT * FROM entity_rows ORDER BY table_name, id")).toEqual(before);
-  expect(sql.getAllSync("SELECT * FROM mutation_queue ORDER BY id")).toEqual(queuedBefore);
+  expect(sql.getAllSync("SELECT * FROM replica_outbox ORDER BY seq")).toEqual(queuedBefore);
   act(() => getActiveVault()!.reloadFromDisk());
   expect(runLocalQuery("workflow:getItemEditorState", { id: task._id })).toEqual(editorBefore);
   expect(
@@ -113,5 +112,10 @@ it("rolls back fields, dependencies and intents when the second write fails, the
     dueDate: "2026-12-02",
     predecessorIds: [newDependency._id],
   });
-  expect(sql.getAllSync("SELECT * FROM mutation_queue")).toHaveLength(queuedBefore.length + 2);
+  const added = sql
+    .getAllSync<{ row_id: string; fields_json: string | null }>(
+      "SELECT row_id, fields_json FROM replica_outbox ORDER BY seq"
+    )
+    .slice(queuedBefore.length);
+  expect(added.find((op) => op.row_id === task._id)?.fields_json).toContain('"title":"Changed"');
 });
