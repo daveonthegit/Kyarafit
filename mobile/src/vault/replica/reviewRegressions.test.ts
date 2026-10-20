@@ -141,99 +141,104 @@ describe("replica review regressions", () => {
     }
   );
 
-  it("rejects moves and restores from actual parents while over 500 descendant caches are partially pulled", async () => {
-    const { a, b, backend, actor } = await setup();
-    const x = a.mutate<{ _id: string }>("workflow:create", { title: "X", kind: "group" })._id;
-    const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", kind: "group" })._id;
-    const descendants: string[] = [];
-    for (let i = 0; i < 501; i++)
-      descendants.push(
-        a.mutate<{ _id: string }>("workflow:create", {
-          title: `Descendant ${i}`,
-          parentId: y,
-        })._id
+  // Multi-page scenarios include hundreds of real Convex writes; allow CI contention.
+  it(
+    "rejects moves and restores from actual parents while over 500 descendant caches are partially pulled",
+    { timeout: 30_000 },
+    async () => {
+      const { a, b, backend, actor } = await setup();
+      const x = a.mutate<{ _id: string }>("workflow:create", { title: "X", kind: "group" })._id;
+      const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", kind: "group" })._id;
+      const descendants: string[] = [];
+      for (let i = 0; i < 501; i++)
+        descendants.push(
+          a.mutate<{ _id: string }>("workflow:create", {
+            title: `Descendant ${i}`,
+            parentId: y,
+          })._id
+        );
+      await settle(a, b);
+      a.mutate("workflow:move", { id: y, parentId: x });
+      await a.sync();
+      const after = Number(
+        b.sql.getFirstSync<{ value: string }>(
+          "SELECT value FROM sync_meta WHERE key = 'replica:cursor'"
+        )!.value
       );
-    await settle(a, b);
-    a.mutate("workflow:move", { id: y, parentId: x });
-    await a.sync();
-    const after = Number(
-      b.sql.getFirstSync<{ value: string }>(
-        "SELECT value FROM sync_meta WHERE key = 'replica:cursor'"
-      )!.value
-    );
-    const firstPage = await actor.query(api.replica.pull, {
-      protocol,
-      subject: "owner",
-      after,
-      limit: 500,
-    });
-    expect(firstPage.hasMore).toBe(true);
-    const firstIds = new Set(firstPage.rows.map((row) => row.rowId));
-    const z = descendants.find((id) => !firstIds.has(id))!;
-    const refreshed = descendants.find((id) => firstIds.has(id))!;
-    expect(z).toBeDefined();
-    const transport = backend.transport(b.net);
-    let entered!: () => void;
-    let release!: () => void;
-    const waiting = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    const resume = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let pages = 0;
-    b.replicator.setTransport({
-      ...transport,
-      pull: async (cursor, limit, snapshot) => {
-        if (limit > 1 && ++pages === 2) {
-          entered();
-          await resume;
-        }
-        return transport.pull(cursor, limit, snapshot);
-      },
-    });
-    const syncing = b.sync();
-    await waiting;
-    b.net.online = false;
-    try {
-      expect(b.get(y)?.parentId).toBe(x);
-      expect(b.get(z)?.parentId).toBe(y);
-      expect(b.get(z)?.ancestorIds).toEqual([y]);
-      expect(b.get(refreshed)?.ancestorIds).toEqual([x, y]);
-      b.sql.runSync(
-        "INSERT INTO replica_conflicts (id, table_name, row_id, kind, lost_json, rev, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-          "partial-parent",
-          "workflowItems",
-          x,
-          "concurrent-field-edit",
-          JSON.stringify({ parentId: z }),
-          1,
-          1,
-        ]
-      );
-      const change = b.changes().find((row) => row.id === "partial-parent")!;
-      const before = b.store.exportRows();
-      expect(() => b.mutate("workflow:move", { id: x, parentId: z })).toThrow(/cycle/i);
-      expect(() =>
-        b.mutate("workflow:moveAndResequence", { move: { id: x, parentId: z }, resequence: [] })
-      ).toThrow(/cycle/i);
-      expect(() => restoreChange(b.store, change)).toThrow(/cycle/i);
-      expect(b.store.exportRows()).toEqual(before);
-      expect(b.replicator.pendingCount()).toBe(0);
-      expect(b.changes().some((row) => row.id === change.id)).toBe(true);
-      b.mutate("workflow:move", { id: y, parentId: null });
-      expect(b.get(y)?.ancestorIds).toEqual([]);
-      expect(b.get(refreshed)?.ancestorIds).toEqual([y]);
-      expect(b.get(z)?.ancestorIds).toEqual([y]);
-    } finally {
-      release();
+      const firstPage = await actor.query(api.replica.pull, {
+        protocol,
+        subject: "owner",
+        after,
+        limit: 500,
+      });
+      expect(firstPage.hasMore).toBe(true);
+      const firstIds = new Set(firstPage.rows.map((row) => row.rowId));
+      const z = descendants.find((id) => !firstIds.has(id))!;
+      const refreshed = descendants.find((id) => firstIds.has(id))!;
+      expect(z).toBeDefined();
+      const transport = backend.transport(b.net);
+      let entered!: () => void;
+      let release!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const resume = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let pages = 0;
+      b.replicator.setTransport({
+        ...transport,
+        pull: async (cursor, limit, snapshot) => {
+          if (limit > 1 && ++pages === 2) {
+            entered();
+            await resume;
+          }
+          return transport.pull(cursor, limit, snapshot);
+        },
+      });
+      const syncing = b.sync();
+      await waiting;
+      b.net.online = false;
+      try {
+        expect(b.get(y)?.parentId).toBe(x);
+        expect(b.get(z)?.parentId).toBe(y);
+        expect(b.get(z)?.ancestorIds).toEqual([y]);
+        expect(b.get(refreshed)?.ancestorIds).toEqual([x, y]);
+        b.sql.runSync(
+          "INSERT INTO replica_conflicts (id, table_name, row_id, kind, lost_json, rev, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [
+            "partial-parent",
+            "workflowItems",
+            x,
+            "concurrent-field-edit",
+            JSON.stringify({ parentId: z }),
+            1,
+            1,
+          ]
+        );
+        const change = b.changes().find((row) => row.id === "partial-parent")!;
+        const before = b.store.exportRows();
+        expect(() => b.mutate("workflow:move", { id: x, parentId: z })).toThrow(/cycle/i);
+        expect(() =>
+          b.mutate("workflow:moveAndResequence", { move: { id: x, parentId: z }, resequence: [] })
+        ).toThrow(/cycle/i);
+        expect(() => restoreChange(b.store, change)).toThrow(/cycle/i);
+        expect(b.store.exportRows()).toEqual(before);
+        expect(b.replicator.pendingCount()).toBe(0);
+        expect(b.changes().some((row) => row.id === change.id)).toBe(true);
+        b.mutate("workflow:move", { id: y, parentId: null });
+        expect(b.get(y)?.ancestorIds).toEqual([]);
+        expect(b.get(refreshed)?.ancestorIds).toEqual([y]);
+        expect(b.get(z)?.ancestorIds).toEqual([y]);
+      } finally {
+        release();
+      }
+      await syncing;
+      expect(b.replicator.status).toBe("offline");
+      expect(b.get(x)?.parentId).toBeUndefined();
+      expect(b.get(y)?.parentId).toBeUndefined();
     }
-    await syncing;
-    expect(b.replicator.status).toBe("offline");
-    expect(b.get(x)?.parentId).toBeUndefined();
-    expect(b.get(y)?.parentId).toBeUndefined();
-  });
+  );
 
   it.each([
     ["buy", "purchaseStatus", "to_buy", "bought", "generatedTaskBuy"],
@@ -411,6 +416,7 @@ describe("replica review regressions", () => {
 
   it.each(["out", "in"])(
     "deletes only actual descendants after a partially pulled move %s of a subtree",
+    { timeout: 30_000 },
     async (direction) => {
       const { a, b, backend } = await setup();
       const x = a.mutate<{ _id: string }>("workflow:create", { title: "X" })._id;
@@ -454,49 +460,53 @@ describe("replica review regressions", () => {
     }
   );
 
-  it("moves valid subtrees while a partially pulled root swap leaves an unrelated cycle", async () => {
-    const { a, b, backend } = await setup();
-    const x = a.mutate<{ _id: string }>("workflow:create", { title: "X" })._id;
-    const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", parentId: x })._id;
-    const root = a.mutate<{ _id: string }>("workflow:create", { title: "Root" })._id;
-    const child = a.mutate<{ _id: string }>("workflow:create", {
-      title: "Child",
-      parentId: root,
-    })._id;
-    const target = a.mutate<{ _id: string }>("workflow:create", { title: "Target" })._id;
-    const fillers: string[] = [];
-    for (let i = 0; i < 501; i++)
-      fillers.push(a.mutate<{ _id: string }>("workflow:create", { title: `Filler ${i}` })._id);
-    await settle(a, b);
-    a.mutate("workflow:move", { id: y, parentId: null });
-    a.mutate("workflow:move", { id: x, parentId: y });
-    for (const id of fillers) a.mutate("workflow:update", { id, title: "Updated" });
-    await a.sync();
-    // Push groups each row's pending edits together. Send this edit in a later pass so
-    // Y's latest revision really lands after the filler rows, on the second pull page.
-    a.mutate("workflow:update", { id: y, title: "Last" });
-    await a.sync();
-    const transport = backend.transport(b.net);
-    let pages = 0;
-    b.replicator.setTransport({
-      ...transport,
-      pull: async (...args) => {
-        if (args[1] > 1 && ++pages === 2) throw new Error("Interrupted pull");
-        return transport.pull(...args);
-      },
-    });
-    await b.sync();
-    b.net.online = false;
-    expect(b.get(x)?.parentId).toBe(y);
-    expect(b.get(y)?.parentId).toBe(x);
-    b.mutate("workflow:move", { id: root, parentId: target });
-    expect(b.get(child)?.ancestorIds).toEqual([target, root]);
-    b.mutate("workflow:moveAndResequence", {
-      move: { id: root, parentId: null },
-      resequence: [],
-    });
-    expect(b.get(child)?.ancestorIds).toEqual([root]);
-  });
+  it(
+    "moves valid subtrees while a partially pulled root swap leaves an unrelated cycle",
+    { timeout: 30_000 },
+    async () => {
+      const { a, b, backend } = await setup();
+      const x = a.mutate<{ _id: string }>("workflow:create", { title: "X" })._id;
+      const y = a.mutate<{ _id: string }>("workflow:create", { title: "Y", parentId: x })._id;
+      const root = a.mutate<{ _id: string }>("workflow:create", { title: "Root" })._id;
+      const child = a.mutate<{ _id: string }>("workflow:create", {
+        title: "Child",
+        parentId: root,
+      })._id;
+      const target = a.mutate<{ _id: string }>("workflow:create", { title: "Target" })._id;
+      const fillers: string[] = [];
+      for (let i = 0; i < 501; i++)
+        fillers.push(a.mutate<{ _id: string }>("workflow:create", { title: `Filler ${i}` })._id);
+      await settle(a, b);
+      a.mutate("workflow:move", { id: y, parentId: null });
+      a.mutate("workflow:move", { id: x, parentId: y });
+      for (const id of fillers) a.mutate("workflow:update", { id, title: "Updated" });
+      await a.sync();
+      // Push groups each row's pending edits together. Send this edit in a later pass so
+      // Y's latest revision really lands after the filler rows, on the second pull page.
+      a.mutate("workflow:update", { id: y, title: "Last" });
+      await a.sync();
+      const transport = backend.transport(b.net);
+      let pages = 0;
+      b.replicator.setTransport({
+        ...transport,
+        pull: async (...args) => {
+          if (args[1] > 1 && ++pages === 2) throw new Error("Interrupted pull");
+          return transport.pull(...args);
+        },
+      });
+      await b.sync();
+      b.net.online = false;
+      expect(b.get(x)?.parentId).toBe(y);
+      expect(b.get(y)?.parentId).toBe(x);
+      b.mutate("workflow:move", { id: root, parentId: target });
+      expect(b.get(child)?.ancestorIds).toEqual([target, root]);
+      b.mutate("workflow:moveAndResequence", {
+        move: { id: root, parentId: null },
+        resequence: [],
+      });
+      expect(b.get(child)?.ancestorIds).toEqual([root]);
+    }
+  );
 
   it("keeps build membership when attachment and task tombstones span push batches", async () => {
     const { a, b, backend } = await setup();

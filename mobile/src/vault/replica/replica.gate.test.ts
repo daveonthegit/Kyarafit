@@ -304,30 +304,39 @@ describe.each(backends)("managed sync on $label", ({ make }) => {
     expect(b.get(ids.build)).toMatchObject({ notes: "edited on a plane", character: "Zelda" });
   });
 
-  it("S6: >500 rows across tables survive a lost push ack and a dropped pull page", async () => {
-    const backend = await make();
-    const runId = newRunId();
-    const a = makeDevice("A", backend, { runId });
-    const b = makeDevice("B", backend, { runId });
-    a.store.commit((db) => {
-      for (let i = 0; i < 700; i += 1)
-        db.insert("builds", { userId: backend.subject, name: `b${i}`, status: "idea" });
-      for (let i = 0; i < 700; i += 1)
-        db.insert("cosplayNodes", { userId: backend.subject, nodeType: "material", name: `m${i}` });
-    });
-    a.net.loseNextPushAck = true;
-    await a.sync(); // first batch applied server-side, acknowledgement lost
-    expect(a.replicator.status).toBe("error");
-    await a.sync(); // resent batch is deduplicated
-    expect(a.replicator.pendingCount()).toBe(0);
-    b.net.failPullPage = 3;
-    await b.sync(); // dropped on page 2: the first page and its cursor are durable
-    expect(b.replicator.status).toBe("error");
-    expect(runRows(b, runId).length).toBeGreaterThan(0);
-    await b.sync();
-    expect(runRows(b, runId, "builds")).toHaveLength(700);
-    expect(runRows(b, runId, "cosplayNodes")).toHaveLength(700);
-  });
+  // This scenario replicates 1,400 rows through real Convex functions, including retries.
+  it(
+    "S6: >500 rows across tables survive a lost push ack and a dropped pull page",
+    { timeout: 30_000 },
+    async () => {
+      const backend = await make();
+      const runId = newRunId();
+      const a = makeDevice("A", backend, { runId });
+      const b = makeDevice("B", backend, { runId });
+      a.store.commit((db) => {
+        for (let i = 0; i < 700; i += 1)
+          db.insert("builds", { userId: backend.subject, name: `b${i}`, status: "idea" });
+        for (let i = 0; i < 700; i += 1)
+          db.insert("cosplayNodes", {
+            userId: backend.subject,
+            nodeType: "material",
+            name: `m${i}`,
+          });
+      });
+      a.net.loseNextPushAck = true;
+      await a.sync(); // first batch applied server-side, acknowledgement lost
+      expect(a.replicator.status).toBe("error");
+      await a.sync(); // resent batch is deduplicated
+      expect(a.replicator.pendingCount()).toBe(0);
+      b.net.failPullPage = 3;
+      await b.sync(); // dropped on page 2: the first page and its cursor are durable
+      expect(b.replicator.status).toBe("error");
+      expect(runRows(b, runId).length).toBeGreaterThan(0);
+      await b.sync();
+      expect(runRows(b, runId, "builds")).toHaveLength(700);
+      expect(runRows(b, runId, "cosplayNodes")).toHaveLength(700);
+    }
+  );
 
   it("two devices pushing at the same moment both land (per-account head contention)", async () => {
     const backend = await make();
