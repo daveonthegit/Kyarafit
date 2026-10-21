@@ -107,7 +107,7 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
             const stored = await adapter.findVerificationValue(
               `${FLOW_PREFIX}${callbackState(ctx)}`
             );
-            if (!stored || stored.expiresAt.getTime() < Date.now())
+            if (!stored || new Date(stored.expiresAt).getTime() < Date.now())
               throw new APIError("BAD_REQUEST");
             const flow = JSON.parse(stored.value) as Flow;
             if (
@@ -237,7 +237,7 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
           const stored = await ctx.context.internalAdapter.findVerificationValue(
             `${FLOW_PREFIX}${state}`
           );
-          if (!stored || stored.expiresAt.getTime() < Date.now()) {
+          if (!stored || new Date(stored.expiresAt).getTime() < Date.now()) {
             throw new APIError("BAD_REQUEST", { message: "Sign-in link expired" });
           }
           const flow = JSON.parse(stored.value) as Flow;
@@ -258,7 +258,7 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
           const identifier = `${CODE_PREFIX}${code}`;
           const stored = await ctx.context.internalAdapter.consumeVerificationValue(identifier);
           const invalid = new APIError("BAD_REQUEST", { message: "Invalid sign-in code" });
-          if (!stored || stored.expiresAt.getTime() < Date.now() || !VERIFIER.test(verifier)) {
+          if (!stored || new Date(stored.expiresAt).getTime() < Date.now() || !VERIFIER.test(verifier)) {
             throw invalid;
           }
           const value = JSON.parse(stored.value) as Code;
