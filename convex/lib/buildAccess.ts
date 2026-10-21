@@ -9,6 +9,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { deletionJob } from "./accountDeletion";
+import { availableOwnedDocument } from "./discoveryAccess";
 
 /** Guard against a pathological element graph; real trees are a handful of levels deep. */
 const MAX_GRAPH_NODES = 200;
@@ -85,8 +86,8 @@ export async function getGroupMembership(
   groupId: Id<"groups">,
   userId: string
 ): Promise<Doc<"groupMembers"> | null> {
-  const group = await ctx.db.get(groupId);
-  if (group && (await deletionJob(ctx, group.createdBy))) return null;
+  const group = await availableOwnedDocument(ctx, await ctx.db.get(groupId));
+  if (!group) return null;
   return await ctx.db
     .query("groupMembers")
     .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", userId))
@@ -127,7 +128,14 @@ export async function sharesAnyGroup(
     .query("groupMembers")
     .withIndex("by_userId", (q) => q.eq("userId", otherUserId))
     .collect();
-  return otherGroups.some((m) => viewerGroupIds.has(m.groupId));
+  for (const membership of otherGroups) {
+    if (
+      viewerGroupIds.has(membership.groupId) &&
+      (await availableOwnedDocument(ctx, await ctx.db.get(membership.groupId)))
+    )
+      return true;
+  }
+  return false;
 }
 
 /**

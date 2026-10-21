@@ -463,7 +463,7 @@ export const get = query({
   args: { id: v.id("builds"), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.id);
-    if (!build) return null;
+    if (!build || (await deletionJob(ctx, build.userId))) return null;
     const viewerUserId = await optionalIdentity(ctx);
     const allowed =
       (await canReadBuildWorkflowData(ctx, build, {
@@ -680,14 +680,16 @@ export const listByGroup = query({
       .query("builds")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    return await Promise.all(
+    const live = await Promise.all(
       builds.map(async (b) => {
+        if (await deletionJob(ctx, b.userId)) return null;
         return {
           ...(b.userId === actorId ? b : stripBuildSyncSecrets(b)),
           ...(await getBuildWorkflowMetrics(ctx, b)),
         };
       })
     );
+    return live.filter((b): b is NonNullable<typeof b> => b !== null);
   },
 });
 
@@ -738,6 +740,7 @@ export const listFeedFromFollowing = query({
     if (followingIds.length === 0) return [];
     const allPublic: Array<Doc<"builds">> = [];
     for (const uid of followingIds) {
+      if (await deletionJob(ctx, uid)) continue;
       const userBuilds = await ctx.db
         .query("builds")
         .withIndex("by_userId", (q) => q.eq("userId", uid))
@@ -777,7 +780,7 @@ export const listSharedWithUser = query({
     const withDetails = await Promise.all(
       buildIds.map(async (buildId) => {
         const build = await ctx.db.get(buildId);
-        if (!build) return null;
+        if (!build || (await deletionJob(ctx, build.userId))) return null;
         const row = rows.find((r) => r.buildId === buildId);
         return {
           ...stripBuildSyncSecrets(build),

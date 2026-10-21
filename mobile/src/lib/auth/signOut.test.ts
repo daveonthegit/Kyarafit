@@ -13,7 +13,6 @@ vi.mock("better-auth/react", () => ({
 }));
 vi.mock("@convex-dev/better-auth/client/plugins", () => ({
   convexClient: () => ({}),
-  crossDomainClient: () => ({}),
 }));
 vi.mock("better-auth/client/plugins", () => ({ usernameClient: () => ({}) }));
 vi.mock("./bearer-storage-plugin", () => ({

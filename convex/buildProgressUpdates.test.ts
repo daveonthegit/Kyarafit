@@ -33,13 +33,11 @@ describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
     const buildId = await makeBuild(t, "u1", "A");
     const first = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "u1",
       note: "first",
     });
     // Force a later createdAt by patching the second row's clock forward.
     const second = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "u1",
       note: "second",
     });
     await t.run(async (ctx) => {
@@ -49,7 +47,7 @@ describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
       await ctx.db.patch(second!._id, { createdAt: (s!.createdAt ?? 0) + 1000 });
     });
 
-    const list = await t.query(api.buildProgressUpdates.listByBuild, { buildId, userId: "u1" });
+    const list = await t.query(api.buildProgressUpdates.listByBuild, { buildId });
     expect(list.map((u) => u.note)).toEqual(["second", "first"]);
   });
 
@@ -57,14 +55,11 @@ describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
     const t = convexTest(schema, modules);
     const owner = t.withIdentity({ subject: "u1" });
     const buildId = await makeBuild(owner, "u1", "A");
-    await owner.mutation(api.buildProgressUpdates.add, { buildId, userId: "u1", note: "mine" });
+    await owner.mutation(api.buildProgressUpdates.add, { buildId, note: "mine" });
 
     const otherView = await t
       .withIdentity({ subject: "u2" })
-      .query(api.buildProgressUpdates.listByBuild, {
-        buildId,
-        userId: "u2",
-      });
+      .query(api.buildProgressUpdates.listByBuild, { buildId });
     expect(otherView).toHaveLength(0);
   });
 
@@ -74,7 +69,7 @@ describe("buildProgressUpdates ordering & ownership (REQ-049)", () => {
     await expect(
       t
         .withIdentity({ subject: "u2" })
-        .mutation(api.buildProgressUpdates.add, { buildId, userId: "u1", note: "nope" })
+        .mutation(api.buildProgressUpdates.add, { buildId, note: "nope" })
     ).rejects.toThrow(/not found or not authorized/i);
   });
 });
@@ -88,7 +83,6 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
     await expect(
       t.mutation(api.buildProgressUpdates.add, {
         buildId,
-        userId: "free1",
         note: "look at me",
         publish: true,
       })
@@ -101,7 +95,6 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
     const buildId = await makeBuild(t, "free1", "A");
     const update = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "free1",
       note: "private progress",
     });
     expect(update!.publishedToFeed).toBe(false);
@@ -113,7 +106,6 @@ describe("buildProgressUpdates publish gate (REQ-049)", () => {
     const buildId = await makeBuild(t, "pro1", "A");
     const update = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "pro1",
       note: "shipped a sleeve",
       publish: true,
     });
@@ -148,7 +140,6 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
     const buildId = await makeBuild(t, "pro1", "A");
     const created = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "pro1",
       note: "wip",
       imageRefs: [localRef("k1")],
     });
@@ -156,7 +147,6 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
     const storageId = await uploadTestBlob(t, "pro1", new Blob([new Uint8Array(5 * MB)]));
     const flipped = await t.mutation(api.buildProgressUpdates.update, {
       id: created!._id,
-      userId: "pro1",
       imageRefs: [{ kind: "cloud", storageId, imageKey: "k1" }],
     });
 
@@ -178,7 +168,6 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
     const buildId = await makeBuild(t, "pro2", "A");
     const created = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "pro2",
       note: "wip",
       imageRefs: [localRef("k1")],
     });
@@ -200,7 +189,6 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
     const buildId = await makeBuild(t, "pro3", "A");
     const created = await t.mutation(api.buildProgressUpdates.add, {
       buildId,
-      userId: "pro3",
       note: "wip",
       imageRefs: [localRef("k1")],
     });
@@ -209,14 +197,12 @@ describe("buildProgressUpdates cloud-mirror storage cap (REQ-D71/D90)", () => {
     const cloudRefs = [{ kind: "cloud" as const, storageId, imageKey: "k1" }];
     await t.mutation(api.buildProgressUpdates.update, {
       id: created!._id,
-      userId: "pro3",
       imageRefs: cloudRefs,
     });
     // Re-run the same flip (idempotent replay): the storage id is already cloud, so it must not be
     // counted again.
     await t.mutation(api.buildProgressUpdates.update, {
       id: created!._id,
-      userId: "pro3",
       imageRefs: cloudRefs,
     });
 

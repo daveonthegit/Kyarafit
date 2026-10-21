@@ -70,8 +70,12 @@ legacy rows once it completes. Tombstones never become pending previews.
   Handwritten public/internal mutation registrations use `lib/guardedMutation.ts` to check actors,
   resulting documents, and declared direct/inherited references in the write transaction. Only
   explicit internal cleanup registrations can remove data without active-target checks; they cannot
-  add application data. Public build/media discovery suppresses deleting owners without a separate
-  quarantine pass. Owned references (including legacy tables and progress reverse indexes) are
+  add application data. Discovery suppresses deleting owners before public, follower,
+  collaborator, or group-membership alternatives are considered, without a separate quarantine
+  pass. This includes group rosters and convention-day references: surviving relationships must
+  not disclose a deleting owner's group or convention, or grant fresh avatar URL discovery.
+  `lib/discoveryAccess.ts` supplies the shared owned-document check; relationship predicates in
+  `lib/buildAccess.ts` also reject unavailable group owners. Owned references (including legacy tables and progress reverse indexes) are
   removed before media release. Nested historical photo arrays are enumerated separately in batches of 100. Each
   `releaseUserStorage(ctx, userId, cursor)` invocation returns a continuation/completion signal;
   callers repeat it rather than assuming one invocation drains an account. The app user may already
@@ -89,7 +93,8 @@ legacy rows once it completes. Tombstones never become pending previews.
   Unavailable results lose their payload but retain a dedupe rejection marker; pending validation
   is never a cache miss. Completed jobs clear these checkpoints. Ordinary writes fail closed if
   they exceed the mutation reference budget; clients must split oversized writes. Regression
-  coverage lives in `convex/{accountDeletion,guardedMutation,mutationGuardAdapter,ledgerInspection}.test.ts`.
+  coverage lives in `convex/{accountDeletion,guardedMutation,mutationGuardAdapter,ledgerInspection}.test.ts`;
+  discovery regressions are in `convex/{securityReview,groupDiscoveryDeletion}.test.ts`.
 - **R2:** P2 should consume verified uploader/size/unique-byte accounting and pending-claim semantics;
   it remains the sole final hosted-media architecture. Storage migration, deployment, and live data
   operations are separate operator gates.

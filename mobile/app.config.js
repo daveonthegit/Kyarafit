@@ -3,8 +3,36 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
+/**
+ * Claim https://<web host>/native/* for the app (iOS Universal Links, Android App Links), so the
+ * OAuth return reaches only this app. The web host serves the matching association files
+ * (web/src/lib/appLinks.ts), which need the Apple Team ID and Android signing fingerprints.
+ */
+function withAppLinks(config) {
+  const host = new URL(process.env.EXPO_PUBLIC_WEB_APP_URL || "https://app.kyarafit.com").host;
+  return {
+    ...config,
+    ios: {
+      ...config.ios,
+      associatedDomains: [`applinks:${host}`, `webcredentials:${host}`],
+    },
+    android: {
+      ...config.android,
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [{ scheme: "https", host, pathPrefix: "/native/" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
+    },
+  };
+}
+
 /** The operator supplies only the public certificate; the signer is never an app input. */
-module.exports = ({ config }) => {
+module.exports = ({ config: base }) => {
+  const config = withAppLinks(base);
   const certificatePath = process.env.KYARAFIT_UPDATES_CERTIFICATE;
   const keyid = process.env.KYARAFIT_UPDATES_KEY_ID;
   const release = [process.env.EAS_BUILD_PROFILE, process.env.EXPO_PUBLIC_UPDATES_CHANNEL].some(

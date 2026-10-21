@@ -11,9 +11,10 @@ Compact, high-signal context for AI coding agents. Load this before anything els
 
 ## Current goal
 
-Continue the implemented local-first app and Glass Studio rollout through focused, validated
-changes. Preserve working behavior; distinguish accepted requirements from shipped enforcement.
-This is not a greenfield restart or permission to delete populated schema definitions.
+Work on the v2 rebuild within the assigned brief. The
+[deployment runbook](setup/DEPLOY_README.md#rebuild-release-boundary) owns the release freeze
+and development-data boundary; the [roadmap](ROADMAP.md) distinguishes implemented foundations
+from accepted, unbuilt requirements.
 
 ## Source-of-truth docs (in `docs/`)
 

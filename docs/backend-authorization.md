@@ -52,6 +52,15 @@ An argument naming a **different** user is real input and stays required:
 
 The actor names to derive are `userId`, `ownerId`, `externalId`, `followerId`.
 
+### Email-based targets
+
+`users.upsert` mirrors email from the authenticated Better Auth account, ignoring the
+compatibility `email` argument. Email-based role grants (`users.setUserRole`, `users.grantRole`)
+and collaboration (`buildCollaborators.addByEmail`) resolve a **verified Better Auth email**
+back to its app user, never trust the app profile's mirrored email as proof of identity.
+The shared resolution is in `lib/authEmail.ts`; regressions execute these endpoints in
+`convex/securityReview.test.ts`.
+
 ## Endpoints that are public by design
 
 These serve signed-out visitors and must stay that way. Do not "fix" them:

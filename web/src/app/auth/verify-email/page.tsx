@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
 /**
- * Proxies verification email links to Convex so the link in the email can use the app domain.
- * - With ?token=... (from email): redirect to Convex to verify, then Convex redirects back to app.
+ * Forwards older verification links to the same-origin auth proxy (`/api/auth/*`), where the
+ * session cookie is set first-party; current emails link to `/api/auth/verify-email` directly.
+ * - With ?token=...: verify through the proxy, which redirects back into the app.
  * - Without token (e.g. after signup): redirect to the "check your inbox" page.
  */
 export default async function VerifyEmailPage({
@@ -19,17 +20,12 @@ export default async function VerifyEmailPage({
       : undefined;
 
   if (token) {
-    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
-    if (!convexSiteUrl) {
-      throw new Error("Auth not configured (missing CONVEX_SITE_URL)");
-    }
     const search = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (typeof value === "string") search.set(key, value);
       else if (Array.isArray(value) && value[0]) search.set(key, value[0]);
     });
-    const convexVerifyUrl = `${convexSiteUrl.replace(/\/$/, "")}/auth/verify-email?${search.toString()}`;
-    redirect(convexVerifyUrl);
+    redirect(`/api/auth/verify-email?${search.toString()}`);
   }
 
   const search = new URLSearchParams();

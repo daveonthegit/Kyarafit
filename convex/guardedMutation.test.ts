@@ -10,6 +10,7 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 import schema from "./schema";
+import { stubAuthAccounts } from "./authAccountTestHelpers.fixture";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -42,7 +43,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 function harness() {
-  return convexTest({ schema, modules, transactionLimits: true });
+  const t = convexTest({ schema, modules, transactionLimits: true });
+  stubAuthAccounts(
+    t,
+    ["alice", "bob", "gamma"].map((_id) => ({
+      _id,
+      email: `${_id}@example.invalid`,
+      emailVerified: true,
+    }))
+  );
+  return t;
 }
 async function finish(t: Harness) {
   // The installed runtime accepts this limit; its published .d.ts omits the second parameter.

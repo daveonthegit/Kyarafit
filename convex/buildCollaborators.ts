@@ -4,6 +4,10 @@ import { mutation } from "./lib/guardedMutation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 
+import { verifiedUserByEmail } from "./lib/authEmail";
+import { deletionJob } from "./lib/deletionReferences";
+import { canUserEditBuild } from "./lib/buildAccess";
+
 const VALID_ROLES = ["viewer", "editor"] as const;
 
 /** List collaborators for a build. Only the owner or an existing collaborator may read the list (PII). */
@@ -16,7 +20,7 @@ export const listByBuild = query({
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
     const build = await ctx.db.get(args.buildId);
-    if (!build) return [];
+    if (!build || (await deletionJob(ctx, build.userId))) return [];
 
     const rows = await ctx.db
       .query("buildCollaborators")
@@ -28,6 +32,7 @@ export const listByBuild = query({
 
     const withUser = await Promise.all(
       rows.map(async (r) => {
+        if (await deletionJob(ctx, r.userId)) return null;
         const user = await ctx.db
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", r.userId))
@@ -41,7 +46,7 @@ export const listByBuild = query({
         };
       })
     );
-    return withUser;
+    return withUser.filter((user): user is NonNullable<typeof user> => user !== null);
   },
 });
 
@@ -106,10 +111,7 @@ export const addByEmail = mutation({
     }
     const email = args.email.trim().toLowerCase();
     if (!email) throw new Error("Email is required");
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await verifiedUserByEmail(ctx, email);
     if (!user) throw new Error("No user found with that email");
     const targetUserId = user.externalId;
     if (targetUserId === actorId) throw new Error("Cannot add owner as collaborator");
@@ -167,7 +169,13 @@ export const listBuildIdsSharedWithUser = query({
       .query("buildCollaborators")
       .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
-    return rows.map((r) => r.buildId);
+    const ids = await Promise.all(
+      rows.map(async (r) => {
+        const build = await ctx.db.get(r.buildId);
+        return build && !(await deletionJob(ctx, build.userId)) ? r.buildId : null;
+      })
+    );
+    return ids.filter((id): id is NonNullable<typeof id> => id !== null);
   },
 });
 
@@ -180,15 +188,7 @@ export const canEdit = query({
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return false;
-    const build = await ctx.db.get(args.buildId);
-    if (!build) return false;
-    if (build.userId === actorId) return true;
-    const row = await ctx.db
-      .query("buildCollaborators")
-      .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
-      .collect();
-    const collab = row.find((r) => r.userId === actorId);
-    return collab?.role === "editor";
+    return canUserEditBuild(ctx, args.buildId, actorId);
   },
 });
 

@@ -61,7 +61,7 @@ const TIMELINE_CARD = {
 export function BuildProgressTimeline({ buildId, userId }: Props) {
   const { t } = useTranslation();
 
-  const updates = useOfflineQuery(api.buildProgressUpdates.listByBuild, { buildId, userId });
+  const updates = useOfflineQuery(api.buildProgressUpdates.listByBuild, { buildId });
   const addUpdate = useOfflineMutation(api.buildProgressUpdates.add);
 
   const tierInfo = useTier(userId);
@@ -113,7 +113,6 @@ export function BuildProgressTimeline({ buildId, userId }: Props) {
     try {
       const created = (await addUpdate({
         buildId,
-        userId,
         note: trimmedNote.length > 0 ? trimmedNote : undefined,
         progressPercent: parsedPercent,
         publish: willPublish ? true : undefined,

@@ -1,4 +1,4 @@
-import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { usernameClient } from "better-auth/client/plugins";
 import {
@@ -12,24 +12,11 @@ import { EXPO_PUBLIC_CONVEX_SITE_URL } from "@/config/env";
 
 const CONVEX_SITE_URL = EXPO_PUBLIC_CONVEX_SITE_URL || undefined;
 
-const crossDomainStorage = {
-  _data: {} as Record<string, string>,
-  getItem(key: string): string | null {
-    return this._data[key] ?? null;
-  },
-  setItem(key: string, value: string): void {
-    this._data[key] = value;
-  },
-};
-
+// The app talks to Convex directly with a bearer session kept in the device keychain. Browser
+// OAuth steps run on the web origin instead (see nativeOAuth.ts).
 export const authClient = createAuthClient({
-  baseURL: CONVEX_SITE_URL ? `${CONVEX_SITE_URL}/auth` : undefined,
-  plugins: [
-    convexClient(),
-    crossDomainClient({ storage: crossDomainStorage }),
-    usernameClient(),
-    bearerStoragePlugin(),
-  ],
+  baseURL: CONVEX_SITE_URL ? `${CONVEX_SITE_URL}/api/auth` : undefined,
+  plugins: [convexClient(), usernameClient(), bearerStoragePlugin()],
 });
 
 type DeleteUserArgs = {

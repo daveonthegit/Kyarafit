@@ -34,10 +34,7 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
   const { tier } = useFeatureAccess();
   const canPublish = can(tier, "social_post");
 
-  const rows = useOfflineQuery(
-    api.buildProgressUpdates.listByBuild,
-    userId ? { buildId, userId } : "skip"
-  );
+  const rows = useOfflineQuery(api.buildProgressUpdates.listByBuild, userId ? { buildId } : "skip");
   const addUpdate = useOfflineMutation(api.buildProgressUpdates.add);
 
   const updates = useMemo(() => sortProgressUpdates(rows ?? []), [rows]);
@@ -72,7 +69,6 @@ export function BuildProgressTimeline({ buildId, userId }: BuildProgressTimeline
     try {
       await addUpdate({
         buildId,
-        userId,
         note: trimmedNote || undefined,
         progressPercent: parsedPercent,
         // Never request publishing for free users — gating is enforced client- and server-side.

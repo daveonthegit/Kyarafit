@@ -50,35 +50,37 @@ siblings; `web/src/middleware.ts` does host-based routing so one deployment serv
   [auth origin policy](../auth.md#origin-configuration--critical); never put LAN/Expo origins
   on the production deployment.
 
-### 4. OAuth provider dashboards — **do NOT change these**
+### 4. OAuth provider dashboards
 
-The intuitive move (adding `app.kyarafit.com/auth/callback/...` to Google/Apple) is **wrong and breaks login.**
-OAuth redirect URIs are registered against `https://<deployment>.convex.site/auth/callback/<provider>` and
-**stay there** — auth is hosted on Convex, not on the app domain (see `docs/auth.md`). Only revisit these if
-you change the Convex deployment or set up a Convex custom domain.
+Auth is served from the app origin (`SITE_URL/api/auth`, proxied to Convex), so the registered
+redirect URIs follow `SITE_URL`: `https://app.kyarafit.com/api/auth/callback/<provider>` (see
+[Authentication → OAuth Setup](../auth.md#oauth-setup)). Register them before switching `SITE_URL`.
 
 ### 5. Mobile (EAS)
 
-- Set `EXPO_PUBLIC_WEB_APP_URL=https://app.kyarafit.com` in the EAS build env and rebuild.
-- No OAuth change (mobile uses the `kyarafit://` scheme).
+- Set `EXPO_PUBLIC_WEB_APP_URL=https://app.kyarafit.com` in the EAS build env and rebuild. Its host
+  is the claimed OAuth return domain (Universal Links / App Links).
+- Set `APPLE_TEAM_ID` and `ANDROID_CERT_SHA256_FINGERPRINTS` on the web deployment so
+  `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` are served.
 
 ---
 
-## Why sessions won't drop on cutover
+## Sessions and the cutover
 
-Auth cookies live on `*.convex.site` (`sameSite: none; secure`, no cookie `domain` set) and the session
-rides the Better Auth crossDomain/bearer mechanism, not a `.kyarafit.com` cookie. Moving the web app to
-`app.kyarafit.com` does **not** log users out — provided `https://app.kyarafit.com` is in the CORS +
+Web sessions are host-only HttpOnly cookies on the app origin (no cookie `domain`). Moving the web
+app to `app.kyarafit.com` therefore starts fresh web sessions there; mobile sessions (bearer tokens
+in the device keychain) are unaffected. `https://app.kyarafit.com` must be `SITE_URL` and inside the
 shared origin policy before you cut over (see [Authentication](../auth.md#origin-configuration--critical)).
 
 ## Subdomains deliberately NOT set up (no backing code)
 
 `api.` (backend is `*.convex.cloud`), `images.`/`cdn.` (no image service; images come from Convex storage +
-`*.supabase.co`/`googleusercontent.com`), `auth.` (would break the registered OAuth redirect URIs). Add these
+`*.supabase.co`/`googleusercontent.com`), `auth.` (auth is served from the app origin at `/api/auth`). Add these
 only if/when real services back them.
 
-## Not configured yet (future, if you want deep links)
+## Claimed links
 
-No Universal Links / App Links: `mobile/app.json` has only `scheme: "kyarafit"`, and there is no
-`.well-known/apple-app-site-association` or `assetlinks.json` in `web/public`. To deep-link `kyarafit.com`
-URLs into the mobile app later, add `associatedDomains` + host those files on the chosen domain.
+The app claims only `https://app.kyarafit.com/native/*` (the OAuth return). `mobile/app.config.js`
+adds the associated domains / `autoVerify` intent filter for the `EXPO_PUBLIC_WEB_APP_URL` host, and
+the web app serves the association files from `web/src/lib/appLinks.ts`. To deep-link more paths
+later, extend `CLAIMED_PATHS` there and the intent filter together.

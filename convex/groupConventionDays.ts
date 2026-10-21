@@ -4,6 +4,7 @@ import { mutation } from "./lib/guardedMutation";
 import { validateDateString } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
+import { availableOwnedDocument } from "./lib/discoveryAccess";
 
 /**
  * Selected convention days for a group. Takes no actor argument, so the membership
@@ -21,10 +22,15 @@ export const listForGroup = query({
       .query("groupConventionDays")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    if (args.conventionId) {
-      return all.filter((d) => d.conventionId === args.conventionId);
-    }
-    return all;
+    const selected = args.conventionId
+      ? all.filter((d) => d.conventionId === args.conventionId)
+      : all;
+    const live = await Promise.all(
+      selected.map(async (day) =>
+        (await availableOwnedDocument(ctx, await ctx.db.get(day.conventionId))) ? day : null
+      )
+    );
+    return live.filter((day): day is NonNullable<typeof day> => day !== null);
   },
 });
 
@@ -38,14 +44,16 @@ export const listGroupsForConvention = query({
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
-    const convention = await ctx.db.get(args.conventionId);
+    const convention = await availableOwnedDocument(ctx, await ctx.db.get(args.conventionId));
     if (!convention || convention.userId !== actorId) return [];
     const days = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     const groupIds = Array.from(new Set(days.map((d) => d.groupId)));
-    const groups = await Promise.all(groupIds.map((id) => ctx.db.get(id)));
+    const groups = await Promise.all(
+      groupIds.map(async (id) => availableOwnedDocument(ctx, await ctx.db.get(id)))
+    );
     const visible = [];
     for (const group of groups) {
       if (!group) continue;
@@ -84,12 +92,13 @@ export const listForGroupWithConventions = query({
     for (const d of days) {
       const key = d.conventionId;
       if (!byConvention.has(key)) {
-        const con = await ctx.db.get(d.conventionId);
+        const con = await availableOwnedDocument(ctx, await ctx.db.get(d.conventionId));
+        if (!con) continue;
         byConvention.set(key, {
           conventionId: key,
-          conventionName: con?.name ?? "Unknown",
-          startDate: con?.startDate ?? "",
-          endDate: con?.endDate ?? "",
+          conventionName: con.name,
+          startDate: con.startDate,
+          endDate: con.endDate,
           dates: [],
         });
       }

@@ -16,7 +16,6 @@ async function fixture() {
   if (!build) throw new Error("Missing build");
   const row = await owner.mutation(api.buildProgressUpdates.add, {
     buildId: build._id,
-    userId: OWNER,
     note: "Original",
   });
   if (!row) throw new Error("Missing progress update");
@@ -28,27 +27,24 @@ describe("progress session authorization", () => {
     const { t, owner, buildId, row } = await fixture();
     const cases = {
       listByBuild: async (caller: typeof owner) => {
-        expect(
-          await caller.query(api.buildProgressUpdates.listByBuild, { buildId, userId: OWNER })
-        ).toEqual([]);
+        expect(await caller.query(api.buildProgressUpdates.listByBuild, { buildId })).toEqual([]);
       },
       add: async (caller: typeof owner, anonymous: boolean) => {
         await expect(
-          caller.mutation(api.buildProgressUpdates.add, { buildId, userId: OWNER, note: "Denied" })
+          caller.mutation(api.buildProgressUpdates.add, { buildId, note: "Denied" })
         ).rejects.toThrow(anonymous ? /Unauthorized/ : /not authorized/i);
       },
       update: async (caller: typeof owner, anonymous: boolean) => {
         await expect(
           caller.mutation(api.buildProgressUpdates.update, {
             id: row._id,
-            userId: OWNER,
             note: "Denied",
           })
         ).rejects.toThrow(anonymous ? /Unauthorized/ : /not authorized/i);
       },
       remove: async (caller: typeof owner, anonymous: boolean) => {
         await expect(
-          caller.mutation(api.buildProgressUpdates.remove, { id: row._id, userId: OWNER })
+          caller.mutation(api.buildProgressUpdates.remove, { id: row._id })
         ).rejects.toThrow(anonymous ? /Unauthorized/ : /not authorized/i);
       },
     };
@@ -71,32 +67,35 @@ describe("progress session authorization", () => {
     expect(await t.run((ctx) => ctx.db.query("buildProgressUpdates").collect())).toHaveLength(1);
   });
 
-  it.each([undefined, OWNER, OTHER])(
-    "owner works with legacy actor argument %s",
-    async (userId) => {
-      const { owner, buildId } = await fixture();
-      const created = await owner.mutation(api.buildProgressUpdates.add, {
-        buildId,
-        userId,
-        note: "New",
-      });
-      expect(created?.userId).toBe(OWNER);
-      const edited = await owner.mutation(api.buildProgressUpdates.update, {
-        id: created!._id,
-        userId,
-        note: "Edited",
-      });
-      expect(edited?.note).toBe("Edited");
-      expect(edited?.version).toBe((created?.version ?? 0) + 1);
-      expect(
-        await owner.query(api.buildProgressUpdates.listByBuild, { buildId, userId })
-      ).toHaveLength(2);
-      await owner.mutation(api.buildProgressUpdates.remove, { id: created!._id, userId });
-      expect(
-        await owner.query(api.buildProgressUpdates.listByBuild, { buildId, userId })
-      ).toHaveLength(1);
-    }
-  );
+  it("rejects a client-supplied actor id on every endpoint instead of trusting it", async () => {
+    const { t, owner, buildId, row } = await fixture();
+    // The actor is the session subject only; an acting-user argument is not part of the contract.
+    const withActor = { userId: OWNER } as Record<string, never>;
+    const calls = [
+      () => owner.query(api.buildProgressUpdates.listByBuild, { buildId, ...withActor }),
+      () => owner.mutation(api.buildProgressUpdates.add, { buildId, note: "x", ...withActor }),
+      () => owner.mutation(api.buildProgressUpdates.update, { id: row._id, ...withActor }),
+      () => owner.mutation(api.buildProgressUpdates.remove, { id: row._id, ...withActor }),
+    ];
+    for (const call of calls) await expect(call()).rejects.toThrow(/Unexpected field `userId`/);
+    expect(await t.run((ctx) => ctx.db.get(row._id))).toEqual(row);
+    expect(await t.run((ctx) => ctx.db.query("buildProgressUpdates").collect())).toHaveLength(1);
+  });
+
+  it("owner edits and removes through the session identity alone", async () => {
+    const { owner, buildId } = await fixture();
+    const created = await owner.mutation(api.buildProgressUpdates.add, { buildId, note: "New" });
+    expect(created?.userId).toBe(OWNER);
+    const edited = await owner.mutation(api.buildProgressUpdates.update, {
+      id: created!._id,
+      note: "Edited",
+    });
+    expect(edited?.note).toBe("Edited");
+    expect(edited?.version).toBe((created?.version ?? 0) + 1);
+    expect(await owner.query(api.buildProgressUpdates.listByBuild, { buildId })).toHaveLength(2);
+    await owner.mutation(api.buildProgressUpdates.remove, { id: created!._id });
+    expect(await owner.query(api.buildProgressUpdates.listByBuild, { buildId })).toHaveLength(1);
+  });
 
   it("authenticates and checks resource ownership before add/update replay", async () => {
     const { t, owner, buildId, row } = await fixture();
@@ -107,7 +106,6 @@ describe("progress session authorization", () => {
     expect(
       await owner.mutation(api.buildProgressUpdates.add, {
         buildId,
-        userId: OTHER,
         idempotencyKey: "progress-add",
       })
     ).toEqual(added);
@@ -130,14 +128,12 @@ describe("progress session authorization", () => {
       await expect(
         caller.mutation(api.buildProgressUpdates.add, {
           buildId,
-          userId: OWNER,
           idempotencyKey: "progress-add",
         })
       ).rejects.toThrow(error);
       await expect(
         caller.mutation(api.buildProgressUpdates.update, {
           id: row._id,
-          userId: OWNER,
           idempotencyKey: "progress-update",
         })
       ).rejects.toThrow(error);
@@ -164,10 +160,10 @@ describe("progress session authorization", () => {
       });
     });
     await expect(
-      owner.mutation(api.buildProgressUpdates.add, { buildId, userId: OTHER, publish: true })
+      owner.mutation(api.buildProgressUpdates.add, { buildId, publish: true })
     ).rejects.toThrow(/paid plan/);
     await expect(
-      owner.mutation(api.buildProgressUpdates.update, { id: row._id, userId: OTHER, publish: true })
+      owner.mutation(api.buildProgressUpdates.update, { id: row._id, publish: true })
     ).rejects.toThrow(/paid plan/);
     await t.run(async (ctx) => {
       const user = await ctx.db
@@ -181,7 +177,6 @@ describe("progress session authorization", () => {
       (
         await owner.mutation(api.buildProgressUpdates.add, {
           buildId,
-          userId: OTHER,
           publish: true,
         })
       )?.publishedToFeed
@@ -190,7 +185,6 @@ describe("progress session authorization", () => {
       (
         await owner.mutation(api.buildProgressUpdates.update, {
           id: row._id,
-          userId: OTHER,
           publish: true,
         })
       )?.publishedToFeed
@@ -201,7 +195,7 @@ describe("progress session authorization", () => {
     ).toBe(false);
   });
 
-  it("attributes cloud-mirror quota to the session rather than the compatibility argument", async () => {
+  it("attributes cloud-mirror quota to the session actor", async () => {
     const { t, owner, row } = await fixture();
     await t.run(async (ctx) => {
       for (const externalId of [OWNER, OTHER]) {
@@ -216,7 +210,6 @@ describe("progress session authorization", () => {
     const storageId = await uploadTestBlob(t, OWNER, new Blob([new Uint8Array(1024 * 1024)]));
     await owner.mutation(api.buildProgressUpdates.update, {
       id: row._id,
-      userId: OTHER,
       imageRefs: [{ kind: "cloud", storageId, imageKey: "mirror" }],
     });
     const users = await t.run((ctx) => ctx.db.query("users").collect());
@@ -238,7 +231,7 @@ describe("progress session authorization", () => {
       expect(deleted?.fieldUpdatedAt).toEqual(row.fieldUpdatedAt);
       expect(await owner.query(api.buildProgressUpdates.listByBuild, { buildId })).toEqual([]);
       vi.advanceTimersByTime(1000);
-      await owner.mutation(api.buildProgressUpdates.remove, { id: row._id, userId: OTHER });
+      await owner.mutation(api.buildProgressUpdates.remove, { id: row._id });
       expect(await t.run((ctx) => ctx.db.get(row._id))).toEqual(deleted);
       await expect(
         owner.mutation(api.buildProgressUpdates.update, { id: row._id, note: "Resurrect" })

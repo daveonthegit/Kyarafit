@@ -54,7 +54,7 @@ describe("progress scoped replay", () => {
       note: "Owner",
       idempotencyKey,
     });
-    const secondArgs = { buildId: otherBuild!._id, userId: "owner", note: "Other", idempotencyKey };
+    const secondArgs = { buildId: otherBuild!._id, note: "Other", idempotencyKey };
     const second = await other.mutation(api.buildProgressUpdates.add, secondArgs);
     expect(second?._id).not.toBe(first?._id);
     expect(second?.userId).toBe("other");
@@ -64,7 +64,7 @@ describe("progress scoped replay", () => {
       note: "Owner edited",
       idempotencyKey,
     });
-    const secondEdit = { id: second!._id, userId: "owner", note: "Other edited", idempotencyKey };
+    const secondEdit = { id: second!._id, note: "Other edited", idempotencyKey };
     const editedSecond = await other.mutation(api.buildProgressUpdates.update, secondEdit);
     expect(editedSecond?.note).toBe("Other edited");
     expect(editedSecond?._id).not.toBe(editedFirst?._id);
