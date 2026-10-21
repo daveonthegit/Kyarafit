@@ -47,7 +47,7 @@ function cloudStorageIds(refs: unknown): Set<string> {
 }
 
 export const listByBuild = query({
-  args: { buildId: v.id("builds"), userId: v.optional(v.string()) },
+  args: { buildId: v.id("builds") },
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
@@ -66,7 +66,6 @@ export const listByBuild = query({
 export const add = mutation({
   args: {
     buildId: v.id("builds"),
-    userId: v.optional(v.string()), // retained for deployed clients but ignored
     note: v.optional(v.string()),
     imageRefs: v.optional(v.array(imageRefValidator)),
     progressPercent: v.optional(v.number()),
@@ -128,7 +127,6 @@ export const add = mutation({
 export const update = mutation({
   args: {
     id: v.id("buildProgressUpdates"),
-    userId: v.optional(v.string()), // retained for deployed clients but ignored
     note: v.optional(v.union(v.string(), v.null())),
     imageRefs: v.optional(v.array(imageRefValidator)),
     progressPercent: v.optional(v.union(v.number(), v.null())),
@@ -201,7 +199,7 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.id("buildProgressUpdates"), userId: v.optional(v.string()) },
+  args: { id: v.id("buildProgressUpdates") },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
     const doc = await ctx.db.get(args.id);

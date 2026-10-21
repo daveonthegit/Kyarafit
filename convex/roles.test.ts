@@ -182,7 +182,6 @@ describe("owner treated as paid in the publish gate", () => {
     });
     const update = await asOwner.mutation(api.buildProgressUpdates.add, {
       buildId: build!._id,
-      userId: "owner1",
       note: "shipping it",
       publish: true,
     });
@@ -201,7 +200,6 @@ describe("owner treated as paid in the publish gate", () => {
     await expect(
       asFree.mutation(api.buildProgressUpdates.add, {
         buildId: build!._id,
-        userId: "free1",
         note: "nope",
         publish: true,
       })
