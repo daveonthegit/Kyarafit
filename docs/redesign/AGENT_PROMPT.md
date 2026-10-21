@@ -23,7 +23,7 @@ You are implementing the approved "Glass Studio" v2 redesign of Kyarafit. The co
 6. `04-screens.md` — per-screen specs
 7. `docs/redesign/reference/Kyarafit Prototype.dc.html` — the pixel source of truth. Every screen is a `<div data-screen="…" data-plat="desktop|mobile">` block with fully inline styles. When a spec says "glass panel" or "eyebrow", grep this file for the screen and lift the EXACT values (colors, sizes, tracking, paddings). Do not invent values.
 
-Also honor the repo's own conventions: `CLAUDE.md`, `AGENTS.md`, `rules/frontend-patterns.mdc`, `rules/mobile-parity.mdc`, `rules/testing-patterns.mdc`, `docs/DESIGN_SYSTEM.md`.
+Also honor the repo's own conventions: `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN_SYSTEM.md`, `docs/TESTING.md`.
 
 ### Non-negotiable guardrails
 
@@ -42,7 +42,7 @@ Also honor the repo's own conventions: `CLAUDE.md`, `AGENTS.md`, `rules/frontend
 - **Phase 4 — social.** Feed, Discover, Public build, Groups, Group detail (refs 12a–12d, 8c) + OnlineOnlyBanner glass strip.
 - **Phase 5 — settings, auth, legal.** Settings + sub-pages + subscription, all four auth screens, terms/privacy (refs 11a–11c, 13a–13c).
 - **Phase 6 — landing.** Per the `Landing Live.dc.html` section of 04 (scroll-driven; reduced-motion gated).
-- **Phase 7 — mobile parity.** Mirror per `rules/mobile-parity.mdc` using expo-blur + the shared glass tokens; screens per 04 refs 7a–7e.
+- **Phase 7 — mobile parity.** Mirror per `docs/DESIGN_SYSTEM.md` (§8 parity matrix) using expo-blur + the shared glass tokens; screens per 04 refs 7a–7e.
 
 ### Per-phase definition of done
 

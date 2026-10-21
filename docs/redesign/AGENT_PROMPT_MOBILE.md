@@ -38,8 +38,8 @@ Convex/SQLite offline sync).
    the `<div data-screen="…" data-plat="mobile">` blocks inside the `data-stage="mobile"` stage
    (390×844). Extract exact values with a quick script, e.g.
    `python3 -c 'h=open("docs/redesign/reference/Kyarafit Prototype.dc.html").read(); i=h.find("data-stage=\"mobile\""); print(h[i:i+6000])'`
-8. Repo conventions: `CLAUDE.md`, `rules/mobile-parity.mdc`, `rules/frontend-patterns.mdc`,
-   `rules/testing-patterns.mdc`, `docs/DESIGN_SYSTEM.md` (§3 component contract, §8 parity matrix).
+8. Repo conventions: `CLAUDE.md`, `docs/TESTING.md`, `docs/DESIGN_SYSTEM.md` (§3 component
+   contract, §8 parity matrix).
 
 ### The web implementation is your semantic reference
 
