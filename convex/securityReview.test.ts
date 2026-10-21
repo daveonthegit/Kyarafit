@@ -62,13 +62,11 @@ describe("verified email grant boundary", () => {
     const build = await t
       .withIdentity({ subject: "operator" })
       .mutation(api.builds.create, { name: "Shared", status: "idea" });
-    await t
-      .withIdentity({ subject: "operator" })
-      .mutation(api.buildCollaborators.addByEmail, {
-        buildId: build!._id,
-        email: "victim@example.test",
-        role: "editor",
-      });
+    await t.withIdentity({ subject: "operator" }).mutation(api.buildCollaborators.addByEmail, {
+      buildId: build!._id,
+      email: "victim@example.test",
+      role: "editor",
+    });
     const rows = await t
       .withIdentity({ subject: "operator" })
       .query(api.buildCollaborators.listByBuild, { buildId: build!._id });
