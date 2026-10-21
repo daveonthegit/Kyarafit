@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/auth/signup",
   "/auth/verify-email",
   "/auth/reset-password",
+  "/native",
   "/u",
   "/b",
   "/discover",

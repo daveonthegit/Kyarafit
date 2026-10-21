@@ -36,7 +36,7 @@ describe("auth configuration", () => {
       const auth = config.createAuth({} as never);
       expect(auth.options.secret).toBe(secret);
       expect((await auth.$context).secret).toBe(secret);
-      const response = await convexTest(schema, modules).fetch("/auth/ok");
+      const response = await convexTest(schema, modules).fetch("/api/auth/ok");
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ ok: true });
     }
@@ -51,10 +51,10 @@ describe("auth configuration", () => {
       const adapter = await import("./betterAuth/adapter");
       const router = (await import("./http")).default;
       expect(adapter.create).toBeDefined();
-      expect(router.lookup("/auth/get-session", "GET")).not.toBeNull();
+      expect(router.lookup("/api/auth/get-session", "GET")).not.toBeNull();
       expect(() => authModule.createAuth({} as never)).toThrow("BETTER_AUTH_SECRET");
       const t = convexTest(schema, modules);
-      await expect(t.fetch("/auth/ok")).rejects.toThrow("BETTER_AUTH_SECRET");
+      await expect(t.fetch("/api/auth/ok")).rejects.toThrow("BETTER_AUTH_SECRET");
     }
   );
 
@@ -70,6 +70,18 @@ describe("auth configuration", () => {
       expect(config.createAuth({} as never).options.secret).toBe(testSecret);
     }
   );
+
+  it("serves auth from the web origin with browser-bound OAuth state", async () => {
+    const auth = config.createAuth({} as never);
+    expect(auth.options.baseURL).toBe("https://app.example.invalid/api/auth");
+    expect(auth.options.plugins?.map((plugin) => plugin.id)).not.toContain("cross-domain");
+    expect((await auth.$context).oauthConfig).toEqual({
+      storeStateStrategy: "database",
+      skipStateCookieCheck: false,
+    });
+    vi.stubEnv("SITE_URL", undefined);
+    expect(() => config.createAuth({} as never)).toThrow("SITE_URL");
+  });
 
   it("shares configured release origins between CORS registration and CSRF", async () => {
     vi.stubEnv(
@@ -95,7 +107,7 @@ describe("auth configuration", () => {
     vi.stubEnv("SITE_URL", "https://runtime.example.invalid");
     const t = convexTest(schema, modules);
     const preflight = (origin: string) =>
-      t.fetch("/auth/get-session", {
+      t.fetch("/api/auth/get-session", {
         method: "OPTIONS",
         headers: { Origin: origin, "Access-Control-Request-Method": "GET" },
       });

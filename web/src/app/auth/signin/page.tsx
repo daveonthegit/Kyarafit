@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/auth-client";
-import { setStoredBearerToken } from "@/lib/auth/bearer-storage-plugin";
 import { AuthGlassFrame } from "@/components/auth/AuthGlassFrame";
 
 type Mode = "signin" | "forgot";
@@ -46,7 +45,7 @@ export default function SignInPage() {
     setShowResendVerification(false);
     setLoading(true);
     try {
-      const { data, error: authError } = await authClient.signIn.username({
+      const { error: authError } = await authClient.signIn.username({
         username: username.trim(),
         password,
       });
@@ -56,14 +55,6 @@ export default function SignInPage() {
         setShowResendVerification(!!isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
       } else {
-        if (data?.token) {
-          setStoredBearerToken(data.token);
-          await authClient.getSession({
-            fetchOptions: {
-              headers: { Authorization: `Bearer ${data.token}` },
-            },
-          });
-        }
         router.push("/home");
       }
     } catch (err) {
@@ -83,7 +74,7 @@ export default function SignInPage() {
     setShowResendVerification(false);
     setLoading(true);
     try {
-      const { data, error: authError } = await authClient.signIn.email({
+      const { error: authError } = await authClient.signIn.email({
         email: email.trim(),
         password,
       });
@@ -93,14 +84,6 @@ export default function SignInPage() {
         setShowResendVerification(!!isUnverified);
         setError(msg || "Sign in failed. Check your credentials.");
       } else {
-        if (data?.token) {
-          setStoredBearerToken(data.token);
-          await authClient.getSession({
-            fetchOptions: {
-              headers: { Authorization: `Bearer ${data.token}` },
-            },
-          });
-        }
         router.push("/home");
       }
     } catch (err) {

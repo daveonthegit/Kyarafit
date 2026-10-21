@@ -1,46 +1,48 @@
 # Authentication
 
 Kyarafit uses **Better Auth** backed by **Convex** for both web (Next.js) and mobile (Expo).
-Supported methods: email + password and OAuth (Google required, GitHub optional).
+Supported methods: email + password and OAuth (Google required, Apple optional).
 
 ---
 
 ## Architecture
 
 ```
-Browser / React Native
+Browser (app.kyarafit.com)                Mobile app
+        │  same-origin /api/auth/*               │  https://<deployment>.convex.site/api/auth/*
+        │  HttpOnly session cookie               │  Authorization: Bearer <session> (keychain)
+        ▼                                        │
+Next.js proxy  web/src/app/api/auth/[...all]     │
+        │  (strips session tokens from bodies)   │
+        ▼                                        ▼
+Better Auth HTTP actions  (convex.site/api/auth/*, baseURL = SITE_URL/api/auth)
         │
-        │  POST /auth/sign-in/email   (direct cross-origin to Convex)
-        │  GET  /auth/sign-in/social  (OAuth redirect)
-        ▼
-Better Auth HTTP actions  (convex.site/auth/*)
-        │
-        │  reads / writes
         ▼
 Convex database  (user, session, account, verification, jwks tables)
-        │
-        │  JWT (convex_jwt cookie / Bearer header)
+        │  short-lived Convex JWT (/api/auth/convex/token)
         ▼
 Convex queries & mutations  (authenticated via ConvexBetterAuthProvider)
 ```
 
-### Cross-origin session persistence
+Better Auth's `baseURL` is the **web origin** (`SITE_URL/api/auth`), which Next.js proxies to
+Convex. OAuth `redirect_uri`, the OAuth state cookie and the session cookie are therefore all
+first-party to the app:
 
-The auth API lives on `*.convex.site` while the app lives on `localhost:3000`
-(web) or `localhost:8081` / `exp://` (mobile). Cookies are blocked cross-origin, so
-sessions are persisted via **Bearer tokens** instead:
+| Client | Credential                         | Where it lives                       | Sent as                   |
+| ------ | ---------------------------------- | ------------------------------------ | ------------------------- |
+| Web    | Session cookie                     | HttpOnly, Secure, SameSite=Lax, host | Cookie (same-origin)      |
+| Web    | Convex JWT (short-lived)           | Memory (Convex client)               | Convex socket auth        |
+| Mobile | Session token (`bearer` in convex) | `expo-secure-store`, this device     | `Authorization: Bearer …` |
 
-| Client      | Plugin                | Storage             | Header sent                         |
-| ----------- | --------------------- | ------------------- | ----------------------------------- |
-| Web         | `bearerStoragePlugin` | `localStorage`      | `Authorization: Bearer <token>`     |
-| Web (OAuth) | `crossDomainClient`   | `localStorage`      | `Better-Auth-Cookie: <cookie-json>` |
-| Mobile      | `bearerStoragePlugin` | `expo-secure-store` | `Authorization: Bearer <token>`     |
+Web script never stores a session token: the auth client has no bearer or cross-domain
+plugin, and the proxy (`web/src/lib/auth/proxy.ts`) removes `token` / `session.token` from
+JSON bodies and the `set-auth-token` header. Only `/api/auth/convex/token` passes its JWT
+through, because the Convex client needs it.
 
-The server's **`bearer`** plugin (bundled inside `@convex-dev/better-auth`'s `convex()` plugin)
-converts an `Authorization: Bearer <session-token>` header into a cookie so Better Auth can
-validate it. The **`crossDomain`** server plugin handles the OAuth redirect flow — it appends
-`?ott=<one-time-token>` to the OAuth callback URL so the client can exchange it for a session
-token without relying on cookies.
+**CSRF:** the session cookie is `SameSite=Lax`, and Better Auth rejects cookie-bearing
+mutations whose `Origin` is not in `trustedOrigins`. Web documents carry a per-request
+nonce-based Content-Security-Policy (`web/src/lib/security/csp.ts`, set in
+`web/src/middleware.ts`): no `'unsafe-inline'` or `'unsafe-eval'` for scripts in production.
 
 ---
 
@@ -57,7 +59,8 @@ check (CSRF/callback validation) consume it at request time. Do not maintain sep
 
 Production is the default, independent of `NODE_ENV`. Configured `SITE_URL` and
 `ADDITIONAL_CORS_ORIGINS` values must be non-loopback HTTPS origins, without paths,
-credentials, query strings, or fragments. Invalid configuration fails closed.
+credentials, query strings, or fragments. Invalid configuration fails closed. `SITE_URL` is
+required: auth initialization fails without it, because it hosts the auth endpoints.
 
 Only an isolated development deployment may set `AUTH_ENVIRONMENT=development`; this
 permits HTTP/Expo origins and includes the built-in localhost origins. For physical-device
@@ -65,14 +68,15 @@ testing, configure that deployment, not production:
 
 ```dotenv
 AUTH_ENVIRONMENT=development
+SITE_URL=http://localhost:3000
 ADDITIONAL_CORS_ORIGINS=exp://192.168.1.42:8081,http://192.168.1.42:8081
 ```
 
-The installed `kyarafit://` callback and Apple callback origin remain trusted explicitly.
-The executable origin policy and regressions live in `convex/betterAuth/auth.ts` and
-`convex/authConfig.test.ts`.
+`kyarafit://` stays trusted only as the PKCE-bound fallback for native OAuth returns, plus the
+Apple callback origin. The executable origin policy and regressions live in
+`convex/betterAuth/auth.ts` and `convex/authConfig.test.ts`.
 
-> **Symptom of missing trusted origin:** `POST /auth/sign-in/email` or `/auth/sign-up/email`
+> **Symptom of missing trusted origin:** `POST /api/auth/sign-in/email` or `/api/auth/sign-up/email`
 > returns **403 Forbidden** even though the CORS preflight succeeds.
 
 ---
@@ -81,12 +85,9 @@ The executable origin policy and regressions live in `convex/betterAuth/auth.ts`
 
 ### Email + password — web
 
-1. User submits the sign-in form
-2. `authClient.signIn.email({ email, password })` → POST `/auth/sign-in/email`
-3. Server returns `{ token }` in the JSON response body (via the `bearer` plugin)
-4. Client calls `setStoredBearerToken(token)` → saves to `localStorage`
-5. `bearerStoragePlugin` sends `Authorization: Bearer <token>` on every subsequent request
-6. `router.push("/home")`
+1. `authClient.signIn.email({ email, password })` → same-origin POST `/api/auth/sign-in/email`
+2. The proxy forwards it to Convex; Better Auth sets the HttpOnly session cookie
+3. `router.push("/home")`; `ConvexBetterAuthProvider` fetches a Convex JWT with that cookie
 
 Sign-up is similar but requires email verification (`requireEmailVerification: true`).
 After `signUp.email()` succeeds the user receives a verification email; until they click
@@ -104,53 +105,90 @@ Full web local-first operation remains deferred.
 
 ### Email + password — mobile
 
-The initial remote sign-in follows the web flow, except `setStoredBearerToken` uses
-`expo-secure-store` (async) and the session atom is refreshed via `await authClient.getSession()`
-before navigating. Afterward, mobile route access uses `useAppSession`, not the live session
-alone; local access and sign-out semantics follow
+The app calls Convex directly. The sign-in response's session token is stored with
+`setStoredBearerToken` (`expo-secure-store`, this device only) and the session atom is refreshed
+via `await authClient.getSession()` before navigating. Afterward, mobile route access uses
+`useAppSession`, not the live session alone; local access and sign-out semantics follow
 [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md).
 
 ### OAuth — web
 
-1. `authClient.signIn.social({ provider, callbackURL: "/home" })`
-2. Browser redirects to the OAuth provider
-3. Provider redirects to `https://<your-deployment>.convex.site/auth/callback/<provider>` (Better Auth `baseURL` uses `CONVEX_SITE_URL`, not `SITE_URL`, so OAuth Return URLs stay on `*.convex.site`)
-4. `crossDomain` server plugin creates an OTT, appends `?ott=<token>` to the callbackURL
-5. Browser navigates to `/home?ott=<token>`
-6. `ConvexBetterAuthProvider` detects `ott`, calls `/auth/cross-domain/one-time-token/verify`
-7. Gets `session.token`, calls `getSession()` with it; `crossDomainClient` stores the cookie
-8. `updateSession()` notifies the session atom → `useSession()` updates
+1. `authClient.signIn.social({ provider, callbackURL: "/home" })` → POST `/api/auth/sign-in/social`
+2. Better Auth stores the state in the database **and** sets a signed `state` cookie
+3. Browser goes to the provider, which returns to `SITE_URL/api/auth/callback/<provider>`
+4. The callback requires the state cookie to match (`skipStateCookieCheck: false`), so a flow
+   started in one browser cannot be finished in another (login CSRF)
+5. Better Auth sets the session cookie and redirects to `/home`
+
+Apple's `form_post` callback is re-issued by Better Auth as a top-level GET, which carries the
+Lax state cookie.
 
 **Linking from Settings:** `linkSocial` compares the provider email to the Better Auth user email. Apple’s private relay address often differs, so `allowDifferentEmails: true` is set in `convex/betterAuth/auth.ts`. For **first-time** sign-in (not Settings), Better Auth still matches existing users by **same email**; use “Share My Email” with Apple if you need one account to merge with an email/password profile.
 
 ### OAuth — mobile (Expo)
 
-1. `authClient.signIn.social({ provider, callbackURL: "kyarafit:///" })`
-2. `better-auth/react` skips `window.location` (undefined in RN) and returns `{ data: { url } }`
-3. App calls `Linking.openURL(url)` → system browser opens
-4. Same server-side flow as web OAuth
-5. Browser redirects to `kyarafit:///?ott=<token>` (deep link)
-6. iOS/Android opens the app; `Linking.useURL()` in `_layout.tsx` receives the URL
-7. App POSTs to `/auth/cross-domain/one-time-token/verify` with the OTT
-8. Gets `session.token` → `setStoredBearerToken(token)` → `await authClient.getSession()`
+Server: `convex/betterAuth/nativeOAuth.ts`. Client: `mobile/src/lib/auth/nativeOAuth.ts`.
+iOS Apple sign-in uses the native `ASAuthorization` id-token flow instead.
+
+1. The app creates a PKCE verifier and calls `signIn.social` (or `linkSocial`) with
+   `callbackURL` = the native return URL and header `x-kyarafit-code-challenge`
+2. The server stores the challenge with the OAuth state and returns
+   `SITE_URL/api/auth/native/authorize?state=…` instead of the provider URL
+3. The app opens that URL in the system auth session; `/native/authorize` sets the signed
+   state cookie in **that** browser and redirects to the provider (no arbitrary redirect target)
+4. The provider returns to `SITE_URL/api/auth/callback/<provider>`; the state cookie check passes
+5. The server strips all cookies from the response and redirects to the native return URL with a
+   single-use code (2 minutes)
+6. The app POSTs `{ code, verifier }` to `/api/auth/native/token` and stores the session token
+
+Native return URL:
+
+| Platform        | Return URL                                     | How it reaches the app                                              |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| iOS 17.4+       | `https://<web host>/native/auth/return`        | `ASWebAuthenticationSession` https callback (Universal Link domain) |
+| Android         | `https://<web host>/native/auth/return`        | App Link (`autoVerify`); web fallback page offers `kyarafit://`     |
+| iOS < 17.4, dev | `kyarafit://native/auth/return` (or `exp://…`) | Auth session scheme callback                                        |
+
+The code is useless without the verifier, which never leaves the app process, so a link that
+another app intercepts (custom scheme) or that opens in a browser signs nobody in. A return link
+that arrives with no flow in progress on the device is ignored.
 
 ### Password reset
 
-1. `authClient.requestPasswordReset({ email, redirectTo: "<reset-page-url>" })`
-2. Server sends an email with a link: `<redirectTo>?token=<reset-token>`
-3. User clicks → lands on the reset-password page
+1. `authClient.requestPasswordReset({ email, redirectTo })`
+2. The email links to `SITE_URL/api/auth/reset-password/<token>?callbackURL=<redirectTo>`
+3. Better Auth validates the token and redirects to `<redirectTo>?token=<reset-token>`
 4. `authClient.resetPassword({ newPassword, token })`
 
-On **mobile**, `redirectTo` points to the Convex site URL's reset-password endpoint; the
-user completes the reset in their browser. A native reset-password screen can be added later.
+Web and mobile both use the web reset page `https://<web host>/auth/reset-password`; the reset
+token never travels in a `kyarafit://` link. Only builds without `EXPO_PUBLIC_WEB_APP_URL`
+(local development) fall back to the in-app screen.
 
 ### Email verification (post sign-up)
 
 1. `signUp.email(...)` succeeds → server sends a verification email
-2. Email contains `<SITE_URL or CONVEX_SITE_URL>/auth/verify-email?token=...`
-3. User clicks → `web/src/app/auth/verify-email/route.ts` proxies to Convex
-4. Convex verifies the token and (with `autoSignInAfterVerification: true`) signs the user in
-5. Redirects to `callbackURL` (`/home` on web, `kyarafit://(tabs)` on mobile)
+2. Email contains `SITE_URL/api/auth/verify-email?token=...` (served through the proxy)
+3. Better Auth verifies the token and (with `autoSignInAfterVerification: true`) signs that
+   browser in
+4. Redirects to `callbackURL` (`/home` on web; the app root `kyarafit:///` on mobile, which
+   carries no credential — the user then signs in in the app)
+
+---
+
+## Claimed links (Universal Links / App Links)
+
+The app claims `https://<web host>/native/*` only. The web app serves the association files from
+`web/src/lib/appLinks.ts`:
+
+- `/.well-known/apple-app-site-association` — needs `APPLE_TEAM_ID` (and optional
+  `IOS_BUNDLE_ID`, default `com.kyarafit.mobile`)
+- `/.well-known/assetlinks.json` — needs `ANDROID_CERT_SHA256_FINGERPRINTS` (and optional
+  `ANDROID_PACKAGE`, default `com.kyarafit.mobile`)
+
+An unconfigured platform serves 404, so a deployment never claims links for an app identity it
+cannot prove. The app side (`mobile/app.config.js`) adds `applinks:` / `webcredentials:`
+associated domains and an `autoVerify` intent filter for the host of `EXPO_PUBLIC_WEB_APP_URL`
+(default `app.kyarafit.com`). These are public identifiers, not secrets.
 
 ---
 
@@ -158,32 +196,33 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Convex dashboard (Settings → Environment Variables)
 
-| Variable                  | Description                                                                                                                                                                                   | Required   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `BETTER_AUTH_SECRET`      | Explicit signing secret, at least 32 characters; no fallback. Provision outside source control. Auth initialization fails closed when absent/short; schema analysis does not initialize auth. | **Yes**    |
-| `GOOGLE_CLIENT_ID`        | Google OAuth client ID                                                                                                                                                                        | **Yes**    |
-| `GOOGLE_CLIENT_SECRET`    | Google OAuth client secret                                                                                                                                                                    | **Yes**    |
-| `SITE_URL`                | Web app origin for callbacks and email links; must satisfy the [origin policy](#shared-cors-and-trusted-origin-policy)                                                                        | Yes (prod) |
-| `AUTH_ENVIRONMENT`        | `production` (default) or `development`; see the origin policy above                                                                                                                          | No         |
-| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins subject to the same policy                                                                                                                                      | No         |
-| `RESEND_API_KEY`          | Resend API key — required for verification + reset emails                                                                                                                                     | No         |
-| `EMAIL_FROM`              | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend                                                                                                      | No         |
-| `GITHUB_CLIENT_ID`        | GitHub OAuth client ID                                                                                                                                                                        | No         |
-| `GITHUB_CLIENT_SECRET`    | GitHub OAuth client secret                                                                                                                                                                    | No         |
+| Variable                  | Description                                                                                                                                                                                   | Required |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `BETTER_AUTH_SECRET`      | Explicit signing secret, at least 32 characters; no fallback. Provision outside source control. Auth initialization fails closed when absent/short; schema analysis does not initialize auth. | **Yes**  |
+| `SITE_URL`                | Web app origin that proxies `/api/auth`; Better Auth's `baseURL`. Must satisfy the [origin policy](#shared-cors-and-trusted-origin-policy)                                                    | **Yes**  |
+| `GOOGLE_CLIENT_ID`        | Google OAuth client ID                                                                                                                                                                        | **Yes**  |
+| `GOOGLE_CLIENT_SECRET`    | Google OAuth client secret                                                                                                                                                                    | **Yes**  |
+| `AUTH_ENVIRONMENT`        | `production` (default) or `development`; see the origin policy above                                                                                                                          | No       |
+| `ADDITIONAL_CORS_ORIGINS` | Comma-separated extra origins subject to the same policy                                                                                                                                      | No       |
+| `RESEND_API_KEY`          | Resend API key — required for verification + reset emails                                                                                                                                     | No       |
+| `EMAIL_FROM`              | Sender address (`Kyarafit <noreply@yourdomain.com>`) — domain must be verified in Resend                                                                                                      | No       |
 
-### Web (`web/.env.local`)
+### Web (`web/.env.local`, Vercel)
 
-| Variable                      | Description                               |
-| ----------------------------- | ----------------------------------------- |
-| `NEXT_PUBLIC_CONVEX_URL`      | Convex backend URL                        |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | Convex HTTP actions URL (`*.convex.site`) |
+| Variable                           | Description                                                 |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `NEXT_PUBLIC_CONVEX_URL`           | Convex backend URL                                          |
+| `NEXT_PUBLIC_CONVEX_SITE_URL`      | Convex HTTP actions URL (`*.convex.site`), the proxy target |
+| `APPLE_TEAM_ID`                    | Apple Developer Team ID for the association file (public)   |
+| `ANDROID_CERT_SHA256_FINGERPRINTS` | Comma-separated app signing certificate SHA-256s (public)   |
 
 ### Mobile (`mobile/.env`)
 
-| Variable                      | Description                               |
-| ----------------------------- | ----------------------------------------- |
-| `EXPO_PUBLIC_CONVEX_URL`      | Convex backend URL                        |
-| `EXPO_PUBLIC_CONVEX_SITE_URL` | Convex HTTP actions URL (`*.convex.site`) |
+| Variable                      | Description                                                        |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `EXPO_PUBLIC_CONVEX_URL`      | Convex backend URL                                                 |
+| `EXPO_PUBLIC_CONVEX_SITE_URL` | Convex HTTP actions URL (`*.convex.site`)                          |
+| `EXPO_PUBLIC_WEB_APP_URL`     | Web origin (`https://app.kyarafit.com`): claimed OAuth return host |
 
 ---
 
@@ -191,28 +230,30 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Convex (server)
 
-| File                          | Purpose                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| `convex/betterAuth/auth.ts`   | Better Auth instance — providers, `trustedOrigins`, plugins |
-| `convex/betterAuth/schema.ts` | Auth DB tables (user, session, account, verification, jwks) |
-| `convex/http.ts`              | HTTP router consuming the shared runtime origin policy      |
-| `convex/auth.config.ts`       | Convex JWT provider config                                  |
-| `convex/emailHelpers.ts`      | Email sending via Resend (verification + reset)             |
+| File                               | Purpose                                                     |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `convex/betterAuth/auth.ts`        | Better Auth instance — providers, `trustedOrigins`, plugins |
+| `convex/betterAuth/nativeOAuth.ts` | Browser-bound, PKCE-bound OAuth for the app                 |
+| `convex/betterAuth/schema.ts`      | Auth DB tables (user, session, account, verification, jwks) |
+| `convex/http.ts`                   | HTTP router consuming the shared runtime origin policy      |
+| `convex/auth.config.ts`            | Convex JWT provider config                                  |
+| `convex/emailHelpers.ts`           | Email sending via Resend (verification + reset)             |
 
 ### Web
 
-| File                                          | Purpose                                                                   |
-| --------------------------------------------- | ------------------------------------------------------------------------- |
-| `web/src/lib/auth/auth-client.ts`             | `authClient` — `convexClient`, `crossDomainClient`, `bearerStoragePlugin` |
-| `web/src/lib/auth/bearer-storage-plugin.ts`   | Stores and sends Bearer token from `localStorage`                         |
-| `web/src/lib/auth/auth-server.ts`             | Next.js server helpers (`getToken`, `handler`)                            |
-| `web/src/app/api/auth/[...all]/route.ts`      | Next.js auth route proxy                                                  |
-| `web/src/app/auth/signin/page.tsx`            | Sign-in page (email + password + OAuth)                                   |
-| `web/src/app/auth/signup/page.tsx`            | Sign-up page                                                              |
-| `web/src/app/auth/verify-email/route.ts`      | Proxies verification link from email to Convex                            |
-| `web/src/app/auth/reset-password/page.tsx`    | Password reset form                                                       |
-| `web/src/components/AuthGate.tsx`             | Client-side route protection                                              |
-| `web/src/components/ConvexClientProvider.tsx` | `ConvexBetterAuthProvider` wrapper                                        |
+| File                                          | Purpose                                                     |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `web/src/lib/auth/auth-client.ts`             | Same-origin `authClient` — `convexClient`, `usernameClient` |
+| `web/src/lib/auth/proxy.ts`                   | Proxy policy: token stripping, credential rate limits       |
+| `web/src/app/api/auth/[...all]/route.ts`      | Next.js auth route proxy                                    |
+| `web/src/lib/auth/auth-server.ts`             | Next.js server helpers (`getToken`, `handler`)              |
+| `web/src/lib/security/csp.ts`                 | Nonce-based Content-Security-Policy                         |
+| `web/src/lib/appLinks.ts`                     | Universal Link / App Link association files                 |
+| `web/src/app/native/auth/return/page.tsx`     | Fallback when the OS does not hand the return to the app    |
+| `web/src/app/auth/signin/page.tsx`            | Sign-in page (email + password + OAuth)                     |
+| `web/src/app/auth/reset-password/page.tsx`    | Password reset form                                         |
+| `web/src/components/AuthGate.tsx`             | Client-side route protection                                |
+| `web/src/components/ConvexClientProvider.tsx` | `ConvexBetterAuthProvider` wrapper                          |
 
 ### Mobile
 
@@ -220,9 +261,10 @@ user completes the reset in their browser. A native reset-password screen can be
 | ---------------------------------------------- | ------------------------------------------------------------------------- |
 | `mobile/src/lib/auth/client.ts`                | `authClient`, `useSession`, `setStoredBearerToken`                        |
 | `mobile/src/lib/auth/bearer-storage-plugin.ts` | Stores Bearer token in `expo-secure-store`, hydrates memory, and sends it |
+| `mobile/src/lib/auth/nativeOAuth.ts`           | PKCE verifier, auth session, return-link redemption                       |
 | `mobile/app/(auth)/sign-in.tsx`                | Sign-in screen (email + password + OAuth)                                 |
 | `mobile/src/lib/auth/appSession.ts`            | Local-vault-aware route access                                            |
-| `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, deep-link OTT handler                         |
+| `mobile/app/_layout.tsx`                       | `ConvexBetterAuthProvider`, app-wide OAuth return handler                 |
 
 ---
 
@@ -230,29 +272,20 @@ user completes the reset in their browser. A native reset-password screen can be
 
 ### Google
 
-1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (**Web application** — not iOS/Android only; those clients cannot use the Convex callback below)
+1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (**Web application**)
 2. **Authorized redirect URIs** (must match character-for-character; no trailing slash):
-   - `https://<deployment>.convex.site/auth/callback/google`  
-     Use the same host as **Convex Dashboard → your deployment → Settings → URL & Deploy Key** → HTTP Actions / “.convex.site” site URL (not the `.convex.cloud` data URL). Add **both** dev and prod URLs if you use two deployments.
-3. **Authorized JavaScript origins** (recommended): `https://<deployment>.convex.site` (and `http://localhost:3000` for local Next.js UI — the OAuth **redirect** still hits `*.convex.site`, so the Convex URI in step 2 is required even when developing on localhost)
-4. Copy Client ID + Secret → Convex environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (same Web client for dev/prod unless you use separate clients)
-
-### GitHub (optional)
-
-1. [GitHub Developer Settings](https://github.com/settings/developers) → OAuth Apps → New
-2. Authorization callback URL: `https://<deployment>.convex.site/auth/callback/github`
-3. Copy Client ID + Secret → Convex environment variables
+   - `https://app.kyarafit.com/api/auth/callback/google` (production `SITE_URL`)
+   - `http://localhost:3000/api/auth/callback/google` for an isolated development deployment
+3. Copy Client ID + Secret → Convex environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
 ### Apple (Sign in with Apple)
 
-Apple does **not** allow `http://localhost` as a return URL. Use your real Convex HTTPS callback in the Apple Developer portal.
+Apple does **not** allow `http://localhost` as a return URL.
 
 1. **Identifiers** → **Services IDs** → create or select the Service ID used for web OAuth. This identifier is **`APPLE_CLIENT_ID`** in Convex (not the iOS bundle ID).
 2. Enable **Sign in with Apple** → **Configure** → set **Primary App ID** to your app ID that has the Sign in with Apple capability (`com.kyarafit.mobile` matches `mobile/app.json`).
-3. **Domains and Subdomains**: add the hostname only for your HTTP deployment, e.g. `happy-animal-123.convex.site` (no `https://`, no path).
-4. **Return URLs** (must match exactly, no trailing slash):
-   - `https://<deployment>.convex.site/auth/callback/apple`  
-     Same `<deployment>` as `NEXT_PUBLIC_CONVEX_SITE_URL` / `EXPO_PUBLIC_CONVEX_SITE_URL` (the `*.convex.site` host).
+3. **Domains and Subdomains**: `app.kyarafit.com` (no `https://`, no path).
+4. **Return URLs** (must match exactly, no trailing slash): `https://app.kyarafit.com/api/auth/callback/apple`
 5. **Keys**: create a Sign in with Apple key, download the `.p8`, note **Key ID** and **Team ID**.
 6. **Convex env** (Dashboard → Environment Variables):
    - `APPLE_CLIENT_ID` — Service ID string
@@ -265,7 +298,14 @@ Apple does **not** allow `http://localhost` as a return URL. Use your real Conve
 
 ### Google `redirect_uri_mismatch` (400)
 
-The browser is sent to Google with `redirect_uri=https://<your-deployment>.convex.site/auth/callback/google`. In [Credentials](https://console.cloud.google.com/apis/credentials) open the **Web client** whose Client ID matches Convex `GOOGLE_CLIENT_ID`, then under **Authorized redirect URIs** add that exact URL (scheme `https`, path `/auth/callback/google`). If it still fails, confirm `NEXT_PUBLIC_CONVEX_SITE_URL` / mobile `EXPO_PUBLIC_CONVEX_SITE_URL` use the **same** host you registered (no typo, no `www`, no trailing slash).
+The browser is sent to Google with `redirect_uri=<SITE_URL>/api/auth/callback/google`. In [Credentials](https://console.cloud.google.com/apis/credentials) open the **Web client** whose Client ID matches Convex `GOOGLE_CLIENT_ID` and add that exact URL. `SITE_URL` on the Convex deployment must be the web origin that serves the proxy.
+
+### `state_mismatch` / `state_security_mismatch` after OAuth
+
+The callback did not carry the state cookie of the browser that started the flow. Check that the
+browser stays on `SITE_URL` for the whole flow (not a different host such as `www.` or a preview
+URL), and on mobile that the app opened the `/native/authorize` URL it was given rather than the
+provider URL.
 
 ### 403 Forbidden on sign-in or sign-up
 
@@ -277,33 +317,22 @@ according to [Origin Configuration](#origin-configuration--critical); do not add
 
 **2. Invalid `callbackURL`.** Better Auth validates the `callbackURL` parameter against
 `trustedOrigins` and rejects invalid URLs with 403 before any other processing. Check the Convex
-function logs for `Invalid callbackURL: ...`. Common mistake: `kyarafit://(tabs)` — parentheses
-are **not valid URL hostname characters**. Use `kyarafit:///` (empty host, root path) instead,
-and ensure `"kyarafit://"` is in `trustedOrigins`.
+function logs for `Invalid callbackURL: ...`.
 
-### Session lost after page refresh (web)
+### 400 "Native sign-in requires a PKCE code challenge"
 
-`BETTER_AUTH_SECRET` may not be set, or the Bearer token was never stored.
-After `signIn.email()` always call `setStoredBearerToken(data.token)`. OAuth sessions
-are persisted by `crossDomainClient` via the `Set-Better-Auth-Cookie` response header.
-
-### Apple / Convex logs: `ERROR [Better Auth]: No session found`
-
-That message comes from the **cross-domain** plugin after the OAuth callback: Better Auth did **not** create a session before redirecting (so there is no one-time token to send back to your app).
-
-Check **Convex function logs** for errors **immediately before** that line — common causes:
-
-1. **`email_not_found`** — Apple did not supply an email in the profile/id token (rare misconfiguration). Confirm the Service ID + Primary App ID and that users can complete the Apple consent flow.
-2. **`invalid_code` / `no_code`** — token exchange failed. Typical fixes: wrong **Return URL** in Apple (must be exactly `https://<deployment>.convex.site/auth/callback/apple`), wrong **`APPLE_CLIENT_ID`** (must be the **Services ID**, not the bundle ID), or an **expired `APPLE_CLIENT_SECRET`** JWT (regenerate every ≤6 months).
-3. **Domain not registered** — under the Service ID, **Domains and Subdomains** must include your deployment host (e.g. `something.convex.site`).
-
-`convex/betterAuth/auth.ts` sets cookie `SameSite=None` + `Secure` for OAuth compatibility with Apple’s **form_post** callback.
+A sign-in with the native return URL as `callbackURL` must send `x-kyarafit-code-challenge`.
+Use `runNativeOAuth` in `mobile/src/lib/auth/nativeOAuth.ts` rather than calling
+`signIn.social` directly.
 
 ### Session not established after mobile OAuth
 
-- `mobile` uses `Linking.createURL("/")` for OAuth `callbackURL` (trusted origin `kyarafit://`). Do **not** use `kyarafit://(tabs)` — parentheses are invalid in a URL host and trigger **Invalid callbackURL** / 403.
-- Confirm `mobile/app/_layout.tsx` has the `Linking.useURL` OTT handler and `EXPO_PUBLIC_CONVEX_SITE_URL` matches the deployment you registered with Google/Apple.
-- Verify the Convex deployment registers the `crossDomain` plugin (it creates the OTT).
+- On iOS 17.4+/Android, confirm `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json` return JSON on the web host (they 404 until `APPLE_TEAM_ID` /
+  `ANDROID_CERT_SHA256_FINGERPRINTS` are set) and that the build's `EXPO_PUBLIC_WEB_APP_URL` host
+  matches.
+- If the browser stays on the "Return to the app" page, Android did not verify the App Link; the
+  page's button completes sign-in through the `kyarafit://` fallback.
 
 ### Verification email not received
 
