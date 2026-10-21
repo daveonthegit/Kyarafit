@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   openAuthSession: vi.fn(),
   setStoredBearerToken: vi.fn(),
   getSession: vi.fn(),
+  getBearerToken: vi.fn(),
 }));
 
 vi.mock("react-native", () => ({ Platform: h.platform }));
@@ -26,6 +27,7 @@ vi.mock("@/config/env", () => ({
   EXPO_PUBLIC_CONVEX_SITE_URL: "https://example.convex.site",
   EXPO_PUBLIC_WEB_APP_URL: "https://app.example.invalid",
 }));
+vi.mock("./bearer-storage-plugin", () => ({ getBearerToken: h.getBearerToken }));
 vi.mock("./client", () => ({
   authClient: { getSession: h.getSession },
   setStoredBearerToken: h.setStoredBearerToken,
@@ -47,6 +49,7 @@ function startStub() {
 describe("native OAuth client", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.getBearerToken.mockReturnValue("initiator-session");
     h.platform.OS = "ios";
     h.platform.Version = "17.4";
     vi.stubGlobal(
@@ -82,6 +85,40 @@ describe("native OAuth client", () => {
     });
     expect(h.setStoredBearerToken).toHaveBeenCalledWith("session-token");
   });
+
+  it("redeems link returns with the verifier and initiating bearer session without replacing it", async () => {
+    const { runNativeOAuth } = await load();
+    const start = startStub();
+    vi.mocked(fetch).mockResolvedValue(Response.json({ linked: true }));
+    h.openAuthSession.mockResolvedValue({ type: "success", url: `${RETURN}?code=link-code` });
+    await expect(runNativeOAuth("link", start)).resolves.toBe("linked");
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ Authorization: "Bearer initiator-session" });
+    const { code, verifier } = JSON.parse(String(init.body));
+    expect(code).toBe("link-code");
+    expect(createHash("sha256").update(verifier).digest("base64url")).toBe(
+      start.mock.calls[0][0].fetchOptions.headers["x-kyarafit-code-challenge"]
+    );
+    expect(h.setStoredBearerToken).not.toHaveBeenCalled();
+  });
+
+  for (const reason of ["no-code", "no-session", "denied", "wrong-result"]) {
+    it(`does not complete linking with ${reason}`, async () => {
+      const { runNativeOAuth } = await load();
+      if (reason === "no-session") h.getBearerToken.mockReturnValue(null);
+      if (reason === "denied")
+        vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 400 }));
+      h.openAuthSession.mockResolvedValue({
+        type: "success",
+        url: reason === "no-code" ? RETURN : `${RETURN}?code=link-code`,
+      });
+      await expect(runNativeOAuth("link", startStub())).rejects.toThrow(
+        "Could not complete sign in."
+      );
+      expect(h.setStoredBearerToken).not.toHaveBeenCalled();
+      if (reason === "no-code" || reason === "no-session") expect(fetch).not.toHaveBeenCalled();
+    });
+  }
 
   it("ignores a return link when no sign-in is in progress on this device", async () => {
     const { completeNativeReturn } = await load();

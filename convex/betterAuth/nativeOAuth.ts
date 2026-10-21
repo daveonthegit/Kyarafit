@@ -1,5 +1,11 @@
-import type { BetterAuthPlugin } from "better-auth";
-import { APIError, createAuthEndpoint, createAuthMiddleware } from "better-auth/api";
+import type { Account, BetterAuthPlugin } from "better-auth";
+import {
+  APIError,
+  createAuthEndpoint,
+  createAuthMiddleware,
+  getSessionFromCtx,
+  getAuthoritativeSessionFromCtx,
+} from "better-auth/api";
 import { generateRandomString } from "better-auth/crypto";
 import * as z from "zod";
 
@@ -55,8 +61,22 @@ function sameSecret(a: string, b: string): boolean {
   return diff === 0;
 }
 
-type Flow = { challenge: string; authorizationURL: string };
-type Code = { token: string; challenge: string };
+type Flow = {
+  challenge: string;
+  authorizationURL: string;
+  returnURL: string;
+  initiatorId?: string;
+};
+type LinkAccount = Pick<Account, "userId" | "providerId" | "accountId"> & Partial<Account>;
+type Code = { challenge: string } & (
+  | { kind: "sign-in"; token: string }
+  | { kind: "link"; initiatorId: string; account: LinkAccount; existingId?: string }
+);
+
+function callbackState(ctx: { query?: { state?: unknown }; body?: { state?: unknown } }): string {
+  const state = ctx.query?.state ?? ctx.body?.state;
+  return typeof state === "string" ? state : "";
+}
 
 export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean }) => {
   const startsNativeFlow = (ctx: { path?: string; body?: { callbackURL?: unknown } }) =>
@@ -76,8 +96,61 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
     hooks: {
       before: [
         {
+          matcher: (ctx) => Boolean(ctx.path?.startsWith("/callback/")),
+          handler: createAuthMiddleware(async (ctx) => {
+            const adapter = ctx.context.internalAdapter;
+            const state = await adapter.findVerificationValue(callbackState(ctx));
+            const stateData = state
+              ? (JSON.parse(state.value) as { callbackURL?: string; link?: { userId: string } })
+              : null;
+            if (!stateData?.link || !options.isReturnURL(stateData.callbackURL)) return;
+            const stored = await adapter.findVerificationValue(
+              `${FLOW_PREFIX}${callbackState(ctx)}`
+            );
+            if (!stored || stored.expiresAt.getTime() < Date.now())
+              throw new APIError("BAD_REQUEST");
+            const flow = JSON.parse(stored.value) as Flow;
+            if (
+              flow.initiatorId !== stateData.link.userId ||
+              flow.returnURL !== stateData.callbackURL
+            )
+              throw new APIError("BAD_REQUEST");
+            const defer = async (account: LinkAccount, existingId?: string): Promise<never> => {
+              if (account.userId !== flow.initiatorId) throw new APIError("BAD_REQUEST");
+              const code = generateRandomString(32);
+              const value: Code = {
+                kind: "link",
+                initiatorId: flow.initiatorId!,
+                challenge: flow.challenge,
+                account,
+                existingId,
+              };
+              await adapter.createVerificationValue({
+                identifier: `${CODE_PREFIX}${code}`,
+                value: JSON.stringify(value),
+                expiresAt: new Date(Date.now() + CODE_TTL_MS),
+              });
+              const target = new URL(flow.returnURL);
+              target.searchParams.set("code", code);
+              throw ctx.redirect(target.toString());
+            };
+            ctx.context.internalAdapter = {
+              ...adapter,
+              createAccount: (account: LinkAccount) => defer(account),
+              updateAccount: async (id: string, data: Partial<Account>) => {
+                const account = (await adapter.findAccounts(flow.initiatorId!)).find(
+                  (account) => account.id === id
+                );
+                if (!account) throw new APIError("BAD_REQUEST");
+                return defer({ ...account, ...data }, id);
+              },
+            };
+          }),
+        },
+        {
           matcher: startsNativeFlow,
           handler: createAuthMiddleware(async (ctx) => {
+            if (ctx.path === "/link-social" && ctx.body?.idToken) throw new APIError("BAD_REQUEST");
             if (!CHALLENGE.test(ctx.headers?.get(NATIVE_CHALLENGE_HEADER) ?? "")) {
               throw new APIError("BAD_REQUEST", {
                 message: "Native sign-in requires a PKCE code challenge",
@@ -97,7 +170,13 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
             const flow: Flow = {
               challenge: ctx.headers!.get(NATIVE_CHALLENGE_HEADER)!,
               authorizationURL: returned.url,
+              returnURL: String(ctx.body!.callbackURL),
             };
+            if (ctx.path === "/link-social") {
+              const session = await getSessionFromCtx(ctx);
+              if (!session) throw new APIError("UNAUTHORIZED");
+              flow.initiatorId = session.user.id;
+            }
             await ctx.context.internalAdapter.createVerificationValue({
               identifier: `${FLOW_PREFIX}${state}`,
               value: JSON.stringify(flow),
@@ -116,7 +195,7 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
             // The browser that finished the flow must not keep the app's session or JWT cookies.
             ctx.context.responseHeaders?.delete("set-cookie");
             const target = new URL(location);
-            const state = typeof ctx.query?.state === "string" ? ctx.query.state : "";
+            const state = callbackState(ctx);
             const stored = state
               ? await ctx.context.internalAdapter.findVerificationValue(`${FLOW_PREFIX}${state}`)
               : null;
@@ -131,10 +210,10 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
               throw ctx.redirect(target.toString());
             }
             const session = ctx.context.newSession;
-            // Link and error returns carry no session; their query already says what happened.
             if (!session) throw ctx.redirect(target.toString());
             const code = generateRandomString(32);
             const value: Code = {
+              kind: "sign-in",
               token: session.session.token,
               challenge: (JSON.parse(stored.value) as Flow).challenge,
             };
@@ -177,15 +256,44 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
         async (ctx) => {
           const { code, verifier } = ctx.body;
           const identifier = `${CODE_PREFIX}${code}`;
-          const stored = await ctx.context.internalAdapter.findVerificationValue(identifier);
-          // Single use: consume before any check so a failed guess also burns the code.
-          if (stored) await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier);
+          const stored = await ctx.context.internalAdapter.consumeVerificationValue(identifier);
           const invalid = new APIError("BAD_REQUEST", { message: "Invalid sign-in code" });
           if (!stored || stored.expiresAt.getTime() < Date.now() || !VERIFIER.test(verifier)) {
             throw invalid;
           }
           const value = JSON.parse(stored.value) as Code;
           if (!sameSecret(await pkceChallenge(verifier), value.challenge)) throw invalid;
+          if (value.kind === "link") {
+            const session = await getAuthoritativeSessionFromCtx(ctx);
+            if (
+              !session ||
+              session.user.id !== value.initiatorId ||
+              value.account.userId !== session.user.id
+            )
+              throw invalid;
+            const existing = await ctx.context.internalAdapter.findAccountByProviderId(
+              value.account.accountId,
+              value.account.providerId
+            );
+            if (existing && existing.userId !== session.user.id) throw invalid;
+            const account = { ...value.account };
+            for (const key of [
+              "accessTokenExpiresAt",
+              "refreshTokenExpiresAt",
+              "createdAt",
+              "updatedAt",
+            ] as const) {
+              if (account[key]) account[key] = new Date(account[key]);
+            }
+            if (value.existingId) {
+              if (existing?.id !== value.existingId) throw invalid;
+              await ctx.context.internalAdapter.updateAccount(existing.id, account);
+            } else {
+              if (existing) throw invalid;
+              await ctx.context.internalAdapter.createAccount(account);
+            }
+            return ctx.json({ linked: true });
+          }
           const session = await ctx.context.internalAdapter.findSession(value.token);
           if (!session) throw invalid;
           return ctx.json({ token: value.token, user: session.user });

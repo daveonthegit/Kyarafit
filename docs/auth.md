@@ -125,7 +125,7 @@ via `await authClient.getSession()` before navigating. Afterward, mobile route a
 Apple's `form_post` callback is re-issued by Better Auth as a top-level GET, which carries the
 Lax state cookie.
 
-**Linking from Settings:** `linkSocial` compares the provider email to the Better Auth user email. Apple’s private relay address often differs, so `allowDifferentEmails: true` is set in `convex/betterAuth/auth.ts`. For **first-time** sign-in (not Settings), Better Auth still matches existing users by **same email**; use “Share My Email” with Apple if you need one account to merge with an email/password profile.
+**Linking from Settings:** `linkSocial` requires the provider email to match the Better Auth user email (`allowDifferentEmails: false`). Apple's private-relay address may therefore prevent linking to a profile with a different address; use “Share My Email” when the addresses must match. First-time sign-in also matches existing users by the same email.
 
 ### OAuth — mobile (Expo)
 
@@ -141,7 +141,17 @@ iOS Apple sign-in uses the native `ASAuthorization` id-token flow instead.
 4. The provider returns to `SITE_URL/api/auth/callback/<provider>`; the state cookie check passes
 5. The server strips all cookies from the response and redirects to the native return URL with a
    single-use code (2 minutes)
-6. The app POSTs `{ code, verifier }` to `/api/auth/native/token` and stores the session token
+6. The app POSTs `{ code, verifier }` to `/api/auth/native/token`. Sign-in returns a session token.
+   Browser-based linking instead requires the app's existing bearer session and returns `{ linked: true }` without replacing it.
+
+For native `linkSocial` returns, the callback does **not** create or update a linked account or
+update the user's profile. It stores the provider account data, initiating user ID and PKCE
+challenge in durable verification state. Redemption commits the pending link only when the
+verifier matches and the authenticated session user is the initiator. Pending links expire after
+two minutes; consumption is single-use, including rejected redemption attempts. Opening another
+account's authorize URL in a browser cannot commit a link. Native-return linking with an inline
+ID token is rejected; the separate iOS Apple ID-token request is authenticated directly and does
+not use this browser callback flow.
 
 Native return URL:
 

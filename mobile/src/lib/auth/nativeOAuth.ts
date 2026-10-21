@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import { EXPO_PUBLIC_CONVEX_SITE_URL, EXPO_PUBLIC_WEB_APP_URL } from "@/config/env";
 import { authClient, setStoredBearerToken } from "./client";
+import { getBearerToken } from "./bearer-storage-plugin";
 
 /**
  * Browser OAuth for the app (server half: convex/betterAuth/nativeOAuth.ts).
@@ -87,19 +88,23 @@ async function redeem(flow: Flow, url: string): Promise<boolean> {
   if (typeof params.error === "string") {
     throw new Error(flow.kind === "link" ? "Could not connect that account." : "Sign in failed.");
   }
-  // Linking returns no code: the account was attached to the session that started it.
-  if (flow.kind === "link") return true;
   if (typeof params.code !== "string" || !EXPO_PUBLIC_CONVEX_SITE_URL) return false;
+  const token = flow.kind === "link" ? getBearerToken() : null;
+  if (flow.kind === "link" && !token) return false;
   const res = await fetch(
     `${EXPO_PUBLIC_CONVEX_SITE_URL.replace(/\/$/, "")}/api/auth/native/token`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ code: params.code, verifier: flow.verifier }),
     }
   );
   if (!res.ok) return false;
-  const data = (await res.json()) as { token?: unknown };
+  const data = (await res.json()) as { token?: unknown; linked?: unknown };
+  if (flow.kind === "link") return data.linked === true;
   if (typeof data.token !== "string" || !data.token) return false;
   await setStoredBearerToken(data.token);
   await authClient.getSession({

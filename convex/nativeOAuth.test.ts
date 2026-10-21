@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
+import { bearer } from "better-auth/plugins";
 import {
   NATIVE_CHALLENGE_HEADER,
   isNativeReturnURL,
@@ -43,7 +44,10 @@ function makeAuth() {
     secret: testSecret,
     database: memoryAdapter(store),
     // The Convex plugin needs a Convex deployment; the bound flow is nativeOAuth's alone.
-    plugins: options.plugins.filter((plugin) => plugin.id === "kyarafit-native-oauth"),
+    plugins: [
+      ...options.plugins.filter((plugin) => plugin.id === "kyarafit-native-oauth"),
+      bearer(),
+    ],
     socialProviders: {
       google: {
         clientId: "client-fixture",
@@ -63,7 +67,7 @@ function makeAuth() {
   });
   const call = (path: string, init?: RequestInit) =>
     auth.handler(new Request(path.startsWith("http") ? path : `${BASE}${path}`, init));
-  return { call, store };
+  return { call, store, auth };
 }
 
 const json = (body: unknown, headers: Record<string, string> = {}): RequestInit => ({
@@ -179,6 +183,177 @@ describe("native OAuth", () => {
       })
     ).toBe(true);
   });
+});
+
+async function linkFixture(
+  email = "native@example.invalid",
+  existing = false,
+  postCallback = false
+) {
+  const fixture = makeAuth();
+  const context = await fixture.auth.$context;
+  const user = await context.internalAdapter.createUser({
+    email,
+    emailVerified: true,
+    name: "Initiator",
+  });
+  const session = await context.internalAdapter.createSession(user.id);
+  const other = await context.internalAdapter.createUser({
+    email: "other@example.invalid",
+    emailVerified: true,
+    name: "Other",
+  });
+  const otherSession = await context.internalAdapter.createSession(other.id);
+  if (existing)
+    await context.internalAdapter.createAccount({
+      userId: user.id,
+      providerId: "google",
+      accountId: "google-subject",
+      accessToken: "original",
+    });
+  const started = await fixture.call(
+    "/link-social",
+    json(
+      { provider: "google", callbackURL: NATIVE_RETURN, disableRedirect: true },
+      {
+        Authorization: `Bearer ${session.token}`,
+        [NATIVE_CHALLENGE_HEADER]: await pkceChallenge(VERIFIER),
+      }
+    )
+  );
+  expect(started.status).toBe(200);
+  const { url } = (await started.json()) as { url: string };
+  const browser = await fixture.call(url);
+  expect(browser.status).toBe(302);
+  const state = new URL(browser.headers.get("location")!).searchParams.get("state");
+  let callback = postCallback
+    ? await fixture.call("/callback/google", {
+        method: "POST",
+        headers: {
+          cookie: cookiePairs(browser),
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ state: state!, code: "victim-code" }),
+      })
+    : await fixture.call(`/callback/google?state=${state}&code=victim-code`, {
+        headers: { cookie: cookiePairs(browser) },
+      });
+  if (postCallback)
+    callback = await fixture.call(callback.headers.get("location")!, {
+      headers: { cookie: cookiePairs(browser) },
+    });
+  return { ...fixture, context, session, otherSession, user, callback };
+}
+
+describe("native deferred linking", () => {
+  it("handles form-post callbacks and consumes pending links once under concurrent redemption", async () => {
+    const { call, callback, store, session } = await linkFixture(undefined, false, true);
+    expect(callback.status).toBe(302);
+    const code = new URL(callback.headers.get("location")!).searchParams.get("code");
+    expect(code).toBeTruthy();
+    expect(store.account).toHaveLength(0);
+    const attempts = await Promise.all(
+      Array.from({ length: 2 }, () =>
+        call(
+          "/native/token",
+          json({ code, verifier: VERIFIER }, { Authorization: `Bearer ${session.token}` })
+        )
+      )
+    );
+    expect(attempts.map((response) => response.status).sort()).toEqual([200, 400]);
+    expect(store.account).toHaveLength(1);
+  });
+
+  it("rejects native-return inline-token linking before provider processing", async () => {
+    const { call, store } = makeAuth();
+    const response = await call(
+      "/link-social",
+      json(
+        { provider: "google", callbackURL: NATIVE_RETURN, idToken: { token: "inline" } },
+        { [NATIVE_CHALLENGE_HEADER]: await pkceChallenge(VERIFIER) }
+      )
+    );
+    expect(response.status).toBe(400);
+    expect(store.account).toHaveLength(0);
+  });
+  it("does not link a victim's differing-email identity after opening the attacker's authorize URL", async () => {
+    const { callback, store, call, session } = await linkFixture("attacker@example.invalid");
+    expect(callback.status).toBe(302);
+    const target = new URL(callback.headers.get("location")!);
+    expect(target.searchParams.get("error")).toBe("email_doesn't_match");
+    expect(target.searchParams.has("code")).toBe(false);
+    expect(store.account).toHaveLength(0);
+    for (const headers of [{}, { Authorization: `Bearer ${session.token}` }]) {
+      expect(
+        (await call("/native/token", json({ code: "absent", verifier: VERIFIER }, headers))).status
+      ).toBe(400);
+    }
+    expect(store.account).toHaveLength(0);
+  });
+
+  for (const attempt of [
+    "anonymous",
+    "other-session",
+    "wrong-verifier",
+    "expired",
+    "valid",
+  ] as const) {
+    for (const existing of [false, true]) {
+      it(`${attempt} redemption ${existing ? "updates" : "creates"} a link only with both initiating proofs`, async () => {
+        const { call, store, callback, session, otherSession, user } = await linkFixture(
+          undefined,
+          existing
+        );
+        expect(callback.status).toBe(302);
+        expect(callback.headers.getSetCookie()).toEqual([]);
+        const code = new URL(callback.headers.get("location")!).searchParams.get("code");
+        expect(code).toBeTruthy();
+        expect(store.account).toHaveLength(existing ? 1 : 0);
+        if (existing)
+          expect((store.account[0] as { accessToken: string }).accessToken).toBe("original");
+        const headers: Record<string, string> =
+          attempt === "anonymous"
+            ? {}
+            : {
+                Authorization: `Bearer ${attempt === "other-session" ? otherSession.token : session.token}`,
+              };
+        if (attempt === "expired") {
+          for (const entry of store.verification as Array<{ expiresAt: Date }>)
+            entry.expiresAt = new Date(Date.now() - 1);
+        }
+        const redeemed = await call(
+          "/native/token",
+          json(
+            { code, verifier: attempt === "wrong-verifier" ? "w".repeat(64) : VERIFIER },
+            headers
+          )
+        );
+        expect(redeemed.status).toBe(attempt === "valid" ? 200 : 400);
+        if (attempt === "valid") {
+          expect(await redeemed.json()).toEqual({ linked: true });
+          expect(store.account).toHaveLength(1);
+          expect(store.account[0]).toMatchObject({
+            userId: user.id,
+            providerId: "google",
+            accountId: "google-subject",
+            accessToken: "access",
+          });
+        } else {
+          expect(store.account).toHaveLength(existing ? 1 : 0);
+          if (existing)
+            expect((store.account[0] as { accessToken: string }).accessToken).toBe("original");
+        }
+        expect(
+          (
+            await call(
+              "/native/token",
+              json({ code, verifier: VERIFIER }, { Authorization: `Bearer ${session.token}` })
+            )
+          ).status
+        ).toBe(400);
+      });
+    }
+  }
 });
 
 describe("web OAuth", () => {
