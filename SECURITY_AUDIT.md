@@ -16,11 +16,10 @@
 > routes. The application's actual API is the Convex function set, which has no rate
 > limiting and is reachable directly. Read it as "auth-proxy rate limiting".
 >
-> The "no hardcoded API keys" and "no rotation required" conclusions (§1.C) and
-> "Manual steps: None required" (§3) are **not** current: a `test_`-prefixed RevenueCat
-> publishable SDK key literal ships as a `??` fallback in `mobile/src/config/env.ts`, and
-> `REVENUECAT_WEBHOOK_AUTHORIZATION` is now required (the webhook returns 401 when it is
-> unset) rather than optional.
+> The credential-storage, OAuth, CSP, and configuration descriptions below are historical,
+> not current setup instructions. See [Authentication](docs/auth.md) and
+> [RevenueCat setup](docs/billing/REVENUECAT_SETUP.md) for the current contracts; use the
+> [deployment preflight](docs/setup/DEPLOY_README.md) for operator prerequisites.
 
 ---
 

@@ -258,7 +258,11 @@ export const nativeOAuth = (options: { isReturnURL: (url: unknown) => boolean })
           const identifier = `${CODE_PREFIX}${code}`;
           const stored = await ctx.context.internalAdapter.consumeVerificationValue(identifier);
           const invalid = new APIError("BAD_REQUEST", { message: "Invalid sign-in code" });
-          if (!stored || new Date(stored.expiresAt).getTime() < Date.now() || !VERIFIER.test(verifier)) {
+          if (
+            !stored ||
+            new Date(stored.expiresAt).getTime() < Date.now() ||
+            !VERIFIER.test(verifier)
+          ) {
             throw invalid;
           }
           const value = JSON.parse(stored.value) as Code;

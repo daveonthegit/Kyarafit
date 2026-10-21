@@ -6,6 +6,13 @@ guides are retired from this code line. Their documentation survives in Git hist
 an executable deployment recipe. Do not run legacy `setup-gcp`, `deploy-all`, Supabase migration,
 or domain-setup scripts based on their filenames alone.
 
+## Rebuild release boundary
+
+The v2 rebuild is based on `feat/glass-studio-phase-0`; security work is on
+`feat/kyarafit-v2-security`. Production and `main` remain frozen until the rebuild is finalized
+and an operator approves a release. Permission to replace v2 development data or schemas is not
+permission to modify production.
+
 ## Before any rollout
 
 An authorized operator must record, without secrets or user data:

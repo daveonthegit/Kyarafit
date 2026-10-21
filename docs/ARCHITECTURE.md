@@ -86,7 +86,8 @@ change product requirements or certify quota consistency.
 | `LocalStore`  | `expo-sqlite`                     | OPFS + wa-sqlite / IndexedDB fallback |
 | Connectivity  | `@react-native-community/netinfo` | `navigator.onLine` + events           |
 | Image capture | camera / picker (`expo-*`)        | `<input type=file>`                   |
-| Secure token  | `expo-secure-store`               | `localStorage`                        |
+
+Authentication adapters and credential storage are owned by [Authentication](auth.md).
 
 Mobile's authoritative `VaultStore` is distinct from web's `LocalStore` interface. Mobile syncs
 through the row replica; web has no vault yet and shows published copies read-only, refusing every
@@ -100,8 +101,8 @@ personal-data command (`web/src/lib/offline/publishedReadOnly.ts`). Web engine s
 - **C1** Thin function wrappers; logic in plain TS helpers (import from `design-system` where shared). Validate args + return types with `v.*` / shared validators.
 - **C2** Acting identity must come from the verified session, not caller arguments. Preserve
   legitimate public-by-design reads. The current contract and exceptions are documented in
-  [`backend-authorization.md`](backend-authorization.md); remediation remains open, so this
-  convention is not a claim that every endpoint already satisfies it.
+  [`backend-authorization.md`](backend-authorization.md). Implementation and release status
+  are tracked in the [roadmap](ROADMAP.md).
 - **C3** Managed-sync ops are deduped by `opId` in `replicaOps`. Mutations that accept an `idempotencyKey` keep the ledger pattern in `convex/lib/idempotency.ts`.
 - **C4** Use indexes, never `filter()`, for queries; paginate large datasets.
 - **C5** Function-level authorization and shared resource-access helpers protect user data;
