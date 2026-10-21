@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import schema from "./schema";
+import { stubAuthAccounts } from "./authAccountTestHelpers.fixture";
 import { api, internal } from "./_generated/api";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
 
@@ -141,6 +142,7 @@ describe("scoped offline replay", () => {
   it("isolates media and focus operations and refuses foreign media retries", async () => {
     const t = convexTest(schema, modules);
     const actor = t.withIdentity({ subject: "owner" });
+    stubAuthAccounts(t, [{ _id: "owner", email: "test@example.com", emailVerified: true }]);
     await actor.mutation(api.users.upsert, { externalId: "owner", email: "test@example.com" });
     const build = await actor.mutation(api.builds.create, createArgs);
     const mediaArgs = {

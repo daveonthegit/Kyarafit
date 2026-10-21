@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { convexTest } from "convex-test";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
+import { stubAuthAccounts } from "./authAccountTestHelpers.fixture";
 import { createAuthOptions } from "./betterAuth/auth";
 import * as helpers from "./emailHelpers";
 vi.mock("./emailHelpers", () => ({
@@ -63,6 +64,7 @@ describe("email recipient deletion boundary", () => {
     });
   it("does not retain address/name in newly queued welcome actions, and suppresses both new and legacy queued sends", async () => {
     const t = convexTest({ schema, modules, transactionLimits: true });
+    stubAuthAccounts(t, [{ _id: "alice", email: "alice@example.invalid", emailVerified: true }]);
     await t
       .withIdentity({ subject: "alice" })
       .mutation(api.users.upsert, { email: "alice@example.invalid", name: "Fixture name" });

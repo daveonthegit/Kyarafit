@@ -63,7 +63,7 @@ const nextConfig = {
           // API responses are data (plus Better Auth's static error page), never app documents.
           {
             key: "Content-Security-Policy",
-            value: "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+            value: "default-src 'none'; frame-ancestors 'none'",
           },
         ],
       },

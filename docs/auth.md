@@ -42,7 +42,9 @@ through, because the Convex client needs it.
 **CSRF:** the session cookie is `SameSite=Lax`, and Better Auth rejects cookie-bearing
 mutations whose `Origin` is not in `trustedOrigins`. Web documents carry a per-request
 nonce-based Content-Security-Policy (`web/src/lib/security/csp.ts`, set in
-`web/src/middleware.ts`): no `'unsafe-inline'` or `'unsafe-eval'` for scripts in production.
+`web/src/middleware.ts`): no `'unsafe-inline'` or `'unsafe-eval'` for scripts in any environment.
+The document style policy permits inline styles for React style attributes and runtime-injected
+cropper/motion styles. API responses instead use `default-src 'none'; frame-ancestors 'none'`.
 
 ---
 

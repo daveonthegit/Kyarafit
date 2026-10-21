@@ -4,20 +4,14 @@
  * Scripts run only with this request's nonce; `'strict-dynamic'` extends that trust to scripts
  * Next.js and nonce-bearing scripts load, so host allowlists and `'unsafe-inline'` are not needed.
  * `'wasm-unsafe-eval'` permits compiling the wa-sqlite WebAssembly module only, not JS `eval`.
- * Development adds `'unsafe-eval'` for React's dev tooling; production never does.
- * Styles keep `'unsafe-inline'`: React `style` props and runtime-injected component styles
- * (cropper, motion) are not script execution, and nonce-tagging every injector is not possible.
+ * The script-only criterion does not cover styles. Styles keep `'unsafe-inline'` because
+ * React style attributes (including motion transforms) cannot be authorized with a style nonce,
+ * and the cropper/component libraries inject runtime styles without this request's nonce.
  */
-export function buildContentSecurityPolicy(nonce: string, { development = false } = {}): string {
+export function buildContentSecurityPolicy(nonce: string): string {
   return [
     "default-src 'self'",
-    [
-      "script-src 'self'",
-      `'nonce-${nonce}'`,
-      "'strict-dynamic'",
-      "'wasm-unsafe-eval'",
-      ...(development ? ["'unsafe-eval'"] : []),
-    ].join(" "),
+    ["script-src 'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "'wasm-unsafe-eval'"].join(" "),
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "connect-src 'self' https: *.convex.cloud *.convex.site wss:",
     "img-src 'self' data: https: blob:",

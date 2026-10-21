@@ -14,6 +14,7 @@ import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation
 import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
 import { requireOwner } from "./admin";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { authenticatedEmail, verifiedUserByEmail } from "./lib/authEmail";
 
 /** Server-validated app-role values. The DB row (never client input) is the source of truth. */
 const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("owner"));
@@ -163,10 +164,7 @@ export const upsert = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const email =
-      args.email.length <= MAX_LENGTH.email
-        ? args.email.trim()
-        : args.email.slice(0, MAX_LENGTH.email);
+    const email = await authenticatedEmail(ctx, actorId);
     const name = sanitizeOptional(args.name, MAX_LENGTH.name, "Name");
     const image =
       args.image != null && args.image.length <= MAX_LENGTH.url ? args.image : undefined;
@@ -554,10 +552,7 @@ export const setUserRole = internalMutation({
           .query("users")
           .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId!))
           .unique()
-      : await ctx.db
-          .query("users")
-          .withIndex("by_email", (q) => q.eq("email", args.email!.trim()))
-          .unique();
+      : await verifiedUserByEmail(ctx, args.email!);
     if (!user) {
       throw new Error("User not found");
     }
@@ -594,10 +589,7 @@ export const grantRole = mutation({
         .withIndex("by_externalId", (q) => q.eq("externalId", args.targetExternalId!))
         .unique();
     } else if (args.email) {
-      target = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.email!.trim()))
-        .unique();
+      target = await verifiedUserByEmail(ctx, args.email);
     } else {
       throw new Error("Provide targetUserId, targetExternalId, or email to identify the user");
     }

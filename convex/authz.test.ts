@@ -17,6 +17,7 @@ import { api } from "./_generated/api";
 import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { stubAuthAccounts } from "./authAccountTestHelpers.fixture";
 
 // `convex-test` needs Vite's `import.meta.glob` to enumerate the function modules.
 // The Convex tsconfig has no `vite/client` types, so declare just what is used here.
@@ -630,6 +631,7 @@ describe("a caller passing another user's id cannot act as them", () => {
   test("users.upsert cannot overwrite another user's row or mail an arbitrary address", async () => {
     const t = harness();
     await seed(t);
+    stubAuthAccounts(t, [{ _id: ALICE, email: "alice@example.test", emailVerified: true }]);
     const asAlice = t.withIdentity({ subject: ALICE });
 
     await asAlice.mutation(api.users.upsert, {
@@ -650,7 +652,7 @@ describe("a caller passing another user's id cannot act as them", () => {
         .query("users")
         .withIndex("by_externalId", (q) => q.eq("externalId", ALICE))
         .unique();
-      expect(alice?.email).toBe("attacker@evil.test");
+      expect(alice?.email).toBe("alice@example.test");
     });
   });
 

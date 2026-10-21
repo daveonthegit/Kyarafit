@@ -8,6 +8,8 @@ import { MAX_LENGTH, sanitizeAndLimit, sanitizeOptional } from "./lib/validation
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 
+import { deletionJob } from "./lib/deletionReferences";
+
 const VALID_VISIBILITIES = ["private", "public"] as const;
 const VALID_ROLES = ["admin", "member"] as const;
 
@@ -61,7 +63,7 @@ export const get = query({
   args: { id: v.id("groups") },
   handler: async (ctx, args) => {
     const group = await ctx.db.get(args.id);
-    if (!group) return null;
+    if (!group || (await deletionJob(ctx, group.createdBy))) return null;
     if (group.visibility === "public") return group;
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return null;
@@ -79,7 +81,12 @@ export const listForUser = query({
       .query("groupMembers")
       .withIndex("by_userId", (q) => q.eq("userId", actorId))
       .collect();
-    const groups = await Promise.all(memberships.map((m) => ctx.db.get(m.groupId)));
+    const groups = await Promise.all(
+      memberships.map(async (m) => {
+        const group = await ctx.db.get(m.groupId);
+        return group && !(await deletionJob(ctx, group.createdBy)) ? group : null;
+      })
+    );
     return groups.filter((g): g is NonNullable<typeof g> => g != null);
   },
 });
@@ -98,11 +105,16 @@ export const getWithMembers = query({
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     const group = await ctx.db.get(args.groupId);
-    if (!group) return null;
-    const members = await ctx.db
+    if (!group || (await deletionJob(ctx, group.createdBy))) return null;
+    const rows = await ctx.db
       .query("groupMembers")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
+    const members = (
+      await Promise.all(
+        rows.map(async (row) => ((await deletionJob(ctx, row.userId)) ? null : row))
+      )
+    ).filter((row): row is NonNullable<typeof row> => row !== null);
     const isMember = actorId ? members.some((m) => m.userId === actorId) : false;
     if (!isMember && group.visibility !== "public") return null;
     const myMembership = actorId ? members.find((m) => m.userId === actorId) : undefined;

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { buildContentSecurityPolicy, createNonce } from "./csp";
 
@@ -17,12 +18,18 @@ describe("content security policy", () => {
     expect(directive(buildContentSecurityPolicy("abc"), "object-src")).toEqual(["'none'"]);
   });
 
-  it("allows eval only for local development tooling", () => {
-    const scripts = directive(
-      buildContentSecurityPolicy("abc", { development: true }),
-      "script-src"
-    );
-    expect(scripts).toContain("'unsafe-eval'");
+  it("retains the document style exception", () => {
+    expect(directive(buildContentSecurityPolicy("abc"), "style-src")).toContain("'unsafe-inline'");
+  });
+
+  it("denies all content and framing on API responses", async () => {
+    const config = createRequire(import.meta.url)("../../../next.config.js");
+    const rules = await config.headers();
+    const api = rules.find((rule: { source: string }) => rule.source === "/api/:path*");
+    const policy = api.headers.find(
+      (header: { key: string }) => header.key === "Content-Security-Policy"
+    ).value;
+    expect(policy).toBe("default-src 'none'; frame-ancestors 'none'");
   });
 
   it("creates a fresh unguessable nonce per request", () => {

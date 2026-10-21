@@ -28,9 +28,7 @@ function isLandingPath(pathname: string): boolean {
 /** Continue to the page with a fresh nonce: Next.js applies it to its scripts via the request CSP. */
 function nextWithCsp(req: NextRequest) {
   const nonce = createNonce();
-  const csp = buildContentSecurityPolicy(nonce, {
-    development: process.env.NODE_ENV !== "production",
-  });
+  const csp = buildContentSecurityPolicy(nonce);
   const headers = new Headers(req.headers);
   headers.set("x-nonce", nonce);
   headers.set("Content-Security-Policy", csp);

@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "./schema";
+import { createAuthAccount } from "./authAccountTestHelpers.fixture";
 import { api, internal } from "./_generated/api";
 import { uploadTestBlob } from "./mediaTestHelpers.fixture";
 
@@ -49,9 +50,10 @@ describe("setUserRole bootstrap (internal)", () => {
 
   it("should_bootstrap_owner_by_email", async () => {
     const t = convexTest(schema, modules);
-    await seedUser(t, "u1", "FREE");
+    const subject = await createAuthAccount(t, "u1@example.com");
+    await seedUser(t, subject, "FREE");
     await t.mutation(internal.users.setUserRole, { email: "u1@example.com", role: "owner" });
-    expect((await getUser(t, "u1"))?.role).toBe("owner");
+    expect((await getUser(t, subject))?.role).toBe("owner");
   });
 
   it("should_reject_when_no_identifier", async () => {
