@@ -167,6 +167,8 @@ describe("native OAuth", () => {
     const prod = { siteUrl: SITE, development: false };
     expect(isNativeReturnURL(`${NATIVE_RETURN}?code=x`, prod)).toBe(true);
     expect(isNativeReturnURL("kyarafit://native/auth/return", prod)).toBe(true);
+    expect(isNativeReturnURL("kyarafit:///native/auth/return?code=x", prod)).toBe(true);
+    expect(isNativeReturnURL("kyarafit://evil/native/auth/return", prod)).toBe(false);
     expect(isNativeReturnURL(`${SITE}/home`, prod)).toBe(false);
     expect(isNativeReturnURL("https://evil.example.invalid/native/auth/return", prod)).toBe(false);
     expect(isNativeReturnURL("exp://192.0.2.1:8081/--/native/auth/return", prod)).toBe(false);

@@ -17,7 +17,8 @@ vi.mock("expo-crypto", () => ({
     createHash("sha256").update(value).digest("base64"),
 }));
 vi.mock("expo-linking", () => ({
-  createURL: (path: string) => `kyarafit://${path.replace(/^\//, "")}`,
+  // Standalone builds: no host URI, so expo-linking emits the triple-slash form.
+  createURL: (path: string) => `kyarafit:///${path.replace(/^\//, "")}`,
   parse: (url: string) => ({ queryParams: Object.fromEntries(new URL(url).searchParams) }),
 }));
 vi.mock("expo-web-browser", () => ({ openAuthSessionAsync: h.openAuthSession }));
@@ -59,9 +60,9 @@ describe("native OAuth client", () => {
     expect(nativeReturnURL({ OS: "ios", Version: "17.4" })).toBe(RETURN);
     expect(nativeReturnURL({ OS: "ios", Version: "18.0" })).toBe(RETURN);
     expect(nativeReturnURL({ OS: "android", Version: 34 })).toBe(RETURN);
-    expect(nativeReturnURL({ OS: "ios", Version: "17.3" })).toBe("kyarafit://native/auth/return");
+    expect(nativeReturnURL({ OS: "ios", Version: "17.3" })).toBe("kyarafit:///native/auth/return");
     expect(nativeReturnURL({ OS: "android", Version: 34 }, "")).toBe(
-      "kyarafit://native/auth/return"
+      "kyarafit:///native/auth/return"
     );
   });
 
@@ -100,6 +101,21 @@ describe("native OAuth client", () => {
     });
     await expect(runNativeOAuth("sign-in", startStub())).resolves.toBe("signed_in");
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("completes a scheme return in the form the app itself created", async () => {
+    h.platform.Version = "17.3";
+    const { runNativeOAuth } = await load();
+    h.openAuthSession.mockResolvedValue({
+      type: "success",
+      url: "kyarafit:///native/auth/return?code=abc",
+    });
+    await expect(runNativeOAuth("sign-in", startStub())).resolves.toBe("signed_in");
+    expect(h.openAuthSession).toHaveBeenCalledWith(
+      expect.any(String),
+      "kyarafit:///native/auth/return",
+      { preferUniversalLinks: false }
+    );
   });
 
   it("completes an Android scheme fallback after the browser closes", async () => {

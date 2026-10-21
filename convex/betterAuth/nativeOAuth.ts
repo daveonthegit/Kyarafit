@@ -33,7 +33,8 @@ export function isNativeReturnURL(
 ): boolean {
   if (typeof value !== "string") return false;
   const bare = value.split(/[?#]/)[0];
-  if (bare === `kyarafit:/${NATIVE_RETURN_PATH}`) return true;
+  // Standalone builds create kyarafit:///native/auth/return; the web fallback links kyarafit://….
+  if (/^kyarafit:\/\/\/?native\/auth\/return$/.test(bare)) return true;
   if (siteUrl && bare === `${new URL(siteUrl).origin}${NATIVE_RETURN_PATH}`) return true;
   // Expo Go builds return through exp://<host>/--/<path>; only isolated dev deployments allow it.
   return development && /^exp:\/\/[^/?#]+\/--\/native\/auth\/return$/.test(bare);

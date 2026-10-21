@@ -143,11 +143,11 @@ iOS Apple sign-in uses the native `ASAuthorization` id-token flow instead.
 
 Native return URL:
 
-| Platform        | Return URL                                     | How it reaches the app                                              |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
-| iOS 17.4+       | `https://<web host>/native/auth/return`        | `ASWebAuthenticationSession` https callback (Universal Link domain) |
-| Android         | `https://<web host>/native/auth/return`        | App Link (`autoVerify`); web fallback page offers `kyarafit://`     |
-| iOS < 17.4, dev | `kyarafit://native/auth/return` (or `exp://…`) | Auth session scheme callback                                        |
+| Platform        | Return URL                                      | How it reaches the app                                              |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| iOS 17.4+       | `https://<web host>/native/auth/return`         | `ASWebAuthenticationSession` https callback (Universal Link domain) |
+| Android         | `https://<web host>/native/auth/return`         | App Link (`autoVerify`); web fallback page offers `kyarafit://`     |
+| iOS < 17.4, dev | `kyarafit:///native/auth/return` (or `exp://…`) | Auth session scheme callback                                        |
 
 The code is useless without the verifier, which never leaves the app process, so a link that
 another app intercepts (custom scheme) or that opens in a browser signs nobody in. A return link
