@@ -56,6 +56,15 @@ describe("Spanish planning controls", () => {
           contextLabel="Capa"
           status="in_progress"
           progressPercent={40}
+          priority={3}
+          blockedByCount={2}
+          blockedByTitles={["Cortar tela", "Comprar hilo"]}
+          dragHandleProps={{
+            hasChildren: true,
+            childrenOpen: true,
+            onToggleChildren: vi.fn(),
+            onPointerDown: vi.fn(),
+          }}
         />
       </NextIntlClientProvider>
     );
@@ -66,8 +75,54 @@ describe("Spanish planning controls", () => {
     const expanded = screen.getByRole("button", { name: 'Ocultar detalles de "Coser capa"' });
     expect(expanded).toHaveTextContent("Menos");
     expect(expanded).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Estado")).toBeInTheDocument();
+    expect(screen.getByText("en curso")).toBeInTheDocument();
+    expect(screen.getByText("Prioridad")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("Dependencias")).toBeInTheDocument();
+    expect(screen.getByText("bloqueada por Cortar tela, Comprar hilo")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: 'Marcar "Coser capa" como completa' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Arrastrar "Coser capa"' })).toHaveAttribute(
+      "title",
+      "Arrastra para reordenar, anidar o subir de nivel"
+    );
+    expect(screen.getByRole("button", { name: "Contraer tarea" })).toBeInTheDocument();
     fireEvent.click(expanded);
     expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it.each([
+    ["not_started", "sin empezar"],
+    ["scheduled", "programada"],
+    ["in_progress", "en curso"],
+    ["blocked", "bloqueada"],
+    ["waiting", "en espera"],
+    ["done", "hecha"],
+    ["cancelled", "cancelada"],
+  ])("translates %s and count-only dependencies", (status, label) => {
+    render(
+      <NextIntlClientProvider locale="es" messages={messages}>
+        <PlannerTaskRow
+          title="Capa"
+          done={status === "done"}
+          userId="u1"
+          onToggle={vi.fn()}
+          contextHref="/builds"
+          contextLabel="Build"
+          status={status}
+          progressPercent={0}
+          blockedByCount={2}
+        />
+      </NextIntlClientProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Mostrar detalles de "Capa"' }));
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText("bloqueada por 2")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toHaveAccessibleName(
+      status === "done" ? 'Marcar "Capa" como incompleta' : 'Marcar "Capa" como completa'
+    );
   });
 
   it("translates explorer actions, search, and singular/plural counts", () => {

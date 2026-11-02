@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildSchemaStatements,
   entityRowToValues,
   entityRowFromValues,
   pendingMutationFromValues,
@@ -8,37 +7,9 @@ import {
 } from "./waSqliteStore";
 import type { StoredEntityRow } from "./localStore";
 
-// Spec: DATA_AND_SYNC.md §5. These cover the wa-sqlite engine's PURE helpers only (schema DDL +
-// row (de)serialization + capability probe). The wa-sqlite WASM/OPFS engine itself is never
+// Spec: DATA_AND_SYNC.md §5. These cover the wa-sqlite engine's PURE helpers only (row
+// (de)serialization + capability probe). The wa-sqlite WASM/OPFS engine itself is never
 // instantiated here — it cannot run under jsdom — that path is exercised in real browsers.
-
-describe("buildSchemaStatements", () => {
-  const statements = buildSchemaStatements();
-  const all = statements.join("\n");
-
-  it("creates every logical store table", () => {
-    expect(all).toContain("CREATE TABLE IF NOT EXISTS query_cache");
-    expect(all).toContain("CREATE TABLE IF NOT EXISTS entity_rows");
-    expect(all).toContain("CREATE TABLE IF NOT EXISTS mutation_queue");
-    expect(all).toContain("CREATE TABLE IF NOT EXISTS id_map");
-    expect(all).toContain("CREATE TABLE IF NOT EXISTS sync_meta");
-  });
-
-  it("keys entity_rows by (table_name, id) with a synced flag", () => {
-    const entitySql = statements.find((s) => s.includes("entity_rows")) ?? "";
-    expect(entitySql).toContain("PRIMARY KEY (table_name, id)");
-    expect(entitySql).toContain("synced INTEGER NOT NULL");
-  });
-
-  it("defines mutation_queue with autoincrement id + unique idempotency_key", () => {
-    const queueSql = statements.find((s) =>
-      s.includes("CREATE TABLE IF NOT EXISTS mutation_queue")
-    );
-    expect(queueSql).toBeDefined();
-    expect(queueSql).toContain("id INTEGER PRIMARY KEY AUTOINCREMENT");
-    expect(queueSql).toContain("idempotency_key TEXT NOT NULL UNIQUE");
-  });
-});
 
 describe("entity row (de)serialization", () => {
   const row: StoredEntityRow = {

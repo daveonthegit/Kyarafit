@@ -19,6 +19,7 @@ import { PlannerTaskGroup } from "@/components/planner/PlannerTaskGroup";
 import {
   addDaysToPlannerDate,
   comparePlannerTasksByDue,
+  comparePlannerTasksByOrder,
   filterPlannerTasksByBuild,
   groupPlannerTasks,
   isPlannerTaskClosed,
@@ -63,15 +64,6 @@ type PlannerTask = {
 
 type PlannerTaskNode = PlannerTask & { children: PlannerTaskNode[] };
 
-/** Children keep the user's manual order (drag-to-reorder); roots read soonest-due first. */
-function comparePlannerTasks(a: PlannerTask, b: PlannerTask) {
-  if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-  const dateA = a.dueDate ?? "9999-12-31";
-  const dateB = b.dueDate ?? "9999-12-31";
-  if (dateA !== dateB) return dateA.localeCompare(dateB);
-  return a.title.localeCompare(b.title);
-}
-
 /**
  * Nest a time group's tasks by `parentId`. A child whose parent landed in a
  * different group (or was filtered out) becomes a root of this group.
@@ -93,11 +85,11 @@ function buildTaskHierarchy(tasks: PlannerTask[]): PlannerTaskNode[] {
 
   const sortChildren = (nodes: PlannerTaskNode[]) => {
     for (const node of nodes) {
-      node.children.sort(comparePlannerTasks);
+      node.children.sort(comparePlannerTasksByOrder);
       sortChildren(node.children);
     }
   };
-  roots.sort(comparePlannerTasksByDue);
+  roots.sort(comparePlannerTasksByOrder);
   sortChildren(roots);
   return roots;
 }

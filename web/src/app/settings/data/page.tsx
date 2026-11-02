@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useConvex } from "convex/react";
 import { useTranslations } from "next-intl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime } from "@/lib/offline";
-import { readOnline, subscribeConnectivity } from "@/lib/auth/localAccount";
+import {
+  readOnline,
+  readLocalAccount,
+  subscribeLocalAccount,
+  subscribeConnectivity,
+} from "@/lib/auth/localAccount";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { SyncStatus } from "@/components/SyncStatus";
 import { readLocalCollections } from "@/lib/localFirstData";
@@ -41,6 +46,15 @@ export default function SettingsDataPage() {
   const [exportedCount, setExportedCount] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
+  const exportController = useRef<AbortController | null>(null);
+  useLayoutEffect(() => {
+    const unsubscribe = subscribeLocalAccount(() => exportController.current?.abort());
+    return () => {
+      unsubscribe();
+      exportController.current?.abort();
+    };
+  }, [userId, isAuthenticated]);
+
   // Retained local-store rows (DATA_AND_SYNC.md §11); the only source while offline.
   const version = useSyncExternalStore(
     offlineRuntime.subscribe,
@@ -54,6 +68,11 @@ export default function SettingsDataPage() {
   const accountReachable = online && isAuthenticated;
 
   const handleExport = useCallback(async () => {
+    exportController.current?.abort();
+    const controller = new AbortController();
+    exportController.current = controller;
+    const { signal } = controller;
+    if (readLocalAccount() !== userId) return;
     setFailed(false);
     setExportedCount(null);
     let collections = localCollections;
@@ -61,21 +80,24 @@ export default function SettingsDataPage() {
       setBusy(true);
       try {
         const server = await fetchCloudCollections(convex, {
+          signal,
           onProgress: (done, total) => setProgress({ done, total }),
         });
+        if (signal.aborted || readLocalAccount() !== userId) return;
         collections = mergeCollections(server, localCollections);
       } catch {
-        setFailed(true);
+        if (!signal.aborted) setFailed(true);
         return;
       } finally {
         setBusy(false);
         setProgress(null);
       }
     }
+    if (signal.aborted || readLocalAccount() !== userId) return;
     const stamp = new Date().toISOString().slice(0, 10);
     downloadFile(`kyarafit-export-${stamp}.json`, buildDataBundle(collections));
     setExportedCount(countRows(collections));
-  }, [convex, isAuthenticated, localCollections]);
+  }, [convex, isAuthenticated, localCollections, userId]);
 
   return (
     <SettingsGlassShell eyebrow={t("subtitle")} title={t("title")} backLabel={t("backToSettings")}>

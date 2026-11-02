@@ -81,6 +81,10 @@ export function comparePlannerTasksByDue(a: GroupablePlannerTask, b: GroupablePl
   return a.title.localeCompare(b.title);
 }
 
+export function comparePlannerTasksByOrder(a: GroupablePlannerTask, b: GroupablePlannerTask): number {
+  return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || comparePlannerTasksByDue(a, b);
+}
+
 /** Narrow to one build; `null` keeps every task (the "All" tab). */
 export function filterPlannerTasksByBuild<T extends GroupablePlannerTask>(
   tasks: readonly T[],
@@ -92,7 +96,7 @@ export function filterPlannerTasksByBuild<T extends GroupablePlannerTask>(
 
 /**
  * Group tasks into Today / This week / Later after applying the build filter.
- * Each bucket is sorted with {@link comparePlannerTasksByDue}.
+ * Each bucket is sorted with {@link comparePlannerTasksByOrder}.
  */
 export function groupPlannerTasks<T extends GroupablePlannerTask>(
   tasks: readonly T[],
@@ -102,7 +106,7 @@ export function groupPlannerTasks<T extends GroupablePlannerTask>(
   for (const task of filterPlannerTasksByBuild(tasks, buildId)) {
     groups[plannerTimeGroupFor(task, today)].push(task);
   }
-  for (const key of PLANNER_TIME_GROUPS) groups[key].sort(comparePlannerTasksByDue);
+  for (const key of PLANNER_TIME_GROUPS) groups[key].sort(comparePlannerTasksByOrder);
   return groups;
 }
 

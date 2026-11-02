@@ -272,6 +272,32 @@ describe("Settings data export page", () => {
     expect(parsed.builds.map((r) => r.id)).toEqual(["b1"]);
   });
 
+  it.each(["switch", "switch-back", "unmount"])("discards an in-flight export on %s", async (change) => {
+    const { blobs, click, createObjectURL } = captureDownloads();
+    seedLocalBuild("alice-private", "Alice private build");
+    const pending: Array<() => void> = [];
+    client.query.mockImplementation((_ref, { collection }) => new Promise((resolve) => {
+      pending.push(() => resolve(serverRows[collection] ?? []));
+    }));
+    const { unmount } = render(<SettingsDataPage />);
+    fireEvent.click(screen.getByRole("button", { name: /export data/i }));
+    await act(async () => pending.shift()!());
+    const started = client.query.mock.calls.length;
+    await act(async () => {
+      if (change === "unmount") unmount();
+      else {
+        rememberLocalAccount(null);
+        rememberLocalAccount("bob");
+        if (change === "switch-back") rememberLocalAccount("user-free-1");
+      }
+    });
+    await act(async () => pending.splice(0).forEach((release) => release()));
+    expect(client.query).toHaveBeenCalledTimes(started);
+    expect(blobs).toEqual([]);
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+  });
+
   it("shows an alert and downloads nothing when the account data cannot be fetched", async () => {
     const { createObjectURL, click } = captureDownloads();
     client.query.mockImplementation(async (ref, { collection }) => {

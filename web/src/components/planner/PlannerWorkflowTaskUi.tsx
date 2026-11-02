@@ -200,7 +200,7 @@ export function PlannerTaskRow({
   const detailsId = useId();
   if (pending && pending.base !== done) setPending(null);
   const shownDone = pending && pending.base === done ? pending.value : done;
-  const statusLabel = status.split("_").join(" ");
+  const statusLabel = t("taskStatusValue", { status });
   const hasPriority = typeof priority === "number" && priority > 0;
   const hasDependencies = Boolean(blockedByCount && blockedByCount > 0);
   const trailingDue = dueLabel ?? (dueDate ? formatPlannerWorkflowDueDate(dueDate) : undefined);
@@ -229,7 +229,7 @@ export function PlannerTaskRow({
               type="button"
               onClick={dragHandleProps.onToggleChildren}
               className="h-11 w-8 rounded-full text-xs text-media-fg-55 hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-              aria-label={dragHandleProps.childrenOpen ? "Collapse task" : "Expand task"}
+              aria-label={t(dragHandleProps.childrenOpen ? "collapseTask" : "expandTask")}
             >
               {dragHandleProps.childrenOpen ? "▾" : "▸"}
             </button>
@@ -240,8 +240,8 @@ export function PlannerTaskRow({
             type="button"
             onPointerDown={dragHandleProps.onPointerDown}
             className="h-11 w-8 touch-none cursor-grab rounded-full text-lg leading-none text-media-fg-45 hover:bg-glass-active hover:text-kyar-media-fg active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
-            aria-label={`Drag "${title}"`}
-            title="Drag to reorder, nest, or promote"
+            aria-label={t("dragTask", { title })}
+            title={t("dragTaskHint")}
           >
             ≡
           </button>
@@ -251,7 +251,7 @@ export function PlannerTaskRow({
         checked={shownDone}
         disabled={!userId}
         onCheckedChange={handleCheckedChange}
-        ariaLabel={`Mark "${title}" as ${shownDone ? "incomplete" : "complete"}`}
+        ariaLabel={t(shownDone ? "markIncomplete" : "markComplete", { title })}
       />
       <div className="flex-1 min-w-0">
         <PlannerWorkflowTaskTitle done={shownDone}>{title}</PlannerWorkflowTaskTitle>
@@ -276,7 +276,9 @@ export function PlannerTaskRow({
             className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-glass-divider pt-2"
           >
             <div className="flex items-baseline gap-1.5">
-              <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">Status</dt>
+              <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">
+                {t("taskStatusLabel")}
+              </dt>
               <dd className="text-[10px] uppercase tracking-[0.14em] text-media-fg-70">
                 {statusLabel}
               </dd>
@@ -284,22 +286,22 @@ export function PlannerTaskRow({
             {hasPriority ? (
               <div className="flex items-baseline gap-1.5">
                 <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">
-                  Priority
+                  {t("taskPriorityLabel")}
                 </dt>
                 <dd className="text-[10px] uppercase tracking-[0.14em] text-media-fg-70">
-                  {priority}
+                  {t("taskPriorityValue", { priority: priority ?? 0 })}
                 </dd>
               </div>
             ) : null}
             {hasDependencies ? (
               <div className="flex items-baseline gap-1.5">
                 <dt className="text-[10px] uppercase tracking-[0.14em] text-media-fg-45">
-                  Dependencies
+                  {t("taskDependenciesLabel")}
                 </dt>
                 <dd className="text-[11px] text-on-glass-danger">
                   {blockedByTitles && blockedByTitles.length > 0
-                    ? `blocked by ${blockedByTitles.join(", ")}`
-                    : `blocked by ${blockedByCount}`}
+                    ? t("blockedByTitles", { titles: blockedByTitles.join(", ") })
+                    : t("blockedByCount", { count: blockedByCount ?? 0 })}
                 </dd>
               </div>
             ) : null}

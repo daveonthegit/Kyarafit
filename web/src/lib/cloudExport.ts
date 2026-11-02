@@ -11,6 +11,7 @@ import {
 export type CloudExportClient = Pick<ConvexReactClient, "query">;
 
 export interface CloudExportOptions {
+  signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -18,7 +19,7 @@ export const CLOUD_EXPORT_CONCURRENCY = 6;
 
 export async function fetchCloudCollections(
   client: CloudExportClient,
-  { onProgress }: CloudExportOptions = {}
+  { onProgress, signal }: CloudExportOptions = {}
 ): Promise<PortableCollections> {
   const collections = emptyCollections();
   let next = 0;
@@ -29,9 +30,10 @@ export async function fetchCloudCollections(
     while (!failed && next < PORTABLE_COLLECTIONS.length) {
       const collection = PORTABLE_COLLECTIONS[next++];
       try {
-        collections[collection] = toExportableRows(
-          await client.query(api.accountExport.listCollection, { collection })
-        );
+        signal?.throwIfAborted();
+        const rows = await client.query(api.accountExport.listCollection, { collection });
+        signal?.throwIfAborted();
+        collections[collection] = toExportableRows(rows);
       } catch (error) {
         failed = true;
         throw error;
@@ -40,6 +42,7 @@ export async function fetchCloudCollections(
     }
   };
   await Promise.all(Array.from({ length: CLOUD_EXPORT_CONCURRENCY }, worker));
+  signal?.throwIfAborted();
   return collections;
 }
 

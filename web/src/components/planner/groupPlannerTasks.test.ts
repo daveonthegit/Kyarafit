@@ -67,7 +67,7 @@ describe("groupPlannerTasks", () => {
     expect(titles(groups.later)).toEqual(["Next month", "Someday"]);
   });
 
-  it("should_sort_by_due_date_then_manual_order_then_title", () => {
+  it("should_sort_by_manual_order_then_due_date_then_title", () => {
     const groups = groupPlannerTasks(
       [
         task("B second", { dueDate: TODAY, sortOrder: 1 }),
@@ -77,7 +77,19 @@ describe("groupPlannerTasks", () => {
       ],
       { today: TODAY }
     );
-    expect(titles(groups.today)).toEqual(["Overdue first", "A first", "B second", "C tie"]);
+    expect(titles(groups.today)).toEqual(["A first", "B second", "C tie", "Overdue first"]);
+  });
+
+  it.each([
+    ["today", "2026-11-01", "2026-11-02"],
+    ["week", "2026-11-04", "2026-11-06"],
+    ["later", "2026-11-12", "2026-11-14"],
+  ] as const)("keeps manual order across different dates in %s", (bucket, earlier, later) => {
+    const groups = groupPlannerTasks([
+      task("Earlier deadline", { dueDate: earlier, sortOrder: 1 }),
+      task("Manually first", { dueDate: later, sortOrder: 0 }),
+    ], { today: TODAY });
+    expect(titles(groups[bucket])).toEqual(["Manually first", "Earlier deadline"]);
   });
 
   it("should_ignore_a_time_component_on_due_dates", () => {
