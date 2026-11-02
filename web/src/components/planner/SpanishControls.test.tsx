@@ -4,10 +4,44 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/es.json";
 import { PlannerTaskRow } from "./PlannerWorkflowTaskUi";
 import { BuildExplorerToolbar } from "../builds/explorer/BuildExplorerToolbar";
+import { BuildNodeManagerSection } from "../builds/BuildNodeManagerSection";
+import type { Id } from "convex/_generated/dataModel";
+
+vi.mock("@/lib/offline", () => ({ useOfflineQuery: () => [] }));
+vi.mock("../builds/explorer/useNodeInspector", () => ({
+  useNodeInspector: () => ({ selected: null, selectedPath: [] }),
+}));
+vi.mock("../builds/explorer/useExplorerDrag", () => ({
+  useExplorerDrag: () => ({ drag: {}, graphError: null }),
+}));
 
 afterEach(cleanup);
 
 describe("Spanish planning controls", () => {
+  it("translates empty explorer instructions and keeps both actions working", () => {
+    const onCreateRoot = vi.fn();
+    const onOpenLinkNodes = vi.fn();
+    render(
+      <NextIntlClientProvider locale="es" messages={messages}>
+        <BuildNodeManagerSection
+          buildId={"build_1" as Id<"builds">}
+          buildName="Capa"
+          userId="user_1"
+          linkedNodes={[]}
+          linkedNodeIds={[]}
+          onCreateRoot={onCreateRoot}
+          onOpenLinkNodes={onOpenLinkNodes}
+          onCreateChild={vi.fn()}
+        />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByText("Añade tu primer elemento para empezar a desglosar este build.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Nuevo elemento principal/ }));
+    expect(onCreateRoot).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: /Vincular/ }));
+    expect(onOpenLinkNodes).toHaveBeenCalledOnce();
+  });
+
   it("translates task disclosure in both states", () => {
     render(
       <NextIntlClientProvider locale="es" messages={messages}>

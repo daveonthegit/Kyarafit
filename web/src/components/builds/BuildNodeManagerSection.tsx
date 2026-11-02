@@ -45,6 +45,7 @@ export function BuildNodeManagerSection({
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
   const t = useTranslations("Studio");
+  const tElements = useTranslations("Elements");
   const allNodes = (useOfflineQuery(
     api.cosplayNodes.list,
     userId ? { userId, sortBy: "name" } : "skip"
@@ -161,8 +162,7 @@ export function BuildNodeManagerSection({
             account_tree
           </span>
           <p className="text-sm text-media-fg-70">
-            No linked elements yet. Add a main element or link an existing element to start
-            building.
+            {tElements("emptyBody")}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button
@@ -171,7 +171,7 @@ export function BuildNodeManagerSection({
               className="inline-flex items-center gap-1.5 rounded-full bg-glass-solid px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90 transition-opacity"
             >
               <span className="material-symbols-outlined text-base">add</span>
-              New main element
+              {tElements("newMainElement")}
             </button>
             <button
               type="button"
@@ -179,7 +179,7 @@ export function BuildNodeManagerSection({
               className="inline-flex items-center gap-1.5 rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg hover:bg-glass-active transition-colors"
             >
               <span className="material-symbols-outlined text-base">link</span>
-              Link existing
+              {tElements("link")}
             </button>
           </div>
         </div>
