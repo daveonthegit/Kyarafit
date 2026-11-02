@@ -8,7 +8,7 @@ Cream is retired from the marketing site; the landing speaks the app's glass lan
 
 **Global motion (all via one throttled `scroll` rAF handler + `IntersectionObserver`; every effect gated behind `prefers-reduced-motion`):**
 
-- Header: fixed, transparent over the hero; past 40px scroll it transitions to the glass bar (bg 0.08, blur 18px, bottom hairline). No `ThemeToggle` (photo-dark by nature).
+- Header: positioning and scroll treatment are defined in [the landing component contract](03-component-changes.md).
 - Section reveals: any block with a reveal role starts `opacity:0; translateY(26px)` and eases in (0.7s `--ease-out-strong`) when it crosses ~20% into view; stagger siblings by 120ms (pricing columns, spreadsheet card, task panel).
 - Reduced motion: reveals resolve to final state immediately; parallax/zoom disabled; the demo shows its end state.
 

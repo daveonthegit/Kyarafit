@@ -7,6 +7,12 @@ and packing lists. Mobile personal-data editing uses a local vault; social, grou
 and public sharing are online features. Web shows published copies read-only; personal planning
 edits are made in mobile.
 
+Kyarafit is moving to **Cosapp.si**, launching first on iOS, with Android and web planned.
+Kyarafit stays available until Cosapp.si is on the web; existing features keep working meanwhile.
+Launch-day invites are planned, and bringing builds across is being worked on, not yet guaranteed.
+The web announcement appears at the top of landing, auth, and app pages; dismissing it is
+remembered in this browser when local storage is available, without flashing on later loads.
+
 > Start with [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md), the [domain glossary](CONTEXT.md), and
 > the [documentation index](docs/README.md). Agent instructions are in [AGENTS.md](AGENTS.md).
 
