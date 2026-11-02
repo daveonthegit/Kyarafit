@@ -43,7 +43,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = await getToken();
-  // Set by src/middleware.ts with the document's Content-Security-Policy.
+  // Set by src/proxy.ts with the document's Content-Security-Policy.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (

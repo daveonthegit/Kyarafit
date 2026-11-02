@@ -3,6 +3,9 @@
 if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
   process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = "1";
 }
+const CANONICAL_ORIGIN = "https://www.kyarafit.com";
+const NON_CANONICAL_HOSTS = ["kyarafit.com", "app.kyarafit.com", "kyarafit-web.vercel.app"];
+
 const nextConfig = {
   // convex deploy runs from the repo root, where it detects no Next.js framework
   // and supplies CONVEX_URL / CONVEX_SITE_URL. Inline those canonical URLs for
@@ -21,9 +24,17 @@ const nextConfig = {
   },
   // Note: eslint config removed as it's no longer supported in Next.js 16
   // Use next lint command directly or configure in eslint.config.mjs
-  // Disable static generation for error pages to avoid prerendering issues
+  // One canonical production host. Auth lives at SITE_URL/api/auth (https://www.kyarafit.com) with
+  // a host-only session cookie, and only www/apex/app are trusted auth origins, so every other
+  // production host permanently redirects to www with its path and query (docs/auth.md). Preview
+  // deployments and localhost are untouched.
   async redirects() {
-    return [];
+    return NON_CANONICAL_HOSTS.map((host) => ({
+      source: "/:path*",
+      has: [{ type: "host", value: host }],
+      destination: `${CANONICAL_ORIGIN}/:path*`,
+      permanent: true,
+    }));
   },
   images: {
     remotePatterns: [
