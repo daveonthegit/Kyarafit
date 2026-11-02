@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { parseLocalDate } from "@kyarafit/design-system/domain";
@@ -193,6 +194,7 @@ export function PlannerTaskRow({
   };
   dropIntoLabel?: string;
 }) {
+  const t = useTranslations("Planner");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [pending, setPending] = useState<{ value: boolean; base: boolean } | null>(null);
   const detailsId = useId();
@@ -261,11 +263,11 @@ export function PlannerTaskRow({
             onClick={() => setDetailsOpen((open) => !open)}
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
-            aria-label={detailsOpen ? `Hide details for "${title}"` : `Show details for "${title}"`}
+            aria-label={t(detailsOpen ? "hideDetails" : "showDetails", { title })}
             className="-my-3 inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-45 hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             <span aria-hidden="true">{detailsOpen ? "▾" : "▸"}</span>
-            {detailsOpen ? "Less" : "Details"}
+            {t(detailsOpen ? "less" : "details")}
           </button>
         </div>
         {detailsOpen ? (

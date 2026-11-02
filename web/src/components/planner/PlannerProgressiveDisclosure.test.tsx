@@ -1,6 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ReactNode } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render as renderUi, screen, fireEvent, act } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../../messages/en.json";
+
+function render(ui: ReactNode) {
+  return renderUi(ui, {
+    wrapper: ({ children }) => (
+      <NextIntlClientProvider locale="en" messages={messages}>
+        {children}
+      </NextIntlClientProvider>
+    ),
+  });
+}
 import { PlannerTaskRow } from "./PlannerWorkflowTaskUi";
 
 // DESIGN_SYSTEM.md §6 / REQ-063: advanced planner fields are tucked behind an
