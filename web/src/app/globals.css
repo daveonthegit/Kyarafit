@@ -454,3 +454,7 @@ button:active,
   animation: glass-ken-burns 12s ease-in-out infinite alternate;
   will-change: transform;
 }
+
+html[data-deprecation-banner-dismissed] .deprecation-banner {
+  display: none;
+}
