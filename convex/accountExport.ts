@@ -11,8 +11,6 @@ export const listCollection = query({
       switch (collection) {
         case "users":
           return ctx.db.query("users").withIndex("by_externalId", (q) => q.eq("externalId", actorId)).collect();
-        case "groups":
-          return ctx.db.query("groups").withIndex("by_createdBy", (q) => q.eq("createdBy", actorId)).collect();
         case "follows":
           return ctx.db.query("follows").withIndex("by_follower", (q) => q.eq("followerId", actorId)).collect();
         case "userPushPreferences":
@@ -29,8 +27,19 @@ export const listCollection = query({
           const items = await Promise.all(templates.map((template) => ctx.db.query("workflowTemplateItems").withIndex("by_templateId", (q) => q.eq("templateId", template._id)).collect()));
           return items.flat();
         }
+        case "groups":
         case "groupConventionDays": {
-          const groups = await ctx.db.query("groups").withIndex("by_createdBy", (q) => q.eq("createdBy", actorId)).collect();
+          const memberships = await ctx.db
+            .query("groupMembers")
+            .withIndex("by_userId", (q) => q.eq("userId", actorId))
+            .collect();
+          const memberGroupIds = new Set(memberships.map((membership) => membership.groupId));
+          const createdGroups = await ctx.db
+            .query("groups")
+            .withIndex("by_createdBy", (q) => q.eq("createdBy", actorId))
+            .collect();
+          const groups = createdGroups.filter((group) => memberGroupIds.has(group._id));
+          if (collection === "groups") return groups;
           const days = await Promise.all(groups.map((group) => ctx.db.query("groupConventionDays").withIndex("by_groupId", (q) => q.eq("groupId", group._id)).collect()));
           return days.flat();
         }

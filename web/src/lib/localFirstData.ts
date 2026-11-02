@@ -28,11 +28,18 @@ export function readLocalCollections(
   const rows = new Map(PORTABLE_COLLECTIONS.map((key) => [key, offlineRuntime.listLocalEntityRowsSync(key)]));
   const user = rows.get("users")?.find((row) => row.externalId === subject);
   const templates = new Set(rows.get("workflowTemplates")?.filter((row) => row.userId === subject).map((row) => row._id ?? row.id));
-  const groups = new Set(rows.get("groups")?.filter((row) => row.createdBy === subject).map((row) => row._id ?? row.id));
+  const memberGroupIds = new Set(
+    rows.get("groupMembers")?.filter((row) => row.userId === subject).map((row) => row.groupId)
+  );
+  const groups = new Set(
+    rows.get("groups")
+      ?.filter((row) => row.createdBy === subject && memberGroupIds.has(row._id ?? row.id))
+      .map((row) => row._id ?? row.id)
+  );
   for (const key of PORTABLE_COLLECTIONS) {
     const owned = (rows.get(key) ?? []).filter((row) => {
       if (key === "users") return row.externalId === subject;
-      if (key === "groups") return row.createdBy === subject;
+      if (key === "groups") return groups.has(row._id ?? row.id);
       if (key === "follows") return row.followerId === subject;
       if (key === "workflowTemplateItems") return templates.has(row.templateId);
       if (key === "groupConventionDays") return groups.has(row.groupId);

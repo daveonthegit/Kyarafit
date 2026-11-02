@@ -37,13 +37,48 @@ afterEach(() => {
 
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
   it.each(PORTABLE_COLLECTIONS)("round-trips locally retained %s records", (collection) => {
-    for (const key of ["users", "groups", "workflowTemplates", collection] as const) {
+    for (const key of ["users", "groups", "groupMembers", "workflowTemplates", collection] as const) {
       offlineRuntime.upsertSyncedEntityRow(key, key, "u1", exportRecord(key));
     }
     const row = exportRecord(collection);
     const restored = parseDataBundle(buildDataBundle(readLocalCollections()));
     expect(restored[collection][0]).toEqual(expect.objectContaining(row));
   });
+  it("excludes a removed creator's cached group and schedule until they rejoin", async () => {
+    for (const key of ["groups", "groupMembers", "groupConventionDays"] as const) {
+      offlineRuntime.upsertSyncedEntityRow(key, key, "u1", exportRecord(key));
+    }
+    const before = parseDataBundle(buildDataBundle(readLocalCollections()));
+    expect(before.groups).toEqual([exportRecord("groups")]);
+    expect(before.groupConventionDays).toEqual([exportRecord("groupConventionDays")]);
+
+    await offlineRuntime.writeEntityOverlay("groupMembers", "groupMembers", "u1", null, true);
+    offlineRuntime.upsertSyncedEntityRow("groups", "groups", "u1", {
+      ...exportRecord("groups"),
+      description: "Changed after removal",
+    });
+    offlineRuntime.upsertSyncedEntityRow("groupConventionDays", "groupConventionDays", "u1", {
+      ...exportRecord("groupConventionDays"),
+      date: "2026-11-02",
+    });
+    const removed = parseDataBundle(buildDataBundle(readLocalCollections()));
+    expect(removed.groups).toEqual([]);
+    expect(removed.groupConventionDays).toEqual([]);
+
+    offlineRuntime.upsertSyncedEntityRow("groupMembers", "rejoined", "u1", {
+      ...exportRecord("groupMembers"),
+      _id: "rejoined",
+      id: "rejoined",
+    });
+    const rejoined = readLocalCollections();
+    expect(rejoined.groups).toEqual([
+      expect.objectContaining({ description: "Changed after removal" }),
+    ]);
+    expect(rejoined.groupConventionDays).toEqual([
+      expect.objectContaining({ date: "2026-11-02" }),
+    ]);
+  });
+
   it("exports elements alongside the task attachments that reference them", () => {
     offlineRuntime.upsertSyncedEntityRow("cosplayNodes", "node", "u1", {
       _id: "node",

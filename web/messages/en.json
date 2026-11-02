@@ -120,7 +120,7 @@
     "importInMobileApp": "Restoring a backup file is not available on the web. Everything you edit here already saves to your Kyarafit account.",
     "restoreReadOnly": "Finish or undo your restore first.",
     "backToSettings": "Back to settings",
-    "accountExportNote": "Includes builds, elements, events and day plans, packing lists, tasks and task groups, workflow links and templates, progress notes, photo references, legacy wardrobe records, your profile, groups you created and their event days, your memberships, follows, likes, comments, collaborations, activity, notification preferences, broadcasts you authored, and retained cloud-sync rows, conflicts and media references. Photo files, billing identifiers, push tokens and internal service state are not included.",
+    "accountExportNote": "Includes builds, elements, events and day plans, packing lists, tasks and task groups, workflow links and templates, progress notes, photo references, legacy wardrobe records, your profile, groups you created and still belong to, and their event days, your memberships, follows, likes, comments, collaborations, activity, notification preferences, broadcasts you authored, and retained cloud-sync rows, conflicts and media references. Photo files, billing identifiers, push tokens and internal service state are not included.",
     "localOnlyNotice": "You're offline, so the export includes only what this browser holds: {count} item(s)",
     "exportPreparing": "Preparing export…",
     "exportedCount": "Exported {count} item(s).",

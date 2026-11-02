@@ -53,6 +53,42 @@ async function seed(ctx: MutationCtx, userId: string, storage: Id<"_storage">) {
 }
 
 describe("owner-scoped account export", () => {
+  it("revokes group and schedule export access when a creator is removed", async () => {
+    const t = convexTest(schema, modules);
+    const own = await t.run(async (ctx) => seed(ctx, "alice", await ctx.storage.store(new Blob(["photo"]))));
+    const other = await t.run(async (ctx) => seed(ctx, "bob", await ctx.storage.store(new Blob(["other photo"]))));
+    const groupId = own.groups._id as Id<"groups">;
+    await t.run(async (ctx) => {
+      await ctx.db.insert("groupMembers", { groupId, userId: "bob", role: "admin" });
+    });
+    const alice = t.withIdentity({ subject: "alice" });
+    const bob = t.withIdentity({ subject: "bob" });
+    for (const collection of ["groups", "groupConventionDays"] as const) {
+      expect(await alice.query(api.accountExport.listCollection, { collection })).toEqual([own[collection]]);
+    }
+
+    await bob.mutation(api.groups.removeMember, { groupId, removeUserId: "alice" });
+    await bob.mutation(api.groups.update, { id: groupId, description: "Changed after removal" });
+    await bob.mutation(api.groupConventionDays.addDay, {
+      groupId,
+      conventionId: other.conventions._id as Id<"conventions">,
+      date: "2026-11-02",
+    });
+    expect(await alice.query(api.groups.get, { id: groupId })).toBeNull();
+    expect(await alice.query(api.groupConventionDays.listForGroup, { groupId })).toEqual([]);
+    for (const collection of ["groups", "groupConventionDays"] as const) {
+      expect(await alice.query(api.accountExport.listCollection, { collection })).toEqual([]);
+    }
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("groupMembers", { groupId, userId: "alice", role: "member" });
+    });
+    expect(await alice.query(api.accountExport.listCollection, { collection: "groups" })).toEqual([
+      expect.objectContaining({ _id: groupId, description: "Changed after removal" }),
+    ]);
+    expect(await alice.query(api.accountExport.listCollection, { collection: "groupConventionDays" })).toHaveLength(2);
+  });
+
   it.each(EXPORT_COLLECTIONS)("exports full owned %s rows but never another account's rows", async (collection) => {
     const t = convexTest(schema, modules);
     const own = await t.run(async (ctx) => seed(ctx, "alice", await ctx.storage.store(new Blob(["photo"]))));
