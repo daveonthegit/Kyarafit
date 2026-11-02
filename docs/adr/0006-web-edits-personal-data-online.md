@@ -40,8 +40,9 @@ turn web editing back on before releasing the Glass Studio redesign.
   a mobile publish could overwrite web edits. This is moot while mobile is unpublished. It must be
   resolved (for example by giving web a vault, or by publishing from the domain row) before mobile
   launches with web editing still on.
-- Web restore, command replay, the domain pull and upgrade backfill stay removed. Export still reads
-  the browser's retained local store.
+- Web restore, command replay, the domain pull and upgrade backfill stay removed. Export fetches the
+  account's server rows on demand and merges the browser's retained local store (server copy wins);
+  offline it exports the local store alone and says so.
 - Social actions (groups, collaborators, likes, comments) are unchanged.
 - Behavioural coverage: `web/src/lib/offline/webPersonalWrites.test.tsx` sends one call per web
   personal mutation through `useOfflineMutation`, online and offline.

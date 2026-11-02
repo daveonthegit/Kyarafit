@@ -115,12 +115,17 @@
     "exportTitle": "Export your data",
     "exportDescription": "Download a JSON backup of your builds, elements, conventions, planner tasks, and packing lists. Free for everyone — no upgrade required.",
     "exportButton": "Export data",
-    "itemCount": "{count} item(s) ready to export",
     "loading": "Loading your data…",
     "importTitle": "Import a backup",
     "importInMobileApp": "Restoring a backup file is not available on the web. Everything you edit here already saves to your Kyarafit account.",
     "restoreReadOnly": "Finish or undo your restore first.",
-    "backToSettings": "Back to settings"
+    "backToSettings": "Back to settings",
+    "accountExportNote": "Includes everything saved to your Kyarafit account",
+    "localOnlyNotice": "You're offline, so the export includes only what this browser holds: {count} item(s)",
+    "exportPreparing": "Preparing export…",
+    "exportedCount": "Exported {count} item(s).",
+    "exportFailed": "Couldn't load your data from your Kyarafit account, so nothing was downloaded. Check your connection and try again.",
+    "exportPreparingProgress": "Preparing export… {done}/{total}"
   },
   "Theme": {
     "switchToDark": "Switch to dark mode",

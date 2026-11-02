@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useConvex } from "convex/react";
 import { useTranslations } from "next-intl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { offlineRuntime } from "@/lib/offline";
+import { readOnline, subscribeConnectivity } from "@/lib/auth/localAccount";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { SyncStatus } from "@/components/SyncStatus";
 import { readLocalCollections } from "@/lib/localFirstData";
+import { fetchCloudCollections, mergeCollections } from "@/lib/cloudExport";
 import { buildDataBundle, countRows } from "@/lib/dataPortability";
 
 /** Trigger a browser download of `contents` as `filename`. No-op safe outside a DOM. */
@@ -23,28 +26,56 @@ function downloadFile(filename: string, contents: string): void {
 }
 
 /**
- * Settings → Backup & data on web. Web edits save straight to the account while online (ADR-0006);
- * this page exports what this browser holds. Backup-file restore is not offered on web, because a
- * restore would replay personal rows without a vault to reconcile them against.
+ * Settings → Backup & data on web. Web edits save straight to the account while online (ADR-0006),
+ * so Export fetches the account's rows on demand and merges in anything this browser's local store
+ * still retains. Offline it exports the local store alone and says so. Backup-file restore is not
+ * offered on web, because a restore would replay personal rows without a vault to reconcile them.
  */
 export default function SettingsDataPage() {
   const t = useTranslations("DataPortability");
-  const { userId, isLoading } = useCurrentUser();
+  const convex = useConvex();
+  const { userId, identity, isLoading, isAuthenticated } = useCurrentUser();
+  const online = useSyncExternalStore(subscribeConnectivity, readOnline, () => true);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [exportedCount, setExportedCount] = useState<number | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
-  // Export reads the LOCAL STORE via the offline runtime (DATA_AND_SYNC.md §11, invariant #2).
+  // Retained local-store rows (DATA_AND_SYNC.md §11); the only source while offline.
   const version = useSyncExternalStore(
     offlineRuntime.subscribe,
     offlineRuntime.getVersion,
     offlineRuntime.getVersion
   );
-  const collections = useMemo(() => readLocalCollections(userId), [version, userId]);
-  const totalRows = countRows(collections);
+  const localCollections = useMemo(() => readLocalCollections(userId), [version, userId]);
 
-  const handleExport = useCallback(() => {
-    const bundle = buildDataBundle(collections);
+  // Online but the session is still resolving: wait rather than export the local store alone.
+  const waitingForAccount = isLoading || (online && identity === undefined);
+  const accountReachable = online && isAuthenticated;
+
+  const handleExport = useCallback(async () => {
+    setFailed(false);
+    setExportedCount(null);
+    let collections = localCollections;
+    if (isAuthenticated && readOnline()) {
+      setBusy(true);
+      try {
+        const server = await fetchCloudCollections(convex, {
+          onProgress: (done, total) => setProgress({ done, total }),
+        });
+        collections = mergeCollections(server, localCollections);
+      } catch {
+        setFailed(true);
+        return;
+      } finally {
+        setBusy(false);
+        setProgress(null);
+      }
+    }
     const stamp = new Date().toISOString().slice(0, 10);
-    downloadFile(`kyarafit-export-${stamp}.json`, bundle);
-  }, [collections]);
+    downloadFile(`kyarafit-export-${stamp}.json`, buildDataBundle(collections));
+    setExportedCount(countRows(collections));
+  }, [convex, isAuthenticated, localCollections]);
 
   return (
     <SettingsGlassShell eyebrow={t("subtitle")} title={t("title")} backLabel={t("backToSettings")}>
@@ -55,17 +86,42 @@ export default function SettingsDataPage() {
             {t("exportTitle")}
           </span>
           <p className="text-sm leading-6 text-media-fg-70">{t("exportDescription")}</p>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-media-fg-55">
-            {isLoading ? t("loading") : t("itemCount", { count: totalRows })}
+          <p
+            className="mt-2 text-[10px] uppercase tracking-[0.16em] text-media-fg-55"
+            data-testid="export-source"
+          >
+            {waitingForAccount
+              ? t("loading")
+              : accountReachable
+                ? t("accountExportNote")
+                : t("localOnlyNotice", { count: countRows(localCollections) })}
           </p>
           <button
             type="button"
-            onClick={handleExport}
-            disabled={isLoading}
+            onClick={() => void handleExport()}
+            disabled={waitingForAccount || busy}
+            aria-busy={busy}
             className="mt-4 min-h-[44px] inline-flex items-center rounded-full bg-glass-solid px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {t("exportButton")}
+            {!busy
+              ? t("exportButton")
+              : progress && progress.total > 0
+                ? t("exportPreparingProgress", progress)
+                : t("exportPreparing")}
           </button>
+          {failed && (
+            <p
+              role="alert"
+              className="mt-4 rounded-2xl border border-glass-border-strong bg-glass-active px-4 py-3 text-sm leading-6 text-on-glass-danger"
+            >
+              {t("exportFailed")}
+            </p>
+          )}
+          {exportedCount !== null && (
+            <p aria-live="polite" className="mt-3 text-sm leading-6 text-media-fg-70">
+              {t("exportedCount", { count: exportedCount })}
+            </p>
+          )}
         </section>
 
         <section className="border-t border-glass-divider-strong pt-6">

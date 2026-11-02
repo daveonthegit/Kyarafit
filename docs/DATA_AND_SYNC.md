@@ -295,11 +295,14 @@ CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware imp
 
 ### Current web behavior
 
-Settings → Data exports a free JSON bundle from the signed-in account's local rows, not a fresh
-cloud pull. The supported collections and versioned format are defined by
-[`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is not the mobile `.kyarafit` archive:
-photo binaries, build media collections and convention day plans are not included, and it is not
-a complete vault backup.
+Settings → Data exports a free JSON bundle of the signed-in account's server rows, fetched when
+Export is clicked and merged with any rows the browser's local store retains (the server copy wins
+for the same id); offline it exports the local rows alone and says so. Planner tasks not attached
+to a build are exported from the planner's projection, without notes, reminders or attachment
+roles, and group rows outside any build are not exported. The supported collections and
+versioned format are defined by [`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is
+not the mobile `.kyarafit` archive: photo binaries, build media collections and convention day
+plans are not included, and it is not a complete vault backup.
 
 Web does not restore. Restoring writes personal data, which web never does (§5.1), so the page
 explains that backups are restored in the mobile app. A restore session left incomplete by an

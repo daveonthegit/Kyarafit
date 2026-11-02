@@ -115,12 +115,17 @@
     "exportTitle": "Exporta tus datos",
     "exportDescription": "Descarga una copia de seguridad JSON de tus builds, elementos, eventos, tareas del planificador y listas de equipaje. Gratis para todos, sin necesidad de actualizar.",
     "exportButton": "Exportar datos",
-    "itemCount": "{count} elemento(s) listos para exportar",
     "loading": "Cargando tus datos…",
     "importTitle": "Importar una copia de seguridad",
     "importInMobileApp": "Restaurar un archivo de copia de seguridad no está disponible en la web. Todo lo que editas aquí ya se guarda en tu cuenta de Kyarafit.",
     "restoreReadOnly": "Termina o deshaz la restauración primero.",
-    "backToSettings": "Volver a ajustes"
+    "backToSettings": "Volver a ajustes",
+    "accountExportNote": "Incluye todo lo guardado en tu cuenta de Kyarafit",
+    "localOnlyNotice": "No tienes conexión, así que la exportación solo incluye lo que guarda este navegador: {count} elemento(s)",
+    "exportPreparing": "Preparando la exportación…",
+    "exportedCount": "Se exportaron {count} elemento(s).",
+    "exportFailed": "No se pudieron cargar los datos de tu cuenta de Kyarafit, así que no se descargó nada. Revisa tu conexión e inténtalo de nuevo.",
+    "exportPreparingProgress": "Preparando la exportación… {done}/{total}"
   },
   "Theme": {
     "switchToDark": "Cambiar a modo oscuro",
