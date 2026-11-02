@@ -15,3 +15,14 @@ it("offers no add action to viewers who cannot edit", () => {
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
   expect(screen.getByTestId("monogram-plate")).toHaveTextContent("K");
 });
+
+it("fills a coverless tile with the initial instead of a gray image glyph", async () => {
+  const { MonogramFill } = await import("./MonogramPlate");
+  render(
+    <div className="relative">
+      <MonogramFill name="Zhongli" size="sm" />
+    </div>
+  );
+  expect(screen.getByTestId("monogram-fill")).toHaveTextContent("Z");
+  expect(screen.getByTestId("monogram-fill")).not.toHaveTextContent("image");
+});

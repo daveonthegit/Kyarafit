@@ -43,3 +43,24 @@ export function MonogramPlate({
     </div>
   );
 }
+
+/**
+ * Tile-sized no-imagery fallback (13g) for posters and thumbnails: studio wall, stripe field and a
+ * faint serif initial instead of a gray box with a generic image glyph.
+ */
+export function MonogramFill({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+  const initial = Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "";
+  const text = size === "sm" ? "text-[22px]" : size === "lg" ? "text-[64px]" : "text-[44px]";
+  return (
+    <span
+      aria-hidden
+      data-testid="monogram-fill"
+      className="absolute inset-0 flex items-center justify-center bg-studio-wall"
+    >
+      <span className="absolute inset-0 bg-monogram-stripes" />
+      <span className={`relative font-serif italic leading-none text-kyar-media-fg/25 ${text}`}>
+        {initial}
+      </span>
+    </span>
+  );
+}
