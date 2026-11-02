@@ -14,11 +14,16 @@ export function rememberLocalAccount(subject: string | null): void {
 }
 
 export function subscribeLocalAccount(listener: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (event.storageArea === window.localStorage && (event.key === KEY || event.key === null)) {
+      listener();
+    }
+  };
   window.addEventListener(EVENT, listener);
-  window.addEventListener("storage", listener);
+  window.addEventListener("storage", onStorage);
   return () => {
     window.removeEventListener(EVENT, listener);
-    window.removeEventListener("storage", listener);
+    window.removeEventListener("storage", onStorage);
   };
 }
 

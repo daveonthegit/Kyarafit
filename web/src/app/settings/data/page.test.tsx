@@ -272,31 +272,88 @@ describe("Settings data export page", () => {
     expect(parsed.builds.map((r) => r.id)).toEqual(["b1"]);
   });
 
-  it.each(["switch", "switch-back", "unmount"])("discards an in-flight export on %s", async (change) => {
-    const { blobs, click, createObjectURL } = captureDownloads();
+  it("downloads the complete export after an unrelated theme storage change", async () => {
+    const { blobs, click } = captureDownloads();
     seedLocalBuild("alice-private", "Alice private build");
     const pending: Array<() => void> = [];
-    client.query.mockImplementation((_ref, { collection }) => new Promise((resolve) => {
-      pending.push(() => resolve(serverRows[collection] ?? []));
-    }));
-    const { unmount } = render(<SettingsDataPage />);
+    client.query.mockImplementation(
+      (_ref, { collection }) =>
+        new Promise((resolve) => {
+          pending.push(() => resolve(serverRows[collection] ?? []));
+        })
+    );
+    render(<SettingsDataPage />);
     fireEvent.click(screen.getByRole("button", { name: /export data/i }));
     await act(async () => pending.shift()!());
-    const started = client.query.mock.calls.length;
     await act(async () => {
-      if (change === "unmount") unmount();
-      else {
-        rememberLocalAccount(null);
-        rememberLocalAccount("bob");
-        if (change === "switch-back") rememberLocalAccount("user-free-1");
-      }
+      window.localStorage.setItem("kyar-theme", "dark");
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "kyar-theme",
+          oldValue: "light",
+          newValue: "dark",
+          storageArea: window.localStorage,
+        })
+      );
     });
-    await act(async () => pending.splice(0).forEach((release) => release()));
-    expect(client.query).toHaveBeenCalledTimes(started);
-    expect(blobs).toEqual([]);
-    expect(createObjectURL).not.toHaveBeenCalled();
-    expect(click).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Preparing export/ })).toBeDisabled();
+    while (pending.length) {
+      const batch = pending.splice(0);
+      await act(async () => batch.forEach((release) => release()));
+    }
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    const parsed = parseDataBundle(await blobs[0].text());
+    expect(parsed.builds.map((row) => row.id)).toEqual(["srv-b1", "shared-b", "alice-private"]);
+    expect(parsed.workflowItems).toEqual([
+      { _id: "srv-w1", id: "srv-w1", title: "Style wig", notes: "Use heat protectant" },
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Exported 9 item(s).")).toBeInTheDocument();
   });
+
+  it.each(["switch", "switch-back", "storage-switch", "storage-clear", "unmount"])(
+    "discards an in-flight export on %s",
+    async (change) => {
+      const { blobs, click, createObjectURL } = captureDownloads();
+      seedLocalBuild("alice-private", "Alice private build");
+      const pending: Array<() => void> = [];
+      client.query.mockImplementation(
+        (_ref, { collection }) =>
+          new Promise((resolve) => {
+            pending.push(() => resolve(serverRows[collection] ?? []));
+          })
+      );
+      const { unmount } = render(<SettingsDataPage />);
+      fireEvent.click(screen.getByRole("button", { name: /export data/i }));
+      await act(async () => pending.shift()!());
+      const started = client.query.mock.calls.length;
+      await act(async () => {
+        if (change === "unmount") unmount();
+        else if (change === "storage-switch" || change === "storage-clear") {
+          const key = "kyarafit:last-signed-in-account";
+          if (change === "storage-clear") window.localStorage.clear();
+          else window.localStorage.setItem(key, "bob");
+          window.dispatchEvent(
+            new StorageEvent("storage", {
+              key: change === "storage-clear" ? null : key,
+              oldValue: change === "storage-clear" ? null : "user-free-1",
+              newValue: change === "storage-clear" ? null : "bob",
+              storageArea: window.localStorage,
+            })
+          );
+        } else {
+          rememberLocalAccount(null);
+          rememberLocalAccount("bob");
+          if (change === "switch-back") rememberLocalAccount("user-free-1");
+        }
+      });
+      await act(async () => pending.splice(0).forEach((release) => release()));
+      expect(client.query).toHaveBeenCalledTimes(started);
+      expect(blobs).toEqual([]);
+      expect(createObjectURL).not.toHaveBeenCalled();
+      expect(click).not.toHaveBeenCalled();
+    }
+  );
 
   it("shows an alert and downloads nothing when the account data cannot be fetched", async () => {
     const { createObjectURL, click } = captureDownloads();
