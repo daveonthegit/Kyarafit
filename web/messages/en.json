@@ -203,5 +203,11 @@
     "cloudFrozen": "Cloud backup frozen — resubscribe to keep syncing (removed {date})",
     "cloudPurgeable": "Cloud backup expired — resubscribe to restore syncing",
     "sectionTitle": "Cloud sync"
+  },
+  "DeprecationBanner": {
+    "label": "Announcement",
+    "title": "Kyarafit is moving to Cosapp.si.",
+    "body": "We’re building Cosapp.si, a focused app for cosplay planning. It launches first on iOS, with Android and web planned, and Kyarafit stays up until Cosapp.si is on the web too. You’ll get an invite link on launch day, and we’re working on letting you bring your builds with you. Until then, everything here keeps working.",
+    "dismiss": "Dismiss announcement"
   }
 }

@@ -42,6 +42,7 @@ export function GlobalFAB({ className = "" }: { className?: string }) {
   return (
     <div
       ref={wrapperRef}
+      data-global-fab
       className={`fixed right-4 sm:right-6 lg:right-8 z-40 max-lg:bottom-[calc(max(1.5rem,env(safe-area-inset-bottom,1rem))+4.5rem)] lg:bottom-[calc(max(1.5rem,env(safe-area-inset-bottom,1rem)))] ${className}`.trim()}
     >
       <div className="flex items-center shadow-fab rounded-full bg-glass-solid text-glass-ink overflow-hidden transition-transform hover:scale-105 active:scale-95 focus-within:ring-2 focus-within:ring-kyar-accent">

@@ -4,6 +4,7 @@ import { Albert_Sans, Bodoni_Moda, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { DEPRECATION_BANNER_HEAD_SCRIPT } from "@/components/DeprecationBanner";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
 import { headers } from "next/headers";
@@ -53,6 +54,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var k='kyar-theme';var t=localStorage.getItem(k);if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.remove('dark');}})();`,
           }}
+        />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: DEPRECATION_BANNER_HEAD_SCRIPT }}
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

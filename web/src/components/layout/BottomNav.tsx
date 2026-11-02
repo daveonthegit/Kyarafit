@@ -19,6 +19,7 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
   return (
     <>
       <footer
+        data-bottom-nav
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50 bg-glass-bar-on-wall backdrop-blur-glass-bar border-t border-glass-divider-strong text-kyar-media-fg",
           className

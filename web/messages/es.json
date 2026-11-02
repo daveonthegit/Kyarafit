@@ -203,5 +203,11 @@
     "cloudFrozen": "Copia en la nube congelada — vuelve a suscribirte para seguir sincronizando (se eliminará {date})",
     "cloudPurgeable": "Copia en la nube caducada — vuelve a suscribirte para restaurar la sincronización",
     "sectionTitle": "Sincronización en la nube"
+  },
+  "DeprecationBanner": {
+    "label": "Anuncio",
+    "title": "Kyarafit se muda a Cosapp.si.",
+    "body": "Estamos creando Cosapp.si, una app centrada en planificar cosplay. Se lanzará primero en iOS, con Android y web en camino, y Kyarafit seguirá disponible hasta que Cosapp.si también esté en la web. Recibirás un enlace de invitación el día del lanzamiento, y estamos trabajando para que puedas llevar tus builds contigo. Hasta entonces, todo aquí sigue funcionando.",
+    "dismiss": "Cerrar anuncio"
   }
 }
