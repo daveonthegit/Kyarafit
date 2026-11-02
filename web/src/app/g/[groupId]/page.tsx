@@ -336,7 +336,7 @@ export default function GroupDetailPage() {
 
             {/* Right: builds work panel (12d) */}
             <aside
-              className="w-full lg:w-[440px] shrink-0 self-start flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-180px)]"
+              className="panel-enter w-full lg:w-[440px] shrink-0 self-start flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-180px)]"
               aria-label="Builds in this group"
             >
               <div className="px-5 py-4 border-b border-glass-divider-strong">

@@ -1,4 +1,4 @@
-import { AuthGlassFrame } from "@/components/auth/AuthGlassFrame";
+import { ReturnToApp } from "./ReturnToApp";
 
 /**
  * Web fallback for the app's claimed OAuth return link. The OS normally hands
@@ -22,19 +22,5 @@ export default async function NativeAuthReturnPage({
   }
   const appLink = `kyarafit://native/auth/return${forward.size ? `?${forward}` : ""}`;
 
-  return (
-    <AuthGlassFrame icon="open_in_new" eyebrow="Almost there" title="Return to the app">
-      <div className="text-center">
-        <p className="mb-8 -mt-2 text-sm text-media-fg-70 leading-relaxed">
-          Sign-in finished in your browser. Open Kyarafit on this device to continue.
-        </p>
-        <a
-          href={appLink}
-          className="block w-full min-h-[44px] rounded-full bg-glass-solid text-glass-ink py-3 text-[10px] uppercase tracking-[0.18em] font-bold hover:opacity-90 transition-opacity text-center"
-        >
-          Open Kyarafit
-        </a>
-      </div>
-    </AuthGlassFrame>
-  );
+  return <ReturnToApp appLink={appLink} />;
 }

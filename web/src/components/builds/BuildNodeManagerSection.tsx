@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -43,6 +44,7 @@ export function BuildNodeManagerSection({
   onCreateRoot,
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
+  const t = useTranslations("Studio");
   const allNodes = (useOfflineQuery(
     api.cosplayNodes.list,
     userId ? { userId, sortBy: "name" } : "skip"
@@ -245,11 +247,13 @@ export function BuildNodeManagerSection({
             <div className="font-explorer-mono hidden shrink-0 items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
               <span>
                 {searchNeedle
-                  ? `${roots.length} match${roots.length === 1 ? "" : "es"}`
-                  : `${roots.length} root${roots.length === 1 ? "" : "s"}`}
+                  ? t("explorerMatches", { count: roots.length })
+                  : t("explorerRoots", { count: roots.length })}
               </span>
               {selected && selectedDetail ? (
-                <span className="truncate">Selected: {selectedDetail.name}</span>
+                <span className="truncate">
+                  {t("explorerSelected", { name: selectedDetail.name })}
+                </span>
               ) : null}
             </div>
           </div>

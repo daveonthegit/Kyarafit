@@ -247,7 +247,7 @@ export default function ElementsPage() {
           </div>
 
           {/* The closet panel, anchored right (image #3) */}
-          <section className="flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
+          <section className="panel-enter flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
             <div className="flex shrink-0 items-baseline gap-x-6 gap-y-2 overflow-x-auto border-b border-glass-divider-strong px-5 py-4">
               <ElementsUnderlineTab
                 active={nodeType === ""}

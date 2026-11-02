@@ -43,7 +43,7 @@ export function SettingsGlassShell({
         <main
           className={`relative z-10 mx-auto mb-16 mt-4 w-full ${maxWidthClass} px-4 sm:px-6 flex-1`}
         >
-          <div className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
+          <div className="panel-enter bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
             <div className="px-6 py-5 sm:px-8 border-b border-glass-divider-strong">
               <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-2">
                 {eyebrow}

@@ -9,13 +9,19 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { useTranslations } from "next-intl";
 import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
+import { MonogramPlate } from "@/components/layout/MonogramPlate";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { ConventionOutlineTree } from "@/components/conventions/ConventionOutlineTree";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { formatEventDate, formatEventDateRange } from "@kyarafit/design-system/domain";
+import {
+  formatEventDate,
+  formatEventDateRange,
+  parseLocalDate,
+} from "@kyarafit/design-system/domain";
 import { PackingItemRow } from "@/components/conventions/PackingItemRow";
 import { Calendar } from "@/components/ui/calendar";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -41,6 +47,7 @@ export default function ConventionDetailPage() {
   const [newPackingLabel, setNewPackingLabel] = useState("");
   const [showOutline, setShowOutline] = useState(false);
   const [editing, setEditing] = useState(false);
+  const tStudio = useTranslations("Studio");
   const [editName, setEditName] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [editDateRange, setEditDateRange] = useState<DateRange | undefined>(undefined);
@@ -84,8 +91,8 @@ export default function ConventionDetailPage() {
     setEditName(convention.name);
     setEditLocation(convention.location ?? "");
     setEditDateRange({
-      from: new Date(convention.startDate),
-      to: new Date(convention.endDate),
+      from: parseLocalDate(convention.startDate),
+      to: parseLocalDate(convention.endDate),
     });
     setEditImageStorageId(convention.imageStorageId ?? null);
     setEditImageUrl(convention.imageUrl ?? "");
@@ -170,7 +177,7 @@ export default function ConventionDetailPage() {
     if (!convention) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const startDate = new Date(convention.startDate);
+    const startDate = parseLocalDate(convention.startDate);
     startDate.setHours(0, 0, 0, 0);
     return Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }, [convention]);
@@ -412,6 +419,14 @@ export default function ConventionDetailPage() {
             <div className="flex flex-col lg:flex-row gap-6 min-h-0">
               {/* Left: identity + day-plan rail (8a) */}
               <div className="flex-1 min-w-0 flex flex-col">
+                {!convention.imageStorageId && !convention.imageUrl && (
+                  <MonogramPlate
+                    name={convention.name}
+                    addLabel={tStudio("addCover")}
+                    onAdd={canEdit ? openEdit : undefined}
+                    className="mb-6 h-[160px] w-[172px] shrink-0 lg:h-[220px] lg:w-[240px]"
+                  />
+                )}
                 <div className="max-w-[720px]">
                   <span className="block text-[9px] lg:text-[10px] font-bold uppercase tracking-[0.28em] opacity-75 mb-3">
                     {formatEventDateRange(convention.startDate, convention.endDate)}
@@ -517,10 +532,13 @@ export default function ConventionDetailPage() {
                         : [];
                       const totalItems = buildPackingItems.length;
                       const packedItems = buildPackingItems.filter((item) => item.checked).length;
-                      const dayEyebrow = `Day ${idx + 1} · ${new Date(date).toLocaleDateString(
-                        "en-US",
-                        { weekday: "short", month: "short", day: "numeric" }
-                      )}`;
+                      const dayEyebrow = `Day ${idx + 1} · ${parseLocalDate(
+                        date
+                      ).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}`;
                       return (
                         <button
                           key={date}
@@ -599,7 +617,7 @@ export default function ConventionDetailPage() {
               {/* Right: packing work panel (8a) */}
               <aside
                 id="convention-logistics"
-                className="w-full lg:w-[440px] shrink-0 self-start flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-180px)] scroll-mt-24"
+                className="panel-enter w-full lg:w-[440px] shrink-0 self-start flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass min-h-0 lg:max-h-[calc(100dvh-180px)] scroll-mt-24"
                 aria-label="Packing list"
               >
                 <div className="px-5 py-4 border-b border-glass-divider-strong">

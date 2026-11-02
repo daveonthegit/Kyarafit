@@ -1,5 +1,7 @@
 "use client";
 
+import { parseLocalDate } from "@kyarafit/design-system/domain";
+
 import {
   TreeExpander,
   TreeIcon,
@@ -24,7 +26,7 @@ export interface ConventionOutlineTreeProps {
 }
 
 function formatDayLabel(date: string, index: number, buildName: string | null): string {
-  const d = new Date(date);
+  const d = parseLocalDate(date);
   const short = d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",

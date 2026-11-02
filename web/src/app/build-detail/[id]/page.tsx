@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { DndContext, DragEndEvent, useDroppable } from "@dnd-kit/core";
+import { useTranslations } from "next-intl";
 import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
+import { MonogramPlate } from "@/components/layout/MonogramPlate";
+import { parseLocalDate } from "@kyarafit/design-system/domain";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { WorkflowTree } from "@/components/builds/WorkflowTree";
@@ -152,6 +155,7 @@ export default function BuildDetailPage() {
   const [publicViewerToggles, setPublicViewerToggles] =
     useState<PublicViewerToggleState>(defaultPublicViewer);
   const [fabModal, setFabModal] = useState<BuildDetailFabModal | null>(null);
+  const t = useTranslations("Studio");
   const [activeTab, setActiveTab] = useState<"explorer" | "tasks" | "progress" | "summary">(
     "explorer"
   );
@@ -351,7 +355,7 @@ export default function BuildDetailPage() {
 
   const getDaysRemaining = (targetDate: string | undefined) => {
     if (!targetDate) return null;
-    const target = new Date(targetDate);
+    const target = parseLocalDate(targetDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     target.setHours(0, 0, 0, 0);
@@ -361,6 +365,7 @@ export default function BuildDetailPage() {
 
   const daysRemaining = getDaysRemaining(build.targetDate);
   const detailFrameClass = "w-full";
+  const hasCover = Boolean(build.imageStorageId || build.imageUrl);
 
   return (
     <WebAppShell fullBleed lockViewport>
@@ -630,92 +635,119 @@ export default function BuildDetailPage() {
           ) : (
             <div className="flex w-full min-h-0 flex-1 flex-col gap-6">
               <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,560px)] lg:items-stretch">
-                {/* Identity on the photo, left (6b) */}
-                <div className="max-w-[720px] pt-2 lg:pt-8">
-                  <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.28em] opacity-75">
-                    The archive ▸ {build.character || build.name} · {build.status}
-                  </p>
-                  <h1 className="font-serif italic font-normal text-[40px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)] sm:text-[56px] lg:text-[72px]">
-                    {build.name}
-                  </h1>
-
-                  {summary && (
-                    <div className="mt-7 flex items-center gap-4">
-                      <span className="relative h-px w-40 bg-kyar-media-fg/25 sm:w-52" aria-hidden>
-                        <span
-                          className="absolute inset-y-0 left-0 bg-kyar-media-fg"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, summary.progressPercent))}%`,
-                          }}
-                        />
-                      </span>
-                      <span className="text-[11px] font-bold tabular-nums">
-                        {summary.progressPercent}%
-                      </span>
-                      <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
-                        {summary.tasksChecked} / {summary.tasksTotal} tasks
-                      </span>
-                    </div>
+                {/* Identity on the photo, left (6b); a coverless build gets the 13g monogram plate */}
+                <div
+                  className={`pt-2 lg:pt-8 ${
+                    hasCover
+                      ? "max-w-[720px]"
+                      : "flex flex-col gap-6 sm:flex-row sm:items-start lg:gap-8"
+                  }`}
+                >
+                  {!hasCover && (
+                    <MonogramPlate
+                      name={build.name}
+                      addLabel={t("addCover")}
+                      onAdd={() => setIsEditing(true)}
+                      className="h-[200px] w-[172px] shrink-0 sm:h-[260px] sm:w-[200px] lg:h-[380px] lg:w-[280px]"
+                    />
                   )}
+                  <div className="min-w-0 max-w-[720px]">
+                    <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.28em] opacity-75">
+                      {t("archiveCrumb")} ▸ {build.character || build.name} · {build.status}
+                    </p>
+                    <h1 className="font-serif italic font-normal text-[40px] leading-[0.95] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)] sm:text-[56px] lg:text-[72px]">
+                      {build.name}
+                    </h1>
 
-                  <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
-                    {build.character && (
-                      <div>
-                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
-                          Character
-                        </dt>
-                        <dd className="text-[15px]">{build.character}</dd>
-                      </div>
-                    )}
-                    {build.targetDate && daysRemaining !== null && (
-                      <div>
-                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
-                          Deadline
-                        </dt>
-                        <dd
-                          className={`text-[15px] ${
-                            daysRemaining < 0
-                              ? "text-on-glass-danger"
-                              : daysRemaining <= 7
-                                ? "text-on-glass-chip-warn-fg"
-                                : ""
-                          }`}
-                        >
-                          {new Date(build.targetDate).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}{" "}
-                          ·{" "}
-                          {daysRemaining < 0
-                            ? `${Math.abs(daysRemaining)}d overdue`
-                            : daysRemaining === 0
-                              ? "Due today"
-                              : `${daysRemaining}d left`}
-                        </dd>
-                      </div>
-                    )}
                     {summary && (
-                      <div>
-                        <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
-                          Spend
-                        </dt>
-                        <dd className="text-[15px] tabular-nums">
-                          {formatCents(summary.totalCostCents)}
-                        </dd>
+                      <div className="mt-7 flex items-center gap-4">
+                        <span
+                          className="relative h-px w-40 overflow-hidden bg-kyar-media-fg/25 sm:w-52"
+                          aria-hidden
+                        >
+                          <span
+                            className="absolute inset-y-0 left-0 bg-kyar-media-fg transition-[width] duration-500 ease-out"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, summary.progressPercent))}%`,
+                            }}
+                          />
+                        </span>
+                        <span className="text-[11px] font-bold tabular-nums">
+                          {summary.progressPercent}%
+                        </span>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">
+                          {t("tasksCount", {
+                            done: summary.tasksChecked,
+                            total: summary.tasksTotal,
+                          })}
+                        </span>
                       </div>
                     )}
-                  </dl>
+
+                    <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
+                      {build.character && (
+                        <div>
+                          <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                            {t("character")}
+                          </dt>
+                          <dd className="text-[15px]">{build.character}</dd>
+                        </div>
+                      )}
+                      {build.targetDate && daysRemaining !== null && (
+                        <div>
+                          <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                            {t("deadline")}
+                          </dt>
+                          <dd
+                            className={`text-[15px] ${
+                              daysRemaining < 0
+                                ? "text-on-glass-danger"
+                                : daysRemaining <= 7
+                                  ? "text-on-glass-chip-warn-fg"
+                                  : ""
+                            }`}
+                          >
+                            {parseLocalDate(build.targetDate).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })}{" "}
+                            ·{" "}
+                            {daysRemaining < 0
+                              ? t("daysOverdue", { count: Math.abs(daysRemaining) })
+                              : daysRemaining === 0
+                                ? t("dueToday")
+                                : t("daysLeft", { count: daysRemaining })}
+                          </dd>
+                        </div>
+                      )}
+                      {summary && (
+                        <div>
+                          <dt className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] opacity-55">
+                            {t("spend")}
+                          </dt>
+                          <dd className="text-[15px] tabular-nums">
+                            {formatCents(summary.totalCostCents)}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                    {!hasCover && (
+                      <p className="mt-6 max-w-[360px] text-[13px] leading-6 text-media-fg-70">
+                        {t("coverlessHint")}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Work panel with tabs, anchored right (6b) */}
-                <section className="flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
-                  <nav className="flex shrink-0 flex-wrap items-baseline gap-x-6 gap-y-2 px-5 py-4 border-b border-glass-divider-strong overflow-x-auto">
+                <section className="panel-enter flex min-h-0 flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass lg:h-full lg:overflow-hidden">
+                  <nav className="flex shrink-0 items-center gap-x-6 overflow-x-auto border-b border-glass-divider-strong px-5 py-1 no-scrollbar">
                     {(
                       [
-                        ["explorer", "Elements"],
-                        ["tasks", "Tasks"],
-                        ["progress", "Updates"],
-                        ["summary", "Summary"],
+                        ["explorer", t("tabElements")],
+                        ["tasks", t("tabTasks")],
+                        ["progress", t("tabUpdates")],
+                        ["summary", t("tabSummary")],
                       ] as const
                     ).map(([value, label]) => (
                       <button
@@ -723,13 +755,19 @@ export default function BuildDetailPage() {
                         type="button"
                         onClick={() => setActiveTab(value)}
                         aria-pressed={activeTab === value}
-                        className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
+                        className={`inline-flex min-h-[44px] shrink-0 items-center rounded-sm text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-media-ring ${
                           activeTab === value
-                            ? "font-bold text-kyar-media-fg border-kyar-media-fg"
-                            : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
+                            ? "font-bold text-kyar-media-fg"
+                            : "font-semibold text-media-fg-55 hover:text-kyar-media-fg"
                         }`}
                       >
-                        {label}
+                        <span
+                          className={`border-b-[1.5px] pb-0.5 transition-colors duration-200 ${
+                            activeTab === value ? "border-kyar-media-fg" : "border-transparent"
+                          }`}
+                        >
+                          {label}
+                        </span>
                       </button>
                     ))}
                   </nav>

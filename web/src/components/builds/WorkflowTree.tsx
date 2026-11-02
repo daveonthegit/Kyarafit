@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useMemo, useState, type ReactNode } from "react";
 import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
@@ -196,6 +197,7 @@ export function WorkflowTree({
   /** Hide “add step” / subtask composers (public viewer). */
   hideComposer?: boolean;
 }) {
+  const t = useTranslations("Studio");
   const listTreeArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
   const tree = useOfflineQuery(api.workflow.listBuildTree, listTreeArgs);
   const listVisualArgs = shareToken !== undefined ? { buildId, shareToken } : { buildId };
@@ -411,7 +413,7 @@ export function WorkflowTree({
             onKeyDown={(event) => {
               if (event.key === "Enter") void handleCreateRoot();
             }}
-            placeholder="Add a task… press ⏎ to save"
+            placeholder={t("taskComposerHint")}
             className="glass-field flex-1 px-3 py-2 text-sm"
           />
           <button
@@ -420,7 +422,7 @@ export function WorkflowTree({
             disabled={!userId || !newRootTitle.trim()}
             className="rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] hover:bg-glass-active transition-colors disabled:opacity-50"
           >
-            Add task
+            {t("addTask")}
           </button>
         </div>
       )}

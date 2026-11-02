@@ -12,6 +12,7 @@ import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { parseLocalDate } from "@kyarafit/design-system/domain";
 import { api } from "convex/_generated/api";
 
 /** Build shape returned by getFocusedOrMostRecentForUser (hero display). */
@@ -33,7 +34,7 @@ const STUDIO_CARD_GAP_PX = 12;
 function daysUntil(startDate: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
+  const start = parseLocalDate(startDate);
   start.setHours(0, 0, 0, 0);
   return Math.ceil((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -308,7 +309,7 @@ export default function HomePage() {
 
           {/* What's due — right glass panel (6a) */}
           <aside
-            className="w-full lg:w-[360px] lg:ml-auto shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
+            className="panel-enter w-full lg:w-[360px] lg:ml-auto shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
             aria-label={t("whatsDue")}
           >
             <div className="px-5 py-4 border-b border-glass-divider-strong">
@@ -384,7 +385,7 @@ export default function HomePage() {
           className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pb-6 lg:pb-8"
           aria-label={t("inTheStudio", { count: builds.length })}
         >
-          <div className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
+          <div className="panel-enter bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
             <div className="mb-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
                 {t("inTheStudio", { count: builds.length })}

@@ -213,5 +213,32 @@
     "title": "Kyarafit se muda a Cosapp.si.",
     "body": "Estamos creando Cosapp.si, una app centrada en planificar cosplay. Se lanzará primero en iOS, con Android y web en camino, y Kyarafit seguirá disponible hasta que Cosapp.si también esté en la web. Recibirás un enlace de invitación el día del lanzamiento, y estamos trabajando para que puedas llevar tus builds contigo. Hasta entonces, todo aquí sigue funcionando.",
     "dismiss": "Cerrar anuncio"
+  },
+  "Studio": {
+    "addCover": "Añadir portada",
+    "coverlessHint": "Todavía no hay portada. Añade una foto de referencia y será la página; mientras tanto, la pared del estudio ocupa el espacio.",
+    "archiveCrumb": "El archivo",
+    "character": "Personaje",
+    "deadline": "Fecha límite",
+    "spend": "Gasto",
+    "tasksCount": "{done} / {total} tareas",
+    "daysOverdue": "{count} d de retraso",
+    "dueToday": "Vence hoy",
+    "daysLeft": "Quedan {count} d",
+    "tabElements": "Elementos",
+    "tabTasks": "Tareas",
+    "tabUpdates": "Avances",
+    "tabSummary": "Resumen",
+    "explorerMatches": "{count, plural, one {# coincidencia} other {# coincidencias}}",
+    "explorerRoots": "{count, plural, one {# raíz} other {# raíces}}",
+    "explorerSelected": "Seleccionado: {name}",
+    "taskComposerHint": "Añade una tarea… pulsa ⏎ para guardar",
+    "addTask": "Añadir tarea"
+  },
+  "NativeReturn": {
+    "eyebrow": "Casi listo",
+    "title": "Vuelve a la app",
+    "body": "El inicio de sesión terminó en tu navegador. Abre Kyarafit en este dispositivo para continuar.",
+    "open": "Abrir Kyarafit"
   }
 }
