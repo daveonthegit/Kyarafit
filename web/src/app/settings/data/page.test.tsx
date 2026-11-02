@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import SettingsDataPage from "./page";
 import { offlineRuntime } from "@/lib/offline/runtime";
 import { InMemoryLocalStore } from "@/lib/offline/localStore";
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
-import { parseDataBundle } from "@/lib/dataPortability";
+import {
+  parseDataBundle,
+  PORTABLE_COLLECTIONS,
+  type PortableCollectionKey,
+} from "@/lib/dataPortability";
+import en from "../../../../messages/en.json";
 
 // Spec: PRODUCT_SPEC.md §3/§4.9 — export is FREE (REQ-012). Web edits save straight to the account
 // (ADR-0006), so Export fetches the account's server rows and merges the browser's retained local
@@ -14,9 +19,9 @@ import { parseDataBundle } from "@/lib/dataPortability";
 
 const client = {
   mutation: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null),
-  query: vi.fn<(ref: FunctionReference<"query">, args?: unknown) => Promise<unknown>>(
-    async () => null
-  ),
+  query: vi.fn<
+    (ref: FunctionReference<"query">, args: { collection: PortableCollectionKey }) => Promise<unknown>
+  >(async () => []),
 };
 
 vi.mock("convex/react", () => ({
@@ -44,7 +49,7 @@ vi.mock("next-intl", () => ({
       exportButton: "Export data",
       exportPreparing: "Preparing export…",
       exportPreparingProgress: `Preparing export… ${values?.done}/${values?.total}`,
-      accountExportNote: "Includes everything saved to your Kyarafit account",
+      accountExportNote: en.DataPortability.accountExportNote,
       localOnlyNotice: `You're offline, so the export includes only what this browser holds: ${values?.count ?? 0} item(s)`,
       exportedCount: `Exported ${values?.count ?? 0} item(s).`,
       exportFailed:
@@ -64,22 +69,42 @@ vi.mock("@/components/layout/WebAppShell", () => ({
 }));
 
 /** Server rows for an account with web-edited data the local store never saw. */
-const serverRows: Record<string, unknown> = {
-  "builds:list": [
-    { _id: "srv-b1", userId: "user-free-1", name: "Cloud", status: "wip", tasksTotal: 0 },
+const serverRows: Partial<Record<PortableCollectionKey, Record<string, unknown>[]>> = {
+  builds: [
+    { _id: "srv-b1", userId: "user-free-1", name: "Cloud", status: "wip" },
     { _id: "shared-b", userId: "user-free-1", name: "Server copy", status: "done" },
   ],
-  "workflow:listBuildTree": { items: [] },
-  "conventions:list": [{ _id: "srv-c1", userId: "user-free-1", name: "Anime Expo" }],
-  "conventions:getPacking": [
+  conventions: [{ _id: "srv-c1", userId: "user-free-1", name: "Anime Expo" }],
+  packingListItems: [
     { _id: "srv-p1", userId: "user-free-1", conventionId: "srv-c1", label: "Wig" },
   ],
-  "cosplayNodes:list": [{ _id: "srv-n1", userId: "user-free-1", name: "Wig", tags: [] }],
-  "workflow:listPlanner": [{ _id: "srv-w1", title: "Style wig", cosplayNodeId: "srv-n1" }],
+  cosplayNodes: [{ _id: "srv-n1", userId: "user-free-1", name: "Wig", tags: [] }],
+  workflowItems: [{ _id: "srv-w1", title: "Style wig", notes: "Use heat protectant" }],
+  workflowAttachments: [
+    {
+      _id: "srv-a1",
+      workflowItemId: "srv-w1",
+      entityType: "cosplayNode",
+      entityId: "srv-n1",
+      entityKey: "cosplayNode:srv-n1",
+      role: "primary",
+    },
+  ],
+  buildProgressUpdates: [
+    {
+      _id: "srv-progress",
+      buildId: "srv-b1",
+      note: "Wig styled",
+      imageRefs: [{ kind: "url", url: "https://example.com/wig.jpg" }],
+    },
+  ],
 };
 
-function serveRows(rows: Record<string, unknown>) {
-  client.query.mockImplementation(async (ref) => rows[getFunctionName(ref)] ?? null);
+function serveRows(rows: typeof serverRows) {
+  client.query.mockImplementation(async (ref, { collection }) => {
+    expect(getFunctionName(ref)).toBe("accountExport:listCollection");
+    return rows[collection] ?? [];
+  });
 }
 
 /** Capture the Blob handed to the browser download path. */
@@ -106,7 +131,7 @@ function seedLocalBuild(id: string, name: string) {
 describe("Settings data export page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    client.query.mockImplementation(async () => null);
+    serveRows({});
     rememberLocalAccount("user-free-1");
     offlineRuntime.setStore(new InMemoryLocalStore(), "user-free-1");
   });
@@ -133,7 +158,7 @@ describe("Settings data export page", () => {
     render(<SettingsDataPage />);
     expect(client.query).not.toHaveBeenCalled();
     expect(screen.getByTestId("export-source")).toHaveTextContent(
-      "Includes everything saved to your Kyarafit account"
+      en.DataPortability.accountExportNote
     );
   });
 
@@ -179,42 +204,52 @@ describe("Settings data export page", () => {
     expect(parsed.packingListItems.map((r) => r.id)).toEqual(["srv-p1"]);
     expect(parsed.cosplayNodes.map((r) => r.id)).toEqual(["srv-n1"]);
     expect(parsed.workflowItems).toEqual([
-      expect.objectContaining({
-        id: "srv-w1",
-        attachments: [{ entityType: "cosplayNode", entityId: "srv-n1" }],
-      }),
+      { _id: "srv-w1", id: "srv-w1", title: "Style wig", notes: "Use heat protectant" },
     ]);
-    expect(screen.getByText("Exported 7 item(s).")).toBeInTheDocument();
+    expect(parsed.workflowAttachments).toEqual(
+      serverRows.workflowAttachments!.map((row) => ({ ...row, id: row._id }))
+    );
+    expect(parsed.buildProgressUpdates).toEqual(
+      serverRows.buildProgressUpdates!.map((row) => ({ ...row, id: row._id }))
+    );
+    expect(screen.getByText("Exported 9 item(s).")).toBeInTheDocument();
   });
 
   it("shows a busy button while the account data loads", async () => {
-    const { click } = captureDownloads();
-    // Account-wide lists answer at once; per-build / per-convention queries wait to be released.
+    const { blobs, click } = captureDownloads();
     const pending: Array<() => void> = [];
-    client.query.mockImplementation((ref) => {
-      const name = getFunctionName(ref);
-      const value = serverRows[name] ?? null;
-      if (name !== "workflow:listBuildTree" && name !== "conventions:getPacking") {
-        return Promise.resolve(value);
-      }
-      return new Promise((resolve) => pending.push(() => resolve(value)));
+    client.query.mockImplementation((ref, { collection }) => {
+      expect(getFunctionName(ref)).toBe("accountExport:listCollection");
+      return new Promise((resolve) => pending.push(() => resolve(serverRows[collection] ?? [])));
     });
 
     render(<SettingsDataPage />);
     fireEvent.click(screen.getByRole("button", { name: /export data/i }));
 
-    // Two builds and one convention: three per-row queries.
-    const busyButton = await screen.findByRole("button", { name: "Preparing export… 0/3" });
+    const total = PORTABLE_COLLECTIONS.length;
+    const busyButton = await screen.findByRole("button", { name: `Preparing export… 0/${total}` });
     expect(busyButton).toBeDisabled();
     expect(busyButton).toHaveAttribute("aria-busy", "true");
 
-    pending.shift()?.();
-    expect(
-      await screen.findByRole("button", { name: "Preparing export… 1/3" })
-    ).toBeInTheDocument();
-    pending.forEach((release) => release());
+    expect(click).not.toHaveBeenCalled();
+    await act(async () => pending.shift()!());
+    const progressing = await screen.findByRole("button", { name: `Preparing export… 1/${total}` });
+    expect(progressing).toBeDisabled();
+    expect(progressing).toHaveAttribute("aria-busy", "true");
+    expect(click).not.toHaveBeenCalled();
+    while (pending.length) {
+      const batch = pending.splice(0);
+      await act(async () => batch.forEach((release) => release()));
+    }
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    const parsed = parseDataBundle(await blobs[0].text());
+    expect(parsed.builds.map((row) => row.name)).toEqual(["Cloud", "Server copy"]);
+    expect(screen.getByText("Exported 8 item(s).")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /export data/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /export data/i })).toHaveAttribute(
+      "aria-busy",
+      "false"
+    );
   });
 
   it("falls back to the local store when offline and says so", async () => {
@@ -236,8 +271,10 @@ describe("Settings data export page", () => {
 
   it("shows an alert and downloads nothing when the account data cannot be fetched", async () => {
     const { createObjectURL, click } = captureDownloads();
-    client.query.mockImplementation(async () => {
-      throw new Error("Server error");
+    client.query.mockImplementation(async (ref, { collection }) => {
+      expect(getFunctionName(ref)).toBe("accountExport:listCollection");
+      if (collection === "workflowItems") throw new Error("Server error");
+      return serverRows[collection] ?? [];
     });
     seedLocalBuild("b1", "Aerith");
 
