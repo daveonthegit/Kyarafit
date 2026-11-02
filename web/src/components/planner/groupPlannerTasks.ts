@@ -81,7 +81,10 @@ export function comparePlannerTasksByDue(a: GroupablePlannerTask, b: GroupablePl
   return a.title.localeCompare(b.title);
 }
 
-export function comparePlannerTasksByOrder(a: GroupablePlannerTask, b: GroupablePlannerTask): number {
+export function comparePlannerTasksByOrder(
+  a: GroupablePlannerTask,
+  b: GroupablePlannerTask
+): number {
   return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || comparePlannerTasksByDue(a, b);
 }
 

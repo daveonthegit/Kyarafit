@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useConvex } from "convex/react";
 import { useTranslations } from "next-intl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";

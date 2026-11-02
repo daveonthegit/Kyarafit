@@ -102,13 +102,22 @@ it("keeps Friday before Wednesday after dragging across due dates in This week",
   ) {
     const top = this.dataset.plannerTaskDropId === "wed" ? 100 : 220;
     return {
-      top, bottom: top + 100, left: 0, right: 100,
-      width: 100, height: 100, x: 0, y: top, toJSON: () => ({}),
+      top,
+      bottom: top + 100,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
     };
   });
   const { rerender } = render(<PlannerPage />);
   expect(
-    screen.getAllByRole("button", { name: /^Drag/ }).map((button) => button.getAttribute("aria-label"))
+    screen
+      .getAllByRole("button", { name: /^Drag/ })
+      .map((button) => button.getAttribute("aria-label"))
   ).toEqual(['Drag "Wednesday"', 'Drag "Friday"']);
   fireEvent.pointerDown(screen.getByRole("button", { name: 'Drag "Friday"' }), {
     clientX: 10,
@@ -118,7 +127,9 @@ it("keeps Friday before Wednesday after dragging across due dates in This week",
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
   rerender(<PlannerPage />);
   expect(
-    screen.getAllByRole("button", { name: /^Drag/ }).map((button) => button.getAttribute("aria-label"))
+    screen
+      .getAllByRole("button", { name: /^Drag/ })
+      .map((button) => button.getAttribute("aria-label"))
   ).toEqual(['Drag "Friday"', 'Drag "Wednesday"']);
 });
 
