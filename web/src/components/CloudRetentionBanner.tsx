@@ -45,7 +45,6 @@ export function CloudRetentionBanner({ now = Date.now() }: { now?: number }) {
     <div
       role="status"
       aria-live="polite"
-      data-cloud-retention-banner
       className="fixed bottom-4 right-4 z-40 flex max-w-xs items-start gap-3 rounded-sm border border-kyar-borderSubtle bg-kyar-muted px-4 py-3 text-kyar-text shadow-sm"
     >
       <span className="material-symbols-outlined text-xl text-kyar-textTertiary" aria-hidden>

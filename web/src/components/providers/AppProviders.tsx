@@ -12,11 +12,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <SyncWorkerProvider>
+        <DeprecationBanner />
         <RestoreReadOnlyNotice />
         {/* SyncStatus lives on the Backup & data settings page (owner: no floating status chips). */}
         <CreationModalsProvider>{children}</CreationModalsProvider>
         <CloudRetentionBanner />
-        <DeprecationBanner />
       </SyncWorkerProvider>
     </ThemeProvider>
   );

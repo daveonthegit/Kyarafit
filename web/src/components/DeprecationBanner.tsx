@@ -15,13 +15,6 @@ export const DEPRECATION_BANNER_DISMISSED_ATTR = "data-deprecation-banner-dismis
  */
 export const DEPRECATION_BANNER_HEAD_SCRIPT = `(function(){try{if(localStorage.getItem('${DEPRECATION_BANNER_STORAGE_KEY}')==='1'){document.documentElement.setAttribute('${DEPRECATION_BANNER_DISMISSED_ATTR}','');}}catch(e){}})();`;
 
-/**
- * Site-wide announcement that Kyarafit is moving to Cosapp.si, shown on landing, auth and app
- * pages and dismissible per browser. A floating glass panel (the glass `OnlineOnlyBanner`
- * surface on the "on-wall" bar wash), so it never shifts the landing hero or the app shell.
- * Placement: bottom-right from `sm` up (clear of the landing hero copy and CTA); full width on
- * phones. `globals.css` lifts it above the BottomNav, the FAB and CloudRetentionBanner.
- */
 export function DeprecationBanner() {
   const t = useTranslations("DeprecationBanner");
   const [dismissed, setDismissed] = useState(false);
@@ -42,7 +35,7 @@ export function DeprecationBanner() {
     <div
       role="region"
       aria-label={t("label")}
-      className="deprecation-banner fixed inset-x-3 z-[45] flex items-start gap-2 rounded-[10px] border border-glass-divider-strong bg-glass-bar-on-wall py-2.5 pl-4 pr-1 text-kyar-media-fg shadow-glass-overlay backdrop-blur-glass-bar sm:inset-x-auto sm:right-6 sm:max-w-[26rem]"
+      className="deprecation-banner relative flex items-start gap-2 border-b border-glass-divider-strong bg-glass-bar-on-wall py-2.5 pl-4 pr-1 text-kyar-media-fg shadow-glass-overlay backdrop-blur-glass-bar sm:pl-6 sm:pr-3"
     >
       <span className="material-symbols-outlined mt-1.5 text-lg text-media-fg-55" aria-hidden>
         campaign

@@ -455,30 +455,6 @@ button:active,
   will-change: transform;
 }
 
-/* Cosapp.si announcement (DeprecationBanner): floating glass panel. Dismissed per browser; the
-   head script sets the attribute before first paint so a dismissed banner never flashes. */
 html[data-deprecation-banner-dismissed] .deprecation-banner {
   display: none;
-}
-.deprecation-banner {
-  bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
-}
-@media (min-width: 640px) {
-  .deprecation-banner {
-    bottom: 1.5rem;
-  }
-  /* CloudRetentionBanner shares the bottom-right corner: stack above it. */
-  html:has([data-cloud-retention-banner]) .deprecation-banner {
-    bottom: 7rem;
-  }
-}
-@media (max-width: 1023px) {
-  /* App shell on phones: sit above the BottomNav (z-50)... */
-  html:has([data-bottom-nav]) .deprecation-banner {
-    bottom: calc(max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) + 4.5rem);
-  }
-  /* ...and above the GlobalFAB, which floats over the nav, so it stays tappable. */
-  html:has([data-global-fab]) .deprecation-banner {
-    bottom: calc(max(1.5rem, env(safe-area-inset-bottom, 1rem)) + 8.75rem);
-  }
 }
