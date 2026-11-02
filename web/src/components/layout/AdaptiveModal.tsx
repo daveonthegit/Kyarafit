@@ -116,17 +116,19 @@ export function AdaptiveModal({
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
   const onCloseRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
   useEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    closeDisabledRef.current = closeDisabled;
+  }, [onClose, closeDisabled]);
 
   const visible = open && !leaving;
 
   const requestClose = useCallback(() => {
-    if (closeDisabled || leavingRef.current) return;
+    if (closeDisabledRef.current || leavingRef.current) return;
     leavingRef.current = true;
     setLeaving(true);
-  }, [closeDisabled]);
+  }, []);
 
   const handleExitComplete = useCallback(() => {
     if (!leavingRef.current) return;
