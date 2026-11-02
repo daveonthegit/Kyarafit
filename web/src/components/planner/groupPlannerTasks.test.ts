@@ -85,10 +85,13 @@ describe("groupPlannerTasks", () => {
     ["week", "2026-11-04", "2026-11-06"],
     ["later", "2026-11-12", "2026-11-14"],
   ] as const)("keeps manual order across different dates in %s", (bucket, earlier, later) => {
-    const groups = groupPlannerTasks([
-      task("Earlier deadline", { dueDate: earlier, sortOrder: 1 }),
-      task("Manually first", { dueDate: later, sortOrder: 0 }),
-    ], { today: TODAY });
+    const groups = groupPlannerTasks(
+      [
+        task("Earlier deadline", { dueDate: earlier, sortOrder: 1 }),
+        task("Manually first", { dueDate: later, sortOrder: 0 }),
+      ],
+      { today: TODAY }
+    );
     expect(titles(groups[bucket])).toEqual(["Manually first", "Earlier deadline"]);
   });
 
