@@ -1,6 +1,7 @@
 "use client";
 
 import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 
 export interface BuildNotesModalProps {
   open: boolean;
@@ -35,28 +36,18 @@ export function BuildNotesModal({
         <>
           <button
             type="button"
-            onClick={onSave}
-            disabled={saving}
-            className="flex-1 min-w-[100px] bg-kyar-text text-kyar-bg py-2.5 text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
             onClick={onClear}
             disabled={saving || !notes.trim()}
-            className="px-4 py-2.5 border border-kyar-border text-xs font-semibold uppercase tracking-wider text-kyar-text hover:border-kyar-text rounded-md disabled:opacity-50"
+            className="mr-auto min-h-[44px] px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70 underline decoration-glass-border-strong underline-offset-4 transition-colors hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-25"
           >
             Clear notes
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2.5 border border-kyar-border text-xs font-semibold uppercase tracking-wider text-kyar-text hover:border-kyar-text rounded-md disabled:opacity-50"
-          >
+          <PhotoPill type="button" variant="outline" onClick={onClose} disabled={saving}>
             Cancel
-          </button>
+          </PhotoPill>
+          <PhotoPill type="button" variant="solid" onClick={onSave} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </PhotoPill>
         </>
       }
     >
@@ -68,11 +59,11 @@ export function BuildNotesModal({
         value={notes}
         onChange={(e) => onNotesChange(e.target.value)}
         placeholder="Add notes, references, or process details for this build…"
-        className="w-full min-h-[200px] border border-kyar-border rounded-md p-3 text-sm placeholder:text-kyar-textTertiary focus:outline-none focus:ring-2 focus:ring-kyar-accent/30 focus:border-kyar-accent resize-y"
+        className="glass-field min-h-[200px] w-full resize-y p-3 text-sm leading-relaxed"
         disabled={saving}
       />
       {error && (
-        <p className="mt-2 text-sm text-red-600" role="alert">
+        <p className="mt-2 text-sm text-on-glass-danger" role="alert">
           {error}
         </p>
       )}

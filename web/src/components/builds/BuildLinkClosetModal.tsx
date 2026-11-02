@@ -7,6 +7,7 @@ import {
   type LinkClosetItemsFormHandle,
   type LinkClosetRow,
 } from "@/components/builds/LinkClosetItemsForm";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 import type { Id } from "convex/_generated/dataModel";
 
 type ClosetEntityId = Id<"cosplayNodes">;
@@ -54,22 +55,24 @@ export function BuildLinkClosetModal({
       closeDisabled={saving}
       footer={
         <>
-          <button
+          <PhotoPill
             type="button"
+            variant="outline"
             onClick={onClose}
             disabled={saving}
-            className="flex-1 min-w-[100px] px-4 py-2.5 border border-kyar-border text-xs font-semibold uppercase tracking-wider text-kyar-text hover:border-kyar-text rounded-md disabled:opacity-50"
+            className="min-w-[100px] flex-1 sm:flex-none"
           >
             Cancel
-          </button>
-          <button
+          </PhotoPill>
+          <PhotoPill
             type="button"
+            variant="solid"
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 min-w-[100px] bg-kyar-text text-kyar-bg py-2.5 text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
+            className="min-w-[100px] flex-1 sm:flex-none"
           >
             {saving ? "Saving…" : "Save"}
-          </button>
+          </PhotoPill>
         </>
       }
     >
@@ -86,7 +89,7 @@ export function BuildLinkClosetModal({
         onError={(msg) => setError(msg)}
       />
       {error && (
-        <p className="mt-3 text-sm text-red-600" role="alert">
+        <p className="mt-3 text-sm text-on-glass-danger" role="alert">
           {error}
         </p>
       )}

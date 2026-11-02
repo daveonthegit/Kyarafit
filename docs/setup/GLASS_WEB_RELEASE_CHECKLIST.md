@@ -120,9 +120,11 @@ These need the owner's eyes; they were not signed off in code review:
 
 - **Build detail** (`/build-detail/<id>`), on a desktop window and a phone:
   - The hero cover, title block and status/progress chips over the photo.
-  - The tab row (Elements, Tasks, Board, Progress) and the explorer panels: drag to nest, the
-    element sheet (open, edit, autosave, close), and the task tree's "Tab to nest" hint.
-  - The board (reference and process pictures): adding, removing and reordering pictures.
+  - The work-panel tabs (Elements, Tasks, Updates, Summary): drag to nest in the element explorer,
+    the element sheet (open, edit, autosave, close; it has no "Move" action yet), and adding,
+    checking and nesting tasks.
+  - The board strip and "Open board" (reference and process pictures): adding, removing and
+    reordering pictures. The spec's Overview and Board tabs are not built; decide if they should be.
   - Progress updates: posting one with a photo, and the free-tier "publish" hint.
   - Notes, link elements, invite collaborator and photo-batch dialogs.
   - A build with no cover image (the monogram fallback with "Add a cover").

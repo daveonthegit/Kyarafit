@@ -84,11 +84,11 @@ function ClosetItemsCarouselInner<T>({
           disabled={!canScrollLeft}
           aria-label="Scroll left"
           className={cn(
-            "p-2 rounded-full border border-kyar-border bg-kyar-surface text-kyar-text transition-opacity duration-300",
-            "hover:bg-kyar-muted hover:border-kyar-text disabled:opacity-30 disabled:cursor-not-allowed"
+            "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-glass-border-strong bg-glass-bar text-kyar-media-fg backdrop-blur-glass-chip transition-colors",
+            "hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:cursor-not-allowed disabled:opacity-25"
           )}
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-[18px] w-[18px]" />
         </button>
         <button
           type="button"
@@ -96,11 +96,11 @@ function ClosetItemsCarouselInner<T>({
           disabled={!canScrollRight}
           aria-label="Scroll right"
           className={cn(
-            "p-2 rounded-full border border-kyar-border bg-kyar-surface text-kyar-text transition-opacity duration-300",
-            "hover:bg-kyar-muted hover:border-kyar-text disabled:opacity-30 disabled:cursor-not-allowed"
+            "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-glass-border-strong bg-glass-bar text-kyar-media-fg backdrop-blur-glass-chip transition-colors",
+            "hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:cursor-not-allowed disabled:opacity-25"
           )}
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-[18px] w-[18px]" />
         </button>
       </div>
       <div
@@ -130,7 +130,7 @@ export function ClosetCarouselCardContent({
   formatCents: (cents: number) => string;
 }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-transparent bg-kyar-mutedWarm overflow-hidden shadow-sm transition-all hover:shadow-md group w-full relative">
+    <div className="group relative flex w-full flex-col overflow-hidden rounded-[16px] border border-glass-border bg-glass-active transition-colors hover:border-glass-border-strong">
       {item.imageStorageId || item.imageUrl ? (
         <ResolvedImage
           imageStorageId={item.imageStorageId ?? undefined}
@@ -139,20 +139,20 @@ export function ClosetCarouselCardContent({
           className="w-full h-auto object-cover min-h-[160px]"
         />
       ) : (
-        <div className="flex w-full aspect-square items-center justify-center text-kyar-textTertiary">
-          <span className="material-symbols-outlined text-4xl">checkroom</span>
+        <div className="flex w-full aspect-square items-center justify-center text-media-fg-45">
+          <span className="material-symbols-outlined text-4xl font-extralight">checkroom</span>
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 bg-kyar-media-scrim-mid" />
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex flex-col gap-0.5 p-3">
-        <p className="truncate text-xs font-medium text-kyar-media-fg">{item.name}</p>
-        <div className="flex items-center justify-between text-[10px] text-kyar-media-fg-muted">
+        <p className="truncate text-[13px] font-medium text-kyar-media-fg">{item.name}</p>
+        <div className="flex items-center justify-between text-[10px] text-media-fg-70">
           <span>
             {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Node"}
           </span>
           {item.costCents != null && <span>{formatCents(item.costCents)}</span>}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wide text-kyar-media-fg-soft">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-media-fg-55">
           {item.nodeType && <span>{formatNodeStatus(item)}</span>}
           {typeof item.progressPercent === "number" && (
             <span>{item.progressPercent}% progress</span>

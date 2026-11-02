@@ -604,7 +604,7 @@ export default function ElementDetailPage() {
                               setForm((prev) => ({ ...prev, materialStatus: status }));
                               if (userId) void updateNode({ id, userId, materialStatus: status });
                             }}
-                            className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-widest ${
+                            className={`min-h-[44px] rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                               form.materialStatus === status
                                 ? "border-transparent bg-glass-solid text-glass-ink"
                                 : "border-glass-border-strong text-media-fg-70 hover:bg-glass-active"
@@ -1210,7 +1210,9 @@ export default function ElementDetailPage() {
                 className="flex w-full items-center justify-between gap-3 rounded-[10px] border border-glass-border p-3 text-left hover:border-glass-border-strong hover:bg-glass-active transition-colors"
               >
                 <span className="truncate text-sm font-medium">{build.name}</span>
-                <span className="text-[10px] uppercase tracking-widest">Add</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+                  Add
+                </span>
               </button>
             ))}
           </div>

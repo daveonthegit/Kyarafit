@@ -36,7 +36,11 @@ export function WebAppShell({
       <GlassTopBar />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
-        <main className="flex-1 flex flex-col min-h-0 pb-24 lg:pb-0">
+        {/* Mobile: clear the tab bar, plus the floating create pill when it shows, so the last
+            row of content can scroll out from under both. */}
+        <main
+          className={`flex-1 flex flex-col min-h-0 lg:pb-0 ${hideFAB ? "pb-24" : "pb-[9.5rem]"}`}
+        >
           {fullBleed ? (
             children
           ) : (

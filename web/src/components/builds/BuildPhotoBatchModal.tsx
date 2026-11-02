@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 import type { Id } from "convex/_generated/dataModel";
 
 type PhotoKind = "reference" | "progress";
@@ -70,25 +71,26 @@ export function BuildPhotoBatchModal({
       titleId="build-photo-batch-title"
       size="lg"
       footer={
-        <button
+        <PhotoPill
           type="button"
+          variant="solid"
           onClick={onClose}
-          className="w-full sm:w-auto sm:ml-auto px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
+          className="w-full sm:ml-auto sm:w-auto"
         >
           Done
-        </button>
+        </PhotoPill>
       }
     >
-      <p className="text-sm text-kyar-textSecondary mb-4">
+      <p className="mb-4 text-sm leading-relaxed text-media-fg-70">
         Upload or paste a URL. You can add many in a row; close when finished.
       </p>
       {feedback && (
-        <p className="mb-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+        <p className="mb-3 rounded-[10px] bg-on-glass-chip-done-bg px-3 py-2 text-[13px] text-on-glass-chip-done-fg">
           {feedback}
         </p>
       )}
       {error && (
-        <p className="mb-3 text-sm text-red-600" role="alert">
+        <p className="mb-3 text-sm text-on-glass-danger" role="alert">
           {error}
         </p>
       )}
