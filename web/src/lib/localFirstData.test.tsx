@@ -22,7 +22,12 @@ import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
 import { rememberLocalAccount } from "./auth/localAccount";
-import { buildDataBundle, countRows, parseDataBundle, PORTABLE_COLLECTIONS } from "./dataPortability";
+import {
+  buildDataBundle,
+  countRows,
+  parseDataBundle,
+  PORTABLE_COLLECTIONS,
+} from "./dataPortability";
 import { exportRecord } from "../test/accountExportRecords";
 
 beforeEach(() => {
@@ -37,7 +42,13 @@ afterEach(() => {
 
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
   it.each(PORTABLE_COLLECTIONS)("round-trips locally retained %s records", (collection) => {
-    for (const key of ["users", "groups", "groupMembers", "workflowTemplates", collection] as const) {
+    for (const key of [
+      "users",
+      "groups",
+      "groupMembers",
+      "workflowTemplates",
+      collection,
+    ] as const) {
       offlineRuntime.upsertSyncedEntityRow(key, key, "u1", exportRecord(key));
     }
     const row = exportRecord(collection);
@@ -74,9 +85,7 @@ describe("readLocalCollections (REQ-D100 — export is free)", () => {
     expect(rejoined.groups).toEqual([
       expect.objectContaining({ description: "Changed after removal" }),
     ]);
-    expect(rejoined.groupConventionDays).toEqual([
-      expect.objectContaining({ date: "2026-11-02" }),
-    ]);
+    expect(rejoined.groupConventionDays).toEqual([expect.objectContaining({ date: "2026-11-02" })]);
   });
 
   it("exports elements alongside the task attachments that reference them", () => {

@@ -20,7 +20,10 @@ import en from "../../../../messages/en.json";
 const client = {
   mutation: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null),
   query: vi.fn<
-    (ref: FunctionReference<"query">, args: { collection: PortableCollectionKey }) => Promise<unknown>
+    (
+      ref: FunctionReference<"query">,
+      args: { collection: PortableCollectionKey }
+    ) => Promise<unknown>
   >(async () => []),
 };
 

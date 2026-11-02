@@ -35,7 +35,9 @@ describe("Spanish planning controls", () => {
         />
       </NextIntlClientProvider>
     );
-    expect(screen.getByText("Añade tu primer elemento para empezar a desglosar este build.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Añade tu primer elemento para empezar a desglosar este build.")
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Nuevo elemento principal/ }));
     expect(onCreateRoot).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: /Vincular/ }));
@@ -45,8 +47,16 @@ describe("Spanish planning controls", () => {
   it("translates task disclosure in both states", () => {
     render(
       <NextIntlClientProvider locale="es" messages={messages}>
-        <PlannerTaskRow title="Coser capa" done={false} userId="user_1" onToggle={() => {}}
-          contextHref="/build-detail/b1" contextLabel="Capa" status="in_progress" progressPercent={40} />
+        <PlannerTaskRow
+          title="Coser capa"
+          done={false}
+          userId="user_1"
+          onToggle={() => {}}
+          contextHref="/build-detail/b1"
+          contextLabel="Capa"
+          status="in_progress"
+          progressPercent={40}
+        />
       </NextIntlClientProvider>
     );
     const disclosure = screen.getByRole("button", { name: 'Mostrar detalles de "Coser capa"' });
@@ -66,8 +76,14 @@ describe("Spanish planning controls", () => {
     const onOpenLinkNodes = vi.fn();
     const toolbar = (rootCount: number, search = "", matchCount?: number) => (
       <NextIntlClientProvider locale="es" messages={messages}>
-        <BuildExplorerToolbar search={search} rootCount={rootCount} matchCount={matchCount}
-          onSearchChange={onSearchChange} onCreateRoot={onCreateRoot} onOpenLinkNodes={onOpenLinkNodes} />
+        <BuildExplorerToolbar
+          search={search}
+          rootCount={rootCount}
+          matchCount={matchCount}
+          onSearchChange={onSearchChange}
+          onCreateRoot={onCreateRoot}
+          onOpenLinkNodes={onOpenLinkNodes}
+        />
       </NextIntlClientProvider>
     );
     const { rerender } = render(toolbar(1));

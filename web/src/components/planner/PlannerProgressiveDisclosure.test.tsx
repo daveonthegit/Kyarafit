@@ -102,8 +102,14 @@ describe("Planner progressive disclosure", () => {
 
   it("forwards rapid requested values and ignores an older rejection", async () => {
     let rejectFirst!: (reason: Error) => void;
-    const onToggle = vi.fn()
-      .mockImplementationOnce(() => new Promise((_, reject) => { rejectFirst = reject; }))
+    const onToggle = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectFirst = reject;
+          })
+      )
       .mockImplementationOnce(() => new Promise(() => {}));
     render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
     fireEvent.click(screen.getByRole("checkbox"));
@@ -111,12 +117,17 @@ describe("Planner progressive disclosure", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     await act(async () => {});
     expect(onToggle.mock.calls).toEqual([[true], [false]]);
-    await act(async () => { rejectFirst(new Error("Failed")); });
+    await act(async () => {
+      rejectFirst(new Error("Failed"));
+    });
     expect(screen.getByRole("checkbox")).not.toBeChecked();
   });
 
   it("clears successful and rejected pending requests", async () => {
-    const onToggle = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Failed"));
+    const onToggle = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Failed"));
     const { rerender } = render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
     fireEvent.click(screen.getByRole("checkbox"));
     await act(async () => {});
