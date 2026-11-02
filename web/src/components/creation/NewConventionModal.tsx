@@ -2,14 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useOfflineMutation } from "@/lib/offline";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import { Sheet } from "@/components/ui/sheet";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import {
+  CreationFooter,
+  GlassLabel,
+  GlassTextField,
+  glassCalendarClassNames,
+} from "@/components/creation/CreationFields";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -21,6 +27,7 @@ type NewConventionModalProps = {
 
 export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventionModalProps) {
   const router = useRouter();
+  const t = useTranslations("Creation");
   const { userId } = useCurrentUser();
   const createConvention = useOfflineMutation(api.conventions.create);
   const [name, setName] = useState("");
@@ -61,51 +68,64 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
   };
 
   return (
-    <Sheet
+    <AdaptiveModal
       open
       onClose={onDismiss}
-      title="New event"
+      title={t("newEventTitle")}
       titleId="global-new-convention-modal-title"
       size="2xl"
       closeDisabled={isPending}
-      footer={
-        <Button
-          type="submit"
-          form="new-convention-modal-form"
-          disabled={isPending || !name.trim() || !startDate || !endDate}
-          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:bg-kyar-text/90 transition-colors shadow-md"
-        >
-          {isPending ? "Creating…" : "Create event"}
-        </Button>
-      }
+      closeLabel={t("close")}
+      footer={(close) => (
+        <CreationFooter
+          onCancel={close}
+          cancelLabel={t("cancel")}
+          cancelDisabled={isPending}
+          formId="new-convention-modal-form"
+          submitLabel={isPending ? t("creating") : t("createEvent")}
+          submitDisabled={isPending || !name.trim() || !startDate || !endDate}
+        />
+      )}
     >
-      <form id="new-convention-modal-form" onSubmit={submit} className="space-y-5">
-        <p className="text-sm text-kyar-textSecondary">
-          Pick a date range and name. Image is optional.
-        </p>
+      <form id="new-convention-modal-form" onSubmit={submit} className="space-y-[18px]">
+        <p className="text-[13px] text-media-fg-70">{t("newEventIntro")}</p>
+        <ImageUpload
+          surface="glass"
+          label={t("cover")}
+          category="conventions"
+          onImageSelected={(result) => {
+            if ("imageStorageId" in result && result.imageStorageId) {
+              setImageStorageId(result.imageStorageId);
+              setImageUrl("");
+            } else {
+              setImageUrl(result.imageUrl ?? "");
+              setImageStorageId(null);
+            }
+          }}
+          currentImage={imageUrl || undefined}
+          currentStorageId={imageStorageId ?? undefined}
+          aside={
+            <>
+              <GlassTextField
+                label={t("name")}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("eventNamePlaceholder")}
+              />
+              <GlassTextField
+                label={t("locationLabel")}
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder={t("locationPlaceholder")}
+              />
+            </>
+          }
+        />
         <div>
-          <label className="mb-2 block meta-label">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Anime Expo"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block meta-label">Location (optional)</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City or venue"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block meta-label">Dates</label>
-          <div className="rounded-lg border border-kyar-borderSubtle bg-kyar-muted/30 p-3">
+          <GlassLabel>{t("datesLabel")}</GlassLabel>
+          <div className="mt-[3px] rounded-[10px] border border-glass-border-overlay bg-glass-active p-3">
             <Calendar
               mode="range"
               selected={dateRange}
@@ -114,39 +134,18 @@ export function NewConventionModal({ onDismiss, onSuccessComplete }: NewConventi
               pagedNavigation
               showOutsideDays={false}
               className="mx-auto"
-              classNames={{
-                months: "gap-6 sm:gap-8",
-                month:
-                  "relative first-of-type:before:hidden before:absolute max-sm:before:inset-x-2 max-sm:before:h-px max-sm:before:-top-2 sm:before:inset-y-2 sm:before:w-px before:bg-kyar-borderSubtle sm:before:-left-4",
-              }}
+              classNames={glassCalendarClassNames}
             />
             {(startDate || endDate) && (
-              <p className="mt-3 flex items-center gap-1.5 border-t border-kyar-borderSubtle pt-3 text-xs text-kyar-meta">
-                <CalendarIcon className="size-3.5" />
+              <p className="mt-3 flex items-center gap-1.5 border-t border-glass-divider pt-3 text-xs tabular-nums text-media-fg-70">
+                <CalendarIcon className="size-3.5" aria-hidden />
                 {startDate}
                 {endDate && startDate !== endDate ? ` – ${endDate}` : ""}
               </p>
             )}
           </div>
         </div>
-        <div>
-          <label className="mb-2 block meta-label">Image (optional)</label>
-          <ImageUpload
-            category="conventions"
-            onImageSelected={(result) => {
-              if ("imageStorageId" in result && result.imageStorageId) {
-                setImageStorageId(result.imageStorageId);
-                setImageUrl("");
-              } else {
-                setImageUrl(result.imageUrl ?? "");
-                setImageStorageId(null);
-              }
-            }}
-            currentImage={imageUrl || undefined}
-            currentStorageId={imageStorageId ?? undefined}
-          />
-        </div>
       </form>
-    </Sheet>
+    </AdaptiveModal>
   );
 }

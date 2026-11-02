@@ -138,6 +138,7 @@ export function LinkClosetQuickCreateModal({
             Photo (optional)
           </label>
           <ImageUpload
+            surface="glass"
             category="closet"
             onImageSelected={(result) => {
               if ("imageStorageId" in result && result.imageStorageId) {

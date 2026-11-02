@@ -2,10 +2,13 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
+import { CreationRoutePlaceholder } from "@/components/creation/CreationRoutePlaceholder";
 
 export default function NewElementPage() {
   const router = useRouter();
+  const t = useTranslations("Creation");
   const { open } = useCreationModals();
 
   useEffect(() => {
@@ -13,14 +16,10 @@ export default function NewElementPage() {
   }, [open]);
 
   return (
-    <main className="p-6">
-      <button
-        type="button"
-        onClick={() => router.replace("/elements")}
-        className="text-sm underline"
-      >
-        Back to Elements
-      </button>
-    </main>
+    <CreationRoutePlaceholder
+      message={t("openingElement")}
+      cancelLabel={t("backToElements")}
+      onCancel={() => router.replace("/elements")}
+    />
   );
 }

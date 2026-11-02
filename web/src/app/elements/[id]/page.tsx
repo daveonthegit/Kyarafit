@@ -1023,6 +1023,7 @@ export default function ElementDetailPage() {
                 Reference image
               </p>
               <ImageUpload
+                surface="glass"
                 category="closet"
                 onImageSelected={(result) => {
                   if ("imageStorageId" in result && result.imageStorageId) {

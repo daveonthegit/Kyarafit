@@ -446,6 +446,7 @@ export default function BuildDetailPage() {
                     Cover Image
                   </label>
                   <ImageUpload
+                    surface="glass"
                     category="builds"
                     onImageSelected={(result) => {
                       if ("imageStorageId" in result && result.imageStorageId) {

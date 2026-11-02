@@ -392,6 +392,7 @@ export default function ConventionDetailPage() {
                     Image (optional)
                   </label>
                   <ImageUpload
+                    surface="glass"
                     category="conventions"
                     onImageSelected={(result) => {
                       if ("imageStorageId" in result && result.imageStorageId) {

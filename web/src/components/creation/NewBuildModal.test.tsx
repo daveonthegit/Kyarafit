@@ -10,18 +10,34 @@ const state = vi.hoisted(() => ({ push: vi.fn(), mutation: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: state.push }) }));
 vi.mock("convex/react", () => ({ useConvex: () => ({ mutation: state.mutation }) }));
 vi.mock("@/hooks/useCurrentUser", () => ({ useCurrentUser: () => ({ userId: "owner" }) }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => {
+    const map: Record<string, string> = {
+      buildNamePlaceholder: "e.g. Arlecchino",
+      createBuild: "Create build",
+      creating: "Creating…",
+      cancel: "Cancel",
+    };
+    return map[key] ?? key;
+  },
+}));
 vi.mock("@/components/ui/ImageUpload", () => ({
   ImageUpload: ({
     onImageSelected,
+    aside,
   }: {
     onImageSelected: (image: { imageUrl: string }) => void;
+    aside?: React.ReactNode;
   }) => (
-    <button
-      type="button"
-      onClick={() => onImageSelected({ imageUrl: "data:image/png;base64,test" })}
-    >
-      Select image
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => onImageSelected({ imageUrl: "data:image/png;base64,test" })}
+      >
+        Select image
+      </button>
+      {aside}
+    </>
   ),
 }));
 

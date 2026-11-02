@@ -33,6 +33,8 @@ vi.mock("next-intl", () => ({
       groupCreatePaidMessage:
         "Creating a group is a paid feature. Joining and taking part in groups is always free.",
       viewPlan: "View plan",
+      groupNamePlaceholder: "e.g. Sailor Moon squad",
+      createGroup: "Create group",
     };
     return map[key] ?? key;
   },

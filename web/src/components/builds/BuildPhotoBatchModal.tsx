@@ -94,7 +94,12 @@ export function BuildPhotoBatchModal({
           {error}
         </p>
       )}
-      <ImageUpload key={uploadKey} category="builds" onImageSelected={handleSelected} />
+      <ImageUpload
+        surface="glass"
+        key={uploadKey}
+        category="builds"
+        onImageSelected={handleSelected}
+      />
     </BuildDetailModalShell>
   );
 }
