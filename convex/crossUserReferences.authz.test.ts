@@ -243,6 +243,16 @@ describe("workflow attachments only reference resources the actor can reach", ()
       status: "done",
     });
     expect(await f.t.run((ctx) => ctx.db.get(packing!._id))).toEqual(packing);
+    expect(
+      (await asBob.query(api.conventions.getPacking, { conventionId: f.bobConvention })).find(
+        (p) => p._id === packing!._id
+      )?.checked
+    ).toBe(false);
+    expect(
+      (await asBob.query(api.conventions.listWithDetails, {}))[0].packing.find(
+        (p) => p._id === packing!._id
+      )?.checked
+    ).toBe(false);
     await asAlice.mutation(api.workflow.remove, { id: packing!.workflowItemId! });
     const preserved = await f.t.run((ctx) => ctx.db.get(packing!._id));
     expect(preserved).toMatchObject({
@@ -503,9 +513,31 @@ describe("legitimate workflow flows keep working", () => {
       buildId: f.bobBuild,
     });
     expect(manual?.workflowItemId).toBeDefined();
-    await asBob.mutation(api.conventions.updatePackingItem, { id: manual!._id, checked: true });
-    const item = await f.t.run((ctx) => ctx.db.get(manual!.workflowItemId!));
-    expect(item?.status).toBe("done");
+    for (const checked of [true, false]) {
+      const updated = await asBob.mutation(api.conventions.updatePackingItem, {
+        id: manual!._id,
+        checked,
+      });
+      expect(updated?.checked).toBe(checked);
+      const item = await f.t.run((ctx) => ctx.db.get(manual!.workflowItemId!));
+      expect(item?.status).toBe(checked ? "done" : "not_started");
+    }
+    for (const checked of [true, false]) {
+      await asBob.mutation(api.workflow.update, {
+        id: manual!.workflowItemId!,
+        status: checked ? "done" : "not_started",
+      });
+      expect(
+        (await asBob.query(api.conventions.getPacking, { conventionId: f.bobConvention })).find(
+          (p) => p._id === manual!._id
+        )?.checked
+      ).toBe(checked);
+      expect(
+        (await asBob.query(api.conventions.listWithDetails, {}))[0].packing.find(
+          (p) => p._id === manual!._id
+        )?.checked
+      ).toBe(checked);
+    }
     await asBob.mutation(api.conventions.deletePackingItem, { id: manual!._id });
     expect(await f.t.run((ctx) => ctx.db.get(manual!._id))).toBeNull();
   });

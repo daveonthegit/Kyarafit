@@ -13,7 +13,10 @@ async function groupVisibleConvention(
   conventionId: Id<"conventions">
 ) {
   const convention = await availableOwnedDocument(ctx, await ctx.db.get(conventionId));
-  return convention?.userId === actorId ? convention : null;
+  if (!convention) return null;
+  return convention.userId === actorId
+    ? convention
+    : { name: "Private convention", startDate: "", endDate: "" };
 }
 
 /**
@@ -35,7 +38,11 @@ export const listForGroup = query({
     const selected = args.conventionId
       ? all.filter((d) => d.conventionId === args.conventionId)
       : all;
-    return selected;
+    const live = [];
+    for (const day of selected) {
+      if (await groupVisibleConvention(ctx, actorId, day.conventionId)) live.push(day);
+    }
+    return live;
   },
 });
 
@@ -98,11 +105,12 @@ export const listForGroupWithConventions = query({
       const key = d.conventionId;
       if (!byConvention.has(key)) {
         const con = await groupVisibleConvention(ctx, actorId, d.conventionId);
+        if (!con) continue;
         byConvention.set(key, {
           conventionId: key,
-          conventionName: con?.name ?? "Private convention",
-          startDate: con?.startDate ?? "",
-          endDate: con?.endDate ?? "",
+          conventionName: con.name,
+          startDate: con.startDate,
+          endDate: con.endDate,
           dates: [],
         });
       }

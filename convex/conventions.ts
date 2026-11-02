@@ -26,15 +26,6 @@ async function assertBuildReachable(
   }
 }
 
-async function getPackingWorkflowStatus(
-  ctx: QueryCtx | MutationCtx,
-  item: Doc<"packingListItems">
-) {
-  const workflowItem = await getOwnedPackingWorkflowItem(ctx, item);
-  if (!workflowItem) return item.checked;
-  return workflowItem.status === "done";
-}
-
 async function getOwnedPackingWorkflowItem(
   ctx: QueryCtx | MutationCtx,
   item: Doc<"packingListItems">
@@ -409,12 +400,7 @@ export const getPacking = query({
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
-    return await Promise.all(
-      items.map(async (item) => ({
-        ...item,
-        checked: await getPackingWorkflowStatus(ctx, item),
-      }))
-    );
+    return items;
   },
 });
 
@@ -464,8 +450,6 @@ export const updatePackingItem = mutation({
       return {
         ...updated,
         workflowItemId,
-        checked:
-          args.checked ?? (await getPackingWorkflowStatus(ctx, { ...updated, workflowItemId })),
       };
     }
     return updated;
@@ -566,16 +550,10 @@ export const listWithDetails = query({
           .query("conventionDayPlans")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packingRaw = await ctx.db
+        const packing = await ctx.db
           .query("packingListItems")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packing = await Promise.all(
-          packingRaw.map(async (item) => ({
-            ...item,
-            checked: await getPackingWorkflowStatus(ctx, item),
-          }))
-        );
         return { ...c, plans, packing };
       })
     );
