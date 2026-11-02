@@ -61,6 +61,9 @@ it("creates the build on Convex and opens it", async () => {
   fireEvent.change(screen.getByPlaceholderText("e.g. Arlecchino"), {
     target: { value: "Saved build" },
   });
+  fireEvent.change(screen.getByPlaceholderText("characterPlaceholder"), {
+    target: { value: "Arlecchino" },
+  });
   fireEvent.click(screen.getByText("Select image"));
   fireEvent.click(screen.getByRole("button", { name: "Create build" }));
   await waitFor(() => expect(success).toHaveBeenCalledOnce());
@@ -68,6 +71,7 @@ it("creates the build on Convex and opens it", async () => {
   expect(state.mutation.mock.calls[0][1]).toMatchObject({
     userId: "owner",
     name: "Saved build",
+    character: "Arlecchino",
     imageUrl: "data:image/png;base64,test",
   });
   expect(state.push).toHaveBeenCalledWith("/build-detail/build-1");

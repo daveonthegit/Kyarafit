@@ -364,6 +364,8 @@
     "invalidUrl": "Invalid URL format",
     "currentImage": "Current image",
     "currentImageAlt": "Current",
-    "backToElements": "Back to elements"
+    "backToElements": "Back to elements",
+    "characterLabel": "Character (optional)",
+    "characterPlaceholder": "e.g. Arlecchino — Genshin Impact"
   }
 }

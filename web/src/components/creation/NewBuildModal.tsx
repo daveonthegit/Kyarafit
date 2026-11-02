@@ -30,6 +30,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
   const { userId } = useCurrentUser();
   const createBuild = useOfflineMutation(api.builds.create);
   const [name, setName] = useState("");
+  const [character, setCharacter] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
@@ -46,6 +47,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
       const build = await createBuild({
         userId,
         name: name.trim(),
+        character: character.trim() || undefined,
         status,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: imageUrl.trim() || undefined,
@@ -108,6 +110,13 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t("buildNamePlaceholder")}
+                />
+                <GlassTextField
+                  label={t("characterLabel")}
+                  type="text"
+                  value={character}
+                  onChange={(e) => setCharacter(e.target.value)}
+                  placeholder={t("characterPlaceholder")}
                 />
                 <GlassTextField
                   label={t("budgetLabel")}
