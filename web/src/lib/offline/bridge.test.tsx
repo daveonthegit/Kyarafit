@@ -24,19 +24,26 @@ beforeEach(() => {
   setOfflineConnectivity(true);
 });
 
-describe("published web views", () => {
-  it.each([true, false])(
-    "refuses personal edits online=%s without queueing or calling Convex",
-    async (online) => {
-      setOfflineConnectivity(online);
-      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
-      await expect(result.current({ name: "Private", status: "idea" })).rejects.toThrow(
-        /mobile app/
-      );
-      expect(client.mutation).not.toHaveBeenCalled();
-      expect(await offlineRuntime.listPendingMutations()).toEqual([]);
-    }
-  );
+describe("web personal views", () => {
+  it("sends a personal edit straight to Convex when online, without queueing", async () => {
+    setOfflineConnectivity(true);
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    await result.current({ name: "Private", status: "idea" });
+    expect(client.mutation).toHaveBeenCalledWith(api.builds.create, {
+      name: "Private",
+      status: "idea",
+    });
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+  });
+  it("refuses a personal edit offline without queueing or calling Convex", async () => {
+    setOfflineConnectivity(false);
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    await expect(result.current({ name: "Private", status: "idea" })).rejects.toThrow(
+      /requires a connection/
+    );
+    expect(client.mutation).not.toHaveBeenCalled();
+    expect(await offlineRuntime.listPendingMutations()).toEqual([]);
+  });
   it("does not overlay retained legacy edits onto published views", async () => {
     await offlineRuntime.writeEntityOverlay(
       "builds",

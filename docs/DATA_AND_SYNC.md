@@ -10,8 +10,9 @@ The `REQ-D*` rules below describe the target contract, not completed rollout. Mo
 reads and commands now use the per-account vault; its lifecycle and isolation decision is
 [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Mobile managed sync is the
 Convex row replica (§6, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)); its
-staging-deployment gate is still open. Web has no vault yet, so it shows published copies
-read-only and never writes personal data (§5.1); mobile whole-vault backup/restore is implemented
+staging-deployment gate is still open. Web has no vault yet, so it edits personal data directly
+on Convex while online and refuses offline edits (§5.1,
+[ADR-0006](adr/0006-web-edits-personal-data-online.md)); mobile whole-vault backup/restore is implemented
 and web exports only (§11). Giving web a vault remains a follow-up tracked in the
 [roadmap](ROADMAP.md#current-status).
 
@@ -137,12 +138,13 @@ associated id mappings from the old shared IndexedDB/OPFS stores. Other accounts
 untouched; the legacy stores are never automatically deleted. Failed recovery is surfaced and
 can be retried on a later vault open.
 
-Web shows published copies only (ADR-0005): personal data is edited in the mobile app. Every
-personal-data command (builds, elements, tasks, conventions, media, progress updates, seeding) is
-refused before it reaches Convex or the local store, with a localized alert; Settings → Backup &
-data carries the same notice. Social actions on published copies (groups, collaborators, likes,
-comments) still call Convex online. Web build visibility and sharing settings are part of the
-refused build edit until a social-settings path for published copies exists.
+Web edits personal data online ([ADR-0006](adr/0006-web-edits-personal-data-online.md), which
+supersedes ADR-0005 for web). Every personal-data command (builds, elements, tasks, conventions,
+media, progress updates, seeding) calls its Convex mutation directly while online; offline it is
+refused before it is sent or queued, and nothing is written to the local store. Every failed write
+is reported once in a transient toast. Settings → Backup & data says that web edits save to the
+account and need a connection. Social actions (groups, collaborators, likes, comments) call Convex
+online as before.
 
 ---
 
@@ -151,7 +153,7 @@ refused build edit until a social-settings path for published copies exists.
 Mobile replicates through the Convex row replica (`convex/replica.ts`, device half in
 `mobile/src/vault/replica`, shared vocabulary in `design-system/domain/replicaProtocol.ts`). The
 legacy replay worker, `sync.listChangedSince` and `tierTransition.backfillRows` are removed; web
-has no vault and is read-only (§5.1).
+has no vault and edits Convex directly while online (§5.1).
 
 - **REQ-D60** Gate: row sync runs only when `shouldRunSyncWorker(tier, signedIn)` holds for the
   vault's own account. The first confirmed paid session enables replication for the vault and

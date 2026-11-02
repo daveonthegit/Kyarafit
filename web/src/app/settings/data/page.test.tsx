@@ -8,8 +8,8 @@ import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import { parseDataBundle } from "@/lib/dataPortability";
 
 // Spec: PRODUCT_SPEC.md §3/§4.9 — export is FREE (REQ-012) and sourced from the LOCAL STORE
-// (DATA_AND_SYNC.md §11 REQ-D100, invariant #2). Web shows published copies only (ADR-0005), so it
-// never writes personal data: restore lives in the mobile app and this page says so.
+// (DATA_AND_SYNC.md §11 REQ-D100, invariant #2). Web edits save straight to the account
+// (ADR-0006); backup-file restore is not offered on web and this page says so.
 
 const client = {
   mutation: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null),
@@ -42,8 +42,8 @@ vi.mock("next-intl", () => ({
       itemCount: `${values?.count ?? 0} item(s) ready to export`,
       loading: "Loading your data…",
       importTitle: "Import a backup",
-      importInMobileApp: "Backups are restored in the Kyarafit mobile app.",
-      publishedReadOnly: "Web shows published copies only.",
+      importInMobileApp: "Restoring a backup file is not available on the web.",
+      webSavesOnline: "Changes you make on the web save to your Kyarafit account right away.",
       backToSettings: "Back to settings",
     };
     return map[key] ?? key;
@@ -66,12 +66,14 @@ describe("Settings data export page", () => {
     vi.unstubAllGlobals();
   });
 
-  it("points restore to the mobile app instead of writing personal data", () => {
+  it("explains that web edits save to the account and offers no file restore", () => {
     render(<SettingsDataPage />);
     expect(screen.getByTestId("import-unavailable")).toHaveTextContent(
-      "Backups are restored in the Kyarafit mobile app."
+      "Restoring a backup file is not available on the web."
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Web shows published copies only.");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Changes you make on the web save to your Kyarafit account right away."
+    );
     expect(document.querySelector('input[type="file"]')).toBeNull();
     expect(screen.queryByRole("button", { name: /backup file|restore/i })).not.toBeInTheDocument();
     expect(client.mutation).not.toHaveBeenCalled();

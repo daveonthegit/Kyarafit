@@ -23,9 +23,9 @@ function downloadFile(filename: string, contents: string): void {
 }
 
 /**
- * Settings → Backup & data on web. Web shows published copies only (ADR-0005): personal data is
- * edited, and backups are restored, in the mobile app, so this page exports what this browser holds
- * and explains where restore lives instead of offering a restore that would write personal rows.
+ * Settings → Backup & data on web. Web edits save straight to the account while online (ADR-0006);
+ * this page exports what this browser holds. Backup-file restore is not offered on web, because a
+ * restore would replay personal rows without a vault to reconcile them against.
  */
 export default function SettingsDataPage() {
   const t = useTranslations("DataPortability");

@@ -1,5 +1,6 @@
 /**
- * Ensures mobile locale JSON files share the same leaf keys as en.json.
+ * Ensures mobile locale JSON files share the same leaf keys as en.json, and that the web message
+ * catalogs (web/messages) share the same leaf keys as web/messages/en.json.
  */
 import fs from "fs";
 import path from "path";
@@ -63,8 +64,27 @@ for (const k of ks) {
   }
 }
 
+const webDir = path.join(__dirname, "../../web/messages");
+const loadWeb = (name) => JSON.parse(fs.readFileSync(path.join(webDir, name), "utf8"));
+const webEn = new Set(leafKeys(loadWeb("en.json")));
+for (const file of fs.readdirSync(webDir).filter((f) => f.endsWith(".json") && f !== "en.json")) {
+  const other = new Set(leafKeys(loadWeb(file)));
+  for (const k of webEn) {
+    if (!other.has(k)) {
+      console.error(`[i18n:check] Missing in web/messages/${file}:`, k);
+      exit = 1;
+    }
+  }
+  for (const k of other) {
+    if (!webEn.has(k)) {
+      console.error(`[i18n:check] Extra key in web/messages/${file}:`, k);
+      exit = 1;
+    }
+  }
+}
+
 if (exit === 0) {
-  console.log("[i18n:check] Key parity OK (en ↔ ja ↔ es).");
+  console.log("[i18n:check] Key parity OK (mobile en ↔ ja ↔ es; web en ↔ es).");
 }
 
 process.exit(exit);

@@ -118,7 +118,7 @@
     "itemCount": "{count} item(s) ready to export",
     "loading": "Loading your data…",
     "importTitle": "Import a backup",
-    "importInMobileApp": "Backups are restored in the Kyarafit mobile app. Web shows published copies only, so it does not write personal data.",
+    "importInMobileApp": "Restoring a backup file is not available on the web. Everything you edit here already saves to your Kyarafit account.",
     "restoreReadOnly": "Finish or undo your restore first.",
     "backToSettings": "Back to settings"
   },
@@ -190,7 +190,11 @@
     "imagePreviewAlt": "Element image preview"
   },
   "Sync": {
-    "publishedReadOnly": "Web shows published copies only. Edit personal data in the mobile app, then publish it again.",
+    "webSavesOnline": "Changes you make on the web save to your Kyarafit account right away. Editing needs an internet connection.",
+    "writeOffline": "You're offline, so that change wasn't saved. Reconnect and try again.",
+    "writeFailed": "That change didn't save. Try again in a moment.",
+    "writeFailedReason": "That change didn't save: {reason}",
+    "dismiss": "Dismiss",
     "offline": "You are offline — changes sync when you reconnect.",
     "pending": "{count} pending changes waiting to sync",
     "failed": "{count} change(s) failed to sync",

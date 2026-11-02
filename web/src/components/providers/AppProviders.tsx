@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CloudRetentionBanner } from "@/components/CloudRetentionBanner";
 import { DeprecationBanner } from "@/components/DeprecationBanner";
 import { RestoreReadOnlyNotice } from "@/components/RestoreReadOnlyNotice";
+import { WriteFailureToast } from "@/components/WriteFailureToast";
 import { SyncWorkerProvider } from "@/lib/offline";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -17,6 +18,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         {/* SyncStatus lives on the Backup & data settings page (owner: no floating status chips). */}
         <CreationModalsProvider>{children}</CreationModalsProvider>
         <CloudRetentionBanner />
+        <WriteFailureToast />
       </SyncWorkerProvider>
     </ThemeProvider>
   );

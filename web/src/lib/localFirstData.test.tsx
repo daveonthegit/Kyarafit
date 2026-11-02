@@ -4,7 +4,7 @@ import { renderHook } from "@testing-library/react";
 // Spec: DATA_AND_SYNC.md §11 (REQ-D100 "export is free") + invariant #2 ("UI reads/writes only
 // through the offline bridge for local-first data"). A FREE user has NO cloud data, so an export
 // sourced from Convex (`sync.listChangedSince`) would be EMPTY. Sourcing it from the LOCAL STORE
-// makes it non-empty. Web never writes personal data (ADR-0005): personal commands are refused.
+// makes it non-empty.
 
 const { client } = vi.hoisted(() => ({
   client: { mutation: vi.fn(() => Promise.resolve(null)) },
@@ -22,7 +22,6 @@ import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
 import { rememberLocalAccount } from "./auth/localAccount";
-import { PUBLISHED_READ_ONLY_MESSAGE } from "./offline/publishedReadOnly";
 import { buildDataBundle, countRows, parseDataBundle } from "./dataPortability";
 
 beforeEach(() => {
@@ -109,17 +108,12 @@ describe("readLocalCollections (REQ-D100 — export is free)", () => {
   });
 });
 
-describe("web never writes personal data (ADR-0005)", () => {
-  it.each([true, false])(
-    "refuses a personal create before it reaches Convex or the local store (online=%s)",
-    async (online) => {
-      setOfflineConnectivity(online);
-      const { result } = renderHook(() => useOfflineMutation(api.builds.create));
-      await expect(
-        result.current({ userId: "u1", name: "Cloud", status: "wip" } as never)
-      ).rejects.toThrow(PUBLISHED_READ_ONLY_MESSAGE);
-      expect(client.mutation).not.toHaveBeenCalled();
-      expect(readLocalCollections().builds).toEqual([]);
-    }
-  );
+describe("web personal writes go to Convex, not the local store (ADR-0006)", () => {
+  it("sends an online create to Convex and leaves the local store untouched", async () => {
+    setOfflineConnectivity(true);
+    const { result } = renderHook(() => useOfflineMutation(api.builds.create));
+    await result.current({ userId: "u1", name: "Cloud", status: "wip" } as never);
+    expect(client.mutation).toHaveBeenCalledOnce();
+    expect(readLocalCollections().builds).toEqual([]);
+  });
 });

@@ -118,7 +118,7 @@
     "itemCount": "{count} elemento(s) listos para exportar",
     "loading": "Cargando tus datos…",
     "importTitle": "Importar una copia de seguridad",
-    "importInMobileApp": "Las copias de seguridad se restauran en la app móvil de Kyarafit. La web solo muestra copias publicadas, así que no escribe datos personales.",
+    "importInMobileApp": "Restaurar un archivo de copia de seguridad no está disponible en la web. Todo lo que editas aquí ya se guarda en tu cuenta de Kyarafit.",
     "restoreReadOnly": "Termina o deshaz la restauración primero.",
     "backToSettings": "Volver a ajustes"
   },
@@ -190,7 +190,11 @@
     "imagePreviewAlt": "Vista previa de la imagen del elemento"
   },
   "Sync": {
-    "publishedReadOnly": "La web solo muestra copias publicadas. Edita tus datos personales en la aplicación móvil y vuelve a publicarlos.",
+    "webSavesOnline": "Los cambios que hagas en la web se guardan en tu cuenta de Kyarafit al instante. Para editar necesitas conexión a internet.",
+    "writeOffline": "No tienes conexión, así que ese cambio no se guardó. Vuelve a conectarte e inténtalo de nuevo.",
+    "writeFailed": "Ese cambio no se guardó. Inténtalo de nuevo en un momento.",
+    "writeFailedReason": "Ese cambio no se guardó: {reason}",
+    "dismiss": "Cerrar",
     "offline": "Sin conexión — los cambios se sincronizarán al volver online.",
     "pending": "{count} cambios pendientes de sincronizar",
     "failed": "{count} cambio(s) no se pudieron sincronizar",

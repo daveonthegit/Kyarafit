@@ -95,7 +95,7 @@ describe("BuildProgressTimeline", () => {
     expect(within(items[1]).getByText("Older update")).toBeInTheDocument();
   });
 
-  it("should_block_publish_to_feed_for_free_user_and_refuse_web_authoring", async () => {
+  it("should_block_publish_to_feed_for_free_user_and_save_a_private_update", async () => {
     state.tier = "free";
     render(<BuildProgressTimeline buildId={BUILD_ID} userId="user_1" />);
 
@@ -107,17 +107,18 @@ describe("BuildProgressTimeline", () => {
     fireEvent.change(screen.getByLabelText(/note/i), {
       target: { value: "A private update" },
     });
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     fireEvent.click(screen.getByRole("button", { name: /add update/i }));
 
-    // Web shows published copies only (ADR-0005): authoring an update is refused, visibly.
-    await waitFor(() => expect(alert).toHaveBeenCalledOnce());
-    expect(String(alert.mock.calls[0][0])).toContain("Web shows published copies only");
-    expect(addMock).not.toHaveBeenCalled();
-    alert.mockRestore();
+    // Web edits save straight to Convex (ADR-0006); a free user's update is never published.
+    await waitFor(() => expect(addMock).toHaveBeenCalledOnce());
+    expect(addMock.mock.calls[0][0]).toMatchObject({
+      buildId: BUILD_ID,
+      note: "A private update",
+    });
+    expect(addMock.mock.calls[0][0].publish).toBeUndefined();
   });
 
-  it("should_offer_paid_publish_toggle_but_refuse_web_authoring", async () => {
+  it("should_offer_paid_publish_toggle_and_save_a_published_update", async () => {
     state.tier = "pro";
     render(<BuildProgressTimeline buildId={BUILD_ID} userId="user_1" />);
 
@@ -125,12 +126,9 @@ describe("BuildProgressTimeline", () => {
       target: { value: "Publish me" },
     });
     fireEvent.click(screen.getByRole("checkbox", { name: /publish to feed/i }));
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     fireEvent.click(screen.getByRole("button", { name: /add update/i }));
 
-    // The paid publish toggle is offered, but authoring on web is still refused, visibly.
-    await waitFor(() => expect(alert).toHaveBeenCalledOnce());
-    expect(addMock).not.toHaveBeenCalled();
-    alert.mockRestore();
+    await waitFor(() => expect(addMock).toHaveBeenCalledOnce());
+    expect(addMock.mock.calls[0][0]).toMatchObject({ note: "Publish me", publish: true });
   });
 });

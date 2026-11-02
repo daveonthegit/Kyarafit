@@ -1,7 +1,8 @@
 # ADR-0005 — Managed sync is a Convex row replica; domain tables are published projections
 
 Date: 2026-10-20 · Decision status: accepted (owner approved the sync spike's six
-recommendations) · Implementation status: implemented (mobile); staging gate pending
+recommendations) · Implementation status: implemented (mobile); staging gate pending ·
+Web read-only portion superseded by [ADR-0006](0006-web-edits-personal-data-online.md)
 
 ## Context
 
