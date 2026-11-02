@@ -5,8 +5,14 @@
  */
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { convexTierStorageLimitMb } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
-import { assertCanAttachStorageId } from "./lib/mediaAccess";
+import { effectiveStorageLimitMb } from "@kyarafit/design-system/domain/accessPolicy";
+import { internal } from "./_generated/api";
+import { assertCanAttachStorage, storageClaim } from "./lib/storageOwnership";
+import {
+  storageReferences,
+  hasOwnLiveReference,
+  ownLiveReferenceCount,
+} from "./lib/storageReferences";
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -38,26 +44,29 @@ export async function addUsageDelta(
 
 /**
  * If storageId is set, get its size in MB, check user is under limit, add to usage.
- * Throws if over limit, or if `actorId` (defaults to the billed user) may not attach
- * the blob. Call when attaching a new file to an entity.
+ * Throws if over limit. Call when attaching a new file to an entity.
  */
 export async function checkLimitAndAddUsage(
   ctx: MutationCtx,
   externalId: string,
-  storageId: Id<"_storage">,
-  actorId: string = externalId
+  storageId: Id<"_storage">
 ): Promise<void> {
-  await assertCanAttachStorageId(ctx, storageId, actorId);
+  await assertCanAttachStorage(ctx, externalId, storageId);
+  // Upload claims are metered once at verified ingress; reference copies are not new bytes.
+  if (await storageClaim(ctx, storageId)) return;
+  // Legacy referenced objects were charged on attachment. Do not charge a duplicate again.
+  if (hasOwnLiveReference(await storageReferences(ctx, storageId), externalId)) return;
   const sizeMb = await getStorageSizeMb(ctx, storageId);
-  if (sizeMb <= 0) return;
 
   const user = await ctx.db
     .query("users")
     .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
     .unique();
-  if (!user) return;
+  if (!user) throw new Error("Upload account not found");
 
-  const limitMb = convexTierStorageLimitMb(user.tier);
+  // Role-aware, enforced from the DB row: owners get the unlimited sentinel cap (never trusted from
+  // client input). Everyone else keeps their tier's bounded cap.
+  const limitMb = effectiveStorageLimitMb(user.tier, user.role);
   if (limitMb >= 0 && user.currentUsageMb + sizeMb > limitMb) {
     throw new Error(
       `Storage limit reached (${user.currentUsageMb.toFixed(1)} / ${limitMb} MB). Upgrade to upload more.`
@@ -79,6 +88,14 @@ export async function subtractUsageForStorageId(
   storageId: Id<"_storage"> | undefined
 ): Promise<void> {
   if (!storageId) return;
-  const sizeMb = await getStorageSizeMb(ctx, storageId);
-  if (sizeMb > 0) await addUsageDelta(ctx, externalId, -sizeMb);
+  // This runs before the row is patched/deleted. Reconcile after commit so removing one of
+  // several references cannot undercount usage or delete a still-shared blob.
+  if (await storageClaim(ctx, storageId)) {
+    await ctx.scheduler.runAfter(0, internal.files.cleanupClaim, { storageId });
+  } else {
+    if (ownLiveReferenceCount(await storageReferences(ctx, storageId), externalId) <= 1) {
+      const sizeMb = await getStorageSizeMb(ctx, storageId);
+      await addUsageDelta(ctx, externalId, -sizeMb);
+    }
+  }
 }

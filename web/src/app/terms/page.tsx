@@ -10,13 +10,26 @@ const EFFECTIVE_DATE = "April 22, 2026";
 
 export default function TermsOfServicePage() {
   return (
-    <main className="min-h-screen bg-kyar-bg text-kyar-text">
-      <article className="mx-auto max-w-4xl px-6 py-12 sm:py-16">
-        <header className="border-b border-kyar-borderSubtle pb-8">
-          <p className="meta-label mb-2 opacity-40">Legal</p>
+    <main className="relative min-h-screen text-kyar-media-fg">
+      <div className="fixed inset-0 bg-studio-wall" aria-hidden />
+      <div className="relative z-10 mx-auto flex w-full max-w-[1600px] items-center gap-6 px-6 pt-5 lg:px-10">
+        <Link
+          href="/"
+          className="font-serif italic text-[21px] leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
+        >
+          Kyarafit
+        </Link>
+      </div>
+      <article className="relative z-10 mx-auto my-10 max-w-[760px] rounded-glass border border-glass-border bg-glass backdrop-blur-glass px-6 py-10 sm:px-10 sm:py-12">
+        <header className="border-b border-glass-divider-strong pb-8">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-media-fg-55">
+            Legal
+          </p>
           <div className="max-w-2xl">
-            <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">Terms of Service</h1>
-            <p className="mt-4 text-sm leading-6 text-kyar-textSecondary sm:text-[15px]">
+            <h1 className="font-serif italic text-4xl tracking-tight sm:text-5xl">
+              Terms of Service
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-media-fg-70 sm:text-[15px]">
               Effective date: {EFFECTIVE_DATE}. These Terms of Service (“Terms”) govern your access
               to and use of Kyarafit’s websites, mobile applications, and related services
               (collectively, the “Service”) operated by Kyarafit (“we,” “us,” or “our”). By
@@ -26,9 +39,11 @@ export default function TermsOfServicePage() {
           </div>
         </header>
 
-        <div className="mt-10 space-y-10 text-sm leading-6 text-kyar-textSecondary">
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">The Service</h2>
+        <div className="mt-10 space-y-10 text-sm leading-6 text-media-fg-70">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              The Service
+            </h2>
             <p className="mt-3">
               Kyarafit provides tools for cosplay wardrobe management, build tracking, convention
               planning, and related productivity features. We may modify, suspend, or discontinue
@@ -37,8 +52,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Eligibility and accounts
             </h2>
             <p className="mt-3">
@@ -47,7 +62,7 @@ export default function TermsOfServicePage() {
               You are responsible for maintaining the confidentiality of your credentials and for
               all activity under your account. Notify us promptly at{" "}
               <a
-                className="underline decoration-kyar-border hover:text-kyar-text"
+                className="underline decoration-glass-border-strong hover:text-kyar-media-fg"
                 href="mailto:kyarafit@kyarafit.com"
               >
                 kyarafit@kyarafit.com
@@ -56,8 +71,10 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">User content</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              User content
+            </h2>
             <p className="mt-3">
               You retain ownership of content you submit to the Service (“User Content”). You grant
               Kyarafit a non-exclusive, worldwide, royalty-free license to host, store, reproduce,
@@ -68,10 +85,12 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Acceptable use</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              Acceptable use
+            </h2>
             <p className="mt-3">You agree not to:</p>
-            <ul className="mt-3 list-disc space-y-2 pl-5">
+            <ul className="mt-3 list-disc space-y-2 pl-5 marker:text-media-fg-45">
               <li>
                 Use the Service for unlawful, harmful, harassing, defamatory, obscene, or hateful
                 purposes;
@@ -96,8 +115,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Third-party services and sign-in
             </h2>
             <p className="mt-3">
@@ -108,8 +127,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Subscriptions and fees
             </h2>
             <p className="mt-3">
@@ -120,8 +139,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Intellectual property
             </h2>
             <p className="mt-3">
@@ -132,8 +151,10 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Disclaimers</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              Disclaimers
+            </h2>
             <p className="mt-3">
               THE SERVICE IS PROVIDED “AS IS” AND “AS AVAILABLE” WITHOUT WARRANTIES OF ANY KIND,
               WHETHER EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR
@@ -142,8 +163,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Limitation of liability
             </h2>
             <p className="mt-3">
@@ -157,8 +178,10 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Indemnity</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              Indemnity
+            </h2>
             <p className="mt-3">
               You will defend, indemnify, and hold harmless Kyarafit from claims, damages, losses,
               and expenses (including reasonable attorneys’ fees) arising from your User Content,
@@ -166,8 +189,10 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Termination</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              Termination
+            </h2>
             <p className="mt-3">
               You may stop using the Service at any time. You may delete your account where the
               product provides that option. We may suspend or terminate your access for breach of
@@ -177,8 +202,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Governing law and disputes
             </h2>
             <p className="mt-3">
@@ -190,8 +215,8 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
               Changes to these Terms
             </h2>
             <p className="mt-3">
@@ -203,12 +228,14 @@ export default function TermsOfServicePage() {
             </p>
           </section>
 
-          <section className="rounded-2xl border border-kyar-borderSubtle bg-kyar-surface px-5 py-5 shadow-soft">
-            <h2 className="font-serif text-2xl tracking-tight text-kyar-text">Contact</h2>
+          <section className="border-t border-glass-divider pt-6 first:border-t-0 first:pt-0">
+            <h2 className="font-serif italic text-2xl tracking-tight text-kyar-media-fg">
+              Contact
+            </h2>
             <p className="mt-3">
               Questions about these Terms:{" "}
               <a
-                className="underline decoration-kyar-border hover:text-kyar-text"
+                className="underline decoration-glass-border-strong hover:text-kyar-media-fg"
                 href="mailto:kyarafit@kyarafit.com"
               >
                 kyarafit@kyarafit.com
@@ -221,19 +248,19 @@ export default function TermsOfServicePage() {
         <nav className="mt-12 flex flex-wrap gap-3" aria-label="Legal">
           <Link
             href="/privacy"
-            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-glass-border-strong bg-glass-bar px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active"
           >
             Privacy Policy
           </Link>
           <Link
             href="/"
-            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-glass-border-strong bg-glass-bar px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active"
           >
             Back to home
           </Link>
           <Link
             href="/auth/signup"
-            className="inline-flex min-h-[44px] items-center rounded-full border border-kyar-borderSubtle px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-kyar-text transition-colors hover:border-kyar-text hover:bg-kyar-muted"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-glass-border-strong bg-glass-bar px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-glass-active"
           >
             Create account
           </Link>

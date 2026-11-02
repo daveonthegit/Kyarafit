@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildExplorerRow } from "./BuildExplorerRow";
@@ -29,7 +29,7 @@ type BuildExplorerTreeProps = {
 
 export function BuildExplorerTree({
   buildId,
-  userId,
+  userId: _userId,
   roots,
   selectedNodeId,
   drag,
@@ -85,10 +85,8 @@ function TreeNode({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const detail = useQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
-    | DetailedLinkedNode
-    | null
-    | undefined;
+  const detail = useOfflineQuery(api.cosplayNodes.get, { id: node._id, buildId }) as
+    DetailedLinkedNode | null | undefined;
 
   const children = detail?.children ?? [];
   const displayName = detail?.name ?? node.name;
@@ -114,7 +112,7 @@ function TreeNode({
         onOverflowMenu={onOverflowMenu}
       />
       {expanded && hasChildren ? (
-        <div className="ml-5 border-l border-kyar-borderSubtle pl-1">
+        <div className="ml-5 border-l border-glass-divider-strong pl-1">
           {children.map((child, index) => {
             const childMeta: NodeSelectionMeta = {
               nodeId: child._id,

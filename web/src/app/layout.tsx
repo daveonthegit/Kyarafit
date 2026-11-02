@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { Albert_Sans, Bodoni_Moda, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/AuthGate";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { DEPRECATION_BANNER_HEAD_SCRIPT } from "@/components/DeprecationBanner";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
-import { getAdsenseClient } from "@/lib/adsense";
+import { headers } from "next/headers";
 import { getToken } from "@/lib/auth/auth-server";
 
 export const metadata: Metadata = {
@@ -43,15 +43,21 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = await getToken();
-  const adsenseClient = getAdsenseClient();
+  // Set by src/proxy.ts with the document's Content-Security-Policy.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var k='kyar-theme';var t=localStorage.getItem(k);if(t!=='dark'&&t!=='light'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.remove('dark');}})();`,
           }}
+        />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: DEPRECATION_BANNER_HEAD_SCRIPT }}
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -64,17 +70,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         className={`${body.variable} ${display.variable} ${jetbrainsMono.variable} min-h-screen bg-kyar-bg text-kyar-text font-sans antialiased`}
         suppressHydrationWarning
       >
-        {adsenseClient ? (
-          <Script
-            id="google-adsense"
-            async
-            strategy="afterInteractive"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(
-              adsenseClient
-            )}`}
-            crossOrigin="anonymous"
-          />
-        ) : null}
         <ConvexClientProvider initialToken={token}>
           <LocaleProvider>
             <AppProviders>

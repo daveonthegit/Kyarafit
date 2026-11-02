@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/guardedMutation";
 import { requireAdmin } from "./admin";
 
 export const create = mutation({
@@ -10,7 +10,7 @@ export const create = mutation({
     audience: v.union(
       v.literal("all"),
       v.literal("tier:pro"),
-      v.literal("tier:studio"),
+      v.literal("tier:supporter"),
       v.literal("userIds")
     ),
     audienceArgs: v.optional(v.any()),

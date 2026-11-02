@@ -11,6 +11,7 @@ export const APP_HREF = {
   elements: href("/(app)/(tabs)/elements"),
   planner: href("/(app)/(tabs)/planner"),
   more: href("/(app)/(tabs)/more"),
+  welcome: href("/(auth)/welcome"),
   signIn: href("/(auth)/sign-in"),
   signInResetSuccess: href("/(auth)/sign-in?reset=success"),
   signUp: href("/(auth)/sign-up"),
@@ -22,6 +23,12 @@ export const APP_HREF = {
   settingsSubscription: href("/settings/subscription"),
   settingsNotifications: href("/settings/notifications"),
   settingsOffline: href("/settings/offline"),
+  settingsData: href("/settings/data"),
+  /** Managed-sync "changes that didn't apply" (all, or one build's). */
+  syncChanges: (buildId?: string) =>
+    href(
+      buildId ? `/settings/changes?buildId=${encodeURIComponent(buildId)}` : "/settings/changes"
+    ),
   settingsDevGallery: href("/settings/dev/gallery"),
   groups: href("/groups"),
   groupNew: href("/groups/new"),
@@ -43,6 +50,9 @@ export const APP_HREF = {
   itinerary: href("/itinerary"),
   /** Outfit (build) detail — stack route under `(app)/b/[buildId]`. */
   build: (buildId: string) => href(`/(app)/b/${buildId}`),
+  /** Build detail opened on a specific section (e.g. the Builds pager's Board pill). */
+  buildTab: (buildId: string, tab: "summary" | "explorer" | "tasks" | "board" | "updates") =>
+    href(`/(app)/b/${buildId}?tab=${tab}`),
   /** Public outfit viewer — used by Discover / Feed / public profile taps. */
   publicBuild: (buildId: string) => href(`/public-builds/${buildId}`),
   /** Unlisted outfit share page parity with web `/b/s/[shareToken]`. */

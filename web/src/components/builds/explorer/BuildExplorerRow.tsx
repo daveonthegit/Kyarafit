@@ -5,11 +5,12 @@ import type { DropZone, ExplorerLinkedNode, NodeSelectionMeta } from "./types";
 import { formatCents, statusChipInfo } from "./types";
 import { useLongPressDrag } from "./useLongPressDrag";
 
+// On-glass chip tones (01-foundations): translucent tone pairs on glass panels.
 const STATUS_TONE_CLASSES = {
-  neutral: "bg-kyar-muted text-kyar-textSecondary",
-  warning: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  active: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  neutral: "bg-on-glass-chip-neutral-bg text-on-glass-chip-neutral-fg",
+  warning: "bg-on-glass-chip-warn-bg text-on-glass-chip-warn-fg",
+  active: "bg-on-glass-chip-active-bg text-on-glass-chip-active-fg",
+  success: "bg-on-glass-chip-done-bg text-on-glass-chip-done-fg",
 } as const;
 
 function NodeThumbnail({ node, size = "md" }: { node: ExplorerLinkedNode; size?: "sm" | "md" }) {
@@ -17,7 +18,7 @@ function NodeThumbnail({ node, size = "md" }: { node: ExplorerLinkedNode; size?:
   const hasImage = Boolean(node.imageStorageId || node.imageUrl);
   return (
     <div
-      className={`${px} shrink-0 overflow-hidden rounded-lg border border-kyar-borderSubtle bg-kyar-muted`}
+      className={`${px} shrink-0 overflow-hidden rounded-lg border border-glass-border bg-glass-active`}
     >
       {hasImage ? (
         <ResolvedImage
@@ -28,7 +29,7 @@ function NodeThumbnail({ node, size = "md" }: { node: ExplorerLinkedNode; size?:
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <span className="material-symbols-outlined text-sm text-kyar-textTertiary">
+          <span className="material-symbols-outlined text-sm text-media-fg-45">
             {node.nodeType === "material" ? "inventory_2" : "checkroom"}
           </span>
         </div>
@@ -41,7 +42,7 @@ function StatusChip({ node }: { node: ExplorerLinkedNode }) {
   const { label, tone } = statusChipInfo(node);
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight tracking-wide ${STATUS_TONE_CLASSES[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight tracking-[0.14em] uppercase ${STATUS_TONE_CLASSES[tone]}`}
     >
       {label}
     </span>
@@ -102,13 +103,15 @@ export function BuildExplorerRow({
       onPointerCancel={longPress.onPointerCancel}
       className={[
         "group relative flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors",
-        isSelected ? "bg-kyar-bg ring-1 ring-kyar-text/10" : "hover:bg-kyar-text/[0.03]",
+        isSelected
+          ? "bg-glass-active ring-1 ring-inset ring-[rgb(255_253_248/0.2)]"
+          : "hover:bg-glass-active",
         activeDropZone === "before"
-          ? "before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-kyar-text"
+          ? "before:absolute before:inset-x-2 before:top-0 before:h-[2.5px] before:rounded-[2px] before:bg-[var(--drop-line)] before:shadow-[0_0_12px_rgb(255_253_248/0.8)]"
           : activeDropZone === "after"
-            ? "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-kyar-text"
+            ? "after:absolute after:inset-x-2 after:bottom-0 after:h-[2.5px] after:rounded-[2px] after:bg-[var(--drop-line)] after:shadow-[0_0_12px_rgb(255_253_248/0.8)]"
             : activeDropZone === "into"
-              ? "ring-1 ring-kyar-text/40 bg-kyar-text/[0.04]"
+              ? "ring-[1.5px] ring-inset ring-[var(--drop-into-ring)] bg-glass-active"
               : "",
         isDragging ? "opacity-40" : "",
       ].join(" ")}
@@ -122,7 +125,7 @@ export function BuildExplorerRow({
             e.stopPropagation();
             onDragStart(selectionMeta, e.clientX, e.clientY);
           }}
-          className="flex h-9 w-6 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded text-kyar-textTertiary transition-opacity md:opacity-0 md:group-hover:opacity-100 active:cursor-grabbing"
+          className="flex h-9 w-6 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded text-media-fg-45 transition-opacity md:opacity-0 md:group-hover:opacity-100 active:cursor-grabbing"
           aria-label={`Drag ${node.name}`}
         >
           <span className="material-symbols-outlined pointer-events-none text-base" aria-hidden>
@@ -141,7 +144,7 @@ export function BuildExplorerRow({
             e.stopPropagation();
             onToggleExpand?.();
           }}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-kyar-textTertiary transition-colors hover:text-kyar-textSecondary"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-media-fg-45 transition-colors hover:text-media-fg-70"
           aria-expanded={hasChildren ? expanded : undefined}
           aria-label={
             hasChildren ? (expanded ? "Collapse" : "Expand") : "Element with no sub-elements"
@@ -161,13 +164,13 @@ export function BuildExplorerRow({
       >
         <NodeThumbnail node={node} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium leading-snug text-kyar-text">
+          <p className="truncate text-[13px] font-medium leading-snug text-kyar-media-fg">
             {node.name}
           </p>
           <div className="mt-0.5 flex items-center gap-2">
             <StatusChip node={node} />
             {cost ? (
-              <span className="text-[11px] tabular-nums text-kyar-textTertiary">{cost}</span>
+              <span className="text-[11px] tabular-nums text-media-fg-55">{cost}</span>
             ) : null}
           </div>
         </div>
@@ -181,7 +184,7 @@ export function BuildExplorerRow({
             e.stopPropagation();
             onTap();
           }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-kyar-textTertiary transition-colors hover:bg-kyar-muted"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-media-fg-55 transition-colors hover:bg-glass-active"
           aria-label={`Open ${node.name}`}
         >
           <span className="material-symbols-outlined text-lg">chevron_right</span>
@@ -196,7 +199,7 @@ export function BuildExplorerRow({
             e.stopPropagation();
             onOverflowMenu(selectionMeta);
           }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-kyar-textTertiary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-media-fg-55 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
           aria-label="More actions"
         >
           <span className="material-symbols-outlined text-lg">more_vert</span>
@@ -208,14 +211,14 @@ export function BuildExplorerRow({
 
 export function DragPreviewRow({ node, label }: { node: ExplorerLinkedNode; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-kyar-borderSubtle bg-kyar-surface/95 px-3 py-2 shadow-card backdrop-blur-[2px]">
-      <span className="material-symbols-outlined text-base text-kyar-textTertiary" aria-hidden>
+    <div className="flex rotate-[1.5deg] items-center gap-3 rounded-lg border border-glass-border-strong bg-glass-preview px-3 py-2 text-kyar-media-fg shadow-[0_24px_48px_-16px_rgb(12_11_20/0.6)] backdrop-blur-[20px]">
+      <span className="material-symbols-outlined text-base text-media-fg-45" aria-hidden>
         drag_indicator
       </span>
       <NodeThumbnail node={node} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-kyar-text">{node.name}</p>
-        <p className="text-[10px] uppercase tracking-widest text-kyar-textTertiary">{label}</p>
+        <p className="truncate text-sm font-medium">{node.name}</p>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55">{label}</p>
       </div>
     </div>
   );

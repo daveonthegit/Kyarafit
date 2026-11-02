@@ -39,13 +39,13 @@ async function sendViaResend(payload: {
     }),
   });
 
-  const text = await res.text();
+  await res.text();
   if (!res.ok) {
-    console.error("[email] Resend API error:", res.status, text);
-    throw new Error(`Failed to send email: ${res.status} ${text}`);
+    console.error("[email] Provider request failed:", res.status);
+    throw new Error(`Failed to send email: ${res.status}`);
   }
-  // Do not log recipient (PII); subject only for operational debugging
-  console.log("[email] Sent successfully, subject:", payload.subject);
+  // Neither recipient, provider response nor user-supplied notification content belongs in logs.
+  console.log("[email] Sent successfully");
 }
 
 function baseLayout(content: string): string {

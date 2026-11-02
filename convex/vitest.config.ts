@@ -1,16 +1,17 @@
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
- * Backend tests run against `convex-test`, an in-memory implementation of the
- * Convex runtime, so they need the edge-runtime environment rather than jsdom.
- * Scoped to `convex/` so the web suite (jsdom) is not pulled in.
+ * Backend (Convex) test runner. Uses the edge-runtime environment + `convex-test` so queries and
+ * mutations run against an in-memory Convex with real validators/indexes. Rooted at convex/ so it
+ * only picks up backend tests (the web jsdom runner owns web/src).
  */
 export default defineConfig({
-  root: path.resolve(import.meta.dirname, ".."),
+  root: fileURLToPath(new URL(".", import.meta.url)),
   test: {
     environment: "edge-runtime",
-    include: ["convex/**/*.test.ts"],
     server: { deps: { inline: ["convex-test"] } },
+    include: ["**/*.test.ts"],
+    globals: true,
   },
 });

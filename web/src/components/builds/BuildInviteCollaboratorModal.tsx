@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 
 type BuildInviteCollaboratorModalProps = {
   open: boolean;
@@ -64,25 +65,21 @@ export function BuildInviteCollaboratorModal({
       titleId="build-invite-modal-title"
       size="md"
       footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
-        >
+        <PhotoPill type="button" variant="outline" onClick={onClose} className="w-full">
           Done
-        </button>
+        </PhotoPill>
       }
     >
-      <p className="text-sm text-kyar-textSecondary mb-4">
+      <p className="mb-4 text-sm leading-relaxed text-media-fg-70">
         Enter their email and role. You can invite several people without closing this window.
       </p>
       {feedback && (
-        <p className="mb-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+        <p className="mb-3 rounded-[10px] bg-on-glass-chip-done-bg px-3 py-2 text-[13px] text-on-glass-chip-done-fg">
           {feedback}
         </p>
       )}
       {error && (
-        <p className="mb-3 text-sm text-red-600" role="alert">
+        <p className="mb-3 text-sm text-on-glass-danger" role="alert">
           {error}
         </p>
       )}
@@ -90,7 +87,7 @@ export function BuildInviteCollaboratorModal({
         <div>
           <label
             htmlFor="invite-email"
-            className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1"
+            className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55"
           >
             Email
           </label>
@@ -100,14 +97,14 @@ export function BuildInviteCollaboratorModal({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@example.com"
-            className="w-full border border-kyar-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/30 focus:border-kyar-accent"
+            className="glass-field min-h-[44px] w-full px-3 py-2.5 text-sm"
             disabled={pending}
           />
         </div>
         <div>
           <label
             htmlFor="invite-role"
-            className="block text-[10px] uppercase tracking-widest text-kyar-textTertiary mb-1"
+            className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55"
           >
             Role
           </label>
@@ -115,21 +112,22 @@ export function BuildInviteCollaboratorModal({
             id="invite-role"
             value={role}
             onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
-            className="w-full border border-kyar-border rounded-md px-3 py-2.5 text-sm bg-kyar-surface"
+            className="glass-field min-h-[44px] w-full px-3 py-2.5 text-sm [color-scheme:dark]"
             disabled={pending}
           >
             <option value="viewer">Viewer</option>
             <option value="editor">Editor</option>
           </select>
         </div>
-        <button
+        <PhotoPill
           type="button"
+          variant="solid"
           onClick={invite}
           disabled={pending || !email.trim()}
-          className="w-full py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
+          className="w-full"
         >
           {pending ? "Sending…" : "Send invite"}
-        </button>
+        </PhotoPill>
       </div>
     </BuildDetailModalShell>
   );

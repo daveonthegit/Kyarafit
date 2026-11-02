@@ -22,7 +22,7 @@ export function EditorialProgressDonut({
           cy="18"
           r={r}
           fill="none"
-          className="stroke-kyar-borderSubtle"
+          className="stroke-glass-border"
           strokeWidth="2.2"
         />
         <circle
@@ -30,14 +30,14 @@ export function EditorialProgressDonut({
           cy="18"
           r={r}
           fill="none"
-          className="stroke-kyar-text"
+          className="stroke-glass-solid"
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c}`}
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className="font-serif text-2xl font-semibold text-kyar-text leading-none tabular-nums">
+        <span className="font-serif text-2xl font-normal italic leading-none tabular-nums text-kyar-media-fg">
           {p}%
         </span>
       </div>
@@ -48,13 +48,11 @@ export function EditorialProgressDonut({
 
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-      <span className="text-[10px] tabular-nums text-kyar-textTertiary w-7 text-right shrink-0">
+      <span className="text-[10px] tabular-nums text-media-fg-55 w-7 text-right shrink-0">
         {p}%
       </span>
       {donut}
-      <span className="text-[10px] tabular-nums text-kyar-textTertiary w-7 shrink-0">
-        {remainder}%
-      </span>
+      <span className="text-[10px] tabular-nums text-media-fg-55 w-7 shrink-0">{remainder}%</span>
     </div>
   );
 }
@@ -65,14 +63,14 @@ export function EditorialVerticalProgressRail({ progress }: { progress: number }
   return (
     <div className="flex gap-4 items-stretch">
       <span
-        className="text-[9px] uppercase tracking-[0.25em] text-kyar-textTertiary select-none"
+        className="text-[9px] uppercase tracking-[0.25em] text-media-fg-55 select-none"
         style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
       >
         Project progress
       </span>
-      <div className="w-1 h-32 shrink-0 bg-kyar-borderSubtle rounded-full relative overflow-hidden">
+      <div className="w-1 h-32 shrink-0 bg-glass-border rounded-full relative overflow-hidden">
         <div
-          className="absolute bottom-0 left-0 right-0 bg-kyar-text rounded-full transition-all duration-500"
+          className="absolute bottom-0 left-0 right-0 bg-glass-solid rounded-full transition-all duration-500"
           style={{ height: `${p}%` }}
         />
       </div>
@@ -85,12 +83,12 @@ export function EditorialHorizontalProgressRail({ progress }: { progress: number
   const p = Math.min(100, Math.max(0, progress));
   return (
     <div className="flex flex-col gap-2 w-full">
-      <span className="text-[9px] uppercase tracking-[0.25em] text-kyar-textTertiary select-none">
+      <span className="text-[9px] uppercase tracking-[0.25em] text-media-fg-55 select-none">
         Project progress
       </span>
-      <div className="h-1 w-full shrink-0 bg-kyar-borderSubtle rounded-full relative overflow-hidden">
+      <div className="h-1 w-full shrink-0 bg-glass-border rounded-full relative overflow-hidden">
         <div
-          className="absolute top-0 bottom-0 left-0 bg-kyar-text rounded-full transition-all duration-500"
+          className="absolute top-0 bottom-0 left-0 bg-glass-solid rounded-full transition-all duration-500"
           style={{ width: `${p}%` }}
         />
       </div>

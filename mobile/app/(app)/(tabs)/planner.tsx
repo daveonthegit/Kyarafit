@@ -1,40 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { DropZone, PlannerTaskDragMeta } from "@kyarafit/design-system/domain";
 import { plannerTaskScopeKey } from "@kyarafit/design-system/domain";
 import { usePlannerTaskMove, type PlannerTaskMoveController } from "@/planner/usePlannerTaskMove";
 import { applyWorkflowTreeDrop } from "@/workflow/applyWorkflowTreeDrop";
 import { promoteWorkflowTaskToRoot, type WorkflowDropTask } from "@/workflow/applyWorkflowTreeDrop";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  type GestureResponderEvent,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { api } from "convex/_generated/api";
-import { WorkflowTaskDragHandle } from "@/components/workflow/WorkflowTaskDragHandle";
+import { borderWidth, glass, ls } from "@kyarafit/design-system/rn";
 import { WorkflowTaskDragOverlay } from "@/components/workflow/WorkflowTaskDragOverlay";
 import { WorkflowTaskEditorModal } from "@/components/workflow/WorkflowTaskEditorModal";
-import { WorkflowTaskDragShell } from "@/components/workflow/WorkflowTaskDragShell";
-import { WorkflowTaskRootDropZone } from "@/components/workflow/WorkflowTaskRootDropZone";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { DataBoundary, FloatingCreateMenu } from "@/ui";
 import {
-  Button,
-  DataBoundary,
-  FloatingCreateMenu,
-  MetaLabel,
-  SectionHeading,
-  SurfaceCard,
-} from "@/ui";
+  GlassEmptyState,
+  GlassPanel,
+  GlassSheet,
+  GlassStatusChip,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+} from "@/ui/glass";
 import { useOfflineMutation, useOfflineQuery } from "@/offline";
 
 type PlannerView = "tasks" | "events" | "agenda";
@@ -106,6 +98,13 @@ function addDays(dateStr: string, days: number): string {
 
 function isDueToday(dueDate: string | undefined) {
   return dueDate === TODAY;
+}
+
+/** Mirrors web planner `isDueApproaching`: due within the next 7 days (past-due excluded). */
+function isDueApproaching(dueDate: string | undefined) {
+  if (!dueDate) return false;
+  if (dueDate < TODAY) return false;
+  return dueDate <= addDays(TODAY, 7);
 }
 
 function isDueThisWeek(dueDate: string | undefined) {
@@ -222,23 +221,11 @@ function buildTaskTree(
   };
 }
 
-function toPrettyStatus(status: string) {
-  return status.replace(/_/g, " ");
-}
-
 function formatDateLabel(dateString: string) {
   return new Date(`${dateString}T12:00:00`).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
-}
-
-function dependencyPreview(tasks: string[] | undefined, max = 2) {
-  if (!tasks?.length) return { visible: [], overflow: 0 };
-  return {
-    visible: tasks.slice(0, max),
-    overflow: Math.max(0, tasks.length - max),
-  };
 }
 
 function formatDateRange(startDate: string, endDate: string) {
@@ -297,7 +284,7 @@ export default function PlannerScreen() {
 function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const createTask = useOfflineMutation(api.workflow.create);
   const updateTask = useOfflineMutation(api.workflow.update);
   const moveTask = useOfflineMutation(api.workflow.move);
@@ -308,7 +295,23 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [editorTaskId, setEditorTaskId] = useState<Id<"workflowItems"> | null>(null);
-  const openingPath: string | null = null;
+
+  // Backdrop = the build owning the most urgent task: first overdue task's
+  // build, else the build of the nearest due task (same build-image pattern
+  // as the build detail screen: api.builds.get + PhotoBackdrop resolution).
+  const urgentBuildId = useMemo(() => {
+    const candidates = loaded.tasks.filter((task) => task.status !== "done" && task.buildId);
+    const byDue = (a: PlannerTask, b: PlannerTask) =>
+      (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
+    const overdue = candidates.filter((task) => task.overdue).sort(byDue);
+    if (overdue[0]?.buildId) return overdue[0].buildId;
+    const dated = candidates.filter((task) => task.dueDate).sort(byDue);
+    return dated[0]?.buildId ?? null;
+  }, [loaded.tasks]);
+  const urgentBuild = useOfflineQuery(
+    api.builds.get,
+    urgentBuildId ? { id: urgentBuildId } : "skip"
+  );
 
   const filteredTasks = useMemo(
     () => filterByTimeframe(loaded.tasks, timeframe),
@@ -323,29 +326,34 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
       const dateA = a.dueDate ?? "9999-12-31";
       const dateB = b.dueDate ?? "9999-12-31";
       if (dateA !== dateB) return dateA.localeCompare(dateB);
+      const nameCmp = (a.buildName ?? "").localeCompare(b.buildName ?? "");
+      if (nameCmp !== 0) return nameCmp;
       if ((a.priority ?? 0) !== (b.priority ?? 0)) return (b.priority ?? 0) - (a.priority ?? 0);
       return a.title.localeCompare(b.title);
     });
   }, [filteredTasks]);
 
-  const dueSoonTasks = useMemo(
-    () => sortedTasks.filter((task) => isDueThisWeek(task.dueDate) || task.overdue),
-    [sortedTasks]
-  );
-  const otherTasks = useMemo(
-    () => sortedTasks.filter((task) => !dueSoonTasks.includes(task)),
-    [dueSoonTasks, sortedTasks]
-  );
+  // Same split as the web planner: "Deadline approaching" (due within 7 days)
+  // vs everything else, each rendered as the grouped convention/build tree.
+  const { deadlineApproaching, otherTasks } = useMemo(() => {
+    const approaching: PlannerTask[] = [];
+    const rest: PlannerTask[] = [];
+    for (const task of sortedTasks) {
+      if (isDueApproaching(task.dueDate)) approaching.push(task);
+      else rest.push(task);
+    }
+    return { deadlineApproaching: approaching, otherTasks: rest };
+  }, [sortedTasks]);
 
-  const dueSoonTree = useMemo(
-    () => buildTaskTree(dueSoonTasks, loaded.conventions),
-    [dueSoonTasks, loaded.conventions]
+  const treeApproaching = useMemo(
+    () => buildTaskTree(deadlineApproaching, loaded.conventions),
+    [deadlineApproaching, loaded.conventions]
   );
-  const otherTree = useMemo(
+  const treeOther = useMemo(
     () => buildTaskTree(otherTasks, loaded.conventions),
     [loaded.conventions, otherTasks]
   );
-  const allTree = useMemo(
+  const treeAll = useMemo(
     () => buildTaskTree(sortedTasks, loaded.conventions),
     [loaded.conventions, sortedTasks]
   );
@@ -489,214 +497,407 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
     [loaded.tasks]
   );
 
+  const dateEyebrow = useMemo(() => {
+    const now = new Date();
+    const weekday = now.toLocaleDateString(undefined, { weekday: "long" });
+    const monthDay = now.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+    return `${weekday} · ${monthDay}`;
+  }, []);
+
+  const hasAnyTasks = filteredTasks.length > 0;
+
   return (
-    <View ref={rootViewRef} className="flex-1" onLayout={updateRootFrame}>
+    <View ref={rootViewRef} style={{ flex: 1 }} onLayout={updateRootFrame}>
+      <PhotoBackdrop
+        imageStorageId={urgentBuild?.imageStorageId ?? null}
+        imageUrl={urgentBuild?.imageUrl ?? null}
+      />
       <ScrollView
-        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
+        style={{ flex: 1 }}
         scrollEnabled={!plannerTaskMove.dragMeta}
         contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 132,
-          gap: 20,
+          paddingTop: insets.top + 58,
+          paddingBottom: insets.bottom + 120,
         }}
       >
-        <View>
-          <Text className="text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-            {t("planner.subtitle")}
+        <View style={{ paddingHorizontal: 22 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 9,
+              letterSpacing: ls(0.26, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg,
+              opacity: 0.75,
+              marginBottom: 8,
+            }}
+          >
+            {dateEyebrow}
+          </Text>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 40,
+              lineHeight: 44,
+              color: glass.text.fg,
+            }}
+          >
+            {t("planner.headline", { defaultValue: "What's due" })}
           </Text>
         </View>
 
-        <SurfaceCard className="px-4 py-4">
-          <View className="flex-row rounded-full border border-kyar-borderSubtle bg-kyar-panel p-1 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel">
-            <SegmentedPill
-              active={view === "tasks"}
-              label={t("planner.viewTasks")}
-              onPress={() => setView("tasks")}
-            />
-            <SegmentedPill
-              active={view === "events"}
-              label={t("planner.viewEvents")}
-              onPress={() => setView("events")}
-            />
-            <SegmentedPill
-              active={view === "agenda"}
-              label={t("planner.viewAgenda")}
-              onPress={() => setView("agenda")}
-            />
-          </View>
-
-          {view === "tasks" ? (
-            <View className="mt-4 flex-row flex-wrap items-center gap-2">
-              <ChoicePill
-                active={timeframe === "all"}
-                label={t("planner.timeAll")}
-                onPress={() => setTimeframe("all")}
-              />
-              <ChoicePill
-                active={timeframe === "today"}
-                label={t("planner.timeToday")}
-                onPress={() => setTimeframe("today")}
-              />
-              <ChoicePill
-                active={timeframe === "week"}
-                label={t("planner.timeWeek")}
-                onPress={() => setTimeframe("week")}
-              />
-              <Pressable
-                onPress={() => router.push(APP_HREF.builds)}
-                className="min-h-[36px] justify-center rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+        <View style={{ paddingHorizontal: 16, marginTop: 26 }}>
+          <GlassPanel style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 14,
+                }}
               >
-                <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
-                  {t("planner.addTask")}
-                </Text>
-              </Pressable>
+                <UnderlineTab
+                  active={view === "tasks"}
+                  label={t("planner.viewDaily", { defaultValue: "Daily" })}
+                  onPress={() => setView("tasks")}
+                />
+                <UnderlineTab
+                  active={view === "events"}
+                  label={t("planner.viewEvents")}
+                  onPress={() => setView("events")}
+                />
+                <UnderlineTab
+                  active={view === "agenda"}
+                  label={t("planner.viewAgenda")}
+                  onPress={() => setView("agenda")}
+                />
+              </ScrollView>
             </View>
-          ) : null}
-        </SurfaceCard>
 
-        {view === "tasks" ? (
-          <>
-            <SurfaceCard className="px-4 py-4">
-              <MetaLabel>{t("planner.progressLabel")}</MetaLabel>
-              <Text className="mt-3 text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-                {t("planner.progressSummary", { done: doneCount, total: filteredTasks.length })}
-              </Text>
-              <View className="mt-4 h-2 overflow-hidden rounded-full bg-kyar-borderSubtle dark:bg-kyar-dark-borderSubtle">
-                <View
-                  className="h-full rounded-full bg-kyar-text dark:bg-kyar-dark-text"
-                  style={{
-                    width: `${filteredTasks.length > 0 ? Math.round((doneCount / filteredTasks.length) * 100) : 0}%`,
+            {view === "tasks" ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 14,
+                  marginTop: 14,
+                }}
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
                   }}
+                >
+                  <UnderlineTab
+                    active={timeframe === "all"}
+                    label={t("planner.timeAll")}
+                    onPress={() => setTimeframe("all")}
+                  />
+                  <UnderlineTab
+                    active={timeframe === "today"}
+                    label={t("planner.timeToday")}
+                    onPress={() => setTimeframe("today")}
+                  />
+                  <UnderlineTab
+                    active={timeframe === "week"}
+                    label={t("planner.timeWeek")}
+                    onPress={() => setTimeframe("week")}
+                  />
+                </ScrollView>
+                <PhotoPill
+                  variant="outline"
+                  size="sm"
+                  label={t("planner.addTask")}
+                  onPress={() => router.push(APP_HREF.builds)}
                 />
               </View>
-            </SurfaceCard>
+            ) : null}
 
-            {filteredTasks.length === 0 ? (
-              <EmptyCard
-                title={t("planner.emptyTitle")}
-                body={t("planner.emptyBody")}
-                actionLabel={t("planner.addTask")}
-                onPress={() => setCreateTaskOpen(true)}
-              />
-            ) : (
-              <>
-                {dueSoonTasks.length > 0 ? (
-                  <PlannerTreeSection
-                    title={t("planner.dueSoon")}
-                    tree={dueSoonTree}
-                    onToggleTask={toggleTask}
-                    onEditTask={setEditorTaskId}
-                    taskMove={plannerTaskMove}
-                    onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                    onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                    onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                    openingPath={openingPath}
+            {view === "tasks" && hasAnyTasks ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  marginTop: 12,
+                  paddingBottom: 12,
+                  borderBottomWidth: borderWidth.hairline,
+                  borderBottomColor: glass.border.divider,
+                }}
+              >
+                <View
+                  accessibilityRole="progressbar"
+                  accessibilityValue={{ min: 0, max: filteredTasks.length, now: doneCount }}
+                  style={{
+                    flex: 1,
+                    maxWidth: 220,
+                    height: 2,
+                    borderRadius: 1,
+                    overflow: "hidden",
+                    backgroundColor: glass.border.strong,
+                  }}
+                >
+                  <View
+                    style={{
+                      height: 2,
+                      borderRadius: 1,
+                      backgroundColor: glass.text.fg,
+                      width: `${filteredTasks.length > 0 ? (doneCount / filteredTasks.length) * 100 : 0}%`,
+                    }}
                   />
-                ) : null}
+                </View>
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.16, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("planner.progressCount", {
+                    defaultValue: "{{done}} / {{total}} tasks",
+                    done: doneCount,
+                    total: filteredTasks.length,
+                  })}
+                </Text>
+              </View>
+            ) : null}
 
-                <PlannerTreeSection
-                  title={
-                    dueSoonTasks.length > 0 ? t("planner.otherTasks") : t("planner.taskSection")
+            {view === "tasks" ? (
+              !hasAnyTasks ? (
+                <GlassEmptyState
+                  icon="checkbox-outline"
+                  message={t("planner.emptyTitle")}
+                  secondary={t("planner.emptyBody")}
+                  action={
+                    <PhotoPill
+                      variant="outline"
+                      size="sm"
+                      label={t("planner.addTask")}
+                      onPress={() => setCreateTaskOpen(true)}
+                    />
                   }
-                  tree={dueSoonTasks.length > 0 ? otherTree : allTree}
-                  onToggleTask={toggleTask}
-                  onEditTask={setEditorTaskId}
-                  taskMove={plannerTaskMove}
-                  onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                  onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                  onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                  openingPath={openingPath}
                 />
-              </>
-            )}
-          </>
-        ) : null}
-
-        {view === "events" ? (
-          loaded.upcomingEvents.length === 0 ? (
-            <EmptyCard
-              title={t("planner.eventsEmptyTitle")}
-              body={t("planner.eventsEmptyBody")}
-              actionLabel={t("planner.openEvents")}
-              onPress={() => router.push(APP_HREF.conventions)}
-            />
-          ) : (
-            <View className="gap-4">
-              {loaded.upcomingEvents.map(({ convention, outfitCount }) => (
-                <SurfaceCard key={convention._id} className="px-4 py-4">
-                  <MetaLabel>{t("planner.eventLabel")}</MetaLabel>
-                  <Text className="mt-2 text-2xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-                    {convention.name}
-                  </Text>
-                  <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                    {formatDateRange(convention.startDate, convention.endDate)}
-                  </Text>
-                  {convention.location ? (
-                    <Text className="mt-1 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                      {convention.location}
-                    </Text>
+              ) : (
+                <View>
+                  {deadlineApproaching.length > 0 ? (
+                    <View style={{ marginTop: 16 }}>
+                      <PlannerSectionHeader
+                        label={t("planner.dueSoon", { defaultValue: "Deadline approaching" })}
+                      />
+                      <PlannerTreeSection
+                        tree={treeApproaching}
+                        onToggleTask={toggleTask}
+                        onEditTask={setEditorTaskId}
+                        taskMove={plannerTaskMove}
+                        onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                        onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                        onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
+                        onOpenConventionPacking={(id) =>
+                          router.push(APP_HREF.conventionPacking(id as string))
+                        }
+                      />
+                    </View>
                   ) : null}
-                  <Text className="mt-3 text-xs uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-meta">
-                    {t("planner.eventOutfitCount", { count: outfitCount })}
-                  </Text>
-                  <View className="mt-4 flex-row flex-wrap gap-2">
-                    <Button
-                      title={t("planner.openPlan")}
-                      variant="secondary"
-                      onPress={() => router.push(APP_HREF.convention(convention._id))}
-                    />
-                    <Button
-                      title={t("planner.openPacking")}
-                      onPress={() => router.push(APP_HREF.conventionPacking(convention._id))}
-                    />
-                  </View>
-                </SurfaceCard>
-              ))}
-            </View>
-          )
-        ) : null}
 
-        {view === "agenda" ? (
-          agendaGroups.length === 0 ? (
-            <EmptyCard
-              title={t("planner.agendaEmptyTitle")}
-              body={t("planner.agendaEmptyBody")}
-              actionLabel={t("planner.openBuilds")}
-              onPress={() => router.push(APP_HREF.builds)}
-            />
-          ) : (
-            <View className="gap-4">
-              {agendaGroups.map((group) => (
-                <SurfaceCard key={group.date} className="px-4 py-4">
-                  <MetaLabel>{formatDateLabel(group.date)}</MetaLabel>
-                  <View className="mt-4 gap-3">
-                    {group.entries.map((entry, index) =>
-                      entry.kind === "task" && entry.task ? (
-                        <AgendaTaskRow
-                          key={`${group.date}-task-${entry.task._id}`}
-                          task={entry.task}
-                          onToggle={() => void toggleTask(entry.task as PlannerTask)}
-                          onEdit={() => setEditorTaskId(entry.task!._id)}
-                          onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
-                          onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
-                          onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
-                        />
-                      ) : entry.convention ? (
-                        <AgendaEventRow
-                          key={`${group.date}-event-${entry.convention._id}-${index}`}
-                          convention={entry.convention}
-                          onOpen={() => router.push(APP_HREF.convention(entry.convention!._id))}
-                          loading={false}
-                        />
-                      ) : null
-                    )}
+                  <View style={{ marginTop: 16 }}>
+                    <PlannerSectionHeader
+                      label={
+                        deadlineApproaching.length > 0
+                          ? t("planner.otherTasks", { defaultValue: "Other tasks" })
+                          : t("planner.taskSection", { defaultValue: "Tasks" })
+                      }
+                    />
+                    <PlannerTreeSection
+                      tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
+                      onToggleTask={toggleTask}
+                      onEditTask={setEditorTaskId}
+                      taskMove={plannerTaskMove}
+                      onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                      onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                      onOpenConvention={(id) => router.push(APP_HREF.convention(id as string))}
+                      onOpenConventionPacking={(id) =>
+                        router.push(APP_HREF.conventionPacking(id as string))
+                      }
+                    />
                   </View>
-                </SurfaceCard>
-              ))}
-            </View>
-          )
-        ) : null}
+                </View>
+              )
+            ) : null}
+
+            {view === "events" ? (
+              loaded.upcomingEvents.length === 0 ? (
+                <GlassEmptyState
+                  icon="calendar-outline"
+                  message={t("planner.eventsEmptyTitle")}
+                  secondary={t("planner.eventsEmptyBody")}
+                  action={
+                    <PhotoPill
+                      variant="outline"
+                      size="sm"
+                      label={t("planner.openEvents")}
+                      onPress={() => router.push(APP_HREF.conventions)}
+                    />
+                  }
+                />
+              ) : (
+                <View style={{ marginTop: 4 }}>
+                  {loaded.upcomingEvents.map(({ convention, outfitCount }) => (
+                    <View
+                      key={convention._id}
+                      style={{
+                        paddingVertical: 12,
+                        borderBottomWidth: borderWidth.hairline,
+                        borderBottomColor: glass.border.divider,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: APP_FONT_FAMILIES.displayItalic,
+                          fontSize: 17,
+                          color: glass.text.fg,
+                        }}
+                      >
+                        {convention.name}
+                      </Text>
+                      <Text
+                        style={{
+                          marginTop: 3,
+                          fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                          fontSize: 9,
+                          letterSpacing: ls(0.14, 9),
+                          textTransform: "uppercase",
+                          color: glass.text.fg55,
+                        }}
+                      >
+                        {formatDateRange(convention.startDate, convention.endDate)}
+                        {convention.location ? ` · ${convention.location}` : ""}
+                        {` · ${t("planner.eventOutfitCount", { count: outfitCount })}`}
+                      </Text>
+                      <View style={{ flexDirection: "row", gap: 18, marginTop: 6 }}>
+                        <PhotoPill
+                          variant="text"
+                          size="sm"
+                          label={t("planner.openPlan")}
+                          onPress={() => router.push(APP_HREF.convention(convention._id))}
+                        />
+                        <PhotoPill
+                          variant="text"
+                          size="sm"
+                          label={t("planner.openPacking")}
+                          onPress={() => router.push(APP_HREF.conventionPacking(convention._id))}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )
+            ) : null}
+
+            {view === "agenda" ? (
+              agendaGroups.length === 0 ? (
+                <GlassEmptyState
+                  icon="today-outline"
+                  message={t("planner.agendaEmptyTitle")}
+                  secondary={t("planner.agendaEmptyBody")}
+                  action={
+                    <PhotoPill
+                      variant="outline"
+                      size="sm"
+                      label={t("planner.openBuilds")}
+                      onPress={() => router.push(APP_HREF.builds)}
+                    />
+                  }
+                />
+              ) : (
+                <View style={{ marginTop: 4 }}>
+                  {agendaGroups.map((group) => (
+                    <PlannerDueGroup key={group.date} label={formatDateLabel(group.date)}>
+                      {group.entries.map((entry, index) =>
+                        entry.kind === "task" && entry.task ? (
+                          <PlannerTaskExplorerRow
+                            key={`${group.date}-task-${entry.task._id}`}
+                            task={entry.task}
+                            hasChildren={false}
+                            childrenExpanded
+                            onToggleChildrenExpanded={() => undefined}
+                            onToggle={() => void toggleTask(entry.task as PlannerTask)}
+                            onEdit={() => setEditorTaskId(entry.task!._id)}
+                            onOpenBuild={(id) => router.push(APP_HREF.build(id as string))}
+                            onOpenElement={(id) => router.push(APP_HREF.element(id as string))}
+                            onOpenConvention={(id) =>
+                              router.push(APP_HREF.convention(id as string))
+                            }
+                            menuMode="editOnly"
+                          />
+                        ) : entry.convention ? (
+                          <View
+                            key={`${group.date}-event-${entry.convention._id}-${index}`}
+                            style={{
+                              paddingVertical: 11,
+                              borderBottomWidth: borderWidth.hairline,
+                              borderBottomColor: glass.border.divider,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                                fontSize: 15,
+                                color: glass.text.fg,
+                              }}
+                            >
+                              {entry.convention.name}
+                            </Text>
+                            <Text
+                              style={{
+                                marginTop: 3,
+                                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                                fontSize: 9,
+                                letterSpacing: ls(0.14, 9),
+                                textTransform: "uppercase",
+                                color: glass.text.fg55,
+                              }}
+                            >
+                              {formatDateRange(
+                                entry.convention.startDate,
+                                entry.convention.endDate
+                              )}
+                            </Text>
+                            <View style={{ marginTop: 6 }}>
+                              <PhotoPill
+                                variant="text"
+                                size="sm"
+                                label={t("planner.openPlan")}
+                                onPress={() =>
+                                  router.push(APP_HREF.convention(entry.convention!._id))
+                                }
+                              />
+                            </View>
+                          </View>
+                        ) : null
+                      )}
+                    </PlannerDueGroup>
+                  ))}
+                </View>
+              )
+            ) : null}
+          </GlassPanel>
+        </View>
       </ScrollView>
 
       <FloatingCreateMenu actions={plannerCreateActions} />
@@ -709,60 +910,70 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
         onClose={() => setEditorTaskId(null)}
       />
 
-      <Modal
-        visible={createTaskOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
+      <GlassSheet
+        open={createTaskOpen}
+        onClose={() => {
           if (!creatingTask) setCreateTaskOpen(false);
         }}
+        closeLabel={t("common.cancel")}
       >
-        <Pressable
-          className="flex-1 justify-end bg-black/40"
-          onPress={() => {
-            if (!creatingTask) setCreateTaskOpen(false);
-          }}
-        >
-          <Pressable
-            className="rounded-t-3xl border border-kyar-borderSubtle bg-kyar-surface px-5 pb-8 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-            onPress={(event) => event.stopPropagation()}
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 22,
+              color: glass.text.fg,
+            }}
           >
-            <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {t("planner.addTaskTitle")}
-            </Text>
-            <Text className="mt-2 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("planner.addTaskBody")}
-            </Text>
+            {t("planner.addTaskTitle")}
+          </Text>
+          <Text
+            style={{
+              marginTop: 6,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 12,
+              lineHeight: 18,
+              color: glass.text.fg70,
+            }}
+          >
+            {t("planner.addTaskBody")}
+          </Text>
 
-            <TextInput
+          <View style={{ marginTop: 14 }}>
+            <GlassTextField
               value={newTaskTitle}
               onChangeText={setNewTaskTitle}
               placeholder={t("planner.addTaskPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              className="mt-4 min-h-[52px] rounded-2xl border border-kyar-borderSubtle bg-kyar-panel px-4 py-3 text-base text-kyar-text dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel dark:text-kyar-dark-text"
               autoFocus
               returnKeyType="done"
               onSubmitEditing={() => void handleCreateTask()}
             />
+          </View>
 
-            <View className="mt-4 flex-row gap-3">
-              <Button
-                title={t("common.cancel")}
-                variant="secondary"
-                onPress={() => setCreateTaskOpen(false)}
-                disabled={creatingTask}
-                className="flex-1"
-              />
-              <Button
-                title={creatingTask ? t("planner.creating") : t("planner.addTaskAction")}
-                onPress={() => void handleCreateTask()}
-                disabled={!newTaskTitle.trim() || creatingTask}
-                className="flex-1"
-              />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          <View
+            style={{
+              marginTop: 18,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 20,
+            }}
+          >
+            <PhotoPill
+              variant="text"
+              label={t("common.cancel")}
+              onPress={() => setCreateTaskOpen(false)}
+              disabled={creatingTask}
+            />
+            <PhotoPill
+              variant="solid"
+              label={creatingTask ? t("planner.creating") : t("planner.addTaskAction")}
+              onPress={() => void handleCreateTask()}
+              disabled={!newTaskTitle.trim() || creatingTask}
+            />
+          </View>
+        </View>
+      </GlassSheet>
 
       <WorkflowTaskDragOverlay
         taskMove={plannerTaskMove}
@@ -773,8 +984,206 @@ function PlannerBody({ loaded }: { loaded: PlannerReady }) {
   );
 }
 
+/** 9px uppercase text tab — active = underline light (surface rule 6, never pills for nav). */
+function UnderlineTab({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      style={{ minHeight: 28, justifyContent: "center" }}
+    >
+      <View
+        style={{
+          paddingBottom: 3,
+          borderBottomWidth: active ? 1.5 : 0,
+          borderBottomColor: glass.text.fg,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: active ? APP_FONT_FAMILIES.sansBold : APP_FONT_FAMILIES.sansSemiBold,
+            fontSize: 9,
+            letterSpacing: ls(0.16, 9),
+            textTransform: "uppercase",
+            color: active ? glass.text.fg : glass.text.fg55,
+          }}
+        >
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/** Due-bucket group inside the panel: 9px/700/ls(0.2) label at reduced light. */
+function PlannerDueGroup({
+  label,
+  trailing,
+  children,
+}: {
+  label: string;
+  trailing?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <View style={{ marginTop: 14 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 2,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 9,
+            letterSpacing: ls(0.2, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg55,
+          }}
+        >
+          {label}
+        </Text>
+        {trailing ?? null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** Section header inside the tasks panel ("Deadline approaching" / "Other tasks"). */
+function PlannerSectionHeader({ label }: { label: string }) {
+  return (
+    <Text
+      style={{
+        fontFamily: APP_FONT_FAMILIES.sansBold,
+        fontSize: 10,
+        letterSpacing: ls(0.24, 10),
+        textTransform: "uppercase",
+        color: glass.text.fg,
+        opacity: 0.85,
+        marginBottom: 4,
+      }}
+    >
+      {label}
+    </Text>
+  );
+}
+
+/** Indented children rail — mirrors the web planner's `border-l` nesting rail. */
+function PlannerGroupRail({ children }: { children: ReactNode }) {
+  return (
+    <View
+      style={{
+        marginLeft: 13,
+        paddingLeft: 10,
+        borderLeftWidth: borderWidth.hairline,
+        borderLeftColor: glass.border.strong,
+        paddingBottom: 6,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Collapsible group row — caret + sentence-case group name + optional trailing
+ * "Open" meta link, matching the web planner's `<details>` group summaries.
+ */
+function PlannerCollapsibleGroup({
+  label,
+  nested = false,
+  openLabel,
+  onOpen,
+  children,
+}: {
+  label: string;
+  /** Nested groups (builds/packing inside a convention) use a lighter title weight. */
+  nested?: boolean;
+  openLabel?: string;
+  onOpen?: () => void;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <View>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          minHeight: 44,
+        }}
+      >
+        <Pressable
+          onPress={() => setExpanded((value) => !value)}
+          className="active:opacity-80"
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontSize: 11, color: glass.text.fg55, width: 14 }}>
+            {expanded ? "▾" : "▸"}
+          </Text>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: nested ? APP_FONT_FAMILIES.sansRegular : APP_FONT_FAMILIES.sansMedium,
+              fontSize: nested ? 14 : 15,
+              color: glass.text.fg,
+            }}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </Pressable>
+        {openLabel && onOpen ? (
+          <Pressable
+            onPress={onOpen}
+            hitSlop={10}
+            className="active:opacity-80"
+            accessibilityRole="link"
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 10,
+                letterSpacing: ls(0.16, 10),
+                textTransform: "uppercase",
+                color: glass.text.fg55,
+              }}
+            >
+              {openLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {expanded ? <PlannerGroupRail>{children}</PlannerGroupRail> : null}
+    </View>
+  );
+}
+
 function PlannerTreeSection({
-  title,
   tree,
   onToggleTask,
   onEditTask,
@@ -782,9 +1191,8 @@ function PlannerTreeSection({
   onOpenBuild,
   onOpenElement,
   onOpenConvention,
-  openingPath,
+  onOpenConventionPacking,
 }: {
-  title: string;
   tree: PlannerTree;
   onToggleTask: (task: PlannerTask) => void | Promise<void>;
   onEditTask: (id: Id<"workflowItems">) => void;
@@ -792,7 +1200,7 @@ function PlannerTreeSection({
   onOpenBuild: (id: Id<"builds">) => void;
   onOpenElement: (id: Id<"cosplayNodes">) => void;
   onOpenConvention: (id: Id<"conventions">) => void;
-  openingPath: string | null;
+  onOpenConventionPacking: (id: Id<"conventions">) => void;
 }) {
   const { t } = useTranslation();
   const hasContent =
@@ -801,107 +1209,56 @@ function PlannerTreeSection({
     tree.unassignedTasks.length > 0;
   if (!hasContent) return null;
 
+  const listProps = {
+    onToggleTask,
+    onEditTask,
+    taskMove,
+    onOpenBuild,
+    onOpenElement,
+    onOpenConvention,
+  };
+  const openLabel = t("planner.openGroup", { defaultValue: "Open" });
+
   return (
     <View>
-      <SectionHeading title={title} />
-      <View className="mt-4 gap-4">
-        {tree.conventionGroups.map((group) => (
-          <SurfaceCard key={group.conventionId} className="px-4 py-4">
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="min-w-0 flex-1">
-                <MetaLabel>{t("planner.eventLabel")}</MetaLabel>
-                <Text className="mt-1 text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-                  {group.conventionName}
-                </Text>
-              </View>
-              <Button
-                title={
-                  openingPath === `/conventions/${group.conventionId}`
-                    ? t("planner.opening")
-                    : t("planner.openPlan")
-                }
-                variant="secondary"
-                onPress={() => onOpenConvention(group.conventionId)}
-                loading={false}
-              />
-            </View>
+      {tree.conventionGroups.map((group) => (
+        <PlannerCollapsibleGroup
+          key={group.conventionId}
+          label={group.conventionName}
+          openLabel={openLabel}
+          onOpen={() => onOpenConventionPacking(group.conventionId)}
+        >
+          {group.builds.map((build) => (
+            <PlannerCollapsibleGroup key={build.buildId} label={build.buildName} nested>
+              <PlannerTaskTreeList nodes={build.tasks} {...listProps} />
+            </PlannerCollapsibleGroup>
+          ))}
+          {group.packingTasks.length > 0 ? (
+            <PlannerCollapsibleGroup label={t("planner.packingSection")} nested>
+              <PlannerTaskTreeList nodes={group.packingTasks} {...listProps} />
+            </PlannerCollapsibleGroup>
+          ) : null}
+        </PlannerCollapsibleGroup>
+      ))}
 
-            <View className="mt-4 gap-4">
-              {group.builds.map((build) => (
-                <View key={build.buildId}>
-                  <MetaLabel>{build.buildName}</MetaLabel>
-                  <PlannerTaskTreeList
-                    nodes={build.tasks}
-                    onToggleTask={onToggleTask}
-                    onEditTask={onEditTask}
-                    taskMove={taskMove}
-                    onOpenBuild={onOpenBuild}
-                    onOpenElement={onOpenElement}
-                    onOpenConvention={onOpenConvention}
-                  />
-                </View>
-              ))}
+      {tree.standaloneBuilds.map((build) => (
+        <PlannerCollapsibleGroup
+          key={build.buildId}
+          label={build.buildName}
+          openLabel={openLabel}
+          onOpen={() => onOpenBuild(build.buildId)}
+        >
+          <PlannerTaskTreeList nodes={build.tasks} {...listProps} />
+        </PlannerCollapsibleGroup>
+      ))}
 
-              {group.packingTasks.length > 0 ? (
-                <View>
-                  <MetaLabel>{t("planner.packingSection")}</MetaLabel>
-                  <PlannerTaskTreeList
-                    nodes={group.packingTasks}
-                    onToggleTask={onToggleTask}
-                    onEditTask={onEditTask}
-                    taskMove={taskMove}
-                    onOpenBuild={onOpenBuild}
-                    onOpenElement={onOpenElement}
-                    onOpenConvention={onOpenConvention}
-                  />
-                </View>
-              ) : null}
-            </View>
-          </SurfaceCard>
-        ))}
-
-        {tree.standaloneBuilds.map((build) => (
-          <SurfaceCard key={build.buildId} className="px-4 py-4">
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="min-w-0 flex-1">
-                <MetaLabel>{t("common.builds")}</MetaLabel>
-                <Text className="mt-1 text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-                  {build.buildName}
-                </Text>
-              </View>
-              <Button
-                title={t("planner.openBuild")}
-                variant="secondary"
-                onPress={() => onOpenBuild(build.buildId)}
-              />
-            </View>
-            <PlannerTaskTreeList
-              nodes={build.tasks}
-              onToggleTask={onToggleTask}
-              onEditTask={onEditTask}
-              taskMove={taskMove}
-              onOpenBuild={onOpenBuild}
-              onOpenElement={onOpenElement}
-              onOpenConvention={onOpenConvention}
-            />
-          </SurfaceCard>
-        ))}
-
-        {tree.unassignedTasks.length > 0 ? (
-          <SurfaceCard className="px-4 py-4">
-            <MetaLabel>{t("planner.otherTaskGroup")}</MetaLabel>
-            <PlannerTaskTreeList
-              nodes={tree.unassignedTasks}
-              onToggleTask={onToggleTask}
-              onEditTask={onEditTask}
-              taskMove={taskMove}
-              onOpenBuild={onOpenBuild}
-              onOpenElement={onOpenElement}
-              onOpenConvention={onOpenConvention}
-            />
-          </SurfaceCard>
-        ) : null}
-      </View>
+      {tree.unassignedTasks.length > 0 ? (
+        <PlannerCollapsibleGroup
+          label={t("planner.otherTaskGroup", { defaultValue: "Elements and other tasks" })}
+        >
+          <PlannerTaskTreeList nodes={tree.unassignedTasks} {...listProps} />
+        </PlannerCollapsibleGroup>
+      ) : null}
     </View>
   );
 }
@@ -932,9 +1289,9 @@ function PlannerTaskTreeList({
   if (nodes.length === 0) return null;
 
   return (
-    <View className="mt-2">
+    <View>
       {menuMode === "full" && scopeKey && parent == null ? (
-        <WorkflowTaskRootDropZone
+        <GlassRootDropZone
           scopeKey={scopeKey}
           taskMove={taskMove}
           label={t("planner.dropToTopLevel", {
@@ -1005,7 +1362,6 @@ function PlannerTaskBranch({
     <View>
       <PlannerTaskExplorerRow
         task={task}
-        depth={task.ancestorIds.length}
         hasChildren={hasChildren}
         childrenExpanded={childrenExpanded}
         onToggleChildrenExpanded={() => setChildrenExpanded((v) => !v)}
@@ -1020,17 +1376,19 @@ function PlannerTaskBranch({
       />
 
       {hasChildren && childrenExpanded ? (
-        <PlannerTaskTreeList
-          nodes={task.children}
-          parent={task}
-          onToggleTask={onToggleTask}
-          onEditTask={onEditTask}
-          taskMove={taskMove}
-          onOpenBuild={onOpenBuild}
-          onOpenElement={onOpenElement}
-          onOpenConvention={onOpenConvention}
-          menuMode={menuMode}
-        />
+        <PlannerGroupRail>
+          <PlannerTaskTreeList
+            nodes={task.children}
+            parent={task}
+            onToggleTask={onToggleTask}
+            onEditTask={onEditTask}
+            taskMove={taskMove}
+            onOpenBuild={onOpenBuild}
+            onOpenElement={onOpenElement}
+            onOpenConvention={onOpenConvention}
+            menuMode={menuMode}
+          />
+        </PlannerGroupRail>
       ) : null}
     </View>
   );
@@ -1038,7 +1396,6 @@ function PlannerTaskBranch({
 
 function PlannerTaskExplorerRow({
   task,
-  depth,
   hasChildren,
   childrenExpanded,
   onToggleChildrenExpanded,
@@ -1052,7 +1409,6 @@ function PlannerTaskExplorerRow({
   dragMeta,
 }: {
   task: PlannerTask;
-  depth: number;
   hasChildren: boolean;
   childrenExpanded: boolean;
   onToggleChildrenExpanded: () => void;
@@ -1066,8 +1422,6 @@ function PlannerTaskExplorerRow({
   dragMeta?: PlannerTaskDragMeta;
 }) {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
-  const blockingPreview = dependencyPreview(task.blockedByTitles);
 
   const dragEnabled = menuMode === "full" && taskMove != null && dragMeta != null;
 
@@ -1108,296 +1462,413 @@ function PlannerTaskExplorerRow({
 
   const hasContextTarget = Boolean(task.buildId || task.cosplayNodeId || task.conventionId);
 
-  const rowDepth = Math.min(56, depth * 14);
+  const done = task.status === "done";
+  const dueToday = isDueToday(task.dueDate);
+  const contextMeta = task.buildName ?? task.conventionName ?? null;
+  const overdueShown = task.overdue && !done;
+  const dueMeta = task.dueDate
+    ? overdueShown
+      ? t("planner.overdue", { defaultValue: "Overdue" })
+      : dueToday
+        ? t("planner.timeToday")
+        : formatDateLabel(task.dueDate)
+    : null;
+
+  const metaText = (
+    <Text
+      style={{
+        flexShrink: 1,
+        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+        fontSize: 9,
+        letterSpacing: ls(0.14, 9),
+        textTransform: "uppercase",
+        color: glass.text.fg55,
+      }}
+      numberOfLines={1}
+    >
+      {contextMeta ?? null}
+      {dueMeta ? (
+        <Text
+          style={{
+            color: (overdueShown || dueToday) && !done ? glass.text.danger : glass.text.fg55,
+          }}
+        >
+          {contextMeta ? " · " : ""}
+          {dueMeta}
+        </Text>
+      ) : null}
+      {contextMeta || dueMeta ? " · " : ""}
+      {`${task.progressPercent}%`}
+    </Text>
+  );
 
   const rowBody = (
-    <View className="px-2 py-2.5">
-      <View className="flex-row items-start gap-1">
-        {hasChildren ? (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onToggleChildrenExpanded();
-            }}
-            hitSlop={8}
-            className="h-9 w-9 shrink-0 items-center justify-center rounded-full active:opacity-70"
-            accessibilityRole="button"
-            accessibilityLabel={
-              childrenExpanded
-                ? t("common.collapse", { defaultValue: "Collapse" })
-                : t("common.expand", { defaultValue: "Expand" })
-            }
-          >
-            <Text className="text-base text-kyar-meta dark:text-kyar-dark-textSecondary">
-              {childrenExpanded ? "▾" : "▸"}
-            </Text>
-          </Pressable>
-        ) : (
-          <View className="w-9 shrink-0" />
-        )}
-
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingVertical: 10,
+        borderBottomWidth: borderWidth.hairline,
+        borderBottomColor: glass.border.divider,
+      }}
+    >
+      {hasChildren ? (
         <Pressable
-          onPress={(event) => {
-            event.stopPropagation?.();
-            onToggle();
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onToggleChildrenExpanded();
           }}
-          className={`mt-1 h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
-            task.status === "done"
-              ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-              : "border-kyar-border bg-transparent dark:border-kyar-dark-border dark:bg-kyar-dark-muted/70"
-          }`}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: task.status === "done" }}
+          hitSlop={10}
+          className="active:opacity-80"
+          style={{ width: 20, height: 32, alignItems: "center", justifyContent: "center" }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            childrenExpanded
+              ? t("common.collapse", { defaultValue: "Collapse" })
+              : t("common.expand", { defaultValue: "Expand" })
+          }
         >
-          {task.status === "done" ? (
-            <Ionicons name="checkmark" size={16} color={colors.bg} />
-          ) : null}
+          <Text style={{ fontSize: 12, color: glass.text.fg55 }}>
+            {childrenExpanded ? "▾" : "▸"}
+          </Text>
         </Pressable>
+      ) : null}
 
-        <Pressable
-          {...dragTouchProps}
-          onPress={() => {
-            if (hasContextTarget) openContext();
+      {dragEnabled && taskMove && dragMeta ? (
+        <GlassDragHandle dragMeta={dragMeta} taskMove={taskMove} />
+      ) : null}
+
+      <Pressable
+        onPress={(event) => {
+          event.stopPropagation?.();
+          onToggle();
+        }}
+        hitSlop={12}
+        className="active:opacity-80"
+        style={{ width: 28, height: 32, alignItems: "center", justifyContent: "center" }}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: done }}
+      >
+        <View
+          style={{
+            width: 21,
+            height: 21,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: done ? 0 : 2,
+            borderColor: glass.text.fg45,
+            backgroundColor: done ? glass.surface.solid : "transparent",
           }}
-          disabled={!hasContextTarget && !dragEnabled}
-          className="min-w-0 flex-1 py-0.5 active:opacity-80"
-          accessibilityRole={hasContextTarget ? "button" : "text"}
         >
-          <Text
-            className={`text-base leading-snug ${
-              task.status === "done"
-                ? "text-kyar-textTertiary line-through dark:text-kyar-dark-textTertiary"
-                : "text-kyar-text dark:text-kyar-dark-text"
-            }`}
-          >
-            {task.title}
-          </Text>
-          <Text className="mt-0.5 text-[11px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-textSecondary">
-            {toPrettyStatus(task.status)} · {task.category}
-            {task.dueDate ? ` · ${formatDateLabel(task.dueDate)}` : ""}
-          </Text>
-          {task.blockedByCount ? (
-            <Text className="mt-1 text-xs text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-              {t("planner.blockedLabel", { count: task.blockedByCount })}
-            </Text>
-          ) : null}
-          {blockingPreview.visible.length > 0 ? (
-            <View className="mt-2 flex-row flex-wrap gap-1.5">
-              {blockingPreview.visible.map((title) => (
-                <View
-                  key={`${task._id}-${title}`}
-                  className="rounded-full border border-kyar-borderSubtle bg-kyar-surface px-2.5 py-1 dark:border-kyar-dark-border dark:bg-kyar-dark-muted"
-                >
-                  <Text
-                    className="text-[10px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-                    numberOfLines={1}
-                  >
-                    {title}
-                  </Text>
-                </View>
-              ))}
-              {blockingPreview.overflow > 0 ? (
-                <View className="rounded-full bg-kyar-borderSubtle px-2.5 py-1 dark:bg-kyar-dark-muted">
-                  <Text className="text-[10px] uppercase tracking-wide text-kyar-meta dark:text-kyar-dark-textSecondary">
-                    +{blockingPreview.overflow}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-        </Pressable>
-
-        <View className="shrink-0 flex-row items-center gap-0.5">
-          {dragEnabled && taskMove && dragMeta ? (
-            <WorkflowTaskDragHandle taskId={task._id} dragMeta={dragMeta} taskMove={taskMove} />
-          ) : null}
-          <Pressable
-            onPress={onEdit}
-            hitSlop={8}
-            className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-            accessibilityLabel={t("workflowEditor.editAction")}
-            accessibilityRole="button"
-          >
-            <Ionicons name="create-outline" size={22} color={colors.textSecondary} />
-          </Pressable>
-          {hasContextTarget ? (
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-          ) : (
-            <View className="w-[18px]" />
-          )}
+          {done ? <Ionicons name="checkmark" size={14} color={glass.text.ink} /> : null}
         </View>
-      </View>
+      </Pressable>
+
+      <Pressable
+        {...dragTouchProps}
+        onPress={() => {
+          if (hasContextTarget) openContext();
+        }}
+        disabled={!hasContextTarget && !dragEnabled}
+        style={{ flex: 1, minWidth: 0 }}
+        accessibilityRole={hasContextTarget ? "button" : "text"}
+      >
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansRegular,
+            fontSize: 13,
+            lineHeight: 17,
+            color: done ? glass.text.fg55 : glass.text.fg,
+            textDecorationLine: done ? "line-through" : "none",
+          }}
+        >
+          {task.title}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+          {metaText}
+          {task.blockedByCount ? (
+            <GlassStatusChip
+              tone="warning"
+              label={t("planner.blocked", { defaultValue: "Blocked" })}
+            />
+          ) : null}
+        </View>
+      </Pressable>
+
+      <Pressable
+        onPress={onEdit}
+        hitSlop={6}
+        className="active:opacity-80"
+        style={{ minHeight: 44, justifyContent: "center", paddingLeft: 4 }}
+        accessibilityLabel={t("workflowEditor.editAction")}
+        accessibilityRole="button"
+      >
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 9,
+            letterSpacing: ls(0.16, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg55,
+          }}
+        >
+          {`▸ ${t("planner.detailsAction", { defaultValue: "Details" })}`}
+        </Text>
+      </Pressable>
     </View>
   );
 
   if (dragEnabled && taskMove && dragMeta) {
     return (
-      <WorkflowTaskDragShell
+      <GlassTaskDragShell
         taskId={task._id}
         dragMeta={dragMeta}
         taskMove={taskMove}
-        depthMargin={rowDepth}
         dropIntoLabel={t("buildDetail.dropIntoLabel", { defaultValue: "Drop to nest inside" })}
-        rowLongPressDrag
       >
         {rowBody}
-      </WorkflowTaskDragShell>
+      </GlassTaskDragShell>
     );
   }
 
+  return <View>{rowBody}</View>;
+}
+
+/**
+ * Glass-styled drop surface for a task row — registers the row as a measured
+ * drag target exactly like `WorkflowTaskDragShell` (shared cream shell stays
+ * on not-yet-converted screens); row long-press drag included.
+ */
+function GlassTaskDragShell({
+  taskId,
+  dragMeta,
+  taskMove,
+  depthMargin = 0,
+  dropIntoLabel,
+  children,
+}: {
+  taskId: Id<"workflowItems">;
+  dragMeta: PlannerTaskDragMeta;
+  taskMove: PlannerTaskMoveController;
+  depthMargin?: number;
+  dropIntoLabel?: string;
+  children: ReactNode;
+}) {
+  const rowRef = useRef<View>(null);
+
+  const { draggingTaskId, dragOverTaskId, dragOverZone } = taskMove.dragVisualState;
+
+  const dragging = draggingTaskId === taskId;
+  const dropBefore = dragOverTaskId === taskId && dragOverZone === "before";
+  const dropAfter = dragOverTaskId === taskId && dragOverZone === "after";
+  const dropInto = dragOverTaskId === taskId && dragOverZone === "into";
+  const { registerRow, unregisterRow } = taskMove;
+
+  useEffect(() => {
+    registerRow(taskId, rowRef.current, dragMeta);
+  }, [dragMeta, registerRow, taskId]);
+
+  useEffect(() => {
+    return () => unregisterRow(taskId);
+  }, [taskId, unregisterRow]);
+
   return (
-    <View style={{ marginLeft: rowDepth }} className="mb-2">
-      <View className="rounded-2xl border border-kyar-borderSubtle bg-kyar-panel shadow-sm dark:border-kyar-dark-border dark:bg-kyar-dark-panelRaised dark:shadow-none">
-        {rowBody}
-      </View>
+    <View
+      ref={rowRef}
+      collapsable={false}
+      style={{ marginLeft: depthMargin, position: "relative" }}
+    >
+      <Pressable
+        delayLongPress={220}
+        onLongPress={(event) =>
+          void taskMove.startDrag(dragMeta, {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          })
+        }
+        onTouchMove={(event) => {
+          taskMove.updateDragPoint({
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          });
+        }}
+        onTouchEnd={(event) => {
+          taskMove.finishDrag({
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          });
+        }}
+        onTouchCancel={() => {
+          taskMove.finishDrag();
+        }}
+        style={[
+          { position: "relative" },
+          dropInto && {
+            backgroundColor: glass.surface.active,
+            borderRadius: 10,
+          },
+          dragging && { opacity: 0.55 },
+        ]}
+      >
+        {dropBefore ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 4,
+              right: 4,
+              top: 0,
+              zIndex: 10,
+              height: 2,
+              borderRadius: 1,
+              backgroundColor: glass.text.fg,
+            }}
+          />
+        ) : null}
+        {dropAfter ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 4,
+              right: 4,
+              bottom: 0,
+              zIndex: 10,
+              height: 2,
+              borderRadius: 1,
+              backgroundColor: glass.text.fg,
+            }}
+          />
+        ) : null}
+        {children}
+        {dropInto && dropIntoLabel ? (
+          <Text
+            style={{
+              paddingBottom: 8,
+              paddingHorizontal: 4,
+              fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+              fontSize: 9,
+              letterSpacing: ls(0.16, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg55,
+            }}
+          >
+            {dropIntoLabel}
+          </Text>
+        ) : null}
+      </Pressable>
     </View>
   );
 }
 
-function AgendaTaskRow({
-  task,
-  onToggle,
-  onEdit,
-  onOpenBuild,
-  onOpenElement,
-  onOpenConvention,
-}: {
-  task: PlannerTask;
-  onToggle: () => void;
-  onEdit: () => void;
-  onOpenBuild: (id: Id<"builds">) => void;
-  onOpenElement: (id: Id<"cosplayNodes">) => void;
-  onOpenConvention: (id: Id<"conventions">) => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <View>
-      <MetaLabel>{t("planner.agendaTaskLabel")}</MetaLabel>
-      <PlannerTaskExplorerRow
-        task={task}
-        depth={task.ancestorIds.length}
-        hasChildren={false}
-        childrenExpanded
-        onToggleChildrenExpanded={() => undefined}
-        onToggle={onToggle}
-        onEdit={onEdit}
-        onOpenBuild={onOpenBuild}
-        onOpenElement={onOpenElement}
-        onOpenConvention={onOpenConvention}
-        menuMode="editOnly"
-      />
-    </View>
-  );
-}
-
-function AgendaEventRow({
-  convention,
-  onOpen,
-  loading,
-}: {
-  convention: Doc<"conventions">;
-  onOpen: () => void;
-  loading: boolean;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <View>
-      <MetaLabel>{t("planner.eventLabel")}</MetaLabel>
-      <SurfaceCard className="mt-2 px-4 py-4">
-        <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
-          {convention.name}
-        </Text>
-        <Text className="mt-2 text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {formatDateRange(convention.startDate, convention.endDate)}
-        </Text>
-        <Button
-          title={loading ? t("planner.opening") : t("planner.openPlan")}
-          variant="secondary"
-          onPress={onOpen}
-          loading={loading}
-          className="mt-4"
-        />
-      </SurfaceCard>
-    </View>
-  );
-}
-
-function EmptyCard({
-  title,
-  body,
-  actionLabel,
-  onPress,
-}: {
-  title: string;
-  body: string;
-  actionLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <SurfaceCard className="px-4 py-5">
-      <Text className="text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">{title}</Text>
-      <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-        {body}
-      </Text>
-      <Button title={actionLabel} variant="secondary" onPress={onPress} className="mt-4" />
-    </SurfaceCard>
-  );
-}
-
-function SegmentedPill({
-  active,
+/**
+ * Glass-styled root drop zone — same synchronous ref-callback registration as
+ * `WorkflowTaskRootDropZone` (register on mount so the first drag's rAF
+ * measurement pass sees it).
+ */
+function GlassRootDropZone({
+  scopeKey,
+  taskMove,
   label,
-  onPress,
 }: {
-  active: boolean;
+  scopeKey: string;
+  taskMove: PlannerTaskMoveController;
   label: string;
-  onPress: () => void;
 }) {
+  const zoneRef = useRef<View>(null);
+  const { registerRootDropZone, unregisterRootDropZone } = taskMove;
+
+  const setZoneRef = useCallback(
+    (node: View | null) => {
+      zoneRef.current = node;
+      if (node) {
+        registerRootDropZone(scopeKey, node);
+      } else {
+        unregisterRootDropZone(scopeKey);
+      }
+    },
+    [registerRootDropZone, scopeKey, unregisterRootDropZone]
+  );
+
+  const activeScope = taskMove.dragMeta?.scopeKey;
+  if (activeScope !== scopeKey || taskMove.dragMeta?.parentId == null) return null;
+
+  const highlighted = taskMove.dragVisualState.dragOverRootScopeKey === scopeKey;
+
   return (
-    <Pressable
-      onPress={onPress}
-      className={`flex-1 rounded-full px-4 py-3 ${
-        active ? "bg-kyar-text dark:bg-kyar-dark-text" : "bg-transparent"
-      }`}
+    <View
+      ref={setZoneRef}
+      collapsable={false}
+      style={{
+        marginTop: 8,
+        marginBottom: 4,
+        borderRadius: 10,
+        borderWidth: borderWidth.hairline,
+        borderColor: highlighted ? glass.text.fg : glass.border.strong,
+        backgroundColor: highlighted ? glass.surface.preview : glass.surface.active,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+      }}
     >
       <Text
-        className={`text-center text-sm font-medium ${
-          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
-        }`}
+        style={{
+          textAlign: "center",
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 9,
+          letterSpacing: ls(0.16, 9),
+          textTransform: "uppercase",
+          color: highlighted ? glass.text.fg : glass.text.fg55,
+        }}
       >
         {label}
       </Text>
-    </Pressable>
+    </View>
   );
 }
 
-function ChoicePill({
-  active,
-  label,
-  onPress,
+/**
+ * Glass drag grip — long-press starts the drag and the same Pressable keeps
+ * the native touch responder for the whole gesture (mirrors the shared
+ * `WorkflowTaskDragHandle`, which stays cream for not-yet-converted screens).
+ */
+function GlassDragHandle({
+  dragMeta,
+  taskMove,
 }: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
+  dragMeta: PlannerTaskDragMeta;
+  taskMove: PlannerTaskMoveController;
 }) {
   return (
     <Pressable
-      onPress={onPress}
-      className={`rounded-full border px-4 py-2 ${
-        active
-          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
+      delayLongPress={220}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Drag to reorder"
+      onLongPress={(event) =>
+        void taskMove.startDrag(dragMeta, {
+          x: event.nativeEvent.pageX,
+          y: event.nativeEvent.pageY,
+        })
+      }
+      onTouchMove={(event) => {
+        taskMove.updateDragPoint({
+          x: event.nativeEvent.pageX,
+          y: event.nativeEvent.pageY,
+        });
+      }}
+      onTouchEnd={(event) => {
+        taskMove.finishDrag({
+          x: event.nativeEvent.pageX,
+          y: event.nativeEvent.pageY,
+        });
+      }}
+      onTouchCancel={() => {
+        taskMove.finishDrag();
+      }}
+      className="active:opacity-80"
+      style={{ width: 28, height: 32, alignItems: "center", justifyContent: "center" }}
     >
-      <Text
-        className={`text-xs font-medium ${
-          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
-        }`}
-      >
-        {label}
-      </Text>
+      <Text style={{ fontSize: 17, lineHeight: 20, color: glass.text.fg45 }}>≡</Text>
     </Pressable>
   );
 }

@@ -41,6 +41,12 @@ build/Release
 node_modules/
 jspm_packages/
 
+# Playwright E2E artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
@@ -112,15 +118,8 @@ dist
 dist/
 web-build/
 
-# Go
-backend/main
 *.exe
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
 .env.local
 .env.development.local
 .env.test.local
@@ -168,3 +167,4 @@ vite.config.ts.timestamp-*
 
 expo-env.d.ts
 # @end expo-cli
+.DS_Store

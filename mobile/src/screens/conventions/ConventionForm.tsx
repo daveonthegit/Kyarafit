@@ -1,14 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Id } from "convex/_generated/dataModel";
-import { api } from "convex/_generated/api";
 import { useTranslation } from "react-i18next";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { glass, ls, borderWidth } from "@kyarafit/design-system/rn";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { useOfflineMutation } from "@/offline";
 import { parseIsoDateOnly } from "@/screens/conventions/utils";
-import { Button, DatePickerField, MetaLabel, SectionHeading, SurfaceCard, TextField } from "@/ui";
+import { GlassDateField } from "@/screens/conventions/GlassDateField";
+import { GlassPanel, GlassTextField, PhotoBackdrop, PhotoPill } from "@/ui/glass";
 
 type ConventionFormValues = {
   name: string;
@@ -29,6 +33,7 @@ type Props = {
   onSubmit: (values: ConventionFormValues) => Promise<void>;
 };
 
+/** Convention create/edit form — glass form grammar (ref 13d). */
 export function ConventionForm({
   title,
   eyebrow,
@@ -39,7 +44,9 @@ export function ConventionForm({
   onSubmit,
 }: Props) {
   const { t } = useTranslation();
-  const generateUploadUrl = useOfflineMutation(api.files.generateUploadUrl);
+  const router = useRouter();
+  const saveLocalImage = useSaveLocalImage();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState(initialValues?.name ?? "");
   const [location, setLocation] = useState(initialValues?.location ?? "");
   const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
@@ -86,9 +93,9 @@ export function ConventionForm({
       let uploadedStorageId = imageStorageId;
       let uploadedImageUrl = imageUrl;
       if (pickedUri) {
-        const uploadUrl = await generateUploadUrl();
-        uploadedStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
-        uploadedImageUrl = undefined;
+        // Copy the picked photo into this device's vault first — works offline, no upload.
+        uploadedImageUrl = (await saveLocalImage(pickedUri)).uri;
+        uploadedStorageId = undefined;
       }
 
       await onSubmit({
@@ -99,13 +106,14 @@ export function ConventionForm({
         imageStorageId: uploadedStorageId,
         imageUrl: uploadedImageUrl,
       });
+    } catch (error) {
+      alertUnlessReported(t("common.errorTitle"), error);
     } finally {
       setBusy(false);
     }
   }, [
     disabled,
     endDate,
-    generateUploadUrl,
     imageStorageId,
     imageUrl,
     location,
@@ -113,107 +121,208 @@ export function ConventionForm({
     onSubmit,
     pickedUri,
     startDate,
+    saveLocalImage,
+    t,
   ]);
 
   return (
-    <ScrollView
-      className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 20 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View>
-        <SectionHeading eyebrow={eyebrow} title={title} />
-        <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-          {subtitle}
-        </Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <PhotoBackdrop kenBurns={false} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 20,
+          paddingBottom: insets.bottom + 48,
+          gap: 18,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ paddingHorizontal: 6 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 10,
+              letterSpacing: ls(0.24, 10),
+              textTransform: "uppercase",
+              color: glass.text.fg70,
+              marginBottom: 8,
+            }}
+          >
+            {eyebrow}
+          </Text>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 34,
+              lineHeight: 38,
+              letterSpacing: ls(-0.02, 34),
+              color: glass.text.fg,
+            }}
+          >
+            {title}
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: APP_FONT_FAMILIES.sansRegular,
+              fontSize: 12,
+              lineHeight: 18,
+              color: glass.text.fg70,
+            }}
+          >
+            {subtitle}
+          </Text>
+        </View>
 
-      <SurfaceCard className="px-4 py-4">
-        <View className="gap-4">
-          <TextField
-            value={name}
-            onChangeText={setName}
-            label={t("conventions.fieldName")}
-            placeholder={t("conventions.fieldNamePlaceholder")}
-          />
-          <TextField
-            value={location}
-            onChangeText={setLocation}
-            label={t("conventions.fieldLocation")}
-            placeholder={t("conventions.fieldLocationPlaceholder")}
-          />
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <DatePickerField
-                label={t("conventions.fieldStartDate")}
-                value={startDate}
-                placeholder={t("conventions.fieldDatePlaceholder")}
-                onChange={(iso) => {
-                  setStartDate(iso);
-                  setEndDate((prev) => (prev && prev < iso ? iso : prev));
-                }}
-              />
-            </View>
-            <View className="flex-1">
-              <DatePickerField
-                label={t("conventions.fieldEndDate")}
-                value={endDate}
-                placeholder={t("conventions.fieldDatePlaceholder")}
-                minimumDate={parseIsoDateOnly(startDate) ?? undefined}
-                onChange={(iso) => setEndDate(startDate && iso < startDate ? startDate : iso)}
-              />
+        <GlassPanel style={{ padding: 16 }}>
+          <View style={{ gap: 14 }}>
+            <GlassTextField
+              value={name}
+              onChangeText={setName}
+              label={t("conventions.fieldName")}
+              placeholder={t("conventions.fieldNamePlaceholder")}
+            />
+            <GlassTextField
+              value={location}
+              onChangeText={setLocation}
+              label={t("conventions.fieldLocation")}
+              placeholder={t("conventions.fieldLocationPlaceholder")}
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <GlassDateField
+                  label={t("conventions.fieldStartDate")}
+                  value={startDate}
+                  placeholder={t("conventions.fieldDatePlaceholder")}
+                  onChange={(iso) => {
+                    setStartDate(iso);
+                    setEndDate((prev) => (prev && prev < iso ? iso : prev));
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <GlassDateField
+                  label={t("conventions.fieldEndDate")}
+                  value={endDate}
+                  placeholder={t("conventions.fieldDatePlaceholder")}
+                  minimumDate={parseIsoDateOnly(startDate) ?? undefined}
+                  onChange={(iso) => setEndDate(startDate && iso < startDate ? startDate : iso)}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      </SurfaceCard>
+        </GlassPanel>
 
-      <SurfaceCard className="px-4 py-4">
-        <MetaLabel>{t("conventions.fieldCover")}</MetaLabel>
-        <Pressable
-          onPress={() => void pickImage()}
-          className="mt-4 overflow-hidden rounded-[28px] border border-dashed border-kyar-borderSubtle bg-kyar-panel dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-panel"
-        >
-          {pickedUri ? (
-            <Image source={{ uri: pickedUri }} className="h-56 w-full" resizeMode="cover" />
-          ) : imageStorageId || imageUrl ? (
-            <ConvexStorageImage
-              storageId={imageStorageId}
-              imageUrl={imageUrl}
-              className="h-56 w-full"
-              accessibilityLabel={name || title}
-            />
-          ) : (
-            <View className="h-56 items-center justify-center px-6">
-              <Text className="text-center text-sm text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
-                {t("conventions.fieldCoverHint")}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-
-        <View className="mt-4 flex-row gap-3">
-          <Button
-            title={t("conventions.chooseImageAction")}
-            variant="secondary"
+        <GlassPanel style={{ padding: 16 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 10,
+              letterSpacing: ls(0.16, 10),
+              textTransform: "uppercase",
+              color: glass.text.fg70,
+            }}
+          >
+            {t("conventions.fieldCover")}
+          </Text>
+          <Pressable
             onPress={() => void pickImage()}
-            className="flex-1"
-          />
-          {hasImage ? (
-            <Button
-              title={t("conventions.removeImageAction")}
-              variant="secondary"
-              onPress={removeImage}
-              className="flex-1"
-            />
-          ) : null}
-        </View>
-      </SurfaceCard>
+            accessibilityRole="button"
+            accessibilityLabel={t("conventions.chooseImageAction")}
+            className="active:opacity-80"
+            style={{
+              marginTop: 12,
+              overflow: "hidden",
+              borderRadius: 12,
+              // Dashed border = add affordance; once an image exists it is a
+              // plain hairline frame.
+              borderWidth: hasImage ? borderWidth.hairline : 1,
+              borderStyle: hasImage ? "solid" : "dashed",
+              borderColor: hasImage ? glass.border.default : glass.border.strong,
+              backgroundColor: glass.surface.bar,
+            }}
+          >
+            {pickedUri ? (
+              <Image
+                source={{ uri: pickedUri }}
+                style={{ height: 200, width: "100%" }}
+                resizeMode="cover"
+              />
+            ) : imageStorageId || imageUrl ? (
+              <ConvexStorageImage
+                storageId={imageStorageId}
+                imageUrl={imageUrl}
+                className="h-[200px] w-full"
+                accessibilityLabel={name || title}
+              />
+            ) : (
+              <View
+                style={{
+                  height: 200,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 24,
+                }}
+              >
+                <Text
+                  style={{
+                    textAlign: "center",
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 12,
+                    lineHeight: 18,
+                    color: glass.text.fg55,
+                  }}
+                >
+                  {t("conventions.fieldCoverHint")}
+                </Text>
+              </View>
+            )}
+          </Pressable>
 
-      <Button
-        title={busy ? submittingLabel : submitLabel}
-        onPress={() => void handleSubmit()}
-        disabled={disabled}
-      />
-    </ScrollView>
+          <View style={{ marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            <PhotoPill
+              variant="outline"
+              size="sm"
+              icon="image-outline"
+              label={t("conventions.chooseImageAction")}
+              onPress={() => void pickImage()}
+            />
+            {hasImage ? (
+              <PhotoPill
+                variant="text"
+                size="sm"
+                label={t("conventions.removeImageAction")}
+                onPress={removeImage}
+              />
+            ) : null}
+          </View>
+        </GlassPanel>
+
+        {/* Footer: outline Cancel + the form's one solid primary. */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 10,
+            paddingHorizontal: 6,
+          }}
+        >
+          <PhotoPill
+            variant="outline"
+            label={t("common.cancel")}
+            disabled={busy}
+            onPress={() => router.back()}
+          />
+          <PhotoPill
+            variant="solid"
+            label={busy ? submittingLabel : submitLabel}
+            disabled={disabled}
+            onPress={() => void handleSubmit()}
+          />
+        </View>
+      </ScrollView>
+    </View>
   );
 }

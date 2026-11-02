@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { canUserEditBuild } from "./lib/buildAccess";
 import {
   entityKey,
@@ -11,23 +12,17 @@ import {
 import { sanitizeAndLimit, validateDateString, MAX_LENGTH } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 
-const legacyNodeIdValidator = v.union(v.id("cosplayNodes"), v.id("closetItems"));
+const legacyNodeIdValidator = v.id("cosplayNodes");
 
 async function resolveCosplayNodeId(
   ctx: QueryCtx | MutationCtx,
-  id: Id<"cosplayNodes"> | Id<"closetItems"> | undefined | null
+  id: Id<"cosplayNodes"> | undefined | null
 ) {
   if (!id) return null;
-  const current = await ctx.db.get(id as Id<"cosplayNodes">);
-  if (current && "nodeType" in current) {
-    return current._id as Id<"cosplayNodes">;
-  }
-  const migrated = await ctx.db
-    .query("cosplayNodes")
-    .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", id as Id<"closetItems">))
-    .unique();
-  return migrated?._id ?? null;
+  const current = await ctx.db.get(id);
+  return current && "nodeType" in current ? (current._id as Id<"cosplayNodes">) : null;
 }
 
 export async function workflowTasksForBuildOwner(
@@ -223,37 +218,46 @@ export const create = mutation({
       if (!build) throw new Error("Build not found");
       const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
       if (!canEdit) throw new Error("Not authorized");
-      const id = await ctx.db.insert("workflowItems", {
-        userId: actorId,
-        title: label,
-        kind: "task",
-        category: "craft",
-        status: "not_started",
-        ancestorIds: [],
-        sortOrder: args.sortOrder ?? 0,
-        scopeKind: "build_specific",
-        sourceKind: "manual",
-        dueDate,
-        legacyBuildTaskId: undefined,
-      });
-      await ctx.db.insert("workflowAttachments", {
-        userId: actorId,
-        workflowItemId: id,
-        entityType: "build",
-        entityId: args.buildId,
-        entityKey: entityKey("build", args.buildId),
-        role: "primary",
-      });
-      if (resolvedNodeId) {
-        await ctx.db.insert("workflowAttachments", {
+      const id = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: actorId,
+          title: label,
+          kind: "task",
+          category: "craft",
+          status: "not_started",
+          ancestorIds: [],
+          sortOrder: args.sortOrder ?? 0,
+          scopeKind: "build_specific",
+          sourceKind: "manual",
+          dueDate,
+          legacyBuildTaskId: undefined,
+        })
+      );
+      await ctx.db.insert(
+        "workflowAttachments",
+        withCreateMeta({
           userId: actorId,
           workflowItemId: id,
-          entityType: "cosplayNode",
-          entityId: resolvedNodeId,
-          entityKey: entityKey("cosplayNode", resolvedNodeId),
-          role: "progress_source",
-          buildContextId: args.buildId,
-        });
+          entityType: "build",
+          entityId: args.buildId,
+          entityKey: entityKey("build", args.buildId),
+          role: "primary",
+        })
+      );
+      if (resolvedNodeId) {
+        await ctx.db.insert(
+          "workflowAttachments",
+          withCreateMeta({
+            userId: actorId,
+            workflowItemId: id,
+            entityType: "cosplayNode",
+            entityId: resolvedNodeId,
+            entityKey: entityKey("cosplayNode", resolvedNodeId),
+            role: "progress_source",
+            buildContextId: args.buildId,
+          })
+        );
       }
       const created = await ctx.db.get(id);
       return created ? await mapLegacyTaskShape(ctx, created, actorId) : null;
@@ -266,27 +270,33 @@ export const create = mutation({
     if (!node || node.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    const id = await ctx.db.insert("workflowItems", {
-      userId: actorId,
-      title: label,
-      kind: "task",
-      category: "craft",
-      status: "not_started",
-      ancestorIds: [],
-      sortOrder: args.sortOrder ?? 0,
-      scopeKind: "shared",
-      sourceKind: "manual",
-      dueDate,
-      legacyBuildTaskId: undefined,
-    });
-    await ctx.db.insert("workflowAttachments", {
-      userId: actorId,
-      workflowItemId: id,
-      entityType: "cosplayNode",
-      entityId: resolvedNodeId,
-      entityKey: entityKey("cosplayNode", resolvedNodeId),
-      role: "primary",
-    });
+    const id = await ctx.db.insert(
+      "workflowItems",
+      withCreateMeta({
+        userId: actorId,
+        title: label,
+        kind: "task",
+        category: "craft",
+        status: "not_started",
+        ancestorIds: [],
+        sortOrder: args.sortOrder ?? 0,
+        scopeKind: "shared",
+        sourceKind: "manual",
+        dueDate,
+        legacyBuildTaskId: undefined,
+      })
+    );
+    await ctx.db.insert(
+      "workflowAttachments",
+      withCreateMeta({
+        userId: actorId,
+        workflowItemId: id,
+        entityType: "cosplayNode",
+        entityId: resolvedNodeId,
+        entityKey: entityKey("cosplayNode", resolvedNodeId),
+        role: "primary",
+      })
+    );
     const created = await ctx.db.get(id);
     return created ? await mapLegacyTaskShape(ctx, created, actorId) : null;
   },
@@ -331,7 +341,7 @@ export const update = mutation({
       patch.dueDate =
         args.dueDate === null ? undefined : validateDateString(args.dueDate, "Due date");
     }
-    if (Object.keys(patch).length > 0) await ctx.db.patch(args.id, patch);
+    if (Object.keys(patch).length > 0) await ctx.db.patch(args.id, withUpdateMeta(item, patch));
 
     if (args.cosplayNodeId !== undefined || args.closetItemId !== undefined) {
       const resolvedNodeId =
@@ -346,15 +356,18 @@ export const update = mutation({
       );
       for (const attachment of existingNodeAttachments) await ctx.db.delete(attachment._id);
       if (resolvedNodeId) {
-        await ctx.db.insert("workflowAttachments", {
-          userId: item.userId,
-          workflowItemId: args.id,
-          entityType: "cosplayNode",
-          entityId: resolvedNodeId,
-          entityKey: entityKey("cosplayNode", resolvedNodeId),
-          role: "progress_source",
-          buildContextId: buildAttachment?.entityId as Id<"builds"> | undefined,
-        });
+        await ctx.db.insert(
+          "workflowAttachments",
+          withCreateMeta({
+            userId: item.userId,
+            workflowItemId: args.id,
+            entityType: "cosplayNode",
+            entityId: resolvedNodeId,
+            entityKey: entityKey("cosplayNode", resolvedNodeId),
+            role: "progress_source",
+            buildContextId: buildAttachment?.entityId as Id<"builds"> | undefined,
+          })
+        );
       }
     }
 

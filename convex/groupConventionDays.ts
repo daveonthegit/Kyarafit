@@ -1,8 +1,23 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { validateDateString } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
+import { availableOwnedDocument } from "./lib/discoveryAccess";
+import type { Id } from "./_generated/dataModel";
+
+async function groupVisibleConvention(
+  ctx: QueryCtx,
+  actorId: string,
+  conventionId: Id<"conventions">
+) {
+  const convention = await availableOwnedDocument(ctx, await ctx.db.get(conventionId));
+  if (!convention) return null;
+  return convention.userId === actorId
+    ? convention
+    : { name: "Private convention", startDate: "", endDate: "" };
+}
 
 /**
  * Selected convention days for a group. Takes no actor argument, so the membership
@@ -20,10 +35,14 @@ export const listForGroup = query({
       .query("groupConventionDays")
       .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
       .collect();
-    if (args.conventionId) {
-      return all.filter((d) => d.conventionId === args.conventionId);
+    const selected = args.conventionId
+      ? all.filter((d) => d.conventionId === args.conventionId)
+      : all;
+    const live = [];
+    for (const day of selected) {
+      if (await groupVisibleConvention(ctx, actorId, day.conventionId)) live.push(day);
     }
-    return all;
+    return live;
   },
 });
 
@@ -37,14 +56,16 @@ export const listGroupsForConvention = query({
   handler: async (ctx, args) => {
     const actorId = await optionalIdentity(ctx);
     if (!actorId) return [];
-    const convention = await ctx.db.get(args.conventionId);
+    const convention = await availableOwnedDocument(ctx, await ctx.db.get(args.conventionId));
     if (!convention || convention.userId !== actorId) return [];
     const days = await ctx.db
       .query("groupConventionDays")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
     const groupIds = Array.from(new Set(days.map((d) => d.groupId)));
-    const groups = await Promise.all(groupIds.map((id) => ctx.db.get(id)));
+    const groups = await Promise.all(
+      groupIds.map(async (id) => availableOwnedDocument(ctx, await ctx.db.get(id)))
+    );
     const visible = [];
     for (const group of groups) {
       if (!group) continue;
@@ -83,12 +104,13 @@ export const listForGroupWithConventions = query({
     for (const d of days) {
       const key = d.conventionId;
       if (!byConvention.has(key)) {
-        const con = await ctx.db.get(d.conventionId);
+        const con = await groupVisibleConvention(ctx, actorId, d.conventionId);
+        if (!con) continue;
         byConvention.set(key, {
           conventionId: key,
-          conventionName: con?.name ?? "Unknown",
-          startDate: con?.startDate ?? "",
-          endDate: con?.endDate ?? "",
+          conventionName: con.name,
+          startDate: con.startDate,
+          endDate: con.endDate,
           dates: [],
         });
       }
@@ -115,8 +137,10 @@ export const setDays = mutation({
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can set convention days");
     }
+    // Only the admin's own convention can be linked, checked before the date range so the
+    // error never echoes another user's convention dates.
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention) throw new Error("Convention not found");
+    if (!convention || convention.userId !== actorId) throw new Error("Convention not found");
     const start = convention.startDate;
     const end = convention.endDate;
 
@@ -163,7 +187,7 @@ export const addDay = mutation({
       throw new Error("Only group admins can add convention days");
     }
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention) throw new Error("Convention not found");
+    if (!convention || convention.userId !== actorId) throw new Error("Convention not found");
     const date = validateDateString(args.date, "Date");
     if (date < convention.startDate || date > convention.endDate) {
       throw new Error(

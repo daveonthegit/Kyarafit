@@ -8,6 +8,8 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { deletionJob } from "./accountDeletion";
+import { availableOwnedDocument } from "./discoveryAccess";
 
 /** Guard against a pathological element graph; real trees are a handful of levels deep. */
 const MAX_GRAPH_NODES = 200;
@@ -19,7 +21,7 @@ export async function canUserEditBuild(
   userId: string
 ): Promise<boolean> {
   const build = await ctx.db.get(buildId);
-  if (!build) return false;
+  if (!build || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === userId) return true;
   const rows = await ctx.db
     .query("buildCollaborators")
@@ -36,7 +38,7 @@ export async function canUserViewBuild(
   userId: string
 ): Promise<boolean> {
   const build = await ctx.db.get(buildId);
-  if (!build) return false;
+  if (!build || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === userId) return true;
   const rows = await ctx.db
     .query("buildCollaborators")
@@ -84,6 +86,8 @@ export async function getGroupMembership(
   groupId: Id<"groups">,
   userId: string
 ): Promise<Doc<"groupMembers"> | null> {
+  const group = await availableOwnedDocument(ctx, await ctx.db.get(groupId));
+  if (!group) return null;
   return await ctx.db
     .query("groupMembers")
     .withIndex("by_groupId_userId", (q) => q.eq("groupId", groupId).eq("userId", userId))
@@ -124,7 +128,14 @@ export async function sharesAnyGroup(
     .query("groupMembers")
     .withIndex("by_userId", (q) => q.eq("userId", otherUserId))
     .collect();
-  return otherGroups.some((m) => viewerGroupIds.has(m.groupId));
+  for (const membership of otherGroups) {
+    if (
+      viewerGroupIds.has(membership.groupId) &&
+      (await availableOwnedDocument(ctx, await ctx.db.get(membership.groupId)))
+    )
+      return true;
+  }
+  return false;
 }
 
 /**
@@ -137,7 +148,7 @@ export async function hasBuildRelationship(
   build: Doc<"builds">,
   viewerId: string | null
 ): Promise<boolean> {
-  if (!viewerId) return false;
+  if (!viewerId || (await deletionJob(ctx, build.userId))) return false;
   if (build.userId === viewerId) return true;
   if (await isBuildCollaborator(ctx, build._id, viewerId)) return true;
   return await isBuildGroupMember(ctx, build, viewerId);
@@ -145,41 +156,32 @@ export async function hasBuildRelationship(
 
 /**
  * Walks up the element graph from `nodeId` and tests `predicate` against every
- * build the node or any of its ancestors is linked to. Elements nest and a build
- * links only its roots, so the walk has to go up rather than only look at the
- * node's own build links.
+ * build the node or any of its ancestors hangs off. Elements nest and only a root
+ * carries the build link, so the walk has to go up rather than only look at the
+ * node's own `buildId`.
+ *
+ * Since Step 2c both relations live on the node row itself — `buildId` for build
+ * membership and `parentNodeId` for nesting — so this is a single-parent walk. The
+ * `buildCosplayLinks` / `cosplayNodeLinks` join tables are deprecated and no longer
+ * written; reading them here would make the predicate answer from stale rows.
  */
 export async function someAncestorBuild(
   ctx: QueryCtx,
   nodeId: Id<"cosplayNodes">,
   predicate: (build: Doc<"builds">) => boolean | Promise<boolean>
 ): Promise<boolean> {
-  const seen = new Set<string>([nodeId]);
-  let frontier: Id<"cosplayNodes">[] = [nodeId];
+  const seen = new Set<string>();
+  let current: Id<"cosplayNodes"> | undefined = nodeId;
 
-  while (frontier.length > 0 && seen.size <= MAX_GRAPH_NODES) {
-    const next: Id<"cosplayNodes">[] = [];
-    for (const current of frontier) {
-      const buildLinks = await ctx.db
-        .query("buildCosplayLinks")
-        .withIndex("by_cosplayNodeId", (q) => q.eq("cosplayNodeId", current))
-        .collect();
-      for (const link of buildLinks) {
-        const build = await ctx.db.get(link.buildId);
-        if (build && (await predicate(build))) return true;
-      }
-
-      const parentLinks = await ctx.db
-        .query("cosplayNodeLinks")
-        .withIndex("by_childNodeId", (q) => q.eq("childNodeId", current))
-        .collect();
-      for (const link of parentLinks) {
-        if (seen.has(link.parentNodeId)) continue;
-        seen.add(link.parentNodeId);
-        next.push(link.parentNodeId);
-      }
+  while (current !== undefined && !seen.has(current) && seen.size <= MAX_GRAPH_NODES) {
+    seen.add(current);
+    const node: Doc<"cosplayNodes"> | null = await ctx.db.get(current);
+    if (!node || (await deletionJob(ctx, node.userId))) return false;
+    if (node.buildId) {
+      const build = await ctx.db.get(node.buildId);
+      if (build && (await predicate(build))) return true;
     }
-    frontier = next;
+    current = node.parentNodeId;
   }
 
   return false;
@@ -200,7 +202,7 @@ export async function canReadElementData(
   node: Doc<"cosplayNodes">,
   viewerId: string | null
 ): Promise<boolean> {
-  if (!viewerId) return false;
+  if (!viewerId || (await deletionJob(ctx, node.userId))) return false;
   if (node.userId === viewerId) return true;
   return await someAncestorBuild(
     ctx,

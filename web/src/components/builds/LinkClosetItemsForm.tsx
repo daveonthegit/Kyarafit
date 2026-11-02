@@ -10,15 +10,20 @@ import {
   forwardRef,
 } from "react";
 import type { CSSProperties, DragEvent } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { Plus, Search } from "lucide-react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { LinkClosetQuickCreateModal } from "@/components/builds/LinkClosetQuickCreateModal";
 import { formatNodeStatus, formatNodeTypeLabel } from "@kyarafit/design-system/domain";
+import {
+  filterAndSortClosetItems,
+  closetCategories,
+} from "@kyarafit/design-system/domain/closetItems";
 import { setNativeDragLabelPreview } from "@/lib/nativeDragPreview";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 
-type ClosetEntityId = Id<"closetItems"> | Id<"cosplayNodes">;
+type ClosetEntityId = Id<"cosplayNodes">;
 
 export type LinkClosetItemsFormHandle = {
   save: () => Promise<void>;
@@ -78,7 +83,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     },
     ref
   ) {
-    const linkNodesMut = useMutation(api.builds.linkNodes);
+    const linkNodesMut = useOfflineMutation(api.builds.linkNodes);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const prevActive = useRef(false);
     const [search, setSearch] = useState("");
@@ -103,42 +108,13 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
       setVisibleCount(PAGE_SIZE);
     }, [search, categoryFilter, sortMode, closetItems.length]);
 
-    const categories = useMemo(() => {
-      const s = new Set<string>();
-      closetItems.forEach((c) => {
-        if (c.category?.trim()) s.add(c.category.trim());
-      });
-      return Array.from(s).sort((a, b) => a.localeCompare(b));
-    }, [closetItems]);
+    const categories = useMemo(() => closetCategories(closetItems), [closetItems]);
 
-    const filtered = useMemo(() => {
-      let rows = [...closetItems];
-      if (categoryFilter !== "all") {
-        rows = rows.filter((r) => (r.category ?? "").trim() === categoryFilter);
-      }
-      const q = search.trim().toLowerCase();
-      if (q) {
-        rows = rows.filter((r) => {
-          if (r.name.toLowerCase().includes(q)) return true;
-          if ((r.category ?? "").toLowerCase().includes(q)) return true;
-          if (r.tags?.some((t) => t.toLowerCase().includes(q))) return true;
-          return false;
-        });
-      }
-      if (sortMode === "name") {
-        rows.sort((a, b) => a.name.localeCompare(b.name));
-      } else if (sortMode === "recent") {
-        rows.sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
-      } else {
-        rows.sort((a, b) => {
-          const sa = selectedIds.has(a._id) ? 1 : 0;
-          const sb = selectedIds.has(b._id) ? 1 : 0;
-          if (sa !== sb) return sb - sa;
-          return a.name.localeCompare(b.name);
-        });
-      }
-      return rows;
-    }, [closetItems, categoryFilter, search, sortMode, selectedIds]);
+    const filtered = useMemo(
+      () =>
+        filterAndSortClosetItems(closetItems, { categoryFilter, search, sortMode, selectedIds }),
+      [closetItems, categoryFilter, search, sortMode, selectedIds]
+    );
 
     const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
@@ -185,25 +161,27 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     useImperativeHandle(ref, () => ({ save }), [save]);
 
     const toolbar = (
-      <div className="sticky top-0 z-[1] -mx-1 mb-3 space-y-3 border-b border-kyar-borderSubtle bg-kyar-surface pb-3 px-1">
+      <div className="sticky top-0 z-[1] -mx-1 mb-3 space-y-3 border-b border-glass-divider bg-[rgb(20_19_32/0.86)] px-1 pb-3 pt-1 backdrop-blur-glass-chip">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-kyar-textTertiary" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-media-fg-55" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, category, or tag…"
-            className="w-full rounded-lg border border-kyar-border bg-kyar-muted/20 py-2.5 pl-10 pr-3 text-sm placeholder:text-kyar-textTertiary focus:border-kyar-accent focus:outline-none focus:ring-2 focus:ring-kyar-accent/20"
+            className="glass-field min-h-[44px] w-full py-2.5 pl-10 pr-3 text-[13px]"
             aria-label="Search elements"
           />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-kyar-textTertiary sm:max-w-[200px]">
-            <span className="shrink-0 uppercase tracking-wider">Category</span>
+          <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[220px]">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Category
+            </span>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-kyar-surface px-2 py-2 text-sm text-kyar-text"
+              className="glass-field min-h-[44px] min-w-0 flex-1 px-3 py-2 text-[13px] [color-scheme:dark]"
             >
               <option value="all">All ({closetItems.length})</option>
               {categories.map((c) => (
@@ -213,12 +191,14 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
               ))}
             </select>
           </label>
-          <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-kyar-textTertiary sm:max-w-[220px]">
-            <span className="shrink-0 uppercase tracking-wider">Sort</span>
+          <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[240px]">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
+              Sort
+            </span>
             <select
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="min-w-0 flex-1 rounded-md border border-kyar-border bg-kyar-surface px-2 py-2 text-sm text-kyar-text"
+              className="glass-field min-h-[44px] min-w-0 flex-1 px-3 py-2 text-[13px] [color-scheme:dark]"
             >
               <option value="name">Name (A–Z)</option>
               <option value="recent">Newest first</option>
@@ -231,7 +211,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             type="button"
             onClick={selectAllMatching}
             disabled={filtered.length === 0}
-            className="rounded-md border border-kyar-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-kyar-text hover:border-kyar-text disabled:opacity-40"
+            className="min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-25"
           >
             Select all matching ({filtered.length})
           </button>
@@ -239,11 +219,11 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             type="button"
             onClick={clearMatching}
             disabled={filtered.length === 0}
-            className="rounded-md border border-kyar-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-kyar-text hover:border-kyar-text disabled:opacity-40"
+            className="min-h-[44px] rounded-full border border-glass-border-strong bg-glass-bar px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent disabled:opacity-25"
           >
             Clear matching
           </button>
-          <span className="text-[11px] text-kyar-textTertiary">
+          <span className="text-[11px] tabular-nums text-media-fg-55">
             Showing {visibleRows.length} of {filtered.length} · {selectedIds.size} selected
           </span>
         </div>
@@ -253,9 +233,9 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
     const list = (
       <>
         {toolbar}
-        <ul className="max-h-[min(58vh,520px)] space-y-0 overflow-y-auto rounded-lg border border-kyar-borderSubtle divide-y divide-kyar-borderSubtle">
+        <ul className="max-h-[min(58vh,520px)] divide-y divide-glass-divider overflow-y-auto border-y border-glass-divider">
           {visibleRows.length === 0 && (
-            <li className="p-6 text-center text-sm text-kyar-textTertiary">
+            <li className="p-6 text-center text-[13px] text-media-fg-55">
               {closetItems.length === 0
                 ? allowCreate
                   ? "No elements or materials yet. Create one above."
@@ -279,7 +259,7 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
           <button
             type="button"
             onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-            className="mt-3 w-full rounded-lg border border-kyar-border py-2.5 text-xs font-semibold uppercase tracking-wider text-kyar-text hover:bg-kyar-muted/40"
+            className="mt-3 min-h-[44px] w-full rounded-full border border-glass-border-strong bg-glass-bar py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             Show more ({filtered.length - visibleCount} left)
           </button>
@@ -289,19 +269,20 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
 
     const inner = (
       <div>
-        <p className="text-sm text-kyar-textSecondary leading-relaxed">
+        <p className="text-sm leading-relaxed text-media-fg-70">
           Select elements and materials for this build. Use search and filters when you have many
           elements. Changes apply when you save.
         </p>
         {allowCreate && (
-          <button
+          <PhotoPill
             type="button"
+            variant="outline"
             onClick={() => setQuickCreateOpen(true)}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-kyar-border bg-kyar-surface px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-text shadow-sm hover:border-kyar-text"
+            className="mt-3"
           >
             <Plus className="size-4" aria-hidden />
             New element or material
-          </button>
+          </PhotoPill>
         )}
         {enableDragDrop && (
           <DroppableBuildZone
@@ -338,18 +319,18 @@ export const LinkClosetItemsForm = forwardRef<LinkClosetItemsFormHandle, LinkClo
             }}
           >
             <div className="flex items-center justify-center gap-2 text-center">
-              <span className="material-symbols-outlined text-2xl text-kyar-textSecondary">
-                move_down
-              </span>
+              <span className="material-symbols-outlined text-2xl text-media-fg-70">move_down</span>
               <div>
-                <p className="font-medium text-sm text-kyar-text">Drop elements here to add</p>
-                <p className="text-xs text-kyar-textTertiary">{selectedIds.size} selected</p>
+                <p className="text-[13px] font-medium text-kyar-media-fg">
+                  Drop elements here to add
+                </p>
+                <p className="text-xs tabular-nums text-media-fg-55">{selectedIds.size} selected</p>
               </div>
             </div>
           </DroppableBuildZone>
         )}
         {!enableDragDrop && (
-          <p className="mt-3 text-xs text-kyar-textTertiary">
+          <p className="mt-3 text-xs tabular-nums text-media-fg-55">
             {selectedIds.size} element{selectedIds.size !== 1 ? "s" : ""} selected
           </p>
         )}
@@ -391,7 +372,11 @@ function DraggableClosetRow({
   const [isDragging, setIsDragging] = useState(false);
 
   return (
-    <li className={`flex items-center gap-3 py-3 px-2 ${isDragging ? "opacity-50" : ""}`}>
+    <li
+      className={`flex min-h-[52px] items-center gap-2 px-1 transition-colors hover:bg-[rgb(255_253_248/0.06)] ${
+        isDragging ? "opacity-40" : ""
+      }`}
+    >
       {dragHandle ? (
         <div
           draggable
@@ -416,12 +401,12 @@ function DraggableClosetRow({
             setIsDragging(false);
             onDragEndRow?.();
           }}
-          className="flex h-9 min-w-[28px] shrink-0 cursor-grab touch-none select-none items-center justify-center text-kyar-textTertiary active:cursor-grabbing"
+          className="flex h-11 min-w-[28px] shrink-0 cursor-grab touch-none select-none items-center justify-center text-media-fg-45 active:cursor-grabbing"
           style={{ WebkitUserDrag: "element" } as CSSProperties}
           aria-label={`Drag to add ${item.name} to build`}
           title="Drag into drop zone above"
         >
-          <span className="material-symbols-outlined pointer-events-none text-lg" aria-hidden>
+          <span className="material-symbols-outlined pointer-events-none text-[15px]" aria-hidden>
             drag_indicator
           </span>
         </div>
@@ -431,20 +416,24 @@ function DraggableClosetRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-80"
+        className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 rounded-[10px] py-2 pr-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
       >
         <span
-          className={`flex size-4 shrink-0 items-center justify-center border ${
-            isSelected ? "border-kyar-text bg-kyar-text" : "border-kyar-border"
+          className={`flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors ${
+            isSelected ? "border-glass-solid bg-glass-solid" : "border-media-fg-45"
           }`}
         >
           {isSelected && (
-            <span className="material-symbols-outlined text-sm text-kyar-bg">check</span>
+            <span className="material-symbols-outlined text-[14px] font-bold text-glass-ink">
+              check
+            </span>
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-kyar-text">{item.name}</span>
-          <span className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-kyar-textTertiary">
+          <span className="block truncate text-[13px] font-medium text-kyar-media-fg">
+            {item.name}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] uppercase tracking-[0.14em] text-media-fg-55">
             <span>
               {item.nodeType ? formatNodeTypeLabel(item.nodeType) : item.category || "Element"}
             </span>
@@ -491,8 +480,10 @@ function DroppableBuildZone({
       onDragLeave={onDragLeaveZone}
       onDragOver={onDragOverZone}
       onDrop={onDropOnZone}
-      className={`rounded-lg border-2 border-dashed p-5 transition-all ${className} ${
-        active ? "border-kyar-accent bg-kyar-accent/10" : "border-kyar-border bg-kyar-muted/50"
+      className={`rounded-[10px] border-[1.5px] border-dashed p-5 transition-colors ${className} ${
+        active
+          ? "border-kyar-media-fg bg-glass-active"
+          : "border-[rgb(255_253_248/0.35)] bg-[rgb(255_253_248/0.03)]"
       }`}
     >
       {children}

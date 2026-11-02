@@ -1,247 +1,119 @@
 # Kyarafit
 
-A mobile-first cosplay wardrobe and outfit planning app for cosplayers, fashion hobbyists, and content creators.
+A mobile-first cosplay wardrobe and convention-planning app, with web and Expo clients.
 
-## Overview
+Build-scoped **elements** → character **builds** → progress timelines → convention day plans
+and packing lists. Mobile personal-data editing uses a local vault; social, groups, billing,
+and public sharing are online features. Web edits personal planning data directly on the server
+while online.
 
-Kyarafit helps cosplayers manage complex wardrobes, track build progress, plan conventions, and generate packing lists automatically. The app uses a funnel-based architecture where users progress from inventory management through outfit organization to event planning.
+Kyarafit is moving to **Cosapp.si**, launching first on iOS, with Android and web planned.
+Kyarafit stays available until Cosapp.si is on the web; existing features keep working meanwhile.
+Launch-day invites are planned, and bringing builds across is being worked on, not yet guaranteed.
+The web announcement appears at the top of landing, auth, and app pages; dismissing it is
+remembered in this browser when local storage is available, without flashing on later loads.
 
-## Core Features
+> Start with [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md), the [domain glossary](CONTEXT.md), and
+> the [documentation index](docs/README.md). Agent instructions are in [AGENTS.md](AGENTS.md).
 
-- **Closet Management**: Organize costume pieces with photos
-- **Build Tracking**: Create cosplay builds and link closet items
-- **Progress Planning**: Track build progress with customizable checklists
-- **Convention Planning**: Schedule builds for specific convention days
-- **Smart Packing Lists**: Auto-generate packing lists from convention schedules
-- **Offline Support**: Mobile app works fully offline (local SQLite); syncs to cloud when signed in
+## Implementation status
 
-## Architecture
+The repository contains local-first storage, managed cloud sync, export/import, convention
+planning, progress updates, social/group features, and the Glass Studio web redesign. Mobile
+Glass Studio events and social screens are implemented but await owner-device acceptance;
+settings and build-detail feedback remain. See the [handoff](docs/redesign/HANDOFF.md).
 
-- **Backend**: [Convex](https://convex.dev) — database, real-time queries, mutations, file storage
-- **Auth**: [Better Auth](https://better-auth.com) — Google OAuth (GitHub optional), running as a Convex component
-- **Web**: Next.js 15 (App Router) with TailwindCSS
-- **Mobile**: React Native with Expo, local SQLite for offline-first storage
-- **Image Service**: Python service for background removal (optional)
-- **Design System**: Shared TypeScript types and tokens
+**Accepted, not yet implemented:** the two-tier entitlement change, R2 hosted-media pipeline,
+and Google Drive BYO sync with Off/Drive/Cloud settings. Existing entitlement/storage rules
+are still legacy rules; do not infer current behavior from the target glossary or ADRs.
+See the [roadmap](docs/ROADMAP.md) and [ADR status notes](docs/adr/).
 
-## Quick Start
+Repository code, passing tests, a published branch, and a live deployment are different states.
+Authorization remediation remains in progress; this README is not a security or rollout guarantee.
 
-### Prerequisites
+## Using the mobile planner offline
 
-- Node.js 18+ and npm
-- A [Convex](https://dashboard.convex.dev) account
-- Google OAuth credentials (from [Google Cloud Console](https://console.cloud.google.com))
+Sign in online once, then keep planning on this device without a connection, even after the
+cloud session expires. Signing out locks your saved work; sign back into the same account to
+reopen it. Use **Settings → Backup & restore** to save or restore a free backup, or explicitly
+**Remove from this device** and confirm to erase that account's local work and photos.
+Before removing data, save the backup outside the app and check for partial-backup warnings;
+see the [backup contract and limitations](docs/DATA_AND_SYNC.md#11-export--import-free).
 
-### Development Setup
+For web, use **Settings → Data**; its export and restore differ from mobile backups.
+See the [web export limitations](docs/DATA_AND_SYNC.md#current-web-behavior).
 
-1. **Clone the repository**
+## Stack and layout
+
+| Path             | Responsibility                                                               |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `convex/`        | Convex database/functions/storage, Better Auth component, RevenueCat webhook |
+| `web/`           | Next.js App Router, React, Tailwind, browser local-store adapters            |
+| `mobile/`        | Expo / React Native, SQLite, native adapters                                 |
+| `design-system/` | Shared pure TypeScript domain logic, types, and design tokens                |
+| `docs/`          | Product requirements, architecture, tests, decisions, and runbooks           |
+
+Legacy persistence names do not necessarily match current product terms. See
+[architecture](docs/ARCHITECTURE.md) before changing schemas.
+
+## Development setup
+
+Use Node.js 20.9+ (or a newer supported LTS) and npm. Work against a dedicated **development**
+Convex project, never production data.
+
+```bash
+git clone https://github.com/daveonthegit/Kyarafit.git
+cd Kyarafit
+npm ci
+```
+
+1. Review [.env.example](.env.example) and [mobile/.env.example](mobile/.env.example).
+   Keep local environment values out of Git.
+2. With owner authorization, `npx convex dev` links a development project and synchronizes
+   backend functions. This is a deployment operation, not an offline test command.
+3. Configure `web/.env.local` with the development deployment's `NEXT_PUBLIC_CONVEX_URL`,
+   `NEXT_PUBLIC_CONVEX_SITE_URL`, and `CONVEX_SITE_URL`. See
+   [auth setup](docs/auth.md) for the existing provider configuration.
+4. In separate terminals:
 
    ```bash
-   git clone https://github.com/yourusername/kyarafit.git
-   cd kyarafit
-   npm install
-   ```
-
-2. **Initialize Convex**
-
-   ```bash
-   npx convex dev
-   # Follow prompts to create/link a project
-   # This writes CONVEX_DEPLOYMENT + CONVEX_URL + CONVEX_SITE_URL to .env.local
-   ```
-
-3. **Configure web environment** (`web/.env.local`)
-
-   ```
-   CONVEX_DEPLOYMENT=dev:your-deployment
-   CONVEX_URL=https://your-deployment.convex.cloud
-   CONVEX_SITE_URL=https://your-deployment.convex.site
-   NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-   NEXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
-   ```
-
-4. **Set Convex environment variables** (in Convex dashboard → Settings → Environment Variables)
-
-   ```
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   BETTER_AUTH_SECRET=<output of: openssl rand -base64 32>
-   ```
-
-   GitHub OAuth (optional):
-
-   ```
-   GITHUB_CLIENT_ID=your-github-client-id
-   GITHUB_CLIENT_SECRET=your-github-client-secret
-   ```
-
-5. **Start development**
-
-   ```bash
-   # Terminal 1: Convex dev server (keeps functions in sync)
-   npx convex dev
-
-   # Terminal 2: Web app
    npm run dev:web
-
-   # Terminal 3: Mobile (optional)
    npm run start -w mobile
    ```
 
-   Or use the startup script:
+Web runs at http://localhost:3000. Expo device testing needs a suitable development client or
+compatible Expo Go setup. For transactional mail use the [Resend API guide](docs/integrations/RESEND_SETUP.md),
+not the retired Go/SMTP instructions.
 
-   ```powershell
-   .\scripts\start.ps1        # Windows
-   bash scripts/start.sh      # Mac/Linux
-   ```
-
-6. **Access the app**
-   - Web: http://localhost:3000
-   - Mobile: Scan QR code with Expo Go
-
-## Project Structure
-
-```
-kyarafit/
-├── convex/                   # Convex backend (database, queries, mutations)
-│   ├── schema.ts             # Database schema (all tables)
-│   ├── closetItems.ts        # Closet CRUD
-│   ├── builds.ts             # Builds CRUD
-│   ├── buildTasks.ts         # Build task checklist
-│   ├── conventions.ts        # Conventions + planning + packing
-│   ├── users.ts              # User profiles
-│   ├── files.ts              # File storage helpers
-│   ├── auth.ts               # Auth identity query
-│   └── betterAuth/           # Better Auth Convex component
-├── web/                      # Next.js web application
-│   ├── src/app/              # App routes
-│   ├── src/components/       # React components
-│   └── src/lib/auth/         # Better Auth client/server helpers
-├── mobile/                   # React Native mobile app (Expo)
-│   ├── app/                  # Expo Router screens
-│   └── src/                  # Storage, auth, components
-├── image-service/            # Python background removal service (optional)
-├── design-system/            # Shared TypeScript types and design tokens
-├── backend-archived/         # Archived Go Fiber backend (no longer used)
-└── docs/                     # Documentation
-```
-
-## Development Scripts
+## Validation
 
 ```bash
-# Run all CI checks locally (do this before pushing)
-make validate
-# or: npm run validate
-
-# Start all services
-make dev
-
-# Individual services
-make dev-web       # Next.js dev server
-make dev-mobile    # Expo dev server
-make dev-convex    # Convex dev server
-
-# Code quality
-make format        # Auto-format all code
-make lint          # Lint all code
-make typecheck     # Type check TypeScript
-make test          # Run all tests
+npm run validate                            # format, i18n, lint, types, backend tests, web build
+npm test -w web                             # web + shared domain tests (explicit additional gate)
+npm test -w mobile                          # mobile tests (explicit additional gate)
+npx tsc -p convex/tsconfig.json --noEmit      # backend typecheck
 ```
 
-## Feature Flow
-
-### 1. Closet Items (Foundation)
-
-- Add costume pieces with photos
-- Categorize by type (wig, prop, armor, garment, etc.)
-- Track costs and add notes
-
-### 2. Builds (Organization)
-
-- Create cosplay builds for characters
-- Link closet items to builds
-- Track budget vs actual costs
-- Add progress checklists (build tasks)
-- Track status (idea → WIP → ready)
-
-### 3. Conventions (Planning)
-
-- Create conventions with dates and location
-- Plan day-by-day: assign builds to specific dates
-- Support rest days
-
-### 4. Packing Lists (Automation)
-
-- Auto-generate packing lists from convention schedules
-- Smart deduplication (same item used multiple days appears once)
-- Check off items as packed
-- Add manual items (non-costume essentials)
-
-## Key Technologies
-
-- **Backend**: [Convex](https://convex.dev) (database, real-time, file storage)
-- **Auth**: [Better Auth](https://better-auth.com) (Google/GitHub OAuth)
-- **Web**: React, Next.js 15, TailwindCSS
-- **Mobile**: React Native, Expo, SQLite (offline-first)
-- **Image Processing**: Python, rembg (optional)
-- **Design System**: Shared TypeScript types and tokens
-
-## Testing & CI
-
-```bash
-# Run what CI runs (locally)
-make validate
-
-# Individual test suites
-make test-web          # Web tests
-make test-image-service # Python tests
-```
-
-Run `make validate` before pushing. See [CI_LOCAL.md](CI_LOCAL.md) for details.
+The npm and Make aggregate gates are not identical. See [CI_LOCAL.md](CI_LOCAL.md) and
+[testing strategy](docs/TESTING.md). Pre-existing formatting failures should be reported,
+not hidden by a repository-wide formatting change. Format only the files you change.
+Live E2E, native-device acceptance, and provider integration tests require authorized development targets.
 
 ## Deployment
 
-- **Convex**: Auto-deploys via `npx convex deploy` or GitHub Actions
-- **Web**: GCP Cloud Run (automated via GitHub Actions)
-- **Image Service**: GCP Cloud Run (optional, automated via GitHub Actions)
-
-See [docs/MIGRATION.md](docs/MIGRATION.md) for the Supabase → Convex migration summary.
+Only an authorized operator chooses and deploys a verified release lineage. Confirm the actual
+backend revision and schema before rollout; do not replace a live feature-line schema with an
+older main-line schema. Checked-in host configs alone do not establish the live host.
+See [deployment preflight](docs/setup/DEPLOY_README.md).
 
 ## Documentation
 
-### Getting Started
-
-- [Migration Guide](docs/MIGRATION.md) - Supabase → Convex migration summary
-- [Development Guide](docs/DEVELOPMENT.md) - Development environment setup
-- **[CI/CD Local Guide](CI_LOCAL.md)** - Run CI checks locally before pushing
-
-### Technical
-
-- [Context Document](docs/CONTEXT.md) - Project context and architecture decisions
-- [Auth Documentation](docs/auth.md) - Authentication flow
-- [Project Structure](docs/project_structure.md) - Codebase organization
-
-### Product & Design
-
-- [Product Requirements (PRD)](docs/PRD.md) - Product vision and requirements
-- [User Flows](docs/USER_FLOWS.md) - Comprehensive feature documentation
-- [Design System](docs/design_system/README.md) - Component specifications
-- [Style Guide](docs/style_doc.md) - UI/UX guidelines
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
+- [Product requirements](docs/PRODUCT_SPEC.md) and [data/sync requirements](docs/DATA_AND_SYNC.md)
+- [Architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md)
+- [Glass Studio design](docs/redesign/README.md) and [design-system contract](docs/DESIGN_SYSTEM.md)
+- [Security reporting policy](docs/SECURITY.md)
+- [Contributing](docs/CONTRIBUTING.md)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Image processing powered by [rembg](https://github.com/danielgatis/rembg)
-- Authentication by [Better Auth](https://better-auth.com)
-- Database and backend by [Convex](https://convex.dev)
-
----
-
-**Built with ❤️ for the cosplay community**
+[MIT](LICENSE).

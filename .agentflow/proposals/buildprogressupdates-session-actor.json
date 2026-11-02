@@ -1,0 +1,11 @@
+{
+  "kind": "new-work",
+  "summary": "convex/buildProgressUpdates.ts still takes the acting user as a client-supplied userId argument and compares it to the row owner, so passing another user's id authorizes you as them. It was added on the glass-studio line after fm/kyarafit-auth-containment was cut, so the containment merge did not cover it. It is the only remaining public Convex function set that does not derive identity from the session.",
+  "acceptance_criteria": [
+    "listByBuild, add, update and remove in convex/buildProgressUpdates.ts derive the actor via requireIdentity/optionalIdentity from convex/lib/authz.ts instead of args.userId",
+    "The userId argument becomes v.optional(v.string()) and is ignored, matching the Phase A contract in docs/backend-authorization.md so deployed clients keep working",
+    "Storage accounting, the isPaidUser publish gate and the idempotency ledger are all keyed on the session actor, not the supplied id",
+    "convex/authz.test.ts gains a buildProgressUpdates case asserting both properties: an unauthenticated caller is rejected, and a caller passing another user's id cannot read or write that user's updates",
+    "docs/backend-authorization.md no longer lists buildProgressUpdates as a known gap"
+  ]
+}

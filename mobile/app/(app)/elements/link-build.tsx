@@ -2,8 +2,8 @@ import { useLayoutEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Doc, Id } from "convex/_generated/dataModel";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { useDesignTheme } from "@/theme/useDesignTheme";
@@ -31,18 +31,18 @@ export default function ElementLinkBuildScreen() {
   const param = Array.isArray(raw) ? raw[0] : raw;
   const cosplayNodeId = param ? (param as Id<"cosplayNodes">) : undefined;
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
-  const builds = useQuery(
+  const builds = useOfflineQuery(
     api.builds.list,
     userId ? { userId, sortBy: "name", order: "asc" } : "skip"
   );
-  const linkedBuilds = useQuery(
+  const linkedBuilds = useOfflineQuery(
     api.builds.getBuildsUsingNode,
     cosplayNodeId ? { cosplayNodeId } : "skip"
   );
-  const addNodesToBuild = useMutation(api.builds.addNodesToBuild);
+  const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
 
   const loading =
     identity === undefined ||

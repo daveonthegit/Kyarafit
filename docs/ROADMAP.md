@@ -1,0 +1,140 @@
+# Refactor Roadmap
+
+_Implementation status and historical refactor order. Behavior → [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md);
+data/sync → [`DATA_AND_SYNC.md`](DATA_AND_SYNC.md). Current work follows its assigned brief, not
+a blanket restart of the historical phase plan._
+
+## Current status
+
+Status is repository implementation, not deployment or owner acceptance.
+
+| Area                                            | State                                                                   | Evidence / next gate                                                                                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Local-first foundations                         | Implemented                                                             | `design-system/domain/{syncPolicy,offlineConflict,cloudStoragePolicy}.ts`; platform offline bridges                                      |
+| Elements and progress                           | Implemented with legacy persistence names                               | `cosplayNodes`, `buildProgressUpdates`, `workflowItems`; see [architecture](ARCHITECTURE.md)                                             |
+| Web local store                                 | Implemented                                                             | OPFS + wa-sqlite with IndexedDB fallback in `web/src/lib/offline/engineSelection.ts`                                                     |
+| Mobile per-account vault core                   | Implemented; native acceptance remains limited to the recorded evidence | [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md); [verification scope](verification/local-vault-offline/README.md)       |
+| Mobile whole-vault backup/restore               | Implemented; live fresh-vault restore recorded                          | [Backup contract](DATA_AND_SYNC.md#11-export--import-free); [verification scope](verification/local-vault-offline/README.md)             |
+| Web isolation and write-failure correctness     | Implemented in the independent web slice                                | [Current web isolation and online-write boundary](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees)                        |
+| Paid-sync correctness                           | Mobile row replica implemented; staging gate pending                    | [Current sync contract](DATA_AND_SYNC.md#6-managed-sync-paid--online-only); [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md) |
+| Other export formats and tier transitions       | Partial implementation                                                  | [Remaining export requirements](DATA_AND_SYNC.md#11-export--import-free), `convex/tierTransition.ts`; live E2E is a separate dev gate    |
+| Glass Studio web                                | Implemented                                                             | [Redesign](redesign/README.md)                                                                                                           |
+| Mobile events/social (7.3/7.4)                  | Implemented; owner-device acceptance pending                            | [Handoff](redesign/HANDOFF.md)                                                                                                           |
+| Mobile settings (7.5) and build-detail feedback | Outstanding                                                             | Settings pass; owner walkthrough before feedback changes                                                                                 |
+| Two-tier entitlements                           | Accepted, unbuilt                                                       | GH #147; existing legacy policy is not the target policy                                                                                 |
+| R2 media, migration, takedown                   | Accepted, unbuilt                                                       | GH #148 and ADR-0001; current storage remains `_storage`                                                                                 |
+| BYO merge engine, Drive, sync-method settings   | Engine present but disabled; user integration unbuilt                   | GH #149 and ADR-0003; [engine contract](../design-system/domain/byoSnapshot.md). No public export, user wiring, or Drive transport.      |
+| Security/remediation and release                | In progress / operator verification required                            | [Authorization contract](backend-authorization.md); no release or clean-security guarantee                                               |
+
+Product order: shared entitlement changes precede R2 clients/migration; BYO merge precedes Drive
+and sync-method settings; native/provider acceptance precedes release. Broader moderation remains
+unspecified beyond the accepted takedown minimum. Navigation and visual direction are already
+settled by `design-system/navConfig.ts` and Glass Studio; explicit progress publishing is current
+behavior. Do not schedule another design-direction selection or invent automatic publishing.
+
+## Historical phase plan
+
+The phases below preserve the original refactor rationale. They are **not an open task list**.
+Some old requirements (paid social gates, group exception, storage allowances) are superseded by
+GH #147; their requirement amendments are owned by the entitlement/sync implementation work.
+Legacy table deletion requires the documented purge/deployment checks, not this historical list.
+Agentflow is deprecated; preserve `WORK.md` and `.agentflow/` as historical records.
+
+---
+
+## Principles
+
+- **Tests first.** Write/confirm the phase's `REQ-*` tests (red), then implement to green.
+- **Small, reviewable PRs.** One concern each; commit per verified slice; run `make validate`.
+- **No drift.** Land web + mobile parity within the same phase (shared logic first).
+- **Never weaken a test or the spec to pass.**
+
+## Delete / preserve / build
+
+| Action        | Items                                                                                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Delete**    | `closetItems`, `buildTasks` (table+shim+fields+indexes), `cosplayNodeLinks`, `buildCosplayLinks`, `buildNodeStates`, `buildItemLinks`, background-removal `image-service`, archived Go backend, superseded docs (see [`specs/doc-consolidation-plan.md`](specs/doc-consolidation-plan.md)) |
+| **Preserve**  | Auth, builds, conventions/day-plans/packing, `workflowItems` planner, RevenueCat billing, image upload (paid)                                                                                                                                                                              |
+| **Build new** | `elements` model, `buildProgressUpdates`, `syncPolicy`, `cloudStoragePolicy`, `offlineConflict` (field LWW), web local store, export/import, tier-transition flows, social posting gates                                                                                                   |
+
+---
+
+## Phase 0 — Foundations & invariants (highest leverage, smallest)
+
+**Goal:** make the core freemium/local-first invariants true and tested.
+
+- `design-system/domain/syncPolicy.ts` → `shouldRunSyncWorker(tier, signedIn)`; gate `SyncWorkerProvider` (REQ-D60).
+- `entitlements.ts`: advanced planner **free**; confirm sync/publish/social/group paid (REQ-013/15/17/18/19).
+- `cloudStoragePolicy.ts`: free cap 0 / paid 2048; over-cap blocks uploads only (REQ-D90).
+- `offlineConflict.ts`: `mergeFieldLWW` (REQ-D65/66).
+- Free-user zero-Convex-data-call assertion (REQ-D10).
+- **DoD:** AC-01, AC-02, AC-04, AC-05, AC-10 green; sync gating + conflict + storage unit tests pass.
+
+## Phase 1 — Data model migration (greenfield)
+
+- Introduce `elements` (build-scoped tree, REQ-040/41/42); migrate/discard `cosplayNodes`/`closetItems` (REQ-D80/81).
+- Remove `buildTasks` + cross-refs; `workflowItems` only.
+- Add `buildProgressUpdates`; rename process pictures table if desired.
+- Add/maintain sync metadata (`updatedAt`, `fieldUpdatedAt`, `version`, `clientId`, `deletedAt`) on writes (REQ-D40).
+- **DoD:** schema compiles; element CRUD build-scoped; progress timeline persists; per-field timestamps bumped on write.
+
+## Phase 2 — Elements & build-detail UX
+
+- Build-scoped element management (no Closet page); duplicate-to-build; sub-elements.
+- Build detail: reference images, process photos, **progress updates** timeline (REQ-047/48/49).
+- Progressive-disclosure **planner** redesign (REQ-063).
+- **DoD:** AC-07, AC-09 green; planner advanced fields hidden by default.
+
+## Phase 3 — Sync correctness (superseded)
+
+The command-replay/warm-up plan was replaced by [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md).
+Current behavior is owned by [Data & Sync §6](DATA_AND_SYNC.md#6-managed-sync-paid--online-only);
+the remaining staging gate is described in [Testing](TESTING.md#managed-sync-scenarios-and-staging-gate).
+
+## Phase 4 — Local images
+
+- `ImageRef` union + resolver; local image store (mobile first); paid upload as sync step (REQ-D70/71/72).
+- **DoD:** free user adds photos offline forever; paid uploads on sync.
+
+## Phase 5 — Web local-first
+
+- Web `LocalStore` (OPFS+wa-sqlite / Dexie fallback); web `useOfflineQuery`/`useOfflineMutation`; ESLint guard; migrate web pages off direct Convex for local-first data.
+- **DoD:** free web user does full CRUD + images with Convex data layer blocked; persists across reload; web/mobile parity.
+
+## Phase 6 — Export / import
+
+- CSV + JSON-ZIP (fflate) + PDF; idempotent import; round-trip fidelity (REQ-D100/101/102).
+- **DoD:** AC export/import; device A → B round-trip; re-import no dupes.
+
+## Phase 7 — Social, groups & group-cloud exception
+
+- Online-only social (feed/discover/follow/like/comment/profiles) with offline banners; paid posting gates (REQ-018).
+- Groups: paid create / free join; group-cosplay build cloud exception with guards (REQ-021).
+- **DoD:** AC-06 green; free interactions work online; posting gated.
+
+## Phase 8 — Tier transitions & hardening
+
+- Upgrade backfill (dedupe across devices, progress UI) (REQ-D95).
+- Downgrade: stop sync, 14-day grace, freeze, ~3-month retention cron, never delete local (REQ-D96/97).
+- E2E: offline CRUD round-trip, export/import, upgrade/downgrade. Perf budgets (P1–P5). a11y/i18n parity.
+- **DoD:** AC-08 green; downgrade never loses data; perf + a11y gates pass.
+
+## Phase 9 — Visual design (direction resolved)
+
+- OQ-1/OQ-2 are settled by Glass Studio and `design-system/navConfig.ts`. Web implementation
+  exists; remaining mobile settings and owner acceptance are listed above. No new visual
+  direction or navigation redesign is authorized by the old phase plan.
+
+---
+
+## Dependencies
+
+Phase 0 → everything. Phase 1 → 2,3,4. Phase 5 depends on 0/3 (shared bridge). 6/7 depend on 1.
+8 depends on 3/5. 9 can start after Phase 0 in parallel.
+
+## Risk areas
+
+- **Per-field LWW** adds write-time bookkeeping (`fieldUpdatedAt`) across all mutations — touch every write path. Mitigate with a shared write helper.
+- **Web local store (OPFS+wa-sqlite)** is the largest/riskiest slice — Dexie fallback behind the interface.
+- **Group-cloud exception** abuse surface — keep guards server-enforced, not client-trusted.
+- **Sync worker concurrency** — keep single-flight + connectivity guards; cover with tests before refactor.

@@ -1,62 +1,14 @@
 import { Migrations } from "@convex-dev/migrations";
 import { components, internal } from "./_generated/api";
-import type { DataModel, Id } from "./_generated/dataModel";
-import { internalMutation } from "./_generated/server";
+import type { DataModel } from "./_generated/dataModel";
+import { internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  cleanupMutation,
+  guardRegisteredInternalMutation,
+} from "./lib/guardedMutation";
 
-export const COSPLAY_ELEMENTS_MIGRATION_SEQUENCE = [
-  "backfillCosplayNodesFromClosetItems",
-  "backfillCosplayNodeLinksFromClosetItems",
-  "backfillBuildCosplayLinksFromBuildItemLinks",
-  "backfillBuildTaskCosplayRefs",
-  "backfillPackingListCosplayRefs",
-] as const;
-
-export const WORKFLOW_MIGRATION_SEQUENCE = [
-  "backfillWorkflowItemsFromBuildTasks",
-  "backfillWorkflowCompletionAnchors",
-] as const;
-
-function mapLegacyStatusToNodeFields(status: string | undefined, nodeType: "element" | "material") {
-  if (status === "complete") {
-    return {
-      purchaseStatus: nodeType === "element" ? ("bought" as const) : undefined,
-      buildStatus: nodeType === "element" ? ("built" as const) : undefined,
-      materialStatus: nodeType === "material" ? ("complete" as const) : undefined,
-      manualOverallBucket: "complete" as const,
-    };
-  }
-
-  if (status === "in_progress") {
-    return {
-      purchaseStatus: undefined,
-      buildStatus: nodeType === "element" ? ("wip" as const) : undefined,
-      materialStatus: nodeType === "material" ? ("in_use" as const) : undefined,
-      manualOverallBucket: undefined,
-    };
-  }
-
-  return {
-    purchaseStatus: nodeType === "element" ? ("to_buy" as const) : undefined,
-    buildStatus: nodeType === "element" ? ("not_started" as const) : undefined,
-    materialStatus: nodeType === "material" ? ("to_buy" as const) : undefined,
-    manualOverallBucket: undefined,
-  };
-}
-
-function getLegacyNodeType(category: string | undefined): "element" | "material" {
-  return category === "material" ? "material" : "element";
-}
-
-async function getCosplayNodeIdByLegacyId(
-  ctx: Parameters<Parameters<typeof migrations.define<"closetItems">>[0]["migrateOne"]>[0],
-  legacyClosetItemId: Id<"closetItems">
-) {
-  const node = await ctx.db
-    .query("cosplayNodes")
-    .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", legacyClosetItemId))
-    .unique();
-  return node?._id;
-}
+export const WORKFLOW_MIGRATION_SEQUENCE = ["backfillWorkflowItemsFromBuildTasks"] as const;
 
 const migrations = new Migrations<DataModel>(components.migrations, {
   internalMutation,
@@ -65,193 +17,12 @@ const migrations = new Migrations<DataModel>(components.migrations, {
 
 export { migrations };
 
-export const run = migrations.runner();
-export const runCosplayElementsMigration = migrations.runner([
-  internal.migrations.backfillCosplayNodesFromClosetItems,
-  internal.migrations.backfillCosplayNodeLinksFromClosetItems,
-  internal.migrations.backfillBuildCosplayLinksFromBuildItemLinks,
-  internal.migrations.backfillBuildTaskCosplayRefs,
-  internal.migrations.backfillPackingListCosplayRefs,
-]);
+export const run = guardRegisteredInternalMutation(migrations.runner());
 
-export const runWorkflowMigration = migrations.runner([
-  internal.migrations.backfillWorkflowItemsFromBuildTasks,
-  internal.migrations.backfillWorkflowCompletionAnchors,
-]);
-
-export const backfillCosplayNodesFromClosetItems = migrations.define({
-  table: "closetItems",
-  migrateOne: async (ctx, item) => {
-    const nodeType = getLegacyNodeType(item.category);
-    const statusPatch = mapLegacyStatusToNodeFields(item.status, nodeType);
-    const existingNode = await ctx.db
-      .query("cosplayNodes")
-      .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", item._id))
-      .unique();
-
-    if (existingNode) {
-      await ctx.db.patch(existingNode._id, {
-        userId: item.userId,
-        nodeType,
-        name: item.name,
-        category: item.category,
-        tags: item.tags,
-        notes: item.notes,
-        imageUrl: item.imageUrl,
-        imageStorageId: item.imageStorageId,
-        sourceUrl: item.itemLink,
-        pricingMode: "total",
-        directCostCents: item.costCents,
-        ...statusPatch,
-      });
-      return;
-    }
-
-    await ctx.db.insert("cosplayNodes", {
-      userId: item.userId,
-      legacyClosetItemId: item._id,
-      nodeType,
-      name: item.name,
-      category: item.category,
-      tags: item.tags,
-      notes: item.notes,
-      imageUrl: item.imageUrl,
-      imageStorageId: item.imageStorageId,
-      sourceUrl: item.itemLink,
-      pricingMode: "total",
-      directCostCents: item.costCents,
-      ...statusPatch,
-    });
-  },
-});
-
-export const backfillCosplayNodeLinksFromClosetItems = migrations.define({
-  table: "closetItems",
-  migrateOne: async (ctx, item) => {
-    if (!item.parentItemId || item.parentItemId === item._id) {
-      return;
-    }
-
-    const childNodeId = await getCosplayNodeIdByLegacyId(ctx, item._id);
-    const parentNodeId = await getCosplayNodeIdByLegacyId(ctx, item.parentItemId);
-    if (!childNodeId || !parentNodeId) {
-      return;
-    }
-
-    const [childNode, parentNode] = await Promise.all([
-      ctx.db.get(childNodeId),
-      ctx.db.get(parentNodeId),
-    ]);
-    if (!childNode || !parentNode) {
-      return;
-    }
-
-    if (parentNode.nodeType === "element" && childNode.nodeType === "material") {
-      return;
-    }
-
-    const existingLinks = await ctx.db
-      .query("cosplayNodeLinks")
-      .withIndex("by_parentNodeId", (q) => q.eq("parentNodeId", parentNodeId))
-      .collect();
-    if (existingLinks.some((link) => link.childNodeId === childNodeId)) {
-      return;
-    }
-
-    await ctx.db.insert("cosplayNodeLinks", {
-      userId: item.userId,
-      parentNodeId,
-      childNodeId,
-      sortOrder: existingLinks.length,
-      linkMode: "owned",
-    });
-  },
-});
-
-export const backfillBuildCosplayLinksFromBuildItemLinks = migrations.define({
-  table: "buildItemLinks",
-  migrateOne: async (ctx, link) => {
-    const cosplayNodeId = await getCosplayNodeIdByLegacyId(ctx, link.closetItemId);
-    if (!cosplayNodeId) {
-      return;
-    }
-
-    const existingBuildLinks = await ctx.db
-      .query("buildCosplayLinks")
-      .withIndex("by_buildId", (q) => q.eq("buildId", link.buildId))
-      .collect();
-    if (!existingBuildLinks.some((row) => row.cosplayNodeId === cosplayNodeId)) {
-      await ctx.db.insert("buildCosplayLinks", {
-        userId: link.userId,
-        buildId: link.buildId,
-        cosplayNodeId,
-        sortOrder: existingBuildLinks.length,
-      });
-    }
-
-    const existingState = await ctx.db
-      .query("buildNodeStates")
-      .withIndex("by_buildId_cosplayNodeId", (q) =>
-        q.eq("buildId", link.buildId).eq("cosplayNodeId", cosplayNodeId)
-      )
-      .unique();
-    if (existingState) {
-      return;
-    }
-
-    const legacyItem = await ctx.db.get(link.closetItemId);
-    if (!legacyItem?.status) {
-      return;
-    }
-
-    await ctx.db.insert("buildNodeStates", {
-      userId: link.userId,
-      buildId: link.buildId,
-      cosplayNodeId,
-      pricingMode: "total",
-      directCostCents: legacyItem.costCents,
-      ...mapLegacyStatusToNodeFields(legacyItem.status, getLegacyNodeType(legacyItem.category)),
-    });
-  },
-});
-
-export const backfillBuildTaskCosplayRefs = migrations.define({
-  table: "buildTasks",
-  migrateOne: async (ctx, task) => {
-    if (!task.closetItemId || task.cosplayNodeId) {
-      return;
-    }
-
-    const cosplayNodeId = await getCosplayNodeIdByLegacyId(ctx, task.closetItemId);
-    if (!cosplayNodeId) {
-      return;
-    }
-
-    await ctx.db.patch(task._id, {
-      cosplayNodeId,
-      closetItemId: undefined,
-    });
-  },
-});
-
-export const backfillPackingListCosplayRefs = migrations.define({
-  table: "packingListItems",
-  migrateOne: async (ctx, item) => {
-    if (!item.closetItemId || item.cosplayNodeId) {
-      return;
-    }
-
-    const cosplayNodeId = await getCosplayNodeIdByLegacyId(ctx, item.closetItemId);
-    if (!cosplayNodeId) {
-      return;
-    }
-
-    await ctx.db.patch(item._id, {
-      cosplayNodeId,
-      closetItemId: undefined,
-    });
-  },
-});
+export const runWorkflowMigration: ReturnType<typeof migrations.runner> =
+  guardRegisteredInternalMutation(
+    migrations.runner([internal.migrations.backfillWorkflowItemsFromBuildTasks])
+  );
 
 export const backfillWorkflowItemsFromBuildTasks = migrations.define({
   table: "buildTasks",
@@ -322,41 +93,69 @@ export const backfillWorkflowItemsFromBuildTasks = migrations.define({
   },
 });
 
-export const backfillWorkflowCompletionAnchors = migrations.define({
-  table: "closetItems",
-  migrateOne: async (ctx, item) => {
-    if (!item.completionTaskId) return;
-    const workflowItem = await ctx.db
-      .query("workflowItems")
-      .withIndex("by_legacyBuildTaskId", (q) => q.eq("legacyBuildTaskId", item.completionTaskId))
-      .unique();
-    if (!workflowItem) return;
+/**
+ * READ-ONLY report on cosplayNodes build-scoping. Run in a deployment with:
+ *   npx convex run migrations:reportCosplayNodeScoping
+ * It writes nothing. Build membership now lives on the node's own `buildId` field (Step 2c), so the
+ * report is derived entirely from cosplayNodes.
+ */
+export const reportCosplayNodeScoping = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const nodes = await ctx.db.query("cosplayNodes").collect();
+    const nodesAlreadyBuildScoped = nodes.filter((n) => n.buildId !== undefined).length;
+    const nodesLibraryOnly = nodes.filter((n) => n.buildId === undefined).length;
 
-    const cosplayNode = await ctx.db
-      .query("cosplayNodes")
-      .withIndex("by_legacyClosetItemId", (q) => q.eq("legacyClosetItemId", item._id))
-      .unique();
-    if (!cosplayNode) return;
+    return {
+      totalNodes: nodes.length,
+      nodesAlreadyBuildScoped,
+      nodesLibraryOnly, // attached to no build
+    };
+  },
+});
 
-    const existing = await ctx.db
-      .query("workflowAttachments")
-      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItem._id))
-      .collect();
-    const hasCompletionAnchor = existing.some(
-      (attachment) =>
-        attachment.entityType === "cosplayNode" &&
-        attachment.entityId === cosplayNode._id &&
-        attachment.role === "completion_anchor"
-    );
-    if (!hasCompletionAnchor) {
-      await ctx.db.insert("workflowAttachments", {
-        userId: item.userId,
-        workflowItemId: workflowItem._id,
-        entityType: "cosplayNode",
-        entityId: cosplayNode._id,
-        entityKey: `cosplayNode:${cosplayNode._id}`,
-        role: "completion_anchor",
-      });
+/**
+ * Two-phase cleanup for the DEPRECATED build-scoping tables + cosplayNodes.legacyClosetItemId.
+ * The tables can't be dropped from the schema while they hold data (Convex rejects a non-empty table
+ * that's absent from the schema), so:
+ *   1. deploy the schema that keeps them (deprecated),
+ *   2. run this: `npx convex run migrations:purgeLegacyBuildScopingData` — empties them + strips the field,
+ *   3. deploy the follow-up schema that removes the defs.
+ * Idempotent and re-runnable (a second run reports all-zero). Deletes only redundant data already
+ * migrated onto cosplayNodes.buildId/parentNodeId/node-fields; touches no on-device data.
+ */
+export const purgeLegacyBuildScopingData = cleanupMutation({
+  args: {},
+  handler: async (ctx) => {
+    const closetItems = await ctx.db.query("closetItems").collect();
+    for (const row of closetItems) await ctx.db.delete(row._id);
+    const cosplayNodeLinks = await ctx.db.query("cosplayNodeLinks").collect();
+    for (const row of cosplayNodeLinks) await ctx.db.delete(row._id);
+    const buildCosplayLinks = await ctx.db.query("buildCosplayLinks").collect();
+    for (const row of buildCosplayLinks) await ctx.db.delete(row._id);
+    const buildNodeStates = await ctx.db.query("buildNodeStates").collect();
+    for (const row of buildNodeStates) await ctx.db.delete(row._id);
+    const buildItemLinks = await ctx.db.query("buildItemLinks").collect();
+    for (const row of buildItemLinks) await ctx.db.delete(row._id);
+
+    let cosplayNodesStripped = 0;
+    const nodes = await ctx.db.query("cosplayNodes").collect();
+    for (const node of nodes) {
+      if (node.legacyClosetItemId !== undefined) {
+        await ctx.db.patch(node._id, { legacyClosetItemId: undefined });
+        cosplayNodesStripped += 1;
+      }
     }
+
+    return {
+      deleted: {
+        closetItems: closetItems.length,
+        cosplayNodeLinks: cosplayNodeLinks.length,
+        buildCosplayLinks: buildCosplayLinks.length,
+        buildNodeStates: buildNodeStates.length,
+        buildItemLinks: buildItemLinks.length,
+      },
+      cosplayNodesStripped,
+    };
   },
 });

@@ -1,8 +1,8 @@
 import { useLayoutEffect, useMemo } from "react";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import type { Id } from "convex/_generated/dataModel";
 import type { CosplayNodeType } from "@kyarafit/design-system/types";
 import { DataBoundary } from "@/ui";
@@ -28,10 +28,10 @@ export default function ElementLinkParentScreen() {
   const param = Array.isArray(raw) ? raw[0] : raw;
   const childNodeId = param ? (param as Id<"cosplayNodes">) : undefined;
 
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
-  const child = useQuery(api.cosplayNodes.get, childNodeId ? { id: childNodeId } : "skip");
-  const catalog = useQuery(
+  const child = useOfflineQuery(api.cosplayNodes.get, childNodeId ? { id: childNodeId } : "skip");
+  const catalog = useOfflineQuery(
     api.cosplayNodes.list,
     userId ? { userId, sortBy: "name", order: "asc" } : "skip"
   );
@@ -82,7 +82,7 @@ export default function ElementLinkParentScreen() {
 
 function LinkParentBody({ loaded, onDone }: { loaded: Ready; onDone: () => void }) {
   const { t } = useTranslation();
-  const addChildLink = useMutation(api.cosplayNodes.addChildLink);
+  const addChildLink = useOfflineMutation(api.cosplayNodes.addChildLink);
 
   return (
     <NodeLinkPicker

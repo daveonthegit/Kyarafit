@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { Sheet } from "@/components/ui/sheet";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 
 type BuildAddTaskModalProps = {
   open: boolean;
@@ -22,7 +23,7 @@ export function BuildAddTaskModal({
   userId,
   taskCount,
 }: BuildAddTaskModalProps) {
-  const createTask = useMutation(api.buildTasks.create);
+  const createTask = useOfflineMutation(api.buildTasks.create);
   const [label, setLabel] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,26 +67,23 @@ export function BuildAddTaskModal({
       onClose={onClose}
       title="Add tasks"
       titleId="build-add-task-modal-title"
+      surface="glass"
       footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full px-6 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md"
-        >
+        <PhotoPill type="button" variant="outline" onClick={onClose} className="w-full">
           Done
-        </button>
+        </PhotoPill>
       }
     >
-      <p className="text-sm text-kyar-textSecondary mb-4">
+      <p className="mb-4 text-sm leading-relaxed text-media-fg-70">
         Add one task at a time. Each save keeps this window open for the next.
       </p>
       {feedback && (
-        <p className="mb-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+        <p className="mb-3 rounded-[10px] bg-on-glass-chip-done-bg px-3 py-2 text-[13px] text-on-glass-chip-done-fg">
           {feedback}
         </p>
       )}
       {error && (
-        <p className="mb-3 text-sm text-red-600" role="alert">
+        <p className="mb-3 text-sm text-on-glass-danger" role="alert">
           {error}
         </p>
       )}
@@ -96,16 +94,17 @@ export function BuildAddTaskModal({
           onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !pending && add()}
           placeholder="Task description…"
-          className="flex-1 min-w-0 border border-kyar-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/30 focus:border-kyar-accent"
+          className="glass-field min-h-[44px] min-w-0 flex-1 px-3 py-2.5 text-[13px]"
         />
-        <button
+        <PhotoPill
           type="button"
+          variant="solid"
+          icon="add"
           onClick={add}
           disabled={pending || !label.trim()}
-          className="shrink-0 px-5 py-2.5 bg-kyar-text text-kyar-bg text-xs font-bold uppercase tracking-wider rounded-md disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add"}
-        </button>
+        </PhotoPill>
       </div>
     </Sheet>
   );

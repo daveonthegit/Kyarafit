@@ -1,14 +1,23 @@
 import { Pressable, type PressableProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation, type Href } from "expo-router";
+import { glass } from "@kyarafit/design-system/rn";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 
 type Props = Omit<PressableProps, "onPress"> & {
   fallbackHref?: Href;
   label?: string;
+  /** "glass" = light chevron for glass/photo headers (never theme-flips). */
+  surface?: "default" | "glass";
 };
 
-export function MobileBackButton({ fallbackHref, label = "Back", className, ...rest }: Props) {
+export function MobileBackButton({
+  fallbackHref,
+  label = "Back",
+  surface = "default",
+  className,
+  ...rest
+}: Props) {
   const navigation = useNavigation();
   const { colors } = useDesignTheme();
 
@@ -29,14 +38,21 @@ export function MobileBackButton({ fallbackHref, label = "Back", className, ...r
       hitSlop={10}
       onPress={handlePress}
       className={[
-        "h-11 w-11 items-center justify-center rounded-none bg-transparent active:bg-kyar-muted dark:active:bg-kyar-dark-muted",
+        "h-11 w-11 items-center justify-center rounded-none bg-transparent",
+        surface === "glass"
+          ? "active:opacity-70"
+          : "active:bg-kyar-muted dark:active:bg-kyar-dark-muted",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       {...rest}
     >
-      <Ionicons name="chevron-back" size={22} color={colors.text} />
+      <Ionicons
+        name="chevron-back"
+        size={22}
+        color={surface === "glass" ? glass.text.fg : colors.text}
+      />
     </Pressable>
   );
 }

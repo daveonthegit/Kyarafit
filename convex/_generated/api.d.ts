@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accountExport from "../accountExport.js";
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as broadcasts from "../broadcasts.js";
@@ -15,12 +16,11 @@ import type * as buildCollaborators from "../buildCollaborators.js";
 import type * as buildComments from "../buildComments.js";
 import type * as buildLikes from "../buildLikes.js";
 import type * as buildProcessPictures from "../buildProcessPictures.js";
+import type * as buildProgressUpdates from "../buildProgressUpdates.js";
 import type * as buildReferenceImages from "../buildReferenceImages.js";
 import type * as buildTasks from "../buildTasks.js";
 import type * as builds from "../builds.js";
-import type * as closetItems from "../closetItems.js";
 import type * as conventions from "../conventions.js";
-import type * as cosplayMigration from "../cosplayMigration.js";
 import type * as cosplayNodes from "../cosplayNodes.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
@@ -30,18 +30,27 @@ import type * as follows from "../follows.js";
 import type * as groupConventionDays from "../groupConventionDays.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as idempotencyLedger from "../idempotencyLedger.js";
 import type * as lib_accountDeletion from "../lib/accountDeletion.js";
 import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_buildPublicViewer from "../lib/buildPublicViewer.js";
 import type * as lib_cosplayGraph from "../lib/cosplayGraph.js";
+import type * as lib_entitlements from "../lib/entitlements.js";
+import type * as lib_exportCollections from "../lib/exportCollections.js";
+import type * as lib_idempotency from "../lib/idempotency.js";
+import type * as lib_imageRef from "../lib/imageRef.js";
+import type * as lib_syncMeta from "../lib/syncMeta.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as lib_workflowDomain from "../lib/workflowDomain.js";
 import type * as lib_workflowProgress from "../lib/workflowProgress.js";
 import type * as migrations from "../migrations.js";
+import type * as publications from "../publications.js";
 import type * as push from "../push.js";
+import type * as replica from "../replica.js";
 import type * as revenuecat from "../revenuecat.js";
 import type * as seed from "../seed.js";
 import type * as storageUsage from "../storageUsage.js";
+import type * as tierTransition from "../tierTransition.js";
 import type * as users from "../users.js";
 import type * as workflow from "../workflow.js";
 
@@ -52,6 +61,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountExport: typeof accountExport;
   admin: typeof admin;
   auth: typeof auth;
   broadcasts: typeof broadcasts;
@@ -59,12 +69,11 @@ declare const fullApi: ApiFromModules<{
   buildComments: typeof buildComments;
   buildLikes: typeof buildLikes;
   buildProcessPictures: typeof buildProcessPictures;
+  buildProgressUpdates: typeof buildProgressUpdates;
   buildReferenceImages: typeof buildReferenceImages;
   buildTasks: typeof buildTasks;
   builds: typeof builds;
-  closetItems: typeof closetItems;
   conventions: typeof conventions;
-  cosplayMigration: typeof cosplayMigration;
   cosplayNodes: typeof cosplayNodes;
   crons: typeof crons;
   email: typeof email;
@@ -74,18 +83,27 @@ declare const fullApi: ApiFromModules<{
   groupConventionDays: typeof groupConventionDays;
   groups: typeof groups;
   http: typeof http;
+  idempotencyLedger: typeof idempotencyLedger;
   "lib/accountDeletion": typeof lib_accountDeletion;
   "lib/buildAccess": typeof lib_buildAccess;
   "lib/buildPublicViewer": typeof lib_buildPublicViewer;
   "lib/cosplayGraph": typeof lib_cosplayGraph;
+  "lib/entitlements": typeof lib_entitlements;
+  "lib/exportCollections": typeof lib_exportCollections;
+  "lib/idempotency": typeof lib_idempotency;
+  "lib/imageRef": typeof lib_imageRef;
+  "lib/syncMeta": typeof lib_syncMeta;
   "lib/validation": typeof lib_validation;
   "lib/workflowDomain": typeof lib_workflowDomain;
   "lib/workflowProgress": typeof lib_workflowProgress;
   migrations: typeof migrations;
+  publications: typeof publications;
   push: typeof push;
+  replica: typeof replica;
   revenuecat: typeof revenuecat;
   seed: typeof seed;
   storageUsage: typeof storageUsage;
+  tierTransition: typeof tierTransition;
   users: typeof users;
   workflow: typeof workflow;
 }>;

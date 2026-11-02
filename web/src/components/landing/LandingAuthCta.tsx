@@ -7,15 +7,15 @@ import { authClient } from "@/lib/auth/auth-client";
 type Variant = "header" | "hero" | "footer" | "cta";
 
 const linkBase =
-  "font-sans-wide inline-flex min-h-[40px] items-center text-[10px] sm:text-xs text-kyar-text border-b border-kyar-text pb-0.5 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bg rounded-sm";
+  "inline-flex min-h-[40px] items-center text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg border-b border-kyar-media-fg pb-0.5 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-kyar-accent rounded-sm";
 const buttonPrimary =
-  "inline-flex min-h-[52px] items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider rounded-sm bg-kyar-text px-6 py-3 text-center text-kyar-bg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bg transition-opacity";
+  "inline-flex min-h-[52px] items-center justify-center rounded-full bg-glass-solid px-6 py-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent transition-opacity";
 const buttonSecondary =
-  "inline-flex min-h-[52px] items-center justify-center font-sans-wide font-semibold uppercase text-xs tracking-wider rounded-sm border border-kyar-text px-6 py-3 text-center text-kyar-text hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bg transition-opacity";
+  "inline-flex min-h-[52px] items-center justify-center rounded-full border border-glass-border-strong bg-glass-bar px-6 py-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg hover:bg-glass-active focus:outline-none focus:ring-2 focus:ring-kyar-accent transition-colors";
 const footerLink =
-  "font-sans-wide text-[10px] uppercase tracking-wider text-kyar-textSecondary hover:text-kyar-text focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 rounded-sm";
+  "text-[10px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus:ring-2 focus:ring-kyar-accent rounded-sm";
 const footerButton =
-  "font-sans-wide text-[10px] uppercase tracking-wider border border-kyar-text px-4 py-2 rounded-sm hover:bg-kyar-text hover:text-kyar-bg transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent focus:ring-offset-2 focus:ring-offset-kyar-bg";
+  "text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar text-kyar-media-fg px-4 py-2 rounded-full hover:bg-glass-active transition-colors focus:outline-none focus:ring-2 focus:ring-kyar-accent";
 
 export function LandingAuthCta({ variant }: { variant: Variant }) {
   const { data: session, isPending } = authClient.useSession();
@@ -41,10 +41,10 @@ export function LandingAuthCta({ variant }: { variant: Variant }) {
                   alt=""
                   width={28}
                   height={28}
-                  className="rounded-full border border-kyar-borderSubtle"
+                  className="rounded-full border border-glass-border-strong"
                 />
               ) : (
-                <span className="material-symbols-outlined text-2xl text-kyar-textTertiary">
+                <span className="material-symbols-outlined text-2xl text-media-fg-70">
                   account_circle
                 </span>
               )}

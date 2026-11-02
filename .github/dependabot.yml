@@ -1,49 +1,19 @@
 version: 2
 updates:
-  # Backend Go dependencies
-  - package-ecosystem: "gomod"
-    directory: "/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
-  # Web Node.js dependencies
+  # All npm workspaces share the root lockfile; update them in one lane.
   - package-ecosystem: "npm"
-    directory: "/web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
-  # Mobile Node.js dependencies
-  - package-ecosystem: "npm"
-    directory: "/mobile"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
-  # Image service Python dependencies
-  - package-ecosystem: "pip"
-    directory: "/image-service"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-
-  # Docker dependencies
-  - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    groups:
+      auth-integration:
+        patterns:
+          - "better-auth"
+          - "@convex-dev/better-auth"
+          - "convex"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

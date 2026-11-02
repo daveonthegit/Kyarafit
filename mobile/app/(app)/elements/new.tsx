@@ -1,11 +1,10 @@
 import { useCallback, useLayoutEffect, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
-import type { Id } from "convex/_generated/dataModel";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import {
   COSPLAY_CATEGORIES,
   COSPLAY_NODE_TYPES,
@@ -15,11 +14,12 @@ import {
 import type { TFunction } from "i18next";
 import { DataBoundary, MetaLabel, Button, TextField } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 
 export default function NewElementScreen() {
   const { t } = useTranslation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   const loading = identity === undefined;
@@ -47,8 +47,8 @@ function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
   const rawNodeType = useLocalSearchParams<{ nodeType?: string | string[] }>().nodeType;
   const initialNodeType = Array.isArray(rawNodeType) ? rawNodeType[0] : rawNodeType;
 
-  const create = useMutation(api.cosplayNodes.create);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const create = useOfflineMutation(api.cosplayNodes.create);
+  const saveLocalImage = useSaveLocalImage();
 
   const [nodeType, setNodeType] = useState<CosplayNodeType>(
     initialNodeType === "material" ? "material" : "element"
@@ -99,11 +99,8 @@ function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
     setPending(true);
     void (async () => {
       try {
-        let imageStorageId: Id<"_storage"> | undefined;
-        if (pickedUri) {
-          const uploadUrl = await generateUploadUrl();
-          imageStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
-        }
+        // Copy the photo into this device's vault first — works offline, no upload.
+        const localPhoto = pickedUri ? await saveLocalImage(pickedUri) : null;
         const trimmedUrl = imageUrl.trim();
         const directCostCents = directCostDollars.trim()
           ? Math.round(Number.parseFloat(directCostDollars.replace(",", ".")) * 100)
@@ -123,8 +120,7 @@ function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
             .map((tag) => tag.trim())
             .filter(Boolean),
           notes: notes.trim() || undefined,
-          imageStorageId,
-          imageUrl: !imageStorageId && trimmedUrl ? trimmedUrl : undefined,
+          imageUrl: localPhoto?.uri ?? (trimmedUrl ? trimmedUrl : undefined),
           sourceUrl: sourceUrl.trim() || undefined,
           directCostCents:
             directCostCents != null && !Number.isNaN(directCostCents) ? directCostCents : undefined,
@@ -138,7 +134,7 @@ function NewElementForm({ userId, t }: { userId: string; t: TFunction }) {
           router.replace(APP_HREF.element(doc._id as string));
         }
       } catch (e) {
-        Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+        alertUnlessReported(t("common.errorTitle"), e);
       } finally {
         setPending(false);
       }

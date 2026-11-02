@@ -20,4 +20,24 @@ crons.interval(
   {}
 );
 
+// Bound the offline replay dedupe ledger by age (see convex/idempotencyLedger.ts).
+crons.interval("idempotency-ledger-prune", { hours: 24 }, internal.idempotencyLedger.prune, {});
+
+/**
+ * Downgrade retention purge (DATA_AND_SYNC.md §10, REQ-D96/D97). Once daily, purge the CLOUD copies of
+ * local-first data for users who downgraded paid→free and have stayed free past the retention window.
+ * Selection is bounded + idempotent + guarded (see `tierTransition.purgeDowngradedCloudData`); it only
+ * ever deletes Convex cloud-mirror rows, never local on-device data. Runs no-op until real users pass
+ * their grace + retention window in production.
+ */
+crons.interval(
+  "tier-downgrade-retention-purge",
+  { hours: 24 },
+  internal.tierTransition.purgeDowngradedCloudData,
+  {}
+);
+
+// Managed-sync replica retention: op dedupe, tombstones and conflict records older than 90 days.
+crons.interval("replica-retention-prune", { hours: 24 }, internal.replica.prune, {});
+
 export default crons;

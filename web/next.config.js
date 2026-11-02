@@ -3,11 +3,16 @@
 if (!process.env.NEXT_IGNORE_INCORRECT_LOCKFILE) {
   process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = "1";
 }
+const CANONICAL_ORIGIN = "https://www.kyarafit.com";
+const NON_CANONICAL_HOSTS = ["kyarafit.com", "app.kyarafit.com", "kyarafit-web.vercel.app"];
+
 const nextConfig = {
-  // convex deploy (the Vercel build command) runs from the repo root and supplies
-  // CONVEX_URL / CONVEX_SITE_URL for the selected deployment, not the public aliases.
-  // Expose those URLs to server and browser code; public-only builds still work.
+  // convex deploy runs from the repo root, where it detects no Next.js framework
+  // and supplies CONVEX_URL / CONVEX_SITE_URL. Inline those canonical URLs for
+  // both server-side Better Auth and browser clients. Prefer the selected
+  // deployment over any stale public values; public-only local builds still work.
   // https://docs.convex.dev/production/hosting/vercel
+  // https://labs.convex.dev/better-auth/framework-guides/next
   env: {
     NEXT_PUBLIC_CONVEX_URL: process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL,
     NEXT_PUBLIC_CONVEX_SITE_URL:
@@ -18,10 +23,18 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   // Note: eslint config removed as it's no longer supported in Next.js 16
-  // Use next lint command directly or configure in eslint.config.mjs
-  // Disable static generation for error pages to avoid prerendering issues
+  // Run ESLint directly via npm run lint (eslint.config.mjs).
+  // One canonical production host. Auth lives at SITE_URL/api/auth (https://www.kyarafit.com) with
+  // a host-only session cookie, and only www/apex/app are trusted auth origins, so every other
+  // production host permanently redirects to www with its path and query (docs/auth.md). Preview
+  // deployments and localhost are untouched.
   async redirects() {
-    return [];
+    return NON_CANONICAL_HOSTS.map((host) => ({
+      source: "/:path*",
+      has: [{ type: "host", value: host }],
+      destination: `${CANONICAL_ORIGIN}/:path*`,
+      permanent: true,
+    }));
   },
   images: {
     remotePatterns: [
@@ -40,23 +53,7 @@ const nextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-XSS-Protection", value: "1; mode=block" },
-      // CSP: allow self, Convex, auth, fonts, and inline/eval required by Next.js.
-      // If you add analytics, Stripe, or other third-party scripts/frames, update the relevant directive.
-      {
-        key: "Content-Security-Policy",
-        value: [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://fundingchoicesmessages.google.com",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-          "connect-src 'self' https: *.convex.cloud *.convex.site wss:",
-          "img-src 'self' data: https: blob:",
-          "font-src 'self' data: https://fonts.gstatic.com",
-          "frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com",
-          "object-src 'none'",
-          "base-uri 'self'",
-          "frame-ancestors 'self'",
-        ].join("; "),
-      },
+      // Content-Security-Policy is per request (nonce-based) in src/proxy.ts.
     ];
     if (isProduction && appOrigin.startsWith("https://")) {
       defaultHeaders.push({
@@ -74,6 +71,11 @@ const nextConfig = {
           },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+          // API responses are data (plus Better Auth's static error page), never app documents.
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; frame-ancestors 'none'",
+          },
         ],
       },
       {

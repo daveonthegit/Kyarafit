@@ -20,7 +20,7 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
     <>
       <footer
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 bg-kyar-panel border-t border-kyar-borderSubtle",
+          "fixed bottom-0 left-0 right-0 z-50 bg-glass-bar-on-wall backdrop-blur-glass-bar border-t border-glass-divider-strong text-kyar-media-fg",
           className
         )}
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))" }}
@@ -39,8 +39,8 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
                   className={cn(
                     "material-symbols-outlined text-2xl transition-colors mb-0.5",
                     isActive
-                      ? "text-kyar-text font-medium"
-                      : "text-kyar-meta group-hover:text-kyar-text font-light"
+                      ? "text-kyar-media-fg font-medium"
+                      : "text-media-fg-55 group-hover:text-kyar-media-fg font-light"
                   )}
                   aria-hidden
                 >
@@ -50,20 +50,20 @@ export function BottomNav({ active, className = "" }: { active?: string; classNa
                   className={cn(
                     "text-[10px] uppercase tracking-[0.16em] transition-colors",
                     isActive
-                      ? "font-bold text-kyar-text"
-                      : "font-semibold text-kyar-meta group-hover:text-kyar-text"
+                      ? "font-bold text-kyar-media-fg"
+                      : "font-semibold text-media-fg-55 group-hover:text-kyar-media-fg"
                   )}
                 >
                   {label}
                 </span>
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-kyar-text rounded-b-full" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-[2px] bg-kyar-media-fg rounded-b-full" />
                 )}
               </>
             );
 
             const commonClasses =
-              "group relative flex flex-col items-center justify-center min-h-[56px] min-w-[44px] flex-1 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kyar-panel hover:bg-kyar-muted/50";
+              "group relative flex flex-col items-center justify-center min-h-[56px] min-w-[44px] flex-1 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent hover:bg-glass-active";
 
             if (isMenu) {
               return (

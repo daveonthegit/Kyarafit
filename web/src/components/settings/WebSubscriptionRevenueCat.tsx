@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorCode, type Package, PurchasesError } from "@revenuecat/purchases-js";
 import {
   PAID_SUBSCRIPTION_PLANS,
-  formatPlanBuildLimit,
   formatPlanStorage,
   formatUsdPrice,
   type SubscriptionBillingInterval,
@@ -14,14 +13,17 @@ import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscription
 import { useTier } from "@/lib/api/useTier";
 import { getPurchasesForUser, isRevenueCatWebBillingConfigured } from "@/lib/revenuecatWeb";
 
+function packageForProductId(packages: Package[], productId: string | undefined): Package | null {
+  if (!productId) return null;
+  return packages.find((pkg) => pkg.webBillingProduct.identifier === productId) ?? null;
+}
+
 function packageForPlanInterval(
   packages: Package[],
   plan: SubscriptionPlan,
   interval: SubscriptionBillingInterval
 ): Package | null {
-  const productId = plan.productIds[interval];
-  if (!productId) return null;
-  return packages.find((pkg) => pkg.webBillingProduct.identifier === productId) ?? null;
+  return packageForProductId(packages, plan.productIds[interval]);
 }
 
 function checkoutLabel(
@@ -166,8 +168,7 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
                 <div>
                   <h3 className="font-serif text-2xl tracking-tight text-kyar-text">{plan.name}</h3>
                   <p className="mt-1 text-xs leading-5 text-kyar-textSecondary">
-                    {formatPlanStorage(plan.storageLimitMb)} storage -{" "}
-                    {formatPlanBuildLimit(plan.maxBuilds)} builds
+                    {formatPlanStorage(plan.storageLimitMb)} storage - sync across all devices
                   </p>
                 </div>
                 {currentTier === plan.tier ? (
@@ -176,35 +177,67 @@ export function WebSubscriptionRevenueCat({ appUserId, onPurchaseComplete }: Pro
                   </span>
                 ) : null}
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {(["monthly", "annual"] as const).map((interval) => {
-                  const pkg = interval === "monthly" ? monthly : annual;
-                  const missing = pkg == null;
-                  const isCurrent = currentTier === plan.tier;
-                  return (
-                    <button
-                      key={interval}
-                      type="button"
-                      disabled={missing || isCurrent || workingPackageId != null}
-                      onClick={() => {
-                        if (pkg) void onPurchase(pkg);
-                      }}
-                      className="min-h-[44px] rounded border border-kyar-borderSubtle px-3 py-2 text-left text-xs font-medium transition hover:border-kyar-text hover:bg-kyar-muted disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className="block text-[10px] uppercase tracking-widest text-kyar-textSecondary">
-                        {interval === "monthly" ? "Monthly" : "Yearly"}
-                      </span>
-                      <span className="mt-1 block text-sm text-kyar-text">
-                        {missing
-                          ? "Not configured"
-                          : workingPackageId === pkg.identifier
-                            ? "Opening checkout..."
-                            : checkoutLabel(plan, interval, pkg)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {plan.payWhatYouWant ? (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {(plan.presets ?? []).map((preset) => {
+                    const pkg = packageForProductId(packages, preset.productId);
+                    const missing = pkg == null;
+                    const isCurrent = currentTier === plan.tier;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        disabled={missing || isCurrent || workingPackageId != null}
+                        onClick={() => {
+                          if (pkg) void onPurchase(pkg);
+                        }}
+                        className="min-h-[44px] rounded border border-kyar-borderSubtle px-3 py-2 text-left text-xs font-medium transition hover:border-kyar-text hover:bg-kyar-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="block text-[10px] uppercase tracking-widest text-kyar-textSecondary">
+                          Supporter
+                        </span>
+                        <span className="mt-1 block text-sm text-kyar-text">
+                          {missing
+                            ? "Not configured"
+                            : workingPackageId === pkg.identifier
+                              ? "Opening checkout..."
+                              : `${pkg.webBillingProduct.price.formattedPrice || formatUsdPrice(preset.monthlyPriceUsd)} / month`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {(["monthly", "annual"] as const).map((interval) => {
+                    const pkg = interval === "monthly" ? monthly : annual;
+                    const missing = pkg == null;
+                    const isCurrent = currentTier === plan.tier;
+                    return (
+                      <button
+                        key={interval}
+                        type="button"
+                        disabled={missing || isCurrent || workingPackageId != null}
+                        onClick={() => {
+                          if (pkg) void onPurchase(pkg);
+                        }}
+                        className="min-h-[44px] rounded border border-kyar-borderSubtle px-3 py-2 text-left text-xs font-medium transition hover:border-kyar-text hover:bg-kyar-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="block text-[10px] uppercase tracking-widest text-kyar-textSecondary">
+                          {interval === "monthly" ? "Monthly" : "Yearly"}
+                        </span>
+                        <span className="mt-1 block text-sm text-kyar-text">
+                          {missing
+                            ? "Not configured"
+                            : workingPackageId === pkg.identifier
+                              ? "Opening checkout..."
+                              : checkoutLabel(plan, interval, pkg)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -16,23 +16,28 @@ import {
 
 export const REVENUECAT_ENTITLEMENTS = {
   pro: "pro",
+  supporter: "supporter",
 } as const;
 
 export const REVENUECAT_PRODUCT_IDS = {
-  studioMonthly: "com.kyarafit.studio.monthly",
-  studioAnnual: "com.kyarafit.studio.annual",
   proMonthly: "com.kyarafit.pro.monthly",
   proAnnual: "com.kyarafit.pro.annual",
+  supporterM5: "com.kyarafit.supporter.m5",
+  supporterM10: "com.kyarafit.supporter.m10",
+  supporterM25: "com.kyarafit.supporter.m25",
+  supporterM50: "com.kyarafit.supporter.m50",
   lifetime: "lifetime",
   yearly: "yearly",
   monthly: "monthly",
 } as const;
 
 export const REVENUECAT_SUBSCRIPTION_PRODUCT_IDS = [
-  REVENUECAT_PRODUCT_IDS.studioMonthly,
-  REVENUECAT_PRODUCT_IDS.studioAnnual,
   REVENUECAT_PRODUCT_IDS.proMonthly,
   REVENUECAT_PRODUCT_IDS.proAnnual,
+  REVENUECAT_PRODUCT_IDS.supporterM5,
+  REVENUECAT_PRODUCT_IDS.supporterM10,
+  REVENUECAT_PRODUCT_IDS.supporterM25,
+  REVENUECAT_PRODUCT_IDS.supporterM50,
   REVENUECAT_PRODUCT_IDS.yearly,
   REVENUECAT_PRODUCT_IDS.monthly,
 ] as const;
@@ -104,6 +109,14 @@ export function customerHasEntitlement(
 
 export function customerHasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
   return customerHasEntitlement(customerInfo, REVENUECAT_ENTITLEMENTS.pro);
+}
+
+/** True for any paid entitlement (pro or supporter) — both grant identical access. */
+export function customerHasPaidEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
+  return (
+    customerHasEntitlement(customerInfo, REVENUECAT_ENTITLEMENTS.pro) ||
+    customerHasEntitlement(customerInfo, REVENUECAT_ENTITLEMENTS.supporter)
+  );
 }
 
 export async function getRevenueCatCustomerInfo(): Promise<CustomerInfo | null> {

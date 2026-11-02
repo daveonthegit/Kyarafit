@@ -5,7 +5,7 @@ import Svg, { Circle, G } from "react-native-svg";
 import type { Id } from "convex/_generated/dataModel";
 import type { CosplayNodeType } from "@kyarafit/design-system/types";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { mediaOverlay, mediaOverlayTitleShadow } from "@/theme/mediaOverlayColors";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 

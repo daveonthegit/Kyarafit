@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMutation } from "convex/react";
+import { can } from "@kyarafit/design-system/domain/entitlements";
 import { WebAppShell } from "@/components/layout/WebAppShell";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { PhotoPill } from "@/components/ui/PhotoPill";
+import { GroupFields, glassErrorClass } from "@/components/creation/CreationFields";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useFeatureAccess } from "@/lib/api/useTier";
 import { api } from "convex/_generated/api";
 
 export default function NewGroupPage() {
   const router = useRouter();
   const { userId } = useCurrentUser();
+  const { tier } = useFeatureAccess();
+  const t = useTranslations("Social");
+  const tc = useTranslations("Creation");
+  // REQ-019: creating a group is paid; joining and participating stay free.
+  const canCreateGroup = can(tier, "group_create");
   const createGroup = useMutation(api.groups.create);
 
   const [name, setName] = useState("");
@@ -21,7 +32,7 @@ export default function NewGroupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !name.trim()) return;
+    if (!userId || !name.trim() || !canCreateGroup) return;
     setError(null);
     setPending(true);
     try {
@@ -33,115 +44,97 @@ export default function NewGroupPage() {
       });
       if (group?._id) router.push(`/g/${group._id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create group");
+      setError(err instanceof Error ? err.message : tc("failedToCreateGroup"));
     } finally {
       setPending(false);
     }
   };
 
   return (
-    <WebAppShell>
-      <header className="pt-16 pb-6 flex justify-between items-end">
-        <div>
-          <p className="meta-label mb-2 opacity-40">Groups</p>
-          <h1 className="font-serif text-4xl tracking-tight">New group</h1>
-        </div>
-        <Link href="/groups" className="p-2 -mr-2" aria-label="Back to groups">
-          <span className="material-symbols-outlined font-light text-2xl">arrow_back</span>
-        </Link>
-      </header>
+    <WebAppShell fullBleed>
+      <div className="relative flex flex-1 flex-col text-kyar-media-fg">
+        <div className="absolute inset-0 bg-studio-wall" aria-hidden />
 
-      <main className="mt-10 max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2"
-            >
-              Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              maxLength={500}
-              placeholder="e.g. Sailor Moon squad"
-              className="w-full border border-kyar-cardBorder rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2"
-            >
-              Description (optional)
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={10000}
-              rows={3}
-              placeholder="What’s this group cosplay about?"
-              className="w-full border border-kyar-cardBorder rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kyar-accent/50"
-            />
-          </div>
-          <div>
-            <span className="block text-[10px] uppercase tracking-[0.2em] font-medium text-kyar-textTertiary mb-2">
-              Visibility
+        <div className="relative z-10 mx-auto flex w-full max-w-[1600px] items-center gap-4 px-4 pt-6 sm:px-6 lg:px-10">
+          <Link
+            href="/groups"
+            aria-label={tc("backToGroups")}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-media-fg-70 transition-colors hover:bg-glass-active hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+          >
+            <span className="material-symbols-outlined font-light text-2xl" aria-hidden>
+              arrow_back
             </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setVisibility("private")}
-                className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                  visibility === "private"
-                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
-                }`}
-              >
-                Private
-              </button>
-              <button
-                type="button"
-                onClick={() => setVisibility("public")}
-                className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                  visibility === "public"
-                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
-                }`}
-              >
-                Public
-              </button>
+          </Link>
+        </div>
+
+        <main className="relative z-10 mx-auto mb-16 mt-4 w-full max-w-[560px] flex-1 px-4 sm:px-6">
+          {/* ONE glass work panel (13d anatomy, page form) */}
+          <div className="rounded-glass border border-glass-border bg-glass backdrop-blur-glass">
+            <div className="border-b border-glass-divider-strong px-6 py-5 sm:px-8">
+              <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.22em] text-media-fg-70">
+                {tc("groupsEyebrow")}
+              </span>
+              <h1 className="font-serif text-[30px] font-normal italic tracking-[-0.01em]">
+                {tc("newGroupTitle")}
+              </h1>
             </div>
-            <p className="text-[11px] text-kyar-textTertiary mt-1">
-              Public groups can be seen by anyone. Private only by members.
-            </p>
+
+            {!canCreateGroup ? (
+              <div className="px-6 py-6 sm:px-8">
+                <UpgradePrompt
+                  surface="glass"
+                  message={t("groupCreatePaidMessage")}
+                  linkText={t("viewPlan")}
+                />
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-[18px] px-6 py-6 sm:px-8">
+                  <GroupFields
+                    name={name}
+                    onNameChange={setName}
+                    description={description}
+                    onDescriptionChange={setDescription}
+                    visibility={visibility}
+                    onVisibilityChange={setVisibility}
+                    labels={{
+                      name: tc("name"),
+                      namePlaceholder: tc("groupNamePlaceholder"),
+                      description: tc("descriptionLabel"),
+                      descriptionPlaceholder: tc("groupDescriptionPlaceholder"),
+                      visibility: tc("visibilityLabel"),
+                      private: tc("visibility_private"),
+                      public: tc("visibility_public"),
+                      visibilityHint: tc("visibilityHint"),
+                    }}
+                  />
+                  {error && (
+                    <p className={glassErrorClass} role="alert">
+                      {error}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2.5 border-t border-glass-divider-strong px-6 py-4 sm:px-8">
+                  <Link
+                    href="/groups"
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-full border border-glass-border-strong bg-glass-bar px-[22px] text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg backdrop-blur-glass-chip transition-colors hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                  >
+                    {tc("cancel")}
+                  </Link>
+                  <PhotoPill
+                    type="submit"
+                    variant="solid"
+                    disabled={pending || !name.trim()}
+                    className="flex-1"
+                  >
+                    {pending ? tc("creating") : tc("createGroup")}
+                  </PhotoPill>
+                </div>
+              </form>
+            )}
           </div>
-          {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={pending || !name.trim()}
-              className="flex-1 bg-kyar-text text-kyar-bg py-3 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
-            >
-              {pending ? "Creating…" : "Create group"}
-            </button>
-            <Link
-              href="/groups"
-              className="px-6 py-3 border border-kyar-border text-sm font-semibold uppercase tracking-wider hover:border-kyar-text rounded-sm inline-flex items-center"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </main>
+        </main>
+      </div>
     </WebAppShell>
   );
 }

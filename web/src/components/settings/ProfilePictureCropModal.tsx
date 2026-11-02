@@ -52,10 +52,10 @@ export function ProfilePictureCropModal({
   return (
     <AdaptiveModal open={open} onClose={onClose} aria-labelledby="profile-crop-title">
       <div className="flex flex-col">
-        <h2 id="profile-crop-title" className="text-lg font-serif font-medium px-4 pt-4 pb-2">
+        <h2 id="profile-crop-title" className="text-lg font-serif italic px-4 pt-4 pb-2">
           Crop profile picture
         </h2>
-        <div className="relative w-full h-[min(60vh,400px)] bg-kyar-mutedWarm">
+        <div className="relative w-full h-[min(60vh,400px)]">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -67,7 +67,7 @@ export function ProfilePictureCropModal({
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
             style={{
-              containerStyle: { backgroundColor: "var(--kyar-mutedWarm)" },
+              containerStyle: { backgroundColor: "rgb(12 11 20 / 0.6)" },
               cropAreaStyle: {
                 border: "2px solid white",
                 boxShadow: "0 0 0 9999px rgba(0,0,0,0.4)",
@@ -76,7 +76,7 @@ export function ProfilePictureCropModal({
           />
         </div>
         <div className="px-4 py-2">
-          <label className="text-[11px] uppercase tracking-widest text-kyar-textSecondary block mb-1">
+          <label className="text-[10px] uppercase tracking-[0.16em] text-media-fg-70 block mb-1">
             Zoom
           </label>
           <input
@@ -86,14 +86,14 @@ export function ProfilePictureCropModal({
             step={0.1}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full h-2 accent-black"
+            className="w-full h-2 accent-kyar-accent"
           />
         </div>
         <div className="flex justify-end gap-2 px-4 pb-4 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-kyar-text border border-kyar-cardBorder rounded-sm hover:bg-kyar-mutedWarm focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="px-4 py-2 min-h-[44px] text-[10px] font-bold uppercase tracking-[0.16em] border border-glass-border-strong bg-glass-bar rounded-full hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             Cancel
           </button>
@@ -101,7 +101,7 @@ export function ProfilePictureCropModal({
             type="button"
             onClick={handleSave}
             disabled={saving || !croppedAreaPixels}
-            className="px-4 py-2 text-sm font-medium bg-kyar-text text-kyar-bg rounded-sm hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+            className="px-4 py-2 min-h-[44px] text-[10px] font-bold uppercase tracking-[0.16em] bg-glass-solid text-glass-ink rounded-full hover:opacity-90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
           >
             {saving ? "Saving…" : "Save"}
           </button>

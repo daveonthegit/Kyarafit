@@ -33,7 +33,7 @@ export function PublicBuildCard({ build, showOwner = false }: PublicBuildCardPro
   return (
     <Link
       href={`/b/${build._id}`}
-      className="group relative block aspect-[4/3] w-full cursor-pointer overflow-hidden rounded-2xl border border-kyar-borderSubtle bg-kyar-muted shadow-soft transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-offset-2"
+      className="group relative block aspect-[4/5] w-full cursor-pointer overflow-hidden rounded-glass border border-glass-border bg-glass-active transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
     >
       {build.imageStorageId ? (
         <ResolvedImage
@@ -48,7 +48,7 @@ export function PublicBuildCard({ build, showOwner = false }: PublicBuildCardPro
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-kyar-textTertiary transition-transform duration-700 group-hover:scale-105">
+        <div className="absolute inset-0 flex items-center justify-center bg-studio-wall text-media-fg-45 transition-transform duration-700 group-hover:scale-105">
           <span className="material-symbols-outlined text-6xl" aria-hidden>
             palette
           </span>
@@ -59,6 +59,12 @@ export function PublicBuildCard({ build, showOwner = false }: PublicBuildCardPro
         aria-hidden
       />
 
+      {showOwner && owner && (
+        <span className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full bg-on-glass-chip-neutral-bg px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-on-glass-chip-neutral-fg backdrop-blur-glass-chip">
+          {owner}
+        </span>
+      )}
+
       <div className="absolute inset-0 flex flex-col justify-end p-5 text-kyar-media-fg">
         {build.character && (
           <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.2em] opacity-80">
@@ -68,18 +74,11 @@ export function PublicBuildCard({ build, showOwner = false }: PublicBuildCardPro
         <h3 className="truncate font-serif text-2xl font-normal italic leading-none tracking-tight text-kyar-media-fg drop-shadow-md transition-opacity group-hover:opacity-90 lg:text-3xl">
           {build.name}
         </h3>
-        <div className="flex items-center gap-3 pt-2">
-          {showOwner && owner && (
-            <span className="truncate text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm">
-              {owner}
-            </span>
-          )}
-          {typeof build.tasksTotal === "number" && build.tasksTotal > 0 && (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest opacity-90 drop-shadow-sm">
-              {build.tasksChecked}/{build.tasksTotal} tasks
-            </span>
-          )}
-        </div>
+        {typeof build.tasksTotal === "number" && build.tasksTotal > 0 && (
+          <span className="pt-2 text-[10px] font-bold uppercase tracking-[0.16em] opacity-90 drop-shadow-sm">
+            {build.tasksChecked}/{build.tasksTotal} tasks
+          </span>
+        )}
       </div>
     </Link>
   );

@@ -52,6 +52,15 @@ An argument naming a **different** user is real input and stays required:
 
 The actor names to derive are `userId`, `ownerId`, `externalId`, `followerId`.
 
+### Email-based targets
+
+`users.upsert` mirrors email from the authenticated Better Auth account, ignoring the
+compatibility `email` argument. Email-based role grants (`users.setUserRole`, `users.grantRole`)
+and collaboration (`buildCollaborators.addByEmail`) resolve a **verified Better Auth email**
+back to its app user, never trust the app profile's mirrored email as proof of identity.
+The shared resolution is in `lib/authEmail.ts`; regressions execute these endpoints in
+`convex/securityReview.test.ts`.
+
 ## Endpoints that are public by design
 
 These serve signed-out visitors and must stay that way. Do not "fix" them:
@@ -94,6 +103,49 @@ element reads here; the public viewer has its own paths
 viewer-settings toggles. The `buildId` argument on those queries is a costing scope hint,
 not part of the check — the inspector does not always send it.
 
+### The graph walk reads the node row, not the join tables
+
+`someAncestorBuild` walks up via `cosplayNodes.parentNodeId` and tests each
+`cosplayNodes.buildId` it passes. Both relations live on the node row (Step 2c).
+
+`cosplayNodeLinks`, `buildCosplayLinks`, `buildItemLinks`, `closetItems` and
+`buildNodeStates` are still **in `convex/schema.ts`** so non-empty deployments validate on
+deploy, and `migrations:purgeLegacyBuildScopingData` empties them. Nothing writes them any
+more. **Authorization code must never read them:** a predicate answering from a table
+nothing writes returns `false` for every non-owner, which silently breaks collaborator and
+group-co-member element reads and thumbnails while still compiling, type-checking and
+reading correctly. That is exactly the bug the containment merge had to fix in
+`someAncestorBuild`. Delete these table defs only after the purge migration has run
+everywhere.
+
+## Workflow and convention references
+
+Session identity alone does not authorize a referenced row. Workflow attachment writes
+(including template application) validate each entity and `buildContextId` against the
+actor: builds require edit access; elements require ownership or edit access to their build;
+conventions and packing items require ownership. Planner buckets are opaque keys, not rows.
+Attachment rows retain the workflow item's owner even when a build editor acts.
+
+Packing synchronization and cascade deletion require the packing owner to match both the
+workflow owner and the session actor. Preserved packing rows are detached when their task
+is deleted. Following `packingListItems.workflowItemId` requires matching task/packing
+ownership; updates use the task returned by `ensurePackingWorkflowItem`, not a stale pointer.
+`getPacking` and `listWithDetails` use the packing row's `checked` value, never a linked
+task's status: a build editor's task edits must not change the owner's effective packing state.
+Generated task deduplication is owner-scoped; client keys cannot use `packing:` or `autogen:`.
+
+Stored links are not authorization: planner names and external progress are resolved only
+while the relevant access check still passes. Convention plans and manual packing build
+references require build ownership or collaboration, and packing regeneration skips builds
+that no longer satisfy that rule.
+
+Group convention-day access is specified in
+[Product specification §4.6](PRODUCT_SPEC.md#46-groups--collaboration-online-only).
+Deletion-aware suppression of unavailable convention links follows
+[Storage claims](storage-claims.md#follow-up-integration-seams).
+Regressions: `convex/crossUserReferences.authz.test.ts` and
+`convex/groupDiscoveryDeletion.test.ts`.
+
 ## Media
 
 Storage ids are not a security boundary: they are returned on build, element, convention,
@@ -113,22 +165,14 @@ thumbnails resolve), and a profile picture is readable when the caller shares a 
 that user — the group roster renders every member's avatar and `profileVisibility` is
 unset by default.
 
-Because readability follows the referencing rows, attaching an id is gated by the same
-rule: `checkLimitAndAddUsage` (every metered attach path) and `users.updateProfileImage`
-call `assertCanAttachStorageId`, so a caller can only attach a blob that is unattached or
-already readable to them. New attach paths must go through one of them.
+Attachment, upload claims, pending previews, unique-byte accounting, progress-photo privacy,
+and cleanup are owned by the [current storage contract](storage-claims.md). New attach paths
+must use that contract rather than treating public readability as attachment permission.
 
-Two deliberate looseness points, both documented in that file:
-
-1. A blob that **no row references** is readable by any authenticated caller. The
-   create-with-image modals upload first and preview via `getUrl` before the owning row
-   exists, so a strict deny would break them.
-2. `unlisted` counts as public for media, because `getPublicViewerBundle` serves unlisted
-   builds to anonymous share-link holders who then resolve each image through `getUrl`
-   without a token.
-
-Narrowing either needs an owner-indexed media table, which is part of an open decision
-about the media access model. Do not change the model here without that decision.
+`unlisted` counts as public for build media: share-link viewers resolve images through
+`getUrl` without a token. This does not make private progress photos public; their distinct
+discovery rule is specified in the storage contract. Discovery authorization does not revoke
+already-issued capability URLs (see [ADR-0001](adr/0001-public-capability-urls-for-hosted-media.md)).
 
 ## Tests
 
@@ -136,3 +180,29 @@ about the media access model. Do not change the model here without that decision
 matter — a caller passing someone else's id cannot act as them, and an unauthenticated
 caller is rejected — for a representative function in every module, plus a group pinning
 down what must stay public. Add to it when you add a public function.
+
+Additional authorization regressions live in `convex/buildProgressUpdates.authz.test.ts`,
+`convex/mediaContainment.test.ts`, and the account-deletion/guard tests linked from the
+[storage contract](storage-claims.md). Tests invoking session-required mutations must use
+`t.withIdentity({ subject: userId })` rather than bare `t.mutation(...)`, or the handler
+rejects with `Unauthorized`.
+
+## Known gaps
+
+The invariant at the top of this file holds for every public Convex function.
+`convex/buildProgressUpdates.ts`, the last module that authorized on a client-supplied
+`userId`, now derives the actor from the session like the rest. **Do not reintroduce that
+argument shape in new modules.**
+
+Two things are deliberately still open rather than broken:
+
+- **Phase B** — the inert actor arguments described above are still in the validators. Grep
+  `retained for deployed clients but ignored` for the removal sites. Nothing depends on it.
+- **The media access model** — unlisted build-media discovery and capability-URL serving
+  remain deliberate; see the Media section and the [storage contract](storage-claims.md).
+
+To re-check the invariant after a change, the cheap version is: every `export const` that
+is a `query`/`mutation`/`action` in `convex/*.ts` must reach a session guard
+(`requireIdentity`, `optionalIdentity`, `getUserIdentity`, `requireAdmin`, `requireOwner`),
+directly or through a helper. The only intended exceptions are the public-by-design
+endpoints listed above.

@@ -1,5 +1,4 @@
-import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 
 /**
  * Dev-only: creates starter seed data (one build, one convention, one cosplay
@@ -7,11 +6,15 @@ import { mutation } from "./_generated/server";
  * dashboard — not for regular end users. Runs once per user (skips if user
  * already has any builds). Requires authentication.
  *
- * See FEATURES_CANONICAL §13 (Seed data).
+ * Disabled unless NODE_ENV=development and ENABLE_DEV_SEED=true in a dedicated
+ * development deployment. See docs/runbooks/development-seed.md.
  */
 export const createStarter = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.NODE_ENV !== "development" || process.env.ENABLE_DEV_SEED !== "true") {
+      throw new Error("Development seeding is disabled");
+    }
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthorized");
@@ -50,18 +53,14 @@ export const createStarter = mutation({
 
     const cosplayNodeId = await ctx.db.insert("cosplayNodes", {
       userId,
+      // Step 2c: build membership lives on the node itself (`buildId` + `sortOrder`).
+      buildId,
+      sortOrder: 0,
       nodeType: "element",
       name: "Sample piece",
       category: "other",
       tags: [],
       buildStatus: "not_started",
-    });
-
-    await ctx.db.insert("buildCosplayLinks", {
-      userId,
-      buildId,
-      cosplayNodeId,
-      sortOrder: 0,
     });
 
     await ctx.db.insert("buildTasks", {

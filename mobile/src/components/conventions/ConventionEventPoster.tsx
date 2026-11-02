@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { formatEventDateRange } from "@kyarafit/design-system/domain";
 import { ConvexStorageImage } from "@/components/ConvexStorageImage";
 import { overlayCountdownLabel } from "@/screens/conventions/utils";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
 import { mediaOverlay, mediaOverlayTitleShadow } from "@/theme/mediaOverlayColors";
 import { useDesignTheme } from "@/theme/useDesignTheme";
 

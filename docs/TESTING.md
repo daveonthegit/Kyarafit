@@ -1,0 +1,267 @@
+# Testing Strategy
+
+_Source of truth for **how we test**. The detailed requirement→test mapping is in
+[`specs/refactor-test-plan.md`](specs/refactor-test-plan.md). Tests verify the **spec**
+([`PRODUCT_SPEC.md`](PRODUCT_SPEC.md) / [`DATA_AND_SYNC.md`](DATA_AND_SYNC.md)), not the current
+implementation. Historical requirement mappings can lag accepted entitlement/sync changes;
+coordinate their amendments with the owning implementation package._
+
+---
+
+## 1. Philosophy
+
+1. **Spec-first / TDD.** Tests encode `REQ-*` acceptance criteria. They should **fail first** when the implementation doesn't meet the spec, then drive implementation green.
+2. **Behavior, not internals.** Test public behavior, APIs, component output, and service boundaries — not private functions or implementation details.
+3. **Executable documentation.** Behavior-based test names (`should_…`). A reader learns the spec from the test names.
+4. **Never weaken a test to match broken behavior.** Fix the code, not the expectation.
+5. **Cross-platform via pure logic.** Maximize logic in `design-system/domain/*` (pure, no React/platform) so one vitest suite covers web + mobile + Convex behavior. Add a thin platform harness only for true integration.
+
+---
+
+## 2. Test pyramid
+
+| Layer                 | Where                                                         | Runner                   | Covers                                                                                        |
+| --------------------- | ------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Unit (pure domain)    | `design-system/domain` tested from `web/src/lib/**/*.test.ts` | vitest                   | entitlements, sync gating, conflict merge, queue/backoff, overlays, validators, progress math |
+| Component             | `web/src/**/*.test.tsx`                                       | vitest + Testing Library | screens/components: states (empty/loading/error/offline), gating UI                           |
+| API / backend         | `convex/**` (convex-test or harness)                          | vitest                   | auth scoping, idempotency, replica push/pull, ownership/authorization                         |
+| Integration (offline) | mobile Vitest harness + pure queue/store simulations          | vitest                   | vault commits, replica push/pull, conflicts, resnapshot and lifecycle regressions             |
+| A11y (web)            | `web/src/test/a11y.test.tsx`                                  | vitest + jest-axe        | zero WCAG 2.0/2.1 A/AA violations on key components (banners, empty state, forms, gates)      |
+| E2E (web)             | `web/e2e/*.spec.ts` (Playwright)                              | Playwright               | offline CRUD round-trip, export/import, upgrade backfill, downgrade banner (see §8)           |
+| E2E (mobile, later)   | mobile (Detox / Maestro)                                      | —                        | native offline CRUD + sync; deferred (needs simulators/native builds) — see §11               |
+| Parity                | shared-logic assertions + mirrored component tests            | vitest                   | web and mobile consume the same shared logic                                                  |
+
+> **Decision (test home):** prioritize pure-domain vitest now (no new tooling); add a mobile
+> integration harness when runtime behavior (real SQLite, connectivity) must be exercised.
+
+---
+
+## 3. Naming
+
+`should_<expected_behavior>_when_<condition>`. Examples:
+
+- `should_not_start_sync_worker_for_free_user`
+- `should_keep_advanced_planner_free`
+- `should_block_public_share_for_free_user`
+- `should_allow_group_cosplay_build_to_cloud_for_free_member`
+- `should_merge_per_field_when_two_devices_edit_different_fields`
+- `should_dedupe_replayed_offline_create`
+- `should_show_empty_state_when_build_has_no_progress_updates`
+
+Avoid names describing implementation (`should_call_setServerId`).
+
+---
+
+## 4. What to test
+
+- All `REQ-*` with a testable rule (see test plan).
+- Entitlement boundaries (free vs paid) — every paid lever and every free-but-online action.
+- Sync correctness: gating, FIFO, idempotency, stable row ids, server-arrival field merges, tombstones.
+- Offline visibility of writes across list/detail/derived views.
+- State rendering: empty/loading/error/offline per [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §4.
+- Authorization/ownership on Convex functions.
+- Import/export idempotency and round-trip fidelity.
+
+## 5. What NOT to test
+
+- Private helpers / exact call sequences.
+- Third-party libs (Convex, RevenueCat, Better Auth internals).
+- Visual pixel details (cover via design review/mockups, not snapshots of styling).
+- Generated code (`convex/_generated`).
+
+## 6. Conventions
+
+- Reuse existing patterns: vitest + Testing Library; import shared logic from `@kyarafit/design-system/domain/*`.
+- Add factories/fixtures for entities (build, element, task, user-with-tier) under a shared test-fixtures module rather than ad-hoc objects.
+- Keep test data realistic but minimal.
+- Mock only platform adapters (`LocalStore`, connectivity, Convex client) — never the logic under test.
+- **Mobile component tests** run under the scoped vitest runner (`mobile/src/offline/vitest.config.ts`,
+  wired into `npm test -w mobile`): mock `react-native` per-file via
+  `createReactNativeMock()` from `mobile/src/test-support/rnMock.ts`; native packages that ship
+  untranspiled JSX/Flow (expo-blur, expo-linear-gradient, @expo/vector-icons,
+  react-native-safe-area-context) are stubbed via config-level aliases to
+  `mobile/src/test-support/*Stub.tsx` — add new native deps there, not with per-test mocks.
+
+## 7. CI gate
+
+Run `npm run validate` plus explicit web/mobile tests and the standalone Convex typecheck.
+The npm gate runs format, i18n, all workspace lint, web/mobile types, backend tests, and web build;
+it does not include web/mobile unit tests. `make validate` includes all test suites but omits
+i18n and design-system lint. See [CI_LOCAL.md](../CI_LOCAL.md) for exact commands and handling
+pre-existing failures without blanket formatting churn.
+
+The web unit gate (`npm run test -w web`) includes the **accessibility tests** (§8) — they run in the
+normal vitest/jsdom suite, no extra step. The **Playwright E2E suite** (§9) is a separate, live-env
+gate and is NOT part of `make validate`.
+
+## 8. Accessibility gate (web, runnable)
+
+`web/src/test/a11y.test.tsx` renders a focused set of key components in jsdom and asserts
+[`jest-axe`](https://github.com/nickcolley/jest-axe) finds **zero** WCAG 2.0/2.1 A/AA violations:
+`UpgradePrompt`, `FeatureGate` (gated), `EmptyState`, `OnlineOnlyBanner` (offline),
+`CloudRetentionBanner` (grace), and a labeled form (`UnderlineInput` + `Button`).
+
+```bash
+npm run test -w web        # includes the a11y tests
+npm run test:a11y -w web   # a11y tests only
+```
+
+Notes:
+
+- The landmark `region` best-practice rule is disabled — it audits whole-page landmark structure, a
+  layout concern, not a property of an isolated component in a bare jsdom body.
+- `color-contrast` is not evaluable in jsdom (no layout/paint) and axe-core skips it automatically.
+  Real contrast checking happens in the browser via the Playwright E2E run (future: add
+  `@axe-core/playwright` scans to the E2E specs).
+- Extend the gate by adding renders to this file as components mature.
+
+## 9. E2E (web, Playwright)
+
+Harness lives in `web/`: `playwright.config.ts` + `web/e2e/*.spec.ts`. Playwright drives a **real
+running app** — it does not stub Convex or Better Auth — so use only an explicitly authorized
+**development** target and synthetic accounts, never production or real user data.
+
+### Specs
+
+| Spec                                 | Flow                                                                                                        | Runs without auth?                              |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `smoke.spec.ts`                      | landing loads, sign-in form, protected-route redirect                                                       | **Yes** (only needs the app running)            |
+| `offline-crud.spec.ts`               | create a build offline → persists across reload                                                             | No — skips without auth env                     |
+| `export-import.spec.ts`              | Legacy same-vault re-import scenario; see [current restore contract](DATA_AND_SYNC.md#current-web-behavior) | No — skips without auth env                     |
+| `upgrade-backfill.spec.ts`           | "Backing up your library… N/M" indicator (paid)                                                             | No — skips without auth + `E2E_PAID_BACKFILL`   |
+| `downgrade-retention-banner.spec.ts` | cloud-retention banner for a downgraded user                                                                | No — skips without auth + `E2E_DOWNGRADED_USER` |
+
+Auth-gated specs `test.skip(...)` with a clear reason when their env is absent — a skipped run
+explains what it needs (they are **not** fake passes). Gating logic is in `web/e2e/fixtures.ts`.
+
+### Run locally
+
+```bash
+# One-time: download browsers (NOT run in CI-restricted / offline envs)
+npx playwright install --with-deps chromium
+
+# 1. Point web at a Convex dev deployment (web/.env.local): NEXT_PUBLIC_CONVEX_URL=...
+npx convex dev          # in the repo root, keep running
+npm run dev -w web      # next dev on http://localhost:3000, keep running
+
+# 2. Run E2E against it
+npm run test:e2e -w web         # headless
+npm run test:e2e:ui -w web      # Playwright UI mode
+
+# Or let Playwright start next dev itself:
+E2E_WEBSERVER=1 npm run test:e2e -w web
+```
+
+Env vars:
+
+- `E2E_BASE_URL` — authorized development app URL (default `http://localhost:3000`; a preview
+  must also point at an authorized development backend).
+- `E2E_WEBSERVER=1` — auto-start `next dev` (opt-in; needs `NEXT_PUBLIC_CONVEX_URL`).
+- `E2E_USER_EMAIL` + `E2E_USER_PASSWORD` — a seeded, email-verified account for authed specs.
+- `E2E_STORAGE_STATE` — alternatively, a pre-authenticated Playwright storage-state file.
+- `E2E_PAID_BACKFILL=1` / `E2E_DOWNGRADED_USER=1` — enable the paid/downgrade-state specs.
+
+`npx playwright test --list` lists all specs **without running** them — useful to confirm the harness
+and config load.
+
+### CI
+
+The manual workflow already exists: [web-e2e.yml](../.github/workflows/web-e2e.yml)
+(`workflow_dispatch`). It runs only when repository variable `E2E_ENABLED` is `true`; the job
+uses `E2E_CONVEX_URL`, `E2E_USER_EMAIL`, and `E2E_USER_PASSWORD` secrets. It installs browsers and
+starts the web dev server; it does **not** provision a Convex deployment or create fixture users.
+Prepare an authorized dev deployment and email-verified synthetic account before dispatch, with
+matching auth-site configuration. Missing auth/state gates still skip individual specs; a skipped
+paid/backfill or downgrade test is not a verified flow. The default web push/PR gate stays separate.
+
+Sample-data seeding is [development-only and opt-in](runbooks/development-seed.md). Its basic
+sample is not a paid/backfill/downgrade fixture; prepare those states explicitly in the authorized
+dev environment rather than claiming `/dev/seed` establishes them.
+
+### Managed-sync scenarios and staging gate
+
+`mobile/src/vault/replica/replica.gate.test.ts` runs two simulated phones (each the real vault,
+handlers and replicator over its own SQLite database) against the real Convex replica functions:
+offline creation on two devices, concurrent same/different-field edits with one-tap restore,
+delete-versus-edit in both orders, cross-row orphans moving to Recovered, upgrading two free vaults,
+an expired session, more than 500 rows with a lost push acknowledgement and a dropped pull page,
+simultaneous pushes, a plan lapsing mid-sync, a session for another account, and a device offline
+past the 90-day retention horizon. Backend-only contracts (containment, retention, assets,
+publication) are in `convex/replica.test.ts`.
+
+By default the scenarios use `convex-test` and run with `npm test -w mobile`. To run the shared
+scenarios against a real **non-production** deployment (the ADR-0005 staging gate), deploy the
+branch's functions to a dev or preview deployment, then set:
+
+- `KYARAFIT_GATE_CONVEX_URL` — the deployment URL (the run refuses URLs containing `prod`)
+- `KYARAFIT_GATE_TOKEN` — a Convex auth JWT for a test account on a paid tier
+- `KYARAFIT_GATE_SUBJECT` — that account's subject (Better Auth user id)
+
+```bash
+KYARAFIT_GATE_CONVEX_URL=… KYARAFIT_GATE_TOKEN=… KYARAFIT_GATE_SUBJECT=… \
+  npx vitest run --config mobile/src/offline/vitest.config.ts src/vault/replica/replica.gate.test.ts
+```
+
+Deployment runs only add rows under fresh ids. Scenarios that change tiers, move the clock or read
+server tables stay on `convex-test`.
+
+## 10. Performance budgets (plan)
+
+No runnable perf gate yet — documented here to avoid a flaky/unrunnable check:
+
+- **Bundle size.** Track `next build` route/first-load JS. Budget: keep app-shell first-load JS under
+  a fixed ceiling; fail CI on a regression beyond a threshold. Candidate tooling: Next's build output
+  parsing or `@next/bundle-analyzer` in a manual job.
+- **Render timing.** For the heaviest client screens (planner, builds list), add a lightweight
+  Playwright timing assertion (navigation → key element visible under a budget) once the E2E env is
+  live. Prefer a generous budget to avoid flakiness; treat as a smoke signal, not a microbenchmark.
+- **Offline hydration.** Assert local-first read (list visible after reload while offline) completes
+  within a budget as part of `offline-crud.spec.ts` when it runs live.
+
+## 11. Mobile E2E (runbook — not yet built)
+
+Not scaffolded in-repo: a mobile E2E harness needs an iOS Simulator / Android emulator and native
+builds, which the authoring environment can't run or verify. This is the concrete plan to add it — no
+unverified harness was committed on purpose.
+
+### Recommended tool: Maestro (over Detox)
+
+Maestro suits this Expo app better than Detox: YAML flows (no native test-runner build), works against
+an Expo Dev Client / release build, and has far less setup. Use Detox only if you need fine-grained
+synchronization or already run it elsewhere.
+
+### Setup
+
+```bash
+curl -Ls "https://get.maestro.mobile.dev" | bash        # installs the maestro CLI
+# Build a dev client / standalone the emulator can install:
+npx expo run:ios         # or: eas build --profile development --platform ios
+```
+
+Put flows in `mobile/e2e/*.yaml` and add a script, e.g. `"test:e2e": "maestro test e2e"` in
+`mobile/package.json`. Gate any CI job on a runner that has a simulator (macOS runner for iOS); keep it
+off the default `mobile.yml` gate, mirroring how web E2E stays out of `web.yml` (§9 CI).
+
+### Flows to cover (mirror the local-first invariants)
+
+| Flow                    | Asserts                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Offline CRUD round-trip | create a build/element with the device in airplane mode → data visible immediately (local store) → persists across app restart                          |
+| Sync on reconnect       | go online → pending writes drain to Convex; last-synced updates; no duplicates on replay (idempotency)                                                  |
+| Free → paid replication | upgrade a signed-in free account → vault rows replicate under unchanged ids; see the [sync contract](DATA_AND_SYNC.md#6-managed-sync-paid--online-only) |
+| Downgrade banner        | a downgraded account shows the cloud-retention banner; local data stays fully editable                                                                  |
+| Image add offline       | add a build reference/process image offline (local `ImageRef`) → survives restart → uploads on sync for a paid user                                     |
+
+These are the same critical paths the web Playwright specs (§9) target; keep the two suites conceptually
+in sync so web/mobile parity is actually exercised end to end.
+
+### Fixtures
+
+Needs seeded accounts like the web specs: a plain signed-in user, a paid user mid-backfill, and a
+downgraded user (`downgradedAt` set). Reuse the same seeding approach documented for §9.
+
+## 12. Follow-ups
+
+- **`@axe-core/playwright`**: real-browser a11y scans (incl. color-contrast) layered onto the E2E specs.
+- Wire the perf budgets in §10 once an authorized dev E2E environment and stable measurements exist.
+- Build the mobile E2E harness per §11 on a simulator-capable runner.

@@ -1,8 +1,12 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { canUserEditBuild } from "./lib/buildAccess";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
+import { idempotentReplay, idempotentRecord } from "./lib/idempotency";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 
 export const listByBuild = query({
@@ -30,9 +34,13 @@ export const add = mutation({
     userId: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "buildReferenceImages.add");
+    if (replay.hit) return replay.result as Doc<"buildReferenceImages"> | null;
+
     const build = await ctx.db.get(args.buildId);
     if (!build) throw new Error("Build not found");
     const canEdit = await canUserEditBuild(ctx, args.buildId, actorId);
@@ -49,14 +57,23 @@ export const add = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
     const maxOrder = existing.length ? Math.max(...existing.map((r) => r.sortOrder), -1) : -1;
-    const id = await ctx.db.insert("buildReferenceImages", {
-      userId: actorId,
-      buildId: args.buildId,
-      imageStorageId: args.imageStorageId,
-      imageUrl: args.imageUrl,
-      sortOrder: maxOrder + 1,
-    });
-    return await ctx.db.get(id);
+    const id = await ctx.db.insert(
+      "buildReferenceImages",
+      withCreateMeta({
+        userId: actorId,
+        buildId: args.buildId,
+        imageStorageId: args.imageStorageId,
+        imageUrl: args.imageUrl,
+        sortOrder: maxOrder + 1,
+      })
+    );
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "buildReferenceImages.add"
+    );
   },
 });
 
@@ -94,6 +111,7 @@ export const reorder = mutation({
       .withIndex("by_buildId", (q) => q.eq("buildId", args.buildId))
       .collect();
     const existingIds = new Set(existing.map((r) => r._id));
+    const rowsById = new Map(existing.map((r) => [r._id, r]));
     const orderedSet = new Set(args.orderedIds);
     const appended = existing.filter((r) => !orderedSet.has(r._id));
     const fullOrder = [
@@ -101,7 +119,8 @@ export const reorder = mutation({
       ...appended.map((r) => r._id),
     ];
     for (let i = 0; i < fullOrder.length; i++) {
-      await ctx.db.patch(fullOrder[i], { sortOrder: i });
+      const row = rowsById.get(fullOrder[i]);
+      await ctx.db.patch(fullOrder[i], withUpdateMeta(row ?? {}, { sortOrder: i }));
     }
   },
 });

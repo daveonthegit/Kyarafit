@@ -1,5 +1,7 @@
 {
   "common": {
+    "expand": "Expand",
+    "collapse": "Collapse",
     "appName": "Kyarafit",
     "signIn": "Sign in",
     "signUp": "Sign up",
@@ -12,7 +14,15 @@
     "planner": "Planner",
     "more": "More",
     "settings": "Settings",
-    "offlineBanner": "You are offline — changes sync when you reconnect.",
+    "offlineBanner": "Offline — your changes are saved on this device.",
+    "syncPendingCount": "{{count}} pending changes waiting to sync",
+    "syncNow": "Sync now",
+    "syncing": "Syncing…",
+    "lastSynced": "Last synced {{time}}",
+    "neverSynced": "Not synced yet",
+    "cloudGrace": "Cloud backup active until {{date}}",
+    "cloudFrozen": "Cloud backup frozen — resubscribe to keep syncing (removed {{date}})",
+    "cloudPurgeable": "Cloud backup expired — resubscribe to restore syncing",
     "cancel": "Cancel",
     "loading": "Loading…",
     "done": "Done",
@@ -22,7 +32,10 @@
     "addElement": "Add element",
     "addEvent": "Add event",
     "addGroup": "Add group",
-    "events": "Events"
+    "events": "Events",
+    "closeMenu": "Close menu",
+    "moreCreateOptions": "More create options",
+    "closeCreateMenu": "Close create menu"
   },
   "nav": {
     "home": "Home",
@@ -79,7 +92,20 @@
     "followingFeed": "From people you follow",
     "followingEmpty": "Follow creators to see their public builds here.",
     "followingUnknownCreator": "Creator",
-    "openFollowingBuild": "Open build"
+    "openFollowingBuild": "Open build",
+    "glassOpenBuild": "Open build",
+    "glassWhatsDue": "What's due",
+    "glassInTheStudio": "In the studio · {{count}}",
+    "glassDueToday": "Today",
+    "glassDueTomorrow": "Tomorrow",
+    "glassHeadlineDueZero": "All caught up",
+    "glassHeadlineDueOne": "One thing due",
+    "glassHeadlineDueOther": "{{count}} things due",
+    "glassHeadlineEventToday": "{{event}} is today",
+    "glassHeadlineEventOneDay": "1 day to {{event}}",
+    "glassHeadlineEventDays": "{{days}} days to {{event}}",
+    "glassEventRowMeta": "{{count}} builds · {{days}} days",
+    "glassEventRowMetaToday": "{{count}} builds · today"
   },
   "builds": {
     "pageTitle": "My Builds",
@@ -139,10 +165,31 @@
       "wip": "In progress",
       "ready": "Ready",
       "archived": "Archived"
-    }
+    },
+    "featuredEyebrow": "Featured",
+    "sharedEyebrow": "Shared",
+    "openBuild": "Open build",
+    "openBoard": "Board",
+    "archiveEyebrow": "The archive · {{count}}",
+    "startFirstBuild": "Start your first build",
+    "searchToggle": "Search builds",
+    "viewGridToggle": "Switch to grid view",
+    "viewFeaturedToggle": "Switch to featured view"
   },
   "elements": {
     "pageTitle": "Elements",
+    "imageAction": "Image",
+    "imageDialogTitle": "Element image",
+    "imageUrlLabel": "Image URL",
+    "imageUrlAdd": "Add URL",
+    "imageLocalAdd": "Save on device",
+    "imageCloudAdd": "Upload to cloud",
+    "imageCloudPaidOnly": "Cloud image backup is a paid feature. Free images stay on your device.",
+    "imageCloudCapReached": "Cloud storage is full. New uploads are paused; your images are safe.",
+    "imageUploadFailed": "Upload failed. Please try again.",
+    "imageSaveFailed": "Could not save the image on this device.",
+    "imageRemove": "Remove image",
+    "imagePreviewAlt": "Element image preview",
     "refineElements": "Refine elements",
     "filtersViewLabel": "View",
     "filtersSortViewLabel": "Sort & layout",
@@ -290,9 +337,43 @@
     "deleteNode": "Delete element",
     "deleteNodeTitle": "Delete this element?",
     "deleteNodeBody": "This removes the element itself. Unlink it instead if you only want it removed from a containing element or build.",
-    "deleteNodeAction": "Delete element"
+    "deleteNodeAction": "Delete element",
+    "closetTitle": "The closet",
+    "closetEmpty": "Your closet is empty. Add your first piece.",
+    "nameRequired": "Name is required",
+    "tabAllCount": "All · {{count}}",
+    "tabElements": "Elements",
+    "tabMaterials": "Materials",
+    "searchToggle": "Search elements",
+    "invested": "{{amount}} invested",
+    "heroEyebrow": "Elements · Last touched",
+    "heroKind": "Kind",
+    "heroProgress": "Progress",
+    "heroDirectCost": "Direct cost",
+    "heroPartsLinkedOne": "{{count}} part linked",
+    "heroPartsLinked": "{{count}} parts linked",
+    "piecesOne": "{{count}} piece",
+    "pieces": "{{count}} pieces"
   },
   "buildDetail": {
+    "newElement": "New element",
+    "elementsEmpty": "No elements yet. Create one to start your build plan.",
+    "elementActions": "Element actions",
+    "addSubElement": "Add sub-element",
+    "renameElement": "Rename",
+    "duplicateToBuild": "Duplicate to build…",
+    "duplicateToBuildTitle": "Duplicate to build",
+    "duplicateToBuildBody": "Copy this element into another build as an independent element.",
+    "duplicateNoBuilds": "No other builds to copy into.",
+    "moveUnder": "Move under…",
+    "moveUnderTitle": "Move element",
+    "moveUnderBody": "Pick a parent element. You can't move an element under itself or its own sub-element.",
+    "moveToRoot": "Move to top level",
+    "moveCycleError": "Can't move an element under its own sub-element.",
+    "moveErrorGeneric": "Could not move that element.",
+    "deleteElement": "Delete element",
+    "deleteElementTitle": "Delete element?",
+    "deleteElementBody": "This removes the element and its sub-elements from this build.",
     "menuTitle": "Build",
     "duplicate": "Duplicate",
     "deleteBuildTitle": "Delete this build?",
@@ -356,7 +437,13 @@
     "roleEditor": "Editor",
     "addChildElement": "Sub-element",
     "addChildMaterial": "Sub-material",
-    "openElement": "Open full element"
+    "openElement": "Open full element",
+    "headlineTasksMeta": "{{checked}} / {{total}} tasks · {{pct}}%",
+    "explorerDragHelper": "Long-press a row to drag, nest, or reorder",
+    "explorerMatches": "{{count}} matches",
+    "explorerRoots": "{{count}} roots",
+    "boardAddImage": "Add image",
+    "taskBlocked": "Blocked"
   },
   "linkElements": {
     "title": "Link elements",
@@ -414,11 +501,28 @@
     "connectionOffline": "Offline",
     "pendingMutationsHint": "Changes made while offline stay here until they finish syncing.",
     "offlineCapabilityFootnote": "You will see a banner at the top of the app when you are offline. Same message as elsewhere: edits apply locally first, then upload when connectivity returns.",
+    "dataPortability": "Backup & restore",
+    "dataPortabilitySubtitle": "Save or restore everything on this device",
+    "dataPortabilityEyebrow": "Your data",
+    "dataPortabilityIntro": "Your planner lives on this device. Save a backup file with every build, element, task, convention, packing list, and photo, or restore one. Free for everyone, and it works offline.",
+    "dataPortabilityFootnote": "Backups stay with you: nothing is uploaded unless you share the file yourself. Restoring adds what's missing and keeps anything you've changed since, so it's safe to run more than once.",
+    "dataExportTitle": "Back up",
+    "dataExportDescription": "Everything in your planner, including original photos, in one .kyarafit file.",
+    "dataExportButton": "Save backup",
+    "dataExportEmpty": "There's nothing to back up yet.",
+    "dataExportSuccessTitle": "Backup saved",
+    "dataExportSuccessBody": "{{items}} items and {{photos}} photos are in your backup.",
+    "dataImportTitle": "Restore",
+    "dataImportDescription": "Choose a .kyarafit backup. Items already here stay as they are unless the backup has a newer copy.",
+    "dataImportButton": "Choose backup",
+    "dataImportSuccessTitle": "Backup restored",
+    "dataImportSuccessBody": "{{added}} added, {{updated}} updated, {{kept}} already up to date.",
+    "dataErrorTitle": "Something went wrong",
     "accountDetails": "Account details",
     "tierName": {
       "FREE": "Free",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "Supporter"
     },
     "subscriptionPlan": "Subscription plan",
     "subscriptionPlansLabel": "Plans",
@@ -495,7 +599,7 @@
       "forgotPasswordLink": "forgot password",
       "yourEmailFallback": "your address",
       "sectionDataPrivacy": "Data & privacy",
-      "dataPrivacyBody": "Kyarafit stores your account details, cosplay builds, uploaded images, and convention plans in the cloud when you're signed in. On this device, auth tokens are stored securely so you stay signed in.",
+      "dataPrivacyBody": "Your builds, elements, conventions, and photos are stored on this device. With Kyarafit Cloud they are also synced to your account. Sign-in details are kept in this device's secure storage.",
       "termsOfService": "Terms of Service",
       "privacyPolicy": "Privacy policy",
       "securitySupport": "Security & support",
@@ -503,7 +607,7 @@
       "deleteAction": "Delete account",
       "deletePermanentLabel": "Permanent action",
       "deleteConfirmTitle": "Delete account permanently?",
-      "deleteConfirmBody": "This can't be undone. We'll remove your Kyarafit account, cloud-synced content, uploaded images, and this device's signed-in session data.",
+      "deleteConfirmBody": "This can't be undone. We'll remove your Kyarafit account, cloud-synced content, uploaded images, and this account's planner and photos on this device. Export your data first if you want to keep a copy.",
       "typeDeleteLabel": "Type DELETE to confirm",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "Type DELETE to confirm you want to permanently remove your account.",
@@ -564,7 +668,117 @@
     "devGallery": "Component gallery",
     "devGallerySubtitle": "App screen previews",
     "pendingMutations": "Pending changes",
-    "homeLink": "Back to home"
+    "homeLink": "Back to home",
+    "cloudSync": "Cloud sync",
+    "cloudBackupUpgrade": "Upgrade for automatic cloud sync and backup.",
+    "signOutError": "Could not sign out. Please try again.",
+    "signOutConfirmTitle": "Sign out of Kyarafit?",
+    "signOutExportWarning": "Your planner stays on this device, locked until you sign in again with this account. Other accounts can't see it. Save a backup if you want a copy elsewhere.",
+    "signOutConfirmBody": "Your planner stays on this device, locked until you sign in again. Are you sure you want to sign out?",
+    "accountGlass": {
+      "editDisplayName": "Edit display name",
+      "editUsername": "Edit username",
+      "editBio": "Edit bio",
+      "disconnectProvider": "Disconnect {{provider}}"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "Your subscription is already active.",
+      "paywallUnlocked": "RevenueCat paywall finished. Your Pro access is active or already unlocked.",
+      "paywallClosed": "RevenueCat paywall closed without a purchase.",
+      "perYear": "{{price}} / year",
+      "perMonth": "{{price}} / month",
+      "opening": "Opening...",
+      "notConfigured": "Not configured",
+      "fromMonthly": "From {{price}} / mo",
+      "monthly": "{{price}} / mo",
+      "payWhatYouWant": "Pay what you want, billed monthly",
+      "annual": "{{price}} / year{{savings}}",
+      "annualSavings": "Save 2 months",
+      "noPayment": "No payment required",
+      "storage": "Storage",
+      "unlimited": "Unlimited",
+      "sync": "Sync",
+      "localOnly": "Local only",
+      "allDevices": "All devices",
+      "included": "Included",
+      "upgradeUnlocks": "Upgrade unlocks",
+      "active": "Subscription: active",
+      "inactive": "Subscription: not active",
+      "openPaywall": "Open Paywall",
+      "customerCenter": "Customer Center",
+      "plans": {
+        "free": {
+          "name": "Free",
+          "tagline": "Everything you need to plan builds — on your device.",
+          "audience": "Best for anyone organizing cosplay builds, conventions, and packing.",
+          "highlights": {
+            "0": "Unlimited builds",
+            "1": "Works offline on your device",
+            "2": "Export anytime (CSV, JSON, PDF)"
+          },
+          "features": {
+            "0": "Digital closet and unlimited build tracking",
+            "1": "Conventions, day plans, and packing lists",
+            "2": "Public build sharing",
+            "3": "Local-first — your data lives on this device",
+            "4": "Full export and import (CSV, JSON backup with images, PDF)"
+          },
+          "notIncluded": {
+            "0": "Automatic cloud sync",
+            "1": "Multi-device access",
+            "2": "Collaboration invites"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "Stop thinking about backups. Work from any device.",
+          "audience": "Best for makers who want their builds synced, backed up, and always available.",
+          "highlights": {
+            "0": "Automatic cloud sync",
+            "1": "Work from any device",
+            "2": "2 GB image storage"
+          },
+          "features": {
+            "0": "Everything in Free",
+            "1": "Automatic cloud backup & sync — no manual exports",
+            "2": "Seamless access across all your devices",
+            "3": "Collaboration invites",
+            "4": "Advanced planner for deadlines & nested build tasks",
+            "5": "Priority support"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "Love Kyarafit? Chip in more — same Pro features, extra thanks.",
+          "audience": "Best for people who want to back Kyarafit's development beyond the Pro price.",
+          "highlights": {
+            "0": "Everything in Pro",
+            "1": "Choose your contribution",
+            "2": "Support ongoing development"
+          },
+          "features": {
+            "0": "Everything in Pro — identical features",
+            "1": "Pick the amount that feels right (min $5 / mo)",
+            "2": "Directly funds Kyarafit's development",
+            "3": "Our heartfelt thanks"
+          }
+        }
+      }
+    },
+    "dataRemoveTitle": "Remove from this device",
+    "dataRemoveConfirmAction": "Remove",
+    "dataRemoveConfirmTitle": "Remove your planner from this device?",
+    "dataRemoveButton": "Remove device data",
+    "dataRemoveDescription": "Deletes this account's planner and photos from this device, then signs you out. Save a backup first if you want to keep a copy.",
+    "dataRemoveConfirmBody": "This can't be undone. Backups you saved are not affected.",
+    "dataExportSummary": "{{items}} items · {{photos}} photos",
+    "dataExportMissingPhotos": "{{count}} photo originals were unavailable and aren't included in this backup.",
+    "dataExportPartialTitle": "Backup saved with omissions",
+    "dataExportOmittedRows": "{{count}} unreadable items couldn't be included in this backup.",
+    "dataImportPartialTitle": "Backup partially restored",
+    "dataImportOmittedRows": "{{count}} items were omitted from this restore or its source backup.",
+    "dataImportConflicts": "{{count}} conflicting parent changes were kept as they are on this device.",
+    "dataImportMissingPhotos": "{{count}} photos from this backup couldn't be restored."
   },
   "groups": {
     "title": "Groups",
@@ -597,14 +811,28 @@
     "buildsEmpty": "No builds are linked to this group yet.",
     "removeBuildAction": "Remove from group",
     "searchBuilds": "Search your builds…",
-    "availableBuildsEmpty": "No matching builds are available to add."
+    "availableBuildsEmpty": "No matching builds are available to add.",
+    "featuredEyebrow": "Your groups",
+    "openGroupAction": "Open group",
+    "buildCount": "{{count}} builds",
+    "emptyHeadline": "Cosplay is better together.",
+    "linkConventionTile": "Link a convention",
+    "noDaysPicked": "No days picked",
+    "addMyBuildAction": "Add my build",
+    "createPaidNotice": "Creating a group requires a paid plan.",
+    "createPaidAction": "View plans"
   },
   "feed": {
     "title": "Feed",
     "subtitle": "Public builds from people you follow, tuned for fast mobile scanning.",
     "signInBody": "Sign in to see builds from the creators you follow.",
     "emptyTitle": "Nothing new in your feed",
-    "emptyBody": "Follow more creators from Discover to turn this into a real progress stream."
+    "emptyBody": "Follow more creators from Discover to turn this into a real progress stream.",
+    "latestEyebrow": "Latest from people you follow",
+    "viewBuildAction": "View build",
+    "shelfEyebrow": "The feed · {{count}}",
+    "emptyEyebrow": "The feed",
+    "signInHeadline": "Sign in to see your feed."
   },
   "discover": {
     "title": "Discover",
@@ -619,7 +847,10 @@
     "unfollowAction": "Unfollow",
     "buildsTitle": "Public builds",
     "loadingBuilds": "Loading builds…",
-    "emptyBuilds": "No public builds yet."
+    "emptyBuilds": "No public builds yet.",
+    "buildsMeta": "{{count}} builds",
+    "followersMeta": "{{count}} followers",
+    "followingMeta": "{{count}} following"
   },
   "social": {
     "commentsTitle": "Comments",
@@ -627,7 +858,9 @@
     "commentsSignIn": "Sign in to join the conversation.",
     "commentPlaceholder": "Add a comment…",
     "commentAction": "Post comment",
-    "commentPosting": "Posting…"
+    "commentPosting": "Posting…",
+    "likeAction": "Like",
+    "cardTasksMeta": "{{checked}}/{{total}} tasks"
   },
   "publicBuild": {
     "title": "Public build",
@@ -682,7 +915,18 @@
     "indent": "Nest",
     "outdent": "Promote",
     "taskStructureHint": "Reorder, nest, or edit this task.",
-    "taskActionsA11y": "Task actions"
+    "taskActionsA11y": "Task actions",
+    "headline": "What's due",
+    "groupLater": "Later",
+    "showLater": "Show",
+    "hideLater": "Hide",
+    "progressShort": "{{done}}/{{total}} done",
+    "blocked": "Blocked",
+    "overdue": "Overdue",
+    "viewDaily": "Daily",
+    "progressCount": "{{done}} / {{total}} tasks",
+    "openGroup": "Open",
+    "detailsAction": "Details"
   },
   "workflowEditor": {
     "title": "Edit task",
@@ -815,7 +1059,32 @@
     "bulkDone": "Done",
     "bulkUndoDeleted": "{{count}} events deleted",
     "bulkUndoAction": "Undo",
-    "bulkUndoing": "Undoing…"
+    "bulkUndoing": "Undoing…",
+    "countdownLabel": "Countdown",
+    "countdownDays": "{{count}} days",
+    "countdownToday": "Today",
+    "countdownTomorrow": "Tomorrow",
+    "countdownStarted": "{{count}} days ago",
+    "plannedDaysMeta": "{{planned}}/{{total}} days",
+    "planDayAction": "Plan a day",
+    "assignBuildTile": "Assign a build",
+    "packingListTitle": "Packing list",
+    "packedCountMeta": "{{checked}} / {{total}} packed",
+    "addPackingPlaceholder": "Add packing item…",
+    "packingNotesLabel": "Notes",
+    "packedUndoAction": "Undo",
+    "packedDoneAction": "Packed",
+    "nextEyebrow": "Next",
+    "metricCountdown": "Countdown",
+    "metricBuildsValue": "{{count}} planned",
+    "seasonEyebrow": "The season · {{year}}",
+    "seasonEyebrowPlain": "The season",
+    "noUpcomingHeadline": "No events on the calendar.",
+    "dayPlansAction": "Day plans",
+    "packingListAction": "Packing list",
+    "searchToggle": "Search events",
+    "rowBuilds": "{{count}} builds",
+    "noMatches": "No events match your search or filter."
   },
   "auth": {
     "continueWithGoogle": "Continue with Google",
@@ -872,6 +1141,106 @@
     "resendVerification": "Resend verification email",
     "verifyResent": "Verification email sent. Check your inbox (and spam folder).",
     "resendFailed": "Could not resend. Try again.",
-    "verifySpamHint": "Did not receive anything? Check spam or try resend above."
+    "verifySpamHint": "Did not receive anything? Check spam or try resend above.",
+    "joinEyebrow": "Join",
+    "accountRecovery": "Account recovery"
+  },
+  "devGallery": {
+    "title": "Glass Studio",
+    "subtitle": "Primitive previews for on-device QA.",
+    "surfaces": "Surfaces",
+    "surfaceBar": "Bar weight — chrome, tab bar, strips",
+    "surfacePanel": "Panel weight — the one work panel per region",
+    "surfaceOverlay": "Overlay weight — sheets and dialogs",
+    "surfaceFallback": "Opaque fallback — blur disabled",
+    "buttons": "Buttons on photo",
+    "buttonPrimary": "Primary action",
+    "buttonSecondary": "Secondary",
+    "buttonTertiary": "Tertiary link",
+    "buttonSmall": "Small primary",
+    "buttonDisabled": "Disabled",
+    "chips": "Status chips on glass",
+    "chipDone": "Done",
+    "chipActive": "In progress",
+    "chipWarn": "Waiting",
+    "chipNeutral": "Draft",
+    "field": "Form field",
+    "fieldLabel": "Element name",
+    "fieldPlaceholder": "e.g. Blonde wig",
+    "fieldErrorLabel": "With error",
+    "fieldError": "This field is required.",
+    "emptyState": "Empty state",
+    "emptyMessage": "No photos yet",
+    "emptySecondary": "Add reference shots to build your board.",
+    "emptyCta": "Add photo"
+  },
+  "landing": {
+    "kicker": "The cosplay studio planner",
+    "headline": "Made by hand.\nPlanned to the seam.",
+    "subcopy": "Every element, task, and convention day for your next build — tracked in one quiet studio that works offline.",
+    "ctaPrimary": "Start planning — free",
+    "ctaMeta": "Free · works offline after you sign in"
+  },
+  "offline": {
+    "onlineOnlyBanner": "You're offline — this section needs a connection.",
+    "retry": "Retry"
+  },
+  "vault": {
+    "openErrorTitle": "Your planner couldn't be opened",
+    "openErrorBody": "Nothing was deleted. Free up some storage or restart the app, then try again. ({{detail}})",
+    "saveFailedTitle": "Couldn't save on this device",
+    "saveFailedBody": "That change wasn't saved. Free up some storage and try again. ({{detail}})",
+    "sessionExpired": "You're signed out of Kyarafit online. Your planner still works here.",
+    "sessionExpiredAction": "Sign in again to sync and use online features",
+    "sessionExpiredHint": "Opens sign in"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "Sign in again to keep syncing. Your changes are saved on this device.",
+      "notEntitled": "Sync is paused because Kyarafit Cloud isn't active on this account. Your changes are saved on this device.",
+      "offline": "You're offline. Changes will sync when you reconnect.",
+      "retrying": "Sync hit a problem and will retry automatically."
+    },
+    "changes": {
+      "title": "Changes that didn't apply",
+      "intro": "Another device changed or deleted these first. Your version is kept here: bring it back as a new edit, or dismiss it.",
+      "introBuild": "In {{name}}. Another device changed or deleted these first. Your version is kept here: bring it back as a new edit, or dismiss it.",
+      "reviewCount_one": "Review {{count}} change that didn't apply",
+      "reviewCount_other": "Review {{count}} changes that didn't apply",
+      "buildBanner_one": "{{count}} change didn't apply",
+      "buildBanner_other": "{{count}} changes didn't apply",
+      "review": "Review",
+      "openHint": "Opens the list of changes that didn't apply",
+      "emptyTitle": "Nothing to review",
+      "emptyBody": "Every change synced the way it was made.",
+      "untitled": "Untitled item",
+      "emptyValue": "(empty)",
+      "yes": "Yes",
+      "no": "No",
+      "useMine": "Use my version",
+      "restoreAsNew": "Restore as new",
+      "dismiss": "Dismiss",
+      "acknowledge": "Got it",
+      "openBuild": "Open build",
+      "restoreFailed": "Couldn't restore this change.",
+      "goneItem": "This item no longer exists, so there is nothing to restore it onto.",
+      "goneParent": "What this belonged to was deleted, so it can't come back.",
+      "kind": {
+        "concurrent": "Changed on another device",
+        "editAfterDelete": "Edited after it was deleted",
+        "deletedWithEdits": "Deleted with newer edits",
+        "recovered": "Moved to Recovered",
+        "unlinked": "Unlinked",
+        "removed": "Removed with its parent"
+      },
+      "explain": {
+        "concurrent": "Another device saved a different value first. Your value is below.",
+        "editAfterDelete": "You edited this after another device deleted it.",
+        "deletedWithEdits": "Another device deleted this before your latest edits reached it.",
+        "recovered": "Its build was deleted on another device, so it was kept in the Recovered build.",
+        "unlinked": "What it was attached to was deleted on another device. It is still in your library.",
+        "removed": "What it belonged to was deleted on another device."
+      }
+    }
   }
 }

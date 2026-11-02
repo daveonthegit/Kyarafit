@@ -5,6 +5,11 @@
 Security updates and fixes are applied only to the current main branch of this repository.  
 Older versions or forks are not supported.
 
+A published branch, passing test suite, or historical audit record is not evidence of completed
+remediation or deployment. Verify the actual release revision and configuration separately;
+see [deployment preflight](setup/DEPLOY_README.md). Keep private findings and reproduction
+details out of public commits, issues, and PR descriptions.
+
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability, please do not open a public issue.

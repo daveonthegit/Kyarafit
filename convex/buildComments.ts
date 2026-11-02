@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import { MAX_LENGTH, sanitizeAndLimit } from "./lib/validation";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
 import { requireIdentity } from "./lib/authz";

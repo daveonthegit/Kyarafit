@@ -4,33 +4,55 @@ import { usePathname } from "next/navigation";
 import { getActiveSection, shouldHideGlobalFAB } from "@kyarafit/design-system";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { WebContentContainer } from "@/components/layout/WebContentContainer";
-import { WebSidebar } from "@/components/layout/WebSidebar";
+import { GlassTopBar } from "@/components/layout/GlassTopBar";
 import { GlobalFAB } from "@/components/layout/GlobalFAB";
-import { SponsoredAdRail } from "@/components/ads/SponsoredAdRail";
 
 /**
- * Web-only app shell: sidebar (desktop/tablet), content container, bottom nav (mobile).
+ * Web-only app shell: glass top bar (desktop/tablet), content container,
+ * glass bottom nav + FAB (mobile). `fullBleed` drops the width-constrained
+ * container for v2 photo-backdrop screens, which manage their own padding.
+ * `lockViewport` clamps the page to the viewport on desktop so the screen's
+ * work panel scrolls internally instead of the page (6b).
  */
-export function WebAppShell({ children }: { children: React.ReactNode }) {
+export function WebAppShell({
+  children,
+  fullBleed = false,
+  lockViewport = false,
+}: {
+  children: React.ReactNode;
+  fullBleed?: boolean;
+  lockViewport?: boolean;
+}) {
   const pathname = usePathname();
   const active = getActiveSection(pathname ?? null);
   const hideFAB = shouldHideGlobalFAB(pathname ?? null);
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-kyar-bg relative">
-      <WebSidebar />
+    <div
+      className={`min-h-screen flex flex-col bg-kyar-bg relative ${
+        lockViewport ? "lg:h-screen lg:overflow-hidden" : ""
+      }`.trim()}
+    >
+      <GlassTopBar />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen lg:min-w-0 relative">
-        <main className="flex-1 flex flex-col pb-24 lg:pb-0">
-          <WebContentContainer className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
-            {children}
-          </WebContentContainer>
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+        {/* Mobile: clear the tab bar, plus the floating create pill when it shows, so the last
+            row of content can scroll out from under both. */}
+        <main
+          className={`flex-1 flex flex-col min-h-0 lg:pb-0 ${hideFAB ? "pb-24" : "pb-[9.5rem]"}`}
+        >
+          {fullBleed ? (
+            children
+          ) : (
+            <WebContentContainer className="flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
+              {children}
+            </WebContentContainer>
+          )}
         </main>
 
         <BottomNav active={active} className="lg:hidden" />
-        {!hideFAB && <GlobalFAB />}
+        {!hideFAB && <GlobalFAB className="lg:hidden" />}
       </div>
-      <SponsoredAdRail />
     </div>
   );
 }

@@ -1,19 +1,18 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth/client";
 import { APP_HREF } from "@/lib/appRoutes";
-import { useDesignTheme } from "@/theme/useDesignTheme";
+import { GlassTextField } from "@/ui/glass";
 import {
-  AUTH_ON_PRIMARY,
-  AuthScreenShell,
-  authFieldInputCls,
-  authFooterTextCls,
-  authLabelCls,
-  authSubtitleCls,
-  authTitleCls,
-} from "@/components/auth/AuthScreenShell";
+  AuthGlassErrorBanner,
+  AuthGlassFrame,
+  AuthGlassOutlineButton,
+  AuthGlassSolidButton,
+  authGlassBodyStyle,
+  authGlassLinkTextStyle,
+} from "@/components/auth/AuthGlassFrame";
 
 function singleParam(v: string | string[] | undefined): string {
   if (v === undefined) return "";
@@ -23,7 +22,6 @@ function singleParam(v: string | string[] | undefined): string {
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { colors } = useDesignTheme();
   const { token: tokenRaw } = useLocalSearchParams<{ token?: string | string[] }>();
   const token = singleParam(tokenRaw);
 
@@ -67,74 +65,67 @@ export default function ResetPasswordScreen() {
 
   if (!token) {
     return (
-      <View className="flex-1 justify-center bg-kyar-bg px-6 dark:bg-kyar-dark-bg">
-        <Text className="text-center text-xl font-semibold text-kyar-text dark:text-kyar-dark-text">
-          {t("auth.invalidLinkTitle")}
-        </Text>
-        <Text className="mt-3 text-center text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+      <AuthGlassFrame icon="mail-unread-outline" title={t("auth.invalidLinkTitle")}>
+        <Text style={[authGlassBodyStyle, { textAlign: "center", marginBottom: 20 }]}>
           {t("auth.resetLinkInvalid")}
         </Text>
-        <Link href={APP_HREF.signIn} asChild>
-          <Pressable className="mt-8 items-center rounded-xl border border-kyar-border py-4 dark:border-kyar-dark-border">
-            <Text className="font-semibold text-kyar-text dark:text-kyar-dark-text">
-              {t("auth.backToSignIn")}
-            </Text>
-          </Pressable>
-        </Link>
-      </View>
+        <AuthGlassOutlineButton
+          label={t("auth.backToSignIn")}
+          onPress={() => router.replace(APP_HREF.signIn)}
+        />
+      </AuthGlassFrame>
     );
   }
 
   return (
-    <AuthScreenShell>
-      <Text className={authTitleCls}>{t("auth.newPasswordTitle")}</Text>
-      <Text className={authSubtitleCls}>{t("auth.chooseNewPassword")}</Text>
+    <AuthGlassFrame
+      eyebrow={t("auth.accountRecovery", { defaultValue: "Account recovery" })}
+      title={t("auth.newPasswordTitle")}
+    >
+      <Text style={[authGlassBodyStyle, { textAlign: "center", marginBottom: 20 }]}>
+        {t("auth.chooseNewPassword")}
+      </Text>
 
       {error ? (
-        <Text className="mt-4 text-sm text-kyar-danger dark:text-kyar-dark-danger">{error}</Text>
+        <View style={{ marginBottom: 16 }}>
+          <AuthGlassErrorBanner message={error} />
+        </View>
       ) : null}
 
-      <Text className="mt-6 text-sm font-medium text-kyar-text dark:text-kyar-dark-text">
-        {t("auth.newPassword")}
-      </Text>
-      <TextInput
-        className={authFieldInputCls}
-        placeholderTextColor={colors.textTertiary}
+      <GlassTextField
+        label={t("auth.newPassword")}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         autoComplete="new-password"
       />
 
-      <Text className={`mt-4 ${authLabelCls}`}>{t("auth.confirmPassword")}</Text>
-      <TextInput
-        className={authFieldInputCls}
-        placeholderTextColor={colors.textTertiary}
-        secureTextEntry
-        value={confirm}
-        onChangeText={setConfirm}
-        autoComplete="new-password"
-      />
+      <View style={{ marginTop: 16 }}>
+        <GlassTextField
+          label={t("auth.confirmPassword")}
+          secureTextEntry
+          value={confirm}
+          onChangeText={setConfirm}
+          autoComplete="new-password"
+        />
+      </View>
 
-      <Pressable
-        className="mt-8 items-center rounded-xl bg-kyar-text py-4 active:opacity-90 dark:bg-kyar-dark-text"
+      <AuthGlassSolidButton
+        label={t("auth.setNewPassword")}
+        loading={submitting}
         onPress={onSubmit}
         disabled={submitting}
-      >
-        {submitting ? (
-          <ActivityIndicator color={AUTH_ON_PRIMARY} />
-        ) : (
-          <Text className="text-base font-semibold text-kyar-bg dark:text-kyar-dark-bg">
-            {t("auth.setNewPassword")}
-          </Text>
-        )}
-      </Pressable>
+        style={{ marginTop: 20 }}
+      />
 
       <Link href={APP_HREF.signIn} asChild>
-        <Pressable className="mt-6">
-          <Text className={authFooterTextCls}>{t("auth.backToSignIn")}</Text>
+        <Pressable
+          className="active:opacity-80"
+          style={{ marginTop: 12, minHeight: 44, justifyContent: "center", alignSelf: "center" }}
+        >
+          <Text style={authGlassLinkTextStyle}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       </Link>
-    </AuthScreenShell>
+    </AuthGlassFrame>
   );
 }

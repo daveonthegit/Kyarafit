@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, type MutationCtx } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
 import type { Id } from "./_generated/dataModel";
 
 async function getUserOrThrow(ctx: MutationCtx): Promise<{ _id: Id<"users"> }> {

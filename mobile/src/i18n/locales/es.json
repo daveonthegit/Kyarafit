@@ -1,5 +1,7 @@
 {
   "common": {
+    "expand": "Expandir",
+    "collapse": "Contraer",
     "appName": "Kyarafit",
     "signIn": "Iniciar sesión",
     "signUp": "Crear cuenta",
@@ -12,7 +14,15 @@
     "planner": "Planificador",
     "more": "Más",
     "settings": "Ajustes",
-    "offlineBanner": "Sin conexión — los cambios se sincronizarán al volver online.",
+    "offlineBanner": "Sin conexión — tus cambios se guardan en este dispositivo.",
+    "syncPendingCount": "{{count}} cambios pendientes de sincronizar",
+    "syncNow": "Sincronizar ahora",
+    "syncing": "Sincronizando…",
+    "lastSynced": "Última sincronización {{time}}",
+    "neverSynced": "Sin sincronizar todavía",
+    "cloudGrace": "Copia en la nube activa hasta {{date}}",
+    "cloudFrozen": "Copia en la nube congelada — vuelve a suscribirte para seguir sincronizando (se eliminará {{date}})",
+    "cloudPurgeable": "Copia en la nube caducada — vuelve a suscribirte para restaurar la sincronización",
     "cancel": "Cancelar",
     "loading": "Cargando…",
     "done": "Listo",
@@ -22,7 +32,10 @@
     "addElement": "Añadir elemento",
     "addEvent": "Añadir evento",
     "addGroup": "Añadir grupo",
-    "events": "Eventos"
+    "events": "Eventos",
+    "closeMenu": "Cerrar menú",
+    "moreCreateOptions": "Más opciones de creación",
+    "closeCreateMenu": "Cerrar menú de creación"
   },
   "nav": {
     "home": "Inicio",
@@ -79,7 +92,20 @@
     "followingFeed": "De quien sigues",
     "followingEmpty": "Sigue a creadores para ver builds públicos aquí.",
     "followingUnknownCreator": "Creador",
-    "openFollowingBuild": "Abrir build"
+    "openFollowingBuild": "Abrir build",
+    "glassOpenBuild": "Abrir proyecto",
+    "glassWhatsDue": "Pendientes",
+    "glassInTheStudio": "En el estudio · {{count}}",
+    "glassDueToday": "Hoy",
+    "glassDueTomorrow": "Mañana",
+    "glassHeadlineDueZero": "Todo al día",
+    "glassHeadlineDueOne": "Una cosa pendiente",
+    "glassHeadlineDueOther": "{{count}} cosas pendientes",
+    "glassHeadlineEventToday": "{{event}} es hoy",
+    "glassHeadlineEventOneDay": "1 día para {{event}}",
+    "glassHeadlineEventDays": "{{days}} días para {{event}}",
+    "glassEventRowMeta": "{{count}} proyectos · {{days}} días",
+    "glassEventRowMetaToday": "{{count}} proyectos · hoy"
   },
   "builds": {
     "pageTitle": "Mis proyectos",
@@ -139,10 +165,31 @@
       "wip": "En curso",
       "ready": "Listo",
       "archived": "Archivado"
-    }
+    },
+    "featuredEyebrow": "Destacado",
+    "sharedEyebrow": "Compartido",
+    "openBuild": "Abrir proyecto",
+    "openBoard": "Tablero",
+    "archiveEyebrow": "El archivo · {{count}}",
+    "startFirstBuild": "Empieza tu primer proyecto",
+    "searchToggle": "Buscar proyectos",
+    "viewGridToggle": "Cambiar a vista de cuadrícula",
+    "viewFeaturedToggle": "Cambiar a vista destacada"
   },
   "elements": {
     "pageTitle": "Elementos",
+    "imageAction": "Imagen",
+    "imageDialogTitle": "Imagen del elemento",
+    "imageUrlLabel": "URL de la imagen",
+    "imageUrlAdd": "Añadir URL",
+    "imageLocalAdd": "Guardar en el dispositivo",
+    "imageCloudAdd": "Subir a la nube",
+    "imageCloudPaidOnly": "La copia de imágenes en la nube es una función de pago. Las imágenes gratuitas se guardan en tu dispositivo.",
+    "imageCloudCapReached": "El almacenamiento en la nube está lleno. Las nuevas subidas están en pausa; tus imágenes están a salvo.",
+    "imageUploadFailed": "Error al subir. Inténtalo de nuevo.",
+    "imageSaveFailed": "No se pudo guardar la imagen en este dispositivo.",
+    "imageRemove": "Quitar imagen",
+    "imagePreviewAlt": "Vista previa de la imagen del elemento",
     "refineElements": "Refinar elementos",
     "filtersViewLabel": "Vista",
     "filtersSortViewLabel": "Orden y diseño",
@@ -290,9 +337,43 @@
     "deleteNode": "Eliminar elemento",
     "deleteNodeTitle": "¿Eliminar este elemento?",
     "deleteNodeBody": "Se eliminará este elemento y sus enlaces asociados.",
-    "deleteNodeAction": "Eliminar elemento"
+    "deleteNodeAction": "Eliminar elemento",
+    "closetTitle": "El armario",
+    "closetEmpty": "Tu armario está vacío. Agrega tu primera pieza.",
+    "nameRequired": "El nombre es obligatorio",
+    "tabAllCount": "Todo · {{count}}",
+    "tabElements": "Elementos",
+    "tabMaterials": "Materiales",
+    "searchToggle": "Buscar elementos",
+    "invested": "{{amount}} invertido",
+    "heroEyebrow": "Elementos · Último tocado",
+    "heroKind": "Tipo",
+    "heroProgress": "Progreso",
+    "heroDirectCost": "Costo directo",
+    "heroPartsLinkedOne": "{{count}} parte vinculada",
+    "heroPartsLinked": "{{count}} partes vinculadas",
+    "piecesOne": "{{count}} pieza",
+    "pieces": "{{count}} piezas"
   },
   "buildDetail": {
+    "newElement": "Nuevo elemento",
+    "elementsEmpty": "Aún no hay elementos. Crea uno para empezar tu plan de build.",
+    "elementActions": "Acciones del elemento",
+    "addSubElement": "Añadir sub-elemento",
+    "renameElement": "Renombrar",
+    "duplicateToBuild": "Duplicar en otra build…",
+    "duplicateToBuildTitle": "Duplicar en otra build",
+    "duplicateToBuildBody": "Copia este elemento en otra build como un elemento independiente.",
+    "duplicateNoBuilds": "No hay otras builds donde copiar.",
+    "moveUnder": "Mover bajo…",
+    "moveUnderTitle": "Mover elemento",
+    "moveUnderBody": "Elige un elemento padre. No puedes mover un elemento bajo sí mismo o su propio sub-elemento.",
+    "moveToRoot": "Mover al nivel superior",
+    "moveCycleError": "No puedes mover un elemento bajo su propio sub-elemento.",
+    "moveErrorGeneric": "No se pudo mover ese elemento.",
+    "deleteElement": "Eliminar elemento",
+    "deleteElementTitle": "¿Eliminar elemento?",
+    "deleteElementBody": "Esto elimina el elemento y sus sub-elementos de esta build.",
     "menuTitle": "Build",
     "duplicate": "Duplicar",
     "tabExplorer": "Explorador",
@@ -356,7 +437,13 @@
     "deleteBuildAction": "Eliminar build",
     "addChildElement": "Elemento hijo",
     "addChildMaterial": "Material hijo",
-    "openElement": "Abrir elemento completo"
+    "openElement": "Abrir elemento completo",
+    "headlineTasksMeta": "{{checked}} / {{total}} tareas · {{pct}}%",
+    "explorerDragHelper": "Mantén pulsada una fila para arrastrar, anidar o reordenar",
+    "explorerMatches": "{{count}} coincidencias",
+    "explorerRoots": "{{count}} raíces",
+    "boardAddImage": "Agregar imagen",
+    "taskBlocked": "Bloqueada"
   },
   "linkElements": {
     "title": "Enlazar elementos",
@@ -393,6 +480,23 @@
   },
   "settings": {
     "title": "Ajustes",
+    "dataPortability": "Copia de seguridad y restauración",
+    "dataPortabilitySubtitle": "Guarda o restaura todo lo que hay en este dispositivo",
+    "dataPortabilityEyebrow": "Tus datos",
+    "dataPortabilityIntro": "Tu planificador vive en este dispositivo. Guarda un archivo de copia de seguridad con cada build, elemento, tarea, convención, lista de equipaje y foto, o restaura uno. Gratis para todos y funciona sin conexión.",
+    "dataPortabilityFootnote": "Las copias de seguridad son tuyas: no se sube nada salvo que compartas el archivo. Restaurar añade lo que falta y conserva lo que hayas cambiado después, así que es seguro hacerlo más de una vez.",
+    "dataExportTitle": "Copia de seguridad",
+    "dataExportDescription": "Todo tu planificador, con las fotos originales, en un único archivo .kyarafit.",
+    "dataExportButton": "Guardar copia",
+    "dataExportEmpty": "Todavía no hay nada que guardar.",
+    "dataExportSuccessTitle": "Copia guardada",
+    "dataExportSuccessBody": "Tu copia incluye {{items}} elementos y {{photos}} fotos.",
+    "dataImportTitle": "Restaurar",
+    "dataImportDescription": "Elige una copia .kyarafit. Lo que ya está aquí se conserva, salvo que la copia tenga una versión más reciente.",
+    "dataImportButton": "Elegir copia",
+    "dataImportSuccessTitle": "Copia restaurada",
+    "dataImportSuccessBody": "{{added}} añadidos, {{updated}} actualizados, {{kept}} ya estaban al día.",
+    "dataErrorTitle": "Algo salió mal",
     "subtitle": "Apariencia, herramientas de la app y enlaces rápidos.",
     "systemPreferences": "Preferencias del sistema",
     "appearance": "Apariencia",
@@ -418,7 +522,7 @@
     "tierName": {
       "FREE": "Gratis",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "Mecenas"
     },
     "subscriptionPlan": "Plan de suscripción",
     "subscriptionPlansLabel": "Planes",
@@ -495,7 +599,7 @@
       "forgotPasswordLink": "olvidé mi contraseña",
       "yourEmailFallback": "tu correo",
       "sectionDataPrivacy": "Datos y privacidad",
-      "dataPrivacyBody": "Kyarafit guarda en la nube los datos de cuenta, builds, imágenes y planes de convención cuando has iniciado sesión. En este dispositivo, los tokens de autenticación se guardan de forma segura para mantener la sesión.",
+      "dataPrivacyBody": "Tus builds, elementos, convenciones y fotos se guardan en este dispositivo. Con Kyarafit Cloud también se sincronizan con tu cuenta. Los datos de inicio de sesión se guardan en el almacenamiento seguro del dispositivo.",
       "termsOfService": "Términos del servicio",
       "privacyPolicy": "Política de privacidad",
       "securitySupport": "Seguridad y soporte",
@@ -503,7 +607,7 @@
       "deleteAction": "Eliminar cuenta",
       "deletePermanentLabel": "Acción permanente",
       "deleteConfirmTitle": "¿Eliminar la cuenta para siempre?",
-      "deleteConfirmBody": "No se puede deshacer. Eliminaremos tu cuenta Kyarafit, el contenido en la nube, las imágenes subidas y la sesión en este dispositivo.",
+      "deleteConfirmBody": "No se puede deshacer. Eliminaremos tu cuenta de Kyarafit, el contenido sincronizado en la nube, las imágenes subidas y el planificador y las fotos de esta cuenta en este dispositivo. Exporta antes tus datos si quieres conservar una copia.",
       "typeDeleteLabel": "Escribe DELETE para confirmar",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "Escribe DELETE para confirmar que quieres eliminar la cuenta de forma permanente.",
@@ -564,7 +668,117 @@
     "devGallery": "Galería de componentes",
     "devGallerySubtitle": "Vista previa del sistema de diseño (en construcción)",
     "pendingMutations": "Cambios pendientes",
-    "homeLink": "Volver al inicio"
+    "homeLink": "Volver al inicio",
+    "cloudSync": "Sincronización en la nube",
+    "cloudBackupUpgrade": "Mejora tu plan para sincronizar y hacer copias de seguridad automáticas en la nube.",
+    "signOutError": "No se pudo cerrar sesión. Inténtalo de nuevo.",
+    "signOutConfirmTitle": "¿Cerrar sesión en Kyarafit?",
+    "signOutExportWarning": "Tu planificador se queda en este dispositivo, bloqueado hasta que vuelvas a iniciar sesión con esta cuenta. Otras cuentas no pueden verlo. Guarda una copia si la quieres en otro lugar.",
+    "signOutConfirmBody": "Tu planificador se queda en este dispositivo, bloqueado hasta que vuelvas a iniciar sesión. ¿Seguro que quieres cerrar sesión?",
+    "accountGlass": {
+      "editDisplayName": "Editar nombre visible",
+      "editUsername": "Editar usuario",
+      "editBio": "Editar biografía",
+      "disconnectProvider": "Desconectar {{provider}}"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "Tu suscripción ya está activa.",
+      "paywallUnlocked": "La pantalla de compra de RevenueCat ha finalizado. Tu acceso Pro está activo o ya desbloqueado.",
+      "paywallClosed": "La pantalla de compra de RevenueCat se cerró sin realizar una compra.",
+      "perYear": "{{price}} / año",
+      "perMonth": "{{price}} / mes",
+      "opening": "Abriendo…",
+      "notConfigured": "Sin configurar",
+      "fromMonthly": "Desde {{price}} / mes",
+      "monthly": "{{price}} / mes",
+      "payWhatYouWant": "Paga lo que quieras, con facturación mensual",
+      "annual": "{{price}} / año{{savings}}",
+      "annualSavings": "Ahorra 2 meses",
+      "noPayment": "No requiere pago",
+      "storage": "Almacenamiento",
+      "unlimited": "Ilimitado",
+      "sync": "Sincronización",
+      "localOnly": "Solo local",
+      "allDevices": "Todos los dispositivos",
+      "included": "Incluido",
+      "upgradeUnlocks": "Al mejorar tu plan obtienes",
+      "active": "Suscripción: activa",
+      "inactive": "Suscripción: inactiva",
+      "openPaywall": "Abrir pantalla de compra",
+      "customerCenter": "Centro de atención al cliente",
+      "plans": {
+        "free": {
+          "name": "Gratis",
+          "tagline": "Todo lo que necesitas para planificar proyectos, en tu dispositivo.",
+          "audience": "Ideal para organizar proyectos de cosplay, convenciones y equipaje.",
+          "highlights": {
+            "0": "Proyectos ilimitados",
+            "1": "Funciona sin conexión en tu dispositivo",
+            "2": "Exporta cuando quieras (CSV, JSON, PDF)"
+          },
+          "features": {
+            "0": "Armario digital y seguimiento ilimitado de proyectos",
+            "1": "Convenciones, planes por día y listas de equipaje",
+            "2": "Compartir proyectos públicamente",
+            "3": "Primero en local: tus datos se guardan en este dispositivo",
+            "4": "Exportación e importación completas (CSV, copia JSON con imágenes, PDF)"
+          },
+          "notIncluded": {
+            "0": "Sincronización automática en la nube",
+            "1": "Acceso desde varios dispositivos",
+            "2": "Invitaciones para colaborar"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "Olvídate de las copias de seguridad. Trabaja desde cualquier dispositivo.",
+          "audience": "Ideal para creadores que quieren sus proyectos sincronizados, respaldados y siempre disponibles.",
+          "highlights": {
+            "0": "Sincronización automática en la nube",
+            "1": "Trabaja desde cualquier dispositivo",
+            "2": "2 GB de almacenamiento de imágenes"
+          },
+          "features": {
+            "0": "Todo lo del plan Gratis",
+            "1": "Copia de seguridad y sincronización automáticas en la nube, sin exportaciones manuales",
+            "2": "Acceso fluido desde todos tus dispositivos",
+            "3": "Invitaciones para colaborar",
+            "4": "Planificador avanzado para plazos y tareas anidadas de proyectos",
+            "5": "Soporte prioritario"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "¿Te encanta Kyarafit? Aporta un poco más: las mismas funciones Pro y un agradecimiento extra.",
+          "audience": "Ideal para quienes quieren apoyar el desarrollo de Kyarafit más allá del precio de Pro.",
+          "highlights": {
+            "0": "Todo lo de Pro",
+            "1": "Elige tu aportación",
+            "2": "Apoya el desarrollo continuo"
+          },
+          "features": {
+            "0": "Todo lo de Pro, con las mismas funciones",
+            "1": "Elige la cantidad que prefieras (mín. $5 / mes)",
+            "2": "Financia directamente el desarrollo de Kyarafit",
+            "3": "Nuestro más sincero agradecimiento"
+          }
+        }
+      }
+    },
+    "dataRemoveTitle": "Quitar de este dispositivo",
+    "dataRemoveConfirmAction": "Quitar",
+    "dataRemoveConfirmTitle": "¿Quitar tu planificador de este dispositivo?",
+    "dataRemoveButton": "Quitar datos del dispositivo",
+    "dataRemoveDescription": "Borra de este dispositivo el planificador y las fotos de esta cuenta y cierra la sesión. Guarda antes una copia si quieres conservarla.",
+    "dataRemoveConfirmBody": "No se puede deshacer. Las copias que hayas guardado no se ven afectadas.",
+    "dataExportSummary": "{{items}} elementos · {{photos}} fotos",
+    "dataExportMissingPhotos": "No se pudieron obtener {{count}} fotos originales y no están incluidas en esta copia.",
+    "dataExportPartialTitle": "Copia guardada con omisiones",
+    "dataExportOmittedRows": "No se pudieron incluir {{count}} elementos ilegibles en esta copia.",
+    "dataImportPartialTitle": "Copia restaurada parcialmente",
+    "dataImportOmittedRows": "Se omitieron {{count}} elementos en esta restauración o en la copia original.",
+    "dataImportConflicts": "Se conservaron en este dispositivo {{count}} relaciones de jerarquía en conflicto.",
+    "dataImportMissingPhotos": "No se pudieron restaurar {{count}} fotos de esta copia."
   },
   "groups": {
     "title": "Grupos",
@@ -597,14 +811,28 @@
     "buildsEmpty": "Todavía no hay builds vinculadas a este grupo.",
     "removeBuildAction": "Quitar del grupo",
     "searchBuilds": "Buscar tus builds…",
-    "availableBuildsEmpty": "No hay builds disponibles que coincidan."
+    "availableBuildsEmpty": "No hay builds disponibles que coincidan.",
+    "featuredEyebrow": "Tus grupos",
+    "openGroupAction": "Abrir grupo",
+    "buildCount": "{{count}} proyectos",
+    "emptyHeadline": "El cosplay es mejor en compañía.",
+    "linkConventionTile": "Vincular un evento",
+    "noDaysPicked": "Sin días elegidos",
+    "addMyBuildAction": "Agregar mi proyecto",
+    "createPaidNotice": "Crear un grupo requiere un plan de pago.",
+    "createPaidAction": "Ver planes"
   },
   "feed": {
     "title": "Feed",
     "subtitle": "Builds públicas de las personas que sigues, pensadas para una lectura rápida en móvil.",
     "signInBody": "Inicia sesión para ver las builds de los creadores que sigues.",
     "emptyTitle": "No hay novedades en tu feed",
-    "emptyBody": "Sigue a más creadores desde Explorar para convertir esto en un tareas real de progreso."
+    "emptyBody": "Sigue a más creadores desde Explorar para convertir esto en un tareas real de progreso.",
+    "latestEyebrow": "Lo último de quienes sigues",
+    "viewBuildAction": "Ver proyecto",
+    "shelfEyebrow": "El feed · {{count}}",
+    "emptyEyebrow": "El feed",
+    "signInHeadline": "Inicia sesión para ver tu feed."
   },
   "discover": {
     "title": "Explorar",
@@ -619,7 +847,10 @@
     "unfollowAction": "Dejar de seguir",
     "buildsTitle": "Builds públicas",
     "loadingBuilds": "Cargando builds…",
-    "emptyBuilds": "Todavía no hay builds públicas."
+    "emptyBuilds": "Todavía no hay builds públicas.",
+    "buildsMeta": "{{count}} proyectos",
+    "followersMeta": "{{count}} seguidores",
+    "followingMeta": "{{count}} siguiendo"
   },
   "social": {
     "commentsTitle": "Comentarios",
@@ -627,7 +858,9 @@
     "commentsSignIn": "Inicia sesión para unirte a la conversación.",
     "commentPlaceholder": "Añade un comentario…",
     "commentAction": "Publicar comentario",
-    "commentPosting": "Publicando…"
+    "commentPosting": "Publicando…",
+    "likeAction": "Me gusta",
+    "cardTasksMeta": "{{checked}}/{{total}} tareas"
   },
   "publicBuild": {
     "title": "Build pública",
@@ -682,7 +915,18 @@
     "indent": "Anidar",
     "outdent": "Promover",
     "taskStructureHint": "Reordenar, anidar o editar esta tarea.",
-    "taskActionsA11y": "Acciones de la tarea"
+    "taskActionsA11y": "Acciones de la tarea",
+    "headline": "Pendientes",
+    "groupLater": "Más tarde",
+    "showLater": "Mostrar",
+    "hideLater": "Ocultar",
+    "progressShort": "{{done}}/{{total}} hechas",
+    "blocked": "Bloqueada",
+    "overdue": "Atrasada",
+    "viewDaily": "Diario",
+    "progressCount": "{{done}} / {{total}} tareas",
+    "openGroup": "Abrir",
+    "detailsAction": "Detalles"
   },
   "workflowEditor": {
     "title": "Editar tarea",
@@ -815,7 +1059,32 @@
     "bulkDone": "Listo",
     "bulkUndoDeleted": "{{count}} eventos eliminados",
     "bulkUndoAction": "Deshacer",
-    "bulkUndoing": "Deshaciendo…"
+    "bulkUndoing": "Deshaciendo…",
+    "countdownLabel": "Cuenta regresiva",
+    "countdownDays": "{{count}} días",
+    "countdownToday": "Hoy",
+    "countdownTomorrow": "Mañana",
+    "countdownStarted": "hace {{count}} días",
+    "plannedDaysMeta": "{{planned}}/{{total}} días",
+    "planDayAction": "Planear un día",
+    "assignBuildTile": "Asignar un proyecto",
+    "packingListTitle": "Lista de equipaje",
+    "packedCountMeta": "{{checked}} / {{total}} empacados",
+    "addPackingPlaceholder": "Agregar artículo…",
+    "packingNotesLabel": "Notas",
+    "packedUndoAction": "Deshacer",
+    "packedDoneAction": "Empacado",
+    "nextEyebrow": "Próximo",
+    "metricCountdown": "Cuenta regresiva",
+    "metricBuildsValue": "{{count}} planeados",
+    "seasonEyebrow": "La temporada · {{year}}",
+    "seasonEyebrowPlain": "La temporada",
+    "noUpcomingHeadline": "No hay eventos en el calendario.",
+    "dayPlansAction": "Planes del día",
+    "packingListAction": "Lista de equipaje",
+    "searchToggle": "Buscar eventos",
+    "rowBuilds": "{{count}} proyectos",
+    "noMatches": "Ningún evento coincide con tu búsqueda o filtro."
   },
   "auth": {
     "continueWithGoogle": "Continuar con Google",
@@ -872,6 +1141,106 @@
     "resendVerification": "Reenviar correo de verificación",
     "verifyResent": "Correo de verificación enviado. Revisa tu bandeja (y spam).",
     "resendFailed": "No se pudo reenviar. Inténtalo de nuevo.",
-    "verifySpamHint": "¿No llegó nada? Revisa spam o usa reenviar arriba."
+    "verifySpamHint": "¿No llegó nada? Revisa spam o usa reenviar arriba.",
+    "joinEyebrow": "Únete",
+    "accountRecovery": "Recuperación de cuenta"
+  },
+  "devGallery": {
+    "title": "Glass Studio",
+    "subtitle": "Vista previa de primitivas para QA en dispositivo.",
+    "surfaces": "Superficies",
+    "surfaceBar": "Peso barra — cromo, barra de pestañas, franjas",
+    "surfacePanel": "Peso panel — un solo panel de trabajo por región",
+    "surfaceOverlay": "Peso overlay — hojas y diálogos",
+    "surfaceFallback": "Alternativa opaca — desenfoque desactivado",
+    "buttons": "Botones sobre foto",
+    "buttonPrimary": "Acción principal",
+    "buttonSecondary": "Secundario",
+    "buttonTertiary": "Enlace terciario",
+    "buttonSmall": "Principal pequeño",
+    "buttonDisabled": "Deshabilitado",
+    "chips": "Chips de estado sobre vidrio",
+    "chipDone": "Hecho",
+    "chipActive": "En curso",
+    "chipWarn": "En espera",
+    "chipNeutral": "Borrador",
+    "field": "Campo de formulario",
+    "fieldLabel": "Nombre del elemento",
+    "fieldPlaceholder": "p. ej. Peluca rubia",
+    "fieldErrorLabel": "Con error",
+    "fieldError": "Este campo es obligatorio.",
+    "emptyState": "Estado vacío",
+    "emptyMessage": "Aún no hay fotos",
+    "emptySecondary": "Agrega fotos de referencia para armar tu tablero.",
+    "emptyCta": "Agregar foto"
+  },
+  "landing": {
+    "kicker": "El planificador de estudio de cosplay",
+    "headline": "Hecho a mano.\nPlaneado hasta la costura.",
+    "subcopy": "Cada elemento, tarea y día de convención de tu próximo proyecto, en un estudio silencioso que funciona sin conexión.",
+    "ctaPrimary": "Empieza a planificar — gratis",
+    "ctaMeta": "Gratis · funciona sin conexión tras iniciar sesión"
+  },
+  "offline": {
+    "onlineOnlyBanner": "Estás sin conexión: esta sección necesita internet.",
+    "retry": "Reintentar"
+  },
+  "vault": {
+    "openErrorTitle": "No se pudo abrir tu planificador",
+    "openErrorBody": "No se ha borrado nada. Libera espacio o reinicia la app e inténtalo de nuevo. ({{detail}})",
+    "saveFailedTitle": "No se pudo guardar en este dispositivo",
+    "saveFailedBody": "Ese cambio no se guardó. Libera espacio e inténtalo de nuevo. ({{detail}})",
+    "sessionExpired": "Has cerrado sesión en Kyarafit en línea. Tu planificador sigue funcionando aquí.",
+    "sessionExpiredAction": "Vuelve a iniciar sesión para sincronizar y usar las funciones en línea",
+    "sessionExpiredHint": "Abre el inicio de sesión"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "Vuelve a iniciar sesión para seguir sincronizando. Tus cambios están guardados en este dispositivo.",
+      "notEntitled": "La sincronización está en pausa porque Kyarafit Cloud no está activo en esta cuenta. Tus cambios están guardados en este dispositivo.",
+      "offline": "Estás sin conexión. Los cambios se sincronizarán al reconectar.",
+      "retrying": "La sincronización tuvo un problema y se reintentará automáticamente."
+    },
+    "changes": {
+      "title": "Cambios que no se aplicaron",
+      "intro": "Otro dispositivo los cambió o eliminó antes. Tu versión se guarda aquí: recupérala como una edición nueva o descártala.",
+      "introBuild": "En {{name}}. Otro dispositivo los cambió o eliminó antes. Tu versión se guarda aquí: recupérala como una edición nueva o descártala.",
+      "reviewCount_one": "Revisar {{count}} cambio que no se aplicó",
+      "reviewCount_other": "Revisar {{count}} cambios que no se aplicaron",
+      "buildBanner_one": "{{count}} cambio no se aplicó",
+      "buildBanner_other": "{{count}} cambios no se aplicaron",
+      "review": "Revisar",
+      "openHint": "Abre la lista de cambios que no se aplicaron",
+      "emptyTitle": "Nada que revisar",
+      "emptyBody": "Todos los cambios se sincronizaron tal como se hicieron.",
+      "untitled": "Elemento sin título",
+      "emptyValue": "(vacío)",
+      "yes": "Sí",
+      "no": "No",
+      "useMine": "Usar mi versión",
+      "restoreAsNew": "Restaurar como nuevo",
+      "dismiss": "Descartar",
+      "acknowledge": "Entendido",
+      "openBuild": "Abrir build",
+      "restoreFailed": "No se pudo restaurar este cambio.",
+      "goneItem": "Este elemento ya no existe, así que no hay dónde restaurarlo.",
+      "goneParent": "Aquello a lo que pertenecía se eliminó, así que no puede volver.",
+      "kind": {
+        "concurrent": "Cambiado en otro dispositivo",
+        "editAfterDelete": "Editado después de eliminarse",
+        "deletedWithEdits": "Eliminado con ediciones más nuevas",
+        "recovered": "Movido a Recovered",
+        "unlinked": "Desvinculado",
+        "removed": "Eliminado con su elemento principal"
+      },
+      "explain": {
+        "concurrent": "Otro dispositivo guardó primero un valor distinto. Tu valor está abajo.",
+        "editAfterDelete": "Editaste esto después de que otro dispositivo lo eliminara.",
+        "deletedWithEdits": "Otro dispositivo eliminó esto antes de que llegaran tus últimas ediciones.",
+        "recovered": "Su build se eliminó en otro dispositivo, así que se guardó en el build Recovered.",
+        "unlinked": "Aquello a lo que estaba vinculado se eliminó en otro dispositivo. Sigue en tu biblioteca.",
+        "removed": "Aquello a lo que pertenecía se eliminó en otro dispositivo."
+      }
+    }
   }
 }

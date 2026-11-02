@@ -1,20 +1,20 @@
 import { useCallback, useLayoutEffect, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
-import type { Id } from "convex/_generated/dataModel";
+import { useOfflineMutation, useOfflineQuery } from "@/offline";
 import { BUILD_STATUSES, type BuildStatus } from "@kyarafit/design-system/types";
 import { DataBoundary, MetaLabel, Button, TextField } from "@/ui";
 import { APP_HREF } from "@/lib/appRoutes";
-import { uploadUriToConvexStorage } from "@/lib/uploadConvexStorage";
+import { useSaveLocalImage } from "@/lib/images/localImageStore";
+import { alertUnlessReported } from "@/lib/alertError";
 
 export default function NewBuildScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const identity = useQuery(api.auth.getCurrentUser);
+  const identity = useOfflineQuery(api.auth.getCurrentUser);
   const userId = identity?.subject;
 
   useLayoutEffect(() => {
@@ -43,8 +43,8 @@ export default function NewBuildScreen() {
 function NewBuildForm({ userId }: { userId: string }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const createBuild = useMutation(api.builds.create);
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const createBuild = useOfflineMutation(api.builds.create);
+  const saveLocalImage = useSaveLocalImage();
 
   const [name, setName] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
@@ -73,11 +73,8 @@ function NewBuildForm({ userId }: { userId: string }) {
     if (!n || busy || !hasImage) return;
     setBusy(true);
     try {
-      let imageStorageId: Id<"_storage"> | undefined;
-      if (pickedUri) {
-        const uploadUrl = await generateUploadUrl();
-        imageStorageId = await uploadUriToConvexStorage(pickedUri, uploadUrl);
-      }
+      // The photo is copied into this device's vault first; it never needs a network round-trip.
+      const localPhoto = pickedUri ? await saveLocalImage(pickedUri) : null;
       const trimmedUrl = imageUrl.trim();
       const budgetCents = budgetDollars.trim()
         ? Math.round(Number.parseFloat(budgetDollars.replace(",", ".")) * 100)
@@ -87,15 +84,14 @@ function NewBuildForm({ userId }: { userId: string }) {
         userId,
         name: n,
         status,
-        imageStorageId,
-        imageUrl: !imageStorageId && trimmedUrl ? trimmedUrl : undefined,
+        imageUrl: localPhoto?.uri ?? (trimmedUrl ? trimmedUrl : undefined),
         budgetCents: budgetCents != null && !Number.isNaN(budgetCents) ? budgetCents : undefined,
       });
       if (created?._id) {
         router.replace(APP_HREF.build(created._id));
       }
     } catch (e) {
-      Alert.alert(t("common.errorTitle"), String(e instanceof Error ? e.message : e));
+      alertUnlessReported(t("common.errorTitle"), e);
     } finally {
       setBusy(false);
     }
@@ -103,7 +99,7 @@ function NewBuildForm({ userId }: { userId: string }) {
     busy,
     budgetDollars,
     createBuild,
-    generateUploadUrl,
+    saveLocalImage,
     hasImage,
     imageUrl,
     name,

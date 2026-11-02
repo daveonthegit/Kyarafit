@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useTranslations } from "next-intl";
+import { useOfflineMutation } from "@/lib/offline";
 import type { BuildStatus } from "@kyarafit/design-system/types";
-import { Sheet } from "@/components/ui/sheet";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import {
+  CreationFooter,
+  GlassSegmented,
+  GlassTextField,
+  glassHintClass,
+} from "@/components/creation/CreationFields";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -19,9 +26,11 @@ type NewBuildModalProps = {
 
 export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalProps) {
   const router = useRouter();
+  const t = useTranslations("Creation");
   const { userId } = useCurrentUser();
-  const createBuild = useMutation(api.builds.create);
+  const createBuild = useOfflineMutation(api.builds.create);
   const [name, setName] = useState("");
+  const [character, setCharacter] = useState("");
   const [status, setStatus] = useState<BuildStatus>("idea");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(null);
   const [imageUrl, setImageUrl] = useState("");
@@ -38,6 +47,7 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
       const build = await createBuild({
         userId,
         name: name.trim(),
+        character: character.trim() || undefined,
         status,
         imageStorageId: imageStorageId ?? undefined,
         imageUrl: imageUrl.trim() || undefined,
@@ -47,47 +57,39 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
         onSuccessComplete();
         router.push(`/build-detail/${build._id}`);
       }
+    } catch {
+      // The write layer reports persistence failures; keep the form open for retry.
     } finally {
       setIsPending(false);
     }
   };
 
   return (
-    <Sheet
+    <AdaptiveModal
       open
       onClose={onDismiss}
-      title="New build"
+      title={t("newBuildTitle")}
       titleId="global-new-build-modal-title"
-      size="lg"
+      size="md"
       closeDisabled={isPending}
-      footer={
-        <button
-          type="submit"
-          form="new-build-modal-form"
-          disabled={isPending || !name.trim() || !hasImage}
-          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:opacity-90 transition-colors shadow-md"
-        >
-          {isPending ? "Creating…" : "Create build"}
-        </button>
-      }
+      closeLabel={t("close")}
+      footer={(close) => (
+        <CreationFooter
+          onCancel={close}
+          cancelLabel={t("cancel")}
+          cancelDisabled={isPending}
+          formId="new-build-modal-form"
+          submitLabel={isPending ? t("creating") : t("createBuild")}
+          submitDisabled={isPending || !name.trim() || !hasImage}
+        />
+      )}
     >
-      <form id="new-build-modal-form" onSubmit={submit} className="space-y-5">
-        <p className="text-sm text-kyar-textSecondary">
-          Add a cover image and name. You can edit details later.
-        </p>
+      <form id="new-build-modal-form" onSubmit={submit} className="space-y-[18px]">
+        <p className="text-[13px] text-media-fg-70">{t("newBuildIntro")}</p>
         <div>
-          <label className="mb-2 block meta-label">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Arlecchino"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block meta-label">Image (required)</label>
           <ImageUpload
+            surface="glass"
+            label={t("cover")}
             category="builds"
             onImageSelected={(result) => {
               if ("imageStorageId" in result && result.imageStorageId) {
@@ -100,45 +102,44 @@ export function NewBuildModal({ onDismiss, onSuccessComplete }: NewBuildModalPro
             }}
             currentImage={imageUrl || undefined}
             currentStorageId={imageStorageId ?? undefined}
+            aside={
+              <>
+                <GlassTextField
+                  label={t("name")}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("buildNamePlaceholder")}
+                />
+                <GlassTextField
+                  label={t("characterLabel")}
+                  type="text"
+                  value={character}
+                  onChange={(e) => setCharacter(e.target.value)}
+                  placeholder={t("characterPlaceholder")}
+                />
+                <GlassTextField
+                  label={t("budgetLabel")}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={budgetCents}
+                  onChange={(e) => setBudgetCents(e.target.value)}
+                  placeholder="0.00"
+                  className="tabular-nums"
+                />
+              </>
+            }
           />
-          {!hasImage && (
-            <p className="mt-2 text-xs text-kyar-textTertiary">
-              An image is required to create a build.
-            </p>
-          )}
+          {!hasImage && <p className={glassHintClass}>{t("imageRequiredHint")}</p>}
         </div>
-        <div>
-          <label className="mb-2 block meta-label">Budget $ (optional)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={budgetCents}
-            onChange={(e) => setBudgetCents(e.target.value)}
-            placeholder="0.00"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block meta-label">Status</label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {STATUSES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatus(s)}
-                className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wider ${
-                  status === s
-                    ? "border-kyar-text bg-kyar-muted text-kyar-text"
-                    : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
+        <GlassSegmented
+          label={t("status")}
+          options={STATUSES.map((s) => ({ value: s, label: t(`buildStatus_${s}`) }))}
+          value={status}
+          onChange={setStatus}
+        />
       </form>
-    </Sheet>
+    </AdaptiveModal>
   );
 }

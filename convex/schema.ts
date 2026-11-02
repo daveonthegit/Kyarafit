@@ -1,7 +1,108 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { imageRefValidator } from "./lib/imageRef";
+
+/**
+ * Sync metadata carried by every local-first, user-owned row (DATA_AND_SYNC.md §4, REQ-D40).
+ * All optional so the migration is non-breaking for rows written before the fields existed:
+ * - `clientId`     stable client-minted id for offline-created rows.
+ * - `version`      monotonically bumped on each write (optimistic concurrency / LWW tiebreak).
+ * - `updatedAt`    ms timestamp bumped on every field write; basis for per-field LWW + pull deltas.
+ * - `fieldUpdatedAt` per-field ms timestamps for field-level last-write-wins (REQ-D40/D65).
+ * - `deletedAt`    soft-delete tombstone.
+ */
+const syncMetaFields = {
+  clientId: v.optional(v.string()),
+  version: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+  fieldUpdatedAt: v.optional(v.record(v.string(), v.number())),
+  deletedAt: v.optional(v.number()),
+};
 
 export default defineSchema({
+  /** Changed atomically when deletion starts; legacy replay proofs expire together. */
+  accountDeletionState: defineTable({ generation: v.number() }),
+  ledgerValidationState: defineTable({
+    cursor: v.optional(v.string()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerResultRevision: v.optional(v.string()),
+    nextCursor: v.optional(v.string()),
+    pageDone: v.optional(v.boolean()),
+  }),
+
+  /** Resumable privacy cleanup. Raw identity and cursors are cleared on completion. */
+  accountDeletionJobs: defineTable({
+    subjectHash: v.string(),
+    externalId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    status: v.union(v.literal("pending"), v.literal("failed"), v.literal("complete")),
+    phase: v.number(),
+    cursor: v.optional(v.string()),
+    assetRowId: v.optional(v.string()),
+    assetOffset: v.optional(v.number()),
+    ledgerRowId: v.optional(v.id("idempotencyLedger")),
+    ledgerCursor: v.optional(v.string()),
+    ledgerResultRevision: v.optional(v.string()),
+    ledgerSubjects: v.optional(v.array(v.string())),
+    ledgerGeneration: v.optional(v.number()),
+    ledgerNextCursor: v.optional(v.string()),
+    ledgerPageDone: v.optional(v.boolean()),
+    ancestorRowId: v.optional(v.id("workflowItems")),
+    ancestorOffset: v.optional(v.number()),
+    ancestorFingerprint: v.optional(v.string()),
+    ancestorChecked: v.optional(v.string()),
+    processed: v.number(),
+    attempts: v.number(),
+    revision: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    scheduledId: v.optional(v.id("_scheduled_functions")),
+  }).index("by_subjectHash", ["subjectHash"]),
+
+  /** Durable media worklist, including unclaimed legacy blobs and nested progress photos. */
+  accountDeletionAssets: defineTable({
+    jobId: v.id("accountDeletionJobs"),
+    storageId: v.id("_storage"),
+  }).index("by_jobId", ["jobId"]),
+
+  /** One-time upload capabilities reserve quota before accepting any bytes. */
+  storageUploadReservations: defineTable({
+    userId: v.string(),
+    token: v.string(),
+    uploadTag: v.string(),
+    reservedBytes: v.number(),
+    expiresAt: v.number(),
+    consumed: v.boolean(),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"]),
+
+  /** Transactional reference generation prevents deletion scans from missing concurrent moves. */
+  storageReferenceEpochs: defineTable({
+    storageId: v.id("_storage"),
+    revision: v.string(),
+  }).index("by_storageId", ["storageId"]),
+
+  /** Actual verified size; charged once at upload, not once per reference. */
+  storageClaims: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.string(),
+    sizeBytes: v.number(),
+    expiresAt: v.number(),
+    attached: v.boolean(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_userId", ["userId"]),
+
+  progressMediaReferences: defineTable({
+    storageId: v.id("_storage"),
+    progressUpdateId: v.id("buildProgressUpdates"),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_progressUpdateId", ["progressUpdateId"]),
   users: defineTable({
     externalId: v.string(),
     email: v.string(),
@@ -14,43 +115,49 @@ export default defineSchema({
     stripeSubscriptionId: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
     subscriptionCurrentPeriodEnd: v.optional(v.string()),
+    /**
+     * Downgrade lifecycle for the CLOUD mirror (DATA_AND_SYNC.md §10, REQ-D96/D97). All optional so
+     * the migration is non-breaking. Local on-device data is never governed by these fields.
+     * - `tierSource`    where the current tier came from (`revenuecat` | `admin` | `system`).
+     * - `downgradedAt`  ms timestamp of the last paid→free transition; cleared on re-subscribe. Basis
+     *                   for the grace / freeze / purge phases (see domain `cloudRetentionPhase`).
+     * - `cloudPurgedAt` ms timestamp when the retention cron purged this user's CLOUD mirror; set so
+     *                   the cron is idempotent and never re-purges an already-purged user.
+     */
+    tierSource: v.optional(v.string()),
+    downgradedAt: v.optional(v.number()),
+    cloudPurgedAt: v.optional(v.number()),
     focusedBuildId: v.optional(v.id("builds")),
     username: v.optional(v.string()),
     displayName: v.optional(v.string()),
     bio: v.optional(v.string()),
     profileVisibility: v.optional(v.string()),
-    /** App role; omit or `"user"` for normal users, `"admin"` for broadcast/admin APIs. */
-    role: v.optional(v.union(v.literal("user"), v.literal("admin"))),
+    /**
+     * App role; omit or `"user"` for normal users, `"admin"` for broadcast/admin APIs, `"owner"` for
+     * the unlimited/all-access privileged role (see `design-system/domain/accessPolicy.ts`). Enforced
+     * server-side from this row — never trusted from client input.
+     */
+    role: v.optional(v.union(v.literal("user"), v.literal("admin"), v.literal("owner"))),
   })
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
     .index("by_role", ["role"])
-    .index("by_imageStorageId", ["imageStorageId"]),
-
-  closetItems: defineTable({
-    userId: v.string(),
-    name: v.string(),
-    category: v.string(),
-    tags: v.array(v.string()),
-    notes: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    imageStorageId: v.optional(v.id("_storage")),
-    itemLink: v.optional(v.string()),
-    costCents: v.optional(v.number()),
-    status: v.optional(v.string()),
-    completionTaskId: v.optional(v.id("buildTasks")),
-    parentItemId: v.optional(v.id("closetItems")),
-  })
-    .index("by_userId", ["userId"])
-    .index("by_userId_category", ["userId", "category"])
-    .index("by_completionTaskId", ["completionTaskId"])
-    .index("by_parentItemId", ["parentItemId"])
+    // Retention cron scans downgraded users by their downgrade timestamp (REQ-D96/D97).
+    .index("by_downgradedAt", ["downgradedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodes: defineTable({
     userId: v.string(),
-    legacyClosetItemId: v.optional(v.id("closetItems")),
+    // DEPRECATED legacy pointer (formerly a closetItems id). Retained as an optional opaque string so
+    // existing rows validate; live code never reads it. Removed only after the purge migration
+    // (migrations:purgeLegacyBuildScopingData) clears it from all rows. See docs/setup schema notes.
+    legacyClosetItemId: v.optional(v.string()),
+    // Build membership + nesting live on the node itself (Step 2c): `buildId` is the primary build
+    // link and `parentNodeId` expresses nesting. Both optional: a library node has no build/parent.
+    buildId: v.optional(v.id("builds")),
+    parentNodeId: v.optional(v.id("cosplayNodes")),
+    sortOrder: v.optional(v.number()),
     nodeType: v.string(),
     name: v.string(),
     category: v.optional(v.string()),
@@ -71,14 +178,42 @@ export default defineSchema({
     buildInstructions: v.optional(v.string()),
     finishedPhotoUrls: v.optional(v.array(v.string())),
     consumable: v.optional(v.boolean()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_nodeType", ["userId", "nodeType"])
     .index("by_userId_category", ["userId", "category"])
-    .index("by_legacyClosetItemId", ["legacyClosetItemId"])
     .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_buildId", ["buildId"])
+    .index("by_parentNodeId", ["parentNodeId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
+
+  // DEPRECATED tables — superseded by build-scoped cosplayNodes (Step 2c). No live code reads them;
+  // their data is redundant with cosplayNodes.buildId/parentNodeId/node-fields. Kept in the schema
+  // only so existing (non-empty) deployments validate on deploy. Convex cannot drop a non-empty
+  // table in one step, so removal is two-phase: run migrations:purgeLegacyBuildScopingData to empty
+  // them, then a follow-up deploy removes these defs. See docs/setup/DOMAIN_MIGRATION notes.
+  closetItems: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    notes: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
+    itemLink: v.optional(v.string()),
+    costCents: v.optional(v.number()),
+    status: v.optional(v.string()),
+    completionTaskId: v.optional(v.id("buildTasks")),
+    parentItemId: v.optional(v.id("closetItems")),
+    ...syncMetaFields,
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_category", ["userId", "category"])
+    .index("by_completionTaskId", ["completionTaskId"])
+    .index("by_parentItemId", ["parentItemId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
 
   cosplayNodeLinks: defineTable({
@@ -124,6 +259,14 @@ export default defineSchema({
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_buildId_cosplayNodeId", ["buildId", "cosplayNodeId"]),
 
+  buildItemLinks: defineTable({
+    userId: v.string(),
+    buildId: v.id("builds"),
+    closetItemId: v.id("closetItems"),
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_closetItemId", ["closetItemId"]),
+
   builds: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -152,10 +295,7 @@ export default defineSchema({
       })
     ),
     groupId: v.optional(v.id("groups")),
-    /** Offline-first client-generated id for dedupe (optional). */
-    clientId: v.optional(v.string()),
-    /** Optimistic concurrency / LWW (optional). */
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
@@ -163,35 +303,30 @@ export default defineSchema({
     .index("by_groupId", ["groupId"])
     .index("by_visibility", ["visibility"])
     .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
-
-  buildItemLinks: defineTable({
-    userId: v.string(),
-    buildId: v.id("builds"),
-    closetItemId: v.id("closetItems"),
-  })
-    .index("by_buildId", ["buildId"])
-    .index("by_closetItemId", ["closetItemId"]),
 
   buildTasks: defineTable({
     userId: v.string(),
     buildId: v.optional(v.id("builds")),
     label: v.string(),
-    closetItemId: v.optional(v.id("closetItems")),
+    // Deprecated legacy pointer (formerly a closetItems id, now dropped). Retained as an opaque
+    // string for old rows; live code uses `cosplayNodeId`.
+    closetItemId: v.optional(v.string()),
     cosplayNodeId: v.optional(v.id("cosplayNodes")),
     packingListItemId: v.optional(v.id("packingListItems")),
     sortOrder: v.number(),
     checked: v.boolean(),
     dueDate: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_closetItemId", ["closetItemId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_packingListItemId", ["packingListItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowItems: defineTable({
     userId: v.string(),
@@ -230,8 +365,7 @@ export default defineSchema({
     recurrenceRule: v.optional(v.string()),
     legacyBuildTaskId: v.optional(v.id("buildTasks")),
     dedupeKey: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_parentId", ["parentId"])
@@ -239,7 +373,8 @@ export default defineSchema({
     .index("by_legacyBuildTaskId", ["legacyBuildTaskId"])
     .index("by_templateId", ["templateId"])
     .index("by_dedupeKey", ["dedupeKey"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowAttachments: defineTable({
     userId: v.string(),
@@ -250,21 +385,25 @@ export default defineSchema({
     role: v.string(),
     buildContextId: v.optional(v.id("builds")),
     progressWeight: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_workflowItemId", ["workflowItemId"])
     .index("by_entityKey", ["entityKey"])
-    .index("by_entityKey_buildContextId", ["entityKey", "buildContextId"]),
+    .index("by_entityKey_buildContextId", ["entityKey", "buildContextId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowDependencies: defineTable({
     userId: v.string(),
     predecessorWorkflowItemId: v.id("workflowItems"),
     successorWorkflowItemId: v.id("workflowItems"),
     relationKind: v.string(),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_predecessorWorkflowItemId", ["predecessorWorkflowItemId"])
-    .index("by_successorWorkflowItemId", ["successorWorkflowItemId"]),
+    .index("by_successorWorkflowItemId", ["successorWorkflowItemId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   workflowTemplates: defineTable({
     userId: v.optional(v.string()),
@@ -305,11 +444,11 @@ export default defineSchema({
     startDate: v.string(),
     endDate: v.string(),
     archived: v.optional(v.boolean()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
 
   conventionDayPlans: defineTable({
@@ -318,18 +457,21 @@ export default defineSchema({
     date: v.string(),
     buildId: v.optional(v.id("builds")),
     notes: v.optional(v.string()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_conventionId", ["conventionId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   packingListItems: defineTable({
     userId: v.string(),
     conventionId: v.id("conventions"),
     date: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
-    closetItemId: v.optional(v.id("closetItems")),
+    // Deprecated legacy pointer (formerly a closetItems id, now dropped). Retained as an opaque
+    // string for old rows; live code uses `cosplayNodeId`.
+    closetItemId: v.optional(v.string()),
     cosplayNodeId: v.optional(v.id("cosplayNodes")),
     workflowItemId: v.optional(v.id("workflowItems")),
     entryKind: v.optional(v.string()),
@@ -338,14 +480,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
     checked: v.boolean(),
     sortOrder: v.optional(v.number()),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_conventionId", ["conventionId"])
     .index("by_userId", ["userId"])
     .index("by_cosplayNodeId", ["cosplayNodeId"])
     .index("by_workflowItemId", ["workflowItemId"])
-    .index("by_userId_clientId", ["userId", "clientId"]),
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
   buildReferenceImages: defineTable({
     userId: v.string(),
@@ -353,12 +495,12 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
 
   buildProcessPictures: defineTable({
@@ -367,13 +509,34 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     imageUrl: v.optional(v.string()),
     sortOrder: v.number(),
-    clientId: v.optional(v.string()),
-    version: v.optional(v.number()),
+    ...syncMetaFields,
   })
     .index("by_buildId", ["buildId"])
     .index("by_userId", ["userId"])
     .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
     .index("by_imageStorageId", ["imageStorageId"]),
+
+  /**
+   * Dated build progress-update timeline (DATA_AND_SYNC.md §3.3, REQ-049). `publishedToFeed` is the
+   * paid-only flag that surfaces an update on the social feed; the gate is enforced at the mutation.
+   */
+  buildProgressUpdates: defineTable({
+    buildId: v.id("builds"),
+    userId: v.string(),
+    createdAt: v.number(),
+    note: v.optional(v.string()),
+    imageRefs: v.array(imageRefValidator),
+    mediaIndexed: v.optional(v.boolean()),
+    progressPercent: v.optional(v.number()),
+    publishedToFeed: v.boolean(),
+    ...syncMetaFields,
+  })
+    .index("by_buildId", ["buildId"])
+    .index("by_userId", ["userId"])
+    .index("by_userId_clientId", ["userId", "clientId"])
+    .index("by_userId_updatedAt", ["userId", "updatedAt"])
+    .index("by_mediaIndexed", ["mediaIndexed"]),
 
   groups: defineTable({
     name: v.string(),
@@ -449,13 +612,23 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_createdAt", ["userId", "createdAt"]),
 
-  /** Dedupe retries from offline/sync clients (Phase 2 / §3.13.5). */
+  /** Dedupe retries from offline/sync clients (Phase 2 / §3.13.5). Pruned by age via cron. */
   idempotencyLedger: defineTable({
     key: v.string(),
     userId: v.string(),
+    // Optional only for deployment compatibility; unscoped legacy rows are never replayed.
+    operation: v.optional(v.string()),
     createdAt: v.number(),
     result: v.optional(v.any()),
-  }).index("by_key", ["key"]),
+    resultRevision: v.optional(v.string()),
+    validatedEpoch: v.optional(v.number()),
+    subjectHashes: v.optional(v.array(v.string())),
+    replayBlocked: v.optional(v.boolean()),
+  })
+    .index("by_userId_operation_key", ["userId", "operation", "key"])
+    .index("by_userId", ["userId"])
+    .index("by_validatedEpoch", ["validatedEpoch"])
+    .index("by_createdAt", ["createdAt"]),
 
   broadcasts: defineTable({
     title: v.string(),
@@ -464,7 +637,7 @@ export default defineSchema({
     audience: v.union(
       v.literal("all"),
       v.literal("tier:pro"),
-      v.literal("tier:studio"),
+      v.literal("tier:supporter"),
       v.literal("userIds")
     ),
     audienceArgs: v.optional(v.any()),
@@ -489,4 +662,80 @@ export default defineSchema({
     transactionalOptIn: v.boolean(),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // Managed-sync row replica (convex/replica.ts). The authoritative cloud copy of a paid account's
+  // vault rows: opaque documents keyed by the vault's client-minted ids, ordered by a per-account
+  // `rev`. The domain tables above are published projections, never a second editable copy.
+  replicaRows: defineTable({
+    userId: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    doc: v.any(),
+    /** Per field: the rev and device that last wrote it (conflict detection). */
+    fieldRevs: v.any(),
+    deleted: v.boolean(),
+    /** Set on tombstones; retention purges them after `REPLICA_RETENTION_MS`. */
+    deletedAt: v.optional(v.number()),
+    rev: v.number(),
+  })
+    .index("by_user_row", ["userId", "table", "rowId"])
+    .index("by_user_rev", ["userId", "rev"])
+    .index("by_deletedAt", ["deletedAt"]),
+  /** Parent references extracted from replica docs, so a delete can find the rows it orphans. */
+  replicaLinks: defineTable({
+    userId: v.string(),
+    target: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    field: v.string(),
+  })
+    .index("by_user_target", ["userId", "target"])
+    .index("by_user_row", ["userId", "table", "rowId"]),
+  replicaHeads: defineTable({
+    userId: v.string(),
+    rev: v.number(),
+    /** Highest rev whose tombstone retention has purged; older cursors must resnapshot. */
+    floorRev: v.number(),
+    generation: v.optional(v.string()),
+    /** The account's current Recovered build (orphan bucket), once one exists. */
+    recoveredBuildId: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+  /** Applied-op dedupe, so a resend after a lost acknowledgement is a no-op. */
+  replicaOps: defineTable({
+    userId: v.string(),
+    opId: v.string(),
+    status: v.union(v.literal("applied"), v.literal("rejected")),
+    rev: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user_op", ["userId", "opId"])
+    .index("by_createdAt", ["createdAt"]),
+  /** "Changes that didn't apply": the losing value of every conflict, restorable as a new edit. */
+  replicaConflicts: defineTable({
+    userId: v.string(),
+    table: v.string(),
+    rowId: v.string(),
+    kind: v.string(),
+    lost: v.any(),
+    /** Stream position; dismissal moves the record to a new rev so other devices learn of it. */
+    rev: v.number(),
+    createdAt: v.number(),
+    dismissed: v.boolean(),
+  })
+    .index("by_user_rev", ["userId", "rev"])
+    .index("by_createdAt", ["createdAt"]),
+  /**
+   * Typed media registry for replicated photos: replica docs only carry `kyarafit-image:<key>`
+   * tokens, so the storage blob behind each key is recorded here where media access, quota and
+   * account deletion can see it.
+   */
+  replicaAssets: defineTable({
+    userId: v.string(),
+    imageKey: v.string(),
+    imageStorageId: v.id("_storage"),
+    createdAt: v.number(),
+  })
+    .index("by_user_key", ["userId", "imageKey"])
+    .index("by_userId", ["userId"])
+    .index("by_imageStorageId", ["imageStorageId"]),
 });

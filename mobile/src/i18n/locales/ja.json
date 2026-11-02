@@ -1,5 +1,7 @@
 {
   "common": {
+    "expand": "展開",
+    "collapse": "折りたたむ",
     "appName": "Kyarafit",
     "signIn": "サインイン",
     "signUp": "新規登録",
@@ -12,7 +14,15 @@
     "planner": "プランナー",
     "more": "その他",
     "settings": "設定",
-    "offlineBanner": "オフラインです — 再接続すると同期されます。",
+    "offlineBanner": "オフラインです — 変更はこの端末に保存されています。",
+    "syncPendingCount": "同期待ちの変更が{{count}}件あります",
+    "syncNow": "今すぐ同期",
+    "syncing": "同期中…",
+    "lastSynced": "最終同期 {{time}}",
+    "neverSynced": "まだ同期されていません",
+    "cloudGrace": "クラウドバックアップは{{date}}まで有効です",
+    "cloudFrozen": "クラウドバックアップは凍結中 — 同期を続けるには再登録してください（{{date}}に削除されます）",
+    "cloudPurgeable": "クラウドバックアップの期限切れ — 同期を復元するには再登録してください",
     "cancel": "キャンセル",
     "loading": "読み込み中…",
     "done": "完了",
@@ -22,7 +32,10 @@
     "addElement": "要素を追加",
     "addEvent": "イベントを追加",
     "addGroup": "グループを追加",
-    "events": "イベント"
+    "events": "イベント",
+    "closeMenu": "メニューを閉じる",
+    "moreCreateOptions": "その他の作成オプション",
+    "closeCreateMenu": "作成メニューを閉じる"
   },
   "nav": {
     "home": "ホーム",
@@ -79,7 +92,20 @@
     "followingFeed": "フォロー中の公開Build",
     "followingEmpty": "クリエイターをフォローするとここに表示されます。",
     "followingUnknownCreator": "クリエイター",
-    "openFollowingBuild": "Buildを開く"
+    "openFollowingBuild": "Buildを開く",
+    "glassOpenBuild": "ビルドを開く",
+    "glassWhatsDue": "期限のあるもの",
+    "glassInTheStudio": "スタジオ · {{count}}",
+    "glassDueToday": "今日",
+    "glassDueTomorrow": "明日",
+    "glassHeadlineDueZero": "すべて完了",
+    "glassHeadlineDueOne": "期限が1件",
+    "glassHeadlineDueOther": "期限が{{count}}件",
+    "glassHeadlineEventToday": "{{event}}は今日",
+    "glassHeadlineEventOneDay": "{{event}}まであと1日",
+    "glassHeadlineEventDays": "{{event}}まであと{{days}}日",
+    "glassEventRowMeta": "{{count}}ビルド · あと{{days}}日",
+    "glassEventRowMetaToday": "{{count}}ビルド · 今日"
   },
   "builds": {
     "pageTitle": "マイビルド",
@@ -139,10 +165,31 @@
       "wip": "作業中",
       "ready": "準備完了",
       "archived": "アーカイブ"
-    }
+    },
+    "featuredEyebrow": "注目",
+    "sharedEyebrow": "共有",
+    "openBuild": "ビルドを開く",
+    "openBoard": "ボード",
+    "archiveEyebrow": "アーカイブ · {{count}}",
+    "startFirstBuild": "最初のビルドを始める",
+    "searchToggle": "ビルドを検索",
+    "viewGridToggle": "グリッド表示に切り替え",
+    "viewFeaturedToggle": "注目表示に切り替え"
   },
   "elements": {
     "pageTitle": "エレメント",
+    "imageAction": "画像",
+    "imageDialogTitle": "エレメントの画像",
+    "imageUrlLabel": "画像URL",
+    "imageUrlAdd": "URLを追加",
+    "imageLocalAdd": "端末に保存",
+    "imageCloudAdd": "クラウドにアップロード",
+    "imageCloudPaidOnly": "クラウド画像バックアップは有料機能です。無料の画像は端末に保存されます。",
+    "imageCloudCapReached": "クラウドストレージがいっぱいです。新規アップロードは一時停止中ですが、画像は安全です。",
+    "imageUploadFailed": "アップロードに失敗しました。もう一度お試しください。",
+    "imageSaveFailed": "この端末に画像を保存できませんでした。",
+    "imageRemove": "画像を削除",
+    "imagePreviewAlt": "エレメント画像のプレビュー",
     "refineElements": "絞り込み",
     "filtersViewLabel": "表示",
     "filtersSortViewLabel": "並べ替えとレイアウト",
@@ -290,9 +337,43 @@
     "deleteNode": "エレメントを削除",
     "deleteNodeTitle": "このエレメントを削除しますか？",
     "deleteNodeBody": "このエレメントと関連リンクが削除されます。",
-    "deleteNodeAction": "エレメントを削除"
+    "deleteNodeAction": "エレメントを削除",
+    "closetTitle": "クローゼット",
+    "closetEmpty": "クローゼットは空です。最初のアイテムを追加しましょう。",
+    "nameRequired": "名前は必須です",
+    "tabAllCount": "すべて · {{count}}",
+    "tabElements": "エレメント",
+    "tabMaterials": "素材",
+    "searchToggle": "エレメントを検索",
+    "invested": "投資額 {{amount}}",
+    "heroEyebrow": "エレメント · 最終更新",
+    "heroKind": "種類",
+    "heroProgress": "進捗",
+    "heroDirectCost": "直接コスト",
+    "heroPartsLinkedOne": "リンク済みパーツ {{count}} 件",
+    "heroPartsLinked": "リンク済みパーツ {{count}} 件",
+    "piecesOne": "{{count}} 点",
+    "pieces": "{{count}} 点"
   },
   "buildDetail": {
+    "newElement": "新規エレメント",
+    "elementsEmpty": "まだエレメントがありません。作成してビルド計画を始めましょう。",
+    "elementActions": "エレメントの操作",
+    "addSubElement": "サブエレメントを追加",
+    "renameElement": "名前を変更",
+    "duplicateToBuild": "別のビルドに複製…",
+    "duplicateToBuildTitle": "別のビルドに複製",
+    "duplicateToBuildBody": "このエレメントを独立したエレメントとして別のビルドにコピーします。",
+    "duplicateNoBuilds": "コピー先の他のビルドがありません。",
+    "moveUnder": "別の配下へ移動…",
+    "moveUnderTitle": "エレメントを移動",
+    "moveUnderBody": "親エレメントを選択してください。自分自身やそのサブエレメントの配下へは移動できません。",
+    "moveToRoot": "最上位へ移動",
+    "moveCycleError": "自分のサブエレメントの配下へは移動できません。",
+    "moveErrorGeneric": "エレメントを移動できませんでした。",
+    "deleteElement": "エレメントを削除",
+    "deleteElementTitle": "エレメントを削除しますか？",
+    "deleteElementBody": "このエレメントとそのサブエレメントをこのビルドから削除します。",
     "menuTitle": "Build",
     "duplicate": "複製",
     "tabExplorer": "エクスプローラー",
@@ -356,7 +437,13 @@
     "deleteBuildAction": "Buildを削除",
     "addChildElement": "子エレメント",
     "addChildMaterial": "子マテリアル",
-    "openElement": "フル要素を開く"
+    "openElement": "フル要素を開く",
+    "headlineTasksMeta": "{{checked}} / {{total}} タスク · {{pct}}%",
+    "explorerDragHelper": "行を長押しでドラッグ・入れ子・並べ替え",
+    "explorerMatches": "{{count}}件一致",
+    "explorerRoots": "ルート{{count}}件",
+    "boardAddImage": "画像を追加",
+    "taskBlocked": "ブロック中"
   },
   "linkElements": {
     "title": "エレメントをリンク",
@@ -393,6 +480,23 @@
   },
   "settings": {
     "title": "設定",
+    "dataPortability": "バックアップと復元",
+    "dataPortabilitySubtitle": "この端末のすべてを保存・復元します",
+    "dataPortabilityEyebrow": "あなたのデータ",
+    "dataPortabilityIntro": "プランナーはこの端末に保存されています。ビルド、エレメント、タスク、コンベンション、持ち物リスト、写真をすべて含むバックアップファイルを保存したり、復元したりできます。誰でも無料で、オフラインでも使えます。",
+    "dataPortabilityFootnote": "バックアップはあなたの手元に残ります。ファイルを自分で共有しない限り、何もアップロードされません。復元は不足分を追加し、その後に変更した内容はそのまま残すため、何度実行しても安全です。",
+    "dataExportTitle": "バックアップ",
+    "dataExportDescription": "元の写真を含むプランナーのすべてを、1つの .kyarafit ファイルに保存します。",
+    "dataExportButton": "バックアップを保存",
+    "dataExportEmpty": "まだバックアップするものがありません。",
+    "dataExportSuccessTitle": "バックアップを保存しました",
+    "dataExportSuccessBody": "{{items}} 件と写真 {{photos}} 枚をバックアップしました。",
+    "dataImportTitle": "復元",
+    "dataImportDescription": ".kyarafit バックアップを選んでください。この端末にある項目は、バックアップの方が新しい場合を除きそのまま残ります。",
+    "dataImportButton": "バックアップを選択",
+    "dataImportSuccessTitle": "バックアップを復元しました",
+    "dataImportSuccessBody": "追加 {{added}} 件、更新 {{updated}} 件、変更なし {{kept}} 件。",
+    "dataErrorTitle": "問題が発生しました",
     "subtitle": "外観、開発ツール、その他のリンクはこちらです。",
     "systemPreferences": "システム設定",
     "appearance": "外観",
@@ -418,7 +522,7 @@
     "tierName": {
       "FREE": "無料",
       "PRO": "Pro",
-      "STUDIO": "Studio"
+      "SUPPORTER": "サポーター"
     },
     "subscriptionPlan": "サブスクリプション",
     "subscriptionPlansLabel": "プラン",
@@ -495,7 +599,7 @@
       "forgotPasswordLink": "パスワードを忘れた場合",
       "yourEmailFallback": "登録メール",
       "sectionDataPrivacy": "データとプライバシー",
-      "dataPrivacyBody": "サインイン中は、アカウント情報、ビルド、アップロード画像、コンベンションの計画などがクラウドに保存されます。この端末では認証トークンを安全に保存し、サインイン状態を維持します。",
+      "dataPrivacyBody": "ビルド、エレメント、コンベンション、写真はこの端末に保存されます。Kyarafit Cloud をご利用の場合はアカウントにも同期されます。サインイン情報は端末の安全なストレージに保存されます。",
       "termsOfService": "利用規約",
       "privacyPolicy": "プライバシーポリシー",
       "securitySupport": "セキュリティとサポート",
@@ -503,7 +607,7 @@
       "deleteAction": "アカウントを削除",
       "deletePermanentLabel": "取り消しできない操作",
       "deleteConfirmTitle": "アカウントを完全に削除しますか？",
-      "deleteConfirmBody": "元に戻せません。Kyarafit アカウント、クラウド同期データ、アップロード画像、この端末のサインイン情報を削除します。",
+      "deleteConfirmBody": "この操作は元に戻せません。Kyarafit アカウント、クラウドに同期されたコンテンツ、アップロードした画像、そしてこの端末にあるこのアカウントのプランナーと写真を削除します。残しておきたい場合は先にデータをエクスポートしてください。",
       "typeDeleteLabel": "確認のため DELETE と入力",
       "typeDeletePlaceholder": "DELETE",
       "typeDeleteError": "アカウントを完全に削除するには DELETE と入力してください。",
@@ -564,7 +668,117 @@
     "devGallery": "コンポーネントギャラリー",
     "devGallerySubtitle": "デザインシステムのプレビュー（構築中）",
     "pendingMutations": "保留中の変更",
-    "homeLink": "ホームへ"
+    "homeLink": "ホームへ",
+    "cloudSync": "クラウド同期",
+    "cloudBackupUpgrade": "アップグレードすると、クラウド同期とバックアップが自動で行われます。",
+    "signOutError": "サインアウトできませんでした。もう一度お試しください。",
+    "signOutConfirmTitle": "Kyarafit からサインアウトしますか？",
+    "signOutExportWarning": "プランナーはこの端末に残り、このアカウントで再びサインインするまでロックされます。他のアカウントからは見えません。別の場所にも残したい場合はバックアップを保存してください。",
+    "signOutConfirmBody": "プランナーはこの端末に残り、再びサインインするまでロックされます。サインアウトしてもよろしいですか？",
+    "accountGlass": {
+      "editDisplayName": "表示名を編集",
+      "editUsername": "ユーザー名を編集",
+      "editBio": "自己紹介を編集",
+      "disconnectProvider": "{{provider}}を切断"
+    },
+    "subscriptionGlass": {
+      "alreadyActive": "サブスクリプションはすでに有効です。",
+      "paywallUnlocked": "RevenueCat の購入画面が終了しました。Pro は有効、またはすでに利用可能です。",
+      "paywallClosed": "購入せずに RevenueCat の購入画面を閉じました。",
+      "perYear": "{{price}} / 年",
+      "perMonth": "{{price}} / 月",
+      "opening": "開いています…",
+      "notConfigured": "未設定",
+      "fromMonthly": "月額 {{price}} から",
+      "monthly": "{{price}} / 月",
+      "payWhatYouWant": "金額を自由に選択、毎月お支払い",
+      "annual": "{{price}} / 年{{savings}}",
+      "annualSavings": "2か月分お得",
+      "noPayment": "お支払い不要",
+      "storage": "ストレージ",
+      "unlimited": "無制限",
+      "sync": "同期",
+      "localOnly": "ローカルのみ",
+      "allDevices": "すべての端末",
+      "included": "含まれる機能",
+      "upgradeUnlocks": "アップグレードで使える機能",
+      "active": "サブスクリプション: 有効",
+      "inactive": "サブスクリプション: 無効",
+      "openPaywall": "購入画面を開く",
+      "customerCenter": "カスタマーセンター",
+      "plans": {
+        "free": {
+          "name": "無料",
+          "tagline": "ビルド計画に必要なものを、この端末で。",
+          "audience": "コスプレのビルド、コンベンション、持ち物を整理したい方に。",
+          "highlights": {
+            "0": "ビルド数は無制限",
+            "1": "端末でオフラインでも使える",
+            "2": "いつでもエクスポート（CSV、JSON、PDF）"
+          },
+          "features": {
+            "0": "デジタルクローゼットと無制限のビルド管理",
+            "1": "コンベンション、日ごとの予定、持ち物リスト",
+            "2": "ビルドの公開共有",
+            "3": "ローカル優先 — データはこの端末に保存",
+            "4": "すべてのデータをエクスポート・インポート（CSV、画像付き JSON バックアップ、PDF）"
+          },
+          "notIncluded": {
+            "0": "自動クラウド同期",
+            "1": "複数端末からのアクセス",
+            "2": "共同編集者の招待"
+          }
+        },
+        "pro": {
+          "name": "Kyarafit Pro",
+          "tagline": "バックアップはおまかせ。どの端末からでも作業できます。",
+          "audience": "ビルドを同期・バックアップして、いつでも使いたい制作者に。",
+          "highlights": {
+            "0": "自動クラウド同期",
+            "1": "どの端末からでも作業できる",
+            "2": "画像ストレージ 2 GB"
+          },
+          "features": {
+            "0": "無料プランの全機能",
+            "1": "クラウドに自動でバックアップ・同期 — 手動エクスポート不要",
+            "2": "すべての端末からスムーズにアクセス",
+            "3": "共同編集者の招待",
+            "4": "締切と入れ子のビルドタスクを管理する高度なプランナー",
+            "5": "優先サポート"
+          }
+        },
+        "supporter": {
+          "name": "Kyarafit Supporter",
+          "tagline": "Kyarafit をもっと応援。Pro と同じ機能に、感謝を添えて。",
+          "audience": "Pro の料金以上に Kyarafit の開発を支援したい方に。",
+          "highlights": {
+            "0": "Pro の全機能",
+            "1": "支援額を選べる",
+            "2": "継続的な開発を支援"
+          },
+          "features": {
+            "0": "Pro の全機能 — 機能は同じ",
+            "1": "無理のない金額を選択（月額 $5 以上）",
+            "2": "Kyarafit の開発を直接支援",
+            "3": "心からの感謝を"
+          }
+        }
+      }
+    },
+    "dataRemoveTitle": "この端末から削除",
+    "dataRemoveConfirmAction": "削除",
+    "dataRemoveConfirmTitle": "この端末からプランナーを削除しますか？",
+    "dataRemoveButton": "端末のデータを削除",
+    "dataRemoveDescription": "このアカウントのプランナーと写真をこの端末から削除し、サインアウトします。残しておきたい場合は先にバックアップを保存してください。",
+    "dataRemoveConfirmBody": "この操作は元に戻せません。保存済みのバックアップには影響しません。",
+    "dataExportSummary": "{{items}} 件 · 写真 {{photos}} 枚",
+    "dataExportMissingPhotos": "写真のオリジナル {{count}} 枚を取得できなかったため、このバックアップには含まれていません。",
+    "dataExportPartialTitle": "一部を除いてバックアップを保存しました",
+    "dataExportOmittedRows": "読み取れない {{count}} 件の項目をバックアップに含められませんでした。",
+    "dataImportPartialTitle": "バックアップを一部復元しました",
+    "dataImportOmittedRows": "復元または元のバックアップで {{count}} 件の項目が除外されました。",
+    "dataImportConflicts": "競合する {{count}} 件の親子関係は、このデバイスの状態を維持しました。",
+    "dataImportMissingPhotos": "このバックアップの写真 {{count}} 枚を復元できませんでした。"
   },
   "groups": {
     "title": "グループ",
@@ -597,14 +811,28 @@
     "buildsEmpty": "このグループに紐付いたビルドはまだありません。",
     "removeBuildAction": "グループから外す",
     "searchBuilds": "自分のビルドを検索…",
-    "availableBuildsEmpty": "追加できる一致ビルドがありません。"
+    "availableBuildsEmpty": "追加できる一致ビルドがありません。",
+    "featuredEyebrow": "参加中のグループ",
+    "openGroupAction": "グループを開く",
+    "buildCount": "{{count}}ビルド",
+    "emptyHeadline": "コスプレは一緒がもっと楽しい。",
+    "linkConventionTile": "イベントをリンク",
+    "noDaysPicked": "日程未選択",
+    "addMyBuildAction": "自分のビルドを追加",
+    "createPaidNotice": "グループの作成には有料プランが必要です。",
+    "createPaidAction": "プランを見る"
   },
   "feed": {
     "title": "フィード",
     "subtitle": "フォローしている人の公開ビルドを、モバイルで素早く追いやすい形で表示します。",
     "signInBody": "フォロー中のクリエイターのビルドを見るにはサインインしてください。",
     "emptyTitle": "フィードはまだ静かです",
-    "emptyBody": "発見タブでクリエイターをもっとフォローすると、ここが進捗の流れになります。"
+    "emptyBody": "発見タブでクリエイターをもっとフォローすると、ここが進捗の流れになります。",
+    "latestEyebrow": "フォロー中の最新",
+    "viewBuildAction": "ビルドを見る",
+    "shelfEyebrow": "フィード · {{count}}",
+    "emptyEyebrow": "フィード",
+    "signInHeadline": "サインインしてフィードを見る。"
   },
   "discover": {
     "title": "発見",
@@ -619,7 +847,10 @@
     "unfollowAction": "フォロー解除",
     "buildsTitle": "公開ビルド",
     "loadingBuilds": "ビルドを読み込み中…",
-    "emptyBuilds": "公開ビルドはまだありません。"
+    "emptyBuilds": "公開ビルドはまだありません。",
+    "buildsMeta": "{{count}}ビルド",
+    "followersMeta": "フォロワー{{count}}人",
+    "followingMeta": "フォロー中{{count}}人"
   },
   "social": {
     "commentsTitle": "コメント",
@@ -627,7 +858,9 @@
     "commentsSignIn": "会話に参加するにはサインインしてください。",
     "commentPlaceholder": "コメントを追加…",
     "commentAction": "コメントを投稿",
-    "commentPosting": "投稿中…"
+    "commentPosting": "投稿中…",
+    "likeAction": "いいね",
+    "cardTasksMeta": "{{checked}}/{{total}} タスク"
   },
   "publicBuild": {
     "title": "公開ビルド",
@@ -682,7 +915,18 @@
     "indent": "ネスト",
     "outdent": "昇格",
     "taskStructureHint": "並べ替え、ネスト、または編集できます。",
-    "taskActionsA11y": "タスクのアクション"
+    "taskActionsA11y": "タスクのアクション",
+    "headline": "期限のあるもの",
+    "groupLater": "後で",
+    "showLater": "表示",
+    "hideLater": "隠す",
+    "progressShort": "{{done}}/{{total}} 完了",
+    "blocked": "ブロック中",
+    "overdue": "期限切れ",
+    "viewDaily": "デイリー",
+    "progressCount": "{{done}} / {{total}} タスク",
+    "openGroup": "開く",
+    "detailsAction": "詳細"
   },
   "workflowEditor": {
     "title": "タスクを編集",
@@ -815,7 +1059,32 @@
     "bulkDone": "完了",
     "bulkUndoDeleted": "{{count}} 件を削除しました",
     "bulkUndoAction": "取り消し",
-    "bulkUndoing": "取り消し中…"
+    "bulkUndoing": "取り消し中…",
+    "countdownLabel": "カウントダウン",
+    "countdownDays": "あと{{count}}日",
+    "countdownToday": "今日",
+    "countdownTomorrow": "明日",
+    "countdownStarted": "{{count}}日前",
+    "plannedDaysMeta": "{{planned}}/{{total}} 日",
+    "planDayAction": "1日をプランする",
+    "assignBuildTile": "ビルドを割り当て",
+    "packingListTitle": "パッキングリスト",
+    "packedCountMeta": "{{checked}} / {{total}} 梱包済み",
+    "addPackingPlaceholder": "持ち物を追加…",
+    "packingNotesLabel": "メモ",
+    "packedUndoAction": "元に戻す",
+    "packedDoneAction": "梱包済み",
+    "nextEyebrow": "次のイベント",
+    "metricCountdown": "カウントダウン",
+    "metricBuildsValue": "{{count}}件予定",
+    "seasonEyebrow": "シーズン · {{year}}",
+    "seasonEyebrowPlain": "シーズン",
+    "noUpcomingHeadline": "カレンダーにイベントがありません。",
+    "dayPlansAction": "デイプラン",
+    "packingListAction": "パッキングリスト",
+    "searchToggle": "イベントを検索",
+    "rowBuilds": "{{count}}ビルド",
+    "noMatches": "検索・フィルターに一致するイベントがありません。"
   },
   "auth": {
     "continueWithGoogle": "Googleで続行",
@@ -872,6 +1141,106 @@
     "resendVerification": "確認メールを再送信",
     "verifyResent": "確認メールを送信しました。受信トレイ（と迷惑メール）を確認してください。",
     "resendFailed": "再送信できませんでした。もう一度お試しください。",
-    "verifySpamHint": "届きませんか？迷惑メールを確認するか、上から再送信してください。"
+    "verifySpamHint": "届きませんか？迷惑メールを確認するか、上から再送信してください。",
+    "joinEyebrow": "参加",
+    "accountRecovery": "アカウントの復元"
+  },
+  "devGallery": {
+    "title": "Glass Studio",
+    "subtitle": "実機QA用のプリミティブプレビュー。",
+    "surfaces": "サーフェス",
+    "surfaceBar": "バー — クローム、タブバー、ストリップ",
+    "surfacePanel": "パネル — 各領域にワークパネルは1つ",
+    "surfaceOverlay": "オーバーレイ — シートとダイアログ",
+    "surfaceFallback": "不透明フォールバック — ブラー無効",
+    "buttons": "写真上のボタン",
+    "buttonPrimary": "プライマリ操作",
+    "buttonSecondary": "セカンダリ",
+    "buttonTertiary": "テキストリンク",
+    "buttonSmall": "小プライマリ",
+    "buttonDisabled": "無効",
+    "chips": "ガラス上のステータスチップ",
+    "chipDone": "完了",
+    "chipActive": "進行中",
+    "chipWarn": "待機中",
+    "chipNeutral": "下書き",
+    "field": "フォームフィールド",
+    "fieldLabel": "エレメント名",
+    "fieldPlaceholder": "例: 金髪ウィッグ",
+    "fieldErrorLabel": "エラー表示",
+    "fieldError": "この項目は必須です。",
+    "emptyState": "空の状態",
+    "emptyMessage": "写真がまだありません",
+    "emptySecondary": "参考写真を追加してボードを作りましょう。",
+    "emptyCta": "写真を追加"
+  },
+  "landing": {
+    "kicker": "コスプレスタジオプランナー",
+    "headline": "手づくりのものを、\n縫い目まで計画する。",
+    "subcopy": "次のビルドのエレメント、タスク、イベント当日まで——オフラインでも使える静かなスタジオでまとめて管理。",
+    "ctaPrimary": "無料で計画を始める",
+    "ctaMeta": "無料 · サインイン後はオフラインで動作"
+  },
+  "offline": {
+    "onlineOnlyBanner": "オフラインです — このセクションには接続が必要です。",
+    "retry": "再試行"
+  },
+  "vault": {
+    "openErrorTitle": "プランナーを開けませんでした",
+    "openErrorBody": "何も削除されていません。空き容量を増やすかアプリを再起動して、もう一度お試しください。({{detail}})",
+    "saveFailedTitle": "この端末に保存できませんでした",
+    "saveFailedBody": "この変更は保存されていません。空き容量を増やして、もう一度お試しください。({{detail}})",
+    "sessionExpired": "オンラインの Kyarafit からサインアウトされています。プランナーはこの端末でそのまま使えます。",
+    "sessionExpiredAction": "同期とオンライン機能を使うには、もう一度サインインしてください",
+    "sessionExpiredHint": "サインイン画面を開きます"
+  },
+  "sync": {
+    "status": {
+      "needsAuth": "同期を続けるには再度サインインしてください。変更はこの端末に保存されています。",
+      "notEntitled": "このアカウントで Kyarafit Cloud が有効でないため、同期を停止しています。変更はこの端末に保存されています。",
+      "offline": "オフラインです。再接続すると変更が同期されます。",
+      "retrying": "同期中に問題が発生しました。自動で再試行します。"
+    },
+    "changes": {
+      "title": "反映されなかった変更",
+      "intro": "別の端末が先に変更または削除しました。あなたの内容はここに保存されています。新しい編集として戻すか、閉じてください。",
+      "introBuild": "{{name}} 内。別の端末が先に変更または削除しました。あなたの内容はここに保存されています。新しい編集として戻すか、閉じてください。",
+      "reviewCount_one": "反映されなかった変更 {{count}} 件を確認",
+      "reviewCount_other": "反映されなかった変更 {{count}} 件を確認",
+      "buildBanner_one": "{{count}} 件の変更が反映されませんでした",
+      "buildBanner_other": "{{count}} 件の変更が反映されませんでした",
+      "review": "確認",
+      "openHint": "反映されなかった変更の一覧を開きます",
+      "emptyTitle": "確認するものはありません",
+      "emptyBody": "すべての変更がそのまま同期されました。",
+      "untitled": "無題の項目",
+      "emptyValue": "（空）",
+      "yes": "はい",
+      "no": "いいえ",
+      "useMine": "自分の内容を使う",
+      "restoreAsNew": "新規として復元",
+      "dismiss": "閉じる",
+      "acknowledge": "了解",
+      "openBuild": "ビルドを開く",
+      "restoreFailed": "この変更を復元できませんでした。",
+      "goneItem": "この項目はもう存在しないため、復元できません。",
+      "goneParent": "所属先が削除されたため、復元できません。",
+      "kind": {
+        "concurrent": "別の端末で変更",
+        "editAfterDelete": "削除後に編集",
+        "deletedWithEdits": "新しい編集ごと削除",
+        "recovered": "Recovered に移動",
+        "unlinked": "リンク解除",
+        "removed": "親と一緒に削除"
+      },
+      "explain": {
+        "concurrent": "別の端末が先に別の値を保存しました。あなたの値は下にあります。",
+        "editAfterDelete": "別の端末で削除された後にこの項目を編集しました。",
+        "deletedWithEdits": "あなたの最新の編集が届く前に、別の端末がこの項目を削除しました。",
+        "recovered": "ビルドが別の端末で削除されたため、Recovered ビルドに保存しました。",
+        "unlinked": "つながっていた項目が別の端末で削除されました。ライブラリには残っています。",
+        "removed": "所属先が別の端末で削除されました。"
+      }
+    }
   }
 }

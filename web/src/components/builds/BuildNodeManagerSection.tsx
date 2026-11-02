@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useTranslations } from "next-intl";
+import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
@@ -43,8 +44,12 @@ export function BuildNodeManagerSection({
   onCreateRoot,
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
-  const allNodes = (useQuery(api.cosplayNodes.list, userId ? { userId, sortBy: "name" } : "skip") ??
-    []) as ExplorerLinkedNode[];
+  const t = useTranslations("Studio");
+  const tElements = useTranslations("Elements");
+  const allNodes = (useOfflineQuery(
+    api.cosplayNodes.list,
+    userId ? { userId, sortBy: "name" } : "skip"
+  ) ?? []) as ExplorerLinkedNode[];
 
   const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -53,7 +58,6 @@ export function BuildNodeManagerSection({
   const {
     selected,
     selectedPath,
-    setSelectedPath,
     selectedDetail,
     persistStatus,
     inspectorForm,
@@ -153,30 +157,27 @@ export function BuildNodeManagerSection({
   if (roots.length === 0 && !searchNeedle) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-dashed border-kyar-borderSubtle bg-kyar-surface px-5 py-12 text-center">
-          <span className="material-symbols-outlined mb-3 block text-3xl text-kyar-textTertiary">
+        <div className="rounded-glass border border-dashed border-kyar-media-ring px-5 py-12 text-center text-kyar-media-fg">
+          <span className="material-symbols-outlined mb-3 block text-3xl text-media-fg-45">
             account_tree
           </span>
-          <p className="text-sm text-kyar-textSecondary">
-            No linked elements yet. Add a main element or link an existing element to start
-            building.
-          </p>
+          <p className="text-sm text-media-fg-70">{tElements("emptyBody")}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button
               type="button"
               onClick={onCreateRoot}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-kyar-text px-4 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-bg"
+              className="inline-flex items-center gap-1.5 rounded-full bg-glass-solid px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90 transition-opacity"
             >
               <span className="material-symbols-outlined text-base">add</span>
-              New main element
+              {tElements("newMainElement")}
             </button>
             <button
               type="button"
               onClick={onOpenLinkNodes}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-kyar-borderSubtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-widest text-kyar-text"
+              className="inline-flex items-center gap-1.5 rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg hover:bg-glass-active transition-colors"
             >
               <span className="material-symbols-outlined text-base">link</span>
-              Link existing
+              {tElements("link")}
             </button>
           </div>
         </div>
@@ -185,8 +186,8 @@ export function BuildNodeManagerSection({
   }
 
   return (
-    <div className="space-y-0">
-      <div className="overflow-hidden rounded-xl border border-kyar-borderSubtle bg-kyar-surface shadow-soft">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col text-kyar-media-fg">
         {/* Toolbar */}
         <BuildExplorerToolbar
           search={search}
@@ -205,10 +206,9 @@ export function BuildNodeManagerSection({
           onNavigateToSegment={handleBreadcrumbNavigate}
         />
 
-        {/* Layout: unified recursive tree + optional desktop panel */}
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-kyar-borderSubtle">
-          {/* Main content area */}
-          <div className="min-w-0">
+        {/* Single-pane recursive tree; detail opens as the 8b overlay sheet */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* Root drop zone during drag */}
             {drag.draggingNodeId ? (
               <div className="px-3 pt-2">
@@ -216,10 +216,10 @@ export function BuildNodeManagerSection({
                   type="button"
                   data-root-drop-zone="true"
                   className={[
-                    "flex w-full items-center justify-center rounded-lg border border-dashed px-3 py-2.5 text-[10px] uppercase tracking-widest transition-colors",
+                    "flex w-full items-center justify-center rounded-lg border px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] transition-colors",
                     drag.dragOverNodeId === "__root__"
-                      ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                      : "border-kyar-borderSubtle text-kyar-textTertiary",
+                      ? "border-glass-border-strong bg-glass-active text-kyar-media-fg"
+                      : "border-glass-border text-media-fg-55",
                   ].join(" ")}
                 >
                   {drag.dragOverNodeId === "__root__"
@@ -229,7 +229,7 @@ export function BuildNodeManagerSection({
               </div>
             ) : null}
 
-            <div className="max-h-[min(640px,78vh)] overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <BuildExplorerTree
                 buildId={buildId}
                 userId={userId}
@@ -242,60 +242,36 @@ export function BuildNodeManagerSection({
             </div>
 
             {/* Status footer */}
-            <div className="hidden items-center gap-4 border-t border-kyar-borderSubtle bg-kyar-bg px-4 py-2 text-[10px] tabular-nums text-kyar-textTertiary md:flex">
+            <div className="font-explorer-mono hidden shrink-0 items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
               <span>
                 {searchNeedle
-                  ? `${roots.length} match${roots.length === 1 ? "" : "es"}`
-                  : `${roots.length} root${roots.length === 1 ? "" : "s"}`}
+                  ? t("explorerMatches", { count: roots.length })
+                  : t("explorerRoots", { count: roots.length })}
               </span>
               {selected && selectedDetail ? (
-                <span className="truncate">Selected: {selectedDetail.name}</span>
+                <span className="truncate">
+                  {t("explorerSelected", { name: selectedDetail.name })}
+                </span>
               ) : null}
             </div>
-          </div>
-
-          {/* Desktop side panel (persistent detail sheet) */}
-          <div className="hidden min-w-0 lg:block">
-            {sheetOpen && selectedDetail && selected ? (
-              <div className="h-full overflow-y-auto bg-kyar-surface">
-                <BuildNodeDetailSheet
-                  detail={selectedDetail}
-                  selected={selected}
-                  inspectorForm={inspectorForm}
-                  persistStatus={persistStatus}
-                  onFormChange={setInspectorForm}
-                  onFlushSave={() => void flushSave()}
-                  onCreateChild={onCreateChild}
-                  onUnlink={handleUnlink}
-                  onClose={handleCloseSheet}
-                  inline
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-[320px] items-center justify-center p-5 text-center text-sm text-kyar-textTertiary">
-                Select an element to view details
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile bottom sheet */}
-      <div className="lg:hidden">
-        {sheetOpen ? (
-          <BuildNodeDetailSheet
-            detail={selectedDetail}
-            selected={selected}
-            inspectorForm={inspectorForm}
-            persistStatus={persistStatus}
-            onFormChange={setInspectorForm}
-            onFlushSave={() => void flushSave()}
-            onCreateChild={onCreateChild}
-            onUnlink={handleUnlink}
-            onClose={handleCloseSheet}
-          />
-        ) : null}
-      </div>
+      {/* Detail sheet — bottom sheet on mobile, right sheet on desktop (8b overlay) */}
+      {sheetOpen ? (
+        <BuildNodeDetailSheet
+          detail={selectedDetail}
+          selected={selected}
+          inspectorForm={inspectorForm}
+          persistStatus={persistStatus}
+          onFormChange={setInspectorForm}
+          onFlushSave={() => void flushSave()}
+          onCreateChild={onCreateChild}
+          onUnlink={handleUnlink}
+          onClose={handleCloseSheet}
+        />
+      ) : null}
 
       {/* Floating drag preview */}
       {drag.draggingMeta &&

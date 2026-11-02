@@ -1,0 +1,154 @@
+# Architecture
+
+_Source of truth for **code structure, shared logic, boundaries, and conventions**. Product behavior
+→ [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md); data/sync → [`DATA_AND_SYNC.md`](DATA_AND_SYNC.md)._
+
+## Implementation scope
+
+This document mixes implemented boundaries with engineering requirements; a requirement is not
+proof of complete enforcement. The [roadmap](ROADMAP.md) separates shipped foundations from
+accepted, unbuilt programs. Current storage is Convex `_storage`; R2 and Drive are accepted
+future integrations, not current adapters. Live deployment lineage must be verified separately.
+
+Product **elements** persist in `cosplayNodes`, with membership on the node (`buildId`,
+`parentNodeId`, `sortOrder`). There is no current Convex `elements` table. Workflow UX uses
+`workflowItems`; legacy tables (`closetItems`, `buildTasks`, and retired build-scoping joins)
+remain defined for schema compatibility. Never remove populated definitions based on product
+terminology alone; follow the purge preconditions in `convex/schema.ts`.
+
+Legacy policy helpers disagree: `entitlements.ts` / `subscriptionTierPolicy.ts` use a free
+50 MB soft/server cap, while `cloudStoragePolicy.ts` uses 0 MB for personal cloud uploads plus
+a group exception. The accepted entitlement program must reconcile them; this doc does not
+change product requirements or certify quota consistency.
+
+---
+
+## 1. Stack
+
+| Layer    | Tech                                                                                                                         |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Backend  | **Convex** (document DB, queries/mutations/actions, file storage, crons)                                                     |
+| Auth     | **Better Auth** as a Convex component (`convex/betterAuth/`); `identity.subject` = user `externalId` = `userId` on every row |
+| Web      | **Next.js** (App Router), React 19, Tailwind, Convex React hooks                                                             |
+| Mobile   | **Expo / React Native**, Convex + local **SQLite**                                                                           |
+| Shared   | `design-system/` — OKLCH tokens + **all platform-agnostic domain/sync/entitlement logic**                                    |
+| Billing  | **RevenueCat** → webhook → `convex/revenuecat.ts` → `users.tier`                                                             |
+| Monorepo | npm workspaces: `web`, `mobile`, `design-system`                                                                             |
+
+---
+
+## 2. Layering & boundaries
+
+```
+            ┌─────────────── platform UI (web / mobile) ───────────────┐
+            │  Next.js pages / RN screens  +  platform-native primitives │
+            └───────────────┬───────────────────────────┬───────────────┘
+                            │ useOfflineQuery/Mutation   │  (online-only: direct Convex)
+            ┌───────────────▼───────────────┐   ┌────────▼─────────┐
+            │  offline bridge (per platform) │   │ social/groups/   │
+            │  LocalStore + sync worker      │   │ billing (online) │
+            └───────────────┬───────────────┘   └────────┬─────────┘
+                            │  (paid + online only)       │
+                    ┌────────▼─────────────────────────────▼────────┐
+                    │                 Convex backend                 │
+                    └────────────────────────────────────────────────┘
+                            ▲
+            ┌───────────────┴───────────────┐
+            │  design-system/ (shared logic) │  ← imported by web + mobile + Convex
+            └────────────────────────────────┘
+```
+
+- **B1** Mobile personal data: UI → `useOfflineQuery`/`useOfflineMutation` → `mobile/src/vault/functions.ts` → local handlers → `VaultStore` (SQLite). Compound commands use `runLocalMutations`. Managed sync (Kyarafit Cloud) is separate from the UI path: the vault's `onPersist` hook records changed rows in an outbox inside the same SQLite transaction, and `mobile/src/vault/replica` replicates them to the row replica (`convex/replica.ts`, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)). Web's retained wrappers read Convex and write it directly while online; see [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). ESLint guards cover selected core routes/components, not every personal-data call site.
+- **B2** Online-only data (social, groups, billing, public pages): UI → Convex hooks directly, wrapped in an online-guard/offline-banner component.
+- **B3** Platform-independent domain helpers belong in `design-system/`. Mobile vault handlers also implement local query/command behavior using a Convex-like reader/writer interface; they are not a shared server runtime. Platform adapters own storage, connectivity, and image capture.
+
+---
+
+## 3. Shared package (`design-system/`)
+
+| Area                    | Module(s)                                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain logic            | `domain/workflowDomain.ts`, `workflowProgress.ts`, `cosplay*`, planner overlays                                                                                   |
+| Entitlements            | `domain/entitlements.ts`, `subscriptionTierPolicy.ts`, `subscriptionPlans.ts`                                                                                     |
+| Sync (pure)             | `domain/replicaProtocol.ts` (mobile managed sync); web's legacy `offlineMutationQueue.ts`, `offlineQueryCache.ts`, `offlineIdMap.ts`, overlays                    |
+| Implemented foundations | `domain/syncPolicy.ts` (worker gating), `domain/cloudStoragePolicy.ts` (caps + group exception), `domain/offlineConflict.ts` (field LWW merge), shared validators |
+| Tokens                  | `design_tokens.json`, `rn_tokens.ts`, Tailwind config                                                                                                             |
+
+- **A1** `design-system/domain/*` must be **pure** (no React, no platform imports) so it runs in web vitest, mobile, and Convex.
+- **A2** Validation schemas are shared and used by both client (form validation) and Convex (arg validation) — single definition.
+
+---
+
+## 4. Platform adapters (the only platform-specific glue)
+
+| Adapter       | Mobile                            | Web                                   |
+| ------------- | --------------------------------- | ------------------------------------- |
+| `LocalStore`  | `expo-sqlite`                     | OPFS + wa-sqlite / IndexedDB fallback |
+| Connectivity  | `@react-native-community/netinfo` | `navigator.onLine` + events           |
+| Image capture | camera / picker (`expo-*`)        | `<input type=file>`                   |
+
+Authentication adapters and credential storage are owned by [Authentication](auth.md).
+
+Mobile's authoritative `VaultStore` is distinct from web's `LocalStore` interface. Mobile syncs
+through the row replica; web has no vault yet and sends personal-data commands straight to Convex
+while online, refusing them offline (`web/src/lib/offline/useOfflineMutation.ts`,
+[ADR-0006](adr/0006-web-edits-personal-data-online.md)). Web engine selection lives in
+`web/src/lib/offline/engineSelection.ts`; Dexie is not the current fallback.
+
+---
+
+## 5. Convex backend conventions
+
+- **C1** Thin function wrappers; logic in plain TS helpers (import from `design-system` where shared). Validate args + return types with `v.*` / shared validators.
+- **C2** Acting identity must come from the verified session, not caller arguments. Preserve
+  legitimate public-by-design reads. The current contract and exceptions are documented in
+  [`backend-authorization.md`](backend-authorization.md). Implementation and release status
+  are tracked in the [roadmap](ROADMAP.md).
+- **C3** Managed-sync ops are deduped by `opId` in `replicaOps`. Mutations that accept an `idempotencyKey` keep the ledger pattern in `convex/lib/idempotency.ts`.
+- **C4** Use indexes, never `filter()`, for queries; paginate large datasets.
+- **C5** Function-level authorization and shared resource-access helpers protect user data;
+  Convex tables do not acquire automatic row-level isolation from the schema alone.
+- **C6** Schedule only internal functions; never `Date.now()` inside queries.
+
+---
+
+## 6. Folder conventions
+
+```
+convex/                 # backend (schema.ts, <module>.ts, lib/, betterAuth/, crons.ts)
+design-system/
+  domain/               # pure shared logic (tested via web vitest)
+  *tokens*              # design tokens
+web/src/
+  app/                  # routes
+  components/           # platform UI (follow DESIGN_SYSTEM component spec)
+  lib/                  # web adapters + offline bridge + tests
+mobile/
+  app/                  # Expo Router screens
+  src/offline/          # per-account SQLite lifecycle, schema, compatibility hooks
+  src/vault/            # authoritative local store, handlers, transactions, reactive reads
+  src/vault/replica/    # managed sync: replicator, scheduler, conflicts, photo bytes
+  src/ui/               # mobile primitives
+docs/                   # consolidated docs (this set)
+```
+
+- **N1** One concept = one name everywhere (e.g. **Elements**, not item/closet/node). Web and mobile primitives that do the same job share the same name and prop shape (see [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)).
+- **N2** Feature code is grouped by module (elements, builds, conventions, planner, social, groups, settings).
+
+---
+
+## 7. State management
+
+- **S1** Mobile personal-data state comes from `useOfflineQuery`, reactive over committed vault data via `useSyncExternalStore`; online queries remain separate. Web's online-only personal-data boundary is described in [Data & Sync §5.1](DATA_AND_SYNC.md#51-current-web-isolation-and-write-guarantees). No duplicate global personal-data cache.
+- **S2** Ephemeral UI state is local component state / lightweight context. Avoid a global store for data that the offline bridge already owns.
+
+---
+
+## 8. Performance (hard requirements)
+
+- **P1** Local reads/writes feel instant (<~100 ms); never block on network (REQ-100).
+- **P2** Cold start interactive < ~2 s on mid-tier mobile.
+- **P3** Lists of 1000+ items paginate/virtualize and stay smooth.
+- **P4** Free personal-data CRUD must not start managed cloud sync (REQ-D10). Online social,
+  group, account, and public-read calls are a separate boundary, not prohibited by this rule.
+- **P5** Web bundle + image payload budgets enforced (lazy-load heavy/social routes; responsive images).

@@ -2,14 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { WebAppShell } from "@/components/layout/WebAppShell";
+import { useTranslations } from "next-intl";
 import { useCreationModals } from "@/contexts/CreationModalsContext";
+import { CreationRoutePlaceholder } from "@/components/creation/CreationRoutePlaceholder";
 
 /**
  * Deep link: opens the global “new build” modal; closing returns to builds list.
  */
 export default function NewBuildPage() {
   const router = useRouter();
+  const t = useTranslations("Creation");
   const { open } = useCreationModals();
   const opened = useRef(false);
 
@@ -20,17 +22,10 @@ export default function NewBuildPage() {
   }, [open]);
 
   return (
-    <WebAppShell>
-      <div className="flex flex-1 flex-col items-center justify-center py-24">
-        <p className="text-sm text-kyar-textTertiary">Opening new build…</p>
-        <button
-          type="button"
-          onClick={() => router.replace("/builds")}
-          className="mt-4 text-xs uppercase tracking-widest text-kyar-text underline"
-        >
-          Cancel
-        </button>
-      </div>
-    </WebAppShell>
+    <CreationRoutePlaceholder
+      message={t("openingBuild")}
+      cancelLabel={t("cancel")}
+      onCancel={() => router.replace("/builds")}
+    />
   );
 }

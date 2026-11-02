@@ -1,17 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { api } from "convex/_generated/api";
@@ -24,15 +15,25 @@ import {
   type CosplayNodeType,
 } from "@kyarafit/design-system/types";
 import {
+  formatCents,
   formatNodeStatus,
   formatNodeTypeLabel,
   formatOverallBucket,
   nodeMatchesSubstate,
 } from "@kyarafit/design-system/domain";
-import { ElementPortfolioCard } from "@/components/elements/ElementPortfolioCard";
-import { useDesignTheme } from "@/theme/useDesignTheme";
-import { APP_FONT_FAMILIES } from "@/theme/appFonts";
-import { DataBoundary, FloatingCreateMenu, MetaLabel } from "@/ui";
+import { glass, ls } from "@kyarafit/design-system/rn";
+import { ConvexStorageImage } from "@/components/ConvexStorageImage";
+import { APP_FONT_FAMILIES } from "@/theme/fontFamilies";
+import { DataBoundary, FloatingCreateMenu } from "@/ui";
+import {
+  GlassEmptyState,
+  GlassPanel,
+  GlassStatusChip,
+  GlassTextField,
+  PhotoBackdrop,
+  PhotoPill,
+  type GlassStatusTone,
+} from "@/ui/glass";
 import { APP_HREF } from "@/lib/appRoutes";
 import { buildGlobalAddMenuActions } from "@/lib/globalAddMenuActions";
 
@@ -45,7 +46,6 @@ type BucketFilter = "all" | (typeof COSPLAY_OVERALL_BUCKETS)[number];
 type CategoryFilter = "all" | (typeof COSPLAY_CATEGORIES)[number];
 
 type ElementListRow = CosplayExplorerItem & { _id: Id<"cosplayNodes"> };
-type ElementLayoutMode = "comfortable" | "compact" | "grid";
 
 type ListReady = {
   rows: ElementListRow[];
@@ -69,9 +69,23 @@ const HIERARCHY_FILTERS: { value: HierarchyFilter; key: string }[] = [
   { value: "hasIncomplete", key: "elements.hierarchyHasIncomplete" },
 ];
 
+/** Status label → on-glass chip tone, mirroring web `STATUS_CHIP_TONES`
+ * (owned=done, wip=active, to-buy=warn). */
+const STATUS_CHIP_TONES: Record<string, GlassStatusTone> = {
+  Complete: "success",
+  Built: "success",
+  Bought: "success",
+  "In use": "active",
+  "In progress": "active",
+  Incomplete: "warning",
+};
+
+function nodeStatusTone(row: ElementListRow): GlassStatusTone {
+  return STATUS_CHIP_TONES[formatNodeStatus(row)] ?? "neutral";
+}
+
 export default function ElementsScreen() {
   const { t } = useTranslation();
-  const { colors } = useDesignTheme();
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -106,6 +120,18 @@ export default function ElementsScreen() {
   const rows = useOfflineQuery(api.cosplayNodes.list, listArgs);
   const builds = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
+  // Featured backdrop: the last-touched piece, preferring one with imagery (web elements hero).
+  // Rows don't carry a typed `updatedAt`; prefer it when present at runtime, else `_creationTime`.
+  const featured = useMemo(() => {
+    const list = (rows ?? []) as ElementListRow[];
+    const byTouch = [...list].sort(
+      (a, b) =>
+        ((b as { updatedAt?: number }).updatedAt ?? b._creationTime ?? 0) -
+        ((a as { updatedAt?: number }).updatedAt ?? a._creationTime ?? 0)
+    );
+    return byTouch.find((row) => row.imageStorageId || row.imageUrl) ?? byTouch[0];
+  }, [rows]);
+
   const loading =
     identity === undefined || (userId != null && (rows === undefined || builds === undefined));
   const error = identity === null ? new Error(t("builds.loadError")) : undefined;
@@ -136,41 +162,48 @@ export default function ElementsScreen() {
   }, []);
 
   return (
-    <DataBoundary<ListReady> status={status} data={data} error={error}>
-      {(loaded) => (
-        <ElementsListBody
-          loaded={loaded}
-          search={search}
-          setSearch={setSearch}
-          sortBy={sortBy}
-          order={order}
-          cycleSort={cycleSort}
-          toggleOrder={() => setOrder((value) => (value === "asc" ? "desc" : "asc"))}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          typeFilter={typeFilter}
-          setTypeFilter={setTypeFilter}
-          bucketFilter={bucketFilter}
-          setBucketFilter={setBucketFilter}
-          categoryFilter={categoryFilter}
-          setCategoryFilter={setCategoryFilter}
-          substateFilter={substateFilter}
-          setSubstateFilter={setSubstateFilter}
-          hierarchyFilter={hierarchyFilter}
-          setHierarchyFilter={setHierarchyFilter}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          router={router}
-          t={t}
-          placeholderColor={colors.textTertiary}
-        />
-      )}
-    </DataBoundary>
+    <View style={{ flex: 1 }}>
+      <PhotoBackdrop
+        imageStorageId={(featured?.imageStorageId as Id<"_storage"> | null) ?? undefined}
+        imageUrl={featured?.imageUrl ?? undefined}
+      />
+      <DataBoundary<ListReady> status={status} data={data} error={error}>
+        {(loaded) => (
+          <ElementsListBody
+            loaded={loaded}
+            featured={featured}
+            search={search}
+            setSearch={setSearch}
+            sortBy={sortBy}
+            order={order}
+            cycleSort={cycleSort}
+            toggleOrder={() => setOrder((value) => (value === "asc" ? "desc" : "asc"))}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
+            bucketFilter={bucketFilter}
+            setBucketFilter={setBucketFilter}
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+            substateFilter={substateFilter}
+            setSubstateFilter={setSubstateFilter}
+            hierarchyFilter={hierarchyFilter}
+            setHierarchyFilter={setHierarchyFilter}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            router={router}
+            t={t}
+          />
+        )}
+      </DataBoundary>
+    </View>
   );
 }
 
 function ElementsListBody({
   loaded,
+  featured,
   search,
   setSearch,
   sortBy,
@@ -193,9 +226,9 @@ function ElementsListBody({
   onRefresh,
   router,
   t,
-  placeholderColor,
 }: {
   loaded: ListReady;
+  featured: ElementListRow | undefined;
   search: string;
   setSearch: (s: string) => void;
   sortBy: SortKey;
@@ -218,12 +251,11 @@ function ElementsListBody({
   onRefresh: () => void;
   router: ReturnType<typeof useRouter>;
   t: TFunction;
-  placeholderColor: string;
 }) {
-  const { colors } = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const { rows, builds, userId } = loaded;
+  const [searchOpen, setSearchOpen] = useState(search.trim().length > 0);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [layout, setLayout] = useState<ElementLayoutMode>("comfortable");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
@@ -233,12 +265,6 @@ function ElementsListBody({
   const removeMany = useOfflineMutation(api.cosplayNodes.removeMany);
   const addNodesToBuild = useOfflineMutation(api.builds.addNodesToBuild);
   const removeNodesFromBuild = useOfflineMutation(api.builds.removeNodesFromBuild);
-
-  const cycleLayout = useCallback(() => {
-    setLayout((mode) =>
-      mode === "comfortable" ? "compact" : mode === "compact" ? "grid" : "comfortable"
-    );
-  }, []);
 
   const addMenuActions = useMemo(
     () => buildGlobalAddMenuActions("elements", t, router),
@@ -257,19 +283,7 @@ function ElementsListBody({
             : t("elements.sortBucket");
   const orderLabel = order === "asc" ? t("builds.sortAsc") : t("builds.sortDesc");
   const viewModeLabel = viewMode === "all" ? t("elements.tabAll") : t("elements.tabTree");
-  const layoutLabel =
-    layout === "comfortable"
-      ? t("builds.layoutComfortable")
-      : layout === "compact"
-        ? t("builds.layoutCompact")
-        : t("builds.layoutGrid");
 
-  const typeSummary =
-    typeFilter === "all"
-      ? null
-      : typeFilter === "element"
-        ? t("elements.typeElement")
-        : t("elements.typeMaterial");
   const bucketSummary = bucketFilter === "all" ? null : formatOverallBucket(bucketFilter);
   const categorySummary = categoryFilter === "all" ? null : categoryFilter;
   const substateSummary =
@@ -390,278 +404,458 @@ function ElementsListBody({
     [clearSelection, removeNodesFromBuild, selectedNodeIds, t, userId]
   );
 
-  const filterSummary = [
-    viewModeLabel,
-    typeSummary,
+  // Only non-default refinements — shown as a caption while the panel is closed.
+  const refineParts = [
+    viewMode !== "all" ? viewModeLabel : null,
     bucketSummary,
     categorySummary,
     substateSummary,
     hierarchySummary,
-    sortLabel,
-    orderLabel,
-    layoutLabel,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" · ");
+    sortBy !== "name" ? sortLabel : null,
+    order !== "asc" ? orderLabel : null,
+  ].filter((part): part is string => Boolean(part));
+  const refineSummary = refineParts.join(" · ");
+  const refinesActive = refineParts.length > 0;
+
+  const featuredStatus = featured ? formatNodeStatus(featured) : null;
+
+  const investedCents = useMemo(
+    () =>
+      filteredRows.reduce((sum, row) => sum + (row.totalCostCents ?? row.directCostCents ?? 0), 0),
+    [filteredRows]
+  );
+
+  const openNewElement = useCallback(() => {
+    router.push(APP_HREF.elementNew);
+  }, [router]);
 
   return (
-    <View className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg">
-      <View className="px-5 pb-3 pt-4">
-        <View className="w-full flex-row items-center gap-2 border-b border-kyar-border pb-2 dark:border-kyar-dark-border">
-          <Ionicons
-            name="search"
-            size={18}
-            color={colors.textTertiary}
-            importantForAccessibility="no"
-          />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t("elements.searchPlaceholder")}
-            placeholderTextColor={placeholderColor}
-            className="min-h-[38px] flex-1 py-2 text-[13px] text-kyar-text dark:text-kyar-dark-text"
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={glass.text.fg} />
+        }
+      >
+        {/* Hero — last-touched element identity on the photo (web elements hero). */}
+        <View style={{ paddingHorizontal: 22, paddingTop: insets.top + 58 }}>
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.sansBold,
+              fontSize: 9,
+              letterSpacing: ls(0.26, 9),
+              textTransform: "uppercase",
+              color: glass.text.fg,
+              opacity: 0.75,
+              marginBottom: 10,
+            }}
+          >
+            {t("elements.heroEyebrow", { defaultValue: "Elements · Last touched" })}
+          </Text>
+          {featured ? (
+            <>
+              <Pressable
+                onPress={() => router.push(APP_HREF.element(featured._id as string))}
+                accessibilityRole="button"
+                accessibilityLabel={featured.name}
+                className="active:opacity-80"
+              >
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.displayItalic,
+                    fontSize: 38,
+                    lineHeight: 42,
+                    letterSpacing: ls(-0.02, 38),
+                    color: glass.text.fg,
+                  }}
+                  numberOfLines={3}
+                >
+                  {featured.name}
+                </Text>
+              </Pressable>
+
+              {/* Meta triplet: KIND / PROGRESS / DIRECT COST (web hero dl). */}
+              <View
+                style={{
+                  marginTop: 18,
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  columnGap: 28,
+                  rowGap: 14,
+                }}
+              >
+                <HeroMeta
+                  label={t("elements.heroKind", { defaultValue: "Kind" })}
+                  value={featured.category?.trim() || formatNodeTypeLabel(featured.nodeType)}
+                />
+                <HeroMeta
+                  label={t("elements.heroProgress", { defaultValue: "Progress" })}
+                  value={`${featured.progressPercent ?? 0}%`}
+                />
+                <HeroMeta
+                  label={t("elements.heroDirectCost", { defaultValue: "Direct cost" })}
+                  value={formatCents(featured.directCostCents ?? 0)}
+                />
+              </View>
+
+              <View
+                style={{
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                {featuredStatus ? (
+                  <GlassStatusChip tone={nodeStatusTone(featured)} label={featuredStatus} />
+                ) : null}
+                <Text
+                  style={{
+                    flexShrink: 1,
+                    fontFamily: APP_FONT_FAMILIES.sansRegular,
+                    fontSize: 13,
+                    color: glass.text.fg70,
+                  }}
+                  numberOfLines={1}
+                >
+                  {featured.notes?.split("\n")[0] ??
+                    ((featured.childCount ?? 0) === 1
+                      ? t("elements.heroPartsLinkedOne", {
+                          defaultValue: "{{count}} part linked",
+                          count: featured.childCount ?? 0,
+                        })
+                      : t("elements.heroPartsLinked", {
+                          defaultValue: "{{count}} parts linked",
+                          count: featured.childCount ?? 0,
+                        }))}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <Text
+              style={{
+                fontFamily: APP_FONT_FAMILIES.displayItalic,
+                fontSize: 38,
+                lineHeight: 42,
+                letterSpacing: ls(-0.02, 38),
+                color: glass.text.fg,
+              }}
+            >
+              {t("elements.pageTitle")}
+            </Text>
+          )}
         </View>
 
-        <Pressable
-          onPress={() => setFiltersOpen((value) => !value)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: filtersOpen }}
-          className="mt-3 flex min-h-[42px] w-full flex-row items-center justify-between gap-3 rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 py-2 shadow-soft active:opacity-90 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-        >
-          <View className="shrink-0 flex-row items-center gap-2">
-            <Ionicons
-              name="options-outline"
-              size={16}
-              color={colors.text}
-              importantForAccessibility="no"
-            />
-            <Text
-              style={{ fontFamily: APP_FONT_FAMILIES.sansBold }}
-              className="text-[9px] uppercase tracking-[0.22em] text-kyar-text dark:text-kyar-dark-text"
-              numberOfLines={1}
-            >
-              {t("elements.refineElements")}
-            </Text>
-          </View>
-          <View className="min-w-0 flex-1 flex-row items-center justify-end gap-2">
-            <Text
-              className="flex-1 text-right text-[10px] text-kyar-textSecondary dark:text-kyar-dark-textSecondary"
-              numberOfLines={2}
-            >
-              {filterSummary}
-            </Text>
-            <Ionicons
-              name={filtersOpen ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.text}
-            />
-          </View>
-        </Pressable>
-
-        {filtersOpen ? (
-          <View className="mt-3 rounded-[24px] border border-kyar-borderSubtle bg-kyar-surface p-3 shadow-soft dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface">
-            <MetaLabel>{t("elements.filtersViewLabel")}</MetaLabel>
+        {/* Work panel — web's closet panel: tabs header, list rows, footer. */}
+        <GlassPanel style={{ marginTop: 24, marginHorizontal: 16, overflow: "hidden" }}>
+          {/* Type tabs + search/refine toggles — mirrors the web closet panel's header row. */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingLeft: 16,
+              paddingRight: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: glass.border.divider,
+            }}
+          >
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="mt-2"
-              contentContainerClassName="gap-2 pr-1"
+              style={{ flexGrow: 1, flexShrink: 1 }}
+              contentContainerStyle={{ gap: 18, paddingRight: 12, alignItems: "center" }}
             >
-              <FilterChip
-                active={viewMode === "all"}
-                label={t("elements.tabAll")}
-                onPress={() => setViewMode("all")}
+              <UnderlineTab
+                active={typeFilter === "all"}
+                label={t("elements.tabAllCount", {
+                  defaultValue: "All · {{count}}",
+                  count: filteredRows.length,
+                })}
+                onPress={() => setTypeFilter("all")}
               />
-              <FilterChip
-                active={viewMode === "tree"}
-                label={t("elements.tabTree")}
-                onPress={() => setViewMode("tree")}
+              <UnderlineTab
+                active={typeFilter === "element"}
+                label={t("elements.tabElements", { defaultValue: "Elements" })}
+                onPress={() => setTypeFilter("element")}
+              />
+              <UnderlineTab
+                active={typeFilter === "material"}
+                label={t("elements.tabMaterials", { defaultValue: "Materials" })}
+                onPress={() => setTypeFilter("material")}
               />
             </ScrollView>
+            <HeaderIconToggle
+              icon="search"
+              active={searchOpen || search.trim().length > 0}
+              label={t("elements.searchToggle", { defaultValue: "Search elements" })}
+              onPress={() => setSearchOpen((value) => !value)}
+            />
+            <HeaderIconToggle
+              icon="options-outline"
+              active={filtersOpen || refinesActive}
+              label={t("elements.refineElements")}
+              onPress={() => setFiltersOpen((value) => !value)}
+            />
+          </View>
 
-            <View className="mt-5">
-              <MetaLabel>{t("elements.filtersSortViewLabel")}</MetaLabel>
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                <ControlPill label={sortLabel} onPress={cycleSort} />
-                <ControlPill label={orderLabel} onPress={toggleOrder} />
-                <ControlPill label={layoutLabel} onPress={cycleLayout} />
+          {searchOpen ? (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: glass.border.divider,
+              }}
+            >
+              <GlassTextField
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t("elements.searchPlaceholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                autoFocus
+              />
+            </View>
+          ) : null}
+
+          {!filtersOpen && refinesActive ? (
+            <Text
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 9,
+                letterSpacing: ls(0.14, 9),
+                textTransform: "uppercase",
+                color: glass.text.fg55,
+              }}
+              numberOfLines={1}
+            >
+              {refineSummary}
+            </Text>
+          ) : null}
+
+          {filtersOpen ? (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: glass.border.divider,
+              }}
+            >
+              <View
+                style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}
+              >
+                <GlassFilterChip
+                  active={viewMode === "all"}
+                  label={t("elements.tabAll")}
+                  onPress={() => setViewMode("all")}
+                />
+                <GlassFilterChip
+                  active={viewMode === "tree"}
+                  label={t("elements.tabTree")}
+                  onPress={() => setViewMode("tree")}
+                />
+                <GlassControlPill label={sortLabel} onPress={cycleSort} />
+                <GlassControlPill label={orderLabel} onPress={toggleOrder} />
               </View>
-            </View>
 
-            <View className="mt-5">
-              <MetaLabel>{t("elements.typeLabel")}</MetaLabel>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-                <View className="flex-row gap-2">
-                  <FilterChip
-                    active={typeFilter === "all"}
-                    label={t("elements.filterAll")}
-                    onPress={() => setTypeFilter("all")}
-                  />
-                  <FilterChip
-                    active={typeFilter === "element"}
-                    label={t("elements.typeElement")}
-                    onPress={() => setTypeFilter("element")}
-                  />
-                  <FilterChip
-                    active={typeFilter === "material"}
-                    label={t("elements.typeMaterial")}
-                    onPress={() => setTypeFilter("material")}
-                  />
-                </View>
-              </ScrollView>
-            </View>
-
-            <View className="mt-5">
-              <MetaLabel>{t("elements.sortBucket")}</MetaLabel>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-                <View className="flex-row gap-2">
-                  <FilterChip
-                    active={bucketFilter === "all"}
-                    label={t("elements.filterAll")}
-                    onPress={() => setBucketFilter("all")}
-                  />
-                  {COSPLAY_OVERALL_BUCKETS.map((bucket) => (
-                    <FilterChip
-                      key={bucket}
-                      active={bucketFilter === bucket}
-                      label={formatOverallBucket(bucket)}
-                      onPress={() => setBucketFilter(bucket)}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-
-            <View className="mt-5">
-              <MetaLabel>{t("elements.substateLabel")}</MetaLabel>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-                <View className="flex-row gap-2">
-                  {SUBSTATE_FILTERS.map((option) => (
-                    <FilterChip
-                      key={option.value || "all"}
-                      active={substateFilter === option.value}
-                      label={t(option.key)}
-                      onPress={() => setSubstateFilter(option.value)}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-
-            <View className="mt-5">
-              <MetaLabel>{t("elements.hierarchyLabel")}</MetaLabel>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-                <View className="flex-row gap-2">
-                  {HIERARCHY_FILTERS.map((option) => (
-                    <FilterChip
-                      key={option.value}
-                      active={hierarchyFilter === option.value}
-                      label={t(option.key)}
-                      onPress={() => setHierarchyFilter(option.value)}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-
-            <View className="mt-5">
-              <MetaLabel>{t("elements.categoryLabel")}</MetaLabel>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
-                <View className="flex-row gap-2">
-                  <FilterChip
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.categoryLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  <GlassFilterChip
                     active={categoryFilter === "all"}
                     label={t("elements.filterAll")}
                     onPress={() => setCategoryFilter("all")}
                   />
                   {COSPLAY_CATEGORIES.map((category) => (
-                    <FilterChip
+                    <GlassFilterChip
                       key={category}
                       active={categoryFilter === category}
                       label={category}
                       onPress={() => setCategoryFilter(category)}
                     />
                   ))}
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        ) : null}
-      </View>
+                </ScrollView>
+              </View>
 
-      <FlatList
-        key={layout}
-        className="flex-1 bg-kyar-bg dark:bg-kyar-dark-bg"
-        data={filteredRows}
-        numColumns={layout === "grid" ? 2 : 1}
-        keyExtractor={(item) => item._id}
-        columnWrapperStyle={layout === "grid" ? { gap: 12, paddingHorizontal: 20 } : undefined}
-        contentContainerStyle={{
-          paddingHorizontal: layout === "grid" ? 0 : 20,
-          paddingTop: 8,
-          paddingBottom: 132,
-          gap: 12,
-        }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListHeaderComponent={
-          <View className="pb-3">
-            <View className="flex-row items-center justify-between gap-3">
-              <Text className="min-w-0 flex-1 text-[10px] uppercase tracking-widest text-kyar-meta opacity-60 dark:text-kyar-dark-meta">
-                {filteredRows.length === 1
-                  ? t("elements.countSingular", { count: filteredRows.length })
-                  : t("elements.countPlural", { count: filteredRows.length })}
-              </Text>
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.sortBucket")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  <GlassFilterChip
+                    active={bucketFilter === "all"}
+                    label={t("elements.filterAll")}
+                    onPress={() => setBucketFilter("all")}
+                  />
+                  {COSPLAY_OVERALL_BUCKETS.map((bucket) => (
+                    <GlassFilterChip
+                      key={bucket}
+                      active={bucketFilter === bucket}
+                      label={formatOverallBucket(bucket)}
+                      onPress={() => setBucketFilter(bucket)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.substateLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  {SUBSTATE_FILTERS.map((option) => (
+                    <GlassFilterChip
+                      key={option.value || "all"}
+                      active={substateFilter === option.value}
+                      label={t(option.key)}
+                      onPress={() => setSubstateFilter(option.value)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <RefineSectionLabel>{t("elements.hierarchyLabel")}</RefineSectionLabel>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
+                  {HIERARCHY_FILTERS.map((option) => (
+                    <GlassFilterChip
+                      key={option.value}
+                      active={hierarchyFilter === option.value}
+                      label={t(option.key)}
+                      onPress={() => setHierarchyFilter(option.value)}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Closet rows — 48×60 thumb, kind eyebrow over serif name, cost, toned chip. */}
+          {filteredRows.length === 0 ? (
+            <View style={{ paddingVertical: 8 }}>
+              <GlassEmptyState
+                icon="shirt-outline"
+                message={
+                  search.trim()
+                    ? t("elements.emptySearch")
+                    : t("elements.closetEmpty", {
+                        defaultValue: "Your closet is empty. Add your first piece.",
+                      })
+                }
+                secondary={search.trim() ? undefined : t("elements.empty")}
+              />
+            </View>
+          ) : (
+            filteredRows.map((row, index) => (
+              <ElementRow
+                key={row._id}
+                row={row}
+                last={index === filteredRows.length - 1}
+                onPress={() => router.push(APP_HREF.element(row._id as string))}
+              />
+            ))
+          )}
+
+          {/* Panel footer — count/invested meta plus the new-element pill (web footer). */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              borderTopWidth: 1,
+              borderTopColor: glass.border.divider,
+              paddingLeft: 16,
+              paddingRight: 10,
+              paddingVertical: 8,
+            }}
+          >
+            <Text
+              style={{
+                minWidth: 0,
+                flex: 1,
+                fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                fontSize: 9,
+                letterSpacing: ls(0.16, 9),
+                textTransform: "uppercase",
+                color: glass.text.fg55,
+              }}
+              numberOfLines={1}
+            >
+              {(filteredRows.length === 1
+                ? t("elements.piecesOne", {
+                    defaultValue: "{{count}} piece",
+                    count: filteredRows.length,
+                  })
+                : t("elements.pieces", {
+                    defaultValue: "{{count}} pieces",
+                    count: filteredRows.length,
+                  })) +
+                " · " +
+                t("elements.invested", {
+                  defaultValue: "{{amount}} invested",
+                  amount: formatCents(investedCents),
+                })}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               {filteredRows.length > 0 ? (
                 <Pressable
                   onPress={() => setBulkOpen(true)}
-                  className="rounded-full border border-kyar-borderSubtle px-3 py-2 dark:border-kyar-dark-borderSubtle"
+                  accessibilityRole="button"
+                  className="active:opacity-80"
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    paddingHorizontal: 10,
+                  }}
                 >
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-text dark:text-kyar-dark-text">
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansBold,
+                      fontSize: 9,
+                      letterSpacing: ls(0.16, 9),
+                      textTransform: "uppercase",
+                      color: glass.text.fg55,
+                    }}
+                  >
                     {t("elements.bulkSelectAction")}
                   </Text>
                 </Pressable>
               ) : null}
+              <PhotoPill
+                variant="outline"
+                size="sm"
+                icon="add"
+                label={t("elements.newElementShort")}
+                onPress={openNewElement}
+              />
             </View>
           </View>
-        }
-        ListEmptyComponent={
-          <Text className="mt-12 px-6 text-center text-kyar-meta dark:text-kyar-dark-meta">
-            {search.trim() ? t("elements.emptySearch") : t("elements.empty")}
-          </Text>
-        }
-        renderItem={({ item }) => {
-          const pct = item.progressPercent ?? 0;
-          const childrenN = item.childCount ?? 0;
-          const progressLabel = t("elements.progressPercent", { pct });
-          const childrenLabel = t("elements.childrenShort", { count: childrenN });
-          return (
-            <Pressable
-              className={layout === "grid" ? "mb-3 flex-1" : "mb-3"}
-              onPress={() => router.push(APP_HREF.element(item._id as string))}
-            >
-              <ElementPortfolioCard
-                variant={layout}
-                item={{
-                  name: item.name,
-                  category: item.category,
-                  imageStorageId: item.imageStorageId,
-                  imageUrl: item.imageUrl,
-                  nodeType: item.nodeType,
-                  progressPercent: pct,
-                  childCount: childrenN,
-                  typeBadge: formatNodeTypeLabel(item.nodeType),
-                  statusBadge: formatNodeStatus(item),
-                }}
-                progressLabel={progressLabel.toUpperCase()}
-                childrenLabel={childrenLabel.toUpperCase()}
-              />
-            </Pressable>
-          );
-        }}
-      />
+        </GlassPanel>
+      </ScrollView>
 
       <FloatingCreateMenu actions={addMenuActions} />
 
@@ -671,41 +865,105 @@ function ElementsListBody({
         animationType="slide"
         onRequestClose={() => setBulkOpen(false)}
       >
-        <View className="flex-1">
+        <View style={{ flex: 1 }}>
           <Pressable
-            className="flex-1 justify-end bg-kyar-text/25"
+            style={{ flex: 1, justifyContent: "flex-end", backgroundColor: glass.scrimDim }}
             onPress={() => setBulkOpen(false)}
           >
             <Pressable
-              className="max-h-[88%] rounded-t-[28px] border border-kyar-borderSubtle bg-kyar-bg px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-bg"
+              style={{
+                maxHeight: "88%",
+                borderTopLeftRadius: glass.radius.sheet,
+                borderTopRightRadius: glass.radius.sheet,
+                borderWidth: 1,
+                borderColor: glass.border.overlay,
+                backgroundColor: glass.fallback.overlay,
+                paddingHorizontal: 20,
+                paddingBottom: 40,
+                paddingTop: 20,
+              }}
               onPress={(event) => event.stopPropagation()}
             >
-              <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+              <Text
+                style={{
+                  fontFamily: APP_FONT_FAMILIES.displayItalic,
+                  fontSize: 22,
+                  lineHeight: 26,
+                  color: glass.text.fg,
+                }}
+              >
                 {t("elements.bulkModalTitle")}
               </Text>
-              <Text className="mt-3 text-sm leading-6 text-kyar-textSecondary dark:text-kyar-dark-textSecondary">
+              <Text
+                style={{
+                  marginTop: 10,
+                  fontFamily: APP_FONT_FAMILIES.sansRegular,
+                  fontSize: 13,
+                  lineHeight: 20,
+                  color: glass.text.fg70,
+                }}
+              >
                 {t("elements.bulkModalBody")}
               </Text>
-              <View className="mt-4 flex-row flex-wrap gap-2">
+              <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 <Pressable
                   onPress={selectAllInModal}
-                  className="rounded-full border border-kyar-text bg-kyar-text px-4 py-2 dark:border-kyar-dark-text dark:bg-kyar-dark-text"
+                  accessibilityRole="button"
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: glass.border.strong,
+                    paddingHorizontal: 16,
+                  }}
                 >
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-bg dark:text-kyar-dark-bg">
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansBold,
+                      fontSize: 10,
+                      letterSpacing: ls(0.16, 10),
+                      textTransform: "uppercase",
+                      color: glass.text.fg,
+                    }}
+                  >
                     {selectedIds.size === filteredRows.length && filteredRows.length > 0
                       ? t("elements.bulkDeselectAll")
                       : t("elements.bulkSelectAll")}
                   </Text>
                 </Pressable>
-                <Pressable onPress={clearSelection} className="rounded-full px-4 py-2">
-                  <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                <Pressable
+                  onPress={clearSelection}
+                  accessibilityRole="button"
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    paddingHorizontal: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansBold,
+                      fontSize: 10,
+                      letterSpacing: ls(0.16, 10),
+                      textTransform: "uppercase",
+                      color: glass.text.fg55,
+                    }}
+                  >
                     {t("elements.bulkClear")}
                   </Text>
                 </Pressable>
               </View>
 
               <ScrollView
-                className="mt-4 max-h-[42%] rounded-2xl border border-kyar-borderSubtle dark:border-kyar-dark-borderSubtle"
+                style={{
+                  marginTop: 16,
+                  maxHeight: "42%",
+                  borderRadius: glass.radius.panel,
+                  borderWidth: 1,
+                  borderColor: glass.border.default,
+                }}
                 nestedScrollEnabled
               >
                 {filteredRows.map((item) => {
@@ -714,18 +972,44 @@ function ElementsListBody({
                     <Pressable
                       key={item._id}
                       onPress={() => toggleSelected(String(item._id))}
-                      className="flex-row items-center gap-3 border-b border-kyar-borderSubtle px-3 py-3 dark:border-kyar-dark-borderSubtle"
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: glass.border.divider,
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        minHeight: 44,
+                      }}
                     >
                       <Ionicons
                         name={selected ? "checkbox" : "square-outline"}
                         size={22}
-                        color={selected ? colors.text : colors.textTertiary}
+                        color={selected ? glass.text.fg : glass.text.fg45}
                       />
-                      <View className="min-w-0 flex-1">
-                        <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+                      <View style={{ minWidth: 0, flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                            fontSize: 14,
+                            color: glass.text.fg,
+                          }}
+                        >
                           {item.name}
                         </Text>
-                        <Text className="mt-1 text-[10px] uppercase tracking-wide text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                        <Text
+                          style={{
+                            marginTop: 3,
+                            fontFamily: APP_FONT_FAMILIES.sansMedium,
+                            fontSize: 9,
+                            letterSpacing: ls(0.14, 9),
+                            textTransform: "uppercase",
+                            color: glass.text.fg55,
+                          }}
+                        >
                           {formatNodeTypeLabel(item.nodeType)} · {formatNodeStatus(item)}
                         </Text>
                       </View>
@@ -734,36 +1018,101 @@ function ElementsListBody({
                 })}
               </ScrollView>
 
-              <Text className="mt-3 text-xs text-kyar-meta dark:text-kyar-dark-meta">
+              <Text
+                style={{
+                  marginTop: 12,
+                  fontFamily: APP_FONT_FAMILIES.sansRegular,
+                  fontSize: 12,
+                  color: glass.text.fg55,
+                }}
+              >
                 {t("elements.bulkSelectedCount", { count: selectedIds.size })}
               </Text>
 
               {selectedIds.size > 0 ? (
-                <View className="mt-4 flex-row flex-wrap gap-2 border-t border-kyar-borderSubtle pt-4 dark:border-kyar-dark-borderSubtle">
+                <View
+                  style={{
+                    marginTop: 16,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: glass.border.divider,
+                    paddingTop: 16,
+                  }}
+                >
                   <Pressable
                     onPress={() => setAssignOpen(true)}
                     disabled={bulkPending}
-                    className="rounded-xl border border-kyar-text px-4 py-3 disabled:opacity-40 dark:border-kyar-dark-text"
+                    accessibilityRole="button"
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: glass.border.strong,
+                      paddingHorizontal: 16,
+                      opacity: bulkPending ? 0.4 : 1,
+                    }}
                   >
-                    <Text className="text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+                    <Text
+                      style={{
+                        textAlign: "center",
+                        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                        fontSize: 13,
+                        color: glass.text.fg,
+                      }}
+                    >
                       {t("elements.bulkLink")}
                     </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => setUnassignOpen(true)}
                     disabled={bulkPending}
-                    className="rounded-xl border border-kyar-borderSubtle px-4 py-3 disabled:opacity-40 dark:border-kyar-dark-borderSubtle"
+                    accessibilityRole="button"
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: glass.border.default,
+                      paddingHorizontal: 16,
+                      opacity: bulkPending ? 0.4 : 1,
+                    }}
                   >
-                    <Text className="text-center text-sm font-semibold text-kyar-text dark:text-kyar-dark-text">
+                    <Text
+                      style={{
+                        textAlign: "center",
+                        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                        fontSize: 13,
+                        color: glass.text.fg,
+                      }}
+                    >
                       {t("elements.bulkUnlink")}
                     </Text>
                   </Pressable>
                   <Pressable
                     onPress={handleBulkDelete}
                     disabled={bulkPending}
-                    className="rounded-xl border border-kyar-danger/40 px-4 py-3 disabled:opacity-40"
+                    accessibilityRole="button"
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: glass.border.default,
+                      paddingHorizontal: 16,
+                      opacity: bulkPending ? 0.4 : 1,
+                    }}
                   >
-                    <Text className="text-center text-sm font-semibold text-kyar-danger dark:text-kyar-dark-danger">
+                    <Text
+                      style={{
+                        textAlign: "center",
+                        fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                        fontSize: 13,
+                        color: glass.text.danger,
+                      }}
+                    >
                       {t("elements.bulkDelete")}
                     </Text>
                   </Pressable>
@@ -772,9 +1121,27 @@ function ElementsListBody({
 
               <Pressable
                 onPress={() => setBulkOpen(false)}
-                className="mt-6 rounded-full bg-kyar-text px-4 py-3 dark:bg-kyar-dark-text"
+                accessibilityRole="button"
+                style={{
+                  marginTop: 24,
+                  minHeight: 44,
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: glass.border.strong,
+                  paddingHorizontal: 16,
+                }}
               >
-                <Text className="text-center font-semibold text-kyar-bg dark:text-kyar-dark-bg">
+                <Text
+                  style={{
+                    textAlign: "center",
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    fontSize: 10,
+                    letterSpacing: ls(0.16, 10),
+                    textTransform: "uppercase",
+                    color: glass.text.fg,
+                  }}
+                >
                   {t("elements.bulkDone")}
                 </Text>
               </Pressable>
@@ -803,6 +1170,137 @@ function ElementsListBody({
   );
 }
 
+/** Hero meta cell — 10px uppercase label over a 15px sentence-case value (web hero dl). */
+function HeroMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansBold,
+          fontSize: 10,
+          letterSpacing: ls(0.2, 10),
+          textTransform: "uppercase",
+          color: glass.text.fg55,
+          marginBottom: 3,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansRegular,
+          fontSize: 15,
+          fontVariant: ["tabular-nums"],
+          color: glass.text.fg,
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** Closet list row — the web row anatomy: 48×60 thumb, kind eyebrow over a serif
+ * italic name, trailing cost and toned status chip. Flat (no blur) inside the panel. */
+function ElementRow({
+  row,
+  last,
+  onPress,
+}: {
+  row: ElementListRow;
+  last: boolean;
+  onPress: () => void;
+}) {
+  const status = formatNodeStatus(row);
+  const kind = row.category?.trim() || formatNodeTypeLabel(row.nodeType);
+  const cost = row.totalCostCents ?? row.directCostCents ?? 0;
+  const placeholderIcon =
+    row.nodeType === "material" ? ("flask-outline" as const) : ("shirt-outline" as const);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={row.name}
+      className="active:opacity-80"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: glass.border.divider,
+      }}
+    >
+      <View
+        style={{
+          width: 48,
+          height: 60,
+          borderRadius: 8,
+          overflow: "hidden",
+          borderWidth: 1,
+          borderColor: glass.border.default,
+          backgroundColor: glass.surface.field,
+        }}
+      >
+        {row.imageStorageId || row.imageUrl ? (
+          <ConvexStorageImage
+            storageId={row.imageStorageId as Id<"_storage"> | undefined}
+            imageUrl={row.imageUrl}
+            className="h-full w-full"
+            accessibilityLabel={row.name}
+          />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={placeholderIcon} size={18} color={glass.text.fg45} />
+          </View>
+        )}
+      </View>
+      <View style={{ minWidth: 0, flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansBold,
+            fontSize: 9,
+            letterSpacing: ls(0.16, 9),
+            textTransform: "uppercase",
+            color: glass.text.fg55,
+            marginBottom: 2,
+          }}
+          numberOfLines={1}
+        >
+          {kind}
+        </Text>
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.displayItalic,
+            fontSize: 16,
+            lineHeight: 20,
+            color: glass.text.fg,
+          }}
+          numberOfLines={1}
+        >
+          {row.name}
+        </Text>
+      </View>
+      {cost > 0 ? (
+        <Text
+          style={{
+            fontFamily: APP_FONT_FAMILIES.sansMedium,
+            fontSize: 13,
+            fontVariant: ["tabular-nums"],
+            color: glass.text.fg70,
+          }}
+        >
+          {formatCents(cost)}
+        </Text>
+      ) : null}
+      {status ? <GlassStatusChip tone={nodeStatusTone(row)} label={status} /> : null}
+    </Pressable>
+  );
+}
+
 function BuildPickerModal({
   visible,
   title,
@@ -820,32 +1318,84 @@ function BuildPickerModal({
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 justify-end bg-kyar-text/25" onPress={onClose}>
+      <Pressable
+        style={{ flex: 1, justifyContent: "flex-end", backgroundColor: glass.scrimDim }}
+        onPress={onClose}
+      >
         <Pressable
-          className="max-h-[76%] rounded-t-[28px] border border-kyar-borderSubtle bg-kyar-bg px-5 pb-10 pt-5 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-bg"
+          style={{
+            maxHeight: "76%",
+            borderTopLeftRadius: glass.radius.sheet,
+            borderTopRightRadius: glass.radius.sheet,
+            borderWidth: 1,
+            borderColor: glass.border.overlay,
+            backgroundColor: glass.fallback.overlay,
+            paddingHorizontal: 20,
+            paddingBottom: 40,
+            paddingTop: 20,
+          }}
           onPress={(event) => event.stopPropagation()}
         >
-          <Text className="text-lg font-semibold text-kyar-text dark:text-kyar-dark-text">
+          <Text
+            style={{
+              fontFamily: APP_FONT_FAMILIES.displayItalic,
+              fontSize: 22,
+              lineHeight: 26,
+              color: glass.text.fg,
+            }}
+          >
             {title}
           </Text>
-          <ScrollView className="mt-4 max-h-[420px]">
+          <ScrollView style={{ marginTop: 16, maxHeight: 420 }}>
             {builds.map((build) => (
               <Pressable
                 key={build._id}
                 onPress={() => onSelect(build._id)}
-                className="flex-row items-center justify-between gap-3 border-b border-kyar-borderSubtle px-1 py-4 dark:border-kyar-dark-borderSubtle"
+                accessibilityRole="button"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: glass.border.divider,
+                  paddingHorizontal: 4,
+                  paddingVertical: 16,
+                  minHeight: 44,
+                }}
               >
-                <View className="min-w-0 flex-1">
-                  <Text className="text-base font-semibold text-kyar-text dark:text-kyar-dark-text">
+                <View style={{ minWidth: 0, flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: APP_FONT_FAMILIES.sansSemiBold,
+                      fontSize: 14,
+                      color: glass.text.fg,
+                    }}
+                  >
                     {build.name}
                   </Text>
                   {build.character ? (
-                    <Text className="mt-1 text-xs text-kyar-textTertiary dark:text-kyar-dark-textTertiary">
+                    <Text
+                      style={{
+                        marginTop: 3,
+                        fontFamily: APP_FONT_FAMILIES.sansRegular,
+                        fontSize: 12,
+                        color: glass.text.fg55,
+                      }}
+                    >
                       {build.character}
                     </Text>
                   ) : null}
                 </View>
-                <Text className="text-[10px] font-bold uppercase tracking-widest text-kyar-meta dark:text-kyar-dark-meta">
+                <Text
+                  style={{
+                    fontFamily: APP_FONT_FAMILIES.sansBold,
+                    fontSize: 9,
+                    letterSpacing: ls(0.16, 9),
+                    textTransform: "uppercase",
+                    color: glass.text.fg70,
+                  }}
+                >
                   {actionLabel}
                 </Text>
               </Pressable>
@@ -857,18 +1407,8 @@ function BuildPickerModal({
   );
 }
 
-function ControlPill({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className="min-h-[40px] justify-center rounded-full border border-kyar-borderSubtle bg-kyar-surface px-4 active:opacity-80 dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-    >
-      <Text className="text-xs font-medium text-kyar-text dark:text-kyar-dark-text">{label}</Text>
-    </Pressable>
-  );
-}
-
-function FilterChip({
+/** Header type tab: underline when active, 55% semibold otherwise (web ElementsUnderlineTab). */
+function UnderlineTab({
   label,
   active,
   onPress,
@@ -880,16 +1420,136 @@ function FilterChip({
   return (
     <Pressable
       onPress={onPress}
-      className={`min-h-[38px] justify-center rounded-full border px-4 ${
-        active
-          ? "border-kyar-text bg-kyar-text dark:border-kyar-dark-text dark:bg-kyar-dark-text"
-          : "border-kyar-borderSubtle bg-kyar-surface dark:border-kyar-dark-borderSubtle dark:bg-kyar-dark-surface"
-      }`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      hitSlop={{ top: 14, bottom: 14, left: 6, right: 6 }}
+      className="active:opacity-80"
+      style={{
+        paddingBottom: 2,
+        borderBottomWidth: 1.5,
+        borderBottomColor: active ? glass.text.fg : "transparent",
+      }}
     >
       <Text
-        className={`text-xs font-medium ${
-          active ? "text-kyar-bg dark:text-kyar-dark-bg" : "text-kyar-text dark:text-kyar-dark-text"
-        }`}
+        style={{
+          fontFamily: active ? APP_FONT_FAMILIES.sansBold : APP_FONT_FAMILIES.sansSemiBold,
+          fontSize: 9,
+          letterSpacing: ls(0.18, 9),
+          textTransform: "uppercase",
+          color: active ? glass.text.fg : glass.text.fg55,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Header icon toggle (search / tune) — web's closet-panel header icons at 44pt. */
+function HeaderIconToggle({
+  icon,
+  active,
+  label,
+  onPress,
+}: {
+  icon: "search" | "options-outline";
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      className="active:opacity-80"
+      style={{
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Ionicons name={icon} size={18} color={active ? glass.text.fg : glass.text.fg55} />
+    </Pressable>
+  );
+}
+
+function RefineSectionLabel({ children }: { children: string }) {
+  return (
+    <Text
+      style={{
+        fontFamily: APP_FONT_FAMILIES.sansBold,
+        fontSize: 10,
+        letterSpacing: ls(0.16, 10),
+        textTransform: "uppercase",
+        color: glass.text.fg55,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function GlassControlPill({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        minHeight: 44,
+        justifyContent: "center",
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: glass.border.default,
+        backgroundColor: glass.surface.field,
+        paddingHorizontal: 16,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansMedium,
+          fontSize: 12,
+          color: glass.text.fg,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function GlassFilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={{
+        minHeight: 44,
+        justifyContent: "center",
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: active ? glass.surface.solid : glass.border.default,
+        backgroundColor: active ? glass.surface.solid : glass.surface.field,
+        paddingHorizontal: 16,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: APP_FONT_FAMILIES.sansMedium,
+          fontSize: 12,
+          color: active ? glass.text.ink : glass.text.fg,
+        }}
       >
         {label}
       </Text>

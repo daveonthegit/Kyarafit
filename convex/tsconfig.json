@@ -21,7 +21,8 @@
     "noEmit": true
   },
   "include": ["./**/*"],
-  /* Tests and their Vitest config run under `npm run test:convex`, not the Convex deploy
-   * typecheck, which must not depend on test-only devDependencies. */
-  "exclude": ["./_generated", "./**/*.test.ts", "./vitest.config.ts"]
+  /* Test files, fixtures and the Vitest config use the Vitest runtime (`import.meta.glob`,
+   * convex-test) and run under `npm run test:convex` — not the Convex CLI deploy typecheck,
+   * which must not depend on test-only devDependencies. */
+  "exclude": ["./_generated", "./**/*.test.ts", "./**/*.fixture.ts", "./vitest.config.ts"]
 }

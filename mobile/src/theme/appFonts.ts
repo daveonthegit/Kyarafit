@@ -11,17 +11,9 @@ import {
   BodoniModa_700Bold,
   BodoniModa_700Bold_Italic,
 } from "@expo-google-fonts/bodoni-moda";
+import { APP_FONT_FAMILIES } from "./fontFamilies";
 
-export const APP_FONT_FAMILIES = {
-  sansRegular: "AlbertSans_400Regular",
-  sansMedium: "AlbertSans_500Medium",
-  sansSemiBold: "AlbertSans_600SemiBold",
-  sansBold: "AlbertSans_700Bold",
-  display: "BodoniModa_400Regular",
-  displayItalic: "BodoniModa_400Regular_Italic",
-  displayBold: "BodoniModa_700Bold",
-  displayBoldItalic: "BodoniModa_700Bold_Italic",
-} as const;
+export { APP_FONT_FAMILIES } from "./fontFamilies";
 
 /** Navigation bar title — Bodoni italic, aligned with former Builds/Elements page titles. */
 export function navHeaderTitleStyle(color: string) {

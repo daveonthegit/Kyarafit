@@ -1,23 +1,30 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { getStorageSizeMb } from "./storageUsage";
-import { assertCanAttachStorageId } from "./lib/mediaAccess";
+import { query } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/guardedMutation";
+import type { Doc, Id } from "./_generated/dataModel";
+import { getStorageSizeMb, checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
+import { storageClaim } from "./lib/storageOwnership";
+import { normalizeConvexTier } from "@kyarafit/design-system/domain/subscriptionTierPolicy";
 import {
-  convexTierStorageLimitMb,
-  normalizeConvexTier,
-} from "@kyarafit/design-system/domain/subscriptionTierPolicy";
+  effectiveConvexTier,
+  effectiveStorageLimitMb,
+} from "@kyarafit/design-system/domain/accessPolicy";
 import { MAX_LENGTH, sanitizeOptional, validateUsername } from "./lib/validation";
+import { idempotentRecord, idempotentReplay } from "./lib/idempotency";
+import { requireOwner } from "./admin";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { authenticatedEmail, verifiedUserByEmail } from "./lib/authEmail";
+
+/** Server-validated app-role values. The DB row (never client input) is the source of truth. */
+const roleValidator = v.union(v.literal("user"), v.literal("admin"), v.literal("owner"));
 
 // Typed reference to the internal sendWelcome action.
 // Using makeFunctionReference avoids a circular dependency on _generated/api
 // when the generated types haven't been refreshed yet after adding email.ts.
-const sendWelcomeAction = makeFunctionReference<
-  "action",
-  { to: string; name?: string | undefined }
->("email:sendWelcome");
+const sendWelcomeAction = makeFunctionReference<"action", { externalId: string }>(
+  "email:sendWelcome"
+);
 
 /**
  * The caller's own user document. `externalId` is retained for deployed clients
@@ -157,10 +164,7 @@ export const upsert = mutation({
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const email =
-      args.email.length <= MAX_LENGTH.email
-        ? args.email.trim()
-        : args.email.slice(0, MAX_LENGTH.email);
+    const email = await authenticatedEmail(ctx, actorId);
     const name = sanitizeOptional(args.name, MAX_LENGTH.name, "Name");
     const image =
       args.image != null && args.image.length <= MAX_LENGTH.url ? args.image : undefined;
@@ -216,10 +220,7 @@ export const upsert = mutation({
     });
 
     // Send welcome email on first sign-up (non-blocking)
-    await ctx.scheduler.runAfter(0, sendWelcomeAction, {
-      to: email,
-      name,
-    });
+    await ctx.scheduler.runAfter(0, sendWelcomeAction, { externalId: actorId });
 
     return id;
   },
@@ -251,9 +252,15 @@ export const getMe = query({
     if (!user) return null;
 
     return {
-      tier: normalizeConvexTier(user.tier),
+      // Role-aware effective values (server is the source of truth): an owner surfaces as the top paid
+      // tier with the unlimited storage cap, so client gating + admin UI both work off getMe.
+      tier: effectiveConvexTier(user.tier, user.role),
       currentUsageMb: user.currentUsageMb,
-      storageLimitMb: convexTierStorageLimitMb(user.tier),
+      storageLimitMb: effectiveStorageLimitMb(user.tier, user.role),
+      role: user.role ?? "user",
+      // REQ-D96/D97: the client surfaces a non-blocking cloud-retention banner from this timestamp.
+      // `null` = never downgraded (or re-subscribed) — the cloud is active and nothing is shown.
+      downgradedAt: user.downgradedAt ?? null,
     };
   },
 });
@@ -276,8 +283,15 @@ export const recalculateUsage = mutation({
     if (!user) return null;
 
     let totalMb = 0;
-    const addSize = async (doc: { imageStorageId?: Id<"_storage"> } | undefined) => {
-      if (!doc?.imageStorageId) return;
+    const seen = new Set<string>();
+    const addSize = async (
+      doc: { imageStorageId?: Id<"_storage">; deletedAt?: number } | undefined
+    ) => {
+      if (!doc?.imageStorageId || doc.deletedAt != null || seen.has(doc.imageStorageId)) return;
+      seen.add(doc.imageStorageId);
+      const claim = await storageClaim(ctx, doc.imageStorageId);
+      // Claimed bytes are attributed to their uploader, not every shared reference owner.
+      if (claim && claim.userId !== externalId) return;
       totalMb += await getStorageSizeMb(ctx, doc.imageStorageId);
     };
 
@@ -312,6 +326,26 @@ export const recalculateUsage = mutation({
     for (const p of processPics) await addSize(p);
 
     await addSize(user);
+    const groups = await ctx.db
+      .query("groups")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", externalId))
+      .collect();
+    for (const group of groups) await addSize(group);
+    const progress = await ctx.db
+      .query("buildProgressUpdates")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const row of progress) {
+      if (row.deletedAt != null) continue;
+      for (const ref of row.imageRefs)
+        if (ref.kind === "cloud") await addSize({ imageStorageId: ref.storageId });
+    }
+    // Pending uploads are already hosted bytes. Recalculation must not erase their charge.
+    const claims = await ctx.db
+      .query("storageClaims")
+      .withIndex("by_userId", (q) => q.eq("userId", externalId))
+      .collect();
+    for (const claim of claims) await addSize({ imageStorageId: claim.storageId });
 
     await ctx.db.patch(user._id, { currentUsageMb: totalMb });
     return totalMb;
@@ -325,16 +359,15 @@ export const recalculateUsage = mutation({
 export const updateProfileImage = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
+    const externalId = await requireIdentity(ctx);
     const user = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
       .unique();
-    if (!user) return null;
+    if (!user) throw new Error("Upload account not found");
     if (user.imageStorageId !== args.storageId) {
-      await assertCanAttachStorageId(ctx, args.storageId, externalId);
+      await checkLimitAndAddUsage(ctx, externalId, args.storageId);
+      await subtractUsageForStorageId(ctx, externalId, user.imageStorageId);
     }
     await ctx.db.patch(user._id, {
       imageStorageId: args.storageId,
@@ -350,11 +383,11 @@ export const updateProfileImage = mutation({
  * Auth required; build must belong to the current user.
  */
 export const setFocusedBuild = mutation({
-  args: { buildId: v.optional(v.id("builds")) },
+  args: { buildId: v.optional(v.id("builds")), idempotencyKey: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) return null;
-    const externalId = identity.subject;
+    const externalId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "users.setFocusedBuild");
+    if (replay.hit) return replay.result as Id<"users"> | null;
     const user = await ctx.db
       .query("users")
       .withIndex("by_externalId", (q) => q.eq("externalId", externalId))
@@ -367,7 +400,13 @@ export const setFocusedBuild = mutation({
     }
 
     await ctx.db.patch(user._id, { focusedBuildId: args.buildId ?? undefined });
-    return user._id;
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      externalId,
+      user._id,
+      "users.setFocusedBuild"
+    );
   },
 });
 
@@ -431,11 +470,26 @@ export const updateProfile = mutation({
   },
 });
 
-/** Internal mutation for admin/system use — update tier directly. */
+/**
+ * Internal mutation for admin/system use — update tier directly and maintain the downgrade lifecycle
+ * state for the CLOUD mirror (DATA_AND_SYNC.md §10, REQ-D96/D97).
+ *
+ * Transition handling (paid = PRO/SUPPORTER/legacy; free = FREE):
+ * - paid → free: record `downgradedAt = now` and `subscriptionStatus = "canceled"`. This starts the
+ *   grace → freeze → purge clock. An idempotent re-delivery (free → free) leaves `downgradedAt`
+ *   untouched, so the original downgrade time is preserved.
+ * - free/downgraded → paid: clear `downgradedAt` / `cloudPurgedAt` and set `subscriptionStatus =
+ *   "active"`. Re-subscribing cancels any pending purge (REQ-D96: re-subscribe resumes seamlessly).
+ *
+ * This never touches local on-device data; it only records server-side state. The paid→free flip also
+ * stops the sync worker automatically (see domain `shouldRunSyncWorker`).
+ */
 export const setTier = internalMutation({
   args: {
     externalId: v.string(),
     tier: v.string(),
+    /** Provenance of this tier change: "revenuecat" | "admin" | "system". */
+    source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -443,7 +497,106 @@ export const setTier = internalMutation({
       .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
       .unique();
     if (!user) return null;
-    await ctx.db.patch(user._id, { tier: normalizeConvexTier(args.tier) });
+
+    const prevTier = normalizeConvexTier(user.tier);
+    const nextTier = normalizeConvexTier(args.tier);
+    const wasPaid = prevTier !== "FREE";
+    const nowPaid = nextTier !== "FREE";
+
+    const patch: {
+      tier: typeof nextTier;
+      tierSource?: string;
+      downgradedAt?: number;
+      cloudPurgedAt?: number;
+      subscriptionStatus?: string;
+    } = { tier: nextTier };
+    if (args.source) patch.tierSource = args.source;
+
+    if (wasPaid && !nowPaid) {
+      // Downgrade: start the retention clock with a fresh timestamp on the transition only.
+      patch.downgradedAt = Date.now();
+      patch.subscriptionStatus = "canceled";
+    } else if (!wasPaid && nowPaid) {
+      // Upgrade / re-subscribe: cancel any pending downgrade + purge state.
+      patch.downgradedAt = undefined;
+      patch.cloudPurgedAt = undefined;
+      patch.subscriptionStatus = "active";
+    }
+    // free→free and paid→paid leave downgrade state untouched (idempotent re-delivery safe).
+
+    await ctx.db.patch(user._id, patch);
     return user._id;
+  },
+});
+
+/**
+ * CLI/bootstrap role setter (SECURITY-SENSITIVE). Runnable only from the server via
+ * `npx convex run users:setUserRole '{...}'` (internalMutation — not exposed to clients). Used to
+ * bootstrap the FIRST owner when no owner exists yet, and by system tooling.
+ *
+ * Finds the target by `externalId` (preferred) or `email` and sets `role`. The `role` arg is
+ * constrained by `roleValidator` so an invalid value is rejected before the handler runs.
+ */
+export const setUserRole = internalMutation({
+  args: {
+    externalId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    role: roleValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!args.externalId && !args.email) {
+      throw new Error("Provide externalId or email to identify the user");
+    }
+    const user = args.externalId
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId!))
+          .unique()
+      : await verifiedUserByEmail(ctx, args.email!);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    await ctx.db.patch(user._id, { role: args.role });
+    return user._id;
+  },
+});
+
+/**
+ * Owner-only role grant/revoke (SECURITY-SENSITIVE). Gated by `requireOwner` — only a user whose DB
+ * row is `role === "owner"` may call it, so an owner can grant owner/admin/user to anyone (and revoke
+ * it). The caller's role is loaded server-side; the `role` arg is constrained by `roleValidator`.
+ *
+ * Identify the target by `targetUserId` (a `users` _id), `targetExternalId` (Better Auth subject), or
+ * `email`. Exactly one is required.
+ */
+export const grantRole = mutation({
+  args: {
+    targetUserId: v.optional(v.id("users")),
+    targetExternalId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    role: roleValidator,
+  },
+  handler: async (ctx, args) => {
+    // Authorize FIRST: only an owner may reach the rest of this handler.
+    await requireOwner(ctx);
+
+    let target: Doc<"users"> | null = null;
+    if (args.targetUserId) {
+      target = await ctx.db.get(args.targetUserId);
+    } else if (args.targetExternalId) {
+      target = await ctx.db
+        .query("users")
+        .withIndex("by_externalId", (q) => q.eq("externalId", args.targetExternalId!))
+        .unique();
+    } else if (args.email) {
+      target = await verifiedUserByEmail(ctx, args.email);
+    } else {
+      throw new Error("Provide targetUserId, targetExternalId, or email to identify the user");
+    }
+    if (!target) {
+      throw new Error("Target user not found");
+    }
+    await ctx.db.patch(target._id, { role: args.role });
+    return target._id;
   },
 });

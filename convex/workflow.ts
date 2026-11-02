@@ -1,9 +1,12 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { canUserEditBuild } from "./lib/buildAccess";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
+import { canUserEditBuild, canUserViewBuild } from "./lib/buildAccess";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { canReadBuildWorkflowData } from "./lib/buildPublicViewer";
+import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   buildWorkflowTree,
   deriveDoneCounts,
@@ -390,30 +393,114 @@ async function ensureBuiltInTemplates(ctx: MutationCtx) {
   }
 }
 
+/** Prefixes `ensureWorkflowItem` owns; a client-chosen key must not collide with them. */
+const RESERVED_DEDUPE_PREFIXES = ["packing:", "autogen:"];
+
+/**
+ * Whether `userId` may point a workflow attachment at this cosplay node: they own it, or
+ * they can edit the build it belongs to.
+ */
+async function canReachCosplayNode(
+  ctx: QueryCtx | MutationCtx,
+  nodeId: Id<"cosplayNodes">,
+  userId: string
+) {
+  const node = await ctx.db.get(nodeId);
+  if (!node) return false;
+  if (node.userId === userId) return true;
+  return node.buildId ? await canUserEditBuild(ctx, node.buildId, userId) : false;
+}
+
+/**
+ * Whether `userId` may reference the resource an attachment names. Builds follow the
+ * existing edit rule; cosplay nodes are owner or build-editor; conventions and packing
+ * items are owner-only. Planner buckets are opaque keys with no row behind them.
+ */
+async function canReachAttachmentEntity(
+  ctx: QueryCtx | MutationCtx,
+  entityType: string,
+  entityId: string,
+  userId: string
+) {
+  switch (entityType) {
+    case "build": {
+      const id = ctx.db.normalizeId("builds", entityId);
+      return id ? await canUserEditBuild(ctx, id, userId) : false;
+    }
+    case "cosplayNode": {
+      const id = ctx.db.normalizeId("cosplayNodes", entityId);
+      return id ? await canReachCosplayNode(ctx, id, userId) : false;
+    }
+    case "convention": {
+      const id = ctx.db.normalizeId("conventions", entityId);
+      const convention = id ? await ctx.db.get(id) : null;
+      return convention?.userId === userId;
+    }
+    case "packingItem": {
+      const id = ctx.db.normalizeId("packingListItems", entityId);
+      const packingItem = id ? await ctx.db.get(id) : null;
+      return packingItem?.userId === userId;
+    }
+    case "plannerBucket":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Replace a workflow item's attachments. `actorId` is the session user and must be able
+ * to reach every referenced entity and build context; `ownerId` is the workflow item's
+ * owner, recorded on the rows. They differ when a build editor edits the owner's item.
+ */
 async function replaceAttachments(
   ctx: MutationCtx,
-  userId: string,
-  workflowItemId: Id<"workflowItems">,
-  attachments: Array<{
-    entityType: string;
-    entityId: string;
-    role?: string;
-    buildContextId?: Id<"builds">;
-    progressWeight?: number;
-  }>
+  input: {
+    actorId: string;
+    ownerId: string;
+    workflowItemId: Id<"workflowItems">;
+    attachments: Array<{
+      entityType: string;
+      entityId: string;
+      role?: string;
+      buildContextId?: Id<"builds">;
+      progressWeight?: number;
+    }>;
+  }
 ) {
+  const normalized = input.attachments.map(validateAttachment);
+  for (const attachment of normalized) {
+    if (
+      !(await canReachAttachmentEntity(
+        ctx,
+        attachment.entityType,
+        attachment.entityId,
+        input.actorId
+      ))
+    ) {
+      throw new Error("Not authorized");
+    }
+    if (
+      attachment.buildContextId &&
+      !(await canUserEditBuild(ctx, attachment.buildContextId, input.actorId))
+    ) {
+      throw new Error("Not authorized");
+    }
+  }
   const existing = await ctx.db
     .query("workflowAttachments")
-    .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItemId))
+    .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", input.workflowItemId))
     .collect();
   for (const row of existing) await ctx.db.delete(row._id);
-  for (const attachment of attachments) {
-    const normalized = validateAttachment(attachment);
-    await ctx.db.insert("workflowAttachments", {
-      userId,
-      workflowItemId,
-      ...normalized,
-    });
+  for (const attachment of normalized) {
+    await ctx.db.insert(
+      "workflowAttachments",
+      withCreateMeta({
+        userId: input.ownerId,
+        workflowItemId: input.workflowItemId,
+        ...attachment,
+      })
+    );
   }
 }
 
@@ -440,9 +527,12 @@ async function patchDescendantAncestors(
   for (const descendant of descendants) {
     const movedIndex = descendant.ancestorIds.indexOf(rootId);
     const tail = descendant.ancestorIds.slice(movedIndex);
-    await ctx.db.patch(descendant._id, {
-      ancestorIds: [...newAncestorIds, ...tail],
-    });
+    await ctx.db.patch(
+      descendant._id,
+      withUpdateMeta(descendant, {
+        ancestorIds: [...newAncestorIds, ...tail],
+      })
+    );
   }
 }
 
@@ -503,6 +593,10 @@ async function buildExternalProgress(ctx: QueryCtx, userId: string, items: Workf
     if (!itemIdSet.has(attachment.workflowItemId)) continue;
     if (attachment.role !== "progress_source" && attachment.role !== "completion_anchor") continue;
     let progressPercent: number | undefined;
+    // A stored reference is only followed when the item's owner can still reach it, so a
+    // foreign row never contributes (and so discloses) its status.
+    if (!(await canReachAttachmentEntity(ctx, attachment.entityType, attachment.entityId, userId)))
+      continue;
     if (attachment.entityType === "packingItem") {
       const packingItem = await ctx.db.get(attachment.entityId as Id<"packingListItems">);
       progressPercent = packingItem?.checked ? 100 : 0;
@@ -552,13 +646,15 @@ async function buildResolvedWorkflowTree(
 export async function getBuildScopedWorkflow(ctx: QueryCtx, buildId: Id<"builds">) {
   const build = await ctx.db.get(buildId);
   if (!build) return null;
-  const links = await ctx.db
-    .query("buildCosplayLinks")
+  // Step 2c: the build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
+  const buildNodes = await ctx.db
+    .query("cosplayNodes")
     .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
     .collect();
+  const rootNodes = buildNodes.filter((node) => node.parentNodeId === undefined);
   const keys = [
     entityKey("build", buildId),
-    ...links.map((link) => entityKey("cosplayNode", link.cosplayNodeId)),
+    ...rootNodes.map((node) => entityKey("cosplayNode", node._id)),
   ];
   const scoped = await getWorkflowItemsByAttachmentKey(ctx, build.userId, keys, buildId);
   const tree = await buildResolvedWorkflowTree(ctx, build.userId, scoped.items, scoped.attachments);
@@ -586,41 +682,62 @@ async function ensureWorkflowItem(
     dueDate?: string;
   }
 ) {
-  const existing = await ctx.db
-    .query("workflowItems")
-    .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", input.dedupeKey))
-    .unique();
+  // Dedupe keys are only unique per owner: another user's row carrying the same key (a
+  // client-chosen one, or one restored from an old export) must never be adopted.
+  const existing =
+    (
+      await ctx.db
+        .query("workflowItems")
+        .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", input.dedupeKey))
+        .collect()
+    ).find((row) => row.userId === input.userId) ?? null;
 
   const normalizedStatus = coerceStatus(input.status);
   if (existing) {
-    await ctx.db.patch(existing._id, {
-      title: input.title,
-      notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
-      category: coerceCategory(input.category),
-      status: normalizedStatus,
-      dueDate: input.dueDate,
-      scopeKind: coerceScopeKind(input.scopeKind),
-      sourceKind: coerceSourceKind(input.sourceKind),
+    await ctx.db.patch(
+      existing._id,
+      withUpdateMeta(existing, {
+        title: input.title,
+        notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
+        category: coerceCategory(input.category),
+        status: normalizedStatus,
+        dueDate: input.dueDate,
+        scopeKind: coerceScopeKind(input.scopeKind),
+        sourceKind: coerceSourceKind(input.sourceKind),
+      })
+    );
+    await replaceAttachments(ctx, {
+      actorId: input.userId,
+      ownerId: input.userId,
+      workflowItemId: existing._id,
+      attachments: input.attachments,
     });
-    await replaceAttachments(ctx, input.userId, existing._id, input.attachments);
     return existing._id;
   }
 
-  const id = await ctx.db.insert("workflowItems", {
-    userId: input.userId,
-    title: sanitizeAndLimit(input.title, MAX_LENGTH.label, "Workflow title"),
-    notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
-    kind: "task",
-    category: coerceCategory(input.category),
-    status: normalizedStatus,
-    ancestorIds: [],
-    sortOrder: 0,
-    scopeKind: coerceScopeKind(input.scopeKind),
-    sourceKind: coerceSourceKind(input.sourceKind),
-    dueDate: input.dueDate,
-    dedupeKey: input.dedupeKey,
+  const id = await ctx.db.insert(
+    "workflowItems",
+    withCreateMeta({
+      userId: input.userId,
+      title: sanitizeAndLimit(input.title, MAX_LENGTH.label, "Workflow title"),
+      notes: sanitizeOptional(input.notes, MAX_LENGTH.notes, "Workflow notes"),
+      kind: "task",
+      category: coerceCategory(input.category),
+      status: normalizedStatus,
+      ancestorIds: [],
+      sortOrder: 0,
+      scopeKind: coerceScopeKind(input.scopeKind),
+      sourceKind: coerceSourceKind(input.sourceKind),
+      dueDate: input.dueDate,
+      dedupeKey: input.dedupeKey,
+    })
+  );
+  await replaceAttachments(ctx, {
+    actorId: input.userId,
+    ownerId: input.userId,
+    workflowItemId: id,
+    attachments: input.attachments,
   });
-  await replaceAttachments(ctx, input.userId, id, input.attachments);
   return id;
 }
 
@@ -703,6 +820,16 @@ export async function ensurePackingWorkflowItem(
   }
 ) {
   const dedupeKey = `packing:${input.packingListItemId}`;
+  // The packing row's build and node were stored without a check by older entry points;
+  // keep them as context only while this user can still reach them.
+  const buildId =
+    input.buildId && (await canUserEditBuild(ctx, input.buildId, input.userId))
+      ? input.buildId
+      : undefined;
+  const cosplayNodeId =
+    input.cosplayNodeId && (await canReachCosplayNode(ctx, input.cosplayNodeId, input.userId))
+      ? input.cosplayNodeId
+      : undefined;
   const attachments: WorkflowAttachmentInput[] = [
     {
       entityType: "packingItem",
@@ -710,23 +837,23 @@ export async function ensurePackingWorkflowItem(
       role: "packing_entry" as const,
     },
     { entityType: "convention", entityId: input.conventionId, role: "context" as const },
-    ...(input.buildId
+    ...(buildId
       ? [
           {
             entityType: "build" as const,
-            entityId: input.buildId,
+            entityId: buildId,
             role: "context" as const,
-            buildContextId: input.buildId,
+            buildContextId: buildId,
           },
         ]
       : []),
-    ...(input.cosplayNodeId
+    ...(cosplayNodeId
       ? [
           {
             entityType: "cosplayNode" as const,
-            entityId: input.cosplayNodeId,
+            entityId: cosplayNodeId,
             role: "progress_source" as const,
-            buildContextId: input.buildId,
+            buildContextId: buildId,
           },
         ]
       : []),
@@ -739,16 +866,20 @@ export async function ensurePackingWorkflowItem(
     notes: input.notes,
     category: "pack",
     status: input.checked ? "done" : "not_started",
-    scopeKind: input.buildId ? "build_specific" : "shared",
+    scopeKind: buildId ? "build_specific" : "shared",
     sourceKind: "packing",
     dueDate: input.dueDate,
     attachments,
   });
-  await ctx.db.patch(input.packingListItemId, {
-    workflowItemId,
-    entryKind: input.manual ? "manual" : "generated",
-    sourceKind: input.manual ? "manual" : "workflow",
-  });
+  const packingItem = await ctx.db.get(input.packingListItemId);
+  await ctx.db.patch(
+    input.packingListItemId,
+    withUpdateMeta(packingItem ?? {}, {
+      workflowItemId,
+      entryKind: input.manual ? "manual" : "generated",
+      sourceKind: input.manual ? "manual" : "workflow",
+    })
+  );
   return workflowItemId;
 }
 
@@ -756,6 +887,7 @@ async function syncPackingItemsFromWorkflowItem(
   ctx: MutationCtx,
   workflowItem: Doc<"workflowItems">
 ) {
+  const actorId = await requireIdentity(ctx);
   const attachments = await ctx.db
     .query("workflowAttachments")
     .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItem._id))
@@ -763,13 +895,25 @@ async function syncPackingItemsFromWorkflowItem(
 
   for (const attachment of attachments) {
     if (attachment.entityType !== "packingItem") continue;
-    await ctx.db.patch(attachment.entityId as Id<"packingListItems">, {
-      workflowItemId: workflowItem._id,
-      label: workflowItem.title,
-      notes: workflowItem.notes,
-      date: workflowItem.dueDate,
-      checked: workflowItem.status === "done",
-    });
+    const packingId = ctx.db.normalizeId("packingListItems", attachment.entityId);
+    const packingItem = packingId ? await ctx.db.get(packingId) : null;
+    if (
+      !packingId ||
+      !packingItem ||
+      packingItem.userId !== workflowItem.userId ||
+      packingItem.userId !== actorId
+    )
+      continue;
+    await ctx.db.patch(
+      packingId,
+      withUpdateMeta(packingItem, {
+        workflowItemId: workflowItem._id,
+        label: workflowItem.title,
+        notes: workflowItem.notes,
+        date: workflowItem.dueDate,
+        checked: workflowItem.status === "done",
+      })
+    );
   }
 }
 
@@ -777,6 +921,7 @@ export async function removeWorkflowItemCascade(
   ctx: MutationCtx,
   workflowItemId: Id<"workflowItems">
 ) {
+  const actorId = await requireIdentity(ctx);
   const item = await ctx.db.get(workflowItemId);
   if (!item) return;
 
@@ -792,10 +937,15 @@ export async function removeWorkflowItemCascade(
   const attachments = await getWorkflowAttachmentsForUser(ctx, item.userId);
   for (const attachment of attachments) {
     if (!idSet.has(attachment.workflowItemId)) continue;
-    if (attachment.entityType === "packingItem") {
-      await ctx.db.delete(attachment.entityId as Id<"packingListItems">);
-    }
+    // The attachment goes first: the write guard resolves its owner references on delete,
+    // which fails once the packing row it names is gone.
     await ctx.db.delete(attachment._id);
+    if (attachment.entityType !== "packingItem") continue;
+    const packingId = ctx.db.normalizeId("packingListItems", attachment.entityId);
+    const packingItem = packingId ? await ctx.db.get(packingId) : null;
+    if (packingId && packingItem?.userId === item.userId && packingItem.userId === actorId) {
+      await ctx.db.delete(packingId);
+    }
   }
 
   const dependencies = await getWorkflowDependenciesForUser(ctx, item.userId);
@@ -809,6 +959,16 @@ export async function removeWorkflowItemCascade(
   }
 
   for (const id of subtreeIds.reverse()) {
+    const packingItems = await ctx.db
+      .query("packingListItems")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", id))
+      .collect();
+    for (const packingItem of packingItems) {
+      await ctx.db.patch(
+        packingItem._id,
+        withUpdateMeta(packingItem, { workflowItemId: undefined })
+      );
+    }
     await ctx.db.delete(id);
   }
 }
@@ -917,6 +1077,9 @@ export const applyTemplate = mutation({
     const template = await ctx.db.get(args.templateId);
     if (!template) throw new Error("Template not found");
     if (template.userId && template.userId !== actorId) throw new Error("Not authorized");
+    if (args.buildContextId && !(await canUserEditBuild(ctx, args.buildContextId, actorId))) {
+      throw new Error("Not authorized");
+    }
 
     const templateItems = await ctx.db
       .query("workflowTemplateItems")
@@ -930,32 +1093,35 @@ export const applyTemplate = mutation({
         ? createdByKey.get(templateItem.parentTemplateItemKey)
         : undefined;
       const parent = parentId ? await ctx.db.get(parentId) : null;
-      const workflowItemId = await ctx.db.insert("workflowItems", {
-        userId: actorId,
-        title: templateItem.title,
-        notes: templateItem.notes,
-        kind: templateItem.kind,
-        category: templateItem.category,
-        status: templateItem.status,
-        parentId,
-        ancestorIds: parentAncestorIds(parent),
-        sortOrder: templateItem.sortOrder,
-        scopeKind: coerceScopeKind(args.scopeKind ?? templateItem.scopeKind),
-        sourceKind: "template",
-        templateId: args.templateId,
-      });
+      const workflowItemId = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: actorId,
+          title: templateItem.title,
+          notes: templateItem.notes,
+          kind: templateItem.kind,
+          category: templateItem.category,
+          status: templateItem.status,
+          parentId,
+          ancestorIds: parentAncestorIds(parent),
+          sortOrder: templateItem.sortOrder,
+          scopeKind: coerceScopeKind(args.scopeKind ?? templateItem.scopeKind),
+          sourceKind: "template",
+          templateId: args.templateId,
+        })
+      );
       createdByKey.set(templateItem.templateItemKey, workflowItemId);
       createdIds.push(workflowItemId);
       if (!parentId) {
-        await replaceAttachments(
-          ctx,
+        await replaceAttachments(ctx, {
           actorId,
+          ownerId: actorId,
           workflowItemId,
-          args.attachments.map((attachment) => ({
+          attachments: args.attachments.map((attachment) => ({
             ...attachment,
             buildContextId: attachment.buildContextId ?? args.buildContextId,
-          }))
-        );
+          })),
+        });
       }
     }
 
@@ -1057,14 +1223,21 @@ export const listPlanner = query({
     const attachments = await getWorkflowAttachmentsForUser(ctx, actorId);
     const buildById = new Map<string, Doc<"builds">>();
     const conventionById = new Map<string, Doc<"conventions">>();
+    // Names resolve only for builds the actor can still view and conventions they own; a
+    // stored reference to anyone else's row yields no name.
     for (const attachment of attachments) {
       if (attachment.entityType === "build" && !buildById.has(attachment.entityId)) {
-        const build = await ctx.db.get(attachment.entityId as Id<"builds">);
+        const buildId = ctx.db.normalizeId("builds", attachment.entityId);
+        const build =
+          buildId && (await canUserViewBuild(ctx, buildId, actorId))
+            ? await ctx.db.get(buildId)
+            : null;
         if (build) buildById.set(attachment.entityId, build);
       }
       if (attachment.entityType === "convention" && !conventionById.has(attachment.entityId)) {
-        const convention = await ctx.db.get(attachment.entityId as Id<"conventions">);
-        if (convention) conventionById.set(attachment.entityId, convention);
+        const conventionId = ctx.db.normalizeId("conventions", attachment.entityId);
+        const convention = conventionId ? await ctx.db.get(conventionId) : null;
+        if (convention?.userId === actorId) conventionById.set(attachment.entityId, convention);
       }
     }
 
@@ -1209,57 +1382,66 @@ export const create = mutation({
     legacyBuildTaskId: v.optional(v.id("buildTasks")),
     dedupeKey: v.optional(v.string()),
     attachments: v.optional(v.array(attachmentValidator)),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
-    if (parent && parent.userId !== actorId) throw new Error("Parent not found");
-    if (args.attachments) {
-      for (const attachment of args.attachments) {
-        if (attachment.entityType === "build") {
-          const allowed = await canUserEditBuild(ctx, attachment.entityId as Id<"builds">, actorId);
-          if (!allowed) throw new Error("Not authorized");
-        }
-      }
-    }
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "workflow.create", async () => {
+      const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
+      if (parent && parent.userId !== actorId) throw new Error("Parent not found");
 
-    const sanitized = sanitizeWorkflowInput(args);
-    const workflowItemId = await ctx.db.insert("workflowItems", {
-      userId: actorId,
-      title: sanitized.title ?? "",
-      notes: sanitized.notes,
-      kind: sanitized.kind ?? "task",
-      category: sanitized.category ?? "craft",
-      status: sanitized.status ?? "not_started",
-      parentId: args.parentId,
-      ancestorIds: parentAncestorIds(parent),
-      sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, actorId, args.parentId)),
-      scopeKind: sanitized.scopeKind ?? "build_specific",
-      sourceKind: sanitized.sourceKind ?? "manual",
-      priority: args.priority,
-      startDate: sanitized.startDate,
-      targetDate: sanitized.targetDate,
-      dueDate: sanitized.dueDate,
-      reminders: sanitized.reminders,
-      weight: args.weight,
-      manualProgressPercent: args.manualProgressPercent,
-      estimatedMinutes: args.estimatedMinutes,
-      actualMinutes: args.actualMinutes,
-      estimatedCostCents: args.estimatedCostCents,
-      actualCostCents: args.actualCostCents,
-      // The creator is always the session; a client-supplied creatorUserId is ignored.
-      creatorUserId: actorId,
-      ownerUserId: args.ownerUserId ?? actorId,
-      assigneeUserId: args.assigneeUserId,
-      templateId: args.templateId,
-      recurrenceRule: sanitized.recurrenceRule,
-      legacyBuildTaskId: args.legacyBuildTaskId,
-      dedupeKey: sanitized.dedupeKey,
+      const sanitized = sanitizeWorkflowInput(args);
+      if (
+        sanitized.dedupeKey &&
+        RESERVED_DEDUPE_PREFIXES.some((prefix) => sanitized.dedupeKey!.startsWith(prefix))
+      ) {
+        throw new Error("Dedupe key prefix is reserved");
+      }
+      const workflowItemId = await ctx.db.insert(
+        "workflowItems",
+        withCreateMeta({
+          userId: actorId,
+          title: sanitized.title ?? "",
+          notes: sanitized.notes,
+          kind: sanitized.kind ?? "task",
+          category: sanitized.category ?? "craft",
+          status: sanitized.status ?? "not_started",
+          parentId: args.parentId,
+          ancestorIds: parentAncestorIds(parent),
+          sortOrder: args.sortOrder ?? (await getSiblingCount(ctx, actorId, args.parentId)),
+          scopeKind: sanitized.scopeKind ?? "build_specific",
+          sourceKind: sanitized.sourceKind ?? "manual",
+          priority: args.priority,
+          startDate: sanitized.startDate,
+          targetDate: sanitized.targetDate,
+          dueDate: sanitized.dueDate,
+          reminders: sanitized.reminders,
+          weight: args.weight,
+          manualProgressPercent: args.manualProgressPercent,
+          estimatedMinutes: args.estimatedMinutes,
+          actualMinutes: args.actualMinutes,
+          estimatedCostCents: args.estimatedCostCents,
+          actualCostCents: args.actualCostCents,
+          // The creator is always the session; a client-supplied creatorUserId is ignored.
+          creatorUserId: actorId,
+          ownerUserId: args.ownerUserId ?? actorId,
+          assigneeUserId: args.assigneeUserId,
+          templateId: args.templateId,
+          recurrenceRule: sanitized.recurrenceRule,
+          legacyBuildTaskId: args.legacyBuildTaskId,
+          dedupeKey: sanitized.dedupeKey,
+        })
+      );
+      if (args.attachments?.length) {
+        await replaceAttachments(ctx, {
+          actorId,
+          ownerId: actorId,
+          workflowItemId,
+          attachments: args.attachments,
+        });
+      }
+      return await ctx.db.get(workflowItemId);
     });
-    if (args.attachments?.length) {
-      await replaceAttachments(ctx, actorId, workflowItemId, args.attachments);
-    }
-    return await ctx.db.get(workflowItemId);
   },
 });
 
@@ -1290,9 +1472,12 @@ export const update = mutation({
     assigneeUserId: v.optional(v.union(v.string(), v.null())),
     recurrenceRule: v.optional(v.union(v.string(), v.null())),
     attachments: v.optional(v.array(attachmentValidator)),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "workflow.update");
+    if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.id);
     if (!item) throw new Error("Workflow item not found");
     await assertWorkflowEditable(ctx, item, actorId);
@@ -1342,15 +1527,20 @@ export const update = mutation({
     if (args.assigneeUserId !== undefined) {
       patch.assigneeUserId = args.assigneeUserId === null ? undefined : args.assigneeUserId;
     }
-    await ctx.db.patch(args.id, patch);
+    await ctx.db.patch(args.id, withUpdateMeta(item, patch));
     if (args.attachments) {
-      await replaceAttachments(ctx, item.userId, args.id, args.attachments);
+      await replaceAttachments(ctx, {
+        actorId,
+        ownerId: item.userId,
+        workflowItemId: args.id,
+        attachments: args.attachments,
+      });
     }
     const updated = await ctx.db.get(args.id);
     if (updated) {
       await syncPackingItemsFromWorkflowItem(ctx, updated);
     }
-    return updated;
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, updated, "workflow.update");
   },
 });
 
@@ -1360,29 +1550,35 @@ export const move = mutation({
     userId: v.optional(v.string()),
     parentId: v.optional(v.union(v.id("workflowItems"), v.null())),
     sortOrder: v.optional(v.number()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const item = await ctx.db.get(args.id);
-    if (!item) throw new Error("Workflow item not found");
-    await assertWorkflowEditable(ctx, item, actorId);
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "workflow.move", async () => {
+      const item = await ctx.db.get(args.id);
+      if (!item) throw new Error("Workflow item not found");
+      await assertWorkflowEditable(ctx, item, actorId);
 
-    const parentId = args.parentId ?? undefined;
-    if (parentId && parentId === args.id)
-      throw new Error("Workflow items cannot parent themselves");
-    if (parentId && item.ancestorIds.includes(parentId)) {
-      throw new Error("Workflow items cannot move under a descendant");
-    }
-    const parent = parentId ? await ctx.db.get(parentId) : null;
-    if (parent && parent.userId !== actorId) throw new Error("Parent not found");
-    const ancestorIds = parentAncestorIds(parent);
-    await ctx.db.patch(args.id, {
-      parentId,
-      ancestorIds,
-      sortOrder: args.sortOrder ?? item.sortOrder,
+      const parentId = args.parentId ?? undefined;
+      if (parentId && parentId === args.id)
+        throw new Error("Workflow items cannot parent themselves");
+      if (parentId && item.ancestorIds.includes(parentId)) {
+        throw new Error("Workflow items cannot move under a descendant");
+      }
+      const parent = parentId ? await ctx.db.get(parentId) : null;
+      if (parent && parent.userId !== actorId) throw new Error("Parent not found");
+      const ancestorIds = parentAncestorIds(parent);
+      await ctx.db.patch(
+        args.id,
+        withUpdateMeta(item, {
+          parentId,
+          ancestorIds,
+          sortOrder: args.sortOrder ?? item.sortOrder,
+        })
+      );
+      await patchDescendantAncestors(ctx, item.userId, args.id, ancestorIds);
+      return await ctx.db.get(args.id);
     });
-    await patchDescendantAncestors(ctx, item.userId, args.id, ancestorIds);
-    return await ctx.db.get(args.id);
   },
 });
 
@@ -1400,9 +1596,12 @@ export const moveAndResequence = mutation({
         sortOrder: v.number(),
       })
     ),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "workflow.moveAndResequence");
+    if (replay.hit) return replay.result as Doc<"workflowItems"> | null;
     const item = await ctx.db.get(args.move.id);
     if (!item) throw new Error("Workflow item not found");
     await assertWorkflowEditable(ctx, item, actorId);
@@ -1429,11 +1628,14 @@ export const moveAndResequence = mutation({
     }
 
     const ancestorIds = parentAncestorIds(parent);
-    await ctx.db.patch(args.move.id, {
-      parentId,
-      ancestorIds,
-      sortOrder: args.move.sortOrder ?? item.sortOrder,
-    });
+    await ctx.db.patch(
+      args.move.id,
+      withUpdateMeta(item, {
+        parentId,
+        ancestorIds,
+        sortOrder: args.move.sortOrder ?? item.sortOrder,
+      })
+    );
     await patchDescendantAncestors(ctx, item.userId, args.move.id, ancestorIds);
 
     for (const row of args.resequence) {
@@ -1442,10 +1644,16 @@ export const moveAndResequence = mutation({
       const movedRowAlreadyPatched =
         row.id === args.move.id && row.sortOrder === (args.move.sortOrder ?? item.sortOrder);
       if (movedRowAlreadyPatched || rowItem.sortOrder === row.sortOrder) continue;
-      await ctx.db.patch(row.id, { sortOrder: row.sortOrder });
+      await ctx.db.patch(row.id, withUpdateMeta(rowItem, { sortOrder: row.sortOrder }));
     }
 
-    return await ctx.db.get(args.move.id);
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(args.move.id),
+      "workflow.moveAndResequence"
+    );
   },
 });
 
@@ -1483,12 +1691,15 @@ export const setDependencies = mutation({
       if (dependency.predecessorWorkflowItemId === args.workflowItemId) {
         throw new Error("Workflow item cannot depend on itself");
       }
-      await ctx.db.insert("workflowDependencies", {
-        userId: item.userId,
-        predecessorWorkflowItemId: dependency.predecessorWorkflowItemId,
-        successorWorkflowItemId: args.workflowItemId,
-        relationKind: dependency.relationKind,
-      });
+      await ctx.db.insert(
+        "workflowDependencies",
+        withCreateMeta({
+          userId: item.userId,
+          predecessorWorkflowItemId: dependency.predecessorWorkflowItemId,
+          successorWorkflowItemId: args.workflowItemId,
+          relationKind: dependency.relationKind,
+        })
+      );
     }
     return await ctx.db
       .query("workflowDependencies")

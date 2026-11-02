@@ -2,16 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useTranslations } from "next-intl";
+import { useOfflineMutation } from "@/lib/offline";
 import {
   COSPLAY_CATEGORIES,
   COSPLAY_NODE_TYPES,
   type CosplayCategory,
   type CosplayNodeType,
 } from "@kyarafit/design-system/types";
-import { Sheet } from "@/components/ui/sheet";
-import { UnderlineInput } from "@/components/ui/UnderlineInput";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import {
+  CreationFooter,
+  GlassSegmented,
+  GlassTextField,
+  glassErrorClass,
+} from "@/components/creation/CreationFields";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -29,8 +35,9 @@ export function NewClosetItemModal({
   options,
 }: NewClosetItemModalProps) {
   const router = useRouter();
+  const t = useTranslations("Creation");
   const { userId } = useCurrentUser();
-  const createNode = useMutation(api.cosplayNodes.create);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
   const [nodeType, setNodeType] = useState<CosplayNodeType>(options?.initialNodeType ?? "element");
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CosplayCategory>(
@@ -89,139 +96,135 @@ export function NewClosetItemModal({
         router.push(options?.successRedirectTo ?? "/elements");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create");
+      setError(err instanceof Error ? err.message : t("failedToCreate"));
     } finally {
       setIsPending(false);
     }
   };
 
   return (
-    <Sheet
+    <AdaptiveModal
       open
       onClose={onDismiss}
-      title={`New ${nodeType === "material" ? "material" : "cosplay element"}`}
+      title={nodeType === "material" ? t("newMaterialTitle") : t("newElementTitle")}
       titleId="global-new-closet-modal-title"
       size="lg"
       closeDisabled={isPending}
-      footer={
-        <button
-          type="submit"
-          form="new-closet-item-modal-form"
-          disabled={isPending}
-          className="w-full rounded-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg disabled:opacity-50"
-        >
-          {isPending ? "Saving…" : `Save ${nodeType}`}
-        </button>
-      }
+      closeLabel={t("close")}
+      footer={(close) => (
+        <CreationFooter
+          onCancel={close}
+          cancelLabel={t("cancel")}
+          cancelDisabled={isPending}
+          formId="new-closet-item-modal-form"
+          submitLabel={
+            isPending ? t("saving") : nodeType === "material" ? t("saveMaterial") : t("saveElement")
+          }
+          submitDisabled={isPending}
+        />
+      )}
     >
-      <form id="new-closet-item-modal-form" onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
-            Node type
-          </label>
-          <div className="flex gap-2">
-            {COSPLAY_NODE_TYPES.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  setNodeType(value);
-                  if (!options?.initialCategory) {
-                    setCategory(value === "material" ? "material" : "other");
-                  }
-                }}
-                className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
-                  nodeType === value
-                    ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                    : "bg-transparent text-kyar-text"
-                }`}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
-            Photo (optional)
-          </label>
-          <ImageUpload
-            category="closet"
-            onImageSelected={(result) => {
-              if ("imageStorageId" in result && result.imageStorageId) {
-                setImageStorageId(result.imageStorageId);
-                setImageUrl("");
-              } else {
-                setImageUrl(result.imageUrl ?? "");
-                setImageStorageId(null);
-              }
-            }}
-            currentImage={imageUrl || undefined}
-            currentStorageId={imageStorageId ?? undefined}
-          />
-        </div>
-        <UnderlineInput
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
+      <form
+        id="new-closet-item-modal-form"
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-[18px]"
+      >
+        <GlassSegmented
+          label={t("nodeTypeLabel")}
+          options={COSPLAY_NODE_TYPES.map((value) => ({
+            value,
+            label: t(`nodeType_${value}`),
+          }))}
+          value={nodeType}
+          onChange={(value) => {
+            setNodeType(value);
+            if (!options?.initialCategory) {
+              setCategory(value === "material" ? "material" : "other");
+            }
+          }}
         />
-        <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
-            Category
-          </label>
-          <div className="flex max-h-[120px] flex-wrap gap-2 overflow-y-auto">
-            {COSPLAY_CATEGORIES.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCategory(value)}
-                className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
-                  category === value
-                    ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                    : "bg-transparent text-kyar-text"
-                }`}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        </div>
-        <UnderlineInput
-          label="Tags (comma-separated)"
-          value={tagsStr}
-          onChange={(e) => setTagsStr(e.target.value)}
+        <ImageUpload
+          surface="glass"
+          label={t("photo")}
+          category="closet"
+          onImageSelected={(result) => {
+            if ("imageStorageId" in result && result.imageStorageId) {
+              setImageStorageId(result.imageStorageId);
+              setImageUrl("");
+            } else {
+              setImageUrl(result.imageUrl ?? "");
+              setImageStorageId(null);
+            }
+          }}
+          currentImage={imageUrl || undefined}
+          currentStorageId={imageStorageId ?? undefined}
+          aside={
+            <>
+              <GlassTextField
+                label={t("name")}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <GlassTextField
+                label={t("tagsLabel")}
+                value={tagsStr}
+                onChange={(e) => setTagsStr(e.target.value)}
+              />
+            </>
+          }
         />
-        <UnderlineInput
-          label="Direct cost $ (optional)"
+        <GlassSegmented
+          label={t("categoryLabel")}
+          options={COSPLAY_CATEGORIES.map((value) => ({ value, label: value }))}
+          value={category}
+          onChange={setCategory}
+          className="max-h-[156px] overflow-y-auto"
+        />
+        <GlassTextField
+          label={t("directCostLabel")}
           type="number"
           min="0"
           step="0.01"
           value={directCostDollars}
           onChange={(e) => setDirectCostDollars(e.target.value)}
+          className="tabular-nums"
         />
         {nodeType === "material" && (
           <div className="grid grid-cols-2 gap-4">
-            <UnderlineInput
-              label="Quantity"
+            <GlassTextField
+              label={t("quantityLabel")}
               type="number"
               min="0"
               step="0.01"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
+              className="tabular-nums"
             />
-            <UnderlineInput label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+            <GlassTextField
+              label={t("unitLabel")}
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+            />
           </div>
         )}
-        <UnderlineInput
-          label="Source link (optional)"
+        <GlassTextField
+          label={t("sourceLinkLabel")}
           type="url"
           value={sourceUrl}
           onChange={(e) => setSourceUrl(e.target.value)}
         />
-        <UnderlineInput label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        {error && <p className="text-xs text-kyar-danger">{error}</p>}
+        <GlassTextField
+          label={t("notesLabel")}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+        {error && (
+          <p className={glassErrorClass} role="alert">
+            {error}
+          </p>
+        )}
       </form>
-    </Sheet>
+    </AdaptiveModal>
   );
 }

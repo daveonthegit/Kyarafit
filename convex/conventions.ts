@@ -1,8 +1,11 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./lib/guardedMutation";
+import type { Doc, Id } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
+import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
+import { withCreateMeta, withUpdateMeta } from "./lib/syncMeta";
 import {
   MAX_LENGTH,
   sanitizeAndLimit,
@@ -10,15 +13,31 @@ import {
   validateDateString,
 } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { canUserViewBuild } from "./lib/buildAccess";
 
-async function getPackingWorkflowStatus(
+/** A convention plan or packing row may only name a build the actor owns or collaborates on. */
+async function assertBuildReachable(
+  ctx: MutationCtx,
+  buildId: Id<"builds"> | undefined,
+  actorId: string
+) {
+  if (buildId && !(await canUserViewBuild(ctx, buildId, actorId))) {
+    throw new Error("Not found or not authorized");
+  }
+}
+
+async function getOwnedPackingWorkflowItem(
   ctx: QueryCtx | MutationCtx,
   item: Doc<"packingListItems">
 ) {
-  if (!item.workflowItemId) return item.checked;
-  const workflowItem = await ctx.db.get(item.workflowItemId);
-  if (!workflowItem) return item.checked;
-  return workflowItem.status === "done";
+  const task = item.workflowItemId ? await ctx.db.get(item.workflowItemId) : null;
+  return task?.userId === item.userId ? task : null;
+}
+
+async function removePackingItem(ctx: MutationCtx, item: Doc<"packingListItems">) {
+  const task = await getOwnedPackingWorkflowItem(ctx, item);
+  if (task) await removeWorkflowItemCascade(ctx, task._id);
+  if (await ctx.db.get(item._id)) await ctx.db.delete(item._id);
 }
 
 /**
@@ -125,26 +144,33 @@ export const create = mutation({
     imageStorageId: v.optional(v.id("_storage")),
     startDate: v.string(),
     endDate: v.string(),
+    /** Offline replay dedupe key (optional); see convex/lib/idempotency.ts. */
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    if (args.imageStorageId) {
-      await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
-    }
-    const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
-    const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
-    const startDate = validateDateString(args.startDate, "Start date");
-    const endDate = validateDateString(args.endDate, "End date");
-    const id = await ctx.db.insert("conventions", {
-      userId: actorId,
-      name,
-      location,
-      imageUrl: args.imageUrl,
-      imageStorageId: args.imageStorageId,
-      startDate,
-      endDate,
+    return runIdempotent(ctx, args.idempotencyKey, actorId, "conventions.create", async () => {
+      if (args.imageStorageId) {
+        await checkLimitAndAddUsage(ctx, actorId, args.imageStorageId);
+      }
+      const name = sanitizeAndLimit(args.name, MAX_LENGTH.name, "Name");
+      const location = sanitizeOptional(args.location, MAX_LENGTH.location, "Location");
+      const startDate = validateDateString(args.startDate, "Start date");
+      const endDate = validateDateString(args.endDate, "End date");
+      const id = await ctx.db.insert(
+        "conventions",
+        withCreateMeta({
+          userId: actorId,
+          name,
+          location,
+          imageUrl: args.imageUrl,
+          imageStorageId: args.imageStorageId,
+          startDate,
+          endDate,
+        })
+      );
+      return await ctx.db.get(id);
     });
-    return await ctx.db.get(id);
   },
 });
 
@@ -159,17 +185,24 @@ export const update = mutation({
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
     archived: v.optional(v.boolean()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
-    const { id, userId: _userId, ...fields } = args;
+    const { id, userId: _userId, idempotencyKey, ...fields } = args;
+    const replay = await idempotentReplay(ctx, idempotencyKey, "conventions.update");
+    if (replay.hit) return replay.result as Doc<"conventions"> | null;
     const convention = await ctx.db.get(id);
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
     const newStorageId = fields.imageStorageId ?? undefined;
     const oldStorageId = convention.imageStorageId;
-    if (oldStorageId !== undefined && oldStorageId !== newStorageId) {
+    if (
+      fields.imageStorageId !== undefined &&
+      oldStorageId !== undefined &&
+      oldStorageId !== newStorageId
+    ) {
       await subtractUsageForStorageId(ctx, actorId, oldStorageId);
     }
     if (newStorageId !== undefined && newStorageId !== oldStorageId) {
@@ -189,9 +222,15 @@ export const update = mutation({
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
+      await ctx.db.patch(id, withUpdateMeta(convention, patch));
     }
-    return await ctx.db.get(id);
+    return idempotentRecord(
+      ctx,
+      idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "conventions.update"
+    );
   },
 });
 
@@ -200,14 +239,18 @@ export const archiveMany = mutation({
     ids: v.array(v.id("conventions")),
     userId: v.optional(v.string()),
     archived: v.boolean(),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "conventions.archiveMany");
+    if (replay.hit) return;
     for (const id of args.ids) {
       const convention = await ctx.db.get(id);
       if (!convention || convention.userId !== actorId) continue;
-      await ctx.db.patch(id, { archived: args.archived });
+      await ctx.db.patch(id, withUpdateMeta(convention, { archived: args.archived }));
     }
+    await idempotentRecord(ctx, args.idempotencyKey, actorId, undefined, "conventions.archiveMany");
   },
 });
 
@@ -229,8 +272,7 @@ export const removeMany = mutation({
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
         .collect();
       for (const pi of packingItems) {
-        if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-        else await ctx.db.delete(pi._id);
+        await removePackingItem(ctx, pi);
       }
       await ctx.db.delete(id);
     }
@@ -245,26 +287,34 @@ export const remove = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
-    // Cascade: delete day plans and packing items
-    const plans = await ctx.db
-      .query("conventionDayPlans")
-      .withIndex("by_conventionId", (q) => q.eq("conventionId", args.id))
-      .collect();
-    for (const p of plans) await ctx.db.delete(p._id);
-
-    const packingItems = await ctx.db
-      .query("packingListItems")
-      .withIndex("by_conventionId", (q) => q.eq("conventionId", args.id))
-      .collect();
-    for (const pi of packingItems) {
-      if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-      else await ctx.db.delete(pi._id);
-    }
-
-    await ctx.db.delete(args.id);
+    await deleteOwnedConvention(ctx, actorId, convention);
   },
 });
+
+/** Delete an owned convention with its day plans and packing items. */
+export async function deleteOwnedConvention(
+  ctx: MutationCtx,
+  actorId: string,
+  convention: Doc<"conventions">
+) {
+  await subtractUsageForStorageId(ctx, actorId, convention.imageStorageId);
+  // Cascade: delete day plans and packing items
+  const plans = await ctx.db
+    .query("conventionDayPlans")
+    .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
+    .collect();
+  for (const p of plans) await ctx.db.delete(p._id);
+
+  const packingItems = await ctx.db
+    .query("packingListItems")
+    .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
+    .collect();
+  for (const pi of packingItems) {
+    await removePackingItem(ctx, pi);
+  }
+
+  await ctx.db.delete(convention._id);
+}
 
 /**
  * A convention's day-by-day plan. Takes no actor argument, so the owner check on
@@ -295,13 +345,17 @@ export const replacePlan = mutation({
         notes: v.optional(v.string()),
       })
     ),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(ctx, args.idempotencyKey, "conventions.replacePlan");
+    if (replay.hit) return replay.result as (Doc<"conventionDayPlans"> | null)[];
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    for (const entry of args.plan) await assertBuildReachable(ctx, entry.buildId, actorId);
     // Delete existing plans
     const existing = await ctx.db
       .query("conventionDayPlans")
@@ -315,16 +369,19 @@ export const replacePlan = mutation({
       const entry = args.plan[i];
       const date = validateDateString(entry.date, `Plan ${i + 1} date`);
       const notes = sanitizeOptional(entry.notes, MAX_LENGTH.notes, `Plan ${i + 1} notes`);
-      const id = await ctx.db.insert("conventionDayPlans", {
-        userId: actorId,
-        conventionId: args.conventionId,
-        date,
-        buildId: entry.buildId,
-        notes,
-      });
+      const id = await ctx.db.insert(
+        "conventionDayPlans",
+        withCreateMeta({
+          userId: actorId,
+          conventionId: args.conventionId,
+          date,
+          buildId: entry.buildId,
+          notes,
+        })
+      );
       results.push(await ctx.db.get(id));
     }
-    return results;
+    return idempotentRecord(ctx, args.idempotencyKey, actorId, results, "conventions.replacePlan");
   },
 });
 
@@ -343,12 +400,7 @@ export const getPacking = query({
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
-    return await Promise.all(
-      items.map(async (item) => ({
-        ...item,
-        checked: await getPackingWorkflowStatus(ctx, item),
-      }))
-    );
+    return items;
   },
 });
 
@@ -379,11 +431,11 @@ export const updatePackingItem = mutation({
       else patch[k] = val;
     }
     if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(id, patch);
+      await ctx.db.patch(id, withUpdateMeta(item, patch));
     }
     const updated = await ctx.db.get(id);
     if (updated) {
-      await ensurePackingWorkflowItem(ctx, {
+      const workflowItemId = await ensurePackingWorkflowItem(ctx, {
         userId: actorId,
         packingListItemId: updated._id,
         conventionId: updated.conventionId,
@@ -395,14 +447,9 @@ export const updatePackingItem = mutation({
         checked: args.checked ?? updated.checked,
         manual: updated.entryKind === "manual" || (!updated.cosplayNodeId && !updated.buildId),
       });
-      if (args.checked !== undefined && updated.workflowItemId) {
-        await ctx.db.patch(updated.workflowItemId, {
-          status: args.checked ? "done" : "not_started",
-        });
-      }
       return {
         ...updated,
-        checked: args.checked ?? (await getPackingWorkflowStatus(ctx, updated)),
+        workflowItemId,
       };
     }
     return updated;
@@ -417,28 +464,39 @@ export const addManualPackingItem = mutation({
     date: v.optional(v.string()),
     notes: v.optional(v.string()),
     buildId: v.optional(v.id("builds")),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireIdentity(ctx);
+    const replay = await idempotentReplay(
+      ctx,
+      args.idempotencyKey,
+      "conventions.addManualPackingItem"
+    );
+    if (replay.hit) return replay.result as Doc<"packingListItems"> | null;
     const convention = await ctx.db.get(args.conventionId);
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    await assertBuildReachable(ctx, args.buildId, actorId);
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const date = args.date ? validateDateString(args.date, "Date") : undefined;
     const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
-    const id = await ctx.db.insert("packingListItems", {
-      userId: actorId,
-      conventionId: args.conventionId,
-      label,
-      date,
-      notes,
-      buildId: args.buildId,
-      checked: false,
-      entryKind: "manual",
-      sourceKind: "manual",
-      sortOrder: 0,
-    });
+    const id = await ctx.db.insert(
+      "packingListItems",
+      withCreateMeta({
+        userId: actorId,
+        conventionId: args.conventionId,
+        label,
+        date,
+        notes,
+        buildId: args.buildId,
+        checked: false,
+        entryKind: "manual",
+        sourceKind: "manual",
+        sortOrder: 0,
+      })
+    );
     await ensurePackingWorkflowItem(ctx, {
       userId: actorId,
       packingListItemId: id,
@@ -450,7 +508,13 @@ export const addManualPackingItem = mutation({
       checked: false,
       manual: true,
     });
-    return await ctx.db.get(id);
+    return idempotentRecord(
+      ctx,
+      args.idempotencyKey,
+      actorId,
+      await ctx.db.get(id),
+      "conventions.addManualPackingItem"
+    );
   },
 });
 
@@ -465,11 +529,7 @@ export const deletePackingItem = mutation({
     if (!item || item.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    if (item.workflowItemId) {
-      await removeWorkflowItemCascade(ctx, item.workflowItemId);
-      return;
-    }
-    await ctx.db.delete(args.id);
+    await removePackingItem(ctx, item);
   },
 });
 
@@ -490,16 +550,10 @@ export const listWithDetails = query({
           .query("conventionDayPlans")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packingRaw = await ctx.db
+        const packing = await ctx.db
           .query("packingListItems")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packing = await Promise.all(
-          packingRaw.map(async (item) => ({
-            ...item,
-            checked: await getPackingWorkflowStatus(ctx, item),
-          }))
-        );
         return { ...c, plans, packing };
       })
     );
@@ -525,11 +579,7 @@ export const regeneratePacking = mutation({
       .collect();
     for (const item of existing) {
       if (item.entryKind !== "manual") {
-        if (item.workflowItemId) {
-          await removeWorkflowItemCascade(ctx, item.workflowItemId);
-        } else {
-          await ctx.db.delete(item._id);
-        }
+        await removePackingItem(ctx, item);
       }
     }
 
@@ -545,11 +595,19 @@ export const regeneratePacking = mutation({
     for (const plan of plans) {
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
+      // A stored plan may predate the build check in `replacePlan`; never copy element
+      // names out of a build this user can no longer see.
+      if (!(await canUserViewBuild(ctx, buildId, actorId))) continue;
 
-      const links = await ctx.db
-        .query("buildCosplayLinks")
+      // Step 2c: a build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
+      const buildNodes = await ctx.db
+        .query("cosplayNodes")
         .withIndex("by_buildId", (q) => q.eq("buildId", buildId))
         .collect();
+      const links = buildNodes
+        .filter((node) => node.parentNodeId === undefined)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((node) => ({ cosplayNodeId: node._id }));
 
       for (const link of links) {
         const key = `${buildId}:${link.cosplayNodeId}`;
@@ -560,7 +618,7 @@ export const regeneratePacking = mutation({
         if (!node) continue;
         const packingItemId: Doc<"packingListItems">["_id"] = await ctx.db.insert(
           "packingListItems",
-          {
+          withCreateMeta({
             userId: actorId,
             conventionId: args.conventionId,
             date: plan.date,
@@ -571,7 +629,7 @@ export const regeneratePacking = mutation({
             entryKind: "generated",
             sourceKind: "workflow",
             sortOrder: newItems.length,
-          }
+          })
         );
         await ensurePackingWorkflowItem(ctx, {
           userId: actorId,

@@ -35,6 +35,23 @@ export const NAV_SECTIONS_PRIMARY: NavSection[] = [
   { id: "feed", label: "Feed", path: "/feed", iconKey: "feed" },
 ];
 
+/**
+ * Glass top bar (v2 shell) splits primary nav: studio sections inline left,
+ * social sections right. Membership follows the approved prototype IA; order
+ * within each group follows NAV_SECTIONS_PRIMARY (source of truth).
+ * Note: the prototype bar orders the left group Home/Builds/Planner/Elements/
+ * Events and omits Discover — navConfig order wins per the handoff notes.
+ */
+const TOPBAR_STUDIO_IDS: NavSectionId[] = ["home", "builds", "elements", "events", "planner"];
+
+export const NAV_SECTIONS_TOPBAR_PRIMARY: NavSection[] = NAV_SECTIONS_PRIMARY.filter((s) =>
+  TOPBAR_STUDIO_IDS.includes(s.id)
+);
+
+export const NAV_SECTIONS_TOPBAR_SOCIAL: NavSection[] = NAV_SECTIONS_PRIMARY.filter(
+  (s) => !TOPBAR_STUDIO_IDS.includes(s.id)
+);
+
 /** Settings section (sidebar below divider, or Profile tab on mobile). */
 export const NAV_SECTION_SETTINGS: NavSection = {
   id: "settings",
@@ -71,6 +88,19 @@ export const ADD_MENU_ITEMS: AddMenuItem[] = [
   { labelKey: "addEvent", href: "/conventions/new", modal: "newConvention" },
   { labelKey: "addGroup", href: "/groups/new", modal: "newGroup" },
 ];
+
+/** Context-aware primary add action by active section (top-bar pill / FAB). */
+const PRIMARY_ADD_MODAL_BY_SECTION: Partial<Record<NavSectionId, AddMenuModal>> = {
+  builds: "newBuild",
+  elements: "newCloset",
+  events: "newConvention",
+  groups: "newGroup",
+};
+
+export function getPrimaryAddMenuItem(section: NavSectionId): AddMenuItem {
+  const modal = PRIMARY_ADD_MODAL_BY_SECTION[section] ?? "newBuild";
+  return ADD_MENU_ITEMS.find((i) => i.modal === modal) ?? ADD_MENU_ITEMS[0];
+}
 
 /**
  * Returns true when the page renders its own contextual FAB (e.g. build detail).

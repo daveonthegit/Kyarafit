@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useOfflineMutation } from "@/lib/offline";
 import {
   COSPLAY_CATEGORIES,
   COSPLAY_NODE_TYPES,
@@ -10,7 +10,7 @@ import {
 } from "@kyarafit/design-system/types";
 import { BuildDetailModalShell } from "@/components/builds/BuildDetailModalShell";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { UnderlineInput } from "@/components/ui/UnderlineInput";
+import { PhotoPill } from "@/components/ui/PhotoPill";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -27,7 +27,7 @@ export function LinkClosetQuickCreateModal({
   onCreated,
 }: LinkClosetQuickCreateModalProps) {
   const { userId } = useCurrentUser();
-  const createNode = useMutation(api.cosplayNodes.create);
+  const createNode = useOfflineMutation(api.cosplayNodes.create);
   const [nodeType, setNodeType] = useState<CosplayNodeType>("element");
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CosplayCategory>("other");
@@ -85,28 +85,30 @@ export function LinkClosetQuickCreateModal({
       zOverlayClass="z-[10200]"
       footer={
         <>
-          <button
+          <PhotoPill
             type="button"
+            variant="outline"
             onClick={onClose}
             disabled={pending}
-            className="flex-1 min-w-[100px] rounded-md border border-kyar-border px-4 py-2.5 text-xs font-semibold uppercase tracking-wider disabled:opacity-50"
+            className="min-w-[100px] flex-1 sm:flex-none"
           >
             Cancel
-          </button>
-          <button
+          </PhotoPill>
+          <PhotoPill
             type="submit"
+            variant="solid"
             form="link-closet-quick-create-form"
             disabled={pending}
-            className="flex-1 min-w-[100px] rounded-md bg-kyar-text py-2.5 text-xs font-bold uppercase tracking-wider text-kyar-bg disabled:opacity-50"
+            className="min-w-[100px] flex-1 sm:ml-auto sm:flex-none"
           >
             {pending ? "Creating…" : "Create & select"}
-          </button>
+          </PhotoPill>
         </>
       }
     >
       <form
         id="link-closet-quick-create-form"
-        className="space-y-6"
+        className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -121,10 +123,10 @@ export function LinkClosetQuickCreateModal({
                 setNodeType(value);
                 setCategory(value === "material" ? "material" : "other");
               }}
-              className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+              className={`min-h-[44px] rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 nodeType === value
-                  ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                  : "bg-transparent text-kyar-text"
+                  ? "border-transparent bg-glass-solid text-glass-ink"
+                  : "border-glass-border-strong text-media-fg-70 hover:bg-glass-active hover:text-kyar-media-fg"
               }`}
             >
               {value}
@@ -132,10 +134,11 @@ export function LinkClosetQuickCreateModal({
           ))}
         </div>
         <div>
-          <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-kyar-meta">
+          <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55">
             Photo (optional)
           </label>
           <ImageUpload
+            surface="glass"
             category="closet"
             onImageSelected={(result) => {
               if ("imageStorageId" in result && result.imageStorageId) {
@@ -150,30 +153,37 @@ export function LinkClosetQuickCreateModal({
             currentStorageId={imageStorageId ?? undefined}
           />
         </div>
-        <UnderlineInput
+        <GlassField
+          id="link-closet-quick-create-name"
           label="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
-        <div className="flex max-h-[120px] flex-wrap gap-2 overflow-y-auto">
+        <div className="flex max-h-[148px] flex-wrap gap-2 overflow-y-auto">
           {COSPLAY_CATEGORIES.map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setCategory(value)}
-              className={`rounded-sm border border-kyar-border px-3 py-2 text-xs uppercase tracking-wide ${
+              className={`min-h-[44px] rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                 category === value
-                  ? "border-kyar-text bg-kyar-text text-kyar-bg"
-                  : "bg-transparent text-kyar-text"
+                  ? "border-glass-solid bg-glass-active text-kyar-media-fg"
+                  : "border-glass-border text-media-fg-70 hover:bg-glass-active hover:text-kyar-media-fg"
               }`}
             >
               {value}
             </button>
           ))}
         </div>
-        <UnderlineInput label="Tags" value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} />
-        <UnderlineInput
+        <GlassField
+          id="link-closet-quick-create-tags"
+          label="Tags"
+          value={tagsStr}
+          onChange={(e) => setTagsStr(e.target.value)}
+        />
+        <GlassField
+          id="link-closet-quick-create-cost"
           label="Cost $"
           type="number"
           min="0"
@@ -181,15 +191,45 @@ export function LinkClosetQuickCreateModal({
           value={costDollars}
           onChange={(e) => setCostDollars(e.target.value)}
         />
-        <UnderlineInput
+        <GlassField
+          id="link-closet-quick-create-source"
           label="Source link"
           type="url"
           value={sourceUrl}
           onChange={(e) => setSourceUrl(e.target.value)}
         />
-        <UnderlineInput label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        {error && <p className="text-xs text-kyar-danger">{error}</p>}
+        <GlassField
+          id="link-closet-quick-create-notes"
+          label="Notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+        {error && <p className="text-xs text-on-glass-danger">{error}</p>}
       </form>
     </BuildDetailModalShell>
+  );
+}
+
+/** Labelled glass-outline input (replaces the cream UnderlineInput inside this glass dialog). */
+function GlassField({
+  id,
+  label,
+  className = "",
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { id: string; label: string }) {
+  return (
+    <div className="w-full">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-55"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        className={`glass-field min-h-[44px] w-full px-3 py-2.5 text-sm ${className}`.trim()}
+        {...props}
+      />
+    </div>
   );
 }
