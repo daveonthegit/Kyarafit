@@ -1,10 +1,26 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
 import { mutation } from "./lib/guardedMutation";
 import { validateDateString } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
 import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 import { availableOwnedDocument } from "./lib/discoveryAccess";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * A group's linked convention, as its members may see it. Conventions are private to their
+ * owner; linking one into a group shares it only while that owner is still a member, so a
+ * row pointing at anyone else's convention discloses nothing.
+ */
+async function groupVisibleConvention(
+  ctx: QueryCtx,
+  groupId: Id<"groups">,
+  conventionId: Id<"conventions">
+) {
+  const convention = await availableOwnedDocument(ctx, await ctx.db.get(conventionId));
+  if (!convention) return null;
+  return (await isGroupMember(ctx, groupId, convention.userId)) ? convention : null;
+}
 
 /**
  * Selected convention days for a group. Takes no actor argument, so the membership
@@ -25,12 +41,18 @@ export const listForGroup = query({
     const selected = args.conventionId
       ? all.filter((d) => d.conventionId === args.conventionId)
       : all;
-    const live = await Promise.all(
-      selected.map(async (day) =>
-        (await availableOwnedDocument(ctx, await ctx.db.get(day.conventionId))) ? day : null
-      )
-    );
-    return live.filter((day): day is NonNullable<typeof day> => day !== null);
+    const visible = new Map<string, boolean>();
+    const live = [];
+    for (const day of selected) {
+      if (!visible.has(day.conventionId)) {
+        visible.set(
+          day.conventionId,
+          (await groupVisibleConvention(ctx, args.groupId, day.conventionId)) !== null
+        );
+      }
+      if (visible.get(day.conventionId)) live.push(day);
+    }
+    return live;
   },
 });
 
@@ -89,11 +111,16 @@ export const listForGroupWithConventions = query({
         dates: string[];
       }
     >();
+    const hidden = new Set<string>();
     for (const d of days) {
       const key = d.conventionId;
+      if (hidden.has(key)) continue;
       if (!byConvention.has(key)) {
-        const con = await availableOwnedDocument(ctx, await ctx.db.get(d.conventionId));
-        if (!con) continue;
+        const con = await groupVisibleConvention(ctx, args.groupId, d.conventionId);
+        if (!con) {
+          hidden.add(key);
+          continue;
+        }
         byConvention.set(key, {
           conventionId: key,
           conventionName: con.name,
@@ -125,8 +152,10 @@ export const setDays = mutation({
     if (!membership || membership.role !== "admin") {
       throw new Error("Only group admins can set convention days");
     }
+    // Only the admin's own convention can be linked, checked before the date range so the
+    // error never echoes another user's convention dates.
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention) throw new Error("Convention not found");
+    if (!convention || convention.userId !== actorId) throw new Error("Convention not found");
     const start = convention.startDate;
     const end = convention.endDate;
 
@@ -173,7 +202,7 @@ export const addDay = mutation({
       throw new Error("Only group admins can add convention days");
     }
     const convention = await ctx.db.get(args.conventionId);
-    if (!convention) throw new Error("Convention not found");
+    if (!convention || convention.userId !== actorId) throw new Error("Convention not found");
     const date = validateDateString(args.date, "Date");
     if (date < convention.startDate || date > convention.endDate) {
       throw new Error(

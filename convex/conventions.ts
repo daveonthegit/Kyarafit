@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation } from "./lib/guardedMutation";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
@@ -13,6 +13,18 @@ import {
   validateDateString,
 } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { canUserViewBuild } from "./lib/buildAccess";
+
+/** A convention plan or packing row may only name a build the actor owns or collaborates on. */
+async function assertBuildReachable(
+  ctx: MutationCtx,
+  buildId: Id<"builds"> | undefined,
+  actorId: string
+) {
+  if (buildId && !(await canUserViewBuild(ctx, buildId, actorId))) {
+    throw new Error("Not found or not authorized");
+  }
+}
 
 async function getPackingWorkflowStatus(
   ctx: QueryCtx | MutationCtx,
@@ -341,6 +353,7 @@ export const replacePlan = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    for (const entry of args.plan) await assertBuildReachable(ctx, entry.buildId, actorId);
     // Delete existing plans
     const existing = await ctx.db
       .query("conventionDayPlans")
@@ -473,6 +486,7 @@ export const addManualPackingItem = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    await assertBuildReachable(ctx, args.buildId, actorId);
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const date = args.date ? validateDateString(args.date, "Date") : undefined;
     const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
@@ -603,6 +617,9 @@ export const regeneratePacking = mutation({
     for (const plan of plans) {
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
+      // A stored plan may predate the build check in `replacePlan`; never copy element
+      // names out of a build this user can no longer see.
+      if (!(await canUserViewBuild(ctx, buildId, actorId))) continue;
 
       // Step 2c: a build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
       const buildNodes = await ctx.db

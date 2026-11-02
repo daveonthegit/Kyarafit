@@ -73,6 +73,11 @@ describe("deletion-aware group discovery", () => {
     it(`suppresses group and convention references during ${failed ? "failed" : "pending"} cleanup`, async () => {
       const { t, publicGroup, privateGroup, liveGroup, deletingConvention, liveConvention } =
         await fixture();
+      // A group only shows a convention while its owner is a member, so Alice's convention
+      // is linked into the live group legitimately before her deletion begins.
+      await t.run((ctx) =>
+        ctx.db.insert("groupMembers", { groupId: liveGroup, userId: "alice", role: "member" })
+      );
       const bob = t.withIdentity({ subject: "bob" });
       expect(
         await bob.query(api.groupConventionDays.listGroupsForConvention, {
