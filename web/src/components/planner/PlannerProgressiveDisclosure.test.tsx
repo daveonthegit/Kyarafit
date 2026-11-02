@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ReactNode } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { PlannerTaskRow } from "./PlannerWorkflowTaskUi";
 
 // DESIGN_SYSTEM.md §6 / REQ-063: advanced planner fields are tucked behind an
@@ -74,6 +74,46 @@ describe("Planner progressive disclosure", () => {
     expect(
       screen.getByRole("checkbox", { name: /mark "sew the cape" as incomplete/i })
     ).toBeChecked();
+  });
+
+  it("retires acknowledged state before a later remote reversal", async () => {
+    const onToggle = vi.fn(() => new Promise(() => {}));
+    const { rerender } = render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByRole("checkbox"));
+    await act(async () => {});
+    expect(onToggle).toHaveBeenCalledWith(true);
+    rerender(<PlannerTaskRow {...baseProps} done onToggle={onToggle} />);
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    rerender(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+  });
+
+  it("forwards rapid requested values and ignores an older rejection", async () => {
+    let rejectFirst!: (reason: Error) => void;
+    const onToggle = vi.fn()
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectFirst = reject; }))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByRole("checkbox"));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("checkbox"));
+    await act(async () => {});
+    expect(onToggle.mock.calls).toEqual([[true], [false]]);
+    await act(async () => { rejectFirst(new Error("Failed")); });
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+  });
+
+  it("clears successful and rejected pending requests", async () => {
+    const onToggle = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Failed"));
+    const { rerender } = render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByRole("checkbox"));
+    await act(async () => {});
+    rerender(<PlannerTaskRow {...baseProps} done onToggle={onToggle} />);
+    rerender(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox"));
+    await act(async () => {});
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
   });
 
   it("should_show_a_trailing_due_label_and_blocked_chip", () => {

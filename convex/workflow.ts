@@ -1077,6 +1077,26 @@ export const listNodeWorkflow = query({
   },
 });
 
+export const listForExport = query({
+  args: {},
+  handler: async (ctx) => {
+    const actorId = await optionalIdentity(ctx);
+    if (!actorId) return [];
+    const [items, attachments, dependencies] = await Promise.all([
+      getWorkflowItemsForUser(ctx, actorId),
+      getWorkflowAttachmentsForUser(ctx, actorId),
+      getWorkflowDependenciesForUser(ctx, actorId),
+    ]);
+    return items.map((item) => ({
+      ...item,
+      attachments: attachments.filter((attachment) => attachment.workflowItemId === item._id),
+      dependencies: dependencies.filter(
+        (dependency) => dependency.successorWorkflowItemId === item._id
+      ),
+    }));
+  },
+});
+
 export const listPlanner = query({
   args: { userId: v.optional(v.string()) },
   handler: async (ctx) => {

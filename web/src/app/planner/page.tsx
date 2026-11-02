@@ -1000,7 +1000,7 @@ function PlannerTaskNodeItem({
           title={task.title}
           done={task.status === "done"}
           userId={userId}
-          onToggle={() => onToggle(task._id, task.status !== "done")}
+          onToggle={(next) => onToggle(task._id, next)}
           contextHref={taskContextHref(task)}
           contextLabel={task.buildName ?? task.conventionName ?? labels.contextFallback}
           status={task.status}

@@ -4,6 +4,7 @@ import type { CosplayNodeType } from "@kyarafit/design-system/types";
 import type { PortfolioLayoutMode } from "@/lib/portfolioLayout";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import type { Id } from "convex/_generated/dataModel";
+import { MonogramFill } from "@/components/layout/MonogramPlate";
 
 export type ElementPortfolioCardWebModel = {
   name: string;
@@ -106,11 +107,7 @@ function PosterBody({
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
       ) : (
-        <div className="flex h-full items-center justify-center bg-studio-wall text-media-fg-45">
-          <span className="material-symbols-outlined text-5xl">
-            {item.nodeType === "material" ? "science" : "checkroom"}
-          </span>
-        </div>
+        <MonogramFill name={item.name} size="lg" />
       )}
       <div className="absolute inset-0 bg-kyar-media-scrim-heavy" />
       <Badges statusBadge={item.statusBadge} tone={item.statusTone} compact={isGrid} />
@@ -152,11 +149,7 @@ export function ElementPortfolioCardWeb({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-media-fg-45">
-                <span className="material-symbols-outlined text-4xl">
-                  {item.nodeType === "material" ? "science" : "checkroom"}
-                </span>
-              </div>
+              <MonogramFill name={item.name} />
             )}
             <div className="absolute inset-0 bg-kyar-media-scrim-faint" />
           </div>

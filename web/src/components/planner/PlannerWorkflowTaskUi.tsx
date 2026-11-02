@@ -170,7 +170,7 @@ export function PlannerTaskRow({
   title: string;
   done: boolean;
   userId: string | null;
-  onToggle: () => void | Promise<unknown>;
+  onToggle: (next: boolean) => void | Promise<unknown>;
   contextHref: string;
   contextLabel: string;
   status: string;
@@ -196,6 +196,7 @@ export function PlannerTaskRow({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [pending, setPending] = useState<{ value: boolean; base: boolean } | null>(null);
   const detailsId = useId();
+  if (pending && pending.base !== done) setPending(null);
   const shownDone = pending && pending.base === done ? pending.value : done;
   const statusLabel = status.split("_").join(" ");
   const hasPriority = typeof priority === "number" && priority > 0;
@@ -203,10 +204,14 @@ export function PlannerTaskRow({
   const trailingDue = dueLabel ?? (dueDate ? formatPlannerWorkflowDueDate(dueDate) : undefined);
 
   const handleCheckedChange = (next: boolean) => {
-    setPending({ value: next, base: done });
+    const request = { value: next, base: done };
+    setPending(request);
     void Promise.resolve()
-      .then(onToggle)
-      .catch(() => setPending(null));
+      .then(() => onToggle(next))
+      .then(
+        () => setPending((current) => (current === request ? null : current)),
+        () => setPending((current) => (current === request ? null : current))
+      );
   };
 
   return (

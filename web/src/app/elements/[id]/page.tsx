@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { MonogramPlate } from "@/components/layout/MonogramPlate";
 import { useParams, useRouter } from "next/navigation";
 import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -88,6 +90,7 @@ function isAllowedChildLink(parentType: NodeKind, childType: NodeKind) {
 }
 
 export default function ElementDetailPage() {
+  const tStudio = useTranslations("Studio");
   const params = useParams();
   const router = useRouter();
   const { userId } = useCurrentUser();
@@ -461,6 +464,14 @@ export default function ElementDetailPage() {
         <main className="relative z-10 mx-auto mb-10 mt-4 w-full max-w-[1600px] flex-1 px-4 sm:px-6 lg:px-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(440px,520px)]">
           {/* Identity on the photo, left (6b/8b grammar) */}
           <div className="max-w-[720px] pt-2 lg:pt-10">
+            {!node.imageStorageId && !node.imageUrl && (
+              <MonogramPlate
+                name={node.name}
+                addLabel={tStudio("addCover")}
+                onAdd={userId ? () => setShowEditPanel(true) : undefined}
+                className="mb-6 h-[240px] sm:h-[320px]"
+              />
+            )}
             <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.28em] opacity-75">
               {nodeTypeLabel}
               {node.category ? ` · ${node.category}` : ""}
