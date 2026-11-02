@@ -63,4 +63,26 @@ describe("Planner progressive disclosure", () => {
     expect(screen.getByText("Priority")).toBeInTheDocument();
     expect(screen.getByText(/blocked by cut fabric, buy thread/i)).toBeInTheDocument();
   });
+
+  it("should_check_the_task_immediately_on_press", () => {
+    const onToggle = vi.fn(() => new Promise(() => {}));
+    render(<PlannerTaskRow {...baseProps} onToggle={onToggle} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /mark "sew the cape" as complete/i }));
+
+    // Feedback does not wait for the mutation to round-trip.
+    expect(
+      screen.getByRole("checkbox", { name: /mark "sew the cape" as incomplete/i })
+    ).toBeChecked();
+  });
+
+  it("should_show_a_trailing_due_label_and_blocked_chip", () => {
+    const { rerender } = render(
+      <PlannerTaskRow {...baseProps} dueDate="2026-11-02" dueLabel="Due today" dueUrgent />
+    );
+    expect(screen.getByText("Due today")).toBeInTheDocument();
+
+    rerender(<PlannerTaskRow {...baseProps} status="blocked" statusChipLabel="Blocked" />);
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+  });
 });
