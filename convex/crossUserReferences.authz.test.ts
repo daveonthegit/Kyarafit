@@ -217,6 +217,108 @@ describe("workflow attachments only reference resources the actor can reach", ()
     expect(packing).not.toBeNull();
   });
 
+  test("build editors cannot sync or delete the owner's packing row", async () => {
+    const f = await fixture();
+    const asBob = f.t.withIdentity({ subject: BOB });
+    const asAlice = f.t.withIdentity({ subject: ALICE });
+    await f.t.run(async (ctx) => {
+      await ctx.db.insert("buildCollaborators", {
+        buildId: f.bobBuild,
+        userId: ALICE,
+        role: "editor",
+      });
+    });
+    const packing = await asBob.mutation(api.conventions.addManualPackingItem, {
+      conventionId: f.bobConvention,
+      buildId: f.bobBuild,
+      label: "Snacks",
+      notes: "Owner notes",
+      date: "2026-09-02",
+    });
+    await asAlice.mutation(api.workflow.update, {
+      id: packing!.workflowItemId!,
+      title: "Changed",
+      notes: "Changed",
+      dueDate: "2026-09-03",
+      status: "done",
+    });
+    expect(await f.t.run((ctx) => ctx.db.get(packing!._id))).toEqual(packing);
+    await asAlice.mutation(api.workflow.remove, { id: packing!.workflowItemId! });
+    const preserved = await f.t.run((ctx) => ctx.db.get(packing!._id));
+    expect(preserved).toMatchObject({
+      label: "Snacks",
+      notes: "Owner notes",
+      date: "2026-09-02",
+      checked: false,
+    });
+    expect(preserved?.workflowItemId).toBeUndefined();
+    await asBob.mutation(api.conventions.updatePackingItem, { id: packing!._id, checked: true });
+    expect(
+      (await asBob.query(api.conventions.getPacking, { conventionId: f.bobConvention })).find(
+        (p) => p._id === packing!._id
+      )?.checked
+    ).toBe(true);
+  });
+
+  test("legacy reverse pointers neither disclose nor update another owner's task", async () => {
+    const f = await fixture();
+    const task = await aliceItem(f);
+    await f.t.run(async (ctx) => {
+      await ctx.db.patch(f.bobPacking, { workflowItemId: task });
+    });
+    const asBob = f.t.withIdentity({ subject: BOB });
+    expect(
+      (await asBob.query(api.conventions.getPacking, { conventionId: f.bobConvention }))[0].checked
+    ).toBe(true);
+    expect((await asBob.query(api.conventions.listWithDetails, {}))[0].packing[0].checked).toBe(
+      true
+    );
+    const updated = await asBob.mutation(api.conventions.updatePackingItem, {
+      id: f.bobPacking,
+      checked: true,
+    });
+    expect(updated?.workflowItemId).not.toBe(task);
+    expect((await f.t.run((ctx) => ctx.db.get(updated!.workflowItemId!)))?.status).toBe("done");
+    expect((await f.t.run((ctx) => ctx.db.get(task)))?.status).toBe("not_started");
+  });
+
+  test.each(["packing", "convention", "many", "regenerate"])(
+    "legacy reverse pointers cannot cascade foreign tasks via %s",
+    async (route) => {
+      const f = await fixture();
+      const task = await aliceItem(f);
+      await f.t.run(async (ctx) => {
+        await ctx.db.patch(f.bobPacking, { workflowItemId: task });
+      });
+      const asBob = f.t.withIdentity({ subject: BOB });
+      if (route === "packing")
+        await asBob.mutation(api.conventions.deletePackingItem, { id: f.bobPacking });
+      if (route === "convention")
+        await asBob.mutation(api.conventions.remove, { id: f.bobConvention });
+      if (route === "many")
+        await asBob.mutation(api.conventions.removeMany, { ids: [f.bobConvention] });
+      if (route === "regenerate")
+        await asBob.mutation(api.conventions.regeneratePacking, { conventionId: f.bobConvention });
+      expect(await f.t.run((ctx) => ctx.db.get(task))).not.toBeNull();
+      expect(await f.t.run((ctx) => ctx.db.get(f.bobPacking))).toBeNull();
+    }
+  );
+
+  test("deleting a legacy foreign attachment detaches the preserved reverse pointer", async () => {
+    const f = await fixture();
+    const task = await aliceItem(f);
+    await plantAttachment(f, task, "packingItem", f.bobPacking, "packing_entry");
+    await f.t.run(async (ctx) => {
+      await ctx.db.patch(f.bobPacking, { workflowItemId: task });
+    });
+    await f.t.withIdentity({ subject: ALICE }).mutation(api.workflow.remove, { id: task });
+    expect((await f.t.run((ctx) => ctx.db.get(f.bobPacking)))?.workflowItemId).toBeUndefined();
+    await f.t
+      .withIdentity({ subject: BOB })
+      .mutation(api.conventions.updatePackingItem, { id: f.bobPacking, checked: false });
+    expect((await f.t.run((ctx) => ctx.db.get(f.bobPacking)))?.checked).toBe(false);
+  });
+
   test("the planner does not resolve names or progress of stored foreign references", async () => {
     const f = await fixture();
     const asAlice = f.t.withIdentity({ subject: ALICE });
@@ -449,7 +551,7 @@ describe("group convention days only link the linking admin's own conventions", 
     expect(await f.t.run((ctx) => ctx.db.query("groupConventionDays").collect())).toEqual([]);
   });
 
-  test("a stored link to a non-member's convention is not listed", async () => {
+  test("historical private links remain redacted even after an admin adds their owner", async () => {
     const f = await fixture();
     const asAlice = f.t.withIdentity({ subject: ALICE });
     await f.t.run(async (ctx) => {
@@ -459,17 +561,44 @@ describe("group convention days only link the linking admin's own conventions", 
         date: "2026-09-02",
       });
     });
+    for (const addOwner of [false, true]) {
+      if (addOwner)
+        await asAlice.mutation(api.groups.addMember, {
+          groupId: f.aliceGroup,
+          newUserId: BOB,
+          role: "member",
+        });
+      expect(
+        await asAlice.query(api.groupConventionDays.listForGroupWithConventions, {
+          groupId: f.aliceGroup,
+        })
+      ).toEqual([
+        {
+          conventionId: f.bobConvention,
+          conventionName: "Private convention",
+          startDate: "",
+          endDate: "",
+          dates: ["2026-09-02"],
+        },
+      ]);
+      expect(
+        await asAlice.query(api.groupConventionDays.listForGroup, { groupId: f.aliceGroup })
+      ).toHaveLength(1);
+    }
     expect(
-      await asAlice.query(api.groupConventionDays.listForGroupWithConventions, {
-        groupId: f.aliceGroup,
-      })
-    ).toEqual([]);
-    expect(
-      await asAlice.query(api.groupConventionDays.listForGroup, { groupId: f.aliceGroup })
-    ).toEqual([]);
+      (
+        await f.t
+          .withIdentity({ subject: BOB })
+          .query(api.groupConventionDays.listForGroupWithConventions, { groupId: f.aliceGroup })
+      )[0]
+    ).toMatchObject({
+      conventionName: "Bob secret con",
+      startDate: "2026-09-01",
+      endDate: "2026-09-03",
+    });
   });
 
-  test("members see the admin's own linked convention until its owner leaves", async () => {
+  test("only owners see convention details while members retain schedule entries", async () => {
     const f = await fixture();
     const asAlice = f.t.withIdentity({ subject: ALICE });
     const asBob = f.t.withIdentity({ subject: BOB });
@@ -495,9 +624,9 @@ describe("group convention days only link the linking admin's own conventions", 
     ).toEqual([
       {
         conventionId: f.aliceConvention,
-        conventionName: "Alice con",
-        startDate: "2026-10-01",
-        endDate: "2026-10-03",
+        conventionName: "Private convention",
+        startDate: "",
+        endDate: "",
         dates: ["2026-10-01", "2026-10-02", "2026-10-03"],
       },
     ]);
@@ -505,7 +634,17 @@ describe("group convention days only link the linking admin's own conventions", 
       await asBob.query(api.groupConventionDays.listForGroup, { groupId: f.aliceGroup })
     ).toHaveLength(3);
 
-    // Promote Bob, then the convention's owner leaves: her convention is no longer shown.
+    expect(
+      (
+        await asAlice.query(api.groupConventionDays.listForGroupWithConventions, {
+          groupId: f.aliceGroup,
+        })
+      )[0]
+    ).toMatchObject({
+      conventionName: "Alice con",
+      startDate: "2026-10-01",
+      endDate: "2026-10-03",
+    });
     await asAlice.mutation(api.groups.setMemberRole, {
       groupId: f.aliceGroup,
       targetUserId: BOB,
@@ -519,9 +658,9 @@ describe("group convention days only link the linking admin's own conventions", 
       await asBob.query(api.groupConventionDays.listForGroupWithConventions, {
         groupId: f.aliceGroup,
       })
-    ).toEqual([]);
+    ).toMatchObject([{ conventionName: "Private convention", startDate: "", endDate: "" }]);
     expect(
       await asBob.query(api.groupConventionDays.listForGroup, { groupId: f.aliceGroup })
-    ).toEqual([]);
+    ).toHaveLength(3);
   });
 });

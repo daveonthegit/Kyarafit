@@ -30,10 +30,23 @@ async function getPackingWorkflowStatus(
   ctx: QueryCtx | MutationCtx,
   item: Doc<"packingListItems">
 ) {
-  if (!item.workflowItemId) return item.checked;
-  const workflowItem = await ctx.db.get(item.workflowItemId);
+  const workflowItem = await getOwnedPackingWorkflowItem(ctx, item);
   if (!workflowItem) return item.checked;
   return workflowItem.status === "done";
+}
+
+async function getOwnedPackingWorkflowItem(
+  ctx: QueryCtx | MutationCtx,
+  item: Doc<"packingListItems">
+) {
+  const task = item.workflowItemId ? await ctx.db.get(item.workflowItemId) : null;
+  return task?.userId === item.userId ? task : null;
+}
+
+async function removePackingItem(ctx: MutationCtx, item: Doc<"packingListItems">) {
+  const task = await getOwnedPackingWorkflowItem(ctx, item);
+  if (task) await removeWorkflowItemCascade(ctx, task._id);
+  if (await ctx.db.get(item._id)) await ctx.db.delete(item._id);
 }
 
 /**
@@ -268,8 +281,7 @@ export const removeMany = mutation({
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
         .collect();
       for (const pi of packingItems) {
-        if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-        else await ctx.db.delete(pi._id);
+        await removePackingItem(ctx, pi);
       }
       await ctx.db.delete(id);
     }
@@ -307,8 +319,7 @@ export async function deleteOwnedConvention(
     .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
     .collect();
   for (const pi of packingItems) {
-    if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-    else await ctx.db.delete(pi._id);
+    await removePackingItem(ctx, pi);
   }
 
   await ctx.db.delete(convention._id);
@@ -438,7 +449,7 @@ export const updatePackingItem = mutation({
     }
     const updated = await ctx.db.get(id);
     if (updated) {
-      await ensurePackingWorkflowItem(ctx, {
+      const workflowItemId = await ensurePackingWorkflowItem(ctx, {
         userId: actorId,
         packingListItemId: updated._id,
         conventionId: updated.conventionId,
@@ -450,14 +461,11 @@ export const updatePackingItem = mutation({
         checked: args.checked ?? updated.checked,
         manual: updated.entryKind === "manual" || (!updated.cosplayNodeId && !updated.buildId),
       });
-      if (args.checked !== undefined && updated.workflowItemId) {
-        await ctx.db.patch(updated.workflowItemId, {
-          status: args.checked ? "done" : "not_started",
-        });
-      }
       return {
         ...updated,
-        checked: args.checked ?? (await getPackingWorkflowStatus(ctx, updated)),
+        workflowItemId,
+        checked:
+          args.checked ?? (await getPackingWorkflowStatus(ctx, { ...updated, workflowItemId })),
       };
     }
     return updated;
@@ -537,11 +545,7 @@ export const deletePackingItem = mutation({
     if (!item || item.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    if (item.workflowItemId) {
-      await removeWorkflowItemCascade(ctx, item.workflowItemId);
-      return;
-    }
-    await ctx.db.delete(args.id);
+    await removePackingItem(ctx, item);
   },
 });
 
@@ -597,11 +601,7 @@ export const regeneratePacking = mutation({
       .collect();
     for (const item of existing) {
       if (item.entryKind !== "manual") {
-        if (item.workflowItemId) {
-          await removeWorkflowItemCascade(ctx, item.workflowItemId);
-        } else {
-          await ctx.db.delete(item._id);
-        }
+        await removePackingItem(ctx, item);
       }
     }
 

@@ -7,19 +7,13 @@ import { getGroupMembership, isGroupMember } from "./lib/buildAccess";
 import { availableOwnedDocument } from "./lib/discoveryAccess";
 import type { Id } from "./_generated/dataModel";
 
-/**
- * A group's linked convention, as its members may see it. Conventions are private to their
- * owner; linking one into a group shares it only while that owner is still a member, so a
- * row pointing at anyone else's convention discloses nothing.
- */
 async function groupVisibleConvention(
   ctx: QueryCtx,
-  groupId: Id<"groups">,
+  actorId: string,
   conventionId: Id<"conventions">
 ) {
   const convention = await availableOwnedDocument(ctx, await ctx.db.get(conventionId));
-  if (!convention) return null;
-  return (await isGroupMember(ctx, groupId, convention.userId)) ? convention : null;
+  return convention?.userId === actorId ? convention : null;
 }
 
 /**
@@ -41,18 +35,7 @@ export const listForGroup = query({
     const selected = args.conventionId
       ? all.filter((d) => d.conventionId === args.conventionId)
       : all;
-    const visible = new Map<string, boolean>();
-    const live = [];
-    for (const day of selected) {
-      if (!visible.has(day.conventionId)) {
-        visible.set(
-          day.conventionId,
-          (await groupVisibleConvention(ctx, args.groupId, day.conventionId)) !== null
-        );
-      }
-      if (visible.get(day.conventionId)) live.push(day);
-    }
-    return live;
+    return selected;
   },
 });
 
@@ -111,21 +94,15 @@ export const listForGroupWithConventions = query({
         dates: string[];
       }
     >();
-    const hidden = new Set<string>();
     for (const d of days) {
       const key = d.conventionId;
-      if (hidden.has(key)) continue;
       if (!byConvention.has(key)) {
-        const con = await groupVisibleConvention(ctx, args.groupId, d.conventionId);
-        if (!con) {
-          hidden.add(key);
-          continue;
-        }
+        const con = await groupVisibleConvention(ctx, actorId, d.conventionId);
         byConvention.set(key, {
           conventionId: key,
-          conventionName: con.name,
-          startDate: con.startDate,
-          endDate: con.endDate,
+          conventionName: con?.name ?? "Private convention",
+          startDate: con?.startDate ?? "",
+          endDate: con?.endDate ?? "",
           dates: [],
         });
       }

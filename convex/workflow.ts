@@ -887,6 +887,7 @@ async function syncPackingItemsFromWorkflowItem(
   ctx: MutationCtx,
   workflowItem: Doc<"workflowItems">
 ) {
+  const actorId = await requireIdentity(ctx);
   const attachments = await ctx.db
     .query("workflowAttachments")
     .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", workflowItem._id))
@@ -896,9 +897,13 @@ async function syncPackingItemsFromWorkflowItem(
     if (attachment.entityType !== "packingItem") continue;
     const packingId = ctx.db.normalizeId("packingListItems", attachment.entityId);
     const packingItem = packingId ? await ctx.db.get(packingId) : null;
-    // Only the workflow item owner's own packing rows mirror it; a stored reference to
-    // anyone else's row is never written through.
-    if (!packingId || !packingItem || packingItem.userId !== workflowItem.userId) continue;
+    if (
+      !packingId ||
+      !packingItem ||
+      packingItem.userId !== workflowItem.userId ||
+      packingItem.userId !== actorId
+    )
+      continue;
     await ctx.db.patch(
       packingId,
       withUpdateMeta(packingItem, {
@@ -916,6 +921,7 @@ export async function removeWorkflowItemCascade(
   ctx: MutationCtx,
   workflowItemId: Id<"workflowItems">
 ) {
+  const actorId = await requireIdentity(ctx);
   const item = await ctx.db.get(workflowItemId);
   if (!item) return;
 
@@ -937,8 +943,9 @@ export async function removeWorkflowItemCascade(
     if (attachment.entityType !== "packingItem") continue;
     const packingId = ctx.db.normalizeId("packingListItems", attachment.entityId);
     const packingItem = packingId ? await ctx.db.get(packingId) : null;
-    // Only the owner's own packing rows cascade; a stored foreign reference is not followed.
-    if (packingId && packingItem?.userId === item.userId) await ctx.db.delete(packingId);
+    if (packingId && packingItem?.userId === item.userId && packingItem.userId === actorId) {
+      await ctx.db.delete(packingId);
+    }
   }
 
   const dependencies = await getWorkflowDependenciesForUser(ctx, item.userId);
@@ -952,6 +959,16 @@ export async function removeWorkflowItemCascade(
   }
 
   for (const id of subtreeIds.reverse()) {
+    const packingItems = await ctx.db
+      .query("packingListItems")
+      .withIndex("by_workflowItemId", (q) => q.eq("workflowItemId", id))
+      .collect();
+    for (const packingItem of packingItems) {
+      await ctx.db.patch(
+        packingItem._id,
+        withUpdateMeta(packingItem, { workflowItemId: undefined })
+      );
+    }
     await ctx.db.delete(id);
   }
 }
