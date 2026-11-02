@@ -161,9 +161,7 @@ export function BuildNodeManagerSection({
           <span className="material-symbols-outlined mb-3 block text-3xl text-media-fg-45">
             account_tree
           </span>
-          <p className="text-sm text-media-fg-70">
-            {tElements("emptyBody")}
-          </p>
+          <p className="text-sm text-media-fg-70">{tElements("emptyBody")}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button
               type="button"

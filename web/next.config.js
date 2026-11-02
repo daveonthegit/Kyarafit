@@ -23,7 +23,7 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   // Note: eslint config removed as it's no longer supported in Next.js 16
-  // Use next lint command directly or configure in eslint.config.mjs
+  // Run ESLint directly via npm run lint (eslint.config.mjs).
   // One canonical production host. Auth lives at SITE_URL/api/auth (https://www.kyarafit.com) with
   // a host-only session cookie, and only www/apex/app are trusted auth origins, so every other
   // production host permanently redirects to www with its path and query (docs/auth.md). Preview
@@ -53,7 +53,7 @@ const nextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-XSS-Protection", value: "1; mode=block" },
-      // Content-Security-Policy is per request (nonce-based) in src/middleware.ts.
+      // Content-Security-Policy is per request (nonce-based) in src/proxy.ts.
     ];
     if (isProduction && appOrigin.startsWith("https://")) {
       defaultHeaders.push({

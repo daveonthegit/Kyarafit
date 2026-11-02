@@ -928,12 +928,7 @@ function PlannerTaskNodeList({
   return (
     <ul className="divide-y divide-glass-divider">
       {tasks.map((task, index) => (
-        <PlannerTaskNodeItem
-          key={task._id}
-          task={task}
-          index={index}
-          context={context}
-        />
+        <PlannerTaskNodeItem key={task._id} task={task} index={index} context={context} />
       ))}
     </ul>
   );

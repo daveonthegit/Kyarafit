@@ -297,16 +297,16 @@ CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware imp
 
 Settings → Data exports a free JSON bundle of the signed-in account's server rows, fetched when
 Export is clicked and merged with any rows the browser's local store retains (the server copy wins
-for the same id); offline it exports the local rows alone and says so. Planner tasks not attached
-to a build are exported from the planner's projection, without notes, reminders or attachment
-roles, and group rows outside any build are not exported. The supported collections and
-versioned format are defined by [`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is
-not the mobile `.kyarafit` archive: photo binaries, build media collections and convention day
-plans are not included, and it is not a complete vault backup.
+for the same id); offline it exports the local rows alone and says so. See the
+[account export scope](setup/ACCOUNT_EXPORT.md) for included records, access rules and exclusions.
+The versioned format is defined by [`dataPortability.ts`](../web/src/lib/dataPortability.ts).
+It is not the mobile `.kyarafit` archive or a complete vault backup.
 
-Web does not restore. Restoring writes personal data, which web never does (§5.1), so the page
-explains that backups are restored in the mobile app. A restore session left incomplete by an
-earlier web version still locks personal writes in that browser until it is cleared.
+Web does not offer backup-file restore: it has no vault to reconcile replayed personal rows
+([ADR-0006](adr/0006-web-edits-personal-data-online.md)). The page directs users to the mobile
+app for backup restore. An incomplete restore marker from an earlier web version still triggers
+a read-only notice and blocks paths guarded by `offlineRuntime.assertPersonalWritesAllowed`;
+it is not a supported restore or resume flow.
 
 The requirements below remain the target across platforms, not claims of current web fidelity.
 

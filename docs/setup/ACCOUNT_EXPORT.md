@@ -7,16 +7,16 @@ implementation, and it does not recreate sharing credentials or server operation
 
 ## Schema inventory
 
-| Ownership | Included tables |
-| --- | --- |
-| `userId` (session subject) | `builds`, `cosplayNodes`, `conventions`, `conventionDayPlans`, `packingListItems`, `buildTasks`, `workflowItems`, `workflowAttachments`, `workflowDependencies`, `workflowTemplates`, `buildReferenceImages`, `buildProcessPictures`, `buildProgressUpdates` |
-| Legacy `userId`, retained even if no current reader uses them | `closetItems`, `cosplayNodeLinks`, `buildCosplayLinks`, `buildNodeStates`, `buildItemLinks` |
-| Profile `externalId` | `users` |
-| `createdBy` (session subject), with current membership required | `groups` |
-| Owned template / creator-owned group with current membership | `workflowTemplateItems`, `groupConventionDays` |
-| Own membership, collaboration, authored social rows | `groupMembers`, `buildCollaborators`, `buildLikes`, `buildComments`, `activities` via `userId`; `follows` via `followerId` |
-| Internal user ID resolved from session subject | `userPushPreferences` via `userId`; `broadcasts` via `createdBy` |
-| Retained cloud-sync content via `userId` | `replicaRows`, `replicaConflicts`, `replicaAssets` |
+| Ownership                                                       | Included tables                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `userId` (session subject)                                      | `builds`, `cosplayNodes`, `conventions`, `conventionDayPlans`, `packingListItems`, `buildTasks`, `workflowItems`, `workflowAttachments`, `workflowDependencies`, `workflowTemplates`, `buildReferenceImages`, `buildProcessPictures`, `buildProgressUpdates` |
+| Legacy `userId`, retained even if no current reader uses them   | `closetItems`, `cosplayNodeLinks`, `buildCosplayLinks`, `buildNodeStates`, `buildItemLinks`                                                                                                                                                                  |
+| Profile `externalId`                                            | `users`                                                                                                                                                                                                                                                      |
+| `createdBy` (session subject), with current membership required | `groups`                                                                                                                                                                                                                                                     |
+| Owned template / creator-owned group with current membership    | `workflowTemplateItems`, `groupConventionDays`                                                                                                                                                                                                               |
+| Own membership, collaboration, authored social rows             | `groupMembers`, `buildCollaborators`, `buildLikes`, `buildComments`, `activities` via `userId`; `follows` via `followerId`                                                                                                                                   |
+| Internal user ID resolved from session subject                  | `userPushPreferences` via `userId`; `broadcasts` via `createdBy`                                                                                                                                                                                             |
+| Retained cloud-sync content via `userId`                        | `replicaRows`, `replicaConflicts`, `replicaAssets`                                                                                                                                                                                                           |
 
 Workflow groups and tasks are exported without requiring a build, convention, or attachment.
 Attachments and dependencies also have their own collections, preserving all fields independently
