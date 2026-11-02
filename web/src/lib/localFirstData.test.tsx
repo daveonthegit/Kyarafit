@@ -22,7 +22,8 @@ import { setOfflineConnectivity } from "./offline/connectivity";
 import { useOfflineMutation } from "./offline/useOfflineMutation";
 import { readLocalCollections } from "./localFirstData";
 import { rememberLocalAccount } from "./auth/localAccount";
-import { buildDataBundle, countRows, parseDataBundle } from "./dataPortability";
+import { buildDataBundle, countRows, parseDataBundle, PORTABLE_COLLECTIONS } from "./dataPortability";
+import { exportRecord } from "../test/accountExportRecords";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -35,6 +36,14 @@ afterEach(() => {
 });
 
 describe("readLocalCollections (REQ-D100 — export is free)", () => {
+  it.each(PORTABLE_COLLECTIONS)("round-trips locally retained %s records", (collection) => {
+    for (const key of ["users", "groups", "workflowTemplates", collection] as const) {
+      offlineRuntime.upsertSyncedEntityRow(key, key, "u1", exportRecord(key));
+    }
+    const row = exportRecord(collection);
+    const restored = parseDataBundle(buildDataBundle(readLocalCollections()));
+    expect(restored[collection][0]).toEqual(expect.objectContaining(row));
+  });
   it("exports elements alongside the task attachments that reference them", () => {
     offlineRuntime.upsertSyncedEntityRow("cosplayNodes", "node", "u1", {
       _id: "node",

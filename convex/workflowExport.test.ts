@@ -36,13 +36,16 @@ describe("workflow export", () => {
         userId: "bob", workflowItemId: other, entityType: "resource", entityId: "private",
         entityKey: "resource:private", role: "primary",
       });
-      return [
-        { ...await ctx.db.get(group), attachments: [], dependencies: [] },
-        { ...await ctx.db.get(task), attachments: [await ctx.db.get(attachment)], dependencies: [await ctx.db.get(dependency)] },
-      ];
+      return {
+        workflowItems: [await ctx.db.get(group), await ctx.db.get(task)],
+        workflowAttachments: [await ctx.db.get(attachment)],
+        workflowDependencies: [await ctx.db.get(dependency)],
+      };
     });
-    expect(await t.withIdentity({ subject: "alice" }).query(api.workflow.listForExport, {})).toEqual(expected);
-    expect(await t.query(api.workflow.listForExport, {})).toEqual([]);
-    expect(await t.withIdentity({ subject: "empty" }).query(api.workflow.listForExport, {})).toEqual([]);
+    for (const collection of ["workflowItems", "workflowAttachments", "workflowDependencies"] as const) {
+      expect(await t.withIdentity({ subject: "alice" }).query(api.accountExport.listCollection, { collection })).toEqual(expected[collection]);
+      expect(await t.withIdentity({ subject: "empty" }).query(api.accountExport.listCollection, { collection })).toEqual([]);
+      await expect(t.query(api.accountExport.listCollection, { collection })).rejects.toThrow("Unauthorized");
+    }
   });
 });

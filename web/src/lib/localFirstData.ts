@@ -11,6 +11,7 @@
  * both `@/lib/offline` and `./dataPortability`.
  */
 import { offlineRuntime } from "@/lib/offline";
+import { portableRecord } from "../../../convex/lib/exportCollections";
 import {
   emptyCollections,
   PORTABLE_COLLECTIONS,
@@ -24,14 +25,24 @@ export function readLocalCollections(
 ): PortableCollections {
   const collections = emptyCollections();
   if (!subject || offlineRuntime.getSubject() !== subject) return collections;
+  const rows = new Map(PORTABLE_COLLECTIONS.map((key) => [key, offlineRuntime.listLocalEntityRowsSync(key)]));
+  const user = rows.get("users")?.find((row) => row.externalId === subject);
+  const templates = new Set(rows.get("workflowTemplates")?.filter((row) => row.userId === subject).map((row) => row._id ?? row.id));
+  const groups = new Set(rows.get("groups")?.filter((row) => row.createdBy === subject).map((row) => row._id ?? row.id));
   for (const key of PORTABLE_COLLECTIONS) {
-    collections[key] = toExportableRows(
-      offlineRuntime.listLocalEntityRowsSync(key).filter((row) => row.userId === subject)
-    );
+    const owned = (rows.get(key) ?? []).filter((row) => {
+      if (key === "users") return row.externalId === subject;
+      if (key === "groups") return row.createdBy === subject;
+      if (key === "follows") return row.followerId === subject;
+      if (key === "workflowTemplateItems") return templates.has(row.templateId);
+      if (key === "groupConventionDays") return groups.has(row.groupId);
+      if (key === "broadcasts") return user != null && row.createdBy === (user._id ?? user.id);
+      if (key === "userPushPreferences") return user != null && row.userId === (user._id ?? user.id);
+      return row.userId === subject;
+    });
+    collections[key] = toExportableRows(owned.map((row) => portableRecord(key, row)));
   }
-  const attachments = offlineRuntime
-    .listLocalEntityRowsSync("workflowAttachments")
-    .filter((row) => row.userId === subject);
+  const attachments = collections.workflowAttachments;
   collections.workflowItems = collections.workflowItems.map((row) => ({
     ...row,
     attachments: Array.isArray(row.attachments)

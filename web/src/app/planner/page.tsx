@@ -919,11 +919,9 @@ function taskContextHref(task: PlannerTask) {
 function PlannerTaskNodeList({
   tasks,
   context,
-  parent,
 }: {
   tasks: PlannerTaskNode[];
   context: PlannerRowContext;
-  parent?: PlannerTaskNode;
 }) {
   if (!tasks.length) return null;
 
@@ -934,7 +932,6 @@ function PlannerTaskNodeList({
           key={task._id}
           task={task}
           index={index}
-          parent={parent}
           context={context}
         />
       ))}
@@ -945,12 +942,10 @@ function PlannerTaskNodeList({
 function PlannerTaskNodeItem({
   task,
   index,
-  parent,
   context,
 }: {
   task: PlannerTaskNode;
   index: number;
-  parent?: PlannerTaskNode;
   context: PlannerRowContext;
 }) {
   const { userId, onToggle, dragController, describeDue, labels } = context;
@@ -959,12 +954,12 @@ function PlannerTaskNodeItem({
     () => ({
       taskId: task._id as string,
       scopeKey: plannerTaskScopeKey(task),
-      parentId: parent?._id as string | undefined,
+      parentId: task.parentId as string | undefined,
       siblingIndex: index,
       ancestorIds: (task.ancestorIds ?? []).map((id) => id as string),
       title: task.title,
     }),
-    [index, parent?._id, task]
+    [index, task]
   );
 
   const active = dragController.state.draggingMeta?.taskId === task._id;
@@ -1023,7 +1018,7 @@ function PlannerTaskNodeItem({
       </div>
       {childrenOpen && task.children.length > 0 ? (
         <div className="mb-1 ml-[15px] border-l border-glass-divider-strong pl-3 sm:pl-4">
-          <PlannerTaskNodeList tasks={task.children} parent={task} context={context} />
+          <PlannerTaskNodeList tasks={task.children} context={context} />
         </div>
       ) : null}
     </li>

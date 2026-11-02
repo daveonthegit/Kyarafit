@@ -120,7 +120,7 @@
     "importInMobileApp": "Restaurar un archivo de copia de seguridad no está disponible en la web. Todo lo que editas aquí ya se guarda en tu cuenta de Kyarafit.",
     "restoreReadOnly": "Termina o deshaz la restauración primero.",
     "backToSettings": "Volver a ajustes",
-    "accountExportNote": "Incluye todo lo guardado en tu cuenta de Kyarafit",
+    "accountExportNote": "Incluye proyectos, elementos, eventos y planes diarios, listas de equipaje, tareas y grupos de tareas, vínculos y plantillas de trabajo, notas de progreso, referencias de fotos, registros antiguos del armario, tu perfil, grupos que creaste y sus días de evento, tus membresías, seguimientos, me gusta, comentarios, colaboraciones, actividad, preferencias de notificaciones, anuncios que redactaste y filas, conflictos y referencias multimedia conservados en la sincronización en la nube. No incluye archivos de fotos, identificadores de facturación, tokens de notificaciones ni estado interno del servicio.",
     "localOnlyNotice": "No tienes conexión, así que la exportación solo incluye lo que guarda este navegador: {count} elemento(s)",
     "exportPreparing": "Preparando la exportación…",
     "exportedCount": "Se exportaron {count} elemento(s).",

@@ -1,56 +1,40 @@
 import { describe, it, expect, vi } from "vitest";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { fetchCloudCollections, mergeCollections, type CloudExportClient } from "./cloudExport";
-import { buildDataBundle, emptyCollections, parseDataBundle } from "./dataPortability";
+import { buildDataBundle, emptyCollections, parseDataBundle, PORTABLE_COLLECTIONS, type PortableCollectionKey } from "./dataPortability";
+import { exportRecord } from "../test/accountExportRecords";
 
-type Args = Record<string, unknown>;
-function fakeClient(respond: (name: string, args: Args) => unknown) {
-  const query = vi.fn(async (ref: FunctionReference<"query">, args: Args = {}) => {
-    const value = respond(getFunctionName(ref), args);
+type Args = { collection: PortableCollectionKey };
+function fakeClient(respond: (args: Args) => unknown) {
+  const query = vi.fn(async (ref: FunctionReference<"query">, args: Args) => {
+    expect(getFunctionName(ref)).toBe("accountExport:listCollection");
+    const value = respond(args);
     if (value instanceof Error) throw value;
     return value;
   });
   return { client: { query } as unknown as CloudExportClient, query };
 }
 
-const workflow = [
-  { _id: "g1", userId: "u1", title: "Travel", kind: "group", attachments: [], dependencies: [] },
-  {
-    _id: "w1", userId: "u1", title: "Book hotel", kind: "task", parentId: "g1",
-    notes: "Near the venue", reminders: [{ kind: "date", date: "2026-11-01" }],
-    attachments: [{ _id: "a1", entityType: "convention", entityId: "c1", role: "primary" }],
-    dependencies: [{ _id: "d1", predecessorWorkflowItemId: "w2", successorWorkflowItemId: "w1", relationKind: "finish_to_start" }],
-  },
-];
-const account: Record<string, unknown> = {
-  "builds:list": [{ _id: "b1", name: "Aerith", shareToken: "secret", tasksTotal: 2 }],
-  "conventions:list": [{ _id: "c1", name: "Anime Expo" }],
-  "cosplayNodes:list": [{ _id: "n1", name: "Wig", progressPercent: 0 }],
-  "workflow:listForExport": workflow,
-  "conventions:getPacking": [{ _id: "p1", conventionId: "c1", label: "Wig" }],
-};
-
-describe("fetchCloudCollections", () => {
-  it("preserves complete non-build tasks, groups and relationships through bundle export", async () => {
-    const { client } = fakeClient((name) => account[name]);
-    const collections = await fetchCloudCollections(client);
-    const restored = parseDataBundle(buildDataBundle(collections));
-    expect(restored.workflowItems).toEqual(workflow.map((row) => ({ ...row, id: row._id })));
-    expect(collections.builds).toEqual([{ _id: "b1", id: "b1", name: "Aerith" }]);
-    expect(collections.conventions).toEqual([{ _id: "c1", id: "c1", name: "Anime Expo" }]);
-    expect(collections.cosplayNodes).toEqual([{ _id: "n1", id: "n1", name: "Wig" }]);
-    expect(collections.packingListItems).toEqual([{ _id: "p1", id: "p1", conventionId: "c1", label: "Wig" }]);
+describe("account archive", () => {
+  it.each(PORTABLE_COLLECTIONS)("round-trips full %s records through cloud collection and bundle serialization", async (collection) => {
+    const row = exportRecord(collection);
+    const { client } = fakeClient((args) => args.collection === collection ? [row] : []);
+    const restored = parseDataBundle(buildDataBundle(await fetchCloudCollections(client)));
+    expect(restored[collection]).toEqual([row]);
   });
 
-  it("bounds packing queries to six workers through the default interface", async () => {
-    const conventions = Array.from({ length: 10 }, (_, index) => ({ _id: `c${index}` }));
+  it("includes non-build workflow groups alongside convention-only tasks and their notes", async () => {
+    const task = exportRecord("workflowItems");
+    const group = { id: "task-group", title: "Travel", kind: "group", notes: "Book early" };
+    const { client } = fakeClient(({ collection }) => collection === "workflowItems" ? [task, group] : []);
+    expect(parseDataBundle(buildDataBundle(await fetchCloudCollections(client))).workflowItems).toEqual([task, group]);
+  });
+
+  it("uses six workers through the default interface and reports every collection", async () => {
     let inFlight = 0;
     let maximum = 0;
     const { client, query } = fakeClient(() => []);
-    query.mockImplementation(async (ref: FunctionReference<"query">) => {
-      const name = getFunctionName(ref);
-      if (name === "conventions:list") return conventions;
-      if (name !== "conventions:getPacking") return [];
+    query.mockImplementation(async () => {
       inFlight++;
       maximum = Math.max(maximum, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 1));
@@ -60,23 +44,22 @@ describe("fetchCloudCollections", () => {
     const progress: Array<[number, number]> = [];
     await fetchCloudCollections(client, { onProgress: (done, total) => progress.push([done, total]) });
     expect(maximum).toBe(6);
-    expect(query.mock.calls.filter(([ref]) => getFunctionName(ref) === "conventions:getPacking").map(([, args]) => args)).toEqual(conventions.map(({ _id }) => ({ conventionId: _id })));
-    expect(progress[0]).toEqual([0, 10]);
-    expect(progress.at(-1)).toEqual([10, 10]);
+    expect(query.mock.calls.map(([, args]) => args.collection)).toEqual([...PORTABLE_COLLECTIONS]);
+    expect(progress[0]).toEqual([0, PORTABLE_COLLECTIONS.length]);
+    expect(progress.at(-1)).toEqual([PORTABLE_COLLECTIONS.length, PORTABLE_COLLECTIONS.length]);
   });
 
-  it.each(["workflow:listForExport", "conventions:getPacking"])("rejects rather than exporting partial data when %s fails", async (failed) => {
-    const { client } = fakeClient((name) => name === failed ? new Error("Read failed") : account[name]);
+  it.each(PORTABLE_COLLECTIONS)("rejects rather than producing a partial archive when %s fails", async (failed) => {
+    const { client } = fakeClient(({ collection }) => collection === failed ? new Error("Read failed") : []);
     await expect(fetchCloudCollections(client)).rejects.toThrow("Read failed");
   });
-});
 
-describe("mergeCollections", () => {
-  it("retains local-only rows and prefers server rows for shared ids", () => {
+  it.each(PORTABLE_COLLECTIONS)("merges local-only %s rows and prefers the server for shared identities", (collection) => {
     const server = emptyCollections();
-    server.builds = [{ id: "b1", name: "Server" }];
+    server[collection] = [{ id: "shared", notes: "Server" }];
     const local = emptyCollections();
-    local.builds = [{ id: "b1", name: "Stale" }, { id: "b2", name: "Draft" }];
-    expect(mergeCollections(server, local).builds).toEqual([{ id: "b1", name: "Server" }, { id: "b2", name: "Draft" }]);
+    local[collection] = [{ id: "shared", notes: "Stale" }, { id: "local", notes: "Draft" }];
+    const restored = parseDataBundle(buildDataBundle(mergeCollections(server, local)));
+    expect(restored[collection]).toEqual([{ id: "shared", notes: "Server" }, { id: "local", notes: "Draft" }]);
   });
 });
