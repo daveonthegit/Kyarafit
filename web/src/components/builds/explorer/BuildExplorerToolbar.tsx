@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type BuildExplorerToolbarProps = {
   search: string;
   onSearchChange: (value: string) => void;
@@ -17,6 +19,8 @@ export function BuildExplorerToolbar({
   rootCount,
   matchCount,
 }: BuildExplorerToolbarProps) {
+  const t = useTranslations("Elements");
+  const tStudio = useTranslations("Studio");
   const isFiltered = search.trim().length > 0;
 
   return (
@@ -29,16 +33,16 @@ export function BuildExplorerToolbar({
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search linked elements…"
+          placeholder={t("searchLinkedPlaceholder")}
           className="glass-field w-full py-2 pl-9 pr-3 text-[13px] focus:ring-1 focus:ring-kyar-accent"
-          aria-label="Search linked elements"
+          aria-label={t("searchLinked")}
         />
         {isFiltered ? (
           <button
             type="button"
             onClick={() => onSearchChange("")}
             className="absolute right-2 flex h-5 w-5 items-center justify-center rounded-full text-media-fg-55 hover:text-kyar-media-fg"
-            aria-label="Clear filter"
+            aria-label={t("clearFilter")}
           >
             <span className="material-symbols-outlined text-sm">close</span>
           </button>
@@ -53,7 +57,7 @@ export function BuildExplorerToolbar({
           className="inline-flex items-center gap-1.5 rounded-full border border-glass-border-strong bg-glass-bar px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg transition-colors hover:bg-glass-active"
         >
           <span className="material-symbols-outlined text-base">add</span>
-          New main element
+          {t("newMainElement")}
         </button>
         <button
           type="button"
@@ -61,7 +65,7 @@ export function BuildExplorerToolbar({
           className="inline-flex items-center gap-1.5 rounded-full border border-glass-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70 transition-colors hover:bg-glass-active hover:text-kyar-media-fg"
         >
           <span className="material-symbols-outlined text-base">link</span>
-          Link
+          {t("link")}
         </button>
       </div>
 
@@ -69,8 +73,8 @@ export function BuildExplorerToolbar({
       {rootCount > 0 ? (
         <div className="text-[10px] tabular-nums text-media-fg-55 sm:hidden">
           {isFiltered
-            ? `${matchCount ?? rootCount} match${(matchCount ?? rootCount) === 1 ? "" : "es"}`
-            : `${rootCount} main element${rootCount === 1 ? "" : "s"}`}
+            ? tStudio("explorerMatches", { count: matchCount ?? rootCount })
+            : t("mainElementCount", { count: rootCount })}
         </div>
       ) : null}
     </div>

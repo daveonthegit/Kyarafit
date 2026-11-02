@@ -5,8 +5,8 @@
  *
  * Export and import are FREE for everyone — there is intentionally no tier gate in this module.
  *
- * Collections use the shared `exportBundle` / `importBundle` encoding. The web restore supports
- * only the fields accepted by its create adapter, not full-vault fidelity; see DATA_AND_SYNC.md §11.
+ * Collections use the shared `exportBundle` / `importBundle` encoding. The retained create adapter
+ * is not exposed as web restore; see DATA_AND_SYNC.md §11 for the current backup contracts.
  */
 import {
   MAX_LENGTH,
@@ -22,13 +22,8 @@ import {
 } from "@kyarafit/design-system/domain/importExport";
 
 /** Local-first entity collections included in a portable bundle. Order is stable for summaries. */
-export const PORTABLE_COLLECTIONS = [
-  "builds",
-  "conventions",
-  "cosplayNodes",
-  "packingListItems",
-  "workflowItems",
-] as const;
+export { EXPORT_COLLECTIONS as PORTABLE_COLLECTIONS } from "../../../convex/lib/exportCollections";
+import { EXPORT_COLLECTIONS as PORTABLE_COLLECTIONS } from "../../../convex/lib/exportCollections";
 
 export type PortableCollectionKey = (typeof PORTABLE_COLLECTIONS)[number];
 
@@ -62,13 +57,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** An empty set of collections — used as the loading/signed-out default and the import accumulator. */
 export function emptyCollections(): PortableCollections {
-  return {
-    builds: [],
-    conventions: [],
-    cosplayNodes: [],
-    workflowItems: [],
-    packingListItems: [],
-  };
+  return Object.fromEntries(
+    PORTABLE_COLLECTIONS.map((key) => [key, [] as ExportableRow[]])
+  ) as PortableCollections;
 }
 
 /**

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accountExport from "../accountExport.js";
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as broadcasts from "../broadcasts.js";
@@ -35,6 +36,7 @@ import type * as lib_buildAccess from "../lib/buildAccess.js";
 import type * as lib_buildPublicViewer from "../lib/buildPublicViewer.js";
 import type * as lib_cosplayGraph from "../lib/cosplayGraph.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
+import type * as lib_exportCollections from "../lib/exportCollections.js";
 import type * as lib_idempotency from "../lib/idempotency.js";
 import type * as lib_imageRef from "../lib/imageRef.js";
 import type * as lib_syncMeta from "../lib/syncMeta.js";
@@ -59,6 +61,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountExport: typeof accountExport;
   admin: typeof admin;
   auth: typeof auth;
   broadcasts: typeof broadcasts;
@@ -86,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "lib/buildPublicViewer": typeof lib_buildPublicViewer;
   "lib/cosplayGraph": typeof lib_cosplayGraph;
   "lib/entitlements": typeof lib_entitlements;
+  "lib/exportCollections": typeof lib_exportCollections;
   "lib/idempotency": typeof lib_idempotency;
   "lib/imageRef": typeof lib_imageRef;
   "lib/syncMeta": typeof lib_syncMeta;

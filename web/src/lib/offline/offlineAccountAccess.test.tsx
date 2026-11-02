@@ -118,11 +118,9 @@ it("opens the remembered vault on an offline cold launch without authenticating 
   await waitFor(() => expect(offlineRuntime.getSubject()).toBe("A"));
   expect(screen.getByText("A")).toBeInTheDocument();
   expect(readLocalCollections("A").builds.map((row) => row.id)).toEqual(["A"]);
-  // Reading works offline; personal writes are refused on web (ADR-0005), visibly and locally.
-  const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+  // Reading works offline; web edits need a connection (ADR-0006), so nothing is queued or sent.
   fireEvent.click(screen.getByText("Create"));
-  expect(await screen.findByRole("alert")).toHaveTextContent("PublishedReadOnlyError");
-  expect(alert).toHaveBeenCalledOnce();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Error");
   expect(readLocalCollections("A").builds).toHaveLength(1);
   expect(state.redirect).not.toHaveBeenCalled();
   expect(state.mutation).not.toHaveBeenCalled();

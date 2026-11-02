@@ -4,6 +4,8 @@ import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { useOfflineQuery, useOfflineMutation } from "@/lib/offline";
 import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -13,8 +15,22 @@ import type { Id } from "convex/_generated/dataModel";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
 import type { CalendarDayData, CalendarEvent } from "@/components/ui/fullscreen-calendar";
 import { PlannerTaskRow } from "@/components/planner/PlannerWorkflowTaskUi";
+import { PlannerTaskGroup } from "@/components/planner/PlannerTaskGroup";
+import {
+  addDaysToPlannerDate,
+  comparePlannerTasksByDue,
+  comparePlannerTasksByOrder,
+  filterPlannerTasksByBuild,
+  groupPlannerTasks,
+  isPlannerTaskClosed,
+  isPlannerTaskOverdue,
+  listPlannerBuildFilters,
+  plannerLocalDate,
+  plannerTimeGroupFor,
+} from "@/components/planner/groupPlannerTasks";
 import {
   computePlannerTaskDropZone,
+  parseLocalDate,
   plannerTaskScopeKey,
   pointInsideRect,
   type DropZone,
@@ -47,23 +63,11 @@ type PlannerTask = {
 };
 
 type PlannerTaskNode = PlannerTask & { children: PlannerTaskNode[] };
-type BuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTaskNode[] };
-type RawBuildGroup = { buildId: Id<"builds">; buildName: string; tasks: PlannerTask[] };
-type ConventionGroup = {
-  conventionId: Id<"conventions">;
-  conventionName: string;
-  builds: BuildGroup[];
-  packingTasks: PlannerTaskNode[];
-};
 
-function comparePlannerTasks(a: PlannerTask, b: PlannerTask) {
-  if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-  const dateA = a.dueDate ?? "9999-12-31";
-  const dateB = b.dueDate ?? "9999-12-31";
-  if (dateA !== dateB) return dateA.localeCompare(dateB);
-  return a.title.localeCompare(b.title);
-}
-
+/**
+ * Nest a time group's tasks by `parentId`. A child whose parent landed in a
+ * different group (or was filtered out) becomes a root of this group.
+ */
 function buildTaskHierarchy(tasks: PlannerTask[]): PlannerTaskNode[] {
   const nodeMap = new Map<string, PlannerTaskNode>();
   for (const task of tasks) {
@@ -79,96 +83,16 @@ function buildTaskHierarchy(tasks: PlannerTask[]): PlannerTaskNode[] {
     else roots.push(node);
   }
 
-  const sortTree = (nodes: PlannerTaskNode[]) => {
-    nodes.sort(comparePlannerTasks);
-    for (const node of nodes) sortTree(node.children);
+  const sortChildren = (nodes: PlannerTaskNode[]) => {
+    for (const node of nodes) {
+      node.children.sort(comparePlannerTasksByOrder);
+      sortChildren(node.children);
+    }
   };
-  sortTree(roots);
+  roots.sort(comparePlannerTasksByOrder);
+  sortChildren(roots);
   return roots;
 }
-
-function buildTaskTree(
-  tasks: PlannerTask[],
-  conventionsList: Array<{ _id: Id<"conventions">; name: string }> | undefined
-): {
-  conventionGroups: ConventionGroup[];
-  standaloneBuilds: BuildGroup[];
-  /** Tasks with no build or convention attachment (e.g. cosplay-node-only workflow items). */
-  unassignedTasks: PlannerTaskNode[];
-} {
-  const conventionMap = new Map<
-    Id<"conventions">,
-    {
-      conventionName: string;
-      builds: Map<Id<"builds">, RawBuildGroup>;
-      packingTasks: PlannerTask[];
-    }
-  >();
-  const standaloneMap = new Map<Id<"builds">, RawBuildGroup>();
-  const unassignedTasks: PlannerTask[] = [];
-
-  const getConventionName = (conventionId: Id<"conventions">) =>
-    conventionsList?.find((c) => c._id === conventionId)?.name ?? "Event";
-
-  for (const task of tasks) {
-    if (task.conventionId) {
-      let group = conventionMap.get(task.conventionId);
-      if (!group) {
-        group = {
-          conventionName: getConventionName(task.conventionId),
-          builds: new Map(),
-          packingTasks: [],
-        };
-        conventionMap.set(task.conventionId, group);
-      }
-      const isPackingTask =
-        task.category === "pack" || Boolean(task.packingListItemId) || !task.buildId;
-      if (isPackingTask) {
-        group.packingTasks.push(task);
-      } else {
-        let buildGroup = group.builds.get(task.buildId!);
-        if (!buildGroup) {
-          buildGroup = { buildId: task.buildId!, buildName: task.buildName ?? "Build", tasks: [] };
-          group.builds.set(task.buildId!, buildGroup);
-        }
-        buildGroup.tasks.push(task);
-      }
-    } else if (task.buildId) {
-      let buildGroup = standaloneMap.get(task.buildId);
-      if (!buildGroup) {
-        buildGroup = { buildId: task.buildId, buildName: task.buildName ?? "Build", tasks: [] };
-        standaloneMap.set(task.buildId, buildGroup);
-      }
-      buildGroup.tasks.push(task);
-    } else {
-      unassignedTasks.push(task);
-    }
-  }
-
-  const conventionGroups: ConventionGroup[] = Array.from(conventionMap.entries()).map(
-    ([conventionId, g]) => ({
-      conventionId,
-      conventionName: g.conventionName,
-      builds: Array.from(g.builds.values())
-        .sort((a, b) => a.buildName.localeCompare(b.buildName))
-        .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) })),
-      packingTasks: buildTaskHierarchy(g.packingTasks),
-    })
-  );
-  conventionGroups.sort((a, b) => a.conventionName.localeCompare(b.conventionName));
-
-  const standaloneBuilds = Array.from(standaloneMap.values())
-    .sort((a, b) => a.buildName.localeCompare(b.buildName))
-    .map((build) => ({ ...build, tasks: buildTaskHierarchy(build.tasks) }));
-
-  return {
-    conventionGroups,
-    standaloneBuilds,
-    unassignedTasks: buildTaskHierarchy(unassignedTasks),
-  };
-}
-
-type Timeframe = "all" | "today" | "week";
 
 type PlannerDragState = {
   draggingMeta: PlannerTaskDragMeta | null;
@@ -184,31 +108,17 @@ type PlannerDragController = {
   startDrag: (meta: PlannerTaskDragMeta, event: ReactPointerEvent<HTMLElement>) => void;
 };
 
-const TODAY = new Date().toISOString().slice(0, 10);
+/** Everything a task row needs from the page, threaded through the nested lists. */
+type PlannerRowContext = {
+  userId: string | null;
+  onToggle: (id: Id<"workflowItems">, checked: boolean) => Promise<unknown>;
+  dragController: PlannerDragController;
+  describeDue: (task: PlannerTask) => { label?: string; urgent: boolean };
+  labels: { dropInto: string; contextFallback: string; blocked: string };
+};
 
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function isDueApproaching(dueDate: string | undefined): boolean {
-  if (!dueDate) return false;
-  if (dueDate < TODAY) return false;
-  const weekEnd = addDays(TODAY, 7);
-  return dueDate <= weekEnd;
-}
-
-function isDueToday(dueDate: string | undefined): boolean {
-  return dueDate === TODAY;
-}
-
-function filterByTimeframe<T extends { dueDate?: string }>(tasks: T[], timeframe: Timeframe): T[] {
-  if (timeframe === "all") return tasks;
-  if (timeframe === "today") return tasks.filter((t) => isDueToday(t.dueDate));
-  const weekEnd = addDays(TODAY, 7);
-  return tasks.filter((t) => t.dueDate && t.dueDate >= TODAY && t.dueDate <= weekEnd) as T[];
-}
+const tabFocusClassName =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded-sm";
 
 type WorkflowDropTask = Pick<PlannerTask, "_id" | "sortOrder"> & {
   parentId?: Id<"workflowItems"> | null;
@@ -354,10 +264,13 @@ async function promotePlannerTreeTaskToRoot({
 }
 
 export default function Planner() {
+  const t = useTranslations("Planner");
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const [view, setView] = useState<TodoView>("daily");
-  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+  const [buildFilter, setBuildFilter] = useState<string | null>(null);
   const { userId } = useCurrentUser();
+  const today = useMemo(() => plannerLocalDate(), []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -369,70 +282,46 @@ export default function Planner() {
   const conventions = useOfflineQuery(api.conventions.list, userId ? { userId } : "skip");
   const buildsList = useOfflineQuery(api.builds.list, userId ? { userId } : "skip");
 
-  const filteredTasks = useMemo(() => {
-    const list = plannerTasks ?? [];
-    return filterByTimeframe(list, timeframe);
-  }, [plannerTasks, timeframe]);
+  const allTasks = useMemo<PlannerTask[]>(() => plannerTasks ?? [], [plannerTasks]);
 
-  const sortedTasks = useMemo(() => {
-    return [...filteredTasks].sort((a, b) => {
-      // 1. Incomplete first (what's left to do at the top)
-      const aDone = a.status === "done";
-      const bDone = b.status === "done";
-      if (aDone !== bDone) return aDone ? 1 : -1;
-      // 2. Due date ascending (soonest first; no date last)
-      const dateA = a.dueDate ?? "9999-12-31";
-      const dateB = b.dueDate ?? "9999-12-31";
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      // 3. By build name for stable grouping
-      const nameCmp = (a.buildName ?? "").localeCompare(b.buildName ?? "");
-      if (nameCmp !== 0) return nameCmp;
-      // 4. Higher priority first, then title.
-      if ((a.priority ?? 0) !== (b.priority ?? 0)) {
-        return (b.priority ?? 0) - (a.priority ?? 0);
-      }
-      return a.title.localeCompare(b.title);
-    });
-  }, [filteredTasks]);
+  /** "All" + one tab per build that still has open tasks (selected build stays put). */
+  const buildTabs = useMemo(
+    () => listPlannerBuildFilters(allTasks, buildFilter),
+    [allTasks, buildFilter]
+  );
+  const activeBuildId =
+    buildFilter != null && buildTabs.some((tab) => tab.buildId === buildFilter)
+      ? buildFilter
+      : null;
 
-  const { deadlineApproaching, other } = useMemo(() => {
-    const approaching: typeof sortedTasks = [];
-    const rest: typeof sortedTasks = [];
-    for (const t of sortedTasks) {
-      if (isDueApproaching(t.dueDate)) approaching.push(t);
-      else rest.push(t);
-    }
-    return { deadlineApproaching: approaching, other: rest };
-  }, [sortedTasks]);
+  const visibleTasks = useMemo(
+    () => filterPlannerTasksByBuild(allTasks, activeBuildId),
+    [allTasks, activeBuildId]
+  );
 
-  const treeApproaching = useMemo(
-    () => buildTaskTree(deadlineApproaching, conventions ?? undefined),
-    [deadlineApproaching, conventions]
-  );
-  const treeOther = useMemo(
-    () => buildTaskTree(other, conventions ?? undefined),
-    [other, conventions]
-  );
-  const treeAll = useMemo(
-    () => buildTaskTree(sortedTasks, conventions ?? undefined),
-    [sortedTasks, conventions]
-  );
+  const groups = useMemo(() => {
+    const grouped = groupPlannerTasks(allTasks, { today, buildId: activeBuildId });
+    return {
+      today: { count: grouped.today.length, tree: buildTaskHierarchy(grouped.today) },
+      week: { count: grouped.week.length, tree: buildTaskHierarchy(grouped.week) },
+      later: { count: grouped.later.length, tree: buildTaskHierarchy(grouped.later) },
+    };
+  }, [allTasks, today, activeBuildId]);
 
   const calendarData = useMemo((): CalendarDayData[] => {
     const byDay = new Map<string, CalendarEvent[]>();
     const add = (day: Date, event: CalendarEvent) => {
-      const key = day.toISOString().slice(0, 10);
+      const key = format(day, "yyyy-MM-dd");
       const list = byDay.get(key) ?? [];
       list.push(event);
       byDay.set(key, list);
     };
-    (plannerTasks ?? []).forEach((task) => {
+    allTasks.forEach((task) => {
       if (!task.dueDate) return;
-      const day = new Date(task.dueDate + "T12:00:00");
-      add(day, {
+      add(parseLocalDate(task.dueDate.slice(0, 10)), {
         id: task._id,
         name: task.title,
-        time: "Due",
+        time: t("calendarDue"),
         datetime: task.dueDate + "T00:00:00",
         href: task.conventionId
           ? `/conventions/${task.conventionId}/packing`
@@ -440,33 +329,34 @@ export default function Planner() {
       });
     });
     (conventions ?? []).forEach((con) => {
-      const start = new Date(con.startDate + "T12:00:00");
-      add(start, {
+      add(parseLocalDate(con.startDate), {
         id: con._id,
         name: con.name,
-        time: "Event",
+        time: t("calendarEvent"),
         datetime: con.startDate + "T00:00:00",
         href: `/conventions/${con._id}`,
       });
     });
     return Array.from(byDay.entries()).map(([dateStr, events]) => ({
-      day: new Date(dateStr + "T12:00:00"),
+      day: parseLocalDate(dateStr),
       events,
     }));
-  }, [plannerTasks, conventions]);
+  }, [allTasks, conventions, t]);
 
-  /** Build owning the most urgent (soonest-due, incomplete) task — backs the page photo. */
+  /** Build owning the most urgent (soonest-due, open) task — backs the page photo. */
   const urgentBuild = useMemo(() => {
-    const task = sortedTasks.find((t) => t.status !== "done" && t.buildId);
+    const task = allTasks
+      .filter((candidate) => !isPlannerTaskClosed(candidate.status) && candidate.buildId)
+      .sort(comparePlannerTasksByDue)[0];
     if (!task) return undefined;
     return (buildsList ?? []).find((b) => b._id === task.buildId);
-  }, [sortedTasks, buildsList]);
+  }, [allTasks, buildsList]);
 
   const checkedCount = useMemo(
-    () => filteredTasks.filter((t) => t.status === "done").length,
-    [filteredTasks]
+    () => visibleTasks.filter((task) => task.status === "done").length,
+    [visibleTasks]
   );
-  const totalCount = filteredTasks.length;
+  const totalCount = visibleTasks.length;
   const progressPct = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
   const updateTask = useOfflineMutation(api.workflow.update);
@@ -523,7 +413,9 @@ export default function Planner() {
       }
 
       const rows = Array.from(document.querySelectorAll("[data-planner-task-drop-id]")).filter(
-        (node): node is HTMLElement => node instanceof HTMLElement
+        // Rows inside a collapsed group ("Later") are inert and visually hidden — never targets.
+        (node): node is HTMLElement =>
+          node instanceof HTMLElement && node.closest("[inert]") == null
       );
       let row: HTMLElement | null = null;
       let fallbackRow: HTMLElement | null = null;
@@ -664,26 +556,72 @@ export default function Planner() {
     userId,
   ]);
 
-  const handleToggle = async (taskId: Id<"workflowItems">, checked: boolean) => {
-    if (!userId) return;
-    try {
+  const handleToggle = useCallback(
+    async (taskId: Id<"workflowItems">, checked: boolean) => {
+      if (!userId) return;
+      // Rejections propagate so the row can roll back its optimistic check.
       await updateTask({ id: taskId, userId, status: checked ? "done" : "not_started" });
-    } catch {
-      // Error surfaces via Convex; could add inline error state
-    }
-  };
+    },
+    [updateTask, userId]
+  );
+
+  const describeDue = useCallback(
+    (task: PlannerTask) => {
+      if (!task.dueDate) return { urgent: false };
+      const due = task.dueDate.slice(0, 10);
+      const group = plannerTimeGroupFor(task, today);
+      const urgent = group === "today" && !isPlannerTaskClosed(task.status);
+      if (due === today) return { label: t("dueToday"), urgent };
+      if (due === addDaysToPlannerDate(today, 1)) return { label: t("dueTomorrow"), urgent };
+      const date = parseLocalDate(due);
+      const label =
+        group === "week"
+          ? date.toLocaleDateString(locale, { weekday: "short" })
+          : date.toLocaleDateString(locale, { month: "short", day: "numeric" });
+      return {
+        label: isPlannerTaskOverdue(task, today) ? t("dueOverdue", { date: label }) : label,
+        urgent,
+      };
+    },
+    [locale, t, today]
+  );
+
+  const rowContext = useMemo<PlannerRowContext>(
+    () => ({
+      userId,
+      onToggle: handleToggle,
+      dragController,
+      describeDue,
+      labels: {
+        dropInto: t("dropInto"),
+        contextFallback: t("contextFallback"),
+        blocked: t("statusBlocked"),
+      },
+    }),
+    [describeDue, dragController, handleToggle, t, userId]
+  );
 
   const isLoading = plannerTasks === undefined;
   const isLoadingConventions = conventions === undefined;
 
-  const dateLabel = new Date().toLocaleDateString("en-US", {
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString(locale, {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const weekdayLabel = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-  });
+  const weekdayLabel = now.toLocaleDateString(locale, { weekday: "long" });
+
+  const draggingNested =
+    dragState.draggingMeta != null && dragState.draggingMeta.parentId != null
+      ? dragState.draggingMeta.scopeKey
+      : null;
+
+  const viewTabs = [
+    ["daily", t("viewDaily")],
+    ["events", t("viewEvents")],
+    ["calendar", t("viewCalendar")],
+  ] as const;
 
   return (
     <WebAppShell fullBleed>
@@ -701,12 +639,16 @@ export default function Planner() {
               {weekdayLabel} · {dateLabel}
             </span>
             <h1 className="font-serif italic font-normal text-[38px] lg:text-[76px] leading-[0.98] tracking-[-0.02em] [text-shadow:0_3px_14px_rgb(12_11_20/0.45)]">
-              What&rsquo;s due
+              {t("headline")}
             </h1>
             {urgentBuild ? (
               <p className="mt-4 max-w-[380px] text-[15px] text-media-fg-70">
-                Most urgent right now:{" "}
-                <span className="font-serif italic text-kyar-media-fg">{urgentBuild.name}</span>.
+                {t.rich("urgentLead", {
+                  name: urgentBuild.name,
+                  build: (chunks) => (
+                    <span className="font-serif italic text-kyar-media-fg">{chunks}</span>
+                  ),
+                })}
               </p>
             ) : null}
           </section>
@@ -717,140 +659,180 @@ export default function Planner() {
               view === "calendar" ? "lg:w-[760px]" : "lg:w-[560px]"
             }`}
           >
-            <div className="px-5 py-4 border-b border-glass-divider-strong">
-              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
-                {(
-                  [
-                    ["daily", "Daily"],
-                    ["events", "Events"],
-                    ["calendar", "Calendar"],
-                  ] as const
-                ).map(([value, label]) => (
+            <div className="border-b border-glass-divider-strong">
+              <div className="flex items-center gap-x-5 px-5 pt-1">
+                {viewTabs.map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => setView(value)}
-                    className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                      view === value
-                        ? "font-bold text-kyar-media-fg border-kyar-media-fg"
-                        : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
-                    }`}
+                    className={`group inline-flex min-h-[44px] items-center ${tabFocusClassName}`}
                     aria-pressed={view === value}
-                    aria-label={`${label} view`}
+                    aria-label={t("viewAria", { label })}
                   >
-                    {label}
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.18em] pb-0.5 border-b-[1.5px] transition-colors duration-150 ease-out ${
+                        view === value
+                          ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                          : "font-semibold text-media-fg-55 border-transparent group-hover:text-kyar-media-fg"
+                      }`}
+                    >
+                      {label}
+                    </span>
                   </button>
                 ))}
                 <div className="flex-1" />
-                {view === "daily" &&
-                  (["all", "today", "week"] as const).map((tf) => (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => setTimeframe(tf)}
-                      className={`text-[9px] uppercase tracking-[0.16em] pb-0.5 border-b transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
-                        timeframe === tf
-                          ? "font-bold text-kyar-media-fg border-kyar-media-fg"
-                          : "font-semibold text-media-fg-55 border-transparent hover:text-kyar-media-fg"
-                      }`}
-                      aria-pressed={timeframe === tf}
-                    >
-                      {tf === "all" ? "All" : tf === "today" ? "Today" : "This week"}
-                    </button>
-                  ))}
                 <Link
                   href="/builds"
-                  className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                  className={`group inline-flex min-h-[44px] items-center ${tabFocusClassName}`}
                 >
-                  Add task
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 transition-colors duration-150 ease-out group-hover:text-kyar-media-fg">
+                    {t("addTask")}
+                  </span>
                 </Link>
               </div>
+
+              {view === "daily" && buildTabs.length > 0 ? (
+                <div
+                  role="group"
+                  aria-label={t("buildFilterAria")}
+                  className="flex gap-x-5 overflow-x-auto whitespace-nowrap border-t border-glass-divider px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {[
+                    { buildId: null as string | null, buildName: t("buildFilterAll") },
+                    ...buildTabs,
+                  ].map((tab) => {
+                    const selected = activeBuildId === tab.buildId;
+                    return (
+                      <button
+                        key={tab.buildId ?? "all"}
+                        type="button"
+                        onClick={() => setBuildFilter(tab.buildId)}
+                        aria-pressed={selected}
+                        className={`group inline-flex min-h-[44px] shrink-0 items-center ${tabFocusClassName}`}
+                      >
+                        <span
+                          className={`text-[9px] uppercase tracking-[0.16em] pb-0.5 border-b-[1.5px] transition-colors duration-150 ease-out ${
+                            selected
+                              ? "font-bold text-kyar-media-fg border-kyar-media-fg"
+                              : "font-semibold text-media-fg-55 border-transparent group-hover:text-kyar-media-fg"
+                          }`}
+                        >
+                          {tab.buildName || t("untitledBuild")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {view === "daily" && totalCount > 0 && (
-                <div className="mt-3 flex items-center gap-3">
+                <div className="flex items-center gap-3 px-5 pb-3 pt-1">
                   <div
                     className="h-[2px] flex-1 max-w-[220px] bg-glass-border rounded-full overflow-hidden"
                     role="progressbar"
+                    aria-label={t("progressAria")}
                     aria-valuenow={checkedCount}
                     aria-valuemin={0}
                     aria-valuemax={totalCount}
                   >
                     <div
-                      className="h-full bg-kyar-media-fg rounded-full transition-[width] duration-300"
+                      className="h-full bg-kyar-media-fg rounded-full transition-[width] duration-300 ease-out"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55 tabular-nums">
-                    {checkedCount} / {totalCount} tasks
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-media-fg-55 tabular-nums">
+                    {t("progressCount", { checked: checkedCount, total: totalCount })}
                   </span>
                 </div>
               )}
             </div>
 
-            <main className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+            <main className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
               {view === "calendar" ? (
                 <div className="flex flex-1 flex-col">
                   {isLoading ? (
-                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading calendar...</p>
+                    <p className="text-sm text-media-fg-55 px-2 py-3">{t("loadingCalendar")}</p>
                   ) : (
-                    <FullScreenCalendar data={calendarData} addHref="/builds" addLabel="Add task" />
+                    <FullScreenCalendar
+                      data={calendarData}
+                      addHref="/builds"
+                      addLabel={t("addTask")}
+                    />
                   )}
                 </div>
               ) : view === "daily" ? (
                 <>
                   {isLoading ? (
-                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading tasks...</p>
-                  ) : totalCount === 0 ? (
+                    <p className="text-sm text-media-fg-55 px-2 py-3">{t("loadingTasks")}</p>
+                  ) : allTasks.length === 0 ? (
                     <div className="px-2 py-4">
-                      <p className="text-sm text-media-fg-70 mb-2">No tasks yet.</p>
+                      <p className="text-sm text-media-fg-70 mb-2">{t("emptyTasks")}</p>
                       <Link
                         href="/builds"
                         className="text-sm text-kyar-media-fg border-b border-glass-border-strong pb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                       >
-                        Open a build to add tasks
+                        {t("emptyTasksCta")}
                       </Link>
                     </div>
                   ) : (
                     <>
-                      {deadlineApproaching.length > 0 && (
-                        <section className="mb-5">
-                          <h3 className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
-                            Deadline approaching
-                          </h3>
-                          <PlannerTaskTree
-                            tree={treeApproaching}
-                            userId={userId}
-                            onToggle={handleToggle}
-                            dragController={dragController}
-                          />
-                        </section>
-                      )}
+                      {draggingNested ? (
+                        <div
+                          data-planner-root-drop-zone={draggingNested}
+                          className={`mx-2 mb-2 rounded-xl border px-3 py-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] ${
+                            dragState.dragOverRootScopeKey === draggingNested
+                              ? "border-glass-border-strong bg-glass-active text-kyar-media-fg"
+                              : "border-glass-border bg-glass-bar text-media-fg-55"
+                          }`}
+                        >
+                          {t("dropToRoot")}
+                        </div>
+                      ) : null}
 
-                      <section>
-                        <h3 className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
-                          {deadlineApproaching.length > 0 ? "Other tasks" : "Tasks"}
-                        </h3>
-                        <PlannerTaskTree
-                          tree={deadlineApproaching.length > 0 ? treeOther : treeAll}
-                          userId={userId}
-                          onToggle={handleToggle}
-                          dragController={dragController}
-                        />
-                      </section>
+                      <PlannerTaskGroup title={t("groupToday")} count={groups.today.count}>
+                        {groups.today.count > 0 ? (
+                          <PlannerTaskNodeList tasks={groups.today.tree} context={rowContext} />
+                        ) : (
+                          <p className="px-2 pb-2 text-[13px] text-media-fg-55">
+                            {t("emptyToday")}
+                          </p>
+                        )}
+                      </PlannerTaskGroup>
+
+                      {groups.week.count > 0 ? (
+                        <PlannerTaskGroup title={t("groupWeek")} count={groups.week.count}>
+                          <PlannerTaskNodeList tasks={groups.week.tree} context={rowContext} />
+                        </PlannerTaskGroup>
+                      ) : null}
+
+                      {groups.later.count > 0 ? (
+                        <PlannerTaskGroup
+                          title={t("groupLater")}
+                          count={groups.later.count}
+                          collapsible
+                          defaultOpen={false}
+                          showLabel={t("groupShow")}
+                          hideLabel={t("groupHide")}
+                        >
+                          <PlannerTaskNodeList tasks={groups.later.tree} context={rowContext} />
+                        </PlannerTaskGroup>
+                      ) : null}
                     </>
                   )}
                 </>
               ) : view === "events" ? (
                 <div>
                   {isLoadingConventions ? (
-                    <p className="text-sm text-media-fg-55 px-2 py-3">Loading events…</p>
+                    <p className="text-sm text-media-fg-55 px-2 py-3">{t("loadingEvents")}</p>
                   ) : !conventions || conventions.length === 0 ? (
                     <div className="px-2 py-4">
-                      <p className="text-sm text-media-fg-70 mb-2">No events yet.</p>
+                      <p className="text-sm text-media-fg-70 mb-2">{t("emptyEvents")}</p>
                       <Link
                         href="/conventions"
                         className="text-sm text-kyar-media-fg border-b border-glass-border-strong pb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
                       >
-                        Create an event
+                        {t("emptyEventsCta")}
                       </Link>
                     </div>
                   ) : (
@@ -862,12 +844,12 @@ export default function Planner() {
                         <div className="min-w-0">
                           <p className="font-serif italic text-[17px] truncate">{con.name}</p>
                           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-55 mt-0.5">
-                            {new Date(con.startDate).toLocaleDateString("en-US", {
+                            {parseLocalDate(con.startDate).toLocaleDateString(locale, {
                               month: "short",
                               year: "numeric",
                             })}{" "}
                             –{" "}
-                            {new Date(con.endDate).toLocaleDateString("en-US", {
+                            {parseLocalDate(con.endDate).toLocaleDateString(locale, {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
@@ -877,15 +859,19 @@ export default function Planner() {
                         <div className="flex gap-4 flex-wrap">
                           <Link
                             href={`/conventions/${con._id}`}
-                            className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                            className={`group inline-flex min-h-[44px] items-center ${tabFocusClassName}`}
                           >
-                            Plan
+                            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 transition-colors group-hover:text-kyar-media-fg">
+                              {t("eventPlan")}
+                            </span>
                           </Link>
                           <Link
                             href={`/conventions/${con._id}/packing`}
-                            className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 hover:text-kyar-media-fg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent"
+                            className={`group inline-flex min-h-[44px] items-center ${tabFocusClassName}`}
                           >
-                            Packing list
+                            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-media-fg-70 border-b border-glass-border-strong pb-0.5 transition-colors group-hover:text-kyar-media-fg">
+                              {t("eventPacking")}
+                            </span>
                           </Link>
                         </div>
                       </div>
@@ -899,13 +885,15 @@ export default function Planner() {
 
         {dragState.draggingMeta && dragState.pointerX != null && dragState.pointerY != null ? (
           <div
-            className="pointer-events-none fixed z-[10000] max-w-[260px] rotate-[1.5deg] rounded-full bg-glass-preview backdrop-blur-[20px] border border-glass-border-strong px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-kyar-media-fg shadow-[0_24px_48px_-16px_rgb(12_11_20/0.6)]"
+            className="pointer-events-none fixed z-[10000] max-w-[260px] rotate-[1.5deg] rounded-full bg-glass-preview backdrop-blur-[20px] border border-glass-border-strong px-4 py-3 text-[13px] text-kyar-media-fg shadow-[0_24px_48px_-16px_rgb(12_11_20/0.6)]"
             style={{
               left: Math.max(12, Math.min(dragState.pointerX + 14, window.innerWidth - 280)),
               top: Math.max(12, Math.min(dragState.pointerY + 14, window.innerHeight - 80)),
             }}
           >
-            <span className="block truncate">{dragState.draggingMeta.title ?? "Task"}</span>
+            <span className="block truncate">
+              {dragState.draggingMeta.title ?? t("dragPreviewFallback")}
+            </span>
           </div>
         ) : null}
       </div>
@@ -922,46 +910,17 @@ function taskContextHref(task: PlannerTask) {
 
 function PlannerTaskNodeList({
   tasks,
-  userId,
-  onToggle,
-  dragController,
-  parent,
+  context,
 }: {
   tasks: PlannerTaskNode[];
-  userId: string | null;
-  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
-  dragController: PlannerDragController;
-  parent?: PlannerTaskNode;
+  context: PlannerRowContext;
 }) {
   if (!tasks.length) return null;
-  const scopeKey = plannerTaskScopeKey(tasks[0]);
 
   return (
     <ul className="divide-y divide-glass-divider">
-      {parent == null &&
-      dragController.state.draggingMeta?.scopeKey === scopeKey &&
-      dragController.state.draggingMeta.parentId != null ? (
-        <li
-          data-planner-root-drop-zone={scopeKey}
-          className={`rounded-xl border px-3 py-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] ${
-            dragController.state.dragOverRootScopeKey === scopeKey
-              ? "border-glass-border-strong bg-glass-active text-kyar-media-fg"
-              : "border-glass-border bg-glass-bar text-media-fg-55"
-          }`}
-        >
-          Drop here to make it top level
-        </li>
-      ) : null}
       {tasks.map((task, index) => (
-        <PlannerTaskNodeItem
-          key={task._id}
-          task={task}
-          index={index}
-          parent={parent}
-          userId={userId}
-          onToggle={onToggle}
-          dragController={dragController}
-        />
+        <PlannerTaskNodeItem key={task._id} task={task} index={index} context={context} />
       ))}
     </ul>
   );
@@ -970,29 +929,24 @@ function PlannerTaskNodeList({
 function PlannerTaskNodeItem({
   task,
   index,
-  parent,
-  userId,
-  onToggle,
-  dragController,
+  context,
 }: {
   task: PlannerTaskNode;
   index: number;
-  parent?: PlannerTaskNode;
-  userId: string | null;
-  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
-  dragController: PlannerDragController;
+  context: PlannerRowContext;
 }) {
+  const { userId, onToggle, dragController, describeDue, labels } = context;
   const [childrenOpen, setChildrenOpen] = useState(true);
   const dragMeta = useMemo<PlannerTaskDragMeta>(
     () => ({
       taskId: task._id as string,
       scopeKey: plannerTaskScopeKey(task),
-      parentId: parent?._id as string | undefined,
+      parentId: task.parentId as string | undefined,
       siblingIndex: index,
       ancestorIds: (task.ancestorIds ?? []).map((id) => id as string),
       title: task.title,
     }),
-    [index, parent?._id, task]
+    [index, task]
   );
 
   const active = dragController.state.draggingMeta?.taskId === task._id;
@@ -1005,6 +959,7 @@ function PlannerTaskNodeItem({
   const dropInto =
     dragController.state.dragOverTaskId === task._id &&
     dragController.state.dragOverZone === "into";
+  const due = describeDue(task);
 
   return (
     <li>
@@ -1027,12 +982,15 @@ function PlannerTaskNodeItem({
           title={task.title}
           done={task.status === "done"}
           userId={userId}
-          onToggle={() => onToggle(task._id, task.status !== "done")}
+          onToggle={(next) => onToggle(task._id, next)}
           contextHref={taskContextHref(task)}
-          contextLabel={task.buildName ?? task.conventionName ?? "Workflow"}
+          contextLabel={task.buildName ?? task.conventionName ?? labels.contextFallback}
           status={task.status}
           progressPercent={task.progressPercent}
           dueDate={task.dueDate}
+          dueLabel={due.label}
+          dueUrgent={due.urgent}
+          statusChipLabel={task.status === "blocked" ? labels.blocked : undefined}
           blockedByCount={task.blockedByCount}
           priority={task.priority}
           blockedByTitles={task.blockedByTitles}
@@ -1042,145 +1000,14 @@ function PlannerTaskNodeItem({
             onToggleChildren: () => setChildrenOpen((value) => !value),
             onPointerDown: (event) => dragController.startDrag(dragMeta, event),
           }}
-          dropIntoLabel={dropInto ? "Drop to nest inside" : undefined}
+          dropIntoLabel={dropInto ? labels.dropInto : undefined}
         />
       </div>
       {childrenOpen && task.children.length > 0 ? (
         <div className="mb-1 ml-[15px] border-l border-glass-divider-strong pl-3 sm:pl-4">
-          <PlannerTaskNodeList
-            tasks={task.children}
-            parent={task}
-            userId={userId}
-            onToggle={onToggle}
-            dragController={dragController}
-          />
+          <PlannerTaskNodeList tasks={task.children} context={context} />
         </div>
       ) : null}
     </li>
-  );
-}
-
-function PlannerTaskTree({
-  tree,
-  userId,
-  onToggle,
-  dragController,
-}: {
-  tree: {
-    conventionGroups: ConventionGroup[];
-    standaloneBuilds: BuildGroup[];
-    unassignedTasks: PlannerTaskNode[];
-  };
-  userId: string | null;
-  onToggle: (id: Id<"workflowItems">, checked: boolean) => void;
-  dragController: PlannerDragController;
-}) {
-  const { conventionGroups, standaloneBuilds, unassignedTasks } = tree;
-  const hasConventions = conventionGroups.length > 0;
-  const hasStandalone = standaloneBuilds.length > 0;
-  const hasUnassigned = unassignedTasks.length > 0;
-  if (!hasConventions && !hasStandalone && !hasUnassigned) return null;
-
-  return (
-    <div className="divide-y divide-glass-divider-strong">
-      {conventionGroups.map((convention) => (
-        <details key={convention.conventionId} className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
-              ▶
-            </span>
-            <span className="flex-1">{convention.conventionName}</span>
-            <Link
-              href={`/conventions/${convention.conventionId}/packing`}
-              className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Open
-            </Link>
-          </summary>
-          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
-            {convention.builds.map((build) => (
-              <details key={build.buildId} className="group/build">
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-                  <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open/build:rotate-90 transition-transform">
-                    ▶
-                  </span>
-                  <span className="flex-1 font-light">{build.buildName}</span>
-                </summary>
-                <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
-                  <PlannerTaskNodeList
-                    tasks={build.tasks}
-                    userId={userId}
-                    onToggle={onToggle}
-                    dragController={dragController}
-                  />
-                </div>
-              </details>
-            ))}
-            {convention.packingTasks.length > 0 && (
-              <details key={`packing-${convention.conventionId}`} className="group/pack">
-                <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[40px] rounded-lg px-2 py-2 text-sm text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-                  <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open/pack:rotate-90 transition-transform">
-                    ▶
-                  </span>
-                  <span className="flex-1 font-light">Packing</span>
-                </summary>
-                <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
-                  <PlannerTaskNodeList
-                    tasks={convention.packingTasks}
-                    userId={userId}
-                    onToggle={onToggle}
-                    dragController={dragController}
-                  />
-                </div>
-              </details>
-            )}
-          </div>
-        </details>
-      ))}
-      {standaloneBuilds.map((build) => (
-        <details key={build.buildId} className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
-              ▶
-            </span>
-            <span className="flex-1">{build.buildName}</span>
-            <Link
-              href={`/build-detail/${build.buildId}`}
-              className="text-[10px] uppercase tracking-[0.16em] text-media-fg-55 hover:text-kyar-media-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent rounded"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Open
-            </Link>
-          </summary>
-          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
-            <PlannerTaskNodeList
-              tasks={build.tasks}
-              userId={userId}
-              onToggle={onToggle}
-              dragController={dragController}
-            />
-          </div>
-        </details>
-      ))}
-      {hasUnassigned && (
-        <details className="group py-1">
-          <summary className="flex items-center gap-2 list-none cursor-pointer min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-medium text-kyar-media-fg hover:bg-glass-active focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-            <span className="select-none text-[10px] uppercase tracking-[0.14em] text-media-fg-55 group-open:rotate-90 transition-transform">
-              ▶
-            </span>
-            <span className="flex-1">Elements and other tasks</span>
-          </summary>
-          <div className="ml-3 border-l border-glass-divider-strong pl-2 pb-2 sm:pl-3">
-            <PlannerTaskNodeList
-              tasks={unassignedTasks}
-              userId={userId}
-              onToggle={onToggle}
-              dragController={dragController}
-            />
-          </div>
-        </details>
-      )}
-    </div>
   );
 }

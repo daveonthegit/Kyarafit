@@ -18,6 +18,15 @@ describe("content security policy", () => {
     expect(directive(buildContentSecurityPolicy("abc"), "object-src")).toEqual(["'none'"]);
   });
 
+  it("allows eval only for the development server, so next dev can hydrate", () => {
+    expect(directive(buildContentSecurityPolicy("abc", true), "script-src")).toContain(
+      "'unsafe-eval'"
+    );
+    expect(directive(buildContentSecurityPolicy("abc", false), "script-src")).not.toContain(
+      "'unsafe-eval'"
+    );
+  });
+
   it("retains the document style exception", () => {
     expect(directive(buildContentSecurityPolicy("abc"), "style-src")).toContain("'unsafe-inline'");
   });

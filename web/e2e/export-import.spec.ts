@@ -2,16 +2,16 @@ import { test, expect } from "@playwright/test";
 import { authReady, AUTH_SKIP_REASON, signInWithPassword } from "./fixtures";
 
 /**
- * Export downloads a JSON bundle on /settings/data. Web shows published copies only (ADR-0005), so
- * restore is done in the mobile app and the page says so instead of offering it.
+ * Export downloads a JSON bundle on /settings/data. Web edits save straight to the account
+ * (ADR-0006) and backup-file restore is not offered on web; the page says so.
  * See docs/DATA_AND_SYNC.md §11.
  *
  * Gated: needs a signed-in user on a live Convex deployment.
  */
-test.describe("web export and read-only restore", () => {
+test.describe("web export, no file restore", () => {
   test.skip(!authReady(), AUTH_SKIP_REASON);
 
-  test("exports a bundle and points restore to the mobile app", async ({ page }) => {
+  test("exports a bundle and offers no file restore", async ({ page }) => {
     await signInWithPassword(page);
     await page.goto("/settings/data");
 

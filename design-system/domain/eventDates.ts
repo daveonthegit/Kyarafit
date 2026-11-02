@@ -8,6 +8,15 @@ function parseIsoDate(iso: string): Date {
   return new Date(`${iso}T00:00:00`);
 }
 
+/**
+ * Parse a stored date as a local calendar day. Date-only strings ("2026-12-12") are deadlines and
+ * event days, not instants: `new Date("2026-12-12")` reads them as UTC midnight, which shows the
+ * previous day anywhere west of UTC. Full timestamps are parsed unchanged.
+ */
+export function parseLocalDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseIsoDate(value) : new Date(value);
+}
+
 function formatSingle(iso: string, withYear: boolean, locale: string): string {
   const d = parseIsoDate(iso);
   const month = d.toLocaleDateString(locale, { month: "short" }).toUpperCase();

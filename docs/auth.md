@@ -8,7 +8,7 @@ Supported methods: email + password and OAuth (Google required, Apple optional).
 ## Architecture
 
 ```
-Browser (app.kyarafit.com)                Mobile app
+Browser (www.kyarafit.com)                Mobile app
         │  same-origin /api/auth/*               │  https://<deployment>.convex.site/api/auth/*
         │  HttpOnly session cookie               │  Authorization: Bearer <session> (keychain)
         ▼                                        │
@@ -42,7 +42,8 @@ through, because the Convex client needs it.
 **CSRF:** the session cookie is `SameSite=Lax`, and Better Auth rejects cookie-bearing
 mutations whose `Origin` is not in `trustedOrigins`. Web documents carry a per-request
 nonce-based Content-Security-Policy (`web/src/lib/security/csp.ts`, set in
-`web/src/middleware.ts`): no `'unsafe-inline'` or `'unsafe-eval'` for scripts in any environment.
+`web/src/proxy.ts`): no `'unsafe-inline'` for scripts in any environment, and `'unsafe-eval'` only
+under `next dev`, whose webpack/React Refresh runtime needs it to hydrate.
 The document style policy permits inline styles for React style attributes and runtime-injected
 cropper/motion styles. API responses instead use `default-src 'none'; frame-ancestors 'none'`.
 
@@ -52,6 +53,15 @@ cropper/motion styles. API responses instead use `default-src 'none'; frame-ance
 
 Better Auth has **two independent origin checks** that must both be satisfied. Getting only one
 right produces a 403:
+
+### Canonical web host
+
+Production web runs on one host, `https://www.kyarafit.com`, which is the Convex `SITE_URL`: the
+landing site, the app and `/api/auth` are all served there, so the host-only session cookie and the
+OAuth `redirect_uri` share one origin. `web/next.config.js` permanently redirects (308, path and
+query kept) `kyarafit.com`, `app.kyarafit.com` and `kyarafit-web.vercel.app` to it; preview
+deployments and localhost are not redirected. Release steps for the provider consoles are in
+[the Glass web release checklist](setup/GLASS_WEB_RELEASE_CHECKLIST.md).
 
 ### Shared CORS and trusted-origin policy
 
@@ -286,7 +296,7 @@ associated domains and an `autoVerify` intent filter for the host of `EXPO_PUBLI
 
 1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (**Web application**)
 2. **Authorized redirect URIs** (must match character-for-character; no trailing slash):
-   - `https://app.kyarafit.com/api/auth/callback/google` (production `SITE_URL`)
+   - `https://www.kyarafit.com/api/auth/callback/google` (production `SITE_URL`)
    - `http://localhost:3000/api/auth/callback/google` for an isolated development deployment
 3. Copy Client ID + Secret → Convex environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
@@ -296,8 +306,8 @@ Apple does **not** allow `http://localhost` as a return URL.
 
 1. **Identifiers** → **Services IDs** → create or select the Service ID used for web OAuth. This identifier is **`APPLE_CLIENT_ID`** in Convex (not the iOS bundle ID).
 2. Enable **Sign in with Apple** → **Configure** → set **Primary App ID** to your app ID that has the Sign in with Apple capability (`com.kyarafit.mobile` matches `mobile/app.json`).
-3. **Domains and Subdomains**: `app.kyarafit.com` (no `https://`, no path).
-4. **Return URLs** (must match exactly, no trailing slash): `https://app.kyarafit.com/api/auth/callback/apple`
+3. **Domains and Subdomains**: `www.kyarafit.com` (no `https://`, no path).
+4. **Return URLs** (must match exactly, no trailing slash): `https://www.kyarafit.com/api/auth/callback/apple`
 5. **Keys**: create a Sign in with Apple key, download the `.p8`, note **Key ID** and **Team ID**.
 6. **Convex env** (Dashboard → Environment Variables):
    - `APPLE_CLIENT_ID` — Service ID string

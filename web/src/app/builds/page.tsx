@@ -325,7 +325,7 @@ export default function BuildsPage() {
           </section>
 
           {/* The archive — bottom glass shelf (1b) */}
-          <section className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
+          <section className="panel-enter mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
                 The archive · {builds.length}

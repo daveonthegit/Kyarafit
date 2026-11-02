@@ -118,7 +118,7 @@ export default function ConventionPackingPage() {
             </p>
           </div>
 
-          <section className="mt-8 max-w-[720px] flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
+          <section className="panel-enter mt-8 max-w-[720px] flex flex-col bg-glass backdrop-blur-glass border border-glass-border rounded-glass">
             <div className="px-5 py-4 border-b border-glass-divider-strong">
               <div className="flex items-baseline justify-between gap-4">
                 <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">

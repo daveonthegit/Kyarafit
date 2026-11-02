@@ -142,6 +142,31 @@
   }
 }
 
+/* Reduced transparency: glass turns frosted-solid so text never sits on a busy photo. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: rgb(20 19 32 / 0.9);
+    --glass-bg-bar: rgb(20 19 32 / 0.9);
+    --glass-bg-overlay: rgb(20 19 32 / 0.95);
+    --glass-blur: 0px;
+    --glass-blur-bar: 0px;
+    --glass-blur-overlay: 0px;
+    --glass-blur-chip: 0px;
+  }
+}
+
+/* More contrast: defined edges and brighter secondary text on glass. */
+@media (prefers-contrast: more) {
+  :root {
+    --glass-border: rgb(255 253 248 / 0.4);
+    --glass-border-overlay: rgb(255 253 248 / 0.5);
+    --glass-divider: rgb(255 253 248 / 0.28);
+    --glass-divider-strong: rgb(255 253 248 / 0.34);
+    --media-fg-55: rgb(255 253 248 / 0.75);
+    --media-fg-70: rgb(255 253 248 / 0.85);
+  }
+}
+
 :root[data-theme="dark"],
 html.dark {
   color-scheme: dark;
@@ -457,4 +482,62 @@ button:active,
 
 html[data-deprecation-banner-dismissed] .deprecation-banner {
   display: none;
+}
+
+/* Transient toast (write failures): rises 8px and fades in; the global
+   reduced-motion block resolves it immediately. */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-enter {
+  animation: toast-enter 260ms var(--ease-out-strong) both;
+}
+
+/* Route crossfade (app/template.tsx): opacity only, so fixed chrome inside a
+   page never gets a transformed ancestor. Reduced motion resolves it at once. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-enter {
+  animation: page-enter 220ms var(--ease-out-strong) both;
+}
+
+/* Glass work panels materialize: a slight rise and scale settle with the fade
+   (critically damped feel, no overshoot). Reduced motion keeps only the end state. */
+@keyframes panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.panel-enter {
+  animation: panel-enter 420ms var(--ease-out-strong) 60ms both;
+}
+
+/* No-imagery fallback (13g): faint diagonal stripes behind the monogram. */
+.bg-monogram-stripes {
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgb(255 253 248 / 0.05) 0 14px,
+    rgb(255 253 248 / 0.02) 14px 28px
+  );
 }

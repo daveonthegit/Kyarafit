@@ -19,11 +19,13 @@ const PUBLIC_PATHS = [
   "/native",
   "/u",
   "/b",
+  "/g",
   "/discover",
   "/feed",
 ];
 
-function isPublicPath(pathname: string | null): boolean {
+/** Public share, legal, auth and landing routes render without a session. */
+export function isPublicPath(pathname: string | null): boolean {
   if (!pathname) return false;
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

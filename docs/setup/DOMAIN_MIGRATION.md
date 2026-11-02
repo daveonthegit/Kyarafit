@@ -1,5 +1,12 @@
 # Domain Migration — app.kyarafit.com (app) + www/apex (landing)
 
+> **Status (2026-11-02): not in use.** Production serves the landing site, the app and `/api/auth`
+> from one canonical host, `https://www.kyarafit.com` (the Convex `SITE_URL`). The host-split
+> routing described below was removed from the web proxy; `kyarafit.com`, `app.kyarafit.com` and
+> `kyarafit-web.vercel.app` redirect to www instead (`web/next.config.js`). This page is kept as
+> the plan if an app subdomain is adopted later. Current release steps:
+> [Glass web release checklist](GLASS_WEB_RELEASE_CHECKLIST.md).
+
 Target topology:
 
 | Host                                     | Serves                                                                                | Backed by                                                                 |
@@ -9,17 +16,17 @@ Target topology:
 | `noreply@kyarafit.com`                   | Transactional email sender                                                            | Resend (DNS only, not a web host)                                         |
 
 The web app is a **single** Next.js 16 deployment. The landing is the root route and the app routes are
-siblings; `web/src/middleware.ts` does host-based routing so one deployment serves both hosts.
+siblings; host-based routing in the web proxy would let one deployment serve both hosts.
 
 ---
 
 ## What is already done in-repo (committed on `refactor/deepen-domain-modules`)
 
 - Auth origins use the shared runtime policy described in [Authentication](../auth.md#origin-configuration--critical), not separately maintained CORS/CSRF lists.
-- `web/src/middleware.ts` — host routing: on `www`/apex, app routes 308-redirect to `app.kyarafit.com`,
-  landing/legal/share paths stay; on `app`, `/` 308-redirects to `/home`. **Inert on any other host**
-  (localhost, previews, LAN IPs) so dev is unaffected. It takes effect only once DNS points these
-  hostnames at the deployment.
+- Host routing (removed 2026-11-02): the former `web/src/middleware.ts` sent app routes on
+  `www`/apex to `app.kyarafit.com`. Adopting the split again means restoring that routing in
+  `web/src/proxy.ts`, dropping `app.kyarafit.com` from the redirects in `web/next.config.js`, and
+  moving `SITE_URL` and the provider redirect URIs to the app host in the same release.
 - `web/env.example`, `mobile/env.example` — production notes; fixed the mobile env-var name
   (`EXPO_PUBLIC_WEB_ORIGIN` → `EXPO_PUBLIC_WEB_APP_URL`, which is what the code actually reads).
 

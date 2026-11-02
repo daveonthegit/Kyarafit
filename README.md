@@ -4,8 +4,8 @@ A mobile-first cosplay wardrobe and convention-planning app, with web and Expo c
 
 Build-scoped **elements** → character **builds** → progress timelines → convention day plans
 and packing lists. Mobile personal-data editing uses a local vault; social, groups, billing,
-and public sharing are online features. Web shows published copies read-only; personal planning
-edits are made in mobile.
+and public sharing are online features. Web edits personal planning data directly on the server
+while online.
 
 Kyarafit is moving to **Cosapp.si**, launching first on iOS, with Android and web planned.
 Kyarafit stays available until Cosapp.si is on the web; existing features keep working meanwhile.

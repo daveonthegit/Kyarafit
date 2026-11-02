@@ -272,7 +272,7 @@ export default function ConventionsPage() {
 
           {/* The season — bottom glass shelf (like Builds 1b) */}
           <section
-            className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
+            className="panel-enter mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
             aria-label="All events"
           >
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">

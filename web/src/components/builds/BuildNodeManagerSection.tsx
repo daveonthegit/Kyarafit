@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useOfflineQuery } from "@/lib/offline";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
@@ -43,6 +44,8 @@ export function BuildNodeManagerSection({
   onCreateRoot,
   onCreateChild,
 }: BuildNodeManagerSectionProps) {
+  const t = useTranslations("Studio");
+  const tElements = useTranslations("Elements");
   const allNodes = (useOfflineQuery(
     api.cosplayNodes.list,
     userId ? { userId, sortBy: "name" } : "skip"
@@ -158,10 +161,7 @@ export function BuildNodeManagerSection({
           <span className="material-symbols-outlined mb-3 block text-3xl text-media-fg-45">
             account_tree
           </span>
-          <p className="text-sm text-media-fg-70">
-            No linked elements yet. Add a main element or link an existing element to start
-            building.
-          </p>
+          <p className="text-sm text-media-fg-70">{tElements("emptyBody")}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button
               type="button"
@@ -169,7 +169,7 @@ export function BuildNodeManagerSection({
               className="inline-flex items-center gap-1.5 rounded-full bg-glass-solid px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-glass-ink hover:opacity-90 transition-opacity"
             >
               <span className="material-symbols-outlined text-base">add</span>
-              New main element
+              {tElements("newMainElement")}
             </button>
             <button
               type="button"
@@ -177,7 +177,7 @@ export function BuildNodeManagerSection({
               className="inline-flex items-center gap-1.5 rounded-full border border-glass-border-strong bg-glass-bar px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-kyar-media-fg hover:bg-glass-active transition-colors"
             >
               <span className="material-symbols-outlined text-base">link</span>
-              Link existing
+              {tElements("link")}
             </button>
           </div>
         </div>
@@ -245,11 +245,13 @@ export function BuildNodeManagerSection({
             <div className="font-explorer-mono hidden shrink-0 items-center gap-4 border-t border-glass-divider px-4 py-2 text-[10px] tabular-nums text-media-fg-55 md:flex">
               <span>
                 {searchNeedle
-                  ? `${roots.length} match${roots.length === 1 ? "" : "es"}`
-                  : `${roots.length} root${roots.length === 1 ? "" : "s"}`}
+                  ? t("explorerMatches", { count: roots.length })
+                  : t("explorerRoots", { count: roots.length })}
               </span>
               {selected && selectedDetail ? (
-                <span className="truncate">Selected: {selectedDetail.name}</span>
+                <span className="truncate">
+                  {t("explorerSelected", { name: selectedDetail.name })}
+                </span>
               ) : null}
             </div>
           </div>

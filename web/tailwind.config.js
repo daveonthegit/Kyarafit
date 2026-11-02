@@ -10,7 +10,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        "kyar-media-fg": "var(--kyar-media-fg)",
+        // Fixed light-on-media foreground (#fffdf8, never theme-flipped). Channel form so opacity
+        // modifiers such as `bg-kyar-media-fg/25` work; a var() color silently drops them.
+        "kyar-media-fg": "rgb(255 253 248 / <alpha-value>)",
         "kyar-media-fg-muted": "var(--kyar-media-fg-muted)",
         "kyar-media-fg-soft": "var(--kyar-media-fg-soft)",
         "kyar-media-fg-subtle": "var(--kyar-media-fg-subtle)",

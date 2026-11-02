@@ -77,7 +77,7 @@ export default function FeedPage() {
 
           {/* The feed — bottom glass shelf (12a) */}
           <section
-            className="mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
+            className="panel-enter mt-8 bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4"
             aria-label="Feed"
           >
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 mb-3">

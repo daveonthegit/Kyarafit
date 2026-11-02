@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useMutation } from "convex/react";
 import { can } from "@kyarafit/design-system/domain/entitlements";
-import { Sheet } from "@/components/ui/sheet";
+import { AdaptiveModal } from "@/components/layout/AdaptiveModal";
+import { CreationFooter, GroupFields, glassErrorClass } from "@/components/creation/CreationFields";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeatureAccess } from "@/lib/api/useTier";
@@ -21,6 +22,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
   const { userId } = useCurrentUser();
   const { tier } = useFeatureAccess();
   const t = useTranslations("Social");
+  const tc = useTranslations("Creation");
   // REQ-019: creating a group is paid (joining/participating stays free).
   const canCreateGroup = can(tier, "group_create");
   const createGroup = useMutation(api.groups.create);
@@ -48,7 +50,7 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
         router.push(`/g/${group._id}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create group");
+      setError(err instanceof Error ? err.message : tc("failedToCreateGroup"));
     } finally {
       setPending(false);
     }
@@ -56,90 +58,68 @@ export function NewGroupModal({ onDismiss, onSuccessComplete }: NewGroupModalPro
 
   if (!canCreateGroup) {
     return (
-      <Sheet open onClose={onDismiss} title="New group" titleId="global-new-group-modal-title">
-        <UpgradePrompt message={t("groupCreatePaidMessage")} linkText={t("viewPlan")} />
-      </Sheet>
+      <AdaptiveModal
+        open
+        onClose={onDismiss}
+        title={tc("newGroupTitle")}
+        titleId="global-new-group-modal-title"
+        size="md"
+        closeLabel={tc("close")}
+      >
+        <UpgradePrompt
+          surface="glass"
+          message={t("groupCreatePaidMessage")}
+          linkText={t("viewPlan")}
+        />
+      </AdaptiveModal>
     );
   }
 
   return (
-    <Sheet
+    <AdaptiveModal
       open
       onClose={onDismiss}
-      title="New group"
+      title={tc("newGroupTitle")}
       titleId="global-new-group-modal-title"
+      size="md"
       closeDisabled={pending}
-      footer={
-        <button
-          type="submit"
-          form="new-group-modal-form"
-          disabled={pending || !name.trim()}
-          className="w-full bg-kyar-text py-4 text-[10px] font-bold uppercase tracking-widest text-kyar-bg rounded-full disabled:opacity-50 hover:bg-kyar-text/90 transition-colors shadow-md"
-        >
-          {pending ? "Creating…" : "Create group"}
-        </button>
-      }
+      closeLabel={tc("close")}
+      footer={(close) => (
+        <CreationFooter
+          onCancel={close}
+          cancelLabel={tc("cancel")}
+          cancelDisabled={pending}
+          formId="new-group-modal-form"
+          submitLabel={pending ? tc("creating") : tc("createGroup")}
+          submitDisabled={pending || !name.trim()}
+        />
+      )}
     >
-      <form id="new-group-modal-form" onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="mb-2 block meta-label">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={500}
-            placeholder="e.g. Sailor Moon squad"
-            className="w-full border-0 border-b border-kyar-borderSubtle bg-transparent py-3 text-base placeholder:text-kyar-textTertiary focus:border-kyar-text focus:outline-none transition-colors"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block meta-label">Description (optional)</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={10000}
-            rows={3}
-            placeholder="What’s this group cosplay about?"
-            className="w-full border border-kyar-borderSubtle bg-transparent rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-kyar-text transition-colors"
-          />
-        </div>
-        <div>
-          <span className="block meta-label mb-2">Visibility</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setVisibility("private")}
-              className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                visibility === "private"
-                  ? "border-kyar-text bg-kyar-muted text-kyar-text"
-                  : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
-              }`}
-            >
-              Private
-            </button>
-            <button
-              type="button"
-              onClick={() => setVisibility("public")}
-              className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider border ${
-                visibility === "public"
-                  ? "border-kyar-text bg-kyar-muted text-kyar-text"
-                  : "border-kyar-border text-kyar-textTertiary hover:border-kyar-text"
-              }`}
-            >
-              Public
-            </button>
-          </div>
-          <p className="text-[11px] text-kyar-textTertiary mt-2">
-            Public groups can be seen by anyone. Private only by members.
-          </p>
-        </div>
+      <form id="new-group-modal-form" onSubmit={handleSubmit} className="space-y-[18px]">
+        <GroupFields
+          name={name}
+          onNameChange={setName}
+          description={description}
+          onDescriptionChange={setDescription}
+          visibility={visibility}
+          onVisibilityChange={setVisibility}
+          labels={{
+            name: tc("name"),
+            namePlaceholder: tc("groupNamePlaceholder"),
+            description: tc("descriptionLabel"),
+            descriptionPlaceholder: tc("groupDescriptionPlaceholder"),
+            visibility: tc("visibilityLabel"),
+            private: tc("visibility_private"),
+            public: tc("visibility_public"),
+            visibilityHint: tc("visibilityHint"),
+          }}
+        />
         {error && (
-          <p className="text-sm text-kyar-danger" role="alert">
+          <p className={glassErrorClass} role="alert">
             {error}
           </p>
         )}
       </form>
-    </Sheet>
+    </AdaptiveModal>
   );
 }

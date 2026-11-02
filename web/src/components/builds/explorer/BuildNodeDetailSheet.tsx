@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
+import { MonogramFill } from "@/components/layout/MonogramPlate";
 import { formatNodeTypeLabel } from "@kyarafit/design-system/domain";
 import type {
   CosplayNodeId,
@@ -103,7 +104,7 @@ export function BuildNodeDetailSheet({
       <div className="space-y-5 px-5 pb-8">
         {/* Header: thumbnail + editable name */}
         <div className="flex items-start gap-3">
-          <div className="h-[190px] w-[150px] shrink-0 overflow-hidden rounded-xl border border-glass-border bg-glass-active">
+          <div className="relative h-[190px] w-[150px] shrink-0 overflow-hidden rounded-xl border border-glass-border bg-glass-active">
             {detail.imageStorageId || detail.imageUrl ? (
               <ResolvedImage
                 imageStorageId={detail.imageStorageId ?? null}
@@ -112,11 +113,7 @@ export function BuildNodeDetailSheet({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <span className="material-symbols-outlined text-lg text-media-fg-45">
-                  {detail.nodeType === "material" ? "inventory_2" : "checkroom"}
-                </span>
-              </div>
+              <MonogramFill name={detail.name} />
             )}
           </div>
           <div className="min-w-0 flex-1">

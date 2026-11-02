@@ -3,7 +3,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { useConvex } from "convex/react";
 import {
-  getFunctionName,
   type FunctionReference,
   type FunctionReturnType,
   type OptionalRestArgs,
@@ -11,7 +10,7 @@ import {
 import { getIsOnline } from "./connectivity";
 import { offlineRuntime } from "./runtime";
 import { readLocalAccount } from "@/lib/auth/localAccount";
-import { assertWebMutationAllowed } from "./publishedReadOnly";
+import { OfflineWriteError, reportWriteFailure } from "./writeFailures";
 
 export class AccountChangedError extends Error {
   constructor() {
@@ -30,9 +29,15 @@ export function useOfflineMutation<Mutation extends FunctionReference<"mutation"
     async (...args: OptionalRestArgs<Mutation>) => {
       if (!subject || offlineRuntime.getSubject() !== subject || subject !== readLocalAccount())
         throw new AccountChangedError();
-      assertWebMutationAllowed(getFunctionName(mutation));
-      if (!getIsOnline()) throw new Error("This action requires a connection.");
-      return convex.mutation(mutation, ...args);
+      // Web edits save straight to Convex (ADR-0006). Every failure is reported app-wide once, so
+      // a screen that keeps its form open for retry never fails silently.
+      try {
+        if (!getIsOnline()) throw new OfflineWriteError();
+        return await convex.mutation(mutation, ...args);
+      } catch (error) {
+        reportWriteFailure(error);
+        throw error;
+      }
     },
     [convex, mutation, subject]
   );

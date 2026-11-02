@@ -10,8 +10,9 @@ The `REQ-D*` rules below describe the target contract, not completed rollout. Mo
 reads and commands now use the per-account vault; its lifecycle and isolation decision is
 [ADR-0004](adr/0004-per-account-local-vault-is-authoritative.md). Mobile managed sync is the
 Convex row replica (§6, [ADR-0005](adr/0005-managed-sync-is-a-convex-row-replica.md)); its
-staging-deployment gate is still open. Web has no vault yet, so it shows published copies
-read-only and never writes personal data (§5.1); mobile whole-vault backup/restore is implemented
+staging-deployment gate is still open. Web has no vault yet, so it edits personal data directly
+on Convex while online and refuses offline edits (§5.1,
+[ADR-0006](adr/0006-web-edits-personal-data-online.md)); mobile whole-vault backup/restore is implemented
 and web exports only (§11). Giving web a vault remains a follow-up tracked in the
 [roadmap](ROADMAP.md#current-status).
 
@@ -137,12 +138,13 @@ associated id mappings from the old shared IndexedDB/OPFS stores. Other accounts
 untouched; the legacy stores are never automatically deleted. Failed recovery is surfaced and
 can be retried on a later vault open.
 
-Web shows published copies only (ADR-0005): personal data is edited in the mobile app. Every
-personal-data command (builds, elements, tasks, conventions, media, progress updates, seeding) is
-refused before it reaches Convex or the local store, with a localized alert; Settings → Backup &
-data carries the same notice. Social actions on published copies (groups, collaborators, likes,
-comments) still call Convex online. Web build visibility and sharing settings are part of the
-refused build edit until a social-settings path for published copies exists.
+Web edits personal data online ([ADR-0006](adr/0006-web-edits-personal-data-online.md), which
+supersedes ADR-0005 for web). Every personal-data command (builds, elements, tasks, conventions,
+media, progress updates, seeding) calls its Convex mutation directly while online; offline it is
+refused before it is sent or queued, and nothing is written to the local store. Every failed write
+is reported once in a transient toast. Settings → Backup & data says that web edits save to the
+account and need a connection. Social actions (groups, collaborators, likes, comments) call Convex
+online as before.
 
 ---
 
@@ -151,7 +153,7 @@ refused build edit until a social-settings path for published copies exists.
 Mobile replicates through the Convex row replica (`convex/replica.ts`, device half in
 `mobile/src/vault/replica`, shared vocabulary in `design-system/domain/replicaProtocol.ts`). The
 legacy replay worker, `sync.listChangedSince` and `tierTransition.backfillRows` are removed; web
-has no vault and is read-only (§5.1).
+has no vault and edits Convex directly while online (§5.1).
 
 - **REQ-D60** Gate: row sync runs only when `shouldRunSyncWorker(tier, signedIn)` holds for the
   vault's own account. The first confirmed paid session enables replication for the vault and
@@ -293,15 +295,18 @@ CSV, JSON-ZIP and PDF formats, per-field import merging, and tombstone-aware imp
 
 ### Current web behavior
 
-Settings → Data exports a free JSON bundle from the signed-in account's local rows, not a fresh
-cloud pull. The supported collections and versioned format are defined by
-[`dataPortability.ts`](../web/src/lib/dataPortability.ts). It is not the mobile `.kyarafit` archive:
-photo binaries, build media collections and convention day plans are not included, and it is not
-a complete vault backup.
+Settings → Data exports a free JSON bundle of the signed-in account's server rows, fetched when
+Export is clicked and merged with any rows the browser's local store retains (the server copy wins
+for the same id); offline it exports the local rows alone and says so. See the
+[account export scope](setup/ACCOUNT_EXPORT.md) for included records, access rules and exclusions.
+The versioned format is defined by [`dataPortability.ts`](../web/src/lib/dataPortability.ts).
+It is not the mobile `.kyarafit` archive or a complete vault backup.
 
-Web does not restore. Restoring writes personal data, which web never does (§5.1), so the page
-explains that backups are restored in the mobile app. A restore session left incomplete by an
-earlier web version still locks personal writes in that browser until it is cleared.
+Web does not offer backup-file restore: it has no vault to reconcile replayed personal rows
+([ADR-0006](adr/0006-web-edits-personal-data-online.md)). The page directs users to the mobile
+app for backup restore. An incomplete restore marker from an earlier web version still triggers
+a read-only notice and blocks paths guarded by `offlineRuntime.assertPersonalWritesAllowed`;
+it is not a supported restore or resume flow.
 
 The requirements below remain the target across platforms, not claims of current web fidelity.
 

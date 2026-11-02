@@ -12,7 +12,9 @@ import { PhotoBackdrop } from "@/components/layout/PhotoBackdrop";
 import { WebAppShell } from "@/components/layout/WebAppShell";
 import { ResolvedImage } from "@/components/ui/ResolvedImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { parseLocalDate } from "@kyarafit/design-system/domain";
 import { api } from "convex/_generated/api";
+import { MonogramFill } from "@/components/layout/MonogramPlate";
 
 /** Build shape returned by getFocusedOrMostRecentForUser (hero display). */
 type FocusedBuild = {
@@ -33,7 +35,7 @@ const STUDIO_CARD_GAP_PX = 12;
 function daysUntil(startDate: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
+  const start = parseLocalDate(startDate);
   start.setHours(0, 0, 0, 0);
   return Math.ceil((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -308,7 +310,7 @@ export default function HomePage() {
 
           {/* What's due — right glass panel (6a) */}
           <aside
-            className="w-full lg:w-[360px] lg:ml-auto shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
+            className="panel-enter w-full lg:w-[360px] lg:ml-auto shrink-0 self-start bg-glass backdrop-blur-glass border border-glass-border rounded-glass"
             aria-label={t("whatsDue")}
           >
             <div className="px-5 py-4 border-b border-glass-divider-strong">
@@ -384,7 +386,7 @@ export default function HomePage() {
           className="relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 pb-6 lg:pb-8"
           aria-label={t("inTheStudio", { count: builds.length })}
         >
-          <div className="bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
+          <div className="panel-enter bg-glass backdrop-blur-glass border border-glass-border rounded-glass px-5 py-4">
             <div className="mb-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.24em] opacity-85">
                 {t("inTheStudio", { count: builds.length })}
@@ -417,11 +419,7 @@ export default function HomePage() {
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="absolute inset-0 flex items-center justify-center text-media-fg-45">
-                          <span className="material-symbols-outlined text-4xl" aria-hidden>
-                            photo_library
-                          </span>
-                        </span>
+                        <MonogramFill name={build.name} />
                       )}
                       <div className="absolute inset-0 bg-kyar-media-scrim" aria-hidden />
                       <div className="absolute left-0 right-0 bottom-0 p-2.5">
@@ -527,10 +525,8 @@ export default function HomePage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-media-fg-55">
-                              <span className="material-symbols-outlined text-2xl">
-                                photo_library
-                              </span>
+                            <div className="relative w-full h-full">
+                              <MonogramFill name={b.name} size="sm" />
                             </div>
                           )}
                         </div>

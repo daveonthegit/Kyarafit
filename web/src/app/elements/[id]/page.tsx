@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { MonogramPlate } from "@/components/layout/MonogramPlate";
 import { useParams, useRouter } from "next/navigation";
 import { useOfflineMutation, useOfflineQuery } from "@/lib/offline";
 import { WebAppShell } from "@/components/layout/WebAppShell";
@@ -88,6 +90,7 @@ function isAllowedChildLink(parentType: NodeKind, childType: NodeKind) {
 }
 
 export default function ElementDetailPage() {
+  const tStudio = useTranslations("Studio");
   const params = useParams();
   const router = useRouter();
   const { userId } = useCurrentUser();
@@ -461,6 +464,14 @@ export default function ElementDetailPage() {
         <main className="relative z-10 mx-auto mb-10 mt-4 w-full max-w-[1600px] flex-1 px-4 sm:px-6 lg:px-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(440px,520px)]">
           {/* Identity on the photo, left (6b/8b grammar) */}
           <div className="max-w-[720px] pt-2 lg:pt-10">
+            {!node.imageStorageId && !node.imageUrl && (
+              <MonogramPlate
+                name={node.name}
+                addLabel={tStudio("addCover")}
+                onAdd={userId ? () => setShowEditPanel(true) : undefined}
+                className="mb-6 h-[240px] sm:h-[320px]"
+              />
+            )}
             <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.28em] opacity-75">
               {nodeTypeLabel}
               {node.category ? ` · ${node.category}` : ""}
@@ -604,7 +615,7 @@ export default function ElementDetailPage() {
                               setForm((prev) => ({ ...prev, materialStatus: status }));
                               if (userId) void updateNode({ id, userId, materialStatus: status });
                             }}
-                            className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-widest ${
+                            className={`min-h-[44px] rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kyar-accent ${
                               form.materialStatus === status
                                 ? "border-transparent bg-glass-solid text-glass-ink"
                                 : "border-glass-border-strong text-media-fg-70 hover:bg-glass-active"
@@ -1023,6 +1034,7 @@ export default function ElementDetailPage() {
                 Reference image
               </p>
               <ImageUpload
+                surface="glass"
                 category="closet"
                 onImageSelected={(result) => {
                   if ("imageStorageId" in result && result.imageStorageId) {
@@ -1210,7 +1222,9 @@ export default function ElementDetailPage() {
                 className="flex w-full items-center justify-between gap-3 rounded-[10px] border border-glass-border p-3 text-left hover:border-glass-border-strong hover:bg-glass-active transition-colors"
               >
                 <span className="truncate text-sm font-medium">{build.name}</span>
-                <span className="text-[10px] uppercase tracking-widest">Add</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-media-fg-70">
+                  Add
+                </span>
               </button>
             ))}
           </div>

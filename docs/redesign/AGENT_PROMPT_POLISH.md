@@ -101,11 +101,9 @@ For the screen the owner names:
 | 15  | Landing (full scroll pass, both motion modes)                                                           | `/`                              | Landing Live                                                      |
 | 16  | Shell sweep: top bar, tab bar, drawer, FAB, creation modals, SyncStatus/OnlineOnlyBanner across screens | —                                | 13d/13e + 03                                                      |
 
-Known debt to keep an eye out for (from the implementation notes): the planner's
-`FullScreenCalendar` is still cream inside its glass panel; the creation modals ride `Sheet`
-rather than the 13d dialog; `/elements/[id]` only inherited component-level restyles; the
-transitional `bg-glass-*-on-wall` underlays on chrome can drop back to plain glass on any screen
-that now renders its own full-bleed backdrop.
+For remaining web walkthroughs and implementation compromises, use the
+[release checklist's owner walkthrough](../setup/GLASS_WEB_RELEASE_CHECKLIST.md#owner-walkthrough-before-or-right-after-release)
+rather than the earlier implementation-debt notes.
 
 Start by asking the owner which screen to begin with (or propose #1).
 
