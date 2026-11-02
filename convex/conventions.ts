@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation } from "./lib/guardedMutation";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { checkLimitAndAddUsage, subtractUsageForStorageId } from "./storageUsage";
 import { ensurePackingWorkflowItem, removeWorkflowItemCascade } from "./workflow";
 import { idempotentRecord, idempotentReplay, runIdempotent } from "./lib/idempotency";
@@ -13,15 +13,31 @@ import {
   validateDateString,
 } from "./lib/validation";
 import { optionalIdentity, requireIdentity } from "./lib/authz";
+import { canUserViewBuild } from "./lib/buildAccess";
 
-async function getPackingWorkflowStatus(
+/** A convention plan or packing row may only name a build the actor owns or collaborates on. */
+async function assertBuildReachable(
+  ctx: MutationCtx,
+  buildId: Id<"builds"> | undefined,
+  actorId: string
+) {
+  if (buildId && !(await canUserViewBuild(ctx, buildId, actorId))) {
+    throw new Error("Not found or not authorized");
+  }
+}
+
+async function getOwnedPackingWorkflowItem(
   ctx: QueryCtx | MutationCtx,
   item: Doc<"packingListItems">
 ) {
-  if (!item.workflowItemId) return item.checked;
-  const workflowItem = await ctx.db.get(item.workflowItemId);
-  if (!workflowItem) return item.checked;
-  return workflowItem.status === "done";
+  const task = item.workflowItemId ? await ctx.db.get(item.workflowItemId) : null;
+  return task?.userId === item.userId ? task : null;
+}
+
+async function removePackingItem(ctx: MutationCtx, item: Doc<"packingListItems">) {
+  const task = await getOwnedPackingWorkflowItem(ctx, item);
+  if (task) await removeWorkflowItemCascade(ctx, task._id);
+  if (await ctx.db.get(item._id)) await ctx.db.delete(item._id);
 }
 
 /**
@@ -256,8 +272,7 @@ export const removeMany = mutation({
         .withIndex("by_conventionId", (q) => q.eq("conventionId", id))
         .collect();
       for (const pi of packingItems) {
-        if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-        else await ctx.db.delete(pi._id);
+        await removePackingItem(ctx, pi);
       }
       await ctx.db.delete(id);
     }
@@ -295,8 +310,7 @@ export async function deleteOwnedConvention(
     .withIndex("by_conventionId", (q) => q.eq("conventionId", convention._id))
     .collect();
   for (const pi of packingItems) {
-    if (pi.workflowItemId) await removeWorkflowItemCascade(ctx, pi.workflowItemId);
-    else await ctx.db.delete(pi._id);
+    await removePackingItem(ctx, pi);
   }
 
   await ctx.db.delete(convention._id);
@@ -341,6 +355,7 @@ export const replacePlan = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    for (const entry of args.plan) await assertBuildReachable(ctx, entry.buildId, actorId);
     // Delete existing plans
     const existing = await ctx.db
       .query("conventionDayPlans")
@@ -385,12 +400,7 @@ export const getPacking = query({
       .query("packingListItems")
       .withIndex("by_conventionId", (q) => q.eq("conventionId", args.conventionId))
       .collect();
-    return await Promise.all(
-      items.map(async (item) => ({
-        ...item,
-        checked: await getPackingWorkflowStatus(ctx, item),
-      }))
-    );
+    return items;
   },
 });
 
@@ -425,7 +435,7 @@ export const updatePackingItem = mutation({
     }
     const updated = await ctx.db.get(id);
     if (updated) {
-      await ensurePackingWorkflowItem(ctx, {
+      const workflowItemId = await ensurePackingWorkflowItem(ctx, {
         userId: actorId,
         packingListItemId: updated._id,
         conventionId: updated.conventionId,
@@ -437,14 +447,9 @@ export const updatePackingItem = mutation({
         checked: args.checked ?? updated.checked,
         manual: updated.entryKind === "manual" || (!updated.cosplayNodeId && !updated.buildId),
       });
-      if (args.checked !== undefined && updated.workflowItemId) {
-        await ctx.db.patch(updated.workflowItemId, {
-          status: args.checked ? "done" : "not_started",
-        });
-      }
       return {
         ...updated,
-        checked: args.checked ?? (await getPackingWorkflowStatus(ctx, updated)),
+        workflowItemId,
       };
     }
     return updated;
@@ -473,6 +478,7 @@ export const addManualPackingItem = mutation({
     if (!convention || convention.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
+    await assertBuildReachable(ctx, args.buildId, actorId);
     const label = sanitizeAndLimit(args.label, MAX_LENGTH.label, "Label");
     const date = args.date ? validateDateString(args.date, "Date") : undefined;
     const notes = sanitizeOptional(args.notes, MAX_LENGTH.notes, "Notes");
@@ -523,11 +529,7 @@ export const deletePackingItem = mutation({
     if (!item || item.userId !== actorId) {
       throw new Error("Not found or not authorized");
     }
-    if (item.workflowItemId) {
-      await removeWorkflowItemCascade(ctx, item.workflowItemId);
-      return;
-    }
-    await ctx.db.delete(args.id);
+    await removePackingItem(ctx, item);
   },
 });
 
@@ -548,16 +550,10 @@ export const listWithDetails = query({
           .query("conventionDayPlans")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packingRaw = await ctx.db
+        const packing = await ctx.db
           .query("packingListItems")
           .withIndex("by_conventionId", (q) => q.eq("conventionId", c._id))
           .collect();
-        const packing = await Promise.all(
-          packingRaw.map(async (item) => ({
-            ...item,
-            checked: await getPackingWorkflowStatus(ctx, item),
-          }))
-        );
         return { ...c, plans, packing };
       })
     );
@@ -583,11 +579,7 @@ export const regeneratePacking = mutation({
       .collect();
     for (const item of existing) {
       if (item.entryKind !== "manual") {
-        if (item.workflowItemId) {
-          await removeWorkflowItemCascade(ctx, item.workflowItemId);
-        } else {
-          await ctx.db.delete(item._id);
-        }
+        await removePackingItem(ctx, item);
       }
     }
 
@@ -603,6 +595,9 @@ export const regeneratePacking = mutation({
     for (const plan of plans) {
       if (!plan.buildId) continue;
       const buildId = plan.buildId;
+      // A stored plan may predate the build check in `replacePlan`; never copy element
+      // names out of a build this user can no longer see.
+      if (!(await canUserViewBuild(ctx, buildId, actorId))) continue;
 
       // Step 2c: a build's root nodes are its own cosplayNodes with no parent, sourced from `buildId`.
       const buildNodes = await ctx.db

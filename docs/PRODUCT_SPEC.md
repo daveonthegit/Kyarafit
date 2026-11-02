@@ -164,7 +164,7 @@ are standardized in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §states; per-module 
 ### 4.6 Groups / collaboration (online-only)
 
 - **REQ-070** Creating a group is paid (REQ-019); the group's shared data is hosted under the creator's synced account.
-- **REQ-071** Joining and participating (shared convention days, build collaboration) is free but **online-only**; offline shows an offline banner.
+- **REQ-071** Joining and participating (shared convention days, build collaboration) is free but **online-only**; offline shows an offline banner. Only group admins may link convention days, and only for conventions they own. Group schedules are readable only by members. Conventions are private: non-owners see selected schedule days but no convention name or date range (the grouped view shows "Private convention"). Adding the convention owner to the group does not reveal those details to other members. Existing links remain stored; unavailable conventions are suppressed per the [backend authorization contract](backend-authorization.md#workflow-and-convention-references).
 - **REQ-072** Group cosplay builds enable the free-user cloud exception (REQ-021).
 
 ### 4.7 Social (online-only)

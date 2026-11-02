@@ -118,6 +118,34 @@ reading correctly. That is exactly the bug the containment merge had to fix in
 `someAncestorBuild`. Delete these table defs only after the purge migration has run
 everywhere.
 
+## Workflow and convention references
+
+Session identity alone does not authorize a referenced row. Workflow attachment writes
+(including template application) validate each entity and `buildContextId` against the
+actor: builds require edit access; elements require ownership or edit access to their build;
+conventions and packing items require ownership. Planner buckets are opaque keys, not rows.
+Attachment rows retain the workflow item's owner even when a build editor acts.
+
+Packing synchronization and cascade deletion require the packing owner to match both the
+workflow owner and the session actor. Preserved packing rows are detached when their task
+is deleted. Following `packingListItems.workflowItemId` requires matching task/packing
+ownership; updates use the task returned by `ensurePackingWorkflowItem`, not a stale pointer.
+`getPacking` and `listWithDetails` use the packing row's `checked` value, never a linked
+task's status: a build editor's task edits must not change the owner's effective packing state.
+Generated task deduplication is owner-scoped; client keys cannot use `packing:` or `autogen:`.
+
+Stored links are not authorization: planner names and external progress are resolved only
+while the relevant access check still passes. Convention plans and manual packing build
+references require build ownership or collaboration, and packing regeneration skips builds
+that no longer satisfy that rule.
+
+Group convention-day access is specified in
+[Product specification §4.6](PRODUCT_SPEC.md#46-groups--collaboration-online-only).
+Deletion-aware suppression of unavailable convention links follows
+[Storage claims](storage-claims.md#follow-up-integration-seams).
+Regressions: `convex/crossUserReferences.authz.test.ts` and
+`convex/groupDiscoveryDeletion.test.ts`.
+
 ## Media
 
 Storage ids are not a security boundary: they are returned on build, element, convention,
