@@ -165,7 +165,8 @@
       "dayPlanOutsideConvention": "{count, plural, one {# plan del día} other {# planes del día}} fuera de las fechas de la convención.",
       "duplicateDayPlan": "{count, plural, one {# plan del día adicional} other {# planes del día adicionales}} para un día que ya tenía uno (se conservó el más reciente).",
       "duplicatePackingItem": "{count, plural, one {# artículo de equipaje duplicado} other {# artículos de equipaje duplicados}}.",
-      "socialData": "Los me gusta, comentarios, seguidores, grupos y colaboradores se quedan en Kyarafit."
+      "socialData": "Los me gusta, comentarios, seguidores, grupos y colaboradores se quedan en Kyarafit.",
+      "nonOwnedBuildTasks": "No se exportan las tareas asociadas a builds que no te pertenecen."
     }
   },
   "Theme": {

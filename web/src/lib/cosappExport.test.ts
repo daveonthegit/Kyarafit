@@ -638,6 +638,31 @@ describe("builds", () => {
 });
 
 describe("pieces", () => {
+  it("exports a quick-created element as done after marking it bought", () => {
+    const s = emptySnapshot();
+    s.cosplayNodes = [{
+      _id: "quick-created",
+      _creationTime: T0,
+      nodeType: "element",
+      name: "Wig",
+      purchaseStatus: "to_buy",
+      buildStatus: "not_started",
+    }];
+    expect(convert(s).data.rows.pieces[0].status).toBe("todo");
+    s.cosplayNodes[0].purchaseStatus = "bought";
+    expect(convert(s).data.rows.pieces[0].status).toBe("done");
+  });
+
+  it.each([undefined, "not_started", "wip", "built"])("honors bought status with build status %s and retains manual overrides", (buildStatus) => {
+    const s = emptySnapshot();
+    s.cosplayNodes = [{ _id: "element", _creationTime: T0, nodeType: "element", name: "Wig", purchaseStatus: "bought", buildStatus }];
+    expect(convert(s).data.rows.pieces[0].status).toBe("done");
+    for (const [manualOverallBucket, expected] of [["incomplete", "todo"], ["in_progress", "in_progress"], ["complete", "done"]]) {
+      s.cosplayNodes[0].manualOverallBucket = manualOverallBucket;
+      expect(convert(s).data.rows.pieces[0].status).toBe(expected);
+    }
+  });
+
   it("flattens nested parts to 'Parent › Child' in the root's build, in tree order", () => {
     const { data } = convert();
     const b1 = data.rows.pieces.filter((p) => p.buildId === "ky-b-b1");
@@ -977,6 +1002,7 @@ describe("round trip through Cosapp.si's backup reader", () => {
     const archive = decodeBackup(encodeCosappArchive(result, new Map()));
     assertStoreConstraints(archive.data.rows);
     expect(archive.data.rows.builds).toEqual([]);
+    expect(result.receipt.dropped).toContainEqual({ kind: "nonOwnedBuildTasks", count: null });
   });
 
   it("carries the receipt in the archive without disturbing the backup", () => {
@@ -985,6 +1011,7 @@ describe("round trip through Cosapp.si's backup reader", () => {
     const receipt = JSON.parse(strFromU8(files[COSAPP_RECEIPT_ENTRY]));
     expect(receipt).toEqual(result.receipt);
     expect(receipt.importNotice).toBe("Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.");
+    expect(receipt.dropped).toContainEqual({ kind: "nonOwnedBuildTasks", count: null });
   });
 
   it("refuses to write an archive missing a photo's bytes", () => {

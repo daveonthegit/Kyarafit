@@ -313,7 +313,8 @@ export type CosappDropKind =
   | "dayPlanOutsideConvention"
   | "duplicateDayPlan"
   | "duplicatePackingItem"
-  | "socialData";
+  | "socialData"
+  | "nonOwnedBuildTasks";
 
 export interface CosappReceipt {
   importNotice: string;
@@ -436,6 +437,7 @@ class Receipt {
       dropped: [
         ...[...this.droppedCounts].map(([kind, count]) => ({ kind, count })),
         { kind: "socialData" as const, count: null },
+        { kind: "nonOwnedBuildTasks" as const, count: null },
       ],
     };
   }
@@ -1066,9 +1068,8 @@ function pieceStatus(node: KyCosplayNode): CosappPiece["status"] {
     if (node.materialStatus === "in_use") return "in_progress";
     return "todo";
   }
-  if (node.buildStatus === "built") return "done";
+  if (node.purchaseStatus === "bought" || node.buildStatus === "built") return "done";
   if (node.buildStatus === "wip") return "in_progress";
-  if (!node.buildStatus && node.purchaseStatus === "bought") return "done";
   return "todo";
 }
 
