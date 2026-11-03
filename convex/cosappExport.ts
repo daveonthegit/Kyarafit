@@ -8,6 +8,7 @@ import {
   EXPORT_MAX_PHOTO_BYTES,
   PHOTO_BATCH_BYTES,
   MAX_PHOTOS_PER_CALL,
+  MAX_EXTERNAL_PHOTOS_PER_CALL,
   isCosappImage,
   type CosappExport,
   type KyarafitSnapshot,
@@ -162,7 +163,7 @@ async function externalPhoto(
       await reader.cancel();
     }
     const blob = new Blob(chunks);
-    if (!isCosappImage(new Uint8Array(await blob.arrayBuffer()))) {
+    if (!isCosappImage(new Uint8Array(await blob.slice(0, 12).arrayBuffer()))) {
       return { blob: null, failure: "unsupportedImage" };
     }
     return { blob };
@@ -179,8 +180,7 @@ async function convert(ctx: ActionCtx): Promise<CosappExport> {
   const references = convertKyarafitToCosapp(rows, options).photoSources;
   for (const source of references) {
     if (!/^https?:\/\//i.test(source)) continue;
-    const { blob, failure } = await externalPhoto(source);
-    rows.storedFiles.push({ storageId: source, size: blob?.size ?? 0, failure });
+    rows.storedFiles.push({ storageId: source, size: EXPORT_MAX_PHOTO_BYTES });
   }
   return convertKyarafitToCosapp(rows, options);
 }
@@ -212,6 +212,13 @@ export const photoBytes = action({
     for (const storageId of storageIds) {
       if (!allowed.has(storageId)) throw new Error("Photo not found");
     }
+    const externalIds = [...new Set(storageIds)].filter((id) => /^https?:\/\//i.test(id));
+    if (externalIds.length > MAX_EXTERNAL_PHOTOS_PER_CALL) {
+      throw new Error("Too many external photos in one request");
+    }
+    const externalFiles = new Map(
+      await Promise.all(externalIds.map(async (id) => [id, await externalPhoto(id)] as const))
+    );
     const out: {
       storageId: string;
       bytes: ArrayBuffer | null;
@@ -222,7 +229,7 @@ export const photoBytes = action({
     for (const storageId of new Set(storageIds)) {
       const fetched: { blob: Blob | null; failure?: KyStoredFile["failure"] } =
         /^https?:\/\//i.test(storageId)
-          ? await externalPhoto(storageId)
+          ? externalFiles.get(storageId)!
           : { blob: await ctx.storage.get(storageId as Id<"_storage">) };
       const { blob } = fetched;
       const failure =

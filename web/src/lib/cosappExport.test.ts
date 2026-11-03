@@ -3,6 +3,7 @@ import {
   EXPORT_MAX_PHOTO_BYTES,
   PHOTO_BATCH_BYTES,
   MAX_PHOTOS_PER_CALL,
+  MAX_EXTERNAL_PHOTOS_PER_CALL,
   COSAPP_RECEIPT_ENTRY,
   LIBRARY_BUILD_NAME,
   convertKyarafitToCosapp,
@@ -486,6 +487,47 @@ function reshaped(result: CosappExport, kind: string) {
 }
 
 describe("review regressions", () => {
+  it.each(["pieces", "tasks", "packingItems"] as const)("merges a %s reorder when the former predecessor moves after it", (table) => {
+    const s = emptySnapshot();
+    s.builds = [{ _id: "build", _creationTime: 1, name: "Build", status: "idea" }];
+    s.conventions = [{ _id: "con", _creationTime: 1, name: "Con", startDate: "2027-01-01", endDate: "2027-01-01" }];
+    s.cosplayNodes = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, name: _id, nodeType: "element", buildId: "build", sortOrder: index }));
+    s.workflowItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, title: _id, sourceKind: "manual", status: "not_started", sortOrder: index }));
+    s.packingListItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, label: _id, checked: false, conventionId: "con", sortOrder: index }));
+    const source = { pieces: s.cosplayNodes, tasks: s.workflowItems, packingItems: s.packingListItems }[table];
+    const before = convert(s);
+    expect(before.data.rows[table].map((row) => [row.position, row.updatedAt])).toEqual([[0, 100], [1, 100]]);
+    source[0].sortOrder = 2;
+    source[0].updatedAt = 200;
+    const after = convert(s);
+    expect(after.data.rows[table].map((row) => [row.position, row.updatedAt])).toEqual([[0, 200], [1, 200]]);
+    const store = emptyStore();
+    mergeInto(store, decodeBackup(encodeCosappArchive(before, new Map())));
+    mergeInto(store, decodeBackup(encodeCosappArchive(after, new Map())));
+    const secondId = before.data.rows[table][1].id;
+    expect(store[table].get(secondId)).toMatchObject({ position: 0, updatedAt: 200 });
+  });
+
+  it("waits for an update's last photo to disappear before recovering its note once", () => {
+    const s = fixture();
+    const update = s.buildProgressUpdates[0];
+    update.imageRefs = [{ kind: "cloud", storageId: "s-upd", imageKey: "one" }, { kind: "cloud", storageId: "s-ref", imageKey: "two" }];
+    const prepared = convert(s);
+    const line = "Progress 2026-06-01: Coat lining done";
+    const first = withoutPhotoFiles(prepared, new Set(["ky-ph-u-u1-0.jpg"]));
+    expect(byId(first.data.rows.builds, "ky-b-b1").notes).not.toContain(line);
+    const second = withoutPhotoFiles(first, new Set(["ky-ph-u-u1-1.jpg"]), "unsupportedImage");
+    expect(byId(second.data.rows.builds, "ky-b-b1").notes).toContain(line);
+    expect(reshaped(second, "progressNoteInBuildNotes")).toBe(2);
+    expect(withoutPhotoFiles(second, new Set(["ky-ph-u-u1-1.jpg"]))).toEqual(second);
+  });
+
+  it("limits external URLs independently of byte and total-photo limits", () => {
+    const files = Array.from({ length: 61 }, (_, i) => ({ fileName: `${i}.jpg`, storageId: `https://example.com/${i}.jpg`, size: 10 }));
+    const batches = planPhotoBatches(files, PHOTO_BATCH_BYTES);
+    expect(batches.flat()).toEqual(files.map((file) => file.storageId));
+    expect(batches.every((batch) => batch.length <= MAX_EXTERNAL_PHOTOS_PER_CALL)).toBe(true);
+  });
   it("keeps the library identity when its oldest member moves to a build", () => {
     const s = fixture();
     const first = convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!;
@@ -694,7 +736,7 @@ describe("tasks", () => {
     expect(byId(data.rows.tasks, "ky-t-w-craft")).toEqual({
       id: "ky-t-w-craft",
       createdAt: T0 + 30,
-      updatedAt: T0 + 31,
+      updatedAt: T0 + 35,
       deletedAt: null,
       ownerKind: "build",
       buildId: "ky-b-b1",
@@ -987,6 +1029,41 @@ describe("round trip through Cosapp.si's backup reader", () => {
 });
 
 describe("buildCosappDownload", () => {
+  it.each(["missingImage", "unsupportedImage", "oversizeImage"] as const)("preserves progress notes after late %s failures", async (reason) => {
+    const s = emptySnapshot();
+    s.builds = [{ _id: "b", _creationTime: 1, name: "Build", status: "idea" }];
+    s.buildProgressUpdates = [{ _id: "u", _creationTime: T0, updatedAt: T0 + 100, buildId: "b", createdAt: T0, note: "Finished lining", progressPercent: 40, imageRefs: [{ kind: "url", url: "https://example.com/photo.jpg" }] }];
+    s.storedFiles = [jpeg("https://example.com/photo.jpg", EXPORT_MAX_PHOTO_BYTES)];
+    const prepared = convert(s);
+    const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[] }) => {
+      if (!args.storageIds) return prepared;
+      return args.storageIds.map((storageId) => ({ storageId, bytes: reason === "unsupportedImage" ? new TextEncoder().encode("not an image").buffer : null, failure: reason === "unsupportedImage" ? undefined : reason, size: 0 }));
+    });
+    const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
+    const archive = decodeBackup(download.bytes);
+    expect(archive.data.rows.photos).toEqual([]);
+    expect(archive.data.rows.builds[0]).toMatchObject({ notes: "Progress 2026-03-01 (40%): Finished lining", updatedAt: T0 + 100 });
+    expect(download.receipt.reshaped).toContainEqual({ kind: "progressNoteInBuildNotes", count: 1 });
+    expect(download.receipt.droppedImages).toEqual([{ image: "https://example.com/photo.jpg", reason }]);
+  });
+  it("drives a large external-photo account through bounded client requests", async () => {
+    const s = emptySnapshot();
+    s.builds = Array.from({ length: 61 }, (_, i) => ({ _id: `b${i}`, _creationTime: 1, name: `${i}`, status: "idea", imageUrl: `https://example.com/${i}.jpg` }));
+    s.storedFiles = s.builds.map((build) => jpeg(build.imageUrl!, EXPORT_MAX_PHOTO_BYTES));
+    const prepared = convert(s);
+    const batches: string[][] = [];
+    const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[] }) => {
+      if (!args.storageIds) return prepared;
+      batches.push(args.storageIds);
+      return args.storageIds.map((storageId) => ({ storageId, bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer, size: 3 }));
+    });
+    const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
+    expect(batches.flat()).toEqual(prepared.photoFiles.map((file) => file.storageId));
+    expect(batches.every((batch) => batch.length <= MAX_EXTERNAL_PHOTOS_PER_CALL)).toBe(true);
+    expect(decodeBackup(download.bytes).data.rows.photos).toHaveLength(61);
+    expect(download.receipt.droppedImages).toEqual([]);
+  });
+
   it("assembles a supported 15 MB photo from bounded byte ranges", async () => {
     const s = emptySnapshot();
     s.builds.push({ _id: "b", _creationTime: T0, name: "Build", status: "idea", imageStorageId: "large" });
