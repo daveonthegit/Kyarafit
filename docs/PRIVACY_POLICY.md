@@ -1,10 +1,10 @@
 # Kyarafit Privacy Policy
 
-**Effective date: April 22, 2026**
+**Effective date: November 2, 2026**
 
 The user-facing version of this policy is published in the web app at `/privacy` (see `web/src/app/privacy/page.tsx`).
 
-Kyarafit is a cosplay wardrobe, build-tracking, and convention-planning app. This document summarizes the same commitments as the in-app policy.
+Kyarafit, operated by Shuk Labs LLC, is a cosplay wardrobe, build-tracking, and convention-planning app. This document summarizes the same commitments as the in-app policy.
 
 ## Data Kyarafit collects
 
@@ -36,4 +36,7 @@ You can delete your account from in-app settings. Deletion removes cloud-synced 
 
 ## Contact
 
+Kyarafit is operated by Shuk Labs LLC, the data controller for the Service.
+
+- Shuk Labs LLC, 418 Broadway Ste N, Albany, NY 12207
 - kyarafit@kyarafit.com

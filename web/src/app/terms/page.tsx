@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Terms governing your use of Kyarafit’s cosplay planning and convention tools.",
 };
 
-const EFFECTIVE_DATE = "April 22, 2026";
+const EFFECTIVE_DATE = "November 2, 2026";
 
 export default function TermsOfServicePage() {
   return (
@@ -32,7 +32,7 @@ export default function TermsOfServicePage() {
             <p className="mt-4 text-sm leading-6 text-media-fg-70 sm:text-[15px]">
               Effective date: {EFFECTIVE_DATE}. These Terms of Service (“Terms”) govern your access
               to and use of Kyarafit’s websites, mobile applications, and related services
-              (collectively, the “Service”) operated by Kyarafit (“we,” “us,” or “our”). By
+              (collectively, the “Service”) operated by Shuk Labs LLC (“we,” “us,” or “our”). By
               accessing or using the Service, you agree to these Terms. If you do not agree, do not
               use the Service.
             </p>
@@ -233,7 +233,8 @@ export default function TermsOfServicePage() {
               Contact
             </h2>
             <p className="mt-3">
-              Questions about these Terms:{" "}
+              Kyarafit is operated by Shuk Labs LLC, 418 Broadway Ste N, Albany, NY 12207. Questions
+              about these Terms:{" "}
               <a
                 className="underline decoration-glass-border-strong hover:text-kyar-media-fg"
                 href="mailto:kyarafit@kyarafit.com"

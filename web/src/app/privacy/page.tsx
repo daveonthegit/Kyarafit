@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "How Kyarafit collects, uses, and protects your account data, cosplay planning content, and uploads.",
 };
 
-const EFFECTIVE_DATE = "April 22, 2026";
+const EFFECTIVE_DATE = "November 2, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -32,10 +32,11 @@ export default function PrivacyPolicyPage() {
                 Privacy Policy
               </h1>
               <p className="mt-4 text-sm leading-6 text-media-fg-70 sm:text-[15px]">
-                Effective date: {EFFECTIVE_DATE}. Kyarafit (“we,” “us,” or “our”) operates a cosplay
-                wardrobe, build-tracking, and convention-planning service (“Service”). This Privacy
-                Policy describes how we collect, use, disclose, and safeguard information when you
-                use our websites, mobile apps, and related features.
+                Effective date: {EFFECTIVE_DATE}. Kyarafit, operated by Shuk Labs LLC (“we,” “us,”
+                or “our”), operates a cosplay wardrobe, build-tracking, and convention-planning
+                service (“Service”). This Privacy Policy describes how we collect, use, disclose,
+                and safeguard information when you use our websites, mobile apps, and related
+                features.
               </p>
             </div>
 
@@ -258,7 +259,8 @@ export default function PrivacyPolicyPage() {
               Contact
             </h2>
             <p className="mt-3">
-              For privacy or data requests, contact{" "}
+              Kyarafit is operated by Shuk Labs LLC, the data controller for the Service, at 418
+              Broadway Ste N, Albany, NY 12207. For privacy or data requests, contact{" "}
               <a
                 className="underline decoration-glass-border-strong hover:text-kyar-media-fg"
                 href="mailto:kyarafit@kyarafit.com"
