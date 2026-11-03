@@ -129,7 +129,7 @@
   },
   "CosappExport": {
     "title": "Move to Cosapp.si",
-    "description": "Download your builds, pieces, tasks, conventions and photos as a Cosapp.si backup file. Photos are included, so a large account can take a minute.",
+    "description": "Download your builds, pieces, tasks, conventions and photos as a Cosapp.si backup file. Photos are included, so a large account can take a minute. Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.",
     "button": "Download for Cosapp.si",
     "preparing": "Preparing your Cosapp.si file…",
     "photosProgress": "Downloading photos… {done}/{total}",

@@ -129,7 +129,7 @@
   },
   "CosappExport": {
     "title": "Pasar a Cosapp.si",
-    "description": "Descarga tus builds, piezas, tareas, convenciones y fotos como un archivo de copia de seguridad de Cosapp.si. Incluye las fotos, así que una cuenta grande puede tardar un minuto.",
+    "description": "Descarga tus builds, piezas, tareas, convenciones y fotos como un archivo de copia de seguridad de Cosapp.si. Incluye las fotos, así que una cuenta grande puede tardar un minuto. Importa este archivo una sola vez en Cosapp.si sin datos previos; volver a importar una exportación más reciente combina los datos según la edición más reciente y puede no reflejar las eliminaciones hechas en Kyarafit.",
     "button": "Descargar para Cosapp.si",
     "preparing": "Preparando tu archivo de Cosapp.si…",
     "photosProgress": "Descargando fotos… {done}/{total}",

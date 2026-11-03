@@ -5,8 +5,6 @@ import type { Id } from "./_generated/dataModel";
 import { requireIdentity } from "./lib/authz";
 import {
   convertKyarafitToCosapp,
-  newestSourceChange,
-  type KySourceTable,
   EXPORT_MAX_PHOTO_BYTES,
   PHOTO_BATCH_BYTES,
   MAX_PHOTOS_PER_CALL,
@@ -37,12 +35,6 @@ export const snapshot = internalQuery({
   args: {},
   handler: async (ctx): Promise<KyarafitSnapshot> => {
     const userId = await requireIdentity(ctx);
-    const sourceUpdatedAt: Partial<Record<KySourceTable, number>> = {};
-    const track = (table: KySourceTable) =>
-      <T extends { _creationTime: number; updatedAt?: number; deletedAt?: number; _id: string }>(rows: T[]): T[] => {
-        sourceUpdatedAt[table] = newestSourceChange(rows);
-        return live(rows);
-      };
     const [
       builds,
       cosplayNodes,
@@ -59,37 +51,37 @@ export const snapshot = internalQuery({
         .query("builds")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("builds")),
+        .then(live),
       ctx.db
         .query("cosplayNodes")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("cosplayNodes")),
+        .then(live),
       ctx.db
         .query("workflowItems")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("workflowItems")),
+        .then(live),
       ctx.db
         .query("workflowAttachments")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("workflowAttachments")),
+        .then(live),
       ctx.db
         .query("conventions")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("conventions")),
+        .then(live),
       ctx.db
         .query("conventionDayPlans")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("conventionDayPlans")),
+        .then(live),
       ctx.db
         .query("packingListItems")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("packingListItems")),
+        .then(live),
       ctx.db
         .query("buildReferenceImages")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -104,7 +96,7 @@ export const snapshot = internalQuery({
         .query("buildProgressUpdates")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect()
-        .then(track("buildProgressUpdates")),
+        .then(live),
     ]);
 
     const storageIds = new Set<Id<"_storage">>();
@@ -130,7 +122,6 @@ export const snapshot = internalQuery({
 
     return {
       accountId: userId,
-      sourceUpdatedAt,
       builds,
       cosplayNodes,
       workflowItems,

@@ -36,6 +36,7 @@ export const MAX_PHOTOS_PER_CALL = 200;
 export const MAX_EXTERNAL_PHOTOS_PER_CALL = 2;
 /** Name of the receipt entry inside the archive. Cosapp.si's import ignores entries outside `photos/`. */
 export const COSAPP_RECEIPT_ENTRY = "kyarafit-receipt.json";
+export const COSAPP_IMPORT_NOTICE = "Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.";
 export const LIBRARY_BUILD_NAME = "From Kyarafit library";
 /** Separator for flattened names ("Armor › Pauldron"). */
 export const PATH_SEPARATOR = " › ";
@@ -156,19 +157,8 @@ export interface KyStoredFile {
   failure?: "missingImage" | "unsupportedImage" | "oversizeImage";
 }
 
-export type KySourceTable =
-  | "builds"
-  | "cosplayNodes"
-  | "workflowItems"
-  | "workflowAttachments"
-  | "conventions"
-  | "conventionDayPlans"
-  | "packingListItems"
-  | "buildProgressUpdates";
-
 export interface KyarafitSnapshot {
   accountId: string;
-  sourceUpdatedAt?: Partial<Record<KySourceTable, number>>;
   builds: KyBuild[];
   cosplayNodes: KyCosplayNode[];
   workflowItems: KyWorkflowItem[];
@@ -326,6 +316,7 @@ export type CosappDropKind =
   | "socialData";
 
 export interface CosappReceipt {
+  importNotice: string;
   /** Live rows written per Cosapp.si table, and photo files in the archive. */
   counts: Record<CosappTable, number> & { photoFiles: number };
   droppedImages: { image: string; reason: CosappDropKind }[];
@@ -371,32 +362,13 @@ function cents(value: number | undefined): number | null {
     : null;
 }
 
-function stamps(row: KyRow, dependencies: { updatedAt?: number; _creationTime?: number }[] = []): CosappRow {
+function stamps(row: KyRow): CosappRow {
   const createdAt = Math.floor(row._creationTime);
   const updatedAt =
     typeof row.updatedAt === "number" && Number.isFinite(row.updatedAt)
       ? Math.max(Math.floor(row.updatedAt), createdAt)
       : createdAt;
-  return {
-    id: "", createdAt,
-    updatedAt: dependencies.reduce((latest, dependency) => Math.max(latest,
-      typeof dependency.updatedAt === "number" && Number.isFinite(dependency.updatedAt) ? Math.floor(dependency.updatedAt) : 0,
-      typeof dependency._creationTime === "number" && Number.isFinite(dependency._creationTime) ? Math.floor(dependency._creationTime) : 0), updatedAt),
-    deletedAt: null,
-  };
-}
-
-export function newestSourceChange(rows: KyRow[]): number {
-  return rows.reduce((latest, row) => {
-    for (const value of [row._creationTime, row.updatedAt, row.deletedAt]) {
-      if (typeof value === "number" && Number.isFinite(value)) latest = Math.max(latest, Math.floor(value));
-    }
-    return latest;
-  }, 0);
-}
-
-function floorUpdatedAt(rows: CosappRow[], timestamp: number): void {
-  for (const row of rows) row.updatedAt = Math.max(row.updatedAt, timestamp);
+  return { id: "", createdAt, updatedAt, deletedAt: null };
 }
 
 function live<T extends KyRow>(rows: T[]): T[] {
@@ -457,6 +429,7 @@ class Receipt {
       COSAPP_TABLES.map((table) => [table, rows[table].length])
     ) as Record<CosappTable, number>;
     return {
+      importNotice: COSAPP_IMPORT_NOTICE,
       counts: { ...counts, photoFiles },
       droppedImages: this.droppedImages,
       reshaped: [...this.reshapedCounts].map(([kind, count]) => ({ kind, count })),
@@ -480,13 +453,6 @@ export function convertKyarafitToCosapp(
   options: ConvertOptions
 ): CosappExport {
   const receipt = new Receipt();
-  const changeTime = (table: KySourceTable) => Math.max(
-    snapshot.sourceUpdatedAt?.[table] ?? 0,
-    newestSourceChange(snapshot[table])
-  );
-  const pieceTime = Math.max(changeTime("cosplayNodes"), changeTime("workflowAttachments"), changeTime("builds"));
-  const conventionTime = Math.max(changeTime("conventions"), changeTime("conventionDayPlans"));
-  const buildTime = Math.max(changeTime("builds"), changeTime("buildProgressUpdates"));
   const files = new Map(snapshot.storedFiles.map((file) => [file.storageId, file]));
   const photoFiles: CosappPhotoFile[] = [];
   const photos: CosappPhoto[] = [];
@@ -621,11 +587,9 @@ export function convertKyarafitToCosapp(
     const first = [...libraryNodes].sort(
       (a, b) => a._creationTime - b._creationTime || a._id.localeCompare(b._id)
     )[0];
-    const latest = Math.max(...libraryNodes.map((node) => stamps(node).updatedAt));
     libraryBuildId = cosappId.libraryBuild(snapshot.accountId);
     builds.push({
       ...stamps(first),
-      updatedAt: Math.max(latest, Math.floor(first._creationTime)),
       id: libraryBuildId,
       character: LIBRARY_BUILD_NAME,
       series: null,
@@ -640,7 +604,7 @@ export function convertKyarafitToCosapp(
 
   const pieces: CosappPiece[] = [];
   const pieceRow = new Map<string, CosappPiece>();
-  const piecePosition = new Map<string, CosappPiece>();
+  const piecePosition = new Map<string, number>();
   for (const node of orderedNodes) {
     const chain = lineage(node);
     const placement = placeNode(chain);
@@ -654,15 +618,14 @@ export function convertKyarafitToCosapp(
     if (chain.length > 1) receipt.reshape("nestedPieceFlattened");
     const material = node.nodeType === "material";
     if (material) receipt.reshape("materialAsBuyPiece");
-    const previous = piecePosition.get(buildId);
-    const position = previous ? previous.position + 1 : 0;
+    const position = piecePosition.get(buildId) ?? 0;
     const name =
       chain
         .map((n) => text(n.name))
         .filter(Boolean)
         .join(PATH_SEPARATOR) || "Untitled piece";
     const row: CosappPiece = {
-      ...stamps(node, [...chain, ...liveAttachments.filter((attachment) => attachment.entityType === "cosplayNode" && chain.some((ancestor) => ancestor._id === attachment.entityId))]),
+      ...stamps(node),
       id: cosappId.piece(node._id),
       buildId,
       name,
@@ -685,7 +648,7 @@ export function convertKyarafitToCosapp(
     addPhoto(
       { storageId: node.imageStorageId, url: node.imageUrl },
       {
-        ...stamps(node, [row]),
+        ...stamps(node),
         id: `ky-ph-n-${node._id}`,
         buildId,
         kind: "reference",
@@ -698,15 +661,7 @@ export function convertKyarafitToCosapp(
     row.notes = joinNotes(notes);
     pieces.push(row);
     pieceRow.set(node._id, row);
-    piecePosition.set(buildId, row);
-  }
-
-  floorUpdatedAt(pieces, pieceTime);
-  const pieceTimestamps = new Map(pieces.map((piece) => [piece.id, piece.updatedAt]));
-  for (const photo of photos) {
-    if (photo.pieceId) {
-      photo.updatedAt = Math.max(photo.updatedAt, pieceTimestamps.get(photo.pieceId)!);
-    }
+    piecePosition.set(buildId, position + 1);
   }
 
   // -- build photos: references, process pictures, progress updates
@@ -744,7 +699,6 @@ export function convertKyarafitToCosapp(
       receipt.drop("ownerUnavailable");
       continue;
     }
-    build.updatedAt = Math.max(build.updatedAt, stamps(update).updatedAt);
     const note = text(update.note);
     const percent =
       typeof update.progressPercent === "number" && Number.isFinite(update.progressPercent)
@@ -859,7 +813,7 @@ export function convertKyarafitToCosapp(
     const convention = conventionRow.get(plan.conventionId)!;
     const build = exportedBuild(plan.buildId);
     dayPlans.push({
-      ...stamps(plan, [convention, ...(build ? [build] : [])]),
+      ...stamps(plan),
       id: `${convention.id}:${plan.date}`,
       conventionId: convention.id,
       date: plan.date,
@@ -870,7 +824,6 @@ export function convertKyarafitToCosapp(
       set.add(build.id);
       plannedBuilds.set(convention.id, set);
     }
-    convention.updatedAt = Math.max(convention.updatedAt, stamps(plan).updatedAt);
     const note = text(plan.notes);
     if (note) {
       conventionNotes.get(plan.conventionId)!.push(`${plan.date}: ${note}`);
@@ -881,7 +834,7 @@ export function convertKyarafitToCosapp(
 
   // -- packing
   const packingItems: CosappPackingItem[] = [];
-  const packingPosition = new Map<string, CosappPackingItem>();
+  const packingPosition = new Map<string, number>();
   const packingKeys = new Set<string>();
   for (const item of live(snapshot.packingListItems).sort(bySortOrder)) {
     const convention = conventionRow.get(item.conventionId);
@@ -902,10 +855,9 @@ export function convertKyarafitToCosapp(
     packingKeys.add(dedupe);
     const label = text(item.label) ?? piece?.name ?? "Item";
     const note = text(item.notes);
-    const previous = packingPosition.get(convention.id);
-    const position = previous ? previous.position + 1 : 0;
+    const position = packingPosition.get(convention.id) ?? 0;
     const row: CosappPackingItem = {
-      ...stamps(item, [convention, ...(piece ? [piece] : []), ...[...newestDay.values()].filter((plan) => plan.conventionId === item.conventionId)]),
+      ...stamps(item),
       id,
       conventionId: convention.id,
       key,
@@ -917,10 +869,8 @@ export function convertKyarafitToCosapp(
       position,
     };
     packingItems.push(row);
-    packingPosition.set(convention.id, row);
+    packingPosition.set(convention.id, position + 1);
   }
-
-  floorUpdatedAt(packingItems, Math.max(changeTime("packingListItems"), pieceTime, conventionTime));
 
   // -- tasks
   const items = new Map(live(snapshot.workflowItems).map((item) => [item._id, item]));
@@ -976,24 +926,22 @@ export function convertKyarafitToCosapp(
     ownerCache.set(item._id, owner);
     return owner;
   };
-  const titleOf = (item: KyWorkflowItem): { title: string; depth: number; ancestors: KyWorkflowItem[] } => {
+  const titleOf = (item: KyWorkflowItem): { title: string; depth: number } => {
     const parts = [text(item.title) ?? "Untitled task"];
-    const ancestors = [item];
     const seen = new Set([item._id]);
     let current = item;
     while (current.parentId) {
       const parent = items.get(current.parentId);
       if (!parent || seen.has(parent._id)) break;
       parts.unshift(text(parent.title) ?? "Untitled task");
-      ancestors.unshift(parent);
       seen.add(parent._id);
       current = parent;
     }
-    return { title: parts.join(PATH_SEPARATOR), depth: parts.length - 1, ancestors };
+    return { title: parts.join(PATH_SEPARATOR), depth: parts.length - 1 };
   };
 
   const tasks: CosappTask[] = [];
-  const taskPosition = new Map<string, CosappTask>();
+  const taskPosition = new Map<string, number>();
   for (const item of treeOrder([...items.values()], (i) => i.parentId, items)) {
     if (item.sourceKind !== "manual") {
       if (item.sourceKind === "automation" || item.sourceKind === "packing") receipt.drop("generatedTask");
@@ -1008,7 +956,7 @@ export function convertKyarafitToCosapp(
       receipt.drop("ownerUnavailable");
       continue;
     }
-    const { title, depth, ancestors } = titleOf(item);
+    const { title, depth } = titleOf(item);
     if (depth > 0) receipt.reshape("subtaskFlattened");
     const ownerKey =
       owner.kind === "build"
@@ -1016,14 +964,9 @@ export function convertKyarafitToCosapp(
         : owner.kind === "convention"
           ? `c:${owner.conventionId}`
           : "none";
-    const previous = taskPosition.get(ownerKey);
-    const position = previous ? previous.position + 1 : 0;
-    const rootAttachments = attachmentsByItem.get(ancestors[0]._id) ?? [];
+    const position = taskPosition.get(ownerKey) ?? 0;
     const row: CosappTask = {
-      ...stamps(item, [...ancestors, ...rootAttachments, ...rootAttachments.flatMap((attachment) => {
-        const piece = attachment.entityType === "cosplayNode" ? pieceRow.get(attachment.entityId) : undefined;
-        return piece ? [piece] : [];
-      })]),
+      ...stamps(item),
       id: cosappId.task(item._id),
       ownerKind: owner.kind,
       buildId: owner.kind === "build" ? owner.buildId : null,
@@ -1037,16 +980,7 @@ export function convertKyarafitToCosapp(
       position,
     };
     tasks.push(row);
-    taskPosition.set(ownerKey, row);
-  }
-
-  floorUpdatedAt(tasks, Math.max(changeTime("workflowItems"), pieceTime, changeTime("conventions")));
-  floorUpdatedAt(conventions, conventionTime);
-  floorUpdatedAt(dayPlans, Math.max(conventionTime, changeTime("builds")));
-  for (const build of builds) {
-    build.updatedAt = Math.max(build.updatedAt, build.id === libraryBuildId
-      ? pieceTime
-      : buildTime);
+    taskPosition.set(ownerKey, position + 1);
   }
 
   const rows: CosappRows = {

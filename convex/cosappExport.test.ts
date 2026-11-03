@@ -67,7 +67,7 @@ async function harness() {
 }
 
 describe("cosappExport", () => {
-  it("returns account-scoped change floors without deleted row content", async () => {
+  it("omits deleted content from snapshots and photo authorization", async () => {
     const { t, ids } = await harness();
     const timestamp = Date.now() + 60_000;
     await t.run(async (ctx) => {
@@ -84,7 +84,6 @@ describe("cosappExport", () => {
     });
     const alice = t.withIdentity({ subject: "alice" });
     const rows = await alice.query(internal.cosappExport.snapshot, {});
-    expect(rows.sourceUpdatedAt).toMatchObject({ cosplayNodes: timestamp, workflowItems: timestamp + 1, workflowAttachments: timestamp + 2, packingListItems: timestamp + 3, builds: timestamp + 4 });
     expect(rows.cosplayNodes).toEqual([]);
     expect(rows.workflowItems).toEqual([]);
     expect(rows.workflowAttachments).toEqual([]);
@@ -92,7 +91,7 @@ describe("cosappExport", () => {
     expect(JSON.stringify(rows)).not.toContain("deleted secret");
     expect(JSON.stringify(rows)).not.toContain(ids.bob.image);
     const exported = await alice.action(api.cosappExport.prepare, {});
-    expect(exported.data.rows.builds[0].updatedAt).toBe(timestamp + 4);
+    expect(exported.data.rows.builds[0].updatedAt).toBe(Math.floor(rows.builds[0]._creationTime));
     expect(JSON.stringify(exported)).not.toContain("deleted secret");
     await expect(alice.action(api.cosappExport.photoBytes, { storageIds: [ids.bob.image] })).rejects.toThrow(/Photo not found/);
   });

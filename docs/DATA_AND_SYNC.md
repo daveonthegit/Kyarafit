@@ -310,13 +310,12 @@ serve only the photo files those rows reference; the browser zips `data.json`, `
 mapping rules (one level of pieces, subtasks flattened to "Parent › Step", generated tasks dropped,
 library elements in a "From Kyarafit library" build, social data left out) are in
 [`cosappExport.ts`](../design-system/domain/cosappExport.ts); after the download the page lists
-what came over and what was left out, and why. Ids and timestamps come from the Kyarafit rows, so a
-later export merged again updates rows instead of duplicating them. Stored images and downloadable
-HTTP(S) images are included up to Cosapp.si's 15 MB limit, transferred in bounded byte ranges;
-the receipt lists each dropped image and its reason. Sibling-derived rows use account-wide source-table
-change-time floors, including timestamps of deleted rows but never their content. A later change in
-one of those source tables can therefore make an exported row newer than an earlier Cosapp.si edit
-on Merge re-import.
+what came over and what was left out, and why. This is a one-time migration. Import this once into a
+fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions
+made in Kyarafit. Repeated-export reconciliation is not supported. IDs are deterministic, and
+source-backed rows keep their own Kyarafit timestamps. Stored images and downloadable HTTP(S) images are included
+up to Cosapp.si's 15 MB limit, transferred in bounded byte ranges; the receipt lists each dropped
+image and its reason and includes the one-time-import warning.
 
 This converter does not change Cosapp.si sync parsing or deleted-content retention. Those are
 separate PRs, `cosapp-sync-tolerant` and `cosapp-purge-deleted-content`, respectively.

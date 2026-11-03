@@ -4,7 +4,6 @@ import {
   PHOTO_BATCH_BYTES,
   MAX_PHOTOS_PER_CALL,
   MAX_EXTERNAL_PHOTOS_PER_CALL,
-  newestSourceChange,
   COSAPP_RECEIPT_ENTRY,
   LIBRARY_BUILD_NAME,
   convertKyarafitToCosapp,
@@ -488,66 +487,24 @@ function reshaped(result: CosappExport, kind: string) {
 }
 
 describe("review regressions", () => {
-  it.each([
-    ["tasks", "attached elsewhere"],
-    ["tasks", "cancelled"],
-    ["tasks", "deleted"],
-    ["pieces", "attached elsewhere"],
-    ["pieces", "deleted"],
-    ["packingItems", "attached elsewhere"],
-    ["packingItems", "deleted"],
-  ] as const)("merges remaining %s positions when a sibling is %s", (table, transition) => {
-    const s = emptySnapshot();
-    s.builds = ["one", "two"].map((_id) => ({ _id, _creationTime: 1, name: _id, status: "idea" }));
-    s.conventions = ["one", "two"].map((_id) => ({ _id, _creationTime: 1, name: _id, startDate: "2027-01-01", endDate: "2027-01-01" }));
-    s.cosplayNodes = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, name: _id, nodeType: "element", buildId: "one", sortOrder: index }));
-    s.workflowItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, title: _id, sourceKind: "manual", status: "not_started", sortOrder: index }));
-    s.packingListItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, label: _id, checked: false, conventionId: "one", sortOrder: index }));
-    const before = convert(s);
-    const sourceTable = { tasks: "workflowItems", pieces: "cosplayNodes", packingItems: "packingListItems" }[table] as "workflowItems" | "cosplayNodes" | "packingListItems";
-    const source = s[sourceTable];
-    if (transition === "deleted") source[0].deletedAt = 200;
-    else if (transition === "cancelled") Object.assign(s.workflowItems[0], { status: "cancelled", updatedAt: 200 });
-    else if (table === "tasks") s.workflowAttachments.push({ _id: "move", _creationTime: 200, workflowItemId: "a", entityType: "build", entityId: "two", role: "primary" });
-    else if (table === "pieces") Object.assign(s.cosplayNodes[0], { buildId: "two", updatedAt: 200 });
-    else Object.assign(s.packingListItems[0], { conventionId: "two", updatedAt: 200 });
-    const after = convert(s);
-    const id = before.data.rows[table][1].id;
-    expect(byId<{ id: string; position: number; updatedAt: number }>(after.data.rows[table], id)).toMatchObject({ position: 0, updatedAt: 200 });
-    const store = emptyStore();
-    mergeInto(store, decodeBackup(encodeCosappArchive(before, new Map())));
-    mergeInto(store, decodeBackup(encodeCosappArchive(after, new Map())));
-    expect(store[table].get(id)).toMatchObject({ position: 0, updatedAt: 200 });
-    if (transition === "deleted") {
-      const liveOnly = {
-        ...s,
-        sourceUpdatedAt: { [sourceTable]: newestSourceChange(source) },
-        workflowItems: s.workflowItems.filter((row) => row.deletedAt == null),
-        cosplayNodes: s.cosplayNodes.filter((row) => row.deletedAt == null),
-        packingListItems: s.packingListItems.filter((row) => row.deletedAt == null),
-      };
-      expect(convert(liveOnly).data.rows).toEqual(after.data.rows);
-    }
-  });
-  it.each(["pieces", "tasks", "packingItems"] as const)("merges a %s reorder when the former predecessor moves after it", (table) => {
-    const s = emptySnapshot();
-    s.builds = [{ _id: "build", _creationTime: 1, name: "Build", status: "idea" }];
-    s.conventions = [{ _id: "con", _creationTime: 1, name: "Con", startDate: "2027-01-01", endDate: "2027-01-01" }];
-    s.cosplayNodes = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, name: _id, nodeType: "element", buildId: "build", sortOrder: index }));
-    s.workflowItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, title: _id, sourceKind: "manual", status: "not_started", sortOrder: index }));
-    s.packingListItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, label: _id, checked: false, conventionId: "con", sortOrder: index }));
-    const source = { pieces: s.cosplayNodes, tasks: s.workflowItems, packingItems: s.packingListItems }[table];
-    const before = convert(s);
-    expect(before.data.rows[table].map((row) => [row.position, row.updatedAt])).toEqual([[0, 100], [1, 100]]);
-    source[0].sortOrder = 2;
-    source[0].updatedAt = 200;
-    const after = convert(s);
-    expect(after.data.rows[table].map((row) => [row.position, row.updatedAt])).toEqual([[0, 200], [1, 200]]);
-    const store = emptyStore();
-    mergeInto(store, decodeBackup(encodeCosappArchive(before, new Map())));
-    mergeInto(store, decodeBackup(encodeCosappArchive(after, new Map())));
-    const secondId = before.data.rows[table][1].id;
-    expect(store[table].get(secondId)).toMatchObject({ position: 0, updatedAt: 200 });
+  it("keeps each row's own source timestamps despite newer related records", () => {
+    const s = fixture();
+    s.cosplayNodes[0].updatedAt = NOW - 10;
+    s.cosplayNodes.find((node) => node._id === "n-wig")!.updatedAt = NOW - 9;
+    s.workflowItems[0].updatedAt = NOW - 8;
+    s.workflowAttachments[0].updatedAt = NOW - 7;
+    s.buildProgressUpdates[1].updatedAt = NOW - 6;
+    s.conventionDayPlans[1].updatedAt = NOW - 5;
+    const { rows } = convert(s).data;
+    expect(byId(rows.builds, "ky-b-b1")).toMatchObject({ createdAt: T0, updatedAt: T0 + 5000 });
+    expect(byId(rows.pieces, "ky-p-n-pauldron")).toMatchObject({ createdAt: T0 + 11, updatedAt: T0 + 11 });
+    expect(byId(rows.photos, "ky-ph-n-n-armor")).toMatchObject({ createdAt: T0 + 10, updatedAt: NOW - 10 });
+    expect(byId(rows.photos, "ky-ph-r-r1").updatedAt).toBe(T0 + 90);
+    expect(byId(rows.tasks, "ky-t-w-cut")).toMatchObject({ createdAt: T0 + 32, updatedAt: T0 + 32 });
+    expect(byId(rows.tasks, "ky-t-w-craft").updatedAt).toBe(NOW - 8);
+    expect(byId(rows.conventions, "ky-c-c1").updatedAt).toBe(T0 + 50);
+    expect(byId(rows.dayPlans, "ky-c-c1:2027-07-02").updatedAt).toBe(NOW - 5);
+    expect(byId(rows.packingItems, "ky-k-k-wig").updatedAt).toBe(T0 + 80);
   });
 
   it("waits for an update's last photo to disappear before recovering its note once", () => {
@@ -623,30 +580,6 @@ describe("review regressions", () => {
     expect(planPhotoBatches(files, PHOTO_BATCH_BYTES).map((batch) => batch.length)).toEqual([MAX_PHOTOS_PER_CALL, 1]);
   });
 
-  it.each([
-    ["builds", "ky-b-b1", (s: KyarafitSnapshot) => { s.buildProgressUpdates[1].note = "A"; s.buildProgressUpdates[1].updatedAt = NOW; }],
-    ["pieces", "ky-p-n-pauldron", (s: KyarafitSnapshot) => { s.cosplayNodes[0].name = "A"; s.cosplayNodes[0].updatedAt = NOW; }],
-    ["pieces", "ky-p-n-traced", (s: KyarafitSnapshot) => { s.workflowAttachments.find((a) => a._id === "a6")!.buildContextId = "b1"; s.workflowAttachments.find((a) => a._id === "a6")!.updatedAt = NOW; }],
-    ["tasks", "ky-t-w-cut", (s: KyarafitSnapshot) => { s.workflowItems[0].title = "A"; s.workflowItems[0].updatedAt = NOW; }],
-    ["tasks", "ky-t-w-craft", (s: KyarafitSnapshot) => { s.workflowAttachments[0].entityId = "b2"; s.workflowAttachments[0].updatedAt = NOW; }],
-    ["conventions", "ky-c-c1", (s: KyarafitSnapshot) => { s.conventionDayPlans[1].notes = "A"; s.conventionDayPlans[1].updatedAt = NOW; }],
-    ["packingItems", "ky-k-k-wig", (s: KyarafitSnapshot) => { s.cosplayNodes.find((n) => n._id === "n-wig")!.name = "A"; s.cosplayNodes.find((n) => n._id === "n-wig")!.updatedAt = NOW; }],
-    ["packingItems", "ky-k-k-wig", (s: KyarafitSnapshot) => { s.conventionDayPlans[1].buildId = "b2"; s.conventionDayPlans[1].updatedAt = NOW; }],
-  ] as const)("merges newer derived %s %s content", (table, id, change) => {
-    const s = fixture();
-    const before = convert(s);
-    change(s);
-    const after = convert(s);
-    const oldRow = byId<{ id: string; updatedAt: number }>(before.data.rows[table], id);
-    const newRow = byId<{ id: string; updatedAt: number }>(after.data.rows[table], id);
-    expect(newRow).not.toEqual(oldRow);
-    expect(newRow.updatedAt).toBe(NOW);
-    const bytesFor = (result: CosappExport) => new Map(result.photoFiles.map((file) => [file.fileName, new Uint8Array([0xff, 0xd8, 0xff])]));
-    const store = emptyStore();
-    mergeInto(store, decodeBackup(encodeCosappArchive(before, bytesFor(before))));
-    mergeInto(store, decodeBackup(encodeCosappArchive(after, bytesFor(after))));
-    expect(store[table].get(id)).toEqual(newRow);
-  });
 });
 
 describe("builds", () => {
@@ -778,7 +711,7 @@ describe("tasks", () => {
     expect(byId(data.rows.tasks, "ky-t-w-craft")).toEqual({
       id: "ky-t-w-craft",
       createdAt: T0 + 30,
-      updatedAt: T0 + 5000,
+      updatedAt: T0 + 31,
       deletedAt: null,
       ownerKind: "build",
       buildId: "ky-b-b1",
@@ -877,7 +810,7 @@ describe("conventions, day plans and packing", () => {
       {
         id: "ky-c-c1:2027-07-02",
         createdAt: T0 + 62,
-        updatedAt: T0 + 5000,
+        updatedAt: T0 + 70,
         deletedAt: null,
         conventionId: "ky-c-c1",
         date: "2027-07-02",
@@ -962,7 +895,7 @@ describe("receipt and identity", () => {
     });
   });
 
-  it("derives ids and stamps from Kyarafit rows, so a re-export is stable", () => {
+  it("derives deterministic ids and source timestamps independently of the export clock", () => {
     const first = convert();
     const second = convertKyarafitToCosapp(fixture(), { now: NOW + 99_999 });
     expect(second.data.rows).toEqual(first.data.rows);
@@ -1039,18 +972,6 @@ describe("round trip through Cosapp.si's backup reader", () => {
     expect(Object.values(mergeInto(store, archive)).every((n) => n === 0)).toBe(true);
   });
 
-  it("does not overwrite an edit made in Cosapp.si when a later export is merged", () => {
-    const result = convert();
-    const archive = decodeBackup(encodeCosappArchive(result, bytesFor(result)));
-    const store = emptyStore();
-    mergeInto(store, archive);
-    const edited = { ...store.builds.get("ky-b-b1")!, updatedAt: NOW, notes: "edited" } as never;
-    store.builds.set("ky-b-b1", edited);
-    const again = convertKyarafitToCosapp(fixture(), { now: NOW + 1 });
-    mergeInto(store, decodeBackup(encodeCosappArchive(again, bytesFor(again))));
-    expect((store.builds.get("ky-b-b1") as unknown as { notes: string }).notes).toBe("edited");
-  });
-
   it("writes a valid empty backup for an account with no data", () => {
     const result = convertKyarafitToCosapp(emptySnapshot(), { now: NOW });
     const archive = decodeBackup(encodeCosappArchive(result, new Map()));
@@ -1061,7 +982,9 @@ describe("round trip through Cosapp.si's backup reader", () => {
   it("carries the receipt in the archive without disturbing the backup", () => {
     const result = convert();
     const files = unzipSync(encodeCosappArchive(result, bytesFor(result)));
-    expect(JSON.parse(strFromU8(files[COSAPP_RECEIPT_ENTRY]))).toEqual(result.receipt);
+    const receipt = JSON.parse(strFromU8(files[COSAPP_RECEIPT_ENTRY]));
+    expect(receipt).toEqual(result.receipt);
+    expect(receipt.importNotice).toBe("Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.");
   });
 
   it("refuses to write an archive missing a photo's bytes", () => {
@@ -1084,7 +1007,7 @@ describe("buildCosappDownload", () => {
     const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
     const archive = decodeBackup(download.bytes);
     expect(archive.data.rows.photos).toEqual([]);
-    expect(archive.data.rows.builds[0]).toMatchObject({ notes: "Progress 2026-03-01 (40%): Finished lining", updatedAt: T0 + 100 });
+    expect(archive.data.rows.builds[0]).toMatchObject({ notes: "Progress 2026-03-01 (40%): Finished lining", updatedAt: 1 });
     expect(download.receipt.reshaped).toContainEqual({ kind: "progressNoteInBuildNotes", count: 1 });
     expect(download.receipt.droppedImages).toEqual([{ image: "https://example.com/photo.jpg", reason }]);
   });

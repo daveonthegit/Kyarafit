@@ -5,6 +5,8 @@ import { convertKyarafitToCosapp } from "@kyarafit/design-system/domain/cosappEx
 import { rememberLocalAccount } from "@/lib/auth/localAccount";
 import { decodeBackup } from "@/test/cosappBackupParser";
 import { CosappExportSection } from "./CosappExportSection";
+import enMessages from "../../../messages/en.json";
+import esMessages from "../../../messages/es.json";
 
 // Spec: Settings → Backup & data → "Download for Cosapp.si" builds a Cosapp.si backup from the
 // account's server copy and then says what came over and what was left out.
@@ -14,12 +16,15 @@ const client = {
     vi.fn<(ref: FunctionReference<"action">, args: Record<string, unknown>) => Promise<unknown>>(),
 };
 const user = { userId: "user-1", isLoading: false, isAuthenticated: true };
+let locale: "en" | "es" = "en";
 
 vi.mock("convex/react", () => ({ useConvex: () => client }));
 vi.mock("@/hooks/useCurrentUser", () => ({ useCurrentUser: () => user }));
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
-    values ? `${key} ${JSON.stringify(values)}` : key,
+    key === "description"
+      ? (locale === "en" ? enMessages : esMessages).CosappExport.description
+      : values ? `${key} ${JSON.stringify(values)}` : key,
 }));
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
@@ -86,11 +91,21 @@ describe("CosappExportSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     user.isAuthenticated = true;
+    locale = "en";
     rememberLocalAccount("user-1");
   });
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ["en", "Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit."],
+    ["es", "Importa este archivo una sola vez en Cosapp.si sin datos previos; volver a importar una exportación más reciente combina los datos según la edición más reciente y puede no reflejar las eliminaciones hechas en Kyarafit."],
+  ] as const)("shows the one-time migration warning before download in %s", (language, notice) => {
+    locale = language;
+    render(<CosappExportSection />);
+    expect(screen.getByText((content) => content.includes(notice))).toBeVisible();
   });
 
   it("downloads a Cosapp.si backup and shows the receipt", async () => {
