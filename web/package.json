@@ -20,7 +20,7 @@
     "render:landing-hero": "remotion render src/remotion/index.ts LandingHero public/images/landing/hero-loop.mp4 --codec=h264 && remotion still src/remotion/index.ts LandingHero public/images/landing/hero-loop-poster.png --frame=45"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "0.12.5",
+    "@convex-dev/better-auth": "0.12.6",
     "@convex-dev/migrations": "^0.3.3",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
@@ -29,9 +29,9 @@
     "@remotion/player": "^4.0.441",
     "@revenuecat/purchases-js": "^1.34.0",
     "@vercel/analytics": "^2.0.1",
-    "better-auth": "1.6.33",
+    "better-auth": "1.7.14",
     "clsx": "^2.1.1",
-    "convex": "1.46.0",
+    "convex": "1.49.0",
     "date-fns": "^4.1.0",
     "fflate": "^0.8.3",
     "framer-motion": "^12.35.0",

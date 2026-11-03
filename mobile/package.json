@@ -20,7 +20,7 @@
     "check:env": "node scripts/check-expo-public-env.js"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "0.12.5",
+    "@convex-dev/better-auth": "0.12.6",
     "@expo-google-fonts/albert-sans": "^0.4.2",
     "@expo-google-fonts/bodoni-moda": "^0.4.2",
     "@expo/metro-runtime": "~55.0.10",
@@ -32,8 +32,8 @@
     "@react-native-community/netinfo": "^11.4.1",
     "@sentry/react-native": "~7.11.0",
     "@tanstack/react-query": "5.90.2",
-    "better-auth": "1.6.33",
-    "convex": "1.46.0",
+    "better-auth": "1.7.14",
+    "convex": "1.49.0",
     "expo": "~55.0.16",
     "expo-apple-authentication": "~55.0.13",
     "expo-blur": "~55.0.15",
