@@ -313,7 +313,10 @@ library elements in a "From Kyarafit library" build, social data left out) are i
 what came over and what was left out, and why. Ids and timestamps come from the Kyarafit rows, so a
 later export merged again updates rows instead of duplicating them. Stored images and downloadable
 HTTP(S) images are included up to Cosapp.si's 15 MB limit, transferred in bounded byte ranges;
-the receipt lists each dropped image and its reason.
+the receipt lists each dropped image and its reason. Sibling-derived rows use account-wide source-table
+change-time floors, including timestamps of deleted rows but never their content. A later change in
+one of those source tables can therefore make an exported row newer than an earlier Cosapp.si edit
+on Merge re-import.
 
 This converter does not change Cosapp.si sync parsing or deleted-content retention. Those are
 separate PRs, `cosapp-sync-tolerant` and `cosapp-purge-deleted-content`, respectively.

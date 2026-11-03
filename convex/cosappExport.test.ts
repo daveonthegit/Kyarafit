@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXPORT_MAX_PHOTO_BYTES, PHOTO_BATCH_BYTES, MAX_PHOTOS_PER_CALL, MAX_EXTERNAL_PHOTOS_PER_CALL, withoutPhotoFiles } from "@kyarafit/design-system/domain/cosappExport";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import schema from "./schema";
@@ -67,6 +67,35 @@ async function harness() {
 }
 
 describe("cosappExport", () => {
+  it("returns account-scoped change floors without deleted row content", async () => {
+    const { t, ids } = await harness();
+    const timestamp = Date.now() + 60_000;
+    await t.run(async (ctx) => {
+      const node = await ctx.db.query("cosplayNodes").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
+      const task = await ctx.db.query("workflowItems").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
+      const attachment = await ctx.db.query("workflowAttachments").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
+      await ctx.db.patch(node!._id, { name: "deleted secret node", deletedAt: timestamp });
+      await ctx.db.patch(task!._id, { title: "deleted secret task", updatedAt: timestamp + 1, deletedAt: timestamp });
+      await ctx.db.patch(attachment!._id, { deletedAt: timestamp + 2 });
+      const conventionId = await ctx.db.insert("conventions", { userId: "alice", name: "Live convention", startDate: "2027-01-01", endDate: "2027-01-01" });
+      await ctx.db.insert("packingListItems", { userId: "alice", conventionId, label: "deleted secret packing", checked: false, deletedAt: timestamp + 3 });
+      await ctx.db.insert("builds", { userId: "alice", name: "deleted secret build", notes: "deleted secret notes", imageStorageId: ids.bob.image, status: "idea", deletedAt: timestamp + 4 });
+      await ctx.db.patch(ids.bob.build, { updatedAt: timestamp + 1_000_000 });
+    });
+    const alice = t.withIdentity({ subject: "alice" });
+    const rows = await alice.query(internal.cosappExport.snapshot, {});
+    expect(rows.sourceUpdatedAt).toMatchObject({ cosplayNodes: timestamp, workflowItems: timestamp + 1, workflowAttachments: timestamp + 2, packingListItems: timestamp + 3, builds: timestamp + 4 });
+    expect(rows.cosplayNodes).toEqual([]);
+    expect(rows.workflowItems).toEqual([]);
+    expect(rows.workflowAttachments).toEqual([]);
+    expect(rows.packingListItems).toEqual([]);
+    expect(JSON.stringify(rows)).not.toContain("deleted secret");
+    expect(JSON.stringify(rows)).not.toContain(ids.bob.image);
+    const exported = await alice.action(api.cosappExport.prepare, {});
+    expect(exported.data.rows.builds[0].updatedAt).toBe(timestamp + 4);
+    expect(JSON.stringify(exported)).not.toContain("deleted secret");
+    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: [ids.bob.image] })).rejects.toThrow(/Photo not found/);
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it("returns null for an authorized photo whose blob vanished", async () => {

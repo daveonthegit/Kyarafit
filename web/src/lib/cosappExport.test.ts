@@ -4,6 +4,7 @@ import {
   PHOTO_BATCH_BYTES,
   MAX_PHOTOS_PER_CALL,
   MAX_EXTERNAL_PHOTOS_PER_CALL,
+  newestSourceChange,
   COSAPP_RECEIPT_ENTRY,
   LIBRARY_BUILD_NAME,
   convertKyarafitToCosapp,
@@ -487,6 +488,47 @@ function reshaped(result: CosappExport, kind: string) {
 }
 
 describe("review regressions", () => {
+  it.each([
+    ["tasks", "attached elsewhere"],
+    ["tasks", "cancelled"],
+    ["tasks", "deleted"],
+    ["pieces", "attached elsewhere"],
+    ["pieces", "deleted"],
+    ["packingItems", "attached elsewhere"],
+    ["packingItems", "deleted"],
+  ] as const)("merges remaining %s positions when a sibling is %s", (table, transition) => {
+    const s = emptySnapshot();
+    s.builds = ["one", "two"].map((_id) => ({ _id, _creationTime: 1, name: _id, status: "idea" }));
+    s.conventions = ["one", "two"].map((_id) => ({ _id, _creationTime: 1, name: _id, startDate: "2027-01-01", endDate: "2027-01-01" }));
+    s.cosplayNodes = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, name: _id, nodeType: "element", buildId: "one", sortOrder: index }));
+    s.workflowItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, title: _id, sourceKind: "manual", status: "not_started", sortOrder: index }));
+    s.packingListItems = ["a", "b"].map((_id, index) => ({ _id, _creationTime: 1, updatedAt: index ? 50 : 100, label: _id, checked: false, conventionId: "one", sortOrder: index }));
+    const before = convert(s);
+    const sourceTable = { tasks: "workflowItems", pieces: "cosplayNodes", packingItems: "packingListItems" }[table] as "workflowItems" | "cosplayNodes" | "packingListItems";
+    const source = s[sourceTable];
+    if (transition === "deleted") source[0].deletedAt = 200;
+    else if (transition === "cancelled") Object.assign(s.workflowItems[0], { status: "cancelled", updatedAt: 200 });
+    else if (table === "tasks") s.workflowAttachments.push({ _id: "move", _creationTime: 200, workflowItemId: "a", entityType: "build", entityId: "two", role: "primary" });
+    else if (table === "pieces") Object.assign(s.cosplayNodes[0], { buildId: "two", updatedAt: 200 });
+    else Object.assign(s.packingListItems[0], { conventionId: "two", updatedAt: 200 });
+    const after = convert(s);
+    const id = before.data.rows[table][1].id;
+    expect(byId<{ id: string; position: number; updatedAt: number }>(after.data.rows[table], id)).toMatchObject({ position: 0, updatedAt: 200 });
+    const store = emptyStore();
+    mergeInto(store, decodeBackup(encodeCosappArchive(before, new Map())));
+    mergeInto(store, decodeBackup(encodeCosappArchive(after, new Map())));
+    expect(store[table].get(id)).toMatchObject({ position: 0, updatedAt: 200 });
+    if (transition === "deleted") {
+      const liveOnly = {
+        ...s,
+        sourceUpdatedAt: { [sourceTable]: newestSourceChange(source) },
+        workflowItems: s.workflowItems.filter((row) => row.deletedAt == null),
+        cosplayNodes: s.cosplayNodes.filter((row) => row.deletedAt == null),
+        packingListItems: s.packingListItems.filter((row) => row.deletedAt == null),
+      };
+      expect(convert(liveOnly).data.rows).toEqual(after.data.rows);
+    }
+  });
   it.each(["pieces", "tasks", "packingItems"] as const)("merges a %s reorder when the former predecessor moves after it", (table) => {
     const s = emptySnapshot();
     s.builds = [{ _id: "build", _creationTime: 1, name: "Build", status: "idea" }];
@@ -736,7 +778,7 @@ describe("tasks", () => {
     expect(byId(data.rows.tasks, "ky-t-w-craft")).toEqual({
       id: "ky-t-w-craft",
       createdAt: T0 + 30,
-      updatedAt: T0 + 35,
+      updatedAt: T0 + 5000,
       deletedAt: null,
       ownerKind: "build",
       buildId: "ky-b-b1",

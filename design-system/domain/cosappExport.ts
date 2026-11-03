@@ -156,8 +156,19 @@ export interface KyStoredFile {
   failure?: "missingImage" | "unsupportedImage" | "oversizeImage";
 }
 
+export type KySourceTable =
+  | "builds"
+  | "cosplayNodes"
+  | "workflowItems"
+  | "workflowAttachments"
+  | "conventions"
+  | "conventionDayPlans"
+  | "packingListItems"
+  | "buildProgressUpdates";
+
 export interface KyarafitSnapshot {
   accountId: string;
+  sourceUpdatedAt?: Partial<Record<KySourceTable, number>>;
   builds: KyBuild[];
   cosplayNodes: KyCosplayNode[];
   workflowItems: KyWorkflowItem[];
@@ -375,13 +386,17 @@ function stamps(row: KyRow, dependencies: { updatedAt?: number; _creationTime?: 
   };
 }
 
-function stampOrdering<T extends CosappRow>(rows: T[], ownerOf: (row: T) => string): void {
-  const latest = new Map<string, number>();
-  for (const row of rows) {
-    const owner = ownerOf(row);
-    latest.set(owner, Math.max(latest.get(owner) ?? 0, row.updatedAt));
-  }
-  for (const row of rows) row.updatedAt = latest.get(ownerOf(row))!;
+export function newestSourceChange(rows: KyRow[]): number {
+  return rows.reduce((latest, row) => {
+    for (const value of [row._creationTime, row.updatedAt, row.deletedAt]) {
+      if (typeof value === "number" && Number.isFinite(value)) latest = Math.max(latest, Math.floor(value));
+    }
+    return latest;
+  }, 0);
+}
+
+function floorUpdatedAt(rows: CosappRow[], timestamp: number): void {
+  for (const row of rows) row.updatedAt = Math.max(row.updatedAt, timestamp);
 }
 
 function live<T extends KyRow>(rows: T[]): T[] {
@@ -465,6 +480,13 @@ export function convertKyarafitToCosapp(
   options: ConvertOptions
 ): CosappExport {
   const receipt = new Receipt();
+  const changeTime = (table: KySourceTable) => Math.max(
+    snapshot.sourceUpdatedAt?.[table] ?? 0,
+    newestSourceChange(snapshot[table])
+  );
+  const pieceTime = Math.max(changeTime("cosplayNodes"), changeTime("workflowAttachments"), changeTime("builds"));
+  const conventionTime = Math.max(changeTime("conventions"), changeTime("conventionDayPlans"));
+  const buildTime = Math.max(changeTime("builds"), changeTime("buildProgressUpdates"));
   const files = new Map(snapshot.storedFiles.map((file) => [file.storageId, file]));
   const photoFiles: CosappPhotoFile[] = [];
   const photos: CosappPhoto[] = [];
@@ -679,7 +701,7 @@ export function convertKyarafitToCosapp(
     piecePosition.set(buildId, row);
   }
 
-  stampOrdering(pieces, (piece) => piece.buildId);
+  floorUpdatedAt(pieces, pieceTime);
   const pieceTimestamps = new Map(pieces.map((piece) => [piece.id, piece.updatedAt]));
   for (const photo of photos) {
     if (photo.pieceId) {
@@ -898,7 +920,7 @@ export function convertKyarafitToCosapp(
     packingPosition.set(convention.id, row);
   }
 
-  stampOrdering(packingItems, (item) => item.conventionId);
+  floorUpdatedAt(packingItems, Math.max(changeTime("packingListItems"), pieceTime, conventionTime));
 
   // -- tasks
   const items = new Map(live(snapshot.workflowItems).map((item) => [item._id, item]));
@@ -1018,7 +1040,14 @@ export function convertKyarafitToCosapp(
     taskPosition.set(ownerKey, row);
   }
 
-  stampOrdering(tasks, (task) => `${task.ownerKind}:${task.buildId ?? task.conventionId ?? ""}`);
+  floorUpdatedAt(tasks, Math.max(changeTime("workflowItems"), pieceTime, changeTime("conventions")));
+  floorUpdatedAt(conventions, conventionTime);
+  floorUpdatedAt(dayPlans, Math.max(conventionTime, changeTime("builds")));
+  for (const build of builds) {
+    build.updatedAt = Math.max(build.updatedAt, build.id === libraryBuildId
+      ? pieceTime
+      : buildTime);
+  }
 
   const rows: CosappRows = {
     builds,
