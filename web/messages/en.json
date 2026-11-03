@@ -127,6 +127,49 @@
     "exportFailed": "Couldn't load your data from your Kyarafit account, so nothing was downloaded. Check your connection and try again.",
     "exportPreparingProgress": "Preparing export… {done}/{total}"
   },
+  "CosappExport": {
+    "title": "Move to Cosapp.si",
+    "description": "Download your builds, pieces, tasks, conventions and photos as a Cosapp.si backup file. Photos are included, so a large account can take a minute.",
+    "button": "Download for Cosapp.si",
+    "preparing": "Preparing your Cosapp.si file…",
+    "photosProgress": "Downloading photos… {done}/{total}",
+    "needsConnection": "Sign in and connect to the internet to download your Cosapp.si file.",
+    "failed": "Couldn't build your Cosapp.si file, so nothing was downloaded. Check your connection and try again.",
+    "downloaded": "Downloaded {fileName}.",
+    "nextStep": "In Cosapp.si, open Settings → Backup & data → Import, pick this file and choose Merge.",
+    "leftOutTitle": "Not carried over",
+    "counts": {
+      "builds": "{count, plural, one {# build} other {# builds}}",
+      "pieces": "{count, plural, one {# piece} other {# pieces}}",
+      "tasks": "{count, plural, one {# task} other {# tasks}}",
+      "conventions": "{count, plural, one {# convention} other {# conventions}}",
+      "photos": "{count, plural, one {# photo} other {# photos}}"
+    },
+    "reshaped": {
+      "subtaskFlattened": "{count, plural, one {# subtask was} other {# subtasks were}} renamed “Parent › Step”.",
+      "nestedPieceFlattened": "{count, plural, one {# nested part was} other {# nested parts were}} renamed “Parent › Part”.",
+      "libraryPiece": "{count, plural, one {# library element is} other {# library elements are}} in the “From Kyarafit library” build.",
+      "materialAsBuyPiece": "{count, plural, one {# material became a Buy piece} other {# materials became Buy pieces}}.",
+      "progressNoteInBuildNotes": "{count, plural, one {# progress note without a photo was} other {# progress notes without photos were}} added to the build's notes.",
+      "dayPlanNoteInConventionNotes": "{count, plural, one {# day-plan note was} other {# day-plan notes were}} added to the convention's notes.",
+      "imageLinkInNotes": "{count, plural, one {# image link was} other {# image links were}} kept as text in notes."
+    },
+    "dropped": {
+      "generatedTask": "{count, plural, one {# automatic Buy / Work on / Pack task} other {# automatic Buy / Work on / Pack tasks}}: piece status and Cosapp.si's packing list replace them.",
+      "cancelledTask": "{count, plural, one {# cancelled task} other {# cancelled tasks}}.",
+      "ownerUnavailable": "{count, plural, one {# item} other {# items}} belonging to a deleted build or convention.",
+      "externalImage": "{count, plural, one {# image was a web link} other {# images were web links}}, not an uploaded file.",
+      "deviceOnlyImage": "{count, plural, one {# photo was} other {# photos were}} only ever stored on another device.",
+      "missingImage": "{count, plural, one {# photo file} other {# photo files}} could no longer be found.",
+      "unsupportedImage": "{count, plural, one {# file wasn't a photo} other {# files weren't photos}} Cosapp.si can open.",
+      "oversizeImage": "{count, plural, one {# photo was} other {# photos were}} larger than 15 MB.",
+      "invalidConvention": "{count, plural, one {# convention} other {# conventions}} without a valid start date.",
+      "dayPlanOutsideConvention": "{count, plural, one {# day plan} other {# day plans}} outside the convention's dates.",
+      "duplicateDayPlan": "{count, plural, one {# extra day plan} other {# extra day plans}} for a day that already had one (the newest was kept).",
+      "duplicatePackingItem": "{count, plural, one {# duplicate packing item} other {# duplicate packing items}}.",
+      "socialData": "Likes, comments, follows, groups and collaborators stay in Kyarafit."
+    }
+  },
   "Theme": {
     "switchToDark": "Switch to dark mode",
     "switchToLight": "Switch to light mode",
