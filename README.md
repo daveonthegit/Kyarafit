@@ -9,7 +9,8 @@ while online.
 
 Kyarafit is moving to **Cosapp.si**, launching first on iOS, with Android and web planned.
 Kyarafit stays available until Cosapp.si is on the web; existing features keep working meanwhile.
-Launch-day invites are planned, and bringing builds across is being worked on, not yet guaranteed.
+Launch-day invites are planned. Web Settings → Data now offers **Download for Cosapp.si**;
+see the [migration scope and limitations](docs/DATA_AND_SYNC.md#current-web-behavior).
 The web announcement appears at the top of landing, auth, and app pages; dismissing it is
 remembered in this browser when local storage is available, without flashing on later loads.
 

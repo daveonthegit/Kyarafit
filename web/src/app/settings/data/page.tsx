@@ -20,6 +20,7 @@ import {
 } from "@/lib/auth/localAccount";
 import { SettingsGlassShell } from "@/components/settings/SettingsGlassShell";
 import { SyncStatus } from "@/components/SyncStatus";
+import { CosappExportSection } from "@/components/settings/CosappExportSection";
 import { readLocalCollections } from "@/lib/localFirstData";
 import { fetchCloudCollections, mergeCollections } from "@/lib/cloudExport";
 import { buildDataBundle, countRows } from "@/lib/dataPortability";
@@ -152,6 +153,8 @@ export default function SettingsDataPage() {
             </p>
           )}
         </section>
+
+        <CosappExportSection />
 
         <section className="border-t border-glass-divider-strong pt-6">
           <span className="block text-[10px] font-bold uppercase tracking-[0.22em] opacity-60 mb-3">

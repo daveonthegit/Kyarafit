@@ -302,6 +302,24 @@ for the same id); offline it exports the local rows alone and says so. See the
 The versioned format is defined by [`dataPortability.ts`](../web/src/lib/dataPortability.ts).
 It is not the mobile `.kyarafit` archive or a complete vault backup.
 
+**Download for Cosapp.si** (same page) writes the account's data as a Cosapp.si backup
+(`kyarafit-for-cosapp-<date>.cosapp`, format `cosapp.si/backup`, schema version 2) for importing in
+Cosapp.si with Merge. The `convex/cosappExport.ts` actions read only the caller's live rows and
+serve only the photo files those rows reference; the browser zips `data.json`, `photos/` and a
+`kyarafit-receipt.json` because a large account's photos exceed one Convex return value. The
+mapping rules (one level of pieces, subtasks flattened to "Parent › Step", generated tasks dropped,
+library elements in a "From Kyarafit library" build, social data left out) are in
+[`cosappExport.ts`](../design-system/domain/cosappExport.ts); after the download the page lists
+what came over and what was left out, and why. This is a one-time migration. Import this once into a
+fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions
+made in Kyarafit. Repeated-export reconciliation is not supported. IDs are deterministic, and
+source-backed rows keep their own Kyarafit timestamps. Stored images and downloadable HTTP(S) images are included
+up to Cosapp.si's 15 MB limit, transferred in bounded byte ranges; the receipt lists each dropped
+image and its reason and includes the one-time-import warning.
+
+This converter does not change Cosapp.si sync parsing or deleted-content retention. Those are
+separate PRs, `cosapp-sync-tolerant` and `cosapp-purge-deleted-content`, respectively.
+
 Web does not offer backup-file restore: it has no vault to reconcile replayed personal rows
 ([ADR-0006](adr/0006-web-edits-personal-data-online.md)). The page directs users to the mobile
 app for backup restore. An incomplete restore marker from an earlier web version still triggers

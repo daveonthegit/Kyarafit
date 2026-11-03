@@ -36,7 +36,8 @@
     "./domain/imageRef": "./domain/imageRef.ts",
     "./domain/imageUpload": "./domain/imageUpload.ts",
     "./domain/closetItems": "./domain/closetItems.ts",
-    "./domain/progressRing": "./domain/progressRing.ts"
+    "./domain/progressRing": "./domain/progressRing.ts",
+    "./domain/cosappExport": "./domain/cosappExport.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured (TypeScript; use typecheck)\" && exit 0",

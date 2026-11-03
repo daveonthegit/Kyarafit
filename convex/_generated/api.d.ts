@@ -21,6 +21,7 @@ import type * as buildReferenceImages from "../buildReferenceImages.js";
 import type * as buildTasks from "../buildTasks.js";
 import type * as builds from "../builds.js";
 import type * as conventions from "../conventions.js";
+import type * as cosappExport from "../cosappExport.js";
 import type * as cosplayNodes from "../cosplayNodes.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   buildTasks: typeof buildTasks;
   builds: typeof builds;
   conventions: typeof conventions;
+  cosappExport: typeof cosappExport;
   cosplayNodes: typeof cosplayNodes;
   crons: typeof crons;
   email: typeof email;
