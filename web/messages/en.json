@@ -162,7 +162,7 @@
       "deviceOnlyImage": "{count, plural, one {# photo was} other {# photos were}} only ever stored on another device.",
       "missingImage": "{count, plural, one {# photo file} other {# photo files}} could no longer be found.",
       "unsupportedImage": "{count, plural, one {# file wasn't a photo} other {# files weren't photos}} Cosapp.si can open.",
-      "oversizeImage": "{count, plural, one {# photo was} other {# photos were}} larger than 15 MB.",
+      "oversizeImage": "{count, plural, one {# photo was} other {# photos were}} larger than 10 MB.",
       "invalidConvention": "{count, plural, one {# convention} other {# conventions}} without a valid start date.",
       "dayPlanOutsideConvention": "{count, plural, one {# day plan} other {# day plans}} outside the convention's dates.",
       "duplicateDayPlan": "{count, plural, one {# extra day plan} other {# extra day plans}} for a day that already had one (the newest was kept).",

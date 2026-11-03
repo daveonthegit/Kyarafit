@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  COSAPP_MAX_PHOTO_BYTES,
+  EXPORT_MAX_PHOTO_BYTES,
   COSAPP_RECEIPT_ENTRY,
   LIBRARY_BUILD_NAME,
   convertKyarafitToCosapp,
@@ -456,7 +456,7 @@ function fixture(): KyarafitSnapshot {
     jpeg("s-ref"),
     { storageId: "s-gif", size: 10, contentType: "image/gif" },
     jpeg("s-proc"),
-    jpeg("s-huge", COSAPP_MAX_PHOTO_BYTES + 1),
+    jpeg("s-huge", EXPORT_MAX_PHOTO_BYTES + 1),
     jpeg("s-upd"),
     // "s-vanished" has no metadata: the stored file is gone.
   ];

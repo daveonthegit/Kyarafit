@@ -20,8 +20,11 @@ import {
  * the session, and `photoBytes` serves only files the caller's own exported rows reference.
  */
 
-/** Largest total of photo bytes one `photoBytes` call returns; the client plans smaller batches. */
-const MAX_PHOTO_RESPONSE_BYTES = 15.5 * 1024 * 1024;
+/**
+ * Largest total of photo bytes one `photoBytes` call returns (the client plans 4 MiB batches; one
+ * photo can be up to 10 MiB). Bytes travel base64-encoded, so this keeps responses under 16 MiB.
+ */
+const MAX_PHOTO_RESPONSE_BYTES = 10.5 * 1024 * 1024;
 const MAX_PHOTOS_PER_CALL = 200;
 
 /** Deleted rows stay on the server; their content never leaves it through this export. */

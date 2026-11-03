@@ -30,8 +30,11 @@ export const COSAPP_BACKUP_SCHEMA_VERSION = 2;
 export const COSAPP_BACKUP_EXTENSION = "cosapp";
 /** Written as the backup's `appVersion` so a Cosapp.si import can tell where the file came from. */
 export const COSAPP_CONVERTER_VERSION = "kyarafit-converter/1";
-/** Cosapp.si's `MAX_PHOTO_BYTES`: larger photos cannot sync there, so they are not exported. */
-export const COSAPP_MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+/**
+ * Largest photo the export carries. Below Cosapp.si's own 15 MB sync limit, and small enough that
+ * one photo still fits a Convex return value (16 MiB) after the bytes are base64-encoded on the wire.
+ */
+export const EXPORT_MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 /** Name of the receipt entry inside the archive. Cosapp.si's import ignores entries outside `photos/`. */
 export const COSAPP_RECEIPT_ENTRY = "kyarafit-receipt.json";
 export const LIBRARY_BUILD_NAME = "From Kyarafit library";
@@ -473,7 +476,7 @@ export function convertKyarafitToCosapp(
       receipt.drop("unsupportedImage");
       return "dropped";
     }
-    if (file.size > COSAPP_MAX_PHOTO_BYTES) {
+    if (file.size > EXPORT_MAX_PHOTO_BYTES) {
       receipt.drop("oversizeImage");
       return "dropped";
     }
