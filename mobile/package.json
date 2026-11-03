@@ -47,7 +47,7 @@
     "expo-linking": "~55.0.14",
     "expo-localization": "~55.0.13",
     "expo-router": "~55.0.13",
-    "expo-secure-store": "~55.0.13",
+    "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~55.0.19",
     "expo-sqlite": "~55.0.15",
     "expo-status-bar": "~55.0.5",
