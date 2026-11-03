@@ -106,7 +106,11 @@ export async function buildCosappDownload(
     else if (!isCosappImage(bytes)) notImages.add(file.fileName);
     else photos.set(file.fileName, bytes);
   }
-  result = withoutPhotoFiles(withoutPhotoFiles(withoutPhotoFiles(result, missing), notImages, "unsupportedImage"), oversized, "oversizeImage");
+  result = withoutPhotoFiles(
+    withoutPhotoFiles(withoutPhotoFiles(result, missing), notImages, "unsupportedImage"),
+    oversized,
+    "oversizeImage"
+  );
   return {
     fileName: cosappFileName(now),
     bytes: encodeCosappArchive(result, photos),

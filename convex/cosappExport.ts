@@ -201,7 +201,12 @@ export const photoBytes = action({
     ctx,
     { storageIds, offset = 0 }
   ): Promise<
-    { storageId: string; bytes: ArrayBuffer | null; size: number; failure?: KyStoredFile["failure"] }[]
+    {
+      storageId: string;
+      bytes: ArrayBuffer | null;
+      size: number;
+      failure?: KyStoredFile["failure"];
+    }[]
   > => {
     if (storageIds.length > MAX_PHOTOS_PER_CALL) throw new Error("Too many photos in one request");
     if (!Number.isSafeInteger(offset) || offset < 0 || offset >= EXPORT_MAX_PHOTO_BYTES) {

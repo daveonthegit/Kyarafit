@@ -19,9 +19,8 @@
  * - reference, process and progress-update photos → photos with captions and dates.
  * - social data (likes, comments, follows, groups, collaborators) is not carried over.
  *
- * Every id is derived from the Kyarafit id and every timestamp from the Kyarafit row, never from
- * the clock, so importing a newer export with Merge updates rows instead of duplicating them, and a
- * row the user has since edited in Cosapp.si keeps their edit (newer wins).
+ * IDs are deterministic and source-backed rows use their own Kyarafit timestamps, not the clock.
+ * This is a one-time migration, not repeated-export reconciliation; see COSAPP_IMPORT_NOTICE.
  */
 
 export const COSAPP_BACKUP_FORMAT = "cosapp.si/backup";
@@ -36,7 +35,8 @@ export const MAX_PHOTOS_PER_CALL = 200;
 export const MAX_EXTERNAL_PHOTOS_PER_CALL = 2;
 /** Name of the receipt entry inside the archive. Cosapp.si's import ignores entries outside `photos/`. */
 export const COSAPP_RECEIPT_ENTRY = "kyarafit-receipt.json";
-export const COSAPP_IMPORT_NOTICE = "Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.";
+export const COSAPP_IMPORT_NOTICE =
+  "Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.";
 export const LIBRARY_BUILD_NAME = "From Kyarafit library";
 /** Separator for flattened names ("Armor › Pauldron"). */
 export const PATH_SEPARATOR = " › ";
@@ -322,7 +322,7 @@ export interface CosappReceipt {
   counts: Record<CosappTable, number> & { photoFiles: number };
   droppedImages: { image: string; reason: CosappDropKind }[];
   reshaped: { kind: CosappReshapeKind; count: number }[];
-  /** `count` is null for whole categories that are never exported (social data). */
+  /** `count` is null for standing exclusion rules rather than counted omissions. */
   dropped: { kind: CosappDropKind; count: number | null }[];
 }
 
@@ -922,9 +922,10 @@ export function convertKyarafitToCosapp(
     const cached = ownerCache.get(item._id);
     if (cached) return cached;
     const parent = item.parentId ? items.get(item.parentId) : undefined;
-    const owner = parent && !seen.has(parent._id)
-      ? ownerOf(parent, new Set([...seen, item._id]))
-      : ownAttachmentOwner(item) ?? { kind: "none" as const };
+    const owner =
+      parent && !seen.has(parent._id)
+        ? ownerOf(parent, new Set([...seen, item._id]))
+        : (ownAttachmentOwner(item) ?? { kind: "none" as const });
     ownerCache.set(item._id, owner);
     return owner;
   };
@@ -946,7 +947,8 @@ export function convertKyarafitToCosapp(
   const taskPosition = new Map<string, number>();
   for (const item of treeOrder([...items.values()], (i) => i.parentId, items)) {
     if (item.sourceKind !== "manual") {
-      if (item.sourceKind === "automation" || item.sourceKind === "packing") receipt.drop("generatedTask");
+      if (item.sourceKind === "automation" || item.sourceKind === "packing")
+        receipt.drop("generatedTask");
       continue;
     }
     if (item.status === "cancelled") {
@@ -1113,12 +1115,16 @@ export function withoutPhotoFiles(
   if (!removed) return result;
   const priorIds = new Set(result.data.rows.photos.map((photo) => photo.id));
   const remainingIds = new Set(photos.map((photo) => photo.id));
-  const recovered = result.progressNotes.filter((note) =>
-    note.photoIds.some((id) => priorIds.has(id)) && !note.photoIds.some((id) => remainingIds.has(id))
+  const recovered = result.progressNotes.filter(
+    (note) =>
+      note.photoIds.some((id) => priorIds.has(id)) &&
+      !note.photoIds.some((id) => remainingIds.has(id))
   );
   const builds = result.data.rows.builds.map((build) => {
     const notes = recovered.filter((note) => note.buildId === build.id);
-    return notes.length ? { ...build, notes: joinNotes([build.notes, ...notes.map((note) => note.line)]) } : build;
+    return notes.length
+      ? { ...build, notes: joinNotes([build.notes, ...notes.map((note) => note.line)]) }
+      : build;
   });
   const reshaped = result.receipt.reshaped.map((entry) => ({ ...entry }));
   if (recovered.length) {
@@ -1140,7 +1146,12 @@ export function withoutPhotoFiles(
     receipt: {
       ...result.receipt,
       reshaped,
-      droppedImages: [...result.receipt.droppedImages, ...result.photoFiles.filter((file) => missing.has(file.fileName)).map((file) => ({ image: file.storageId, reason }))],
+      droppedImages: [
+        ...result.receipt.droppedImages,
+        ...result.photoFiles
+          .filter((file) => missing.has(file.fileName))
+          .map((file) => ({ image: file.storageId, reason })),
+      ],
       counts: { ...result.receipt.counts, photos: photos.length, photoFiles: photoFiles.length },
       dropped,
     },
@@ -1161,7 +1172,12 @@ export function planPhotoBatches(files: CosappPhotoFile[], maxBytes: number): st
   let externalCount = 0;
   for (const [storageId, size] of sizes) {
     const external = /^https?:\/\//i.test(storageId);
-    if (current.length && (bytes + Math.min(size, PHOTO_BATCH_BYTES) > Math.min(maxBytes, PHOTO_BATCH_BYTES) || current.length >= MAX_PHOTOS_PER_CALL || (external && externalCount >= MAX_EXTERNAL_PHOTOS_PER_CALL))) {
+    if (
+      current.length &&
+      (bytes + Math.min(size, PHOTO_BATCH_BYTES) > Math.min(maxBytes, PHOTO_BATCH_BYTES) ||
+        current.length >= MAX_PHOTOS_PER_CALL ||
+        (external && externalCount >= MAX_EXTERNAL_PHOTOS_PER_CALL))
+    ) {
       batches.push(current);
       current = [];
       bytes = 0;

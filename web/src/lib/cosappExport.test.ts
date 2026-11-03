@@ -497,10 +497,19 @@ describe("review regressions", () => {
     s.conventionDayPlans[1].updatedAt = NOW - 5;
     const { rows } = convert(s).data;
     expect(byId(rows.builds, "ky-b-b1")).toMatchObject({ createdAt: T0, updatedAt: T0 + 5000 });
-    expect(byId(rows.pieces, "ky-p-n-pauldron")).toMatchObject({ createdAt: T0 + 11, updatedAt: T0 + 11 });
-    expect(byId(rows.photos, "ky-ph-n-n-armor")).toMatchObject({ createdAt: T0 + 10, updatedAt: NOW - 10 });
+    expect(byId(rows.pieces, "ky-p-n-pauldron")).toMatchObject({
+      createdAt: T0 + 11,
+      updatedAt: T0 + 11,
+    });
+    expect(byId(rows.photos, "ky-ph-n-n-armor")).toMatchObject({
+      createdAt: T0 + 10,
+      updatedAt: NOW - 10,
+    });
     expect(byId(rows.photos, "ky-ph-r-r1").updatedAt).toBe(T0 + 90);
-    expect(byId(rows.tasks, "ky-t-w-cut")).toMatchObject({ createdAt: T0 + 32, updatedAt: T0 + 32 });
+    expect(byId(rows.tasks, "ky-t-w-cut")).toMatchObject({
+      createdAt: T0 + 32,
+      updatedAt: T0 + 32,
+    });
     expect(byId(rows.tasks, "ky-t-w-craft").updatedAt).toBe(NOW - 8);
     expect(byId(rows.conventions, "ky-c-c1").updatedAt).toBe(T0 + 50);
     expect(byId(rows.dayPlans, "ky-c-c1:2027-07-02").updatedAt).toBe(NOW - 5);
@@ -510,7 +519,10 @@ describe("review regressions", () => {
   it("waits for an update's last photo to disappear before recovering its note once", () => {
     const s = fixture();
     const update = s.buildProgressUpdates[0];
-    update.imageRefs = [{ kind: "cloud", storageId: "s-upd", imageKey: "one" }, { kind: "cloud", storageId: "s-ref", imageKey: "two" }];
+    update.imageRefs = [
+      { kind: "cloud", storageId: "s-upd", imageKey: "one" },
+      { kind: "cloud", storageId: "s-ref", imageKey: "two" },
+    ];
     const prepared = convert(s);
     const line = "Progress 2026-06-01: Coat lining done";
     const first = withoutPhotoFiles(prepared, new Set(["ky-ph-u-u1-0.jpg"]));
@@ -522,7 +534,11 @@ describe("review regressions", () => {
   });
 
   it("limits external URLs independently of byte and total-photo limits", () => {
-    const files = Array.from({ length: 61 }, (_, i) => ({ fileName: `${i}.jpg`, storageId: `https://example.com/${i}.jpg`, size: 10 }));
+    const files = Array.from({ length: 61 }, (_, i) => ({
+      fileName: `${i}.jpg`,
+      storageId: `https://example.com/${i}.jpg`,
+      size: 10,
+    }));
     const batches = planPhotoBatches(files, PHOTO_BATCH_BYTES);
     expect(batches.flat()).toEqual(files.map((file) => file.storageId));
     expect(batches.every((batch) => batch.length <= MAX_EXTERNAL_PHOTOS_PER_CALL)).toBe(true);
@@ -534,26 +550,54 @@ describe("review regressions", () => {
     const second = convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!;
     expect(second.id).toBe(first.id);
     s.accountId = "another-account";
-    expect(convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!.id).not.toBe(first.id);
+    expect(
+      convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!.id
+    ).not.toBe(first.id);
   });
 
-  it.each(["in_progress", "done", "complete", "completed", "unknown"])("maps unsupported build status %s to idea", (status) => {
-    const s = fixture();
-    s.builds[0].status = status;
-    expect(convert(s).data.rows.builds[0].status).toBe("idea");
-  });
+  it.each(["in_progress", "done", "complete", "completed", "unknown"])(
+    "maps unsupported build status %s to idea",
+    (status) => {
+      const s = fixture();
+      s.builds[0].status = status;
+      expect(convert(s).data.rows.builds[0].status).toBe("idea");
+    }
+  );
 
-  it.each(["w-craft", "w-style", "w-badge", "w-general"])("inherits %s's owner despite a child's conflicting attachment", (parentId) => {
-    const s = fixture();
-    s.workflowItems.push({ _id: "child", _creationTime: T0 + 100, title: "Child", status: "not_started", parentId, sortOrder: -1, sourceKind: "manual" });
-    s.workflowAttachments.push({ _id: "conflict", _creationTime: T0 + 100, workflowItemId: "child", entityType: "build", entityId: "b2", role: "primary" });
-    const rows = convert(s).data.rows.tasks;
-    const parent = byId(rows, `ky-t-${parentId}`);
-    const child = byId(rows, "ky-t-child");
-    expect([child.ownerKind, child.buildId, child.pieceId, child.conventionId]).toEqual([parent.ownerKind, parent.buildId, parent.pieceId, parent.conventionId]);
-    expect(child.title).toBe(`${parent.title} › Child`);
-    expect(child.position).toBe(parent.position + 1);
-  });
+  it.each(["w-craft", "w-style", "w-badge", "w-general"])(
+    "inherits %s's owner despite a child's conflicting attachment",
+    (parentId) => {
+      const s = fixture();
+      s.workflowItems.push({
+        _id: "child",
+        _creationTime: T0 + 100,
+        title: "Child",
+        status: "not_started",
+        parentId,
+        sortOrder: -1,
+        sourceKind: "manual",
+      });
+      s.workflowAttachments.push({
+        _id: "conflict",
+        _creationTime: T0 + 100,
+        workflowItemId: "child",
+        entityType: "build",
+        entityId: "b2",
+        role: "primary",
+      });
+      const rows = convert(s).data.rows.tasks;
+      const parent = byId(rows, `ky-t-${parentId}`);
+      const child = byId(rows, "ky-t-child");
+      expect([child.ownerKind, child.buildId, child.pieceId, child.conventionId]).toEqual([
+        parent.ownerKind,
+        parent.buildId,
+        parent.pieceId,
+        parent.conventionId,
+      ]);
+      expect(child.title).toBe(`${parent.title} › Child`);
+      expect(child.position).toBe(parent.position + 1);
+    }
+  );
 
   it("keeps all photo representations when external image metadata is available", () => {
     const s = fixture();
@@ -576,10 +620,16 @@ describe("review regressions", () => {
   });
 
   it("batches hundreds of tiny photos by count as well as bytes", () => {
-    const files = Array.from({ length: MAX_PHOTOS_PER_CALL + 1 }, (_, i) => ({ fileName: `${i}.jpg`, storageId: `${i}`, size: 1024 }));
-    expect(planPhotoBatches(files, PHOTO_BATCH_BYTES).map((batch) => batch.length)).toEqual([MAX_PHOTOS_PER_CALL, 1]);
+    const files = Array.from({ length: MAX_PHOTOS_PER_CALL + 1 }, (_, i) => ({
+      fileName: `${i}.jpg`,
+      storageId: `${i}`,
+      size: 1024,
+    }));
+    expect(planPhotoBatches(files, PHOTO_BATCH_BYTES).map((batch) => batch.length)).toEqual([
+      MAX_PHOTOS_PER_CALL,
+      1,
+    ]);
   });
-
 });
 
 describe("builds", () => {
@@ -640,28 +690,46 @@ describe("builds", () => {
 describe("pieces", () => {
   it("exports a quick-created element as done after marking it bought", () => {
     const s = emptySnapshot();
-    s.cosplayNodes = [{
-      _id: "quick-created",
-      _creationTime: T0,
-      nodeType: "element",
-      name: "Wig",
-      purchaseStatus: "to_buy",
-      buildStatus: "not_started",
-    }];
+    s.cosplayNodes = [
+      {
+        _id: "quick-created",
+        _creationTime: T0,
+        nodeType: "element",
+        name: "Wig",
+        purchaseStatus: "to_buy",
+        buildStatus: "not_started",
+      },
+    ];
     expect(convert(s).data.rows.pieces[0].status).toBe("todo");
     s.cosplayNodes[0].purchaseStatus = "bought";
     expect(convert(s).data.rows.pieces[0].status).toBe("done");
   });
 
-  it.each([undefined, "not_started", "wip", "built"])("honors bought status with build status %s and retains manual overrides", (buildStatus) => {
-    const s = emptySnapshot();
-    s.cosplayNodes = [{ _id: "element", _creationTime: T0, nodeType: "element", name: "Wig", purchaseStatus: "bought", buildStatus }];
-    expect(convert(s).data.rows.pieces[0].status).toBe("done");
-    for (const [manualOverallBucket, expected] of [["incomplete", "todo"], ["in_progress", "in_progress"], ["complete", "done"]]) {
-      s.cosplayNodes[0].manualOverallBucket = manualOverallBucket;
-      expect(convert(s).data.rows.pieces[0].status).toBe(expected);
+  it.each([undefined, "not_started", "wip", "built"])(
+    "honors bought status with build status %s and retains manual overrides",
+    (buildStatus) => {
+      const s = emptySnapshot();
+      s.cosplayNodes = [
+        {
+          _id: "element",
+          _creationTime: T0,
+          nodeType: "element",
+          name: "Wig",
+          purchaseStatus: "bought",
+          buildStatus,
+        },
+      ];
+      expect(convert(s).data.rows.pieces[0].status).toBe("done");
+      for (const [manualOverallBucket, expected] of [
+        ["incomplete", "todo"],
+        ["in_progress", "in_progress"],
+        ["complete", "done"],
+      ]) {
+        s.cosplayNodes[0].manualOverallBucket = manualOverallBucket;
+        expect(convert(s).data.rows.pieces[0].status).toBe(expected);
+      }
     }
-  });
+  );
 
   it("flattens nested parts to 'Parent › Child' in the root's build, in tree order", () => {
     const { data } = convert();
@@ -894,13 +962,15 @@ describe("photos", () => {
     expect(dropped(result, "unsupportedImage")).toBe(1);
     expect(dropped(result, "oversizeImage")).toBe(1);
     expect(dropped(result, "missingImage")).toBe(3);
-    expect(result.receipt.droppedImages).toEqual(expect.arrayContaining([
-      { image: "https://example.com/stark.jpg", reason: "missingImage" },
-      { image: "s-huge", reason: "oversizeImage" },
-      { image: "s-gif", reason: "unsupportedImage" },
-      { image: "s-vanished", reason: "missingImage" },
-      { image: "file:///phone.jpg", reason: "deviceOnlyImage" },
-    ]));
+    expect(result.receipt.droppedImages).toEqual(
+      expect.arrayContaining([
+        { image: "https://example.com/stark.jpg", reason: "missingImage" },
+        { image: "s-huge", reason: "oversizeImage" },
+        { image: "s-gif", reason: "unsupportedImage" },
+        { image: "s-vanished", reason: "missingImage" },
+        { image: "file:///phone.jpg", reason: "deviceOnlyImage" },
+      ])
+    );
     expect(result.receipt.dropped).toContainEqual({ kind: "socialData", count: null });
   });
 });
@@ -1010,7 +1080,9 @@ describe("round trip through Cosapp.si's backup reader", () => {
     const files = unzipSync(encodeCosappArchive(result, bytesFor(result)));
     const receipt = JSON.parse(strFromU8(files[COSAPP_RECEIPT_ENTRY]));
     expect(receipt).toEqual(result.receipt);
-    expect(receipt.importNotice).toBe("Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit.");
+    expect(receipt.importNotice).toBe(
+      "Import this once into a fresh Cosapp.si; importing a newer export again merges by newest edit and may not reflect deletions made in Kyarafit."
+    );
     expect(receipt.dropped).toContainEqual({ kind: "nonOwnedBuildTasks", count: null });
   });
 
@@ -1021,33 +1093,71 @@ describe("round trip through Cosapp.si's backup reader", () => {
 });
 
 describe("buildCosappDownload", () => {
-  it.each(["missingImage", "unsupportedImage", "oversizeImage"] as const)("preserves progress notes after late %s failures", async (reason) => {
-    const s = emptySnapshot();
-    s.builds = [{ _id: "b", _creationTime: 1, name: "Build", status: "idea" }];
-    s.buildProgressUpdates = [{ _id: "u", _creationTime: T0, updatedAt: T0 + 100, buildId: "b", createdAt: T0, note: "Finished lining", progressPercent: 40, imageRefs: [{ kind: "url", url: "https://example.com/photo.jpg" }] }];
-    s.storedFiles = [jpeg("https://example.com/photo.jpg", EXPORT_MAX_PHOTO_BYTES)];
-    const prepared = convert(s);
-    const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[] }) => {
-      if (!args.storageIds) return prepared;
-      return args.storageIds.map((storageId) => ({ storageId, bytes: reason === "unsupportedImage" ? new TextEncoder().encode("not an image").buffer : null, failure: reason === "unsupportedImage" ? undefined : reason, size: 0 }));
-    });
-    const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
-    const archive = decodeBackup(download.bytes);
-    expect(archive.data.rows.photos).toEqual([]);
-    expect(archive.data.rows.builds[0]).toMatchObject({ notes: "Progress 2026-03-01 (40%): Finished lining", updatedAt: 1 });
-    expect(download.receipt.reshaped).toContainEqual({ kind: "progressNoteInBuildNotes", count: 1 });
-    expect(download.receipt.droppedImages).toEqual([{ image: "https://example.com/photo.jpg", reason }]);
-  });
+  it.each(["missingImage", "unsupportedImage", "oversizeImage"] as const)(
+    "preserves progress notes after late %s failures",
+    async (reason) => {
+      const s = emptySnapshot();
+      s.builds = [{ _id: "b", _creationTime: 1, name: "Build", status: "idea" }];
+      s.buildProgressUpdates = [
+        {
+          _id: "u",
+          _creationTime: T0,
+          updatedAt: T0 + 100,
+          buildId: "b",
+          createdAt: T0,
+          note: "Finished lining",
+          progressPercent: 40,
+          imageRefs: [{ kind: "url", url: "https://example.com/photo.jpg" }],
+        },
+      ];
+      s.storedFiles = [jpeg("https://example.com/photo.jpg", EXPORT_MAX_PHOTO_BYTES)];
+      const prepared = convert(s);
+      const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[] }) => {
+        if (!args.storageIds) return prepared;
+        return args.storageIds.map((storageId) => ({
+          storageId,
+          bytes:
+            reason === "unsupportedImage" ? new TextEncoder().encode("not an image").buffer : null,
+          failure: reason === "unsupportedImage" ? undefined : reason,
+          size: 0,
+        }));
+      });
+      const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
+      const archive = decodeBackup(download.bytes);
+      expect(archive.data.rows.photos).toEqual([]);
+      expect(archive.data.rows.builds[0]).toMatchObject({
+        notes: "Progress 2026-03-01 (40%): Finished lining",
+        updatedAt: 1,
+      });
+      expect(download.receipt.reshaped).toContainEqual({
+        kind: "progressNoteInBuildNotes",
+        count: 1,
+      });
+      expect(download.receipt.droppedImages).toEqual([
+        { image: "https://example.com/photo.jpg", reason },
+      ]);
+    }
+  );
   it("drives a large external-photo account through bounded client requests", async () => {
     const s = emptySnapshot();
-    s.builds = Array.from({ length: 61 }, (_, i) => ({ _id: `b${i}`, _creationTime: 1, name: `${i}`, status: "idea", imageUrl: `https://example.com/${i}.jpg` }));
+    s.builds = Array.from({ length: 61 }, (_, i) => ({
+      _id: `b${i}`,
+      _creationTime: 1,
+      name: `${i}`,
+      status: "idea",
+      imageUrl: `https://example.com/${i}.jpg`,
+    }));
     s.storedFiles = s.builds.map((build) => jpeg(build.imageUrl!, EXPORT_MAX_PHOTO_BYTES));
     const prepared = convert(s);
     const batches: string[][] = [];
     const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[] }) => {
       if (!args.storageIds) return prepared;
       batches.push(args.storageIds);
-      return args.storageIds.map((storageId) => ({ storageId, bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer, size: 3 }));
+      return args.storageIds.map((storageId) => ({
+        storageId,
+        bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer,
+        size: 3,
+      }));
     });
     const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
     expect(batches.flat()).toEqual(prepared.photoFiles.map((file) => file.storageId));
@@ -1058,23 +1168,38 @@ describe("buildCosappDownload", () => {
 
   it("assembles a supported 15 MB photo from bounded byte ranges", async () => {
     const s = emptySnapshot();
-    s.builds.push({ _id: "b", _creationTime: T0, name: "Build", status: "idea", imageStorageId: "large" });
+    s.builds.push({
+      _id: "b",
+      _creationTime: T0,
+      name: "Build",
+      status: "idea",
+      imageStorageId: "large",
+    });
     const image = new Uint8Array(EXPORT_MAX_PHOTO_BYTES);
     image.set([0xff, 0xd8, 0xff]);
     image[image.length - 1] = 42;
     s.storedFiles.push(jpeg("large", image.length));
     const result = convert(s);
     const offsets: number[] = [];
-    const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[]; offset?: number }) => {
-      if (!args.storageIds) return result;
-      const offset = args.offset ?? 0;
-      offsets.push(offset);
-      return [{ storageId: "large", bytes: image.slice(offset, offset + PHOTO_BATCH_BYTES).buffer, size: image.length }];
-    });
+    const action = vi.fn(
+      async (_ref: unknown, args: { storageIds?: string[]; offset?: number }) => {
+        if (!args.storageIds) return result;
+        const offset = args.offset ?? 0;
+        offsets.push(offset);
+        return [
+          {
+            storageId: "large",
+            bytes: image.slice(offset, offset + PHOTO_BATCH_BYTES).buffer,
+            size: image.length,
+          },
+        ];
+      }
+    );
     const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
     expect(offsets).toEqual([0, PHOTO_BATCH_BYTES, PHOTO_BATCH_BYTES * 2, PHOTO_BATCH_BYTES * 3]);
     const entries = unzipSync(download.bytes);
-    expect(entries[`photos/${result.photoFiles[0].fileName}`]).toEqual(image);
+    const photoBytes = entries[`photos/${result.photoFiles[0].fileName}`];
+    expect(Buffer.from(photoBytes).equals(Buffer.from(image))).toBe(true);
     expect(download.receipt.droppedImages).toEqual([]);
   });
   it("fetches photos in batches and drops photos whose files vanished", async () => {

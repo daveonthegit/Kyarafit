@@ -1,6 +1,12 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EXPORT_MAX_PHOTO_BYTES, PHOTO_BATCH_BYTES, MAX_PHOTOS_PER_CALL, MAX_EXTERNAL_PHOTOS_PER_CALL, withoutPhotoFiles } from "@kyarafit/design-system/domain/cosappExport";
+import {
+  EXPORT_MAX_PHOTO_BYTES,
+  PHOTO_BATCH_BYTES,
+  MAX_PHOTOS_PER_CALL,
+  MAX_EXTERNAL_PHOTOS_PER_CALL,
+  withoutPhotoFiles,
+} from "@kyarafit/design-system/domain/cosappExport";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -71,15 +77,46 @@ describe("cosappExport", () => {
     const { t, ids } = await harness();
     const timestamp = Date.now() + 60_000;
     await t.run(async (ctx) => {
-      const node = await ctx.db.query("cosplayNodes").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
-      const task = await ctx.db.query("workflowItems").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
-      const attachment = await ctx.db.query("workflowAttachments").withIndex("by_userId", (q) => q.eq("userId", "alice")).first();
+      const node = await ctx.db
+        .query("cosplayNodes")
+        .withIndex("by_userId", (q) => q.eq("userId", "alice"))
+        .first();
+      const task = await ctx.db
+        .query("workflowItems")
+        .withIndex("by_userId", (q) => q.eq("userId", "alice"))
+        .first();
+      const attachment = await ctx.db
+        .query("workflowAttachments")
+        .withIndex("by_userId", (q) => q.eq("userId", "alice"))
+        .first();
       await ctx.db.patch(node!._id, { name: "deleted secret node", deletedAt: timestamp });
-      await ctx.db.patch(task!._id, { title: "deleted secret task", updatedAt: timestamp + 1, deletedAt: timestamp });
+      await ctx.db.patch(task!._id, {
+        title: "deleted secret task",
+        updatedAt: timestamp + 1,
+        deletedAt: timestamp,
+      });
       await ctx.db.patch(attachment!._id, { deletedAt: timestamp + 2 });
-      const conventionId = await ctx.db.insert("conventions", { userId: "alice", name: "Live convention", startDate: "2027-01-01", endDate: "2027-01-01" });
-      await ctx.db.insert("packingListItems", { userId: "alice", conventionId, label: "deleted secret packing", checked: false, deletedAt: timestamp + 3 });
-      await ctx.db.insert("builds", { userId: "alice", name: "deleted secret build", notes: "deleted secret notes", imageStorageId: ids.bob.image, status: "idea", deletedAt: timestamp + 4 });
+      const conventionId = await ctx.db.insert("conventions", {
+        userId: "alice",
+        name: "Live convention",
+        startDate: "2027-01-01",
+        endDate: "2027-01-01",
+      });
+      await ctx.db.insert("packingListItems", {
+        userId: "alice",
+        conventionId,
+        label: "deleted secret packing",
+        checked: false,
+        deletedAt: timestamp + 3,
+      });
+      await ctx.db.insert("builds", {
+        userId: "alice",
+        name: "deleted secret build",
+        notes: "deleted secret notes",
+        imageStorageId: ids.bob.image,
+        status: "idea",
+        deletedAt: timestamp + 4,
+      });
       await ctx.db.patch(ids.bob.build, { updatedAt: timestamp + 1_000_000 });
     });
     const alice = t.withIdentity({ subject: "alice" });
@@ -93,7 +130,9 @@ describe("cosappExport", () => {
     const exported = await alice.action(api.cosappExport.prepare, {});
     expect(exported.data.rows.builds[0].updatedAt).toBe(Math.floor(rows.builds[0]._creationTime));
     expect(JSON.stringify(exported)).not.toContain("deleted secret");
-    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: [ids.bob.image] })).rejects.toThrow(/Photo not found/);
+    await expect(
+      alice.action(api.cosappExport.photoBytes, { storageIds: [ids.bob.image] })
+    ).rejects.toThrow(/Photo not found/);
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -102,7 +141,9 @@ describe("cosappExport", () => {
     const alice = t.withIdentity({ subject: "alice" });
     expect((await alice.action(api.cosappExport.prepare, {})).photoFiles).toHaveLength(1);
     await t.run((ctx) => ctx.storage.delete(ids.alice.image));
-    expect(await alice.action(api.cosappExport.photoBytes, { storageIds: [ids.alice.image] })).toEqual([
+    expect(
+      await alice.action(api.cosappExport.photoBytes, { storageIds: [ids.alice.image] })
+    ).toEqual([
       expect.objectContaining({ storageId: ids.alice.image, bytes: null, failure: "missingImage" }),
     ]);
   });
@@ -117,16 +158,26 @@ describe("cosappExport", () => {
       return id;
     });
     const alice = t.withIdentity({ subject: "alice" });
-    expect((await alice.action(api.cosappExport.prepare, {})).photoFiles[0].size).toBe(image.length);
+    expect((await alice.action(api.cosappExport.prepare, {})).photoFiles[0].size).toBe(
+      image.length
+    );
     let received = 0;
     for (let offset = 0; offset < image.length; offset += PHOTO_BATCH_BYTES) {
-      const [chunk] = await alice.action(api.cosappExport.photoBytes, { storageIds: [storageId], offset });
+      const [chunk] = await alice.action(api.cosappExport.photoBytes, {
+        storageIds: [storageId],
+        offset,
+      });
       expect(chunk.bytes!.byteLength).toBeLessThanOrEqual(PHOTO_BATCH_BYTES);
-      expect(new Uint8Array(chunk.bytes!)).toEqual(image.slice(offset, offset + PHOTO_BATCH_BYTES));
+      const expected = image.subarray(offset, offset + PHOTO_BATCH_BYTES);
+      expect(Buffer.from(chunk.bytes!).equals(Buffer.from(expected))).toBe(true);
       received += chunk.bytes!.byteLength;
     }
     expect(received).toBe(image.length);
-    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: Array(MAX_PHOTOS_PER_CALL + 1).fill(storageId) })).rejects.toThrow(/Too many photos/);
+    await expect(
+      alice.action(api.cosappExport.photoBytes, {
+        storageIds: Array(MAX_PHOTOS_PER_CALL + 1).fill(storageId),
+      })
+    ).rejects.toThrow(/Too many photos/);
   });
 
   it("downloads owned external images on the server without trusting requested URLs", async () => {
@@ -135,17 +186,26 @@ describe("cosappExport", () => {
     const fetcher = vi.fn(async () => new Response(image));
     vi.stubGlobal("fetch", fetcher);
     const url = "https://example.com/alice.jpg";
-    await t.run((ctx) => ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url }));
+    await t.run((ctx) =>
+      ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url })
+    );
     const alice = t.withIdentity({ subject: "alice" });
     const result = await alice.action(api.cosappExport.prepare, {});
     expect(fetcher).not.toHaveBeenCalled();
-    expect(result.photoFiles).toEqual([expect.objectContaining({ storageId: url, size: EXPORT_MAX_PHOTO_BYTES })]);
+    expect(result.photoFiles).toEqual([
+      expect.objectContaining({ storageId: url, size: EXPORT_MAX_PHOTO_BYTES }),
+    ]);
     expect(result.data.rows.builds[0].notes).not.toContain(url);
     const [served] = await alice.action(api.cosappExport.photoBytes, { storageIds: [url] });
     expect(new Uint8Array(served.bytes!)).toEqual(image);
-    expect(fetcher).toHaveBeenCalledWith(url, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetcher).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
     const calls = fetcher.mock.calls.length;
-    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: ["https://example.com/bob.jpg"] })).rejects.toThrow(/Photo not found/);
+    await expect(
+      alice.action(api.cosappExport.photoBytes, { storageIds: ["https://example.com/bob.jpg"] })
+    ).rejects.toThrow(/Photo not found/);
     expect(fetcher).toHaveBeenCalledTimes(calls);
   });
 
@@ -155,21 +215,38 @@ describe("cosappExport", () => {
     ["oversizeImage", () => new Response(new Uint8Array(EXPORT_MAX_PHOTO_BYTES + 1))],
   ] as const)("lists external image failures as %s", async (reason, response) => {
     const { t, ids } = await harness();
-    vi.stubGlobal("fetch", vi.fn(async () => response()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response())
+    );
     const url = "https://example.com/alice.jpg";
-    await t.run((ctx) => ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url }));
+    await t.run((ctx) =>
+      ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url })
+    );
     const alice = t.withIdentity({ subject: "alice" });
     const result = await alice.action(api.cosappExport.prepare, {});
     const [served] = await alice.action(api.cosappExport.photoBytes, { storageIds: [url] });
     expect(served.bytes).toBeNull();
     expect(served.failure).toBe(reason);
-    expect(withoutPhotoFiles(result, new Set(result.photoFiles.map((file) => file.fileName)), served.failure).receipt.droppedImages).toEqual([{ image: url, reason }]);
+    expect(
+      withoutPhotoFiles(
+        result,
+        new Set(result.photoFiles.map((file) => file.fileName)),
+        served.failure
+      ).receipt.droppedImages
+    ).toEqual([{ image: url, reason }]);
   });
   it("defers account-wide fetching and bounds parallel external work per call", async () => {
     const { t } = await harness();
     const urls = Array.from({ length: 61 }, (_, i) => `https://example.com/${i}.jpg`);
     await t.run(async (ctx) => {
-      for (const imageUrl of urls) await ctx.db.insert("builds", { userId: "carol", name: imageUrl, status: "idea", imageUrl });
+      for (const imageUrl of urls)
+        await ctx.db.insert("builds", {
+          userId: "carol",
+          name: imageUrl,
+          status: "idea",
+          imageUrl,
+        });
     });
     let active = 0;
     let peak = 0;
@@ -184,9 +261,15 @@ describe("cosappExport", () => {
     const prepared = await carol.action(api.cosappExport.prepare, {});
     expect(prepared.photoFiles).toHaveLength(61);
     expect(fetcher).not.toHaveBeenCalled();
-    await expect(carol.action(api.cosappExport.photoBytes, { storageIds: urls.slice(0, MAX_EXTERNAL_PHOTOS_PER_CALL + 1) })).rejects.toThrow(/Too many external photos/);
+    await expect(
+      carol.action(api.cosappExport.photoBytes, {
+        storageIds: urls.slice(0, MAX_EXTERNAL_PHOTOS_PER_CALL + 1),
+      })
+    ).rejects.toThrow(/Too many external photos/);
     expect(fetcher).not.toHaveBeenCalled();
-    const served = await carol.action(api.cosappExport.photoBytes, { storageIds: urls.slice(0, MAX_EXTERNAL_PHOTOS_PER_CALL) });
+    const served = await carol.action(api.cosappExport.photoBytes, {
+      storageIds: urls.slice(0, MAX_EXTERNAL_PHOTOS_PER_CALL),
+    });
     expect(served.every((file) => file.bytes?.byteLength === 3)).toBe(true);
     expect(peak).toBe(MAX_EXTERNAL_PHOTOS_PER_CALL);
     expect(active).toBe(0);
