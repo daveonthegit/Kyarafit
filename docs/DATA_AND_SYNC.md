@@ -311,7 +311,12 @@ mapping rules (one level of pieces, subtasks flattened to "Parent › Step", gen
 library elements in a "From Kyarafit library" build, social data left out) are in
 [`cosappExport.ts`](../design-system/domain/cosappExport.ts); after the download the page lists
 what came over and what was left out, and why. Ids and timestamps come from the Kyarafit rows, so a
-later export merged again updates rows instead of duplicating them.
+later export merged again updates rows instead of duplicating them. Stored images and downloadable
+HTTP(S) images are included up to Cosapp.si's 15 MB limit, transferred in bounded byte ranges;
+the receipt lists each dropped image and its reason.
+
+This converter does not change Cosapp.si sync parsing or deleted-content retention. Those are
+separate PRs, `cosapp-sync-tolerant` and `cosapp-purge-deleted-content`, respectively.
 
 Web does not offer backup-file restore: it has no vault to reconcile replayed personal rows
 ([ADR-0006](adr/0006-web-edits-personal-data-online.md)). The page directs users to the mobile

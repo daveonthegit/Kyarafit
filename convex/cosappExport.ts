@@ -5,6 +5,10 @@ import type { Id } from "./_generated/dataModel";
 import { requireIdentity } from "./lib/authz";
 import {
   convertKyarafitToCosapp,
+  EXPORT_MAX_PHOTO_BYTES,
+  PHOTO_BATCH_BYTES,
+  MAX_PHOTOS_PER_CALL,
+  isCosappImage,
   type CosappExport,
   type KyarafitSnapshot,
   type KyStoredFile,
@@ -19,13 +23,6 @@ import {
  * account's photos do not fit in one Convex return value (16 MiB). Both derive the account from
  * the session, and `photoBytes` serves only files the caller's own exported rows reference.
  */
-
-/**
- * Largest total of photo bytes one `photoBytes` call returns (the client plans 4 MiB batches; one
- * photo can be up to 10 MiB). Bytes travel base64-encoded, so this keeps responses under 16 MiB.
- */
-const MAX_PHOTO_RESPONSE_BYTES = 10.5 * 1024 * 1024;
-const MAX_PHOTOS_PER_CALL = 200;
 
 /** Deleted rows stay on the server; their content never leaves it through this export. */
 function live<T extends { deletedAt?: number }>(rows: T[]): T[] {
@@ -123,6 +120,7 @@ export const snapshot = internalQuery({
     }
 
     return {
+      accountId: userId,
       builds,
       cosplayNodes,
       workflowItems,
@@ -138,9 +136,53 @@ export const snapshot = internalQuery({
   },
 });
 
+async function externalPhoto(
+  url: string
+): Promise<{ blob: Blob | null; failure?: KyStoredFile["failure"] }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      return { blob: null, failure: "missingImage" };
+    }
+    const reader = response.body.getReader();
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > EXPORT_MAX_PHOTO_BYTES) return { blob: null, failure: "oversizeImage" };
+        chunks.push(new Uint8Array(value));
+      }
+    } finally {
+      await reader.cancel();
+    }
+    const blob = new Blob(chunks);
+    if (!isCosappImage(new Uint8Array(await blob.arrayBuffer()))) {
+      return { blob: null, failure: "unsupportedImage" };
+    }
+    return { blob };
+  } catch {
+    return { blob: null, failure: "missingImage" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function convert(ctx: ActionCtx): Promise<CosappExport> {
   const rows: KyarafitSnapshot = await ctx.runQuery(internal.cosappExport.snapshot, {});
-  return convertKyarafitToCosapp(rows, { now: Date.now() });
+  const options = { now: Date.now() };
+  const references = convertKyarafitToCosapp(rows, options).photoSources;
+  for (const source of references) {
+    if (!/^https?:\/\//i.test(source)) continue;
+    const { blob, failure } = await externalPhoto(source);
+    rows.storedFiles.push({ storageId: source, size: blob?.size ?? 0, failure });
+  }
+  return convertKyarafitToCosapp(rows, options);
 }
 
 /** The backup rows, the photo files the archive needs, and the import receipt. */
@@ -154,26 +196,50 @@ export const prepare = action({
  * reference are refused; a file that vanished since comes back as `bytes: null`.
  */
 export const photoBytes = action({
-  args: { storageIds: v.array(v.string()) },
+  args: { storageIds: v.array(v.string()), offset: v.optional(v.number()) },
   handler: async (
     ctx,
-    { storageIds }
-  ): Promise<{ storageId: string; bytes: ArrayBuffer | null }[]> => {
+    { storageIds, offset = 0 }
+  ): Promise<
+    { storageId: string; bytes: ArrayBuffer | null; size: number; failure?: KyStoredFile["failure"] }[]
+  > => {
     if (storageIds.length > MAX_PHOTOS_PER_CALL) throw new Error("Too many photos in one request");
-    const { photoFiles } = await convert(ctx);
-    const sizes = new Map(photoFiles.map((file) => [file.storageId, file.size]));
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset >= EXPORT_MAX_PHOTO_BYTES) {
+      throw new Error("Invalid photo offset");
+    }
+    const rows: KyarafitSnapshot = await ctx.runQuery(internal.cosappExport.snapshot, {});
+    const allowed = new Set(convertKyarafitToCosapp(rows, { now: Date.now() }).photoSources);
+    for (const storageId of storageIds) {
+      if (!allowed.has(storageId)) throw new Error("Photo not found");
+    }
+    const out: {
+      storageId: string;
+      bytes: ArrayBuffer | null;
+      size: number;
+      failure?: KyStoredFile["failure"];
+    }[] = [];
     let total = 0;
     for (const storageId of new Set(storageIds)) {
-      const size = sizes.get(storageId);
-      if (size === undefined) throw new Error("Photo not found");
-      total += size;
-    }
-    if (total > MAX_PHOTO_RESPONSE_BYTES) throw new Error("Too many photo bytes in one request");
-
-    const out: { storageId: string; bytes: ArrayBuffer | null }[] = [];
-    for (const storageId of new Set(storageIds)) {
-      const blob = await ctx.storage.get(storageId as Id<"_storage">);
-      out.push({ storageId, bytes: blob ? await blob.arrayBuffer() : null });
+      const fetched: { blob: Blob | null; failure?: KyStoredFile["failure"] } =
+        /^https?:\/\//i.test(storageId)
+          ? await externalPhoto(storageId)
+          : { blob: await ctx.storage.get(storageId as Id<"_storage">) };
+      const { blob } = fetched;
+      const failure =
+        fetched.failure ??
+        (!blob ? "missingImage" : blob.size > EXPORT_MAX_PHOTO_BYTES ? "oversizeImage" : undefined);
+      const chunk =
+        blob && blob.size <= EXPORT_MAX_PHOTO_BYTES
+          ? blob.slice(offset, offset + PHOTO_BATCH_BYTES)
+          : null;
+      total += chunk?.size ?? 0;
+      if (total > PHOTO_BATCH_BYTES) throw new Error("Too many photo bytes in one request");
+      out.push({
+        storageId,
+        bytes: chunk ? await chunk.arrayBuffer() : null,
+        size: blob?.size ?? 0,
+        failure,
+      });
     }
     return out;
   },

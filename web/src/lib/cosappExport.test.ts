@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   EXPORT_MAX_PHOTO_BYTES,
+  PHOTO_BATCH_BYTES,
+  MAX_PHOTOS_PER_CALL,
   COSAPP_RECEIPT_ENTRY,
   LIBRARY_BUILD_NAME,
   convertKyarafitToCosapp,
@@ -29,6 +31,7 @@ const NOW = Date.UTC(2026, 10, 3); // the export's clock; never used for row sta
 
 function emptySnapshot(): KyarafitSnapshot {
   return {
+    accountId: "account-1",
     builds: [],
     cosplayNodes: [],
     workflowItems: [],
@@ -111,7 +114,8 @@ function fixture(): KyarafitSnapshot {
       name: "Wig",
       purchaseStatus: "bought",
       tags: [],
-      pricingMode: "unit",
+      pricingMode: "per_unit",
+      directCostCents: 0,
       unitCostCents: 250,
       quantity: 3,
       unit: "packs",
@@ -481,6 +485,86 @@ function reshaped(result: CosappExport, kind: string) {
   return result.receipt.reshaped.find((entry) => entry.kind === kind)?.count ?? 0;
 }
 
+describe("review regressions", () => {
+  it("keeps the library identity when its oldest member moves to a build", () => {
+    const s = fixture();
+    const first = convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!;
+    s.cosplayNodes.find((n) => n._id === "n-lib-a")!.buildId = "b1";
+    const second = convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!;
+    expect(second.id).toBe(first.id);
+    s.accountId = "another-account";
+    expect(convert(s).data.rows.builds.find((b) => b.character === LIBRARY_BUILD_NAME)!.id).not.toBe(first.id);
+  });
+
+  it.each(["in_progress", "done", "complete", "completed", "unknown"])("maps unsupported build status %s to idea", (status) => {
+    const s = fixture();
+    s.builds[0].status = status;
+    expect(convert(s).data.rows.builds[0].status).toBe("idea");
+  });
+
+  it.each(["w-craft", "w-style", "w-badge", "w-general"])("inherits %s's owner despite a child's conflicting attachment", (parentId) => {
+    const s = fixture();
+    s.workflowItems.push({ _id: "child", _creationTime: T0 + 100, title: "Child", status: "not_started", parentId, sortOrder: -1, sourceKind: "manual" });
+    s.workflowAttachments.push({ _id: "conflict", _creationTime: T0 + 100, workflowItemId: "child", entityType: "build", entityId: "b2", role: "primary" });
+    const rows = convert(s).data.rows.tasks;
+    const parent = byId(rows, `ky-t-${parentId}`);
+    const child = byId(rows, "ky-t-child");
+    expect([child.ownerKind, child.buildId, child.pieceId, child.conventionId]).toEqual([parent.ownerKind, parent.buildId, parent.pieceId, parent.conventionId]);
+    expect(child.title).toBe(`${parent.title} › Child`);
+    expect(child.position).toBe(parent.position + 1);
+  });
+
+  it("keeps all photo representations when external image metadata is available", () => {
+    const s = fixture();
+    const url = "https://example.com/photo.jpg";
+    s.builds[0].imageStorageId = undefined;
+    s.builds[0].imageUrl = url;
+    s.cosplayNodes[0].imageStorageId = undefined;
+    s.cosplayNodes[0].imageUrl = url;
+    s.conventions[0].imageStorageId = undefined;
+    s.conventions[0].imageUrl = url;
+    s.buildReferenceImages[0].imageStorageId = undefined;
+    s.buildReferenceImages[0].imageUrl = url;
+    s.buildProcessPictures[0].imageStorageId = undefined;
+    s.buildProcessPictures[0].imageUrl = url;
+    s.buildProgressUpdates[0].imageRefs = [{ kind: "url", url }];
+    s.storedFiles.push(jpeg(url, 11 * 1024 * 1024));
+    const result = convert(s);
+    expect(result.photoFiles.filter((file) => file.storageId === url)).toHaveLength(6);
+    expect(result.receipt.droppedImages.some((image) => image.image === url)).toBe(false);
+  });
+
+  it("batches hundreds of tiny photos by count as well as bytes", () => {
+    const files = Array.from({ length: MAX_PHOTOS_PER_CALL + 1 }, (_, i) => ({ fileName: `${i}.jpg`, storageId: `${i}`, size: 1024 }));
+    expect(planPhotoBatches(files, PHOTO_BATCH_BYTES).map((batch) => batch.length)).toEqual([MAX_PHOTOS_PER_CALL, 1]);
+  });
+
+  it.each([
+    ["builds", "ky-b-b1", (s: KyarafitSnapshot) => { s.buildProgressUpdates[1].note = "A"; s.buildProgressUpdates[1].updatedAt = NOW; }],
+    ["pieces", "ky-p-n-pauldron", (s: KyarafitSnapshot) => { s.cosplayNodes[0].name = "A"; s.cosplayNodes[0].updatedAt = NOW; }],
+    ["pieces", "ky-p-n-traced", (s: KyarafitSnapshot) => { s.workflowAttachments.find((a) => a._id === "a6")!.buildContextId = "b1"; s.workflowAttachments.find((a) => a._id === "a6")!.updatedAt = NOW; }],
+    ["tasks", "ky-t-w-cut", (s: KyarafitSnapshot) => { s.workflowItems[0].title = "A"; s.workflowItems[0].updatedAt = NOW; }],
+    ["tasks", "ky-t-w-craft", (s: KyarafitSnapshot) => { s.workflowAttachments[0].entityId = "b2"; s.workflowAttachments[0].updatedAt = NOW; }],
+    ["conventions", "ky-c-c1", (s: KyarafitSnapshot) => { s.conventionDayPlans[1].notes = "A"; s.conventionDayPlans[1].updatedAt = NOW; }],
+    ["packingItems", "ky-k-k-wig", (s: KyarafitSnapshot) => { s.cosplayNodes.find((n) => n._id === "n-wig")!.name = "A"; s.cosplayNodes.find((n) => n._id === "n-wig")!.updatedAt = NOW; }],
+    ["packingItems", "ky-k-k-wig", (s: KyarafitSnapshot) => { s.conventionDayPlans[1].buildId = "b2"; s.conventionDayPlans[1].updatedAt = NOW; }],
+  ] as const)("merges newer derived %s %s content", (table, id, change) => {
+    const s = fixture();
+    const before = convert(s);
+    change(s);
+    const after = convert(s);
+    const oldRow = byId<{ id: string; updatedAt: number }>(before.data.rows[table], id);
+    const newRow = byId<{ id: string; updatedAt: number }>(after.data.rows[table], id);
+    expect(newRow).not.toEqual(oldRow);
+    expect(newRow.updatedAt).toBe(NOW);
+    const bytesFor = (result: CosappExport) => new Map(result.photoFiles.map((file) => [file.fileName, new Uint8Array([0xff, 0xd8, 0xff])]));
+    const store = emptyStore();
+    mergeInto(store, decodeBackup(encodeCosappArchive(before, bytesFor(before))));
+    mergeInto(store, decodeBackup(encodeCosappArchive(after, bytesFor(after))));
+    expect(store[table].get(id)).toEqual(newRow);
+  });
+});
+
 describe("builds", () => {
   it("maps fields and statuses, and keeps the Kyarafit name in notes when it differs", () => {
     const { data } = convert();
@@ -517,7 +601,7 @@ describe("builds", () => {
     expect(data.rows.pieces.map((p) => p.id)).not.toContain("ky-p-n-del");
   });
 
-  it("makes the build image the cover photo; an external image link goes into the notes", () => {
+  it("makes the build image the cover photo without falling back to image links in notes", () => {
     const result = convert();
     const cover = byId(result.data.rows.photos, "ky-cover-b-b1");
     expect(cover).toMatchObject({
@@ -532,9 +616,7 @@ describe("builds", () => {
       storageId: "s-cover",
       size: 1000,
     });
-    expect(byId(result.data.rows.builds, "ky-b-b3").notes).toBe(
-      "Cover image link: https://example.com/stark.jpg"
-    );
+    expect(byId(result.data.rows.builds, "ky-b-b3").notes).toBeNull();
   });
 });
 
@@ -580,7 +662,7 @@ describe("pieces", () => {
     const library = result.data.rows.builds.filter((b) => b.character === LIBRARY_BUILD_NAME);
     expect(library).toHaveLength(1);
     expect(library[0]).toMatchObject({
-      id: "ky-b-library-n-lib-a",
+      id: "ky-b-library-account-1",
       status: "idea",
       createdAt: T0 + 15,
     });
@@ -650,10 +732,7 @@ describe("tasks", () => {
       buildId: "ky-b-b1",
       pieceId: "ky-p-n-wig",
     });
-    expect(byId(data.rows.tasks, "ky-t-w-staff")).toMatchObject({
-      buildId: "ky-b-b2",
-      pieceId: "ky-p-n-traced",
-    });
+    expect(data.rows.tasks.some((task) => task.id === "ky-t-w-staff")).toBe(false);
     expect(byId(data.rows.tasks, "ky-t-w-badge")).toMatchObject({
       ownerKind: "convention",
       conventionId: "ky-c-c1",
@@ -714,7 +793,7 @@ describe("conventions, day plans and packing", () => {
       {
         id: "ky-c-c1:2027-07-02",
         createdAt: T0 + 62,
-        updatedAt: T0 + 70,
+        updatedAt: T0 + 5000,
         deletedAt: null,
         conventionId: "ky-c-c1",
         date: "2027-07-02",
@@ -764,9 +843,7 @@ describe("photos", () => {
     expect(byId(data.rows.builds, "ky-b-b1").notes).toContain(
       "Progress 2026-06-02 (40%): Bought fabric"
     );
-    expect(byId(data.rows.builds, "ky-b-b1").notes).toContain(
-      "Reference image link: https://example.com/ref.png"
-    );
+    expect(byId(data.rows.builds, "ky-b-b1").notes).not.toContain("https://example.com/ref.png");
   });
 
   it("records every photo it cannot carry, by reason", () => {
@@ -774,8 +851,14 @@ describe("photos", () => {
     expect(dropped(result, "deviceOnlyImage")).toBe(1);
     expect(dropped(result, "unsupportedImage")).toBe(1);
     expect(dropped(result, "oversizeImage")).toBe(1);
-    expect(dropped(result, "missingImage")).toBe(1);
-    expect(dropped(result, "externalImage")).toBe(2);
+    expect(dropped(result, "missingImage")).toBe(3);
+    expect(result.receipt.droppedImages).toEqual(expect.arrayContaining([
+      { image: "https://example.com/stark.jpg", reason: "missingImage" },
+      { image: "s-huge", reason: "oversizeImage" },
+      { image: "s-gif", reason: "unsupportedImage" },
+      { image: "s-vanished", reason: "missingImage" },
+      { image: "file:///phone.jpg", reason: "deviceOnlyImage" },
+    ]));
     expect(result.receipt.dropped).toContainEqual({ kind: "socialData", count: null });
   });
 });
@@ -786,7 +869,7 @@ describe("receipt and identity", () => {
     expect(result.receipt.counts).toEqual({
       builds: 5,
       pieces: 7,
-      tasks: 8,
+      tasks: 7,
       photos: 6,
       conventions: 2,
       dayPlans: 2,
@@ -810,7 +893,7 @@ describe("receipt and identity", () => {
     expect(result.data.rows.photos.map((p) => p.id)).not.toContain("ky-ph-r-r1");
     expect(result.photoFiles.map((f) => f.fileName)).not.toContain("ky-ph-r-r1.jpg");
     expect(result.receipt.counts.photos).toBe(5);
-    expect(dropped(result, "missingImage")).toBe(2);
+    expect(dropped(result, "missingImage")).toBe(4);
   });
 
   it("plans photo fetches in size-bounded batches, one fetch per stored file", () => {
@@ -904,6 +987,27 @@ describe("round trip through Cosapp.si's backup reader", () => {
 });
 
 describe("buildCosappDownload", () => {
+  it("assembles a supported 15 MB photo from bounded byte ranges", async () => {
+    const s = emptySnapshot();
+    s.builds.push({ _id: "b", _creationTime: T0, name: "Build", status: "idea", imageStorageId: "large" });
+    const image = new Uint8Array(EXPORT_MAX_PHOTO_BYTES);
+    image.set([0xff, 0xd8, 0xff]);
+    image[image.length - 1] = 42;
+    s.storedFiles.push(jpeg("large", image.length));
+    const result = convert(s);
+    const offsets: number[] = [];
+    const action = vi.fn(async (_ref: unknown, args: { storageIds?: string[]; offset?: number }) => {
+      if (!args.storageIds) return result;
+      const offset = args.offset ?? 0;
+      offsets.push(offset);
+      return [{ storageId: "large", bytes: image.slice(offset, offset + PHOTO_BATCH_BYTES).buffer, size: image.length }];
+    });
+    const download = await buildCosappDownload({ action } as unknown as CosappExportClient);
+    expect(offsets).toEqual([0, PHOTO_BATCH_BYTES, PHOTO_BATCH_BYTES * 2, PHOTO_BATCH_BYTES * 3]);
+    const entries = unzipSync(download.bytes);
+    expect(entries[`photos/${result.photoFiles[0].fileName}`]).toEqual(image);
+    expect(download.receipt.droppedImages).toEqual([]);
+  });
   it("fetches photos in batches and drops photos whose files vanished", async () => {
     const result = convert();
     const calls: string[][] = [];
@@ -934,7 +1038,7 @@ describe("buildCosappDownload", () => {
     expect(ids).not.toContain("ky-ph-r-r1");
     expect(ids).not.toContain("ky-ph-g-g1");
     expect(download.receipt.counts.photoFiles).toBe(4);
-    expect(dropped({ receipt: download.receipt } as CosappExport, "missingImage")).toBe(2);
+    expect(dropped({ receipt: download.receipt } as CosappExport, "missingImage")).toBe(4);
     expect(dropped({ receipt: download.receipt } as CosappExport, "unsupportedImage")).toBe(2);
   });
 });

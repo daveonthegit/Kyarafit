@@ -151,18 +151,16 @@
       "libraryPiece": "{count, plural, one {# elemento de la biblioteca está} other {# elementos de la biblioteca están}} en el build “From Kyarafit library”.",
       "materialAsBuyPiece": "{count, plural, one {# material pasó a ser una pieza para comprar} other {# materiales pasaron a ser piezas para comprar}}.",
       "progressNoteInBuildNotes": "{count, plural, one {# nota de progreso sin foto se añadió} other {# notas de progreso sin foto se añadieron}} a las notas del build.",
-      "dayPlanNoteInConventionNotes": "{count, plural, one {# nota del plan del día se añadió} other {# notas del plan del día se añadieron}} a las notas de la convención.",
-      "imageLinkInNotes": "{count, plural, one {# enlace de imagen se guardó} other {# enlaces de imagen se guardaron}} como texto en las notas."
+      "dayPlanNoteInConventionNotes": "{count, plural, one {# nota del plan del día se añadió} other {# notas del plan del día se añadieron}} a las notas de la convención."
     },
     "dropped": {
       "generatedTask": "{count, plural, one {# tarea automática Comprar / Trabajar en / Empacar} other {# tareas automáticas Comprar / Trabajar en / Empacar}}: el estado de la pieza y la lista de equipaje de Cosapp.si las reemplazan.",
       "cancelledTask": "{count, plural, one {# tarea cancelada} other {# tareas canceladas}}.",
       "ownerUnavailable": "{count, plural, one {# elemento} other {# elementos}} de un build o una convención eliminados.",
-      "externalImage": "{count, plural, one {# imagen era un enlace web} other {# imágenes eran enlaces web}}, no un archivo subido.",
       "deviceOnlyImage": "{count, plural, one {# foto solo estuvo} other {# fotos solo estuvieron}} en otro dispositivo.",
       "missingImage": "{count, plural, one {# archivo de foto ya no se encontró} other {# archivos de foto ya no se encontraron}}.",
       "unsupportedImage": "{count, plural, one {# archivo no era una foto} other {# archivos no eran fotos}} que Cosapp.si pueda abrir.",
-      "oversizeImage": "{count, plural, one {# foto pesaba} other {# fotos pesaban}} más de 10 MB.",
+      "oversizeImage": "{count, plural, one {# foto pesaba} other {# fotos pesaban}} más de 15 MB.",
       "invalidConvention": "{count, plural, one {# convención} other {# convenciones}} sin una fecha de inicio válida.",
       "dayPlanOutsideConvention": "{count, plural, one {# plan del día} other {# planes del día}} fuera de las fechas de la convención.",
       "duplicateDayPlan": "{count, plural, one {# plan del día adicional} other {# planes del día adicionales}} para un día que ya tenía uno (se conservó el más reciente).",

@@ -1,5 +1,6 @@
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EXPORT_MAX_PHOTO_BYTES, PHOTO_BATCH_BYTES, MAX_PHOTOS_PER_CALL } from "@kyarafit/design-system/domain/cosappExport";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -66,6 +67,72 @@ async function harness() {
 }
 
 describe("cosappExport", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns null for an authorized photo whose blob vanished", async () => {
+    const { t, ids } = await harness();
+    const alice = t.withIdentity({ subject: "alice" });
+    expect((await alice.action(api.cosappExport.prepare, {})).photoFiles).toHaveLength(1);
+    await t.run((ctx) => ctx.storage.delete(ids.alice.image));
+    expect(await alice.action(api.cosappExport.photoBytes, { storageIds: [ids.alice.image] })).toEqual([
+      expect.objectContaining({ storageId: ids.alice.image, bytes: null, failure: "missingImage" }),
+    ]);
+  });
+
+  it("transfers the largest supported stored photo in bounded responses", async () => {
+    const { t, ids } = await harness();
+    const image = new Uint8Array(EXPORT_MAX_PHOTO_BYTES);
+    image.set([0xff, 0xd8, 0xff]);
+    const storageId = await t.run(async (ctx) => {
+      const id = await ctx.storage.store(new Blob([image], { type: "image/jpeg" }));
+      await ctx.db.patch(ids.alice.build, { imageStorageId: id });
+      return id;
+    });
+    const alice = t.withIdentity({ subject: "alice" });
+    expect((await alice.action(api.cosappExport.prepare, {})).photoFiles[0].size).toBe(image.length);
+    let received = 0;
+    for (let offset = 0; offset < image.length; offset += PHOTO_BATCH_BYTES) {
+      const [chunk] = await alice.action(api.cosappExport.photoBytes, { storageIds: [storageId], offset });
+      expect(chunk.bytes!.byteLength).toBeLessThanOrEqual(PHOTO_BATCH_BYTES);
+      expect(new Uint8Array(chunk.bytes!)).toEqual(image.slice(offset, offset + PHOTO_BATCH_BYTES));
+      received += chunk.bytes!.byteLength;
+    }
+    expect(received).toBe(image.length);
+    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: Array(MAX_PHOTOS_PER_CALL + 1).fill(storageId) })).rejects.toThrow(/Too many photos/);
+  });
+
+  it("downloads owned external images on the server without trusting requested URLs", async () => {
+    const { t, ids } = await harness();
+    const image = new Uint8Array([0xff, 0xd8, 0xff, 1]);
+    const fetcher = vi.fn(async () => new Response(image));
+    vi.stubGlobal("fetch", fetcher);
+    const url = "https://example.com/alice.jpg";
+    await t.run((ctx) => ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url }));
+    const alice = t.withIdentity({ subject: "alice" });
+    const result = await alice.action(api.cosappExport.prepare, {});
+    expect(result.photoFiles).toEqual([expect.objectContaining({ storageId: url, size: image.length })]);
+    expect(result.data.rows.builds[0].notes).not.toContain(url);
+    const [served] = await alice.action(api.cosappExport.photoBytes, { storageIds: [url] });
+    expect(new Uint8Array(served.bytes!)).toEqual(image);
+    expect(fetcher).toHaveBeenCalledWith(url, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    const calls = fetcher.mock.calls.length;
+    await expect(alice.action(api.cosappExport.photoBytes, { storageIds: ["https://example.com/bob.jpg"] })).rejects.toThrow(/Photo not found/);
+    expect(fetcher).toHaveBeenCalledTimes(calls);
+  });
+
+  it.each([
+    ["missingImage", () => new Response(null, { status: 404 })],
+    ["unsupportedImage", () => new Response("not an image")],
+    ["oversizeImage", () => new Response(new Uint8Array(EXPORT_MAX_PHOTO_BYTES + 1))],
+  ] as const)("lists external image failures as %s", async (reason, response) => {
+    const { t, ids } = await harness();
+    vi.stubGlobal("fetch", vi.fn(async () => response()));
+    const url = "https://example.com/alice.jpg";
+    await t.run((ctx) => ctx.db.patch(ids.alice.build, { imageStorageId: undefined, imageUrl: url }));
+    const result = await t.withIdentity({ subject: "alice" }).action(api.cosappExport.prepare, {});
+    expect(result.photoFiles).toEqual([]);
+    expect(result.receipt.droppedImages).toEqual([{ image: url, reason }]);
+  });
   it("rejects callers without a session", async () => {
     const { t, ids } = await harness();
     await expect(t.action(api.cosappExport.prepare, {})).rejects.toThrow(/Unauthorized/);

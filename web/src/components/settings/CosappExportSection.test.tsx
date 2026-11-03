@@ -27,6 +27,7 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 function serve() {
   const result = convertKyarafitToCosapp(
     {
+      accountId: "user-1",
       builds: [
         { _id: "b1", _creationTime: 1, name: "Frieren", status: "wip", imageStorageId: "s1" },
       ],

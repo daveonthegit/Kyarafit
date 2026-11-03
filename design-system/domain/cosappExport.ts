@@ -30,11 +30,9 @@ export const COSAPP_BACKUP_SCHEMA_VERSION = 2;
 export const COSAPP_BACKUP_EXTENSION = "cosapp";
 /** Written as the backup's `appVersion` so a Cosapp.si import can tell where the file came from. */
 export const COSAPP_CONVERTER_VERSION = "kyarafit-converter/1";
-/**
- * Largest photo the export carries. Below Cosapp.si's own 15 MB sync limit, and small enough that
- * one photo still fits a Convex return value (16 MiB) after the bytes are base64-encoded on the wire.
- */
-export const EXPORT_MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+export const EXPORT_MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+export const PHOTO_BATCH_BYTES = 4 * 1024 * 1024;
+export const MAX_PHOTOS_PER_CALL = 200;
 /** Name of the receipt entry inside the archive. Cosapp.si's import ignores entries outside `photos/`. */
 export const COSAPP_RECEIPT_ENTRY = "kyarafit-receipt.json";
 export const LIBRARY_BUILD_NAME = "From Kyarafit library";
@@ -154,9 +152,11 @@ export interface KyStoredFile {
   storageId: string;
   size: number;
   contentType?: string;
+  failure?: "missingImage" | "unsupportedImage" | "oversizeImage";
 }
 
 export interface KyarafitSnapshot {
+  accountId: string;
   builds: KyBuild[];
   cosplayNodes: KyCosplayNode[];
   workflowItems: KyWorkflowItem[];
@@ -296,15 +296,13 @@ export type CosappReshapeKind =
   | "libraryPiece"
   | "materialAsBuyPiece"
   | "progressNoteInBuildNotes"
-  | "dayPlanNoteInConventionNotes"
-  | "imageLinkInNotes";
+  | "dayPlanNoteInConventionNotes";
 
 /** Something not carried over, by reason. */
 export type CosappDropKind =
   | "generatedTask"
   | "cancelledTask"
   | "ownerUnavailable"
-  | "externalImage"
   | "deviceOnlyImage"
   | "missingImage"
   | "unsupportedImage"
@@ -318,6 +316,7 @@ export type CosappDropKind =
 export interface CosappReceipt {
   /** Live rows written per Cosapp.si table, and photo files in the archive. */
   counts: Record<CosappTable, number> & { photoFiles: number };
+  droppedImages: { image: string; reason: CosappDropKind }[];
   reshaped: { kind: CosappReshapeKind; count: number }[];
   /** `count` is null for whole categories that are never exported (social data). */
   dropped: { kind: CosappDropKind; count: number | null }[];
@@ -326,6 +325,7 @@ export interface CosappReceipt {
 export interface CosappExport {
   data: CosappBackupData;
   photoFiles: CosappPhotoFile[];
+  photoSources: string[];
   receipt: CosappReceipt;
 }
 
@@ -358,13 +358,19 @@ function cents(value: number | undefined): number | null {
     : null;
 }
 
-function stamps(row: KyRow): CosappRow {
+function stamps(row: KyRow, dependencies: { updatedAt?: number; _creationTime?: number }[] = []): CosappRow {
   const createdAt = Math.floor(row._creationTime);
   const updatedAt =
     typeof row.updatedAt === "number" && Number.isFinite(row.updatedAt)
       ? Math.max(Math.floor(row.updatedAt), createdAt)
       : createdAt;
-  return { id: "", createdAt, updatedAt, deletedAt: null };
+  return {
+    id: "", createdAt,
+    updatedAt: dependencies.reduce((latest, dependency) => Math.max(latest,
+      typeof dependency.updatedAt === "number" && Number.isFinite(dependency.updatedAt) ? Math.floor(dependency.updatedAt) : 0,
+      typeof dependency._creationTime === "number" && Number.isFinite(dependency._creationTime) ? Math.floor(dependency._creationTime) : 0), updatedAt),
+    deletedAt: null,
+  };
 }
 
 function live<T extends KyRow>(rows: T[]): T[] {
@@ -399,12 +405,18 @@ export const cosappId = {
   task: (id: string) => `ky-t-${id}`,
   convention: (id: string) => `ky-c-${id}`,
   packingItem: (id: string) => `ky-k-${id}`,
-  libraryBuild: (firstNodeId: string) => `ky-b-library-${firstNodeId}`,
+  libraryBuild: (accountId: string) => `ky-b-library-${encodeURIComponent(accountId)}`,
 };
 
 class Receipt {
   private reshapedCounts = new Map<CosappReshapeKind, number>();
   private droppedCounts = new Map<CosappDropKind, number>();
+  private droppedImages: CosappReceipt["droppedImages"] = [];
+
+  dropImage(image: string, reason: CosappDropKind) {
+    this.droppedImages.push({ image, reason });
+    this.drop(reason);
+  }
 
   reshape(kind: CosappReshapeKind, count = 1) {
     this.reshapedCounts.set(kind, (this.reshapedCounts.get(kind) ?? 0) + count);
@@ -420,6 +432,7 @@ class Receipt {
     ) as Record<CosappTable, number>;
     return {
       counts: { ...counts, photoFiles },
+      droppedImages: this.droppedImages,
       reshaped: [...this.reshapedCounts].map(([kind, count]) => ({ kind, count })),
       dropped: [
         ...[...this.droppedCounts].map(([kind, count]) => ({ kind, count })),
@@ -445,27 +458,21 @@ export function convertKyarafitToCosapp(
   const photoFiles: CosappPhotoFile[] = [];
   const photos: CosappPhoto[] = [];
 
-  /**
-   * Turn one image reference into a photo row (and archive file), or record why it can't be.
-   * Returns "link" when the image is an external URL the caller should keep as a note line.
-   */
+  const photoSources = new Set<string>();
   const addPhoto = (
     image: { storageId?: string; url?: string },
     row: Omit<CosappPhoto, "fileName">
-  ): "added" | "link" | "dropped" => {
-    if (!image.storageId) {
-      const url = text(image.url);
-      if (!url) return "dropped";
-      if (/^https?:\/\//i.test(url)) {
-        receipt.drop("externalImage");
-        return "link";
-      }
-      receipt.drop("deviceOnlyImage");
+  ): "added" | "dropped" => {
+    const source = image.storageId || text(image.url);
+    if (!source) return "dropped";
+    if (!image.storageId && !/^https?:\/\//i.test(source)) {
+      receipt.dropImage(source, "deviceOnlyImage");
       return "dropped";
     }
-    const file = files.get(image.storageId);
-    if (!file || file.size <= 0) {
-      receipt.drop("missingImage");
+    photoSources.add(source);
+    const file = files.get(source);
+    if (!file || file.failure || file.size <= 0) {
+      receipt.dropImage(source, file?.failure ?? "missingImage");
       return "dropped";
     }
     const mime = file.contentType?.split(";")[0].trim().toLowerCase() ?? "";
@@ -473,16 +480,16 @@ export function convertKyarafitToCosapp(
     const extension =
       mime === "" || mime === "application/octet-stream" ? "jpg" : IMAGE_EXTENSIONS[mime];
     if (!extension) {
-      receipt.drop("unsupportedImage");
+      receipt.dropImage(source, "unsupportedImage");
       return "dropped";
     }
     if (file.size > EXPORT_MAX_PHOTO_BYTES) {
-      receipt.drop("oversizeImage");
+      receipt.dropImage(source, "oversizeImage");
       return "dropped";
     }
     const fileName = `${row.id}.${extension}`;
     photos.push({ ...row, fileName });
-    photoFiles.push({ fileName, storageId: image.storageId, size: file.size });
+    photoFiles.push({ fileName, storageId: source, size: file.size });
     return "added";
   };
 
@@ -514,11 +521,10 @@ export function convertKyarafitToCosapp(
   }
   const exportedBuild = (kyBuildId: string | undefined) =>
     kyBuildId ? buildRow.get(kyBuildId) : undefined;
-  const noteOnBuild = (kyBuildId: string, line: string) => buildNotes.get(kyBuildId)?.push(line);
 
   for (const build of kyBuilds) {
     const row = buildRow.get(build._id)!;
-    const result = addPhoto(
+    addPhoto(
       { storageId: build.imageStorageId, url: build.imageUrl },
       {
         ...stamps(build),
@@ -531,10 +537,6 @@ export function convertKyarafitToCosapp(
         conventionId: null,
       }
     );
-    if (result === "link") {
-      noteOnBuild(build._id, `Cover image link: ${build.imageUrl!.trim()}`);
-      receipt.reshape("imageLinkInNotes");
-    }
   }
 
   // -- pieces
@@ -586,7 +588,7 @@ export function convertKyarafitToCosapp(
       (a, b) => a._creationTime - b._creationTime || a._id.localeCompare(b._id)
     )[0];
     const latest = Math.max(...libraryNodes.map((node) => stamps(node).updatedAt));
-    libraryBuildId = cosappId.libraryBuild(first._id);
+    libraryBuildId = cosappId.libraryBuild(snapshot.accountId);
     builds.push({
       ...stamps(first),
       updatedAt: Math.max(latest, Math.floor(first._creationTime)),
@@ -604,7 +606,7 @@ export function convertKyarafitToCosapp(
 
   const pieces: CosappPiece[] = [];
   const pieceRow = new Map<string, CosappPiece>();
-  const piecePosition = new Map<string, number>();
+  const piecePosition = new Map<string, CosappPiece>();
   for (const node of orderedNodes) {
     const chain = lineage(node);
     const placement = placeNode(chain);
@@ -618,15 +620,15 @@ export function convertKyarafitToCosapp(
     if (chain.length > 1) receipt.reshape("nestedPieceFlattened");
     const material = node.nodeType === "material";
     if (material) receipt.reshape("materialAsBuyPiece");
-    const position = piecePosition.get(buildId) ?? 0;
-    piecePosition.set(buildId, position + 1);
+    const previous = piecePosition.get(buildId);
+    const position = previous ? previous.position + 1 : 0;
     const name =
       chain
         .map((n) => text(n.name))
         .filter(Boolean)
         .join(PATH_SEPARATOR) || "Untitled piece";
     const row: CosappPiece = {
-      ...stamps(node),
+      ...stamps(node, [...chain, ...liveAttachments.filter((attachment) => attachment.entityType === "cosplayNode" && chain.some((ancestor) => ancestor._id === attachment.entityId)), ...(previous ? [previous] : [])]),
       id: cosappId.piece(node._id),
       buildId,
       name,
@@ -646,10 +648,10 @@ export function convertKyarafitToCosapp(
         ? `Quantity: ${node.quantity}${node.unit ? ` ${node.unit}` : ""}`
         : null,
     ];
-    const photo = addPhoto(
+    addPhoto(
       { storageId: node.imageStorageId, url: node.imageUrl },
       {
-        ...stamps(node),
+        ...stamps(node, [row]),
         id: `ky-ph-n-${node._id}`,
         buildId,
         kind: "reference",
@@ -659,13 +661,10 @@ export function convertKyarafitToCosapp(
         conventionId: null,
       }
     );
-    if (photo === "link") {
-      notes.push(`Image link: ${node.imageUrl!.trim()}`);
-      receipt.reshape("imageLinkInNotes");
-    }
     row.notes = joinNotes(notes);
     pieces.push(row);
     pieceRow.set(node._id, row);
+    piecePosition.set(buildId, row);
   }
 
   // -- build photos: references, process pictures, progress updates
@@ -680,7 +679,7 @@ export function convertKyarafitToCosapp(
         receipt.drop("ownerUnavailable");
         continue;
       }
-      const result = addPhoto(
+      addPhoto(
         { storageId: image.imageStorageId, url: image.imageUrl },
         {
           ...stamps(image),
@@ -693,11 +692,6 @@ export function convertKyarafitToCosapp(
           conventionId: null,
         }
       );
-      if (result === "link") {
-        const label = kind === "reference" ? "Reference image link" : "Progress photo link";
-        noteOnBuild(image.buildId, `${label}: ${image.imageUrl!.trim()}`);
-        receipt.reshape("imageLinkInNotes");
-      }
     }
   }
   for (const update of live(snapshot.buildProgressUpdates).sort(
@@ -708,6 +702,7 @@ export function convertKyarafitToCosapp(
       receipt.drop("ownerUnavailable");
       continue;
     }
+    build.updatedAt = Math.max(build.updatedAt, stamps(update).updatedAt);
     const note = text(update.note);
     const percent =
       typeof update.progressPercent === "number" && Number.isFinite(update.progressPercent)
@@ -717,7 +712,7 @@ export function convertKyarafitToCosapp(
     update.imageRefs.forEach((ref, index) => {
       if (ref.kind === "local") {
         // The file only ever lived on the device that took it; the server never had the bytes.
-        receipt.drop("deviceOnlyImage");
+        receipt.dropImage(ref.uri, "deviceOnlyImage");
         return;
       }
       const result = addPhoto(
@@ -734,16 +729,9 @@ export function convertKyarafitToCosapp(
         }
       );
       if (result === "added") added += 1;
-      if (result === "link" && ref.kind === "url") {
-        noteOnBuild(
-          update.buildId,
-          `Progress photo link (${dayString(update.createdAt)}): ${ref.url.trim()}`
-        );
-        receipt.reshape("imageLinkInNotes");
-      }
     });
     if (note && added === 0) {
-      noteOnBuild(update.buildId, `Progress ${dayString(update.createdAt)}${percent}: ${note}`);
+      buildNotes.get(update.buildId)!.push(`Progress ${dayString(update.createdAt)}${percent}: ${note}`);
       receipt.reshape("progressNoteInBuildNotes");
     }
   }
@@ -779,7 +767,7 @@ export function convertKyarafitToCosapp(
     conventions.push(row);
     conventionRow.set(convention._id, row);
     conventionNotes.set(convention._id, [convention.archived ? "Archived in Kyarafit." : null]);
-    const result = addPhoto(
+    addPhoto(
       { storageId: convention.imageStorageId, url: convention.imageUrl },
       {
         ...stamps(convention),
@@ -792,10 +780,6 @@ export function convertKyarafitToCosapp(
         conventionId: row.id,
       }
     );
-    if (result === "link") {
-      conventionNotes.get(convention._id)!.push(`Image link: ${convention.imageUrl!.trim()}`);
-      receipt.reshape("imageLinkInNotes");
-    }
   }
 
   // -- day plans (one per convention day; the newest Kyarafit row wins)
@@ -829,7 +813,7 @@ export function convertKyarafitToCosapp(
     const convention = conventionRow.get(plan.conventionId)!;
     const build = exportedBuild(plan.buildId);
     dayPlans.push({
-      ...stamps(plan),
+      ...stamps(plan, [convention, ...(build ? [build] : [])]),
       id: `${convention.id}:${plan.date}`,
       conventionId: convention.id,
       date: plan.date,
@@ -840,6 +824,7 @@ export function convertKyarafitToCosapp(
       set.add(build.id);
       plannedBuilds.set(convention.id, set);
     }
+    convention.updatedAt = Math.max(convention.updatedAt, stamps(plan).updatedAt);
     const note = text(plan.notes);
     if (note) {
       conventionNotes.get(plan.conventionId)!.push(`${plan.date}: ${note}`);
@@ -850,7 +835,7 @@ export function convertKyarafitToCosapp(
 
   // -- packing
   const packingItems: CosappPackingItem[] = [];
-  const packingPosition = new Map<string, number>();
+  const packingPosition = new Map<string, CosappPackingItem>();
   const packingKeys = new Set<string>();
   for (const item of live(snapshot.packingListItems).sort(bySortOrder)) {
     const convention = conventionRow.get(item.conventionId);
@@ -871,10 +856,10 @@ export function convertKyarafitToCosapp(
     packingKeys.add(dedupe);
     const label = text(item.label) ?? piece?.name ?? "Item";
     const note = text(item.notes);
-    const position = packingPosition.get(convention.id) ?? 0;
-    packingPosition.set(convention.id, position + 1);
-    packingItems.push({
-      ...stamps(item),
+    const previous = packingPosition.get(convention.id);
+    const position = previous ? previous.position + 1 : 0;
+    const row: CosappPackingItem = {
+      ...stamps(item, [convention, ...(piece ? [piece] : []), ...[...newestDay.values()].filter((plan) => plan.conventionId === item.conventionId), ...(previous ? [previous] : [])]),
       id,
       conventionId: convention.id,
       key,
@@ -884,7 +869,9 @@ export function convertKyarafitToCosapp(
       buildId: generated ? piece.buildId : null,
       pieceId: generated ? piece.id : null,
       position,
-    });
+    };
+    packingItems.push(row);
+    packingPosition.set(convention.id, row);
   }
 
   // -- tasks
@@ -934,36 +921,34 @@ export function convertKyarafitToCosapp(
   const ownerOf = (item: KyWorkflowItem, seen = new Set<string>()): Owner => {
     const cached = ownerCache.get(item._id);
     if (cached) return cached;
-    let owner = ownAttachmentOwner(item);
-    if (!owner) {
-      const parent = item.parentId ? items.get(item.parentId) : undefined;
-      owner =
-        parent && !seen.has(parent._id)
-          ? ownerOf(parent, new Set([...seen, item._id]))
-          : { kind: "none" };
-    }
+    const parent = item.parentId ? items.get(item.parentId) : undefined;
+    const owner = parent && !seen.has(parent._id)
+      ? ownerOf(parent, new Set([...seen, item._id]))
+      : ownAttachmentOwner(item) ?? { kind: "none" as const };
     ownerCache.set(item._id, owner);
     return owner;
   };
-  const titleOf = (item: KyWorkflowItem): { title: string; depth: number } => {
+  const titleOf = (item: KyWorkflowItem): { title: string; depth: number; ancestors: KyWorkflowItem[] } => {
     const parts = [text(item.title) ?? "Untitled task"];
+    const ancestors = [item];
     const seen = new Set([item._id]);
     let current = item;
     while (current.parentId) {
       const parent = items.get(current.parentId);
       if (!parent || seen.has(parent._id)) break;
       parts.unshift(text(parent.title) ?? "Untitled task");
+      ancestors.unshift(parent);
       seen.add(parent._id);
       current = parent;
     }
-    return { title: parts.join(PATH_SEPARATOR), depth: parts.length - 1 };
+    return { title: parts.join(PATH_SEPARATOR), depth: parts.length - 1, ancestors };
   };
 
   const tasks: CosappTask[] = [];
-  const taskPosition = new Map<string, number>();
+  const taskPosition = new Map<string, CosappTask>();
   for (const item of treeOrder([...items.values()], (i) => i.parentId, items)) {
-    if (item.sourceKind === "automation" || item.sourceKind === "packing") {
-      receipt.drop("generatedTask");
+    if (item.sourceKind !== "manual") {
+      if (item.sourceKind === "automation" || item.sourceKind === "packing") receipt.drop("generatedTask");
       continue;
     }
     if (item.status === "cancelled") {
@@ -975,7 +960,7 @@ export function convertKyarafitToCosapp(
       receipt.drop("ownerUnavailable");
       continue;
     }
-    const { title, depth } = titleOf(item);
+    const { title, depth, ancestors } = titleOf(item);
     if (depth > 0) receipt.reshape("subtaskFlattened");
     const ownerKey =
       owner.kind === "build"
@@ -983,10 +968,14 @@ export function convertKyarafitToCosapp(
         : owner.kind === "convention"
           ? `c:${owner.conventionId}`
           : "none";
-    const position = taskPosition.get(ownerKey) ?? 0;
-    taskPosition.set(ownerKey, position + 1);
-    tasks.push({
-      ...stamps(item),
+    const previous = taskPosition.get(ownerKey);
+    const position = previous ? previous.position + 1 : 0;
+    const rootAttachments = attachmentsByItem.get(ancestors[0]._id) ?? [];
+    const row: CosappTask = {
+      ...stamps(item, [...ancestors, ...rootAttachments, ...rootAttachments.flatMap((attachment) => {
+        const piece = attachment.entityType === "cosplayNode" ? pieceRow.get(attachment.entityId) : undefined;
+        return piece ? [piece] : [];
+      }), ...(previous ? [previous] : [])]),
       id: cosappId.task(item._id),
       ownerKind: owner.kind,
       buildId: owner.kind === "build" ? owner.buildId : null,
@@ -998,7 +987,9 @@ export function convertKyarafitToCosapp(
       remindAt: null,
       notes: text(item.notes),
       position,
-    });
+    };
+    tasks.push(row);
+    taskPosition.set(ownerKey, row);
   }
 
   const rows: CosappRows = {
@@ -1019,6 +1010,7 @@ export function convertKyarafitToCosapp(
       rows,
     },
     photoFiles,
+    photoSources: [...photoSources],
     receipt: receipt.build(rows, photoFiles.length),
   };
 }
@@ -1058,12 +1050,8 @@ function treeOrder<T extends KyRow & { sortOrder?: number }>(
 function buildStatus(status: string): CosappBuild["status"] {
   switch (status) {
     case "wip":
-    case "in_progress":
       return "in_progress";
     case "ready":
-    case "done":
-    case "complete":
-    case "completed":
       return "complete";
     case "archived":
       return "archived";
@@ -1099,7 +1087,7 @@ function pieceCost(node: KyCosplayNode): number | null {
       ? node.quantity
       : null;
   const perUnit = unit !== null && quantity !== null ? Math.round(unit * quantity) : null;
-  if (node.pricingMode === "unit" && perUnit !== null) return perUnit;
+  if (node.pricingMode === "per_unit" && perUnit !== null) return perUnit;
   return cents(node.directCostCents) ?? perUnit;
 }
 
@@ -1123,7 +1111,7 @@ export function isCosappImage(bytes: Uint8Array): boolean {
 export function withoutPhotoFiles(
   result: CosappExport,
   missing: Set<string>,
-  reason: "missingImage" | "unsupportedImage" = "missingImage"
+  reason: "missingImage" | "unsupportedImage" | "oversizeImage" = "missingImage"
 ): CosappExport {
   if (!missing.size) return result;
   const photos = result.data.rows.photos.filter((photo) => !missing.has(photo.fileName));
@@ -1139,8 +1127,10 @@ export function withoutPhotoFiles(
   return {
     data: { ...result.data, rows: { ...result.data.rows, photos } },
     photoFiles,
+    photoSources: result.photoSources,
     receipt: {
       ...result.receipt,
+      droppedImages: [...result.receipt.droppedImages, ...result.photoFiles.filter((file) => missing.has(file.fileName)).map((file) => ({ image: file.storageId, reason }))],
       counts: { ...result.receipt.counts, photos: photos.length, photoFiles: photoFiles.length },
       dropped,
     },
@@ -1148,8 +1138,8 @@ export function withoutPhotoFiles(
 }
 
 /**
- * Split the photo files into fetch batches of at most `maxBytes` (a single larger file gets its
- * own batch), so no response comes near Convex's per-call return-size limit. Each storage id is
+ * Split the photo files into bounded fetch batches. Larger files use multiple byte ranges.
+ * Each storage id is
  * fetched once even when several photo rows share it.
  */
 export function planPhotoBatches(files: CosappPhotoFile[], maxBytes: number): string[][] {
@@ -1159,13 +1149,13 @@ export function planPhotoBatches(files: CosappPhotoFile[], maxBytes: number): st
   let current: string[] = [];
   let bytes = 0;
   for (const [storageId, size] of sizes) {
-    if (current.length && bytes + size > maxBytes) {
+    if (current.length && (bytes + Math.min(size, PHOTO_BATCH_BYTES) > Math.min(maxBytes, PHOTO_BATCH_BYTES) || current.length >= MAX_PHOTOS_PER_CALL)) {
       batches.push(current);
       current = [];
       bytes = 0;
     }
     current.push(storageId);
-    bytes += size;
+    bytes += Math.min(size, PHOTO_BATCH_BYTES);
   }
   if (current.length) batches.push(current);
   return batches;

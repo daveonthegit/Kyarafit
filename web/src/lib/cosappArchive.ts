@@ -4,6 +4,7 @@ import { api } from "convex/_generated/api";
 import {
   COSAPP_BACKUP_EXTENSION,
   COSAPP_RECEIPT_ENTRY,
+  PHOTO_BATCH_BYTES,
   isCosappImage,
   planPhotoBatches,
   withoutPhotoFiles,
@@ -19,9 +20,6 @@ import {
  */
 
 export type CosappExportClient = Pick<ConvexReactClient, "action">;
-
-/** Photo bytes per `photoBytes` call; well under Convex's 16 MiB return-value limit. */
-export const PHOTO_BATCH_BYTES = 4 * 1024 * 1024;
 
 export interface CosappDownload {
   fileName: string;
@@ -67,29 +65,48 @@ export async function buildCosappDownload(
   signal?.throwIfAborted();
   const batches = planPhotoBatches(result.photoFiles, PHOTO_BATCH_BYTES);
   const byStorage = new Map<string, Uint8Array>();
-  const vanished = new Set<string>();
+  const sizes = new Map(result.photoFiles.map((file) => [file.storageId, file.size]));
+  const failed = new Map<string, "missingImage" | "unsupportedImage" | "oversizeImage">();
   onProgress?.(0, batches.length);
   for (let index = 0; index < batches.length; index++) {
-    const served = await client.action(api.cosappExport.photoBytes, {
-      storageIds: batches[index],
-    });
-    signal?.throwIfAborted();
-    for (const { storageId, bytes } of served) {
-      if (bytes) byStorage.set(storageId, new Uint8Array(bytes));
-      else vanished.add(storageId);
+    const batch = batches[index];
+    let size = Math.max(...batch.map((id) => sizes.get(id)!));
+    for (let offset = 0; offset < size; offset += PHOTO_BATCH_BYTES) {
+      const served = await client.action(api.cosappExport.photoBytes, {
+        storageIds: batch.filter((id) => !failed.has(id) && sizes.get(id)! > offset),
+        offset,
+      });
+      signal?.throwIfAborted();
+      for (const { storageId, bytes, size: servedSize, failure } of served) {
+        if (servedSize !== undefined) sizes.set(storageId, servedSize);
+        if (!bytes) {
+          failed.set(storageId, failure ?? "missingImage");
+          continue;
+        }
+        const prior = byStorage.get(storageId);
+        const combined = new Uint8Array((prior?.length ?? 0) + bytes.byteLength);
+        if (prior) combined.set(prior);
+        combined.set(new Uint8Array(bytes), prior?.length ?? 0);
+        byStorage.set(storageId, combined);
+      }
+      size = Math.max(0, ...batch.filter((id) => !failed.has(id)).map((id) => sizes.get(id)!));
     }
     onProgress?.(index + 1, batches.length);
   }
   const photos = new Map<string, Uint8Array>();
   const missing = new Set<string>();
   const notImages = new Set<string>();
+  const oversized = new Set<string>();
   for (const file of result.photoFiles) {
     const bytes = byStorage.get(file.storageId);
-    if (!bytes || vanished.has(file.storageId)) missing.add(file.fileName);
+    const failure = failed.get(file.storageId);
+    if (failure === "unsupportedImage") notImages.add(file.fileName);
+    else if (failure === "oversizeImage") oversized.add(file.fileName);
+    else if (!bytes || failure) missing.add(file.fileName);
     else if (!isCosappImage(bytes)) notImages.add(file.fileName);
     else photos.set(file.fileName, bytes);
   }
-  result = withoutPhotoFiles(withoutPhotoFiles(result, missing), notImages, "unsupportedImage");
+  result = withoutPhotoFiles(withoutPhotoFiles(withoutPhotoFiles(result, missing), notImages, "unsupportedImage"), oversized, "oversizeImage");
   return {
     fileName: cosappFileName(now),
     bytes: encodeCosappArchive(result, photos),
